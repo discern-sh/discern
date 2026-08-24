@@ -524,7 +524,7 @@ export interface DeskTtyInputChunk {
 export interface DeskTtyInputPhase {
   readonly waitFor: string | readonly [string, ...string[]];
   readonly captureAs?: string;
-  /** Pause after the readiness marker before capturing and sending chunks. */
+  /** Require a quiet output window before capturing and sending chunks. */
   readonly settleMs?: number;
   readonly chunks: readonly [DeskTtyInputChunk, ...DeskTtyInputChunk[]];
 }

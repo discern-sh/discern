@@ -20,7 +20,7 @@ export interface PtyInputStep {
 /** Input that cannot begin until the child has rendered a named marker. */
 export interface PtyInputPhase {
   readonly waitFor: string | readonly [string, ...string[]];
-  /** Bounded pause after readiness so a multi-write frame can settle. */
+  /** Required quiet output window after readiness, before capture and input. */
   readonly settleMs?: number;
   /** Save the rendered transcript when this phase becomes ready. */
   readonly captureAs?: string;
@@ -43,6 +43,7 @@ export interface PtyProcessOptions {
   readonly input?: readonly PtyInputPhase[];
   /** Keep the PTY input side open until a non-interactive child exits. */
   readonly keepInputOpen?: boolean;
+  /** Maximum interval without scripted input progress or process exit. */
   readonly timeoutMs?: number;
 }
 
@@ -129,8 +130,23 @@ export async function runPtyProcess(
   const process = child.spawn();
   const heldWriter = keepInputOpen ? process.stdin.getWriter() : undefined;
 
+  let timedOut = false;
+  const timeoutMs = options.timeoutMs ?? 5_000;
+  let timeoutCleanup: Promise<void> | undefined;
+  let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+  const renewTimeout = (): void => {
+    if (timedOut) return;
+    if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
+    timeoutTimer = setTimeout(() => {
+      timedOut = true;
+      timeoutCleanup = terminateProcessTree(process);
+    }, timeoutMs);
+  };
+  renewTimeout();
+
   let observedStdout = "";
   let observedStderr = "";
+  let outputRevision = 0;
   const keyframes: Record<string, string> = {};
   let inputProgress = "no scripted input";
   let outputFinished = false;
@@ -142,10 +158,12 @@ export async function runPtyProcess(
   };
   const stdoutBytes = collectOutput(process.stdout, (text) => {
     observedStdout += text;
+    outputRevision += 1;
     notifyOutput();
   });
   const stderrBytes = collectOutput(process.stderr, (text) => {
     observedStderr += text;
+    outputRevision += 1;
     notifyOutput();
   });
   const outputComplete = Promise.all([stdoutBytes, stderrBytes]).then(() => {
@@ -174,6 +192,16 @@ export async function runPtyProcess(
       await new Promise<void>((resolve) => outputWaiters.push(resolve));
     }
   };
+  /** Wait until no decoded output arrives for one complete quiet window. */
+  const waitForOutputToSettle = async (quietMs: number): Promise<void> => {
+    if (quietMs === 0) return;
+    let revision = outputRevision;
+    while (true) {
+      await delay(quietMs);
+      if (revision === outputRevision) return;
+      revision = outputRevision;
+    }
+  };
   const inputPhases = options.input;
   const input = inputPhases === undefined
     ? undefined
@@ -187,8 +215,9 @@ export async function runPtyProcess(
             JSON.stringify(phase.waitFor);
           await waitForOutput(phase.waitFor, cursor);
           inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} ready`;
+          renewTimeout();
           const settleMs = phase.settleMs ?? 0;
-          if (settleMs > 0) await delay(settleMs);
+          await waitForOutputToSettle(settleMs);
           if (phase.captureAs !== undefined) {
             if (phase.captureAs.length === 0) {
               throw new TypeError("PTY keyframe name must not be empty");
@@ -217,9 +246,11 @@ export async function runPtyProcess(
             if (bytes !== undefined && bytes.length > 0) {
               await writer.write(bytes);
             }
+            renewTimeout();
           }
           cursor = nextCursor;
           inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} complete`;
+          renewTimeout();
         }
       } finally {
         await writer.close().catch(() => undefined);
@@ -229,15 +260,8 @@ export async function runPtyProcess(
       (error: unknown) => error,
     );
 
-  let timedOut = false;
-  const timeoutMs = options.timeoutMs ?? 5_000;
-  let timeoutCleanup: Promise<void> | undefined;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    timeoutCleanup = terminateProcessTree(process);
-  }, timeoutMs);
   const status = await process.status;
-  clearTimeout(timer);
+  if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
   await timeoutCleanup;
   await heldWriter?.close().catch(() => undefined);
   await outputComplete;
@@ -352,7 +376,9 @@ function validateInput(
   for (const phase of phases) {
     const settleMs = phase.settleMs ?? 0;
     if (!Number.isSafeInteger(settleMs) || settleMs < 0 || settleMs > 1_000) {
-      throw new TypeError("PTY phase settle time must be between 0 and 1000ms");
+      throw new TypeError(
+        "PTY phase quiet window must be between 0 and 1000ms",
+      );
     }
     for (const step of phase.steps) {
       const bytes = inputBytes(step);
