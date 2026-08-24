@@ -611,17 +611,32 @@ Deno.test("a stalled tracked-file read cannot hold validation capture past its d
   await withTempDir(async (dir) => {
     await seedRepo(dir);
     await Deno.writeTextFile(join(dir, "alpha.txt"), "changed\n");
+    const fakeGit = join(dir, "tracked-read-git");
+    const object = "0".repeat(40);
+    await Deno.writeTextFile(
+      fakeGit,
+      `#!/bin/sh
+case " $* " in
+  *" rev-parse --verify HEAD^{commit} "*) printf '${object}\\n' ;;
+  *" ls-files --stage -v -z "*) printf 'H 100644 ${object} 0\\talpha.txt\\000' ;;
+  *" diff --name-only -z "*) printf 'alpha.txt\\000' ;;
+esac
+`,
+    );
+    await Deno.chmod(fakeGit, 0o755);
     let readStartedResolve: (() => void) | undefined;
     const readStarted = new Promise<void>((resolve) => {
       readStartedResolve = resolve;
     });
+    const timeMs = VALIDATION_CAPTURE_LIMITS.timeMs;
     const capturePromise = captureValidationStart(
       dir,
       cfg,
       VALIDATION_RUNS.test,
       group(VALIDATION_RUNS.test),
       {
-        limits: { timeMs: 500 },
+        limits: { timeMs },
+        gitBin: fakeGit,
         keyProvider: () => Promise.resolve({ key: new Uint8Array(32).fill(7) }),
         readFile: () => {
           readStartedResolve?.();
@@ -629,16 +644,15 @@ Deno.test("a stalled tracked-file read cannot hold validation capture past its d
         },
       },
     );
-    await Promise.race([
-      readStarted,
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("tracked read was never reached")),
-          2_000,
-        )
-      ),
+    const reachedRead = await Promise.race([
+      readStarted.then(() => true),
+      capturePromise.then(() => false),
     ]);
-    await assertCaptureDeadline(capturePromise, 500, "tracked read");
+    assert(
+      reachedRead,
+      "the deterministic Git prelude must reach the stalled tracked read",
+    );
+    await assertCaptureDeadline(capturePromise, timeMs, "tracked read");
   });
 });
 
