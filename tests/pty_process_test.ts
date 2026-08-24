@@ -78,6 +78,24 @@ try {
 }
 `;
 
+const HELD_INPUT_CHILD = `
+Deno.stdin.setRaw(true);
+try {
+  console.log("unrelated reader ready");
+  const first = new Uint8Array(1);
+  await Deno.stdin.read(first);
+  const second = new Uint8Array(1);
+  const state = await Promise.race([
+    Deno.stdin.read(second).then((read) => read === null ? "eof" : "data"),
+    new Promise((resolve) => setTimeout(() => resolve("open"), 250)),
+  ]);
+  console.log("input-state:" + state);
+  Deno.exit(0);
+} finally {
+  Deno.stdin.setRaw(false);
+}
+`;
+
 Deno.test({
   name: "PTY input requires an opt-in before continuing a lone Escape write",
   ignore: Deno.build.os === "windows",
@@ -161,6 +179,45 @@ Deno.test({
 
     assertEquals(result.code, 0, result.transcript);
     assertStringIncludes(result.transcript, "progress complete");
+  },
+});
+
+Deno.test({
+  name: "PTY user-input modes keep the wrapper pipe open until the child exits",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const modes = [
+      {
+        name: "immediate",
+        options: { initialInput: "x" },
+      },
+      {
+        name: "readiness-gated",
+        options: {
+          input: [{
+            waitFor: "unrelated reader ready",
+            steps: [{ bytes: "x" }],
+          }],
+        },
+      },
+    ] as const;
+    const violations: string[] = [];
+
+    for (const mode of modes) {
+      const result = await runPtyProcess({
+        command: Deno.execPath(),
+        args: ["eval", HELD_INPUT_CHILD],
+        cwd: REPO_ROOT,
+        ...mode.options,
+        timeoutMs: 3_000,
+      });
+
+      assertEquals(result.code, 0, `${mode.name}: ${result.transcript}`);
+      if (!result.transcript.includes("input-state:open")) {
+        violations.push(`${mode.name}: ${JSON.stringify(result.transcript)}`);
+      }
+    }
+    assertEquals(violations, []);
   },
 });
 

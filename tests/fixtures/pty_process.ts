@@ -43,7 +43,7 @@ export interface PtyProcessOptions {
   readonly cwd: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly geometry?: PtyGeometry;
-  /** Bytes written immediately after spawn, then the PTY input side closes. */
+  /** Bytes written immediately after spawn; the wrapper pipe stays open until exit. */
   readonly initialInput?: string | Uint8Array;
   readonly input?: readonly PtyInputPhase[];
   /** Keep the PTY input side open until a non-interactive child exits. */
@@ -139,7 +139,12 @@ export async function runPtyProcess(
     stderr: "piped",
   });
   const process = child.spawn();
-  const heldWriter = keepInputOpen ? process.stdin.getWriter() : undefined;
+  // script(1) is an interactive wrapper, not an ordinary pipe consumer. BSD
+  // injects terminal EOF bytes when its piped stdin closes; util-linux warns
+  // that the inner session can instead miss EOF and hang. Keep every input
+  // mode's pipe alive until the real command settles so the final scripted
+  // byte is never coupled to wrapper EOF/HUP handling.
+  const inputWriter = inputModes > 0 ? process.stdin.getWriter() : undefined;
 
   let observedStdout = "";
   let observedStderr = "";
@@ -190,17 +195,16 @@ export async function runPtyProcess(
   const immediateInput = initialInput === undefined
     ? undefined
     : (async (): Promise<void> => {
-      const writer = process.stdin.getWriter();
-      inputProgress = "writing initial input";
-      try {
-        const bytes = typeof initialInput === "string"
-          ? ENCODER.encode(initialInput)
-          : initialInput;
-        if (bytes.length > 0) await writer.write(bytes);
-        inputProgress = "initial input complete";
-      } finally {
-        await writer.close().catch(() => undefined);
+      const writer = inputWriter;
+      if (writer === undefined) {
+        throw new Error("PTY initial input has no writable wrapper pipe");
       }
+      inputProgress = "writing initial input";
+      const bytes = typeof initialInput === "string"
+        ? ENCODER.encode(initialInput)
+        : initialInput;
+      if (bytes.length > 0) await writer.write(bytes);
+      inputProgress = "initial input complete";
     })().then(
       () => undefined,
       (error: unknown) => error,
@@ -209,51 +213,50 @@ export async function runPtyProcess(
   const phasedInput = inputPhases === undefined
     ? undefined
     : (async (): Promise<void> => {
-      const writer = process.stdin.getWriter();
+      const writer = inputWriter;
+      if (writer === undefined) {
+        throw new Error("PTY scripted input has no writable wrapper pipe");
+      }
       let cursor: OutputCursor = { stdout: 0, stderr: 0 };
-      try {
-        for (const [phaseIndex, phase] of inputPhases.entries()) {
-          inputProgress =
-            `phase ${phaseIndex + 1}/${inputPhases.length} waiting for ` +
-            JSON.stringify(phase.waitFor);
-          await waitForOutput(phase.waitFor, cursor);
-          inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} ready`;
-          const settleMs = phase.settleMs ?? 0;
-          if (settleMs > 0) await delay(settleMs);
-          if (phase.captureAs !== undefined) {
-            if (phase.captureAs.length === 0) {
-              throw new TypeError("PTY keyframe name must not be empty");
-            }
-            if (Object.hasOwn(keyframes, phase.captureAs)) {
-              throw new TypeError(
-                `PTY keyframe name must be unique: ${phase.captureAs}`,
-              );
-            }
-            keyframes[phase.captureAs] = observedStdout + observedStderr;
+      for (const [phaseIndex, phase] of inputPhases.entries()) {
+        inputProgress =
+          `phase ${phaseIndex + 1}/${inputPhases.length} waiting for ` +
+          JSON.stringify(phase.waitFor);
+        await waitForOutput(phase.waitFor, cursor);
+        inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} ready`;
+        const settleMs = phase.settleMs ?? 0;
+        if (settleMs > 0) await delay(settleMs);
+        if (phase.captureAs !== undefined) {
+          if (phase.captureAs.length === 0) {
+            throw new TypeError("PTY keyframe name must not be empty");
           }
-          const nextCursor: OutputCursor = {
-            stdout: observedStdout.length,
-            stderr: observedStderr.length,
-          };
-          for (const [stepIndex, step] of phase.steps.entries()) {
-            const delayMs = step.delayMs ?? 0;
-            if (delayMs > 0) await delay(delayMs);
-            inputProgress =
-              `phase ${phaseIndex + 1}/${inputPhases.length} step ` +
-              `${stepIndex + 1}/${phase.steps.length}`;
-            await step.effect?.({
-              transcript: observedStdout + observedStderr,
-            });
-            const bytes = inputBytes(step);
-            if (bytes !== undefined && bytes.length > 0) {
-              await writer.write(bytes);
-            }
+          if (Object.hasOwn(keyframes, phase.captureAs)) {
+            throw new TypeError(
+              `PTY keyframe name must be unique: ${phase.captureAs}`,
+            );
           }
-          cursor = nextCursor;
-          inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} complete`;
+          keyframes[phase.captureAs] = observedStdout + observedStderr;
         }
-      } finally {
-        await writer.close().catch(() => undefined);
+        const nextCursor: OutputCursor = {
+          stdout: observedStdout.length,
+          stderr: observedStderr.length,
+        };
+        for (const [stepIndex, step] of phase.steps.entries()) {
+          const delayMs = step.delayMs ?? 0;
+          if (delayMs > 0) await delay(delayMs);
+          inputProgress =
+            `phase ${phaseIndex + 1}/${inputPhases.length} step ` +
+            `${stepIndex + 1}/${phase.steps.length}`;
+          await step.effect?.({
+            transcript: observedStdout + observedStderr,
+          });
+          const bytes = inputBytes(step);
+          if (bytes !== undefined && bytes.length > 0) {
+            await writer.write(bytes);
+          }
+        }
+        cursor = nextCursor;
+        inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} complete`;
       }
     })().then(
       () => undefined,
@@ -289,7 +292,7 @@ export async function runPtyProcess(
       status = completion.value;
     }
   }
-  await heldWriter?.close().catch(() => undefined);
+  await inputWriter?.close().catch(() => undefined);
   await outputComplete;
   const [stdoutOutput, stderrOutput] = await Promise.all([
     stdoutBytes,
