@@ -196,6 +196,22 @@
     run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose_check.ts --sarif --custom-zero \"${map.dir}\""
     provides = "docs prose lint (Vale; errors and discern voice alerts block across the non-private Map)"
 
+  # `canary` runs the hot, cheap test subset (scripts/canary_registry.ts: the
+  # guard/enrolment convention plus registered extras) at the check stage, so
+  # `discern prepare` reports a tripped guard in seconds and a red canary ends
+  # the Gate's concurrent check/test group early instead of waiting out the
+  # full suite. Every member runs again in the test stage: the canary changes
+  # when a failure is reported, never what a green gate proves. Deliberately
+  # not behind `discern queue` — the queue paces whole-suite runs, and a
+  # seconds-scale subset must not wait behind one. Audit membership against
+  # recorded failure evidence with `discern scripts canary-audit`. The budget
+  # scales the local seconds to the slowest hosted lane, like `test` above.
+  [jobs.canary]
+    stage = "check"
+    run = "deno run --allow-read --allow-env --allow-run scripts/canary_tests.ts"
+    provides = "canary tests (hot, cheap subset heard before the full suite)"
+    timeout = 300
+
 # Setup assurance counts every known job as applicable unless its lifecycle is
 # explicitly absent here. This declaration never changes Gate scheduling.
 # Author changes with `discern config set-job <known-name> --not-applicable`
