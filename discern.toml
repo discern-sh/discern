@@ -828,6 +828,23 @@
       "deno.json",
     ]
 
+  # Raw test-JSON parse standard — hold literal `JSON.parse(` calls in test
+  # TypeScript at or below a falling ceiling. Its Git-derived specialized
+  # universe includes executable fixtures that AUTHORED_TS_FILES deliberately
+  # omits and excludes only tests/decode_cli_result.ts, the validating boundary
+  # that replaces the old pattern. Command stdout uses decodeCliResult; fixture
+  # and sidecar JSON uses decodeWith. Wave 5A removes the remaining calls; at
+  # zero, it graduates this measurement into an always-on structural guard.
+  [standards.raw_json_parses]
+    direction = "down"
+    limit = 705
+    run = "deno task raw-json-parses"
+    inputs = [
+      "tests/**",
+      "scripts/raw_json_parses.ts",
+      "deno.json",
+    ]
+
   # Instruction-footprint standard — the bundled built-in instructions (templates/instructions/
   # *.md) compiles into every end-user agent's context in every session, so its total
   # word count is a context-window budget we spend on their behalf.

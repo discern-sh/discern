@@ -46,6 +46,7 @@
     "fmt": "deno fmt",
     "lint": "deno lint",
     "lint-suppressions": "deno run --allow-read --allow-run=git scripts/lint_suppressions.ts",
+    "raw-json-parses": "deno run --allow-read --allow-run=git scripts/raw_json_parses.ts",
     "coverage": "deno run --allow-read --allow-write --allow-env --allow-run scripts/coverage.ts",
     "prose": "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose.ts",
     "vocab": "deno run --allow-read --allow-env scripts/vocab_signals.ts",
