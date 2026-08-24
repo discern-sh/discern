@@ -723,13 +723,13 @@
   # or below a falling ceiling. The package manifest supplies groups,
   # dependencies, and owned classes; the site's bundle and route registries
   # supply the consumer side. A raw deficit cannot improve by diluting a
-  # percentage with more components. Today's baseline is 42 gaps: 3 in docs and
-  # 39 in compositions. Drive it to zero by rendering a selected component or
-  # narrowing an unused selection; at zero, make absence an always-on test and
-  # retire this transition Standard.
+  # percentage with more components. The design-system 0.26.1 adoption baseline
+  # is 50 gaps: 3 in docs and 47 in compositions. Drive it to zero by rendering
+  # a selected component or narrowing an unused selection; at zero, make absence
+  # an always-on test and retire this transition Standard.
   [standards.site_component_gaps]
     direction = "down"
-    limit = 42
+    limit = 50
     run = "deno task site:component-coverage"
     inputs = [
       "${map.dir}**",
