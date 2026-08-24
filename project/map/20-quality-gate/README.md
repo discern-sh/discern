@@ -17,7 +17,7 @@ The Gate defines done. It requires latest trunk, non-weakened Standards, current
 
 Use `discern prepare` before the final commit. It runs fix and generated jobs, then the complete refresh and checks. Green means tracked agent files are canonical; incomplete provider or Skill refresh is red.
 
-Use `discern test` when the complete test stage is the intended standalone result. `discern done` includes the same test stage. While fixing a red test, run each diagnostic's reproduce command, then run `discern done` on the final commit.
+`discern done` reruns the test stage. For a red test, use its diagnostic's reproduce command; use `discern test` only for standalone runs.
 
 Use `discern done` on the intended final commit. A green run on a clean branch ahead of trunk records a Proof for review ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).
 
