@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# desc: rank recorded test failures against the canary registry
+set -eu
+
+cd "${DISCERN_ROOT:?DISCERN_ROOT is exported by discern scripts}"
+exec deno run --allow-read --allow-run=git scripts/canary_audit.ts "$@"

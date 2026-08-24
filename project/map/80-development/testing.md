@@ -26,6 +26,14 @@ deno task test --filter "convergence"            # a filtered subset by test nam
 
 This repository sets `[gate].concurrent_test_runs = 2`. Across the main checkout and every linked worktree, two `done`, `test`, or measuring `standards` test-stage groups may run at once. The cap schedules whole runs only. Each admitted suite retains Deno's native worker selection unless its caller explicitly supplies `DENO_JOBS`; the repository runner does not derive a static share from the maximum possible fleet load. [`tests/test_runner_test.ts`](../../../tests/test_runner_test.ts) refuses whole-suite serialization, holds internal `--parallel`, and rejects automatic worker assignment.
 
+### The canary job
+
+`[jobs.canary]` in [discern.toml](../../../discern.toml) runs a small, cheap subset of the suite at the check stage. `discern prepare` therefore reports a tripped content or structure guard in seconds, and in `discern done` a red canary ends the concurrent check-and-test group early under `[gate].fail_fast`. Every member also runs in the test stage, so a green Gate proves the same thing with or without the canary; the job changes how quickly a failure is heard.
+
+Membership derives in [`scripts/canary_registry.ts`](../../../scripts/canary_registry.ts): every guard- or enrolment-named module under `tests/` enrols the moment it exists, the registry's extras add hot files outside that convention, and its exclusions record files refused for cost. [`tests/canary_registry_guard_test.ts`](../../../tests/canary_registry_guard_test.ts) holds every entry to a tracked module with a one-line reason. The canary runs outside `discern queue`: the fleet cap paces whole-suite runs, and a seconds-scale subset must not wait behind one.
+
+Revise membership on evidence: `discern scripts canary-audit` ranks the [Logbook](../70-reference/the-logbook.md)'s recorded per-file test failures against the registry and names hot uncovered files and extras with no record left. The report is advisory — failure history differs per machine, so it never joins the Gate.
+
 The site tests read the built site, which the Gate's build stage produces through `deno task site:build`. On a fresh checkout that has never run the Gate, run `deno task site:build` before the full suite. The `test.exclude` list in `deno.json` keeps generated output, distribution files, templates, and fixtures out of discovery.
 
 Tests work at these layers:
