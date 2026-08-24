@@ -11,6 +11,7 @@ import { parse as parseToml } from "@std/toml";
 import { z } from "@zod/zod";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
+import type { DiscernResult } from "../src/shared/result.ts";
 import {
   configSchema,
   configSchemaIssues,
@@ -182,12 +183,22 @@ Deno.test("long-lived MCP maps an unknown root to config recovery and leads with
       simulated.length > 0,
       "the canonical config needs a non-meta section",
     );
+    let fullStatusRuns = 0;
+    const guardedStatus = {
+      ...status,
+      run: async (
+        ...args: Parameters<typeof status.run>
+      ): Promise<DiscernResult> => {
+        fullStatusRuns++;
+        return await status.run(...args);
+      },
+    };
     for (const [introducedSection] of simulated) {
       const staleSchema = z.strictObject(Object.fromEntries(
         canonical.filter(([name]) => name !== introducedSection),
       ));
       const staleStatus = {
-        ...status,
+        ...guardedStatus,
         run: async (...args: Parameters<typeof status.run>) => {
           const root = args[0];
           const parsed = parseToml(
@@ -197,7 +208,10 @@ Deno.test("long-lived MCP maps an unknown root to config recovery and leads with
           if (issues.length > 0) {
             throw new ConfigValidationError(issues);
           }
-          return await status.run(...args);
+          // This fixture owns the stale-schema boundary, not status behavior.
+          // Re-entering the complete status engine for every canonical section
+          // multiplies Git and fleet reads while proving no additional branch.
+          return { ok: true, verb: "status" };
         },
       };
 
@@ -215,6 +229,11 @@ Deno.test("long-lived MCP maps an unknown root to config recovery and leads with
         resolveInstalledVersion,
       );
       assertEquals(healthy.isError, false);
+      assertEquals(
+        fullStatusRuns,
+        0,
+        "the MCP config boundary fixture must not repeat the full status engine",
+      );
       assertLacksMcpHint(
         healthy.structuredContent,
         HINTS["config-unknown-root-sections"],
