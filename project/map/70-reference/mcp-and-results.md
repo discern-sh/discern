@@ -112,7 +112,7 @@ A failed JSON, Markdown, or MCP result always includes a registered next action.
 
 Setup consent is not write authority. Effectful commands probe plan-derived targets before mutation; denial returns `write_access`, the exact path and retry, with phase unchanged. Read-only commands do not probe ([Setup command boundaries](setup-command-boundaries.md)).
 
-Setup pages carry owner-facing semantic prose once. Their compact `spine.owner_moments` projections preserve each moment's identity, kind, phase, purpose, recommendation, option ids, wait boundary, and relay protection. The compatibility `human_decisions` and `relay` fields derive from those same moments. The page registry binds every setup step to its moments. Terminal, Markdown, JSON, and Model Context Protocol (MCP) therefore share one authority without duplicating the prose in structured state.
+Setup pages carry owner-facing semantic prose once. Compact `spine.owner_moments` projections preserve identity, kind, phase, purpose, recommendation, option ids, wait boundary, and relay protection. Compatibility fields derive from the same enrolled moments, so terminal, Markdown, JSON, and Model Context Protocol (MCP) share one authority without duplicating prose.
 
 `start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered-path evidence, and warnings. Compact status and done results bound uncovered paths to six authored-first examples beside uncovered totals and scopes; `start` grants are prospective. An absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
 

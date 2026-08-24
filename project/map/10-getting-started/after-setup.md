@@ -17,7 +17,7 @@ Review the branch before landing it. The paths depend on the coding agents you s
 
 Successful `discern setup done` commits setup's completion state in `discern.toml`, then returns [Gate Proof](../20-quality-gate/the-proof.md) for that clean branch tip. `discern setup accept` validates that Proof, records it on the landed trunk commit as a Git note, and leaves local agent artifacts current. `--force` returns no Proof and cannot use this landing path.
 
-Before asking you to land, the completion handoff explains what later sessions inherit. It names the primary subsystem and starting point, boundary, non-obvious invariant, project principles, instruction sources, protections, and concrete open items. The primary-subsystem README owns the `Start here`, `Boundary`, and `Non-obvious invariant` text. Derived Map, ledger, and job counts support that account.
+Before landing, the handoff explains what later sessions inherit: the primary subsystem and starting point, boundary, invariant, principles, instructions, protections, and open items. Its qualitative facts and supporting counts derive from committed project authorities. [Setup decisions](setup-decisions.md) explains the owner review.
 
 ## Files you edit
 

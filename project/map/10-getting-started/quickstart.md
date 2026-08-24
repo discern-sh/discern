@@ -14,9 +14,7 @@ _Install the binary, let your agent set the project up, and take one change thro
 
 You need a Git repository and a coding agent. discern supports Claude Code, Codex, Gemini, Cursor, and GitHub Copilot. An installed project does not need Deno or Node to run discern because the product is one self-contained binary. Once installed, discern makes zero network calls.
 
-discern sets no hard minimum model. For this one-time setup, use the strongest suitable reasoning model available. That model studies the repository. It authors the Gate, worktree policy, Map, and instructions later sessions inherit. Stronger reasoning is more likely to catch false assumptions and preserve existing workflows before those choices become project context.
-
-Use your coding tool's model selector before setup begins. When changing models, open a fresh session in this project and give that session the setup request below. During consent, the executing agent reports its current self-declared provider/model identifier, or `unreported`, before you choose. Setup records the same advisory provenance only when you continue. Neither the report nor the record verifies capability.
+discern sets no hard minimum model. For setup, it recommends the strongest suitable reasoning model available because that model authors the Gate, worktree policy, Map, and instructions later sessions inherit. [Setup decisions](setup-decisions.md) explains the long-term benefit, how to switch models, and which later choices remain yours.
 
 ## 1. Install the binary
 
@@ -34,9 +32,7 @@ In your project, tell your agent:
 
 The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing, discern serves a consent message for the agent to relay. The message names each planned change: a `discern.toml` file at the repository root, a visible `discern/` folder for project-owned content, the agent-maintained Map, the agent files each coding agent reads, and a delimited `.gitignore` block. Project-authored instructions, Map pages, and Skills remain plain Markdown. `discern uninstall` removes the wiring.
 
-The consent message repeats the model recommendation and names the available paths. Continue with the current model, or use the coding tool's model selector and open a fresh project session. Repeat the setup request there. The current agent stops when you switch.
-
-Consent also covers the coding tools to wire, worktree location, time and token investment, and setup branch footprint. Answer each item in plain language. Setup cannot proceed until the agent attests that the complete consent exchange happened ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
+The consent message repeats the model recommendation, switch route, and current-agent stop boundary. It also covers the coding tools to wire, worktree location, time and token investment, and setup branch footprint. Answer each item in plain language. Setup cannot proceed until the agent attests that the complete exchange happened ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
 `setup verify` is read-only. Each later effectful command checks its own plan-derived write targets before effects; denial preserves the phase and names the path and retry. The check is point-in-time, not cached provider authority ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 

@@ -16,9 +16,7 @@ _Setup keeps consent, provider authority, landing authority, and observed write 
 
 Owner consent authorizes the requested setup act. Provider authorization controls what the running process may access. A landing grant authorizes discern to advance trunk within its recorded scope. None of those proves that a filesystem or Git write will work now.
 
-Before consent, setup recommends the strongest suitable reasoning model and explains the lasting reason. This model studies the repository and authors the Gate, worktree policy, Map, and instructions later sessions inherit. The executing agent separately reports its current self-declared provider/model identifier, or `unreported`. The owner then chooses the model.
-
-To switch, the owner uses the coding tool's model selector and opens a fresh project session. The current agent stops without beginning setup. To continue, the owner confirms the current model. Setup stores its reported value only as advisory provenance.
+Before consent, setup recommends the strongest suitable reasoning model because it authors project context later sessions inherit. The executing agent separately reports its self-declared provider/model identifier, or `unreported`. The owner may continue or switch through the coding tool's model selector and a fresh project session; the current agent stops when the owner switches. [Setup decisions](../10-getting-started/setup-decisions.md) explains the lasting outcome and advisory-provenance boundary.
 
 An effectful setup command therefore performs its own point-in-time write preflight. Success means only that representative writes worked in that invocation; discern cannot grant, persist, or bypass the provider's policy. Logbook recording remains advisory: a denied Logbook write warns and disables recording for the process, but does not become a required setup target.
 

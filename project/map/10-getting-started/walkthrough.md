@@ -18,13 +18,9 @@ Tell your coding agent:
 
 > Set this project up with discern.
 
-The agent runs `discern`. In a repository without an install, discern routes it into setup and serves a welcome message. The welcome recommends the strongest suitable reasoning model and explains why. That model studies the repository and authors the Gate, worktree policy, Map, and instructions later sessions inherit. To change models, use your coding tool's model selector and open a fresh project session. Repeat the setup request there.
+The agent runs `discern`. In a repository without an install, discern serves a welcome with the model recommendation, switch route, and lasting outcome. [Setup decisions](setup-decisions.md) explains the owner boundary.
 
-The selected agent runs `discern setup verify`, which returns a consent message for you.
-
-Read that message before answering. It repeats the model outcome, recommendation, switch route, and current-agent stop boundary. The agent separately reports its current self-declared provider/model identifier, or `unreported`, before you choose.
-
-The message names the paths setup plans to add or share, coding agents it can wire, worktree location, and time and token expectation. It also states the authority that final confirmation grants and explains removal. Correct the request before approval when it names the wrong repository, model path, or agent set.
+The selected agent runs `discern setup verify`. Read its consent message before answering. It reports the self-declared provider/model identifier, or `unreported`, and names paths, coding agents, worktree location, expected investment, removal, and confirmation authority. Correct a wrong repository, model path, or agent set first.
 
 Reply in plain language, for example:
 
