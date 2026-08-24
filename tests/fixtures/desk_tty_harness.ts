@@ -60,10 +60,11 @@ import {
   type PtyGeometry,
   type PtyInputPhase,
   runPtyProcess,
+  TEST_PROCESS_TIMEOUT_MS,
 } from "./pty_process.ts";
 
 const HARNESS_PATH = fromFileUrl(import.meta.url);
-const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_TIMEOUT_MS = TEST_PROCESS_TIMEOUT_MS;
 const SAFE_SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
 const MARKER_OPEN = "\uE000";
 const MARKER_CLOSE = "\uE001";

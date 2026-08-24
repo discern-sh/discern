@@ -10,6 +10,7 @@ import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
 import { parseQueueInvocation } from "../src/engine/queue.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { TEST_PROCESS_TIMEOUT_MS } from "./fixtures/pty_process.ts";
 import {
   addWorktree,
   engineEnv,
@@ -88,9 +89,8 @@ function occurrenceCount(text: string, fragment: string): number {
 async function pollUntil(
   what: string,
   predicate: () => boolean | Promise<boolean>,
-  timeoutMs = 30_000,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + TEST_PROCESS_TIMEOUT_MS;
   while (!(await predicate())) {
     if (Date.now() >= deadline) {
       throw new Error(`timed out waiting for ${what}`);
@@ -338,7 +338,6 @@ Deno.test("queue treats any non-empty marker as accounted and normalizes it for 
       await pollUntil(
         "the marked wrapper child to bypass the held slot",
         () => pathExists(observed),
-        5_000,
       );
     } finally {
       release();
@@ -384,11 +383,13 @@ Deno.test("queue nesting takes one slot total at cap 1", async () => {
     ]);
     let watchdog: ReturnType<typeof setTimeout> | undefined;
     try {
-      watchdog = setTimeout(() => running.kill("SIGTERM"), 10_000);
+      watchdog = setTimeout(
+        () => running.kill("SIGTERM"),
+        TEST_PROCESS_TIMEOUT_MS,
+      );
       await pollUntil(
         "the nested wrapper child to start",
         () => pathExists(ready),
-        5_000,
       );
       const probe = await Deno.open(join(slotDirOf(dir), "slot-1"), {
         read: true,
@@ -460,7 +461,10 @@ Deno.test("queue around a capped gate takes one slot total at cap 1", async () =
       ["queue", "--", "discern", "test", "--json"],
       { [TEST_RUN_SLOT_ENV]: "" },
     );
-    const watchdog = setTimeout(() => running.kill("SIGTERM"), 10_000);
+    const watchdog = setTimeout(
+      () => running.kill("SIGTERM"),
+      TEST_PROCESS_TIMEOUT_MS,
+    );
     try {
       const result = await running.result;
       assertEquals(result.code, 0, result.output);
@@ -576,7 +580,10 @@ Deno.test("a capped gate completes a slot-wrapped test job at cap 1", async () =
       ["test", "--json"],
       { [TEST_RUN_SLOT_ENV]: "" },
     );
-    const watchdog = setTimeout(() => running.kill("SIGTERM"), 10_000);
+    const watchdog = setTimeout(
+      () => running.kill("SIGTERM"),
+      TEST_PROCESS_TIMEOUT_MS,
+    );
     try {
       const result = await running.result;
       assertEquals(result.code, 0, result.output);
@@ -602,7 +609,7 @@ Deno.test("the repository's habitual and targeted test commands stay queue-wrapp
   );
   assertEquals(
     denoConfig.tasks?.test,
-    "deno task test:preflight && discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --allow-sys --parallel",
+    "discern queue -- deno run --allow-read --allow-env --allow-run --allow-net=127.0.0.1 scripts/run_tests.ts",
   );
 
   const testingGuide = await Deno.readTextFile(

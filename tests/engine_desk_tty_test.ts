@@ -29,6 +29,9 @@ import {
 
 const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9:;]*m`, "u");
+const EMPTY_ROOT_READY = ["Choose a desk action", "Quit"] as const;
+const TASK_ROOT_READY = ["Choose a task or action", "Quit"] as const;
+const TASK_ACTION_READY = ["Choose an action", "Back"] as const;
 
 /** Require one named semantic frame and keep failures transcript-oriented. */
 function frame(
@@ -100,7 +103,7 @@ function assertHealthySession(
 /** Select the last root action (Quit) after capturing the ready frame. */
 function rootExitInput(captureAs = "root"): readonly DeskTtyInputPhase[] {
   return [{
-    waitFor: "Choose a desk action",
+    waitFor: EMPTY_ROOT_READY,
     captureAs,
     chunks: [{ keys: ["end", "enter"] }],
   }];
@@ -140,15 +143,15 @@ Deno.test({
         geometry: { columns: 90, rows: 28 },
         colorMode: "no-color-flag",
         input: [{
-          waitFor: "Choose a task or action",
+          waitFor: TASK_ROOT_READY,
           captureAs: "root",
           chunks: [{ keys: ["enter"] }],
         }, {
-          waitFor: "Choose an action",
+          waitFor: TASK_ACTION_READY,
           captureAs: "action",
           chunks: [{ keys: ["end", "enter"] }],
         }, {
-          waitFor: "Choose a task or action",
+          waitFor: TASK_ROOT_READY,
           captureAs: "back-at-root",
           chunks: [{ keys: ["end", "enter"] }],
         }],
@@ -187,7 +190,7 @@ Deno.test({
           geometry: { columns: 86, rows: 28 },
           colorMode: "no-color-env",
           input: [{
-            waitFor: "Choose a task or action",
+            waitFor: TASK_ROOT_READY,
             captureAs: `${key}-at-root`,
             chunks: [{
               keys: [key],
@@ -206,17 +209,17 @@ Deno.test({
             // readiness allowance, including under full-suite load.
             ...(key === "escape" ? { timeoutMs: 5_000 } : {}),
             input: [{
-              waitFor: "Choose a task or action",
+              waitFor: TASK_ROOT_READY,
               chunks: [{ keys: ["enter"] }],
             }, {
-              waitFor: "Choose an action",
+              waitFor: TASK_ACTION_READY,
               captureAs: `${key}-at-action`,
               chunks: [{
                 keys: [key],
                 ...(key === "escape" ? { allowLoneEscape: true } : {}),
               }],
             }, {
-              waitFor: "Choose a task or action",
+              waitFor: TASK_ROOT_READY,
               captureAs: `${key}-returned-to-root`,
               settleMs: 500,
               chunks: [{ keys: ["ctrl-c"] }],
@@ -277,7 +280,9 @@ async function thresholdFrame(taskCount: number): Promise<DeskVisibleFrame> {
         geometry: { columns: 100, rows: 50 },
         colorMode: "no-color-env",
         input: [{
-          waitFor: "Choose a task or action",
+          waitFor: taskCount > 8
+            ? ["Choose a task or action", "Type to filter"]
+            : TASK_ROOT_READY,
           captureAs: `${taskCount}-tasks`,
           chunks: [{
             ...(taskCount > 8 ? { input: "Quit" } : { keys: ["end"] }),
@@ -371,14 +376,14 @@ Deno.test({
           geometry: { columns: 60, rows: 28 },
           colorMode: "no-color-env",
           input: [{
-            waitFor: "Choose a task or action",
+            waitFor: TASK_ROOT_READY,
             captureAs: "narrow",
             chunks: [{ resize: { columns: 120, rows: 32 } }, {
               settleMs: 80,
               keys: ["down"],
             }],
           }, {
-            waitFor: "Choose a task or action",
+            waitFor: TASK_ROOT_READY,
             captureAs: "wide",
             chunks: [{ keys: ["escape"], allowLoneEscape: true }],
           }],

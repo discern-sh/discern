@@ -37,13 +37,14 @@ const MAIN = join(
 
 /**
  * A gate-job command that leaves an ESCAPED descendant holding the job's
- * stdout/stderr: `deno eval` spawns a detached (own-session) `sleep` that
- * inherits the pipes, then the shell exits 0. The sleeper survives any
+ * stdout/stderr: `deno eval` spawns a detached Deno child that inherits the
+ * pipes, then the shell exits 0. The child survives any
  * process-group tree-kill — the standard self-daemonizing pattern, distilled —
  * so it exercises the kill path's drain bound: without it, the runner would
  * wait for pipe EOF (the daemon's whole lifetime) and the gate would hang past
- * its budget. `markerFile` (cwd-relative), when given, is written once the
- * daemon is up, so a test can synchronize before aborting.
+ * its budget. `markerFile` (cwd-relative), when given, is written only after
+ * the original shell PID disappears, so a test can synchronize on the exact
+ * clean-leader/held-pipes state without an elapsed-time guess.
  */
 export function escapedDaemonCommand(
   holdS: number,
@@ -51,8 +52,17 @@ export function escapedDaemonCommand(
 ): string {
   const marker = markerFile === undefined
     ? ""
-    : `; Deno.writeTextFileSync("${markerFile}", "up")`;
-  return `deno eval 'new Deno.Command("sleep", { args: ["${holdS}"], stdout: "inherit", stderr: "inherit", detached: true }).spawn().unref()${marker}' && sleep 0.2`;
+    : `Deno.writeTextFileSync(${JSON.stringify(markerFile)}, "up");`;
+  const daemon = `const parent = Number(Deno.args[0]); ` +
+    `while (true) { try { Deno.kill(parent, "SIGCONT"); } catch { break; } ` +
+    `await new Promise((resolve) => setTimeout(resolve, 10)); } ` +
+    `${marker} ` +
+    `await new Promise((resolve) => setTimeout(resolve, ${holdS * 1000}));`;
+  // The trailing no-op prevents `sh -c` from replacing itself with its final
+  // command, so Deno.ppid remains the direct job shell the daemon observes.
+  return `deno eval 'new Deno.Command(Deno.execPath(), { args: ["eval", ${
+    JSON.stringify(daemon)
+  }, String(Deno.ppid)], stdout: "inherit", stderr: "inherit", detached: true }).spawn().unref()'; :`;
 }
 
 /** The captured result of one CLI subprocess invocation. */

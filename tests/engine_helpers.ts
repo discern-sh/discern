@@ -97,7 +97,6 @@ export interface RunResult {
 }
 
 const DECODER = new TextDecoder();
-const ENCODER = new TextEncoder();
 
 /** Git env that isolates a temp repo from the developer's global/system config. */
 const GIT_ISOLATION: Record<string, string> = {
@@ -177,11 +176,6 @@ export function suiteTempDir(): Promise<string> {
   return suiteTempPromise;
 }
 
-/** Shell-quote a path for a command string handed to a PTY shell. */
-function shq(s: string): string {
-  return `'${s.replaceAll("'", "'\\''")}'`;
-}
-
 /**
  * Build the environment for an engine subprocess: colour off, git isolated,
  * TMPDIR pointed at the suite temp home ({@link suiteTempDir}), the engine's
@@ -235,6 +229,11 @@ export async function engineEnv(
     ...GIT_ISOLATION,
     ...extra,
   };
+}
+
+/** Shell-quote one argument for a command string. */
+function shq(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 /**
@@ -481,7 +480,6 @@ export async function runAgentPty(
   args: string[],
   opts: {
     env?: Record<string, string>;
-    timeoutMs?: number;
     /** Bytes to feed the terminal's stdin, then close it. */
     input?: string;
   } = {},
@@ -489,51 +487,19 @@ export async function runAgentPty(
   if (Deno.build.os === "windows") {
     throw new Error("runAgentPty requires the Unix script(1) utility");
   }
-  const command = [
-    Deno.execPath(),
-    ...engineRunArgs(args),
-  ];
-  const scriptArgs = Deno.build.os === "darwin"
-    ? ["-q", "/dev/null", ...command]
-    : ["-q", "-e", "-c", command.map(shq).join(" "), "/dev/null"];
-  const child = new Deno.Command("script", {
-    args: scriptArgs,
+  const process = await runPtyProcess({
+    command: Deno.execPath(),
+    args: engineRunArgs(args),
     cwd: dir,
-    // `script(1)` supplies the PTY but inherits TERM. Give every PTY fixture a
-    // usable default independent of the test runner; a test can still model a
-    // degraded terminal explicitly with `TERM=dumb`.
     env: await engineEnv({ TERM: "xterm-256color", ...opts.env }),
-    stdin: opts.input === undefined ? "null" : "piped",
-    stdout: "piped",
-    stderr: "piped",
+    ...(opts.input === undefined ? {} : { initialInput: opts.input }),
   });
-  const process = child.spawn();
-  if (opts.input !== undefined) {
-    const writer = process.stdin.getWriter();
-    await writer.write(ENCODER.encode(opts.input));
-    await writer.close();
-  }
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    try {
-      process.kill("SIGTERM");
-    } catch {
-      // It finished between the timer firing and kill reaching the process.
-    }
-  }, opts.timeoutMs ?? 5_000);
-  const { code, stdout, stderr } = await process.output();
-  clearTimeout(timer);
-  const out = DECODER.decode(stdout);
-  const err = DECODER.decode(stderr);
-  if (timedOut) {
-    throw new Error(
-      `pseudo-TTY command did not terminate within ${
-        opts.timeoutMs ?? 5_000
-      }ms: discern ${args.join(" ")}\n${out}${err}`,
-    );
-  }
-  return { code, stdout: out, stderr: err, output: out + err };
+  return {
+    code: process.code,
+    stdout: process.stdout,
+    stderr: process.stderr,
+    output: process.transcript,
+  };
 }
 
 /**
@@ -562,7 +528,7 @@ export async function runAgentPtyJourney(
     env: await engineEnv({ TERM: "xterm-256color", ...opts.env }),
     input: opts.input,
     ...(opts.geometry === undefined ? {} : { geometry: opts.geometry }),
-    timeoutMs: opts.timeoutMs ?? 8_000,
+    ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
   });
 }
 

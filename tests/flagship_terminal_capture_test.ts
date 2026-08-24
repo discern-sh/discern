@@ -63,7 +63,7 @@ Deno.test("flagship normalizers replace facts without hiding visible structure",
   assertStringIncludes(normalized, "At: <PROJECT_PATH>");
   assertStringIncludes(normalized, "0000-00-00T00:00:00.000Z");
   assertStringIncludes(normalized, "Age: 0m ago");
-  assertStringIncludes(normalized, "passed in 00ms");
+  assertStringIncludes(normalized, "passed in <0s");
   assertStringIncludes(
     normalized,
     "discern 0.0.0 · <PLATFORM> · git 0.00.0",
@@ -73,6 +73,20 @@ Deno.test("flagship normalizers replace facts without hiding visible structure",
   assertEquals(normalized.split("\n").length, source.split("\n").length);
   assertStringIncludes(normalized, "\x1b[38;5;151m✓\x1b[0m");
   assertStringIncludes(normalized, "└────────────────────┘");
+
+  const belowOneSecond = normalizeFlagshipTerminalOutput(
+    "check passed in <0s.\n",
+    { name: "below", args: ["done"], cwd: "/tmp/one/worktree" },
+  );
+  const aboveOneSecond = normalizeFlagshipTerminalOutput(
+    "check passed in 9.8s.\n",
+    { name: "above", args: ["done"], cwd: "/tmp/one/worktree" },
+  );
+  assertEquals(
+    aboveOneSecond,
+    belowOneSecond,
+    "duration normalization must survive a loaded run crossing a display-unit threshold",
+  );
 });
 
 Deno.test({

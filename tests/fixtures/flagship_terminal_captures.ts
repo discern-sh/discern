@@ -96,14 +96,13 @@ const timestamps: TerminalCaptureNormalizer = {
       ),
 };
 
-/** Replace measured durations only after narration words that identify a timing. */
+/** Replace measured durations and their load-sensitive display unit. */
 const durations: TerminalCaptureNormalizer = {
   name: "durations",
   normalize: (output: string): string =>
     output.replace(
       /\b(in|after|waited|took) (<?\d+(?:\.\d+)?(?:ms|s|m|h))\b/gu,
-      (_match: string, prefix: string, value: string): string =>
-        `${prefix} ${value.replaceAll(/\d/gu, "0")}`,
+      (_match: string, prefix: string): string => `${prefix} <0s`,
     ),
 };
 
