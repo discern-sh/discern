@@ -1,6 +1,6 @@
 ---
 title: Standards
-description: Hold one stable quality claim at a floor or ceiling that a branch can tighten but cannot redefine or weaken.
+description: Hold a stable quality claim at a floor or ceiling that branches can tighten but not redefine.
 order: 20
 aliases:
   - quality metrics
@@ -35,19 +35,19 @@ DISCERN_METRIC coverage 91.4
 
 ## Keep its meaning stable
 
-A limit means something only together with the definition it bounds. For a Standard that already exists on trunk, fields follow these roles:
+An existing Standard holds three field roles:
 
-| Role                 | Fields                                                            | Branch policy                                                                         |
-| -------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Enforcement meaning  | `metric`, `direction`, `run`, `per`, `scale`, `measure`, `inputs` | Keep equivalent to trunk. These fields decide the claim or freshness of its evidence. |
-| Monotonic bound      | `limit`                                                           | Tighten only: a floor rises and a ceiling falls.                                      |
-| Execution or pinning | `margin`, `timeout`                                               | May change without redefining the current claim.                                      |
+| Role                 | Fields                                                            | Branch policy                                                          |
+| -------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Enforcement meaning  | `metric`, `direction`, `run`, `per`, `scale`, `measure`, `inputs` | Must match normalized trunk; controls the claim or evidence freshness. |
+| Monotonic bound      | `limit`                                                           | May only tighten: floors rise; ceilings fall.                          |
+| Execution or pinning | `margin`, `timeout`                                               | May change without redefining the claim.                               |
 
-The comparison applies schema defaults and equivalent scalar or list command forms before deciding. An omitted default on an older trunk config therefore matches the explicit current spelling. The total policy is keyed by `StandardConfig`, so adding a config field also requires its policy and normalization to be decided in code.
+Comparison applies schema defaults and equivalent scalar/list command forms, so omitted historical defaults match explicit current spelling. The policy is keyed by `StandardConfig`; new fields require a code policy and normalization.
 
-`margin` affects only the target of a future `discern standards --pin`; it does not change today's measurement or verdict. `timeout` changes how long the same command may run. A timeout fails explicitly and records no green evidence, so it is execution policy rather than part of the measured claim.
+`margin` changes only a future pin target. `timeout` bounds the same command; a timeout records no green evidence. Neither changes the measured claim.
 
-To intentionally redefine or recalibrate an existing Standard, put the old and new meanings before the owner. With explicit approval, change it on trunk, then run `discern update` in the worktree. A branch-local reason or measured-breach override cannot waive a definition change.
+Intentional redefinition or recalibration requires owner approval on trunk, followed by `discern update`. Branch reasons and measured-breach overrides cannot waive it.
 
 ## Choose a number that survives growth
 

@@ -158,9 +158,9 @@ function normalizeTrunkPer(
     : undefined;
 }
 
-/** Normalize the older, deliberately unvalidated trunk table field by field.
- * Historical omissions receive the current semantic defaults; unknown legacy
- * values remain comparable sentinels rather than making the trunk unreadable. */
+/** Normalize the deliberately unvalidated trunk table field by field.
+ * Omitted fields receive current semantic defaults; unrecognized values remain
+ * comparable sentinels rather than making the trunk unreadable. */
 function normalizeTrunkStandard(
   config: RawConfig,
   name: string,
@@ -365,7 +365,7 @@ export async function verifyTrunkLimits(
         tool: "standards",
         severity: "error",
         message:
-          `the Standard definition-and-limit check cannot verify [standards]: ${trunk.reason}. ` +
+          `the Standard never-loosen check cannot verify definitions and limits from [standards]: ${trunk.reason}. ` +
           `Fix the trunk's config (a broken trunk config is a real defect, not a skippable one).`,
         reproduce_cmd: `git show ${mainBranch}:./discern.toml`,
       }],
