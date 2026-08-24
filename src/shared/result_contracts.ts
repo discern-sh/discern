@@ -119,7 +119,7 @@ export interface ResultContract {
   predicates?: readonly CliJsonPredicateContract[] | undefined;
 }
 
-export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
+const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
   {
     // Deliberately contracted, not excluded: bare `discern --json` emits a real
     // DiscernResult on stdout — the formatted command-required refusal — so
@@ -490,7 +490,15 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     schema: SkillsEjectOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.skillsEject,
   },
-] as const;
+] as const satisfies readonly ResultContract[];
+
+/** The literal registry union retained for command-to-schema type inference. */
+export type RegisteredCliJsonResultContract =
+  (typeof CLI_JSON_RESULT_CONTRACT_DEFINITIONS)[number];
+
+/** Public runtime registry, widened to the stable result-contract interface. */
+export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] =
+  CLI_JSON_RESULT_CONTRACT_DEFINITIONS;
 
 /** A predicate contract with its parent envelope discriminator attached. */
 export interface RegisteredCliJsonPredicateContract

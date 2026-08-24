@@ -11,11 +11,12 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { HINTS } from "../src/shared/hints.ts";
-import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
+import type { StatusWireData } from "../src/shared/result_schemas.ts";
 import { buildDeskDecision } from "../src/engine/desk/model.ts";
 import { gitSnapshot } from "../src/engine/worktree/git.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import {
   addWorktree,
   git,
@@ -26,19 +27,24 @@ import {
 } from "./engine_helpers.ts";
 
 interface StatusJson {
-  data: {
-    git: { ahead_trunk: number | null } | null;
-    fleet?: StatusFleetEntry[];
-    unlanded_branches?: string[];
-  };
+  data: StatusWireData;
   hints?: string[];
 }
 
 /** Run status successfully and decode the fleet truth asserted by each broken-state case. */
-async function statusJson(dir: string): Promise<StatusJson> {
-  const r = await runAgent(dir, ["status", "--json"]);
+async function statusJson(
+  dir: string,
+  env: Record<string, string> = {},
+): Promise<StatusJson> {
+  const r = await runAgent(dir, ["status", "--json"], { env });
   assertEquals(r.code, 0, r.output);
-  return JSON.parse(r.stdout) as StatusJson;
+  const result = decodeCliResult(r.stdout, "status");
+  const data = result.data;
+  assert(
+    data !== undefined && "location" in data,
+    `status returned no situation data: ${r.stdout}`,
+  );
+  return result.hints === undefined ? { data } : { data, hints: result.hints };
 }
 
 /** Compare human facts independently of the dashboard's measured line breaks. */
@@ -88,18 +94,19 @@ Deno.test("status fleet ids are per-row truths — an env id override cannot rep
     // a dotenv-loading shell) walks the fleet: every row must keep its OWN id —
     // the override poisoning painted them all 'imposter', which then misfed the
     // drop hints and the port-collision check.
-    const r = await runAgent(dir, ["status", "--json"], {
-      env: { DISCERN_WORKTREE_ID: "imposter" },
+    const result = await statusJson(dir, {
+      DISCERN_WORKTREE_ID: "imposter",
     });
-    assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as StatusJson;
     const ids = (result.data.fleet ?? [])
       .map((row) => row.id)
       .filter((id) => id !== undefined);
-    assert(ids.includes("otter-one") && ids.includes("heron-two"), r.stdout);
+    assert(
+      ids.includes("otter-one") && ids.includes("heron-two"),
+      JSON.stringify(result),
+    );
     assert(
       !ids.includes("imposter"),
-      `no row may take the caller's id\n${r.stdout}`,
+      `no row may take the caller's id\n${JSON.stringify(result)}`,
     );
   });
 });
@@ -129,7 +136,13 @@ Deno.test("a failed worktree status read stays unreadable through status and the
       assert(row !== undefined, JSON.stringify(result.data.fleet));
       assertEquals(row.git_unavailable, true, JSON.stringify(row));
       assertEquals(row.clean, undefined, "unknown state must not claim clean");
-      const deskDecision = buildDeskDecision(row, {
+      const deskDecision = buildDeskDecision({
+        path: row.path,
+        branch: row.branch,
+        is_main: row.is_main,
+        is_current: row.is_current,
+        git_unavailable: true,
+      }, {
         trunk: "main",
         nowMs: Date.now(),
       });
@@ -299,9 +312,7 @@ Deno.test("a pristine worktree beside a dirty main checkout raises the divergenc
     await Deno.writeTextFile(join(dir, "misplaced-edit.txt"), "oops\n");
 
     // status (from the worktree) warns…
-    const r = await runAgent(wt, ["status", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const status = JSON.parse(r.stdout) as { hints?: string[] };
+    const status = await statusJson(wt);
     const params = {
       cwd: await Deno.realPath(wt),
       mainRepo: await Deno.realPath(dir),
@@ -311,13 +322,12 @@ Deno.test("a pristine worktree beside a dirty main checkout raises the divergenc
 
     // …and finish carries the same warning in its hints.
     const fin = await runAgent(wt, ["done", "--json"]);
-    const gate = JSON.parse(fin.stdout) as { hints?: string[] };
+    const gate = decodeCliResult(fin.stdout, "done");
     assertHasHint(gate, HINTS["silent-worktree-divergence"], params);
 
     // Real work in the worktree clears the signature.
     await Deno.writeTextFile(join(wt, "real-work.txt"), "here\n");
-    const after = await runAgent(wt, ["status", "--json"]);
-    const cleared = JSON.parse(after.stdout) as { hints?: string[] };
+    const cleared = await statusJson(wt);
     assertLacksHint(cleared, HINTS["silent-worktree-divergence"], params);
   });
 });
