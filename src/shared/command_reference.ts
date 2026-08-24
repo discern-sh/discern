@@ -84,6 +84,23 @@ function assertPart(kind: string, value: string): void {
   }
 }
 
+/** Enforce the command-word invariants shared by construction and decoding. */
+function assertCommandWords(words: string, argsLength: number): void {
+  assertPart("words", words);
+  const [first] = words.split(" ");
+  if (words === "") {
+    if (argsLength === 0) {
+      throw new Error(
+        "a root command reference (empty words) needs at least one argument",
+      );
+    }
+  } else if (first === undefined || !KNOWN_VERBS.has(first)) {
+    throw new Error(
+      `command reference names unknown verb ${JSON.stringify(words)}`,
+    );
+  }
+}
+
 /** Build a `--flag` argument; pass `value` for a `--flag <value>` pair. */
 export function flag(name: string, value?: string): CommandRefArg {
   if (!/^[A-Za-z][A-Za-z0-9-]*$/.test(name)) {
@@ -122,19 +139,7 @@ function buildReference(
   args: readonly CommandRefArg[],
   executor: CommandReference["executor"],
 ): CommandRef {
-  assertPart("words", words);
-  const [first] = words.split(" ");
-  if (words === "") {
-    if (args.length === 0) {
-      throw new Error(
-        "a root command reference (empty words) needs at least one argument",
-      );
-    }
-  } else if (first === undefined || !KNOWN_VERBS.has(first)) {
-    throw new Error(
-      `command reference names unknown verb ${JSON.stringify(words)}`,
-    );
-  }
+  assertCommandWords(words, args.length);
   const reference: CommandReference = { words, args, executor };
   return `${TOKEN_OPEN}${
     JSON.stringify(reference)
@@ -240,13 +245,59 @@ export function renderMcpReference(
     : `\`${tool}\` (${params.join(", ")})`;
 }
 
-/** Decode a token payload and reject references missing their required structure. */
-function parsePayload(payload: string): CommandReference {
-  const parsed = JSON.parse(payload) as CommandReference;
-  if (typeof parsed.words !== "string" || !Array.isArray(parsed.args)) {
-    throw new Error(`malformed command-reference token: ${payload}`);
+/** Create the contextual error used when a token payload has no valid shape. */
+function malformedPayload(payload: string): Error {
+  return new Error(`malformed command-reference token: ${payload}`);
+}
+
+/** Validate and reconstruct one serialized command-reference argument. */
+function parseArg(raw: unknown, payload: string): CommandRefArg {
+  if (typeof raw !== "object" || raw === null) {
+    throw malformedPayload(payload);
   }
-  return parsed;
+  if ("flag" in raw) {
+    if (
+      typeof raw.flag !== "string" || "positional" in raw ||
+      "endOfFlags" in raw
+    ) {
+      throw malformedPayload(payload);
+    }
+    if (!("value" in raw)) return flag(raw.flag);
+    if (typeof raw.value !== "string") throw malformedPayload(payload);
+    return flag(raw.flag, raw.value);
+  }
+  if ("positional" in raw) {
+    if (
+      typeof raw.positional !== "string" || !("value" in raw) ||
+      typeof raw.value !== "string" || "endOfFlags" in raw
+    ) {
+      throw malformedPayload(payload);
+    }
+    return positional(raw.positional, raw.value);
+  }
+  if ("endOfFlags" in raw && raw.endOfFlags === true) {
+    return endOfFlags();
+  }
+  throw malformedPayload(payload);
+}
+
+/** Decode a token payload only after every field has crossed a runtime check. */
+function parsePayload(payload: string): CommandReference {
+  const parsed: unknown = JSON.parse(payload);
+  if (
+    typeof parsed !== "object" || parsed === null || !("words" in parsed) ||
+    typeof parsed.words !== "string" || !("args" in parsed) ||
+    !Array.isArray(parsed.args) || !("executor" in parsed) ||
+    (parsed.executor !== "caller" && parsed.executor !== "owner")
+  ) {
+    throw malformedPayload(payload);
+  }
+  assertCommandWords(parsed.words, parsed.args.length);
+  return {
+    words: parsed.words,
+    args: parsed.args.map((arg) => parseArg(arg, payload)),
+    executor: parsed.executor,
+  };
 }
 
 /** Resolve every reference token in `text` through one surface renderer. */

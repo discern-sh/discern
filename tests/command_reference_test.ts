@@ -27,6 +27,11 @@ const TOOL_LOOKUP: McpToolLookup = (words) =>
     ? `discern_${words}`
     : undefined;
 
+/** Serialize an untrusted payload inside the private token framing. */
+function rawToken(payload: unknown): string {
+  return `⟦discern-cmd:${JSON.stringify(payload)}⟧`;
+}
+
 Deno.test("a flagged command renders CLI flags and MCP parameters", () => {
   const text = `Run ${
     discernCommand("start", flag("name", '"<task>"'))
@@ -179,6 +184,33 @@ Deno.test("tokens are detectable, extractable, and strippable for the guards", (
       executor: "caller",
     },
   ]);
+});
+
+Deno.test("token decoding validates every payload field before rendering", () => {
+  const malformed = [
+    { words: 1, args: [], executor: "caller" },
+    { words: "status", args: "none", executor: "caller" },
+    { words: "status", args: [], executor: "future" },
+    { words: "status", args: [{ flag: 1 }], executor: "caller" },
+    {
+      words: "map",
+      args: [{ positional: "target", value: 4 }],
+      executor: "caller",
+    },
+    {
+      words: "map",
+      args: [{ endOfFlags: false }],
+      executor: "caller",
+    },
+  ];
+
+  for (const payload of malformed) {
+    assertThrows(
+      () => extractCommandRefs(rawToken(payload)),
+      Error,
+      "malformed command-reference token",
+    );
+  }
 });
 
 Deno.test("text without tokens passes through every renderer unchanged, same reference", () => {
