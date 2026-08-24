@@ -742,6 +742,13 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(names.includes("discern_prepare"), JSON.stringify(names));
     assert(names.includes("discern_test"), JSON.stringify(names));
     assert(names.includes("discern_doctor"), JSON.stringify(names));
+    const doctorTool = list.result.tools.find((tool: { name: string }) =>
+      tool.name === "discern_doctor"
+    );
+    assert(
+      doctorTool?.inputSchema?.properties?.verbose !== undefined,
+      "doctor's complete execution model must be an explicit verbose input",
+    );
     assert(names.includes("discern_impact"), JSON.stringify(names));
     assert(names.includes("discern_status"), JSON.stringify(names));
     assert(names.includes("discern_improvement"), JSON.stringify(names));
@@ -862,6 +869,25 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(
       typeof doctor.result.structuredContent.data.kit_version,
       "string",
+    );
+    assertEquals(
+      doctor.result.structuredContent.data.execution_model,
+      undefined,
+    );
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 70,
+      method: "tools/call",
+      params: { name: "discern_doctor", arguments: { verbose: true } },
+    });
+    const verboseDoctor = await mcp.recv();
+    assertEquals(verboseDoctor.id, 70);
+    assert(
+      Array.isArray(
+        verboseDoctor.result.structuredContent.data.execution_model,
+      ),
+      "verbose doctor carries the complete execution model",
     );
 
     // tools/call discern_prepare → the fast inner loop. No capability is wired in

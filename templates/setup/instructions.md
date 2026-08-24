@@ -1,478 +1,512 @@
 # Set up discern
 
-> **`discern setup begin` printed this** — the third step of the staged handshake (`verify` previewed the plan and you confirmed the essentials with your human; `begin` scaffolded and printed this brief). These are instructions for _you, the coding agent in this session_ — **work to do now, not a summary to hand back**: paraphrasing this checklist back as completed work, without doing it, is the one failure this setup exists to avoid. Work top to bottom, then run `discern setup done` to finish. **These are your setup instructions** — you are reading them right now — discern intentionally hands you this brief over stdout.
+> `discern setup begin` started this one-time setup. The setup is unfinished. Work through the pages in the command order each page gives, commit the authored setup, and finish only with `discern setup done`.
 
-`discern setup begin` has just laid down discern's machinery — a `discern.toml` with `discern tidy` prewired for discern's own surfaces but every project-specific job unset, the agent files, the merged settings, the MCP wiring — plus an empty skeleton for the map when the configured map was absent. The map is an agent-maintained account of how this codebase fits together, written as Markdown and kept current with the code. **Nothing about _this project_ is filled in yet, and that is your job:** propose the `[jobs]` that turn the gate into this project's real definition-of-done, then author the map and instructions from the project's own context, beginning with its design principles. There is no API key and no external service — the whole point is that the agent already in the loop sets the project up.
+You are the configuration engine for this project. Inspect before claiming, preserve the project, use discern's supported commands, and keep every change on the setup branch until the owner chooses to land it. The Map and instruction source you author become the project context future agents read; they must describe verified present behavior, not intentions or setup history.
 
-`discern setup begin --confirmed` re-verifies the setup consent attestation before scaffolding starts. Dependency installs and other consequential resources still require their own current confirmation.
+## Operating contract
 
-## Operating principles — read these first
+- Read the named evidence before acting. Repository code and configuration outrank guesses and examples.
+- Reuse useful project commands. Setup may register them with the Gate; it does not redefine them to advertise discern.
+- Narrate a bounded stage, its reason, and its revertible commit. Ask only when cost, data, access, an irreversible choice, or project intent requires the owner.
+- Use `discern config` for jobs and applicability. Use result diagnostics and their recovery instead of inventing command syntax.
+- Keep setup effects on the dedicated branch. A green Gate is evidence, not landing authority.
+- Do not restart for newly written MCP or agent integration while setup is unfinished. The completion and landing results own the activation handoff.
+- Do not run `discern improvement` during setup. It becomes an optional owner review only after the landed setup is active in a fresh session.
 
-- **You are the configuration engine.** discern's pitch is zero configuration: the human points you at the repo and _you_ — the capable agent already in the loop — set it up. They watch and trust; they don't field a stream of questions. Earn that trust by narrating what you do and why, and asking only the genuine decisions. The next section, _How to work with the user_, is the heart of how this should feel — read it.
-- **What you author is the product.** The map and instructions you write here form the **single source of truth** every future agent session — and discern itself — reads to work in this project. The map includes the design principles, and it lets people audit what their agents understand. That is why authoring these sources is the bulk of the job.
-- **Checkpoint the model first (Step 0).** `verify` already served the model question for you to relay; Step 0 is the checkpoint that it actually reached your human before you configure anything. This one-time setup is inherited by every future session, so it is worth the user's strongest model — a question you put to _them_, not a box you tick for yourself.
-- **Learn the project, then ask once (Step 1).** Derive intent from the repository; ask the user — in a single early batch — only what the code can't tell you. Pausing later for a genuine fork is different; that's not peppering.
-- **Stay this-project-specific.** Principles, concepts, and conventions describe _this_ project, not discern and not any example. The Step 2 stack-detection table is the one place where naming many ecosystems is correct.
-- **Read discern with `--json`.** Every discern verb that reports or checks — `status`, `doctor`, `done`, `prepare`, `test`, `standards`, `setup verify`, `setup done` — accepts `--json` and returns a structured envelope. Parse that, not the human-formatted text (which is for the user).
-- **It is safe to re-run.** `discern setup begin` is idempotent and non-destructive — it never overwrites your work or the configured `{{map_dir}}` tree. Interrupted? Re-run `begin` to reprint this brief, `discern status` for a derived progress summary, or `discern setup step <n>` for one step's text.
+## How to work with the owner
 
----
+Give the owner facts they must decide and a short relay when facts must survive into chat. Reversible project-specific authoring is yours to carry out and commit. Installing a dependency, creating a cost- or data-bearing resource, choosing between legitimate product meanings, or landing onto the integration branch requires the authority that applies to that act.
 
-## How to work with the user — you are the engine; transparency, not interrogation
-
-You are configuring a project for someone who may be newer to shipping reliable software: building through coding agents, but without the background that keeps a codebase holding together. They can be unsettled by an agent that changes things silently. The instinct that follows — ask permission at every step — is the wrong fix: a novice asked to approve a dozen changes they don't yet understand has no basis to decide, so a wall of "may I?" requests is its own kind of black box. **Zero configuration means _you_ do the work; their job is to watch and trust.** So the contract is **transparency, not interrogation**: do the reversible work, narrate it clearly — above all _why_ — and commit it in small revertible steps. The user stays informed and in control without answering for each one.
-
-**Ask a real question only at a genuine decision** — one that is yours to escalate, not yours to make:
-
-- the model check (Step 0) and the discovery batch (Step 1) — two expected, collaborative touchpoints, not gates;
-- a change that is hard or costly to reverse;
-- a real fork between legitimate alternatives only the user can choose;
-- anything with cost, security, privacy, or data implications, or that depends on intent you can't infer from the repository.
-
-Everything else you do, narrating as you go — the reversible, low-stakes, single-obvious-answer changes are yours to make. The Step 1 discovery questions are not a gate; that is you learning the project.
-
-**Commit atomically, stage by stage.** Each coherent stage — each job, the principles, the instructions, the orientation pages — lands as its own focused, atomic commit with a plain-language message, and you say so ("I'm committing this on its own, so you can undo just this piece"). Reassure the user **up front**: `discern setup` already put you on a dedicated **`discern-setup`** branch off their clean tree, so the whole burst of commits is isolated — none of it touches their main branch until they merge it, and it all rolls back by deleting the branch. The per-stage commit is what makes "you can revert this" literally true: the commit **is** the undo, so never batch unrelated changes into one.
-
-**Narrate generously, but at the level of stages and decisions** — warm and clear, never a wall of text. When you introduce something the project is _missing_, or hit a genuine fork, walk the user through it in **five beats**:
-
-1. **Recommend it as a shared step** — "I'm recommending we add ‹the missing job›…".
-2. **Say why it helps** — tie it to what they care about: the code keeps holding up as it grows, mistakes get caught before they ship.
-3. **Name `discern` as the source** — "…so `discern` can hold the line on it for you," so they learn the tool is watching their back.
-4. **Preserve their authority and name the risk of skipping** — "we can revert this commit later — but skipping it risks quality slipping, or subtle bugs that are hard to track down."
-5. **Proceed and say what you did** — then commit it on its own.
-
-Reserve the full five beats for genuine additions and forks. The obvious jobs a stack plainly already has — formatter, linter, type-checker, tests — you batch into **one** concise recommendation, not five beats apiece (Step 2).
-
-You can use your own words when narrating progress, just make sure your narration covers: what you're adding, why it matters, how discern will enforce it, how it can be reverted, and what you did.
-
-**Narration is not completion.** Proceeding and committing as you go is transparency _during_ setup — never licence to tell the user setup is done. Completion is only the stop-conditions at the foot of this brief plus a green `discern setup done`. (The `discern setup` _command_ never requests terminal input — but a non-interactive command and a silent agent are different things: converse, narrate, and ask the genuine questions anyway.)
+Setup pages have stable numeric identifiers. Their presentation order is intentionally `0, 1, 2, 3, 4, 5, 7, 8, 6, 9`: Step 7 bounds the Map from the Step 1 subsystem evidence, and Step 8 proves the configured behavior before Step 6 performs final documentation synthesis. Existing sessions can still resume the same `discern setup step <n>` identifier.
 
 ---
 
-## Step 0 — Checkpoint: the model question, then orient
+## Step 0 - Confirm consent, provenance, and install health
 
 ```toml
-intent = "Checkpoint before you configure anything: make sure the model question `verify` served actually reached your human, then orient with status and doctor."
-files_to_read = []
+phase = "orientation"
+stable_target = "The consent relay is accounted for, setup provenance is explicitly advisory, and the unfinished install is healthy without restarting this session."
+intent = "Confirm the setup began from the complete consent exchange, record an honest self-declared provider/model identifier or `unreported`, and establish current health before project authoring."
+files_to_read = [
+  "the owner's answers to the consent message served by `discern setup verify`",
+  "discern.toml ([meta].setup_model and [meta].setup_version)",
+  "`discern status --json` and `discern doctor --json`",
+]
 must_do = [
-  "Confirm you actually put verify's model question to your human; if you skipped it, ask it now — before you read the repo or touch a file.",
-  "If a stronger model is available, ask the user to restart setup in a fresh session running it.",
-  "Run `discern status --json` to orient, and `discern doctor --json` if anything looks off.",
+  "Confirm the relay carried the three discern pillars, footprint, plan, reversibility, every numbered confirmation, and the time-and-tokens expectation; if any item was compressed away, re-run `discern setup verify` and relay its fenced message before continuing.",
+  "Confirm `[meta].setup_model` contains the exact provider/model identifier you self-declared or the literal advisory value `unreported`; never infer a model id from capability and never copy a placeholder.",
+  "Run `discern status --json`, then `discern doctor --json`; use `discern doctor --verbose --json` only when the full execution model is needed to diagnose a finding.",
+]
+authority_boundaries = [
+  "The model identifier is self-declared provenance for support context, not verified capability or permission.",
+  "Install health does not authorize project changes or landing; each later page names its own boundary.",
+]
+human_decisions = [
+  "The owner chooses which available model performs setup during the consent exchange; the agent reports known provider/model facts separately and uses `unreported` when it cannot know them.",
 ]
 what_not_to_do = [
-  "Do not assume you are the best model and press on — you cannot reliably self-certify.",
-  "Do not treat a skipped consent conversation as done; if it did not happen, hold it now.",
+  "Do not ask the agent to certify that it is capable, expert, safe, or the best option.",
+  "Do not restart this unfinished setup merely because refresh registered MCP integration.",
+  "Do not treat a healthy doctor result as completed setup.",
 ]
-completion_check = "You have put the model question to your human, and `discern doctor` is green."
-next_action = "Once the model is confirmed and discern is healthy, pull the next page: `discern setup step 1`."
+completion_check = "The complete consent relay is accounted for, provenance is an exact self-declared identifier or `unreported`, and the default doctor result is green."
+stop_conditions = [
+  "Stop when the consent relay was incomplete, the provenance value is a placeholder, or doctor reports a failure.",
+]
+recovery = [
+  "Re-serve consent with `discern setup verify`, use the exact fix on each doctor check, and re-run the default bounded commands before continuing.",
+]
+next_action = "discern setup step 1"
+relay = [
+  "If consent must be repaired, relay the fenced verify message without compressing its list or numbered confirmations.",
+]
 ```
 
-`verify` served the model question inside the consent message you relayed. This step is the **checkpoint**: if you haven't actually put that question to your human, do it now — before anything else, before you read the repo or touch a file. It is the single highest-leverage moment in the project's life with discern, because **you are the engine of this setup, and its quality is bounded by the model that does it** — everything you configure here is inherited by every future session.
-
-If the consent conversation didn't happen (you reprinted this brief, or landed here without running `verify`), ask it plainly now and wait:
-
-> **"Before I configure anything: am I your most capable model? Everything I set up here — the map, instructions, and jobs — is inherited by every future session, so it's worth your strongest model."**
-
-You can't see the other models the user has access to, or ones released after your training cutoff, so you cannot self-certify — this is the one decision only they can make.
-
-- If a stronger model is available, **ask the user to restart setup in a fresh session running that model** — don't carry on in this one. A clean session is the only reliable switch: providers differ (some can't change model mid-session at all), discern's tools and session hooks load only at session start, and even where a mid-session switch is allowed, the weaker model's reasoning already in this context window would bias the stronger one.
-- If they confirm, proceed — you'll already have passed `--model` to `begin`, so discern recorded which model configured the project.
-
-Then **confirm discern is healthy**: run **`discern status --json`** to orient (it also smoke-tests that `discern` is on your PATH — you lean on it constantly), and **`discern doctor --json`** if anything looks off. Fix what `doctor` flags before authoring; it returns the exact remedy.
+Provenance answers “what did this agent report itself as?” It never answers “was this model qualified?” The supported begin command uses `--model unreported` when the exact identifier is unavailable, so uncertainty stays visible without blocking setup.
 
 ---
 
-## Step 1 — Learn the project, then ask
+## Step 1 - Inspect the project and build the subsystem evidence inventory
 
 ```toml
-intent = "Build your mental model from the repository, then ask the user one sharp batch of only what the code can't tell you."
+phase = "project inspection"
+stable_target = "A code-backed inventory of the primary subsystem, durable boundaries, entry points, existing workflows, and unresolved owner facts exists before any final orientation is authored."
+intent = "Learn the repository first, identify the evidence final documentation will consume, and ask one bounded batch for facts the repository cannot supply."
 files_to_read = [
-  "the top-level layout, the README, and the manifests/lockfiles",
-  "the actual code — models, config, tests",
-  "{{brief_path}}, if a user or CI supplied one",
+  "the top-level layout, README, manifests, lockfiles, and existing project instructions",
+  "entry points, core modules, configuration, data boundaries, tests, and automation",
+  "existing formatter, lint, typecheck, test, build, smoke, and aggregate command definitions",
+  "{{brief_path}}, when setup was supplied a project brief",
 ]
 must_do = [
-  "Read the repository first — it is your primary source for the principles, concepts, and conventions you will write.",
-  "Ask a short, high-signal batch of questions together, then proceed.",
-  "Confirm the project's real name in that batch — the scaffold seeded it mechanically from the folder name.",
-  "Mine the repo for what the system actually is — a thin answer is no licence for a shallow result.",
+  "Name the primary subsystem and record where a future agent should start, its durable boundary, and one non-obvious invariant evidenced by code or configuration.",
+  "List each additional durable subsystem boundary with its authority paths and explain whether a separate Map page would reduce future repository reading.",
+  "Inventory existing project commands without changing them, including the project's aggregate check and what it actually covers.",
+  "Ask one short batch only for the project name, purpose, non-negotiable product rules, or active work that the repository cannot establish; then proceed on the answers.",
+]
+authority_boundaries = [
+  "Repository code, configuration, and executable command definitions are the authority for technical claims; owner answers are the authority for product intent that is absent from the repository.",
+]
+human_decisions = [
+  "The owner resolves only missing product intent, the real project name, and legitimate alternative meanings the evidence cannot choose.",
 ]
 what_not_to_do = [
-  "Do not pepper the user with questions one at a time.",
-  "Do not invent a domain — derive it from what you find.",
+  "Do not author final orientation before this subsystem evidence exists.",
+  "Do not infer documentation scope from repository size, folder count, or enthusiasm.",
+  "Do not turn unanswered questions into confident prose.",
 ]
-completion_check = "You have read the repository and asked your one discovery batch."
-next_action = "When you have your bearings, pull the next page: `discern setup step 2`."
+completion_check = "The primary subsystem and every candidate durable boundary have evidence paths, existing commands are inventoried, and the one discovery batch is resolved or explicitly open."
+stop_conditions = [
+  "Stop when the repository and owner give contradictory product facts or the primary subsystem cannot yet be identified.",
+]
+recovery = [
+  "Present the conflicting evidence as one owner decision; record an unresolved technical claim as a concrete item in {{todo_path}} rather than guessing.",
+]
+next_action = "discern setup step 2"
+relay = [
+  "Relay only the bounded discovery batch: the missing fact, the evidence already inspected, and the choice or answer needed.",
+]
 ```
 
-1. **Read the repository — it is your primary source.** The top-level layout, the README, the manifests/lockfiles, and the actual code (models, config, tests) are where the principles, concepts, and conventions you'll write are _evidenced_. Start forming the real mental model now; you inventory the stack properly in Step 2, next.
-2. **Ask the user a short, sharp batch of questions** — only what the code can't tell you: what the project is _for_ and who it serves, its non-negotiable rules, anything in flight or deliberately unusual. Include one cheap confirmation: **the project's real name** — the scaffold seeded `[project].slug` and the map page titles from the directory's basename, a mechanical guess that is sometimes a codename or a clone path, and a wrong name compiles into every map page and worktree branch. If it's wrong, fix it now: `discern config set project.slug <the-real-slug>`, plus a quick pass over the seeded map page titles. Keep it to a handful of high-signal questions asked together, then proceed. (If a brief exists at `{{brief_path}}` — a user or CI may have supplied one via `--brief`/`--config` — read it first and let it narrow what you ask.)
-
-**A thin answer is not a licence for a shallow result.** Whether the user gives you a single sentence or a deliberate "figure it out", the job is identical: mine the repository for what the system actually _is_ and document _that_ — don't paraphrase the answer and stop. The depth comes from the repo, not the length of the answer. Never invent a domain — derive it from what you find.
+The inventory is working evidence, not another documentation tree. Keep it in the setup session until Step 6 turns verified facts into the final Map.
 
 ---
 
-## Step 2 — Sniff the stack and recommend the jobs
+## Step 2 - Preserve project workflows and configure the Gate
 
 ```toml
-intent = "Detect the stack and wire the [jobs] that turn the gate from a no-op into a real definition-of-done — raising the floor where a standard tool is missing."
+phase = "Gate configuration"
+stable_target = "Useful existing project commands are byte-for-byte preserved, applicable Gate jobs use supported config commands, and green output stays concise while failures retain machine-useful diagnostics and the original exit status."
+intent = "Reuse the project's real workflows as Gate jobs, add only owner-approved tooling, and prove each configured command without changing what the project already means."
 files_to_read = [
-  "the manifests/lockfiles and the scripts they actually declare",
-  "discern.toml ([jobs])",
+  "the command definitions inventoried in Step 1 and their tool help for reporter behavior",
+  "discern.toml ([jobs] and [assurance])",
+  "the configured Gate result from `discern prepare --json` or `discern done --json`",
 ]
 must_do = [
-  "Inventory the stack signals and wire lint/typecheck/test/build/smoke via `discern config set-job`; when the project has a formatter, put it before the existing `discern tidy` entry in the format list. Commit each job (the formatter first, its sweep on its own).",
-  "Inspect each wired lint/typecheck/test tool's output options; when it can emit a recognized format ({{diagnostic_formats}}) to stdout or stderr, request that format without masking its exit status.",
-  "Run `discern refresh`, then `discern done` (or `discern prepare`), and watch the gate go green as you wire each job.",
-  "Where the stack is missing a standard tool, propose adding it through the five beats — batching every new install into one clear go-ahead before anything is installed.",
+  "Configure each existing formatter, lint, typecheck, test, build, and smoke command with `discern config set-job`; use repeated `--run` for ordered commands and keep `discern tidy` after the project's formatter.",
+  "For a lifecycle the project genuinely does not have, use `discern config set-job <name> --not-applicable`; leave a missing but expected protection applicable and absent.",
+  "Choose reporter behavior from captured output, exit-status preservation, failure value, and green-path volume; keep routine green output concise.",
+  "Run `discern refresh`, then the narrowest relevant project command and `discern prepare --json`; fix the result-driven diagnostic before adding the next job.",
+  "Verify the project's aggregate check remains byte-identical and describe it as the project's aggregate check unless it covers the complete configured Gate by construction.",
+]
+authority_boundaries = [
+  "Setup may register existing project commands with discern. Any independent change to a project command needs evidence and the project's normal owner authority.",
+  "A new dependency, network access, paid service, install script, or lockfile change requires current owner consent before the effect runs.",
+]
+human_decisions = [
+  "The owner decides whether to install missing tooling, choose between legitimate command alternatives, or accept a long-running, networked, cost-bearing, or data-bearing Gate action.",
 ]
 what_not_to_do = [
-  "Do not wire a command you can't pin down — leave it as a comment beside the unset key.",
-  "Do not leave a known job unset merely because the project hadn't adopted the obvious tool yet.",
-  "Do not replace or remove the seeded `discern tidy` command; keep it last in the format job.",
-  "Do not install a new dependency without the user's go-ahead — an install is a genuine decision (network, third-party code, lockfile), not a narrate-and-proceed.",
+  "Do not rewrite an existing aggregate command to invoke `discern done`, replace its meaning, or create recursion.",
+  "Do not hand-edit ordered job arrays or applicability when the supported `discern config set-job` forms exist.",
+  "Do not mark a missing expected protection inapplicable to improve the assurance label.",
+  "Do not trade a correct failing exit status for parsed output or print a large structured transcript on every green run.",
 ]
 completion_check = "at least one applicable known job is wired in discern.toml, or every known job is declared not applicable."
-next_action = "Once the gate is green with what you wired, pull the next page: `discern setup step 3`."
+stop_conditions = [
+  "Stop before an unapproved install or resource effect, when command meaning is ambiguous, or when a reporter masks the original status.",
+]
+recovery = [
+  "Keep the existing concise command, use the failing result's captured output, and ask one owner decision only when the evidence leaves a real fork.",
+]
+next_action = "discern setup step 3"
+relay = [
+  "Relay the commands reused, the protections still absent, and any installation or resource decision. Do not claim the project aggregate is the Gate unless the configured construction proves it.",
+]
 ```
 
-This is the one step where naming concrete ecosystems is right: you're detecting which one this is.
-
-Inventory the repo for stack signals, then propose the `[jobs]` in **`discern.toml`** — the standard format / lint / typecheck / test / build command for each detected stack. Each known name maps to its command and derives the gate stage, so you never write a stage for one.
-
-**Use `discern config` for the single-command edits — it is comment-preserving and validated:**
+Supported examples:
 
 ```sh
-discern config set-job test "<the project's test command>"
-discern config set-job lint "<the project's linter>"
-discern config set-job licenses --stage check --run "./scripts/check-licenses.sh"
-discern config set-scope native 'native/**' --gate "make -C native check"
-discern config set-standard coverage --direction up --limit 80 --run "<coverage tool>"
+discern config set-job format --run "<project formatter>" --run "discern tidy"
+discern config set-job test --run "<project test command>"
+discern config set-job build --not-applicable
+discern config set-job build --applicable
 ```
 
-The format job already contains `discern tidy`. Keep it there. If the project has its own formatter, make the value a list with that formatter first and discern's formatter last:
+discern recognizes {{diagnostic_formats}}, but recognition alone does not justify a reporter switch. Apply this policy:
 
-```text
-format = ["<the project's formatter>", "discern tidy"]
-```
-
-Prefer these over hand-editing TOML; the format list is the one edit that preserves two commands in order. The format/lint/typecheck/test/build a stack plainly already has are not a fork to deliberate — so **batch them into one concise recommendation**, not a five-beat pitch apiece: tell the user which tools you found, that wiring them lets `discern` check those parts of the project for them, and that each lands as its own revertible commit. Then activate the ones you're confident in and commit them (the formatter on its own — see below). Reserve a genuine, individual pause for a **real decision**: two legitimate commands where the choice matters, or a command that would do more than check — touch real data, hit a paid or networked service, or run long.
-
-**Setup is a chance to raise the project's floor, not just record it.** Where a stack is _missing_ a standard tool — no formatter, no linter, no type-checker, or even no test suite — proposing a well-established one (the conventional, well-regarded choice for the ecosystem, like those in the table below) is a real improvement, not overreach. Walk the user through _adding_ it in the five beats — recommend, say why, name `discern`, preserve their authority and the revert. One boundary: **installing a new dependency is a genuine decision, never a narrate-and-proceed** — an install reaches the network, pulls third-party code, may run install scripts, and edits the manifest and lockfile, which puts it squarely in the cost/security bucket above. Batch every proposed install into one clear go-ahead ("adding a formatter here means installing ‹the tool› — OK to install it?") — one question covering all of them, asked with the job recommendation — then proceed on the answer. _Wiring a tool the project already has_ stays narrate-and-proceed, and keep the other genuine pauses for the real decisions above (a paid, networked, or long-running command, or a true fork between legitimate alternatives).
-
-**Ask each check for structured output when it already supports it.** discern recognizes {{diagnostic_formats}} in a failed job's captured stdout or stderr and returns one diagnostic per finding or failing test. Check the reporter or output options for every linter, type-checker, and test runner you wire. Select a recognized format when the tool can emit it to the captured stream without masking its failure exit status. If the tool writes the report only to a file, keep its normal command unless you can expose the report while preserving that status.
-
-Before you run the gate here for the first time, **run `discern refresh`**: it is idempotent and brings every generated file current, and `discern done`'s currency check fails on stale files until `refresh` recompiles them — the same move you'll repeat after editing `{{instruction_path}}` in Step 5, since the agent files compile from that source. Then **`discern done`** (or the faster **`discern prepare`**) confirms each fill passes — both run during setup, and `discern setup done` proves the whole gate green before completion — so a confident fill is exactly the low-stakes, reversible change to proceed on. A known job you can't pin down waits as a comment beside the unset key: an omitted known job is "knowably absent", so a wrong guess never breaks the gate.
-
-**Mark the first green gate out loud — it is the moment the promise lands.** When `discern done` first passes, tell the user plainly: the gate is live, `discern` now checks every change for them, and if setup stopped right here the project would already be protected — everything still to come (the principles, the instructions, the map) is authored under its watch.
-
-Detection lookup (signal file → ecosystem → the usual tools to suggest):
-
-| Signal file(s)                                                          | Ecosystem           | Typical job fills (format · lint · typecheck · test · build)                                                                         |
-| ----------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `deno.json(c)`                                                          | Deno                | `deno fmt` · `deno lint` · `deno check <entry>` · `deno test` · _(none)_                                                             |
-| `package.json` (+ `package-lock.json` / `yarn.lock` / `pnpm-lock.yaml`) | Node / JS / TS      | `prettier --write .` · `eslint .` · `tsc --noEmit` (if `tsconfig.json`) · the package's `test` script · the package's `build` script |
-| `pyproject.toml` / `requirements.txt` / `setup.py`                      | Python              | `ruff format .` (or `black .`) · `ruff check .` · `mypy .` (or `pyright`) · `pytest` · _(usually none)_                              |
-| `go.mod`                                                                | Go                  | `gofmt -w .` · `go vet ./...` · _(vet covers it)_ · `go test ./...` · `go build ./...`                                               |
-| `Cargo.toml`                                                            | Rust                | `cargo fmt` · `cargo clippy` · _(clippy covers it)_ · `cargo test` · `cargo build`                                                   |
-| `composer.json`                                                         | PHP                 | a formatter (e.g. `php-cs-fixer fix`) · a linter · a static analyser (e.g. `phpstan analyse`) · the test script · _(usually none)_   |
-| `Gemfile`                                                               | Ruby                | `rubocop -A` · `rubocop` · _(none standard)_ · `rspec` (or `rake test`) · _(usually none)_                                           |
-| `pom.xml` / `build.gradle(.kts)`                                        | Java / Kotlin (JVM) | a formatter plugin · a linter plugin · _(compiler)_ · `mvn test` / `gradle test` · `mvn package` / `gradle build`                    |
-| `*.csproj` / `*.sln`                                                    | .NET                | `dotnet format` · analyzers · _(compiler)_ · `dotnet test` · `dotnet build`                                                          |
-
-Notes that keep the proposal honest:
-
-- **Verify before suggesting.** Read the manifest's actual scripts/dependencies — propose the command the project really has, not the textbook one. If a stack declares a custom test script, suggest that.
-- **A known tool maps to a known job name.** Formatter → `format`, linter → `lint`, type-checker → `typecheck`, the test suite → `test`, a build/bundle step → `build`, a fast does-it-boot check → `smoke`. Anything outside those six (a coverage threshold, a schema validator, a license check) is a custom `[jobs.<name>]` table with an explicit `stage` (`fix` | `build` | `check` | `test`).
-- **`smoke` proves fast project readiness, not full correctness.** It rides the fail-fast `test` group and should be FAST and side-effect-light — boot with real config and any essential shared runtime dependency, such as a framework's about, a CLI `--version`, or a config-load-and-exit — not an e2e suite (that's a custom job). Both `discern done` and `discern test` include it, and a quick failure cancels slower siblings. Discern separately probes its own predictable writes; a prerequisite unique to one custom job or standard belongs at the start of that command. Because the gate runs `smoke` wherever it runs, it re-proves readiness inside a worktree too — which Step 8 leans on.
-- **Every wired command must exit on its own.** Before you commit a job, run the command once, non-interactively, and confirm it terminates without a keypress or a file-watcher: wire watch-mode runners in their single-run form (the run-once/CI variant, watch off), and never a dev server. The gate runs every command under a hard timeout, so a watcher doesn't hang the gate — it fails it, slowly, on every run.
-- **Monorepo / polyglot:** several stacks can coexist. Chain tools in one known job with `&&`, or add a `[scopes.<name>]` for a sub-app with its own `gate`.
-- **Wire the obvious scopes and worktree resources too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project needs a per-worktree external resource (a database, an emulator, a container), note a `[worktree.resources.<name>]` table with `create`/`destroy` for the user to fill — an external resource carries cost and data implications, so it is a genuine decision to leave with them, not something to wire silently.
-- **Point the gate at its gotchas page.** `setup begin` laid `{{map_dir}}80-development/done-gate-gotchas.md`; set `[project].gotchas_doc = "{{map_dir}}80-development/done-gate-gotchas.md"` so a non-obvious gate failure points agents at it.
-- **Wire the project's formatter first, and commit its sweep on its own.** Keep `discern tidy` last in the format list: the project's formatter handles its stack, then `discern tidy` handles the map, instructions, TODO, and `discern.toml`. This step comes before the authoring so the first reflow lands on the unauthored scaffold, keeping each later map or instructions commit a clean content diff. No project formatter yet but you intend to add one? A missing formatter is exactly the kind of well-established tool worth proposing (Step 2's dependency-install boundary still needs the user's go-ahead). Run `discern prepare` right after wiring it and commit that normalization on its own.
-- **Leave a known job unset** only when the ecosystem genuinely has no standard tool for that slot — not merely because the project hadn't adopted the obvious one yet (recommend it under Step 2's missing-tool procedure). `discern tidy` protects discern's surfaces, but it does not test, lint, type-check, build, or smoke-test the project; wire the checks this project needs before calling setup complete.
+{{reporter_guidance_table}}
 
 ---
 
-## Step 3 — Check the map skeleton
+## Step 3 - Inspect the scaffold and preserve existing project material
 
 ```toml
-intent = "Take stock of what `setup begin` scaffolded versus left untouched, and adapt the authoring steps ahead to what is already there."
+phase = "scaffold reconciliation"
+stable_target = "discern's declared footprint is understood, existing project material remains intact, and every generated or authored file has one authority."
+intent = "Review what begin wrote, preserve existing instructions and documentation, and identify the authored sources final synthesis must update."
 files_to_read = [
-  "the `setup begin` output (what it laid versus left untouched)",
-  "the scaffolded {{map_dir}} tree, if one was laid",
+  "the setup begin result and its written/skipped file lists",
+  "discern.toml path settings for the Map, instruction source, and TODO ledger",
+  "existing project instructions imported into {{instruction_path}}",
+  "the skeleton under {{map_dir}} and {{todo_path}}",
 ]
 must_do = [
-  "Note whether the configured {{map_dir}} tree and {{todo_path}} were scaffolded or already existed, and adapt to what is there.",
+  "Compare the begin result with the actual footprint and confirm skipped or imported files retained their prior content.",
+  "Identify the authored instruction source and Map paths; treat provider agent files and generated references as outputs refreshed from those authorities.",
+  "Remove no existing project content merely because the scaffold offers a replacement shape.",
+]
+authority_boundaries = [
+  "The configured authored sources own project knowledge; generated agent files are refreshed outputs and are never hand-edited.",
+  "Existing human documentation remains owner material unless the configured discern footprint explicitly points elsewhere by prior choice.",
+]
+human_decisions = [
+  "Escalate only a genuine collision where preserving both authored meanings is impossible; show both paths and the consequence of each choice.",
 ]
 what_not_to_do = [
-  "Do not impose the skeleton shape on an existing configured map.",
+  "Do not adopt or overwrite an existing documentation tree by inference.",
+  "Do not hand-edit generated agent files or generated references.",
+  "Do not delete imported instructions before their meaning is reconciled in Step 9.",
 ]
-completion_check = "You know what was scaffolded and what already existed."
-next_action = "With the lay of the land clear, pull the next page: `discern setup step 4`."
+completion_check = "Every setup file is classified as authored source, generated output, preserved project material, or a concrete unresolved collision."
+stop_conditions = [
+  "Stop when two authored sources claim incompatible ownership of the same file or setup reports a partial refresh.",
+]
+recovery = [
+  "Follow the partial-refresh diagnostic, preserve both authored meanings, and ask the owner only if the ownership collision cannot be resolved within the declared footprint.",
+]
+next_action = "discern setup step 4"
 ```
 
-`discern setup` has already laid the skeletons for you — **but only when their configured destinations were absent**, so existing content is never disturbed:
-
-- if there was no `{{map_dir}}` tree, it scaffolded one (the orientation pages plus the `80-development/` leaves) for you to fill;
-- if `{{todo_path}}` was absent, it created that too;
-- if you **already had** the configured tree (or a `{{todo_path}}`), discern left it untouched — work with what is there, adapting these steps to your existing structure rather than imposing the skeleton shape below.
-
-The command's output told you which of these happened. The scaffolded files already carry the project name; the remaining placeholders are the `<!-- setup fills this -->` markers and the EXAMPLE principle, which you replace as you go. (If you wired a formatter in Step 2, its sweep has already normalized these skeletons, so everything you author from here lands as a clean content diff.)
+The scaffold is a starting shape. The final Map is determined by Step 1 evidence and Step 7's bounded scope, not by the number of seeded folders.
 
 ---
 
-## Step 4 — Draft the design principles
+## Step 4 - Draft project-specific design principles
 
 ```toml
-intent = "Write the 3–7 principles that actually govern decisions here — the load-bearing foundation every future session reads."
+phase = "documentation draft"
+stable_target = "The design-principles draft states at least three project-specific decision rules, each grounded in current code or configuration and ready for the post-smoke recheck."
+intent = "Turn repeated architectural choices into concise principles that help a future agent decide, while retaining the authority evidence for final verification."
 files_to_read = [
-  "{{map_dir}}00-orientation/design-principles.md (the template shape plus the EXAMPLE principle)",
+  "{{map_dir}}00-orientation/design-principles.md",
+  "the Step 1 authority paths supporting each proposed principle",
+  "current code and configuration at every cited boundary",
 ]
 must_do = [
-  "Write 3–7 project-specific, falsifiable principles, each with a name, the rule, a Why it matters, and a How it shows up.",
-  "Replace the EXAMPLE principle entirely and delete the instructions comments as you go.",
-  "Fill the \"What these add up to\" section.",
+  "Replace the example with at least three project-specific principles that state a decision rule, its reason, and its practical consequence.",
+  "Attach or retain the code/config authority for every architecture, ownership, test-behavior, or command claim so Step 6 can recheck it after smoke wiring.",
+  "Recheck each drafted claim against its authority now; label anything not yet verified as an open item in {{todo_path}} instead of asserting it.",
+]
+authority_boundaries = [
+  "Code and configuration prove current behavior; a principle records the non-mechanical decision rule that behavior embodies.",
+]
+human_decisions = [
+  "Ask only when two evidenced design rules conflict and choosing one would change product intent or a hard-to-reverse architecture boundary.",
 ]
 what_not_to_do = [
-  "Do not write a wish list — keep the smallest set that actually governs decisions.",
-  "Do not leave the EXAMPLE block or any generic, unfalsifiable principle.",
+  "Do not write generic engineering virtues, discern's own principles, or historical bug commentary.",
+  "Do not convert an unverified inference into confident present-tense prose.",
 ]
 completion_check = "design-principles.md holds at least 3 real principles (the EXAMPLE block replaced)."
-next_action = "Once the principles are real, pull the next page: `discern setup step 5`."
+stop_conditions = [
+  "Stop a principle when its claimed behavior cannot be located in current code/config or when the owner must choose between conflicting rules.",
+]
+recovery = [
+  "Narrow the principle to what the evidence supports, or create one concrete ledger item naming the unresolved decision and authority paths.",
+]
+next_action = "discern setup step 5"
 ```
 
-Steps 4–7 are the authoring core, and before you write a word, say _why_ it matters to the user: the map and instructions you're about to write form the **single source of truth** every future agent session — and discern itself — reads to work in this project. The map begins with the design principles and gives the user a place to audit what future agents understand. This is the foundation the project's reliability is built on. Author it with that weight, and don't let the user mistake the lengthy step for busywork.
-
-Open **`{{map_dir}}00-orientation/design-principles.md`** and follow the template already in it (the commented shape plus the EXAMPLE principle).
-
-- Write **3–7** principles — the smallest set that actually governs decisions here, not a wish list.
-- Each gets an imperative one-line name, 1–3 sentences stating the rule, a **Why it matters** (the failure it prevents), and a **How it shows up** (where it's visible in the code — concrete and present-tense).
-- Replace the EXAMPLE principle entirely; delete the instructions comments as you go.
-- Fill the **"What these add up to"** section: a few sentences on how the principles reinforce each other.
-- Keep the override mechanism line intact — overriding a principle means writing an ADR (`{{map_dir}}_adr/`).
-
-Good principles are specific to this project and falsifiable: you can point at a change that would violate one.
+Keep the page present tense. A principle should reduce future decision cost; mechanically derivable facts belong in code, configuration, or a link to that authority.
 
 ---
 
-## Step 5 — Fill the project instructions
+## Step 5 - Draft the project instruction source
 
 ```toml
-intent = "Fill {{instruction_path}} with this project's own conventions — the source every agent file (and discern) is built from."
+phase = "instruction draft"
+stable_target = "The authored instruction source gives future agents a verified project pitch, current conventions, and exact supported workflows without duplicating the Map or generated files."
+intent = "Author concise project-specific operating instructions from evidence, preserving imported rules until final reconciliation."
 files_to_read = [
-  "{{instruction_path}} (the configured [instructions].sources seed)",
+  "{{instruction_path}} including every imported instruction block",
+  "the existing project commands and Gate configuration proved in Step 2",
+  "AGENTS.md only as a generated preview, never as the edit target",
 ]
 must_do = [
-  "Write the one-line pitch at the top and the Conventions section, aligned with the jobs you wired in Step 2.",
-  "If `begin` imported an existing CLAUDE.md/AGENTS.md, fold it in and note any conflict with discern's disciplines for Step 9.",
+  "Write a one-line project pitch and a filled Conventions section using current repository evidence.",
+  "Describe the supported project commands by their real meaning, keeping the project's aggregate check distinct from the configured Gate.",
+  "Retain imported rules for Step 9 reconciliation and link to Map authorities instead of copying subsystem facts into the instructions.",
+  "Recheck every architecture, ownership, test-behavior, and command claim against code/config; move an unverified claim to a concrete {{todo_path}} item.",
+  "Run `discern refresh` and inspect the generated agent files for faithful compilation without editing them.",
+]
+authority_boundaries = [
+  "{{instruction_path}} is the authored project instruction authority; provider agent files are generated projections.",
+  "Instruction compilation may project project facts but does not authorize changing the commands those facts describe.",
+]
+human_decisions = [
+  "Escalate an imported rule only when reconciling it would change product intent, security posture, data handling, or another owner policy.",
 ]
 what_not_to_do = [
-  "Do not repeat discern's built-in disciplines — they are bundled and auto-prepended.",
-  "Do not edit the generated CLAUDE.md/AGENTS.md; {{instruction_path}} is the authoritative source.",
+  "Do not hand-edit AGENTS.md, CLAUDE.md, GEMINI.md, or another generated provider file.",
+  "Do not repeat subsystem documentation or stale setup history in always-loaded instructions.",
+  "Do not redefine a project command to make the instructions sound simpler.",
 ]
 completion_check = "The instruction source has a real one-line pitch and a filled-in Conventions section."
-next_action = "With the instructions written, pull the next page: `discern setup step 6`."
+stop_conditions = [
+  "Stop when refresh reports partial output or an imported owner policy conflicts with discern's required workflow.",
+]
+recovery = [
+  "Fix the refresh diagnostic; retain and surface an owner-policy conflict for Step 9 instead of deleting it without authority.",
+]
+next_action = "discern setup step 7"
 ```
 
-Open **`{{instruction_path}}`** (the configured `[instructions].sources` seed). This file holds **only this project's own conventions**: discern's built-in instructions (the map, TODO, worktree, done gate) are bundled and auto-prepended at compile time, so you don't repeat the standing disciplines here. Flesh out the stub:
-
-- The one-line pitch at the top — what the project is and who it's for.
-- The **Conventions** section — language idioms, style, structure, naming, error handling, anything the tooling enforces. Keep it aligned with the jobs you wired in Step 2, so the written rule and the enforced rule agree.
-- **If `discern setup begin` imported your existing instructions:** when the project already had a hand-written `CLAUDE.md`/`AGENTS.md`, `begin` migrated its content into `{{instruction_path}}` under an _"Imported from …"_ heading so nothing was lost (the `verify` preflight flagged this). Fold it into the pitch and Conventions above, then delete that heading and its import note. **Watch for instructions that contradict discern's standing disciplines** — a pre-existing rule like "never use worktrees" fights discern's worktree workflow, and silently appending it would leave the compiled instructions self-contradictory. Note any such conflict now; you resolve it in discern's favour at the end (Step 9), once the whole instructions are in view.
-
-**Do not touch the generated copies** (`CLAUDE.md`, `AGENTS.md`, …). This source file is authoritative; the copies are compiled from the built-in instructions plus `{{instruction_path}}` whenever `discern refresh` runs. Run `refresh` when you finish here — the gate has been live since Step 2, and its currency check fails while the generated files lag this source (Step 9's `setup done` re-runs it regardless).
+Instructions are a small operational surface. Put durable subsystem boundaries and invariants in the Map, and point to them.
 
 ---
 
-## Step 6 — Seed the map's orientation pages
+## Step 7 - Bound the Map from subsystem evidence
 
 ```toml
-intent = "Seed the map's three orientation pages from what you learned, using one consistent set of canonical nouns, and complete the seeded first decision record."
+phase = "Map scope design"
+stable_target = "The final Map has a proportional evidence-backed page plan with one substantive primary-subsystem floor and no speculative region or ledger sprawl."
+intent = "Select only durable subsystem pages that reduce future reading, retain evidence for each, and prepare the final synthesis without authoring it before smoke."
 files_to_read = [
-  "{{map_dir}}00-orientation/concepts.md",
-  "{{map_dir}}00-orientation/glossary.md",
-  "{{map_dir}}00-orientation/system-map.md",
-  "{{map_dir}}_adr/0001-adopt-discern.md",
+  "the Step 1 subsystem evidence inventory",
+  "{{map_dir}}README.md and the seeded orientation/development pages",
+  "{{todo_path}} and its item format",
 ]
 must_do = [
-  "Fill concepts (the narrative tour), glossary (each canonical noun defined once), and system-map (an ASCII diagram).",
-  "Complete the seeded first ADR with project-specific context, the Gate's real jobs, and balanced consequences.",
-  "Clear the stale \"starts as a skeleton\" notes once each page is real.",
+  "Select one substantive primary-subsystem page that will say where to start, define the boundary, and explain one non-obvious invariant.",
+  "Select an additional page only for a genuinely distinct durable boundary when that page will reduce future repository reading; retain authority paths for every selected page.",
+  "Identify only concrete unresolved decisions or defects for {{todo_path}}, each with evidence and consequence; select none when nothing remains open.",
+  "Recheck every proposed architecture, ownership, test-behavior, and command claim against code/config before it enters the final page plan.",
+]
+authority_boundaries = [
+  "A Map page earns its place through a durable decision boundary and reduced future reading, not repository size, folder count, or a seeded placeholder.",
+  "The TODO ledger records concrete unresolved decisions or defects, never generic aspirations or facts already expressed by configuration.",
+]
+human_decisions = [
+  "Ask for owner input only when the evidence exposes a real boundary choice or unresolved product ownership; page count itself is not an owner decision.",
 ]
 what_not_to_do = [
-  "Do not introduce synonyms for the canonical nouns — use the same capitalised terms everywhere.",
-  "Do not invent failures or blame people and agents when describing the project's previous approach.",
+  "Do not create a region per folder, technology, or interesting detail.",
+  "Do not settle for a one-sentence primary subsystem page.",
+  "Do not add generic TODOs such as improve tests, add documentation, or revisit architecture.",
+  "Do not author final orientation yet; Step 8 must establish the configured smoke behavior first.",
 ]
-completion_check = "concepts, glossary, system-map, and the first ADR contain project-specific content with their skeleton notes cleared."
-next_action = "Once the orientation pages read true, pull the next page: `discern setup step 7`."
+completion_check = "The page plan includes one substantive primary subsystem and only evidence-backed additional boundaries; every proposed TODO is concrete, evidenced, and unresolved."
+stop_conditions = [
+  "Stop when a proposed page has no durable boundary or a proposed TODO has no concrete unresolved consequence.",
+]
+recovery = [
+  "Collapse the candidate into the nearest authoritative page or drop it; turn an uncertain claim into one evidenced open item instead of prose.",
+]
+next_action = "discern setup step 8"
 ```
 
-Fill the three orientation skeletons from what you learned in Step 1, removing the `<!-- setup fills this -->` markers as you complete each section:
+Calibrated applications of the same heuristic:
 
-- **`{{map_dir}}00-orientation/concepts.md`** — the narrative tour: the core building blocks and how material flows through them, in plain language. Introduce the canonical nouns here.
-- **`{{map_dir}}00-orientation/glossary.md`** — define each canonical noun once, precisely. Core nouns first, then a section per area.
-- **`{{map_dir}}00-orientation/system-map.md`** — an **ASCII** diagram of the real components and the flow between them, plus the "where each piece runs" notes.
+{{scope_examples}}
 
-Use the same capitalised canonical nouns across all three (and everywhere else). Don't introduce synonyms.
-
-Next, complete **`{{map_dir}}_adr/0001-adopt-discern.md`**, the seeded record of this project's decision to adopt discern. The shared commitments and consequences are already present. Replace the `<!-- setup fills this -->` markers with project-specific material:
-
-- **Context:** use Step 1's evidence to describe how the project coordinated and verified changes before discern. Explain why its current scale, intended future, or use of agents makes a shared practice useful now.
-- **What the Gate runs:** use Step 2's wiring to name the real jobs and what they establish. Keep every claim within what those checks support.
-- **Consequences:** add 1 to 3 consequences specific to this project. Include a benefit, cost, or changed habit without repeating the shared list.
-
-Future contributors and agents use this record to understand why the practice is here, and later ADRs use it as an example. Keep the provenance sentence. It identifies discern as the source of the seed and the configuring agent as the writer of its project-specific material.
-
-Then clear the stale "starts as a skeleton" notes so the filled tree doesn't still announce itself as empty: the blockquote at the top of **`{{map_dir}}00-orientation/README.md`** and the one-line skeleton blockquote atop each page you just filled. Once a page is real, a note telling the reader it is empty is worse than no note.
+These are boundary examples, not target counts. A project with one durable subsystem gets one substantive subsystem page. A project with several independent boundaries may justify several; neither case earns filler TODOs.
 
 ---
 
-## Step 7 — Propose the subsystem subtrees
+## Step 8 - Configure worktree readiness and prove the smoke path
 
 ```toml
-intent = "Decide the numbered subsystem subtrees, stub their READMEs, and fill the stack-level 80-development leaves now."
+phase = "worktree readiness and smoke"
+stable_target = "The configured Gate and smoke command are green, every fresh-worktree dependency is classified, and `setup done` can run its one machine-owned structural probe from the committed completion HEAD."
+intent = "Make the project ready for isolated worktrees without creating a redundant manual probe, and establish the behavior final documentation will describe."
 files_to_read = [
-  "{{map_dir}}README.md (the Subsystems table)",
-  "{{map_dir}}80-development/ (getting-started, testing, code-conventions)",
+  "discern.toml ([worktree], [worktree.resources], and the smoke job)",
+  "tracked and untracked runtime state used by the project command",
+  "service, environment, dependency, port, and resource configuration",
+  "the `discern prepare --json` or `discern done --json` result in the setup checkout",
 ]
 must_do = [
-  "Update the Subsystems table and the orientation cross-references with the proposed subtrees, clearing the placeholder rows.",
-  "Create each numbered subtree directory with a stub README, and fill the 80-development/ leaves now.",
+  "Classify every readiness category in the table below, including both untracked file databases and tracked binary databases.",
+  "Configure idempotent supported worktree setup, ensure, environment, port, and resource behavior for needs the evidence establishes; leave no provisioning recipe for a tracked file merely because it is binary.",
+  "Run the project's smoke command directly, then run `discern prepare --json` or `discern done --json` in the setup checkout until the configured Gate is green.",
+  "Commit the readiness and Gate changes before final documentation; record an unresolved owner-gated resource as one concrete {{todo_path}} item.",
+  "Rely on `discern setup done` for the one structural worktree probe; it creates from the committed completion-marker HEAD, runs the Gate, and tears the probe down.",
+]
+authority_boundaries = [
+  "Setup may configure project-local idempotent convergence. Cost, durable data, shared credentials, destructive teardown, and external-service policy remain owner decisions.",
+  "Only `discern setup done` owns the normal setup worktree probe and its cleanup; prose does not substitute another lifecycle implementation.",
+]
+human_decisions = [
+  "The owner decides every cost- or data-bearing resource policy, whether binary database merges are acceptable, and whether concurrent worktrees may share a hosted service.",
 ]
 what_not_to_do = [
-  "Do not write the numbered subtree leaves now — that is the discern-document-subsystem skill's job, run per subsystem later.",
+  "Do not run bare `discern start` as a setup probe and do not create then retire a redundant worktree on the normal path.",
+  "Do not point parallel worktrees at shared mutable state without an explicit owner decision and recorded consequence.",
+  "Do not make dependency convergence reinstall unconditionally when a fast current-state check is available.",
 ]
-completion_check = "The subsystem subtrees are named with stub READMEs, and the 80-development leaves are filled."
-next_action = "With the tree mapped out, pull the next page: `discern setup step 8`."
+completion_check = "The smoke command and configured Gate are green in the setup checkout, readiness categories are settled or concretely deferred, and no manual probe worktree was created."
+stop_conditions = [
+  "Stop before creating a cost- or data-bearing resource without authority, or when a provider activation adapter required by completion is absent.",
+]
+recovery = [
+  "Use the failing command's diagnostic, keep the resource unconfigured, and record the exact owner decision or missing provider adapter; do not replace it with web-search instructions.",
+]
+next_action = "discern setup step 6"
+relay = [
+  "Relay only owner-gated resource choices: the concrete resource, cost/data consequence, safe alternatives, and the decision required.",
+]
 ```
 
-Decide the numbered subsystem subtrees this project needs (`10-…`, `20-…`, … `80-development/` already exists). Then:
+{{worktree_readiness_table}}
 
-- Update the **Subsystems** table in **`{{map_dir}}README.md`** with the proposed names and a one-liner each, removing the placeholder rows. Also clear the "this tree starts as a skeleton" blockquote above the table: once the subtrees are real, that note is stale.
-- Reflect the same names in the "what to read next" / "how the map relates" tables in the orientation pages.
-- **Create the directories with a stub `README.md` each** (a title and a one-line "what this subtree covers"), so the tree is navigable — but don't write the leaves now. Filling a subtree's leaves is the `discern-document-subsystem` skill's job, run per subsystem when you're ready.
-
-**Exception — fill the `80-development/` leaves now.** Those leaves (`getting-started.md`, `testing.md`, `code-conventions.md`) ship with `<!-- setup fills this -->` markers and are _stack-level_, not subsystem-deep: everything they need — the setup steps, the test runner, the formatter and build — you already have from Step 1 and the Step 2 stack sniff. Fill them now, clearing their markers, and keep them aligned with the instructions (Step 5) and the jobs you wired (Step 2). Only the _numbered_ subtree leaves are deferred to `discern-document-subsystem`.
-
-Run the subtree set past the user as a quick sanity check — the numbering is a reading order, easy to change and easy to revert — then create the stub directories and commit them. This is a narrate-and-proceed step, not a decision to gate on.
+The structural probe runs during `discern setup done` after the completion marker is committed. It uses that exact HEAD, so it sees final setup rather than the integration branch or an uncommitted approximation.
 
 ---
 
-## Step 8 — Prove the project runs in a worktree
+## Step 6 - Synthesize and fact-check the final Map
 
 ```toml
-intent = "Prove the project actually runs where every future task will — inside a git worktree — and wire [worktree] for whatever a fresh copy is missing, so `setup done`'s worktree probe passes and the first real task is never the moment the app breaks in a copy."
+phase = "final documentation synthesis"
+stable_target = "The Map, development guidance, adoption ADR, instructions, and ledger describe the post-smoke project in present tense, with every claim rechecked against its authority."
+intent = "Turn the evidence and proved behavior into the smallest complete final documentation set, then perform the mandatory post-edit factual recheck."
 files_to_read = [
-  "discern.toml ([worktree] — steps, ensure, resources, inherit_env)",
-  "the main checkout's untracked runtime state a copy would start without (an env file with secrets/keys, a dependency dir like vendor/ or node_modules/, a local database)",
+  "the Step 1 evidence inventory and Step 7 bounded page plan",
+  "the Step 8 Gate, smoke, and readiness configuration that now exists",
+  "{{map_dir}}README.md, 00-orientation/, 80-development/, and _adr/",
+  "{{instruction_path}} and {{todo_path}}",
 ]
 must_do = [
-  "Create a probe worktree with `discern start`, enter the absolute path it returns, and run `discern done` there — it runs your `smoke` check too, so a green gate run means the app boots in the copy.",
-  "Fix whatever the copy is missing by wiring [worktree]: copy env files and generate keys in `steps` (one-shot), install dependencies in `ensure` (every pass — check-then-install, so it's fast when current), declare a database/container as `[worktree.resources.<name>]`, list plain env vars in `inherit_env`.",
-  "Iterate until the probe's `discern done` is green, commit your [worktree] wiring, then discard the named probe with `discern worktree drop <path> --force`; record anything you cannot resolve now in {{todo_path}}.",
+  "Author final orientation from the subsystem evidence, including how the Map is used and where a new agent starts.",
+  "Author the substantive primary-subsystem page with its entry point, boundary, and non-obvious invariant; add only the distinct pages selected in Step 7.",
+  "Reconcile the 80-development pages and the adoption ADR with the supported commands, Gate, worktree readiness, and smoke behavior proved in Step 8.",
+  "After all documentation edits, target every architecture, ownership, test-behavior, and command claim and recheck it against current code/config; link the authority where useful.",
+  "Replace a claim that cannot be verified with a clearly labeled concrete item in {{todo_path}}, then run `discern refresh` and `discern prepare --json`.",
+]
+authority_boundaries = [
+  "The Map records boundaries, invariants, intent, and navigation that code cannot express; code and config remain the behavior authority.",
+  "A hard-to-reverse or surprising architectural decision belongs in an ADR, not an orientation aside.",
+]
+human_decisions = [
+  "Ask only when the final evidence exposes an unresolved product or architecture choice that cannot be truthfully documented as current behavior.",
 ]
 what_not_to_do = [
-  "Do not leave the probe worktree behind — remove it once the copy works, or once you have recorded what is blocking it.",
-  "Do not silently wire a resource with cost or data implications (a real database, a paid service, a container) — that is a genuine decision to leave with the user in {{todo_path}}.",
+  "Do not preserve pre-smoke claims, skeleton notices, historical setup narration, or mechanically derivable inventories as independent prose.",
+  "Do not claim an unverified architecture, ownership, test behavior, or command contract.",
+  "Do not add a page or TODO merely to make the setup look comprehensive.",
 ]
-completion_check = "A probe worktree's `discern done` is green (or the gaps are recorded in {{todo_path}}), and the probe is removed."
-next_action = "Once the project is provably viable in a worktree, pull the final page: `discern setup step 9`."
+completion_check = "Final documentation describes the post-smoke project; every factual claim has a current authority recheck, and every unverifiable claim is a concrete open ledger item."
+stop_conditions = [
+  "Stop when a claim remains unverifiable, refresh changes an unexpected authored source, or prepare reports a diagnostic.",
+]
+recovery = [
+  "Narrow or remove the claim, record the unresolved fact with evidence, follow the refresh/prepare diagnostic, and repeat the targeted recheck after the correction.",
+]
+next_action = "discern setup step 9"
 ```
 
-Every future task in this project happens in a **git worktree** — an isolated copy on its own branch (that is discern's whole workflow). The main checkout you configured setup in is the one place agents are told _never_ to work. So the gate being green _here_ is not enough: it has to be green _there_ too — and a surprising number of projects pass here and break in a copy, because a fresh worktree starts without whatever is not tracked in git.
-
-Name your stack's version of the usual culprits, and wire it:
-
-| Stack                                   | What a fresh worktree is missing → how to wire it                                                                                                                                                                                                                    | Prove it boots (`smoke`)                                                                         |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| **Node / JS / TS**                      | `node_modules/` → `ensure`: a check-then-install (`npm ls --silent >/dev/null 2>&1 \|\| npm ci`, or your package manager's frozen-lockfile install)                                                                                                                  | the package's own CLI `--version`, or a one-line script that imports your entry module and exits |
-| **Python**                              | the virtualenv + installed deps → `steps`: create the venv; `ensure`: check the requirements are current, install only when not                                                                                                                                      | `python -c "import <your_package>"`                                                              |
-| **Laravel / PHP**                       | untracked `.env` + `APP_KEY`, `vendor/`, the storage symlink → `steps`: copy the `.env`, `php artisan key:generate`, `php artisan storage:link`; `ensure`: `composer install` (already fast when current)                                                            | `php artisan inspire`                                                                            |
-| **Rust / Go**                           | usually nothing — the toolchain fetches and caches deps → often no wiring at all                                                                                                                                                                                     | `cargo run -- --version` / `go run . --version`                                                  |
-| **env-file secrets (any stack)**        | an untracked `.env` / `.env.local` the app reads → `[worktree].inherit_env` names the values to copy into the copy's env file; `[worktree].env_files` orders which files are read and written                                                                        | your smoke command — it fails fast when a required value is missing                              |
-| **a file-based database (e.g. SQLite)** | the database file is untracked — and pointing the copy at the main checkout's file means parallel tasks collide → `steps`: create (or copy) a per-worktree database file inside the worktree, then migrate/seed it                                                   | your app's boot/health command                                                                   |
-| **a local database server / service**   | a per-worktree database or emulator → `[worktree.resources.<name>]` with `create`/`destroy`                                                                                                                                                                          | your app's boot/health command                                                                   |
-| **a hosted / shared database**          | discern can't conjure isolated copies of a hosted service — point worktrees at a disposable local copy instead, or record honestly in `{{todo_path}}` that every worktree shares the hosted one (and what that risks: parallel tasks writing over each other's data) | your app's boot/health command                                                                   |
-
-The wiring lives in `discern.toml`:
-
-- **`[worktree].steps`** — run ONCE at creation (copy the `.env`, generate a key, seed fixtures).
-- **`[worktree].ensure`** — run on EVERY pass (install dependencies, build) — author them idempotent **and fast when current**: prefer a check-then-install shape (`<check deps are current> || <install>`) over an unconditional reinstall, because the per-pass cost lands on every session start and every update.
-- **`[worktree.resources.<name>]`** — an external resource with `create`/`destroy` (a database, a container, an emulator). Anything with cost or data implications is a genuine decision — leave it for the user in `{{todo_path}}` rather than wiring it silently.
-- **`[worktree].inherit_env`** — plain env-var names copied from the main checkout's env files into the copy's (the worktree's env file is created when absent, so a declared value always arrives).
-
-**Prove it, don't guess.** You have been committing each stage, so a fresh probe will see your work. From the main checkout:
-
-```sh
-discern start            # creates a throwaway worktree from your setup branch — note the path it prints
-cd <that path>
-discern done           # runs the gate — and your smoke check — in the copy
-```
-
-Whatever fails is exactly what did not travel. Fix it in `[worktree]` back in the main checkout, commit, and re-probe. When `discern done` is green in the copy, discard the named throwaway through discern's bounded lifecycle — from the main checkout:
-
-```sh
-discern worktree drop <that path> --force
-```
-
-It holds no work you need; the fix lives in `[worktree]`, committed on your setup branch. `worktree drop` checks the exact target, tears down declared resources, and retains the branch tip under a bounded recovery ref before removing the checkout and branch. Do not replace it with raw Git removal.
-
-You do not have to catch everything by hand: **`discern setup done` runs this same probe structurally** — it creates a worktree, runs the gate inside it, and tears it down — and it will _refuse to finish_ if the app cannot run in a copy, naming what broke. This step is your chance to get the wiring right first, so `done` is a confirmation, not a surprise. Record anything you genuinely cannot resolve now (a database the user must provision, a secret only they hold) in `{{todo_path}}`, so the gap is visible rather than a landmine on the first real task.
+This is the last synthesis step because the configured smoke and worktree model now exist. Keep each page present tense and link to the authority instead of restating large command or file inventories.
 
 ---
 
-## Step 9 — Record, summarise, and prove it with `discern setup done`
+## Step 9 - Reconcile, commit, prove, and hand off landing
 
 ```toml
-intent = "Reconcile imported instructions, record deferred wiring in {{todo_path}}, summarise for the user, and prove completion with `discern setup done`."
+phase = "completion and landing handoff"
+stable_target = "All final setup work is committed; `discern setup done` returns canonical Proof and a mechanical completion inventory; the owner receives branch-aware landing choices before any restart or optional improvement."
+intent = "Perform the final reconciliation, commit the exact setup tree, let the engine derive the closing inventory and Proof, and preserve the landing and activation authority sequence."
 files_to_read = [
-  "{{instruction_path}} (the reconciled result, if begin imported instructions)",
-  "{{todo_path}}",
+  "{{instruction_path}} including imported rules",
+  "{{todo_path}} and the final Map root",
+  "`git status --short` and the final authored diff",
+  "the complete `discern setup done` result, including inventory, Proof, landing, and recovery",
 ]
 must_do = [
-  "Reconcile any imported instructions in discern's favour, telling the user what you changed and why.",
-  "Record every proposed-but-not-activated item (a deferred job, a worktree resource, a tool worth adding) in {{todo_path}}.",
-  "Summarise the principles, subtrees, jobs, and TODOs — and say what the map is for.",
+  "Reconcile imported instructions with discern's built-in workflow while preserving owner policies; surface any policy decision you cannot make.",
+  "Confirm the final factual recheck happened after smoke, remove generic or duplicated ledger items, and commit all final setup work before Proof.",
+  "Run `discern setup done` once on the clean commit and use its derived Map-region list, ledger-item list, jobs-by-state, Proof line, branch, and landing choices in the closing relay.",
+  "Accept only with applicable recorded or current owner authority; otherwise leave the proved branch for review and state that the integration branch does not contain setup.",
+  "After landing, start the provider-required fresh session, run each exact activation check from the landing result, report its success or recovery, and only then offer `discern improvement --json` as optional owner review.",
+]
+authority_boundaries = [
+  "A clean green Proof authorizes no landing by itself; the owner or a recorded grant decides whether the setup branch lands.",
+  "The exact provider activation check confirms activation. Generated files, a restart request, or agent confidence do not.",
+  "No tracked mutation may follow Proof before landing; any change invalidates the evidence and requires another setup done run.",
+]
+human_decisions = [
+  "The owner chooses land now, leave the branch for review, or decline it; after activation they choose whether to review optional improvement findings.",
 ]
 what_not_to_do = [
-  "Do not reach for --force to paper over a real gate failure.",
-  "Do not tell the user setup is complete until `discern setup done` passes.",
+  "Do not count Map regions, ledger items, or job states by hand.",
+  "Do not lead an unlanded completion with restart or improvement, and do not mutate the branch after Proof.",
+  "Do not present self-authored option labels that assert the agent is capable, expert, safe, or qualified.",
+  "Do not use `--force` to hide a real incomplete step or red Gate.",
 ]
-completion_check = "`discern setup done` passes — it re-runs refresh → doctor → done and checks every step."
-next_action = "When every page above is done, run `discern setup done` — the one command that proves and finishes setup."
+completion_check = "`discern setup done` returns success for the clean final commit, with canonical Proof, completion inventory, branch-aware landing choices, and no post-Proof mutation."
+stop_conditions = [
+  "Stop on any incomplete check, red Gate, failed structural probe, missing Proof, missing provider activation adapter, or absent landing authority.",
+]
+recovery = [
+  "Follow the result's named recovery, commit any correction, rerun setup done for the new tree, and leave a proved branch unlanded when authority is absent.",
+]
+next_action = "discern setup done"
+relay = [
+  "Quote the result's canonical counts and lists, assurance, exact Proof line, current branch, and landing choices; do not substitute agent arithmetic.",
+  "When unlanded, say the target branch does not contain setup and stop before restart. When landed, follow the exact fresh-session activation checks, then describe improvement as optional.",
+]
 ```
 
-You wired the jobs in Step 2 and proved the project runs in a worktree in Step 8 — **`discern done`** (the full gate) and **`discern prepare`** (the fast fix-then-check loop) both run _during_ setup, so you have already watched the gate go green. This step records the outcome and locks it in.
-
-1. **Reconcile any imported instructions against discern's instructions.** If `begin` folded a pre-existing `CLAUDE.md`/`AGENTS.md` into `{{instruction_path}}` (Step 5), review it now — with the full instructions and discern's built-in disciplines both in view — for anything that **contradicts how discern works**: a "never use worktrees", a "don't run a quality gate", a commit convention that clashes with the atomic-commit workflow. Resolve each conflict **in discern's favour** — edit or drop the offending line, and tell the user plainly why ("your earlier note said to avoid worktrees, but discern's workflow depends on them, so I've removed it; here's what that changes for you"). An unreconciled contradiction compiles into every agent file and quietly works against discern. (No imported instructions? Skip this.)
-2. **Record the deferred wiring in `{{todo_path}}`.** Everything you _proposed but did not activate_ is outstanding work, and a comment in `discern.toml` or a line in chat is not where the next agent will look. Add a terse item (bold title + one line, in the right bucket) for each open decision: any job you deliberately left for the user to decide (a genuine fork you paused on), any `[worktree.resources.<name>]` / `[worktree]` inherit_env / setup steps left to wire, any tool worth adding, any test database or service the suite needs.
-3. **Summarise for the user — and say what the map is _for_.** Recap the principles you drafted, the subtrees you proposed, the jobs you wired and committed (plus any genuine fork you left for them to decide), and the `{{todo_path}}` items you recorded. Then remind them why it mattered: every future agent session — and discern — reads the map and instructions to work in this project. The map also gives them a place to audit what their agents understand. Point them at the `discern-document-subsystem` skill as the next step for filling in each subtree's leaves.
-4. **Run `discern setup done` — it proves completion for you.** This is the one command that finishes setup, and it does the proving: it re-runs **`discern refresh` → `discern doctor` → `discern done`**, then **probes a throwaway worktree** (proving the app runs in a copy, not just in the main checkout — Step 8), and records `[meta].bootstrapped` **only when all of them pass**. Then the one-time setup redirect retires and `discern setup` hides from the command list. (`discern refresh` compiles the built-in instructions + `{{instruction_path}}` into the per-provider agent files — `AGENTS.md`, `CLAUDE.md`, … — generated files, committed so cloud and out-of-tool agents read them, never hand-edited: `{{instruction_path}}` is the source — and materializes the skills into each agent's skills directory.) If it reports:
-   - **leftover markers** — a `<!-- setup fills this -->` sentinel or the EXAMPLE principle is still in a file: fill it and re-run (or pass `--force` if a flagged file is a deliberate exception);
-   - **a red `doctor` or `done`** — fix what it names (run `discern doctor` / `discern done` to see the detail), then re-run. **Don't leave a red gate or a wrong command behind**, and don't reach for `--force` to paper over a real failure — a green `setup done` with real jobs is the proof setup worked, not just that the config parses.
-   - **a red worktree probe** — the gate is green here but the app can't run in a fresh worktree (an untracked env file or a dependency dir didn't travel): wire `[worktree].steps` / `ensure` / `resources` (Step 8), commit, then re-run — or, if it's a decision only the user can make (a database they must provision), record it in `{{todo_path}}`.
-
-After `discern setup done` passes, relay the completed setup in this form:
-
-> I configured <principles>, <subtrees>, and <jobs>. I recorded <todos>. The completion evidence is <proof>.
+The completion result is the relay authority. Its inventory is derived from the configured Map, TODO ledger, and known-job assurance, so the closing message cannot disagree with its own repository state.
 
 ---
 
 ## You are not done until all of these are true
 
-These are stop-conditions to **verify for yourself before you finish** — not a summary to read back. **Do not paraphrase this list to the user as completed work; actually do each one, then prove it by running `discern setup done`** (it fails while any skeleton marker remains, or the app can't run in a worktree, so it is the check, not your word for it).
+This list is a stop boundary, not a completion report.
 
-- You relayed Step 0's model question to your human — proceeding on the model they confirmed, or resuming on the stronger one they chose — and `discern doctor` is green.
-- `design-principles.md` holds real, project-specific principles (no EXAMPLE block, no `<!-- setup fills this -->` markers left).
-- `{{instruction_path}}` has a real pitch and Conventions section.
-- If `begin` imported existing instructions, they are folded into `{{instruction_path}}` and **reconciled** — no leftover rule contradicts discern's standing disciplines (e.g. no surviving "don't use worktrees").
-- The orientation pages (concepts, glossary, system-map) are seeded, the `80-development/` leaves are filled, and the numbered subsystem subtrees are named with stub READMEs.
-- The seeded first ADR (`0001-adopt-discern.md`) contains project-specific context, the Gate's real jobs, and balanced consequences, with its provenance sentence kept and no markers left.
-- No stale "starts as a skeleton / run `discern setup`" notes remain — the `{{map_dir}}README.md` and `{{map_dir}}00-orientation/README.md` intros describe the filled tree, not an empty one.
-- `discern.toml` job fills are **recommended, narrated, and committed** for every detected stack you were confident in — each its own revertible commit — with any genuine fork left for the user to decide and recorded in `{{todo_path}}`; and `discern done` is **green** with whatever was activated.
-- The project **runs in a worktree** — you wired `[worktree]` for whatever a fresh copy needs (env files, dependencies, resources), and a probe worktree's `discern done` is green — or the unresolved gap is recorded in `{{todo_path}}` (Step 8).
-- `{{todo_path}}` records the deferred wiring so no open decision lives only in a comment or the chat.
-- `discern setup done` reports success — it re-runs `discern refresh` → `discern doctor` → `discern done` **and probes a throwaway worktree**, recording `[meta].bootstrapped` only when all pass, so a green `setup done` _is_ the proof the gate is real and the app runs in a copy (not merely that the config parses).
+Do not paraphrase this list to the user as completed work; it is work to do now, not a summary to hand back.
 
-If any line above is not yet true, you are still mid-setup: keep going, don't report back as if finished. Lost the top of this brief? Re-run `discern setup begin` to reprint it in full (or `discern setup step <n>` for just one step).
+- Consent and advisory provenance are accounted for; the bounded default health checks pass.
+- Existing project commands retain their meaning and bytes; Gate jobs and applicability use supported commands and report accurate assurance.
+- No redundant manual worktree probe was created; the configured smoke path is green and every readiness category is settled or concretely deferred.
+- Final orientation was synthesized after smoke from a bounded subsystem plan, including one substantive primary-subsystem page.
+- Every architecture, ownership, test-behavior, instruction, and command claim was rechecked against current code/config after final edits.
+- {{todo_path}} contains only concrete unresolved decisions or defects, with evidence and consequence.
+- All authored setup work is committed before `discern setup done`.
+- `discern setup done` returns canonical Proof and inventory for that exact commit.
+- An unlanded branch is reported as unlanded. Restart and provider activation happen only after landing; optional improvement follows a successful activation check.
+
+If a condition is false, continue with the page or result recovery that owns it. Re-run `discern setup begin` for the preamble and first page, or `discern setup step <n>` for one stable page.

@@ -602,13 +602,19 @@ export const TOOLS: McpTool[] = orderTools([
       "config validity, schema currency, whether the declared job commands — " +
       "configured project commands such as format, lint, and test — " +
       "resolve on PATH, and advisories. data.checks lists every check with its detail " +
-      "and — on failure — the exact fix. data.execution_model lists, per configurable " +
+      "and — on failure — the exact fix. Set verbose=true only when you need " +
+      "data.execution_model, which lists, per configurable " +
       "verb, the ordered steps it runs — each marked project (your configured command) " +
       "or discern (a built-in step), with its expectation — so you can see what runs " +
       "when, and catch a real config mistake (e.g. a slow command " +
       "in the fast inner loop).",
-    inputSchema: { ...PATH_PARAM },
-    run: (root) => doctorResult(root),
+    inputSchema: {
+      verbose: z.boolean().optional().describe(
+        "Include the complete per-verb execution model (default false). Routine orientation omits it to keep the result bounded.",
+      ),
+      ...PATH_PARAM,
+    },
+    run: (root, args) => doctorResult(root, { verbose: args.verbose === true }),
   }),
   defineTool({
     name: "discern_impact",

@@ -96,10 +96,10 @@ export function resolveWelcomeStyle(
  * the structured mirror, kept in step with them by the welcome JSON tests.
  */
 const FRESH_AGENT_INSTRUCTIONS =
-  "You are discern's configuration engine for this project — the capable agent already in the loop, here to set discern up for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done), not a status to relay back and stop on; discern only guides you, and nothing is written until you run `discern setup begin`. Your next action now: run `discern setup verify` yourself to preview the plan and open the consent conversation — don't hand the welcome back as a report. It hands you the exact message to relay to your human (what discern is, what it will do and cost, and the points to confirm) — relay that, wait for their answers, then run `begin`.";
+  "You are discern's configuration engine for this project, here to set discern up for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done), not a status to relay back and stop on; discern only guides you, and nothing is written until you run `discern setup begin`. Your next action now: run `discern setup verify` yourself to preview the plan and open the consent conversation — don't hand the welcome back as a report. It hands you the exact message to relay to your human (what discern is, what it will do and cost, and the points to confirm) — relay that, wait for their answers, then run `begin`.";
 
 const FRESH_HUMAN_FRAMING =
-  "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — isolated, reversible, and with no API key. Everything discern itself owns lands in one root file (discern.toml) and one visible discern/ folder, plus the config files your coding tools require — your own tools' integrations, wired for you; `discern uninstall` backs it all out if you change your mind. Expect roughly 20–40 minutes and a meaningful number of tokens. Point your most capable model at it: setup is one-time and high-leverage.";
+  "discern adds a quality gate, isolated git worktrees, and shared agent instructions to this repo, tailored to your codebase by your own coding agent — isolated, reversible, and with no API key. Everything discern itself owns lands in one root file (discern.toml) and one visible discern/ folder, plus the config files your coding tools require — your own tools' integrations, wired for you; `discern uninstall` backs it all out if you change your mind. Expect roughly 20–40 minutes and a meaningful number of tokens. Choose which available model should perform this one-time setup; its provider and model identifier are recorded separately when known.";
 
 /** The leading note a non-git first contact carries on both surfaces: the very
  * first step is `git init` — the isolation and undo story every other welcome
@@ -264,14 +264,14 @@ const PLAIN_FRESH_WELCOME: readonly string[] = [
   "  along — and if you change your mind, `discern uninstall` backs it all",
   "  out. There's no lock-in, no API key, and no surprises.",
   "",
-  "  Point your MOST CAPABLE model at it: setup is a one-time, high-leverage step,",
-  "  and discern is only as good as the model that configured it.",
+  "  Choose which available model should perform this one-time setup. Its provider",
+  "  and model identifier are recorded separately when known.",
   "  Expect roughly 20–40 minutes and a meaningful number of tokens.",
   "",
   "  FOR CODING AGENTS",
   RULE,
-  "  You are discern's configuration engine here: the capable agent already in",
-  "  the loop, set to configure discern for your human. This is a short workflow",
+  "  You are discern's configuration engine here, set to configure discern for",
+  "  your human. This is a short workflow",
   "  you DRIVE end to end (verify → begin → author → done) — not a status to",
   "  relay back and stop on. discern guides each step; NOTHING is written until",
   "  you explicitly run `begin`.",
@@ -391,13 +391,13 @@ function styledFreshWelcome(
     "To get started, tell your coding agent:",
     action,
     "Setup is isolated and reversible. Everything discern itself owns lands in one root file (`discern.toml`) and one visible `discern/` folder, plus the config files your coding tools require — your own tools' integrations, wired for you and committed in the open. Your agent works on a dedicated `discern-setup` branch in small step-by-step commits, so you can follow along — and if you change your mind, `discern uninstall` backs it all out. There's no lock-in, no API key, and no surprises.",
-    "Point your MOST CAPABLE model at it: setup is a one-time, high-leverage step, and discern is only as good as the model that configured it. Expect roughly 20–40 minutes and a meaningful number of tokens.",
+    "Choose which available model should perform this one-time setup. Its provider and model identifier are recorded separately when known. Expect roughly 20–40 minutes and a meaningful number of tokens.",
   ], { spacing: 1 });
   const agents = joinVertical([
     terminal.presenter.present(renderSectionCli, {
       title: "FOR CODING AGENTS",
       body:
-        "You are discern's configuration engine here: the capable agent already in the loop, set to configure discern for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done) — not a status to relay back and stop on. discern guides each step; NOTHING is written until you explicitly run `begin`.",
+        "You are discern's configuration engine here, set to configure discern for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done) — not a status to relay back and stop on. discern guides each step; NOTHING is written until you explicitly run `begin`.",
       treatment: "rule",
       spacing: "sm",
       width: innerWidth,

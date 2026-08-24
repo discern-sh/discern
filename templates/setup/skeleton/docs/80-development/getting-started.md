@@ -10,7 +10,7 @@ This is the path from a fresh clone to a running project and a first green gate.
 
 These work the same regardless of language or framework:
 
-- **`discern start`** creates an isolated worktree for a change and moves you into it (see the worktree note in the project instructions).
+- **`discern start`** creates an isolated worktree and returns its path. Re-root with the agent's native worktree tool or work at that path explicitly (see the worktree note in the project instructions).
 - **`discern prepare`** is the fast inner loop — applies fix-stage jobs, regenerates declared artifacts, completes refresh convergence, then runs check-stage jobs; no other build jobs or tests.
 - **`discern done`** is the full gate — (in a worktree) a fail-fast merge check first, then fixers and build, then checks and tests in parallel, then any scope `gate`s that fired. Run it before declaring a change done.
 - **`discern doctor`** verifies the install is sound (dispatcher executable, hooks present, every configured job resolvable, git worktree support, required tools on PATH).

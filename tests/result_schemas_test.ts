@@ -994,7 +994,7 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, s
         "",
       ].join("\n"),
     );
-    const result = await doctorResult(dir);
+    const result = await doctorResult(dir, { verbose: true });
     // The whole envelope — execution_model included — validates against the schema the
     // MCP server advertises as discern_doctor's outputSchema (a strict object, so a
     // conditional step that didn't fit would be rejected here).

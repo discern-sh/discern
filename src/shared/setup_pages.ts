@@ -5,8 +5,7 @@
  * principles), a sequence of numbered `## Step <n>` **pages**, and a closing
  * stop-conditions epilogue. Each page carries a structured **spine** — a
  * fenced ` ```toml ` block immediately after its heading ({@link SetupPageSpine}:
- * `intent` / `files_to_read` / `must_do` / `what_not_to_do` / `completion_check` /
- * `next_action`) — followed by the warm prose the agent follows verbatim.
+ * operational fields) — followed by the warm prose the agent follows verbatim.
  *
  * This module is the ONE place that structure is read back out: `setup begin`
  * serves the preamble + the first page, `setup step <n>` serves one page, and both
@@ -28,6 +27,38 @@ export type { SetupPageSpine, SetupStepData };
 /** One parsed setup page: the structured spine plus the warm prose body. The same
  * shape `setup step <n>` serializes (it IS {@link SetupStepData}). */
 export type SetupPage = SetupStepData;
+
+/**
+ * Versioned presentation registry for the stable setup page identifiers.
+ *
+ * Page numbers are public resume handles: an in-progress setup may already have
+ * been told to run `discern setup step <n>`. Wave 4 changes the dependency order
+ * without renumbering those handles. The registry is therefore the authority for
+ * presentation order and the exact next command; the authored headings may move,
+ * but a missing, duplicate, or reordered member fails parsing.
+ */
+export const SETUP_PAGE_REGISTRY_VERSION = 2;
+export const SETUP_PAGE_REGISTRY = [
+  { step: 0, nextCommand: "discern setup step 1" },
+  { step: 1, nextCommand: "discern setup step 2" },
+  { step: 2, nextCommand: "discern setup step 3" },
+  { step: 3, nextCommand: "discern setup step 4" },
+  { step: 4, nextCommand: "discern setup step 5" },
+  { step: 5, nextCommand: "discern setup step 7" },
+  { step: 7, nextCommand: "discern setup step 8" },
+  { step: 8, nextCommand: "discern setup step 6" },
+  { step: 6, nextCommand: "discern setup step 9" },
+  { step: 9, nextCommand: "discern setup done" },
+] as const;
+
+/** Stable ids of pages that author architecture, ownership, command, or
+ * instruction claims and must therefore carry the final evidence-recheck action. */
+export const SETUP_DOCUMENTATION_CLAIM_STEPS = [4, 5, 7, 6] as const;
+
+/** Useful-context ceilings for the default progressive-disclosure surfaces. */
+export const SETUP_PAGE_MAX_CHARS = 12_000;
+export const SETUP_BEGIN_MAX_CHARS = 18_000;
+export const SETUP_RESULT_MAX_CHARS = 24_000;
 
 /** The whole brief, split into its three regions. `preamble` is everything before
  * the first step (the operating principles `begin` prints); `pages` are the
@@ -67,7 +98,7 @@ export function parseSetupBrief(text: string): SetupBrief {
   const preambleEnd = firstStep ?? lines.length;
   const preamble = lines.slice(0, preambleEnd).join("\n").trimEnd();
 
-  const pages: SetupPage[] = [];
+  const authoredPages: SetupPage[] = [];
   let epilogue = "";
   for (let b = 0; b < boundaries.length; b++) {
     const start = boundaries[b];
@@ -82,13 +113,40 @@ export function parseSetupBrief(text: string): SetupBrief {
       const title = (step[2] ?? "").trim();
       const body = lines.slice(start + 1, end);
       const { spine, instructions } = splitSpineAndProse(body, n);
-      pages.push({ step: n, title, spine, instructions });
+      authoredPages.push({ step: n, title, spine, instructions });
     } else if (EPILOGUE_HEADING.test(heading)) {
       epilogue = lines.slice(start, end).join("\n").trimEnd();
     }
   }
 
-  return { preamble, pages, epilogue };
+  const expected = SETUP_PAGE_REGISTRY.map((entry) => entry.step);
+  const actual = authoredPages.map((page) => page.step);
+  if (
+    actual.length !== expected.length ||
+    actual.some((step, index) => step !== expected[index])
+  ) {
+    throw new Error(
+      `Setup page registry v${SETUP_PAGE_REGISTRY_VERSION} expects authored order ${
+        expected.join(", ")
+      }; found ${
+        actual.join(", ")
+      }. Keep stable page ids and move whole page sections into registry order.`,
+    );
+  }
+  for (const [index, page] of authoredPages.entries()) {
+    const registered = SETUP_PAGE_REGISTRY[index];
+    if (registered === undefined || page.step !== registered.step) {
+      throw new Error(`Setup page ${page.step} is not registered.`);
+    }
+    if (page.spine.next_action !== registered.nextCommand) {
+      throw new Error(
+        `Setup Step ${page.step} must use the registry next command ` +
+          `\`${registered.nextCommand}\`; found \`${page.spine.next_action}\`.`,
+      );
+    }
+  }
+
+  return { preamble, pages: authoredPages, epilogue };
 }
 
 /** Return the page for step `n`, or undefined when there is none. */
@@ -149,23 +207,60 @@ function splitSpineAndProse(
 }
 
 /**
- * Render one page as the human-facing text the agent reads (ADR 0078): the prose
- * leads (it is the load-bearing lane), bracketed by the orienting `intent` and a
- * light completion/next footer. The terse spine lists (`must_do`, …) stay in the
- * `--json` lane and are NOT re-rendered here, so the warm prose is never flattened
- * into field lists. No success glyph (`✓`) — `begin` asserts none leaks in.
+ * Render one page as the human-facing operational contract. Every load-bearing
+ * spine fact is projected here from the same parsed authority JSON carries; the
+ * prose remains a distinct rationale/examples lane rather than repeating the
+ * action list. No success glyph (`✓`) — `begin` asserts none leaks in.
  */
 export function renderSetupPage(page: SetupPage): string {
   const { spine } = page;
+  const bullets = (values: readonly string[]): string[] =>
+    values.map((value) => `- ${value}`);
+  const ordered = (values: readonly string[]): string[] =>
+    values.map((value, index) => `${index + 1}. ${value}`);
   return [
     `## Step ${page.step} — ${page.title}`,
     "",
+    `Phase: ${spine.phase}`,
+    `Stable target: ${spine.stable_target}`,
+    "",
     spine.intent,
     "",
-    page.instructions,
+    "### Inspect before acting",
     "",
-    `This step is complete when: ${spine.completion_check}`,
-    `Next: ${spine.next_action}`,
+    ...bullets(spine.files_to_read),
+    "",
+    "### Must do, in order",
+    "",
+    ...ordered(spine.must_do),
+    "",
+    "### Authority and owner decisions",
+    "",
+    ...bullets(spine.authority_boundaries.map((item) => `Authority: ${item}`)),
+    ...bullets(spine.human_decisions.map((item) => `Owner decision: ${item}`)),
+    "",
+    "### Do not",
+    "",
+    ...bullets(spine.what_not_to_do),
+    ...(page.instructions.length === 0
+      ? []
+      : ["", "### Rationale and examples", "", page.instructions]),
+    "",
+    "### Completion check",
+    "",
+    spine.completion_check,
+    "",
+    "### Stop and recover",
+    "",
+    ...bullets(spine.stop_conditions.map((item) => `Stop: ${item}`)),
+    ...bullets(spine.recovery.map((item) => `Recovery: ${item}`)),
+    ...(spine.relay === undefined
+      ? []
+      : ["", "### Relay to the owner", "", ...bullets(spine.relay)]),
+    "",
+    "### Next command",
+    "",
+    `\`${spine.next_action}\``,
   ].join("\n");
 }
 

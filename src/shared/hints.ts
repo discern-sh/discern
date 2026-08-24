@@ -3055,6 +3055,19 @@ export const HINTS = {
       ),
   }),
 
+  /** First registration during setup defers reactivation until Proof and landing. */
+  "refresh-mcp-setup-deferred": defineHint({
+    id: "refresh-mcp-setup-deferred",
+    category: "guardrail",
+    audience: "all",
+    when:
+      "Instruction refresh first registers the Model Context Protocol server while setup is unfinished.",
+    family: "restart-session",
+    example: undefined,
+    template: (): string =>
+      "Continue setup in this session; do not restart now. The completion handoff will ask you to start a fresh session only after setup is proved and landed, then give the exact activation check.",
+  }),
+
   /**
    * A successful refresh changed one or more tracked Agent files or Shared files.
    * The changed paths stay in `data`; this hint carries only the commit action.
@@ -3484,18 +3497,19 @@ export const HINTS = {
     example: {
       command: discernCommand(
         "setup begin",
-        flag("model", '"<your-model-id>"'),
+        flag("model", "unreported"),
         flag("confirmed"),
       ),
     },
     template: ({ command }): string =>
       "Present the setup instructions in this result to the owner, wait for their " +
-      `answers, then run ${command}; its \`--confirmed\` flag attests ` +
-      "only to that conversation.",
+      `answers, then run ${command}; its \`--confirmed\` flag attests that ` +
+      "the relay carried the three pillars, footprint, plan, reversibility, " +
+      "every numbered confirmation, and the time-and-tokens expectation.",
     interactiveTemplate: (): string =>
       "Review the setup instructions and answer its questions, then run the " +
-      "displayed command; its `--confirmed` flag attests only to this " +
-      "conversation.",
+      "displayed command; its `--confirmed` flag attests that every listed " +
+      "consent fact and numbered confirmation was carried.",
   }),
 
   /** Setup completion carries the unfinished files and checks as structured
@@ -3615,23 +3629,34 @@ export const HINTS = {
       "Before continuing, follow each provider-specific reactivation step carried with this result. discern's MCP tools, session hooks, and project rules are now wired, but coding agents load them at session start, so this session cannot use them yet:",
   }),
 
-  /** Setup's final improvement route for the newly wired project.
-   * Agent audience: reviewing the findings with the owner is an instruction
-   * only an agent can follow. */
-  "setup-run-coach": defineHint<{ coachVerb: string; todoRel: string }>({
-    id: "setup-run-coach",
+  /** Setup's optional improvement route after provider activation is proved. */
+  "setup-improvement-after-activation": defineHint({
+    id: "setup-improvement-after-activation",
     category: "next-step",
     audience: "agent",
-    when: "Setup completes and offers the project coaching follow-up.",
+    when:
+      "Landed setup hands off the optional improvement review after activation succeeds.",
     family: "setup-done-next",
-    example: {
-      coachVerb: "improvement",
-      todoRel: SOURCE_PATHS.todo.defaultPath,
-    },
-    template: ({ coachVerb, todoRel }): string =>
-      `Deepen your setup: run ${
-        discernCommand(coachVerb, flag("json"))
-      }, review the ranked findings with your owner, apply the bounded changes now, and record larger changes in ${todoRel}.`,
+    example: undefined,
+    template: (): string =>
+      `Only after every applicable activation check succeeds, optionally run ${
+        discernCommand("improvement", flag("json"))
+      } and review the findings with the owner. This optional ongoing work follows completed setup.`,
+  }),
+
+  /** Forced setup completion is unproved and cannot enter landing or activation. */
+  "setup-forced-needs-proof": defineHint({
+    id: "setup-forced-needs-proof",
+    category: "next-step",
+    audience: "all",
+    when:
+      "Setup records completion with --force and therefore has no Gate Proof.",
+    family: "setup-done-next",
+    example: undefined,
+    template: (): string =>
+      `Resolve the incomplete or red setup, commit the correction, then run ${
+        discernCommand("setup done")
+      } without \`--force\` to obtain Proof before landing or activation.`,
   }),
 
   /**
@@ -3664,6 +3689,19 @@ export const HINTS = {
       `Apply the fix listed under each failed check, then run ${
         discernCommand("doctor")
       } again.`,
+  }),
+
+  /** Default structured doctor stays bounded; the execution model is opt-in. */
+  "doctor-execution-model-verbose": defineHint({
+    id: "doctor-execution-model-verbose",
+    category: "notice",
+    audience: "all",
+    when:
+      "A non-verbose structured doctor result omits the full execution model.",
+    family: "doctor-detail",
+    example: undefined,
+    template: (): string =>
+      "The bounded result omits `data.execution_model`. Run `discern doctor --verbose --json` only when you need the complete per-verb execution model.",
   }),
 
   /** Upgrade never checks the network, so it names the installed update channel. */

@@ -2004,12 +2004,19 @@ export type DocsData = z.infer<typeof DocsDataSchema>;
  * half a page.
  */
 export const SetupPageSpineSchema = z.strictObject({
-  intent: z.string(),
-  files_to_read: z.array(z.string()),
-  must_do: z.array(z.string()),
-  what_not_to_do: z.array(z.string()),
-  completion_check: z.string(),
-  next_action: z.string(),
+  phase: z.string().trim().min(1),
+  stable_target: z.string().trim().min(1),
+  intent: z.string().trim().min(1),
+  files_to_read: z.array(z.string().trim().min(1)).min(1),
+  must_do: z.array(z.string().trim().min(1)).min(1),
+  authority_boundaries: z.array(z.string().trim().min(1)).min(1),
+  human_decisions: z.array(z.string().trim().min(1)).min(1),
+  what_not_to_do: z.array(z.string().trim().min(1)).min(1),
+  completion_check: z.string().trim().min(1),
+  stop_conditions: z.array(z.string().trim().min(1)).min(1),
+  recovery: z.array(z.string().trim().min(1)).min(1),
+  next_action: z.string().trim().min(1),
+  relay: z.array(z.string().trim().min(1)).min(1).optional(),
 });
 export type SetupPageSpine = z.infer<typeof SetupPageSpineSchema>;
 
@@ -2153,9 +2160,32 @@ export const SetupDoneLandingSchema = z.strictObject({
   command: z.string(),
 });
 
+const SetupCompletionListSchema = z.strictObject({
+  count: z.number().int().nonnegative(),
+  items: z.array(z.string().trim().min(1)),
+}).refine((value) => value.count === value.items.length, {
+  message: "count must equal the number of inventory items",
+});
+
+/** Mechanical counts and lists quoted by setup's closing relay. Every field is
+ * derived from the final configured authorities after Proof, never agent arithmetic. */
+export const SetupCompletionInventorySchema = z.strictObject({
+  map_regions: SetupCompletionListSchema,
+  ledger_items: SetupCompletionListSchema,
+  jobs: z.strictObject({
+    enforced: z.array(z.string()),
+    deferred: z.array(z.string()),
+    absent: z.array(z.string()),
+    not_applicable: z.array(z.string()),
+  }),
+});
+export type SetupCompletionInventory = z.infer<
+  typeof SetupCompletionInventorySchema
+>;
+
 /**
  * `setup done` — the completion payload (ADR 0065/0078/0086). The structured fields
- * carry assurance, landing, reactivation, and coach facts. The `instructions` prose is
+ * carry assurance, landing, inventory, and phase-appropriate activation facts. The `instructions` prose is
  * the ready-to-relay completion message a courier agent hands its human — carried
  * verbatim in every representation, never flattened into fields (ADR 0086).
  */
@@ -2177,10 +2207,46 @@ export const SetupDoneDataSchema = z.strictObject({
   proof_line: z.string().optional(),
   leftover: z.array(z.string()),
   assurance: SetupAssuranceSchema,
+  inventory: SetupCompletionInventorySchema,
   landing: SetupDoneLandingSchema,
-  reactivation: ReactivationSchema,
-  coach: z.strictObject({ verb: z.string(), command: z.string() }),
+  /** Present only when setup is already on the integration branch. An unlanded
+   * result must lead with landing and must not instruct a premature restart. */
+  reactivation: ReactivationSchema.optional(),
+  /** Optional ongoing work, available only after activation succeeds. */
+  optional_improvement: z.strictObject({
+    verb: z.string(),
+    command: z.string(),
+    after: z.literal("activation_verified"),
+  }).optional(),
   instructions: z.string(),
+}).superRefine((data, context) => {
+  const activationEligible = data.gate_proven && !data.forced &&
+    (!data.landing.in_repo || data.landing.on_target);
+  if (!activationEligible && data.reactivation !== undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["reactivation"],
+      message:
+        "reactivation is available only after proved setup reaches the integration branch",
+    });
+  }
+  if (!activationEligible && data.optional_improvement !== undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["optional_improvement"],
+      message:
+        "improvement is available only after proved setup reaches the integration branch",
+    });
+  }
+  if (
+    data.optional_improvement !== undefined && data.reactivation === undefined
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["optional_improvement"],
+      message: "improvement requires the preceding activation handoff",
+    });
+  }
 });
 export type SetupDoneData = z.infer<typeof SetupDoneDataSchema>;
 
@@ -2278,6 +2344,12 @@ export const SetupAcceptDataSchema = z.strictObject({
    * retired after its durable Proof note was written. */
   proof_cleared: z.boolean().optional(),
   proof_clear_error: z.string().optional(),
+  /** Provider-specific fresh-session checks printed only after a successful land. */
+  reactivation: ReactivationSchema.optional(),
+  optional_improvement: z.strictObject({
+    command: z.string(),
+    after: z.literal("activation_verified"),
+  }).optional(),
 });
 export type SetupAcceptData = z.infer<typeof SetupAcceptDataSchema>;
 

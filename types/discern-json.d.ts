@@ -524,12 +524,19 @@ export type DiscernSetupResult = {
       step: number;
       title: string;
       spine: {
+        phase: string;
+        stable_target: string;
         intent: string;
         files_to_read: Array<string>;
         must_do: Array<string>;
+        authority_boundaries: Array<string>;
+        human_decisions: Array<string>;
         what_not_to_do: Array<string>;
         completion_check: string;
+        stop_conditions: Array<string>;
+        recovery: Array<string>;
         next_action: string;
+        relay?: Array<string>;
       };
       instructions: string;
     } | null;
@@ -750,12 +757,19 @@ export type DiscernSetupStepResult = {
     step: number;
     title: string;
     spine: {
+      phase: string;
+      stable_target: string;
       intent: string;
       files_to_read: Array<string>;
       must_do: Array<string>;
+      authority_boundaries: Array<string>;
+      human_decisions: Array<string>;
       what_not_to_do: Array<string>;
       completion_check: string;
+      stop_conditions: Array<string>;
+      recovery: Array<string>;
       next_action: string;
+      relay?: Array<string>;
     };
     instructions: string;
   } | {
@@ -936,6 +950,22 @@ export type DiscernSetupDoneResult = {
       not_applicable?: number;
       verdict: "full" | "partial" | "minimal";
     };
+    inventory: {
+      map_regions: {
+        count: number;
+        items: Array<string>;
+      };
+      ledger_items: {
+        count: number;
+        items: Array<string>;
+      };
+      jobs: {
+        enforced: Array<string>;
+        deferred: Array<string>;
+        absent: Array<string>;
+        not_applicable: Array<string>;
+      };
+    };
     landing: {
       in_repo: boolean;
       branch: string;
@@ -944,7 +974,7 @@ export type DiscernSetupDoneResult = {
       on_setup_branch: boolean;
       command: string;
     };
-    reactivation: {
+    reactivation?: {
       summary: string;
       per_agent: Array<{
         agent: string;
@@ -956,9 +986,10 @@ export type DiscernSetupDoneResult = {
         cli_fallback: string;
       }>;
     };
-    coach: {
+    optional_improvement?: {
       verb: string;
       command: string;
+      after: "activation_verified";
     };
     instructions: string;
   } | {
@@ -1152,6 +1183,22 @@ export type DiscernSetupAcceptResult = {
     tracked_refresh_errors?: Array<string>;
     proof_cleared?: boolean;
     proof_clear_error?: string;
+    reactivation?: {
+      summary: string;
+      per_agent: Array<{
+        agent: string;
+        label: string;
+        step: string;
+        check_kind: "mcp" | "cli";
+        check: string;
+        recovery: string;
+        cli_fallback: string;
+      }>;
+    };
+    optional_improvement?: {
+      command: string;
+      after: "activation_verified";
+    };
   } | {
     issues: Array<{
       kind?: "unknown_root_section";

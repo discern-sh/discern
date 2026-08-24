@@ -29,6 +29,7 @@
 
 import { basename, dirname, join } from "@std/path";
 import type { SetupAssurance } from "./setup_assurance.ts";
+import type { SetupCompletionInventory } from "./setup_inventory.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
 import { type CommandRef, discernCommand, flag } from "./command_reference.ts";
@@ -97,7 +98,7 @@ export async function deriveConsentContext(
  */
 const CONFIRMED_BEGIN_WORDS = "setup begin";
 const CONFIRMED_BEGIN_MODEL_FLAG = "model";
-const CONFIRMED_BEGIN_MODEL = '"<your-model-id>"';
+const CONFIRMED_BEGIN_MODEL = "unreported";
 const CONFIRMED_BEGIN_ATTESTATION_FLAG = "confirmed";
 
 /** Render the consent-attested continuation as a plain shell command. */
@@ -159,87 +160,122 @@ function fence(label: string): string {
  * `discern-setup` branch or main-branch story to promise, so the plan leads with
  * `git init` and the next action is to initialize git and re-run the preflight.
  */
-export function consentMessage(ctx: ConsentContext): string {
-  const { worktreePath, docsExists, gitRepo, agents } = ctx;
+/** One item inside the verbatim-protected consent relay. */
+export interface ConsentRelayItem {
+  readonly id: string;
+  readonly text: string;
+}
 
-  const confirmations: string[] = [
-    '1. Ask them this, word for word: "Am I your most capable model? Everything I configure here is inherited by every future session."',
-  ];
-  let n = 2;
-  if (!gitRepo) {
-    confirmations.push(
-      `${n}. This folder isn't under version control yet, so my first step will be \`git init\` — everything above (the safety net, the working copies) needs it. OK to initialize git here?`,
-    );
-    n += 1;
-  }
-  // The agent set is a consent point, not a silent default: the human hears which
-  // of their tools get wired and can trim or extend the set before anything is
-  // written (`--agents` is the mechanism, named for the agent below the fence).
-  const agentLabels = agents.wired.map((a) => a.label).join(", ");
-  confirmations.push(
-    agents.detected
-      ? `${n}. I found ${agentLabels} on this machine — I'll wire discern into ${
-        agents.wired.length > 1 ? "each of them" : "it"
-      }; say the word to skip or add one.`
-      : `${n}. I didn't spot a specific coding tool here, so I'll wire discern's default set: ${agentLabels} — say the word to change it.`,
-  );
-  n += 1;
-  confirmations.push(
-    `${n}. Isolated working copies will live beside this project at ${worktreePath} — keep that location?`,
-  );
-  n += 1;
-  confirmations.push(
-    `${n}. Ready for me to begin? Expect roughly 20–40 minutes and a meaningful number of tokens.`,
-  );
-
-  const command = confirmedBeginCommand();
-
-  const plan = gitRepo
-    ? "The plan: I'll study the repo, come back with one short batch of questions, author the project's map and instructions, wire up the quality checks, and prove it green."
-    : "The plan: I'll initialize git first (`git init` — the safety net below needs it), then study the project, come back with one short batch of questions, author the project's map and instructions, wire up the quality checks, and prove it green.";
-  const safety = gitRepo
-    ? "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch (or later with `discern uninstall`), and there's no API key or outside service."
-    : "It's safe and reversible: once git is initialized I work on a dedicated `discern-setup` branch, you can undo it all by deleting that branch (or later with `discern uninstall`), and there's no API key or outside service.";
-
+/** The load-bearing consent facts, each in its own list item. */
+export function consentRelayItems(
+  ctx: ConsentContext,
+): readonly ConsentRelayItem[] {
+  const plan = ctx.gitRepo
+    ? "Plan: I will inspect the repository, ask one bounded batch for facts it cannot supply, preserve its workflows, configure the Gate and worktree readiness, author the Map and instructions, prove the exact committed setup, and offer landing choices."
+    : "Plan: after you approve version control, I will initialize git, re-run the read-only preflight, inspect the repository, preserve its workflows, configure the Gate and worktree readiness, author the Map and instructions, prove the exact committed setup, and offer landing choices.";
+  const reversibility = ctx.gitRepo
+    ? "Reversibility: setup works on a dedicated `discern-setup` branch and does not reach the integration branch until you choose to land it. You can leave or delete that branch before landing; later, `discern uninstall` removes the wiring while retaining your authored content. No API key or outside discern service is involved."
+    : "Reversibility: after git exists, setup works on a dedicated `discern-setup` branch and does not reach the integration branch until you choose to land it. You can leave or delete that branch before landing; later, `discern uninstall` removes the wiring while retaining your authored content. No API key or outside discern service is involved.";
   return [
-    "Relay the message below to your human as your next chat message — adapt the wording to your own voice if you like, but keep every point, and relay anything in quotation marks word for word. Then wait for their answers.",
+    {
+      id: "quality",
+      text:
+        "Quality checks: the project's formatter, linter, tests, and other applicable checks run through one Gate.",
+    },
+    {
+      id: "worktrees",
+      text:
+        "Isolated working copies (git worktrees): each task gets its own checkout so parallel changes do not share a working tree.",
+    },
+    {
+      id: "instructions",
+      text:
+        "Shared project instructions: one authored source tells future coding sessions how this project works; generated agent files are committed so other sessions can read them.",
+    },
+    {
+      id: "footprint",
+      text:
+        `Footprint: discern owns one root file (\`discern.toml\`), one visible \`discern/\` folder containing the instruction source and deferred-work ledger, and the agent-maintained Map at \`${SOURCE_PATHS.map.defaultPath}\`. It also updates the integration files the selected coding tools require.`,
+    },
+    ...(ctx.docsExists
+      ? [{
+        id: "existing-docs",
+        text:
+          "Existing documentation: this project already has `docs/`; it remains owner material and discern does not adopt or overwrite it. The Map is a separate tree.",
+      }]
+      : []),
+    { id: "plan", text: plan },
+    { id: "reversibility", text: reversibility },
+  ];
+}
+
+/** Numbered consent questions. The relay frame requires these word for word. */
+export function consentConfirmations(
+  ctx: ConsentContext,
+): readonly ConsentRelayItem[] {
+  const agentLabels = ctx.agents.wired.map((agent) => agent.label).join(", ");
+  return [
+    {
+      id: "model",
+      text:
+        "Which available model do you want to use for this setup? Everything configured here is inherited by future sessions. I will report the provider/model identifier separately when I know it, or record `unreported` when I do not.",
+    },
+    ...(ctx.gitRepo ? [] : [{
+      id: "git-init",
+      text:
+        "This folder is not under version control, and the isolated branch and undo path require it. May I run `git init` here, then repeat the preflight before setup begins?",
+    }]),
+    {
+      id: "agents",
+      text: ctx.agents.detected
+        ? `I found ${agentLabels} on this machine. Should I wire discern into that set, or change it?`
+        : `I found no specific coding tool, so the proposed default set is ${agentLabels}. Should I use that set, or change it?`,
+    },
+    {
+      id: "worktree-path",
+      text:
+        `Isolated working copies will live beside this project at ${ctx.worktreePath}. Keep that location?`,
+    },
+    {
+      id: "cost",
+      text:
+        "Setup usually takes 20–40 minutes and a meaningful number of tokens. Continue with that expectation?",
+    },
+    {
+      id: "ready",
+      text: "Ready for me to begin the isolated setup branch?",
+    },
+  ];
+}
+
+/** Render the complete itemized consent relay and its attested continuation. */
+export function consentMessage(ctx: ConsentContext): string {
+  const command = confirmedBeginCommand();
+  const relayItems = consentRelayItems(ctx);
+  const confirmations = consentConfirmations(ctx);
+  return [
+    "Relay the fenced message below as your next chat message. You may adapt the framing to your own voice, but keep every list item, relay anything in quotation marks word for word, and relay every numbered confirmation word for word. Then wait for the answers.",
     "",
     fence("message to your human"),
     "",
-    "I'd like to set up discern on this project — a one-time step that adds three things:",
+    "I propose a one-time discern setup for this project. These facts and choices define it:",
     "",
-    "  • quality checks — your formatter, linter, and tests, run on every change to catch mistakes before they ship;",
-    "  • isolated working copies (git worktrees) — each task gets its own copy, so parallel work never collides;",
-    "  • shared project instructions — one place that tells every coding session how this project works; the agent files are committed, so cloud sessions read them too.",
+    ...relayItems.map((item) => `- ${item.text}`),
     "",
-    `  • discern owns one root file (\`discern.toml\`), one visible \`discern/\` folder — a deferred-work ledger and those shared instructions — and a map of your codebase at \`${SOURCE_PATHS.map.defaultPath}\`: an agent-maintained account of how the codebase fits together, kept current for your audit. It updates the files your coding tools require, committed for review.`,
-    ...(docsExists
-      ? [
-        "",
-        "  • You already have a docs/ folder — it's yours, and discern won't touch it. The map is discern's own separate tree; your documentation stays where it is.",
-      ]
-      : []),
+    "Confirm each numbered point:",
     "",
-    plan,
-    "",
-    safety,
-    "",
-    "A few things to confirm before I begin:",
-    "",
-    ...confirmations,
+    ...confirmations.map((item, index) => `${index + 1}. ${item.text}`),
     "",
     fence("end of message"),
     "",
-    gitRepo
-      ? "Once they've answered, run this — substitute your own model id, or drop `--model` if you don't know it (it is recorded only for support triage):"
-      : "Once they've answered: initialize git (`git init`), re-run `discern setup verify` to confirm the plan against the new repository, then run this — substitute your own model id, or drop `--model` if you don't know it (it is recorded only for support triage):",
+    ctx.gitRepo
+      ? "After every answer is settled, run the command below. Replace `unreported` with your exact self-declared provider/model identifier when known; otherwise keep `unreported`. Provenance is advisory and does not verify capability:"
+      : "After every answer is settled, initialize git, re-run `discern setup verify`, and then run the command below. Replace `unreported` with your exact self-declared provider/model identifier when known; otherwise keep `unreported`. Provenance is advisory and does not verify capability:",
     "",
     `    ${command}`,
     "",
-    // The REAL effective set, never a placeholder — copied verbatim it wires
-    // exactly what would have been wired anyway, so the example can't mislead.
-    `If they asked to skip or add a tool, pass the exact set to wire: \`--agents ${
-      agents.wired.map((a) => a.name).join(",")
+    `If the owner changed the coding-tool set, pass the exact set to wire: \`--agents ${
+      ctx.agents.wired.map((agent) => agent.name).join(",")
     }\` (edit that list).`,
   ].join("\n");
 }
@@ -261,15 +297,24 @@ export interface CompletionLanding {
  * return (`src/lib/providers.ts`), declared here for the same layering reason. */
 export interface CompletionReactivation {
   summary: string;
-  per_agent: ReadonlyArray<{ label: string; step: string }>;
+  per_agent: ReadonlyArray<{
+    label: string;
+    step: string;
+    check: string;
+    recovery: string;
+    cli_fallback: string;
+  }>;
 }
 
 /** The pieces `setup done` has already computed, from which the closing relay block is
  * composed — never recomputed here (single source of truth). */
 export interface CompletionContext {
   assurance: SetupAssurance;
+  inventory: SetupCompletionInventory;
   landing: CompletionLanding;
-  reactivation: CompletionReactivation;
+  reactivation?: CompletionReactivation | undefined;
+  proofLine?: string | undefined;
+  forced: boolean;
 }
 
 /** Plain-word coverage line for the completion message: what runs and which
@@ -330,21 +375,46 @@ function landingLine(l: CompletionLanding): string {
  * first-person message covering what the project now has (honest coverage), the
  * contained footprint (the root `discern.toml` plus the `discern/` folder — the
  * namespace story the consent message opened with, closed honestly), the
- * reactivation step (a fresh session, so discern's tools and hooks load), and the
- * landing recommendation. Composed from the already-computed {@link CompletionContext}
- * pieces — never recomputed.
+ * mechanical inventory, Proof, and the next valid phase. An unlanded result stops
+ * at the landing choice; an integrated result sequences fresh-session activation
+ * before optional improvement. Composed from the already-computed
+ * {@link CompletionContext} pieces — never recomputed.
  */
 export function completionMessage(ctx: CompletionContext): string {
-  const { assurance, reactivation, landing } = ctx;
-  // Reactivation rides the HEADLINE, not a bullet: cold runs show a courier agent
-  // keeps a message's opening sentence and prunes middle bullets, and the
-  // fresh-session step is the one instruction a novice cannot recover on their own.
-  // It is also genuinely derived: an agent that wired nothing loading at session
-  // start has an empty `per_agent`, so there is nothing to switch on and we never
-  // tell the human to restart for nothing.
-  const headline = reactivation.per_agent.length > 0
-    ? "discern is set up — your project is configured and the quality gate is green. One step remains to switch it on: discern's tools and automations load when a coding session starts, so start a fresh session to pick them up."
-    : "discern is set up — your project is configured and the quality gate is green.";
+  const { assurance, inventory, landing, reactivation, proofLine, forced } =
+    ctx;
+  const readyForActivation = !landing.inRepo || landing.onTarget;
+  const headline = forced
+    ? "discern setup was recorded without a Gate Proof. Review the unproved setup before treating it as ready."
+    : readyForActivation
+    ? `discern setup is proved and available on \`${landing.target}\`.`
+    : `discern setup is proved on \`${
+      landing.branch || "discern-setup"
+    }\`, but \`${landing.target}\` does not contain it yet.`;
+  const inventoryLines = [
+    `  • Map regions (${inventory.map_regions.count}): ${
+      inlineInventory(inventory.map_regions.items)
+    }.`,
+    `  • Deferred-work ledger items (${inventory.ledger_items.count}): ${
+      inlineInventory(inventory.ledger_items.items)
+    }.`,
+    `  • Jobs enforced: ${
+      inlineInventory(inventory.jobs.enforced)
+    }; deferred: ${inlineInventory(inventory.jobs.deferred)}; absent: ${
+      inlineInventory(inventory.jobs.absent)
+    }; do not apply: ${inlineInventory(inventory.jobs.not_applicable)}.`,
+  ];
+  const activationLines = readyForActivation && reactivation !== undefined
+    ? [
+      ...(reactivation.per_agent.length === 0
+        ? ["  • No configured provider needs a fresh-session activation step."]
+        : reactivation.per_agent.flatMap((agent) => [
+          `  • Start a fresh ${agent.label} session: ${agent.step}`,
+          `    Verify activation with \`${agent.check}\`; if it fails, ${agent.recovery} CLI fallback: \`${agent.cli_fallback}\`.`,
+        ])),
+      "  • Only after every applicable activation check succeeds, optionally run `discern improvement --json` for an owner review of ongoing work.",
+    ]
+    : [];
   return [
     "Relay the message below to your human — adapt the wording to your own voice if you like, but keep every point.",
     "",
@@ -352,15 +422,26 @@ export function completionMessage(ctx: CompletionContext): string {
     "",
     headline,
     "",
-    ...reactivation.per_agent.map((agent) =>
-      `  • ${agent.label}: ${agent.step}`
-    ),
+    ...(proofLine === undefined ? [] : [`  • ${proofLine}`]),
     `  • ${coverageLine(assurance)}`,
+    ...inventoryLines,
     "  • Everything discern added is contained: `discern.toml` at the root and the `discern/` folder, plus the files your coding tools require — plain files you can read and audit any time. If you ever change your mind, `discern uninstall` takes the wiring back out and leaves your own content in place.",
-    `  • ${landingLine(landing)}`,
+    `  • ${
+      forced
+        ? "This unproved state cannot use setup acceptance. Resolve the incomplete or red setup, commit the correction, then run `discern setup done` without `--force` before landing or activation."
+        : landingLine(landing)
+    }`,
+    ...activationLines,
     "",
     fence("end of message"),
   ].join("\n");
+}
+
+/** Render one inventory list without asking the courier agent to recount it. */
+function inlineInventory(items: readonly string[]): string {
+  return items.length === 0
+    ? "none"
+    : items.map((item) => `\`${item}\``).join(", ");
 }
 
 /** True when a path exists (any type, symlinks not followed) — the same probe `verify`

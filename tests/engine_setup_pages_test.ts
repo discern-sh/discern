@@ -13,7 +13,7 @@
  *     PASSES when every check is satisfied — the anti-shallow-compliance guard;
  *  4. every completion check's `describe` matches its page's `completion_check`
  *     spine field (so the brief and the predicate can't drift);
- *  5. the shipped brief parses into nine full pages (a malformed spine fails here).
+ *  5. the shipped brief parses into every versioned page (a malformed spine fails here).
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -31,7 +31,14 @@ import {
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
-import { parseSetupBrief } from "../src/shared/setup_pages.ts";
+import {
+  parseSetupBrief,
+  SETUP_BEGIN_MAX_CHARS,
+  SETUP_DOCUMENTATION_CLAIM_STEPS,
+  SETUP_PAGE_MAX_CHARS,
+  SETUP_PAGE_REGISTRY,
+  SETUP_RESULT_MAX_CHARS,
+} from "../src/shared/setup_pages.ts";
 import { SETUP_COMPLETION_CHECKS } from "../src/shared/setup_checks.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { SetupStepOutputSchema } from "../src/shared/result_schemas.ts";
@@ -46,34 +53,45 @@ const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
 
 // ── the page parser + the brief's structure ─────────────────────────────────
 
-Deno.test("the shipped brief parses into the nine numbered pages, each with a full spine", async () => {
+Deno.test("the shipped brief parses in versioned dependency order and every page has the operational spine", async () => {
   // This is also the malformed-spine guard: a step with a broken `toml` block makes
   // parseSetupBrief throw, failing the gate before such a brief could ship.
   const text = await Deno.readTextFile(BRIEF);
   const brief = parseSetupBrief(text);
 
-  assertEquals(brief.pages.map((p) => p.step), [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-  ]);
+  assertEquals(
+    brief.pages.map((p) => p.step),
+    SETUP_PAGE_REGISTRY.map((entry) => entry.step),
+  );
   assertStringIncludes(brief.preamble, "# Set up discern");
-  assertStringIncludes(brief.preamble, "Operating principles");
+  assertStringIncludes(brief.preamble, "Operating contract");
   assertStringIncludes(
     brief.epilogue,
     "You are not done until all of these are true",
   );
 
   for (const p of brief.pages) {
+    assert(p.spine.phase.length > 0, `Step ${p.step} phase is empty`);
+    assert(
+      p.spine.stable_target.length > 0,
+      `Step ${p.step} stable target is empty`,
+    );
     assert(p.spine.intent.length > 0, `Step ${p.step} intent is empty`);
+    assert(p.spine.files_to_read.length > 0, `Step ${p.step} inputs empty`);
     assert(p.spine.must_do.length > 0, `Step ${p.step} must_do is empty`);
+    assert(
+      p.spine.authority_boundaries.length > 0,
+      `Step ${p.step} authority boundary is empty`,
+    );
+    assert(
+      p.spine.what_not_to_do.length > 0,
+      `Step ${p.step} prohibited actions are empty`,
+    );
+    assert(
+      p.spine.stop_conditions.length > 0,
+      `Step ${p.step} stop conditions are empty`,
+    );
+    assert(p.spine.recovery.length > 0, `Step ${p.step} recovery is empty`);
     assert(
       p.spine.next_action.length > 0,
       `Step ${p.step} next_action is empty`,
@@ -86,6 +104,10 @@ Deno.test("the shipped brief parses into the nine numbered pages, each with a fu
       p.instructions.length > 0,
       `Step ${p.step} prose instructions are empty`,
     );
+    const registered = SETUP_PAGE_REGISTRY.find((entry) =>
+      entry.step === p.step
+    );
+    assertEquals(p.spine.next_action, registered?.nextCommand);
     // The spine block is the machine lane only — its fence must not leak into prose.
     assert(
       !p.instructions.includes("```toml"),
@@ -108,14 +130,20 @@ Deno.test("setup step <n> --json carries the structured spine AND the prose inst
     assertEquals(d.step, 4);
     assertEquals(typeof d.title, "string");
 
-    // The machine lane: all six spine fields are present.
+    // The machine lane: every operational contract field is present.
     for (
       const k of [
         "intent",
+        "phase",
+        "stable_target",
         "files_to_read",
         "must_do",
+        "authority_boundaries",
+        "human_decisions",
         "what_not_to_do",
         "completion_check",
+        "stop_conditions",
+        "recovery",
         "next_action",
       ]
     ) {
@@ -125,7 +153,7 @@ Deno.test("setup step <n> --json carries the structured spine AND the prose inst
 
     // The prose lane: the warm instructions the agent follows verbatim.
     assert(typeof d.instructions === "string" && d.instructions.length > 0);
-    assertStringIncludes(d.instructions, "single source of truth"); // a Step 4 prose anchor
+    assertStringIncludes(d.instructions, "present tense"); // a Step 4 prose anchor
 
     // Faithfulness (ADR 0041): the real serialized output validates against the schema.
     SetupStepOutputSchema.parse(res);
@@ -149,7 +177,7 @@ Deno.test("setup step 2 renders every supported diagnostic format", async () => 
   });
 });
 
-Deno.test("setup step <n> human output leads with the prose, with light navigation rails", async () => {
+Deno.test("setup step <n> human output renders the operational spine from the parsed authority", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["setup", "step", "4"]);
@@ -157,10 +185,13 @@ Deno.test("setup step <n> human output leads with the prose, with light navigati
 
     assertTerminalTextIncludes(
       r.stdout,
-      "## Step 4 — Draft the design principles",
+      "## Step 4 — Draft project-specific design principles",
     );
-    assertTerminalTextIncludes(r.stdout, "single source of truth"); // the warm prose leads
-    assertStringIncludes(r.stdout, "Next:"); // the chaining rail
+    assertTerminalTextIncludes(r.stdout, "Must do, in order");
+    assertTerminalTextIncludes(r.stdout, "Completion check");
+    assertTerminalTextIncludes(r.stdout, "Stop and recover");
+    assertTerminalTextIncludes(r.stdout, "Recovery:");
+    assertStringIncludes(r.stdout, "discern setup step 5");
     // The raw spine fence must never leak into the human rendering.
     assert(!r.stdout.includes("```toml"), r.stdout);
   });
@@ -177,19 +208,19 @@ Deno.test("setup step on a non-existent step is a structured no_such_step", asyn
 
 // ── `setup begin` emits the principles + the first page ONLY ─────────────────
 
-Deno.test("setup begin emits the operating principles + the first page only, never the later steps", async () => {
+Deno.test("setup begin emits the operating contract + the first page only, never the later steps", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
 
     // The principles (preamble) and the first page (Step 0) are present...
-    assertTerminalTextIncludes(r.stdout, "Operating principles");
+    assertTerminalTextIncludes(r.stdout, "Operating contract");
     assertTerminalTextIncludes(
       r.stdout,
-      "## Step 0 — Checkpoint: the model question, then orient",
+      "## Step 0 — Confirm consent, provenance, and install health",
     );
-    assertTerminalTextIncludes(r.stdout, "am I your most capable model"); // Step 0's prose
+    assertTerminalTextIncludes(r.stdout, "self-declared provider/model");
 
     // ...but no later page is dumped — the agent pulls each with `setup step <n>`.
     for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
@@ -213,7 +244,39 @@ Deno.test("setup begin emits the operating principles + the first page only, nev
     );
     assertEquals(d.page.step, 0);
     assertEquals(typeof d.page.spine.next_action, "string");
+    assert(
+      r.stdout.length <= SETUP_BEGIN_MAX_CHARS,
+      r.stdout.length.toString(),
+    );
   });
+});
+
+Deno.test("every page stays bounded and documentation pages require the final evidence recheck", async () => {
+  const brief = parseSetupBrief(await Deno.readTextFile(BRIEF));
+  for (const page of brief.pages) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir, { bootstrapped: false });
+      const human = await runAgent(dir, ["setup", "step", String(page.step)]);
+      const structured = await runAgent(dir, [
+        "setup",
+        "step",
+        String(page.step),
+        "--json",
+      ]);
+      assert(human.stdout.length <= SETUP_PAGE_MAX_CHARS);
+      assert(structured.stdout.length <= SETUP_PAGE_MAX_CHARS);
+    });
+  }
+  for (const step of SETUP_DOCUMENTATION_CLAIM_STEPS) {
+    const page = brief.pages.find((candidate) => candidate.step === step);
+    assert(page !== undefined);
+    assert(
+      page.spine.must_do.some((action) =>
+        /recheck|verify every|verify each/i.test(action)
+      ),
+      `Step ${step} must make final factual verification an ordered action`,
+    );
+  }
 });
 
 // ── `setup done` proves per-step completion (the anti-shallow-compliance guard) ──
@@ -309,9 +372,28 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);
+    assert(done.stdout.length <= SETUP_RESULT_MAX_CHARS);
     const res = JSON.parse(done.stdout);
     assertEquals(res.data.bootstrapped, true);
     assertEquals(res.data.gate_proven, true);
+    assertEquals(res.data.inventory.map_regions.count, 1);
+    assertEquals(res.data.inventory.map_regions.items, ["00-orientation"]);
+    assertEquals(res.data.inventory.ledger_items.count, 0);
+    assertEquals(res.data.landing.on_target, false);
+    assertEquals(res.data.reactivation, undefined);
+    assertEquals(res.data.optional_improvement, undefined);
+    assert(
+      res.hints.some((hint: string) =>
+        hint.includes("discern setup accept") &&
+        hint.includes("does not contain it yet")
+      ),
+      done.stdout,
+    );
+    assert(
+      !res.hints.some((hint: string) =>
+        hint.includes("restart") || hint.includes("improvement")
+      ),
+    );
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",

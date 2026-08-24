@@ -19,6 +19,7 @@ import {
   recordDeclaration,
 } from "../src/engine/checkpoints/open_questions.ts";
 import {
+  defaultMapPath,
   git,
   gitInit,
   gitOut,
@@ -112,6 +113,20 @@ Deno.test("setup accept fast-forwards the setup branch onto main and deletes it"
       ["recorded", "already_present"].includes(data.proof_note.write.status),
     );
     assertEquals(data.local_artifacts_converged, true);
+    assert(
+      data.reactivation.per_agent.some((agent: { check: string }) =>
+        agent.check === "discern_status"
+      ),
+    );
+    assertEquals(data.optional_improvement, {
+      command: "discern improvement --json",
+      after: "activation_verified",
+    });
+    assert(
+      result.hints.some((hint: string) =>
+        hint.includes("Only after every applicable activation check succeeds")
+      ),
+    );
 
     // Now on main, the merged branch is gone, and the setup work landed.
     assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
@@ -475,11 +490,32 @@ Deno.test("setup done steers a non-setup branch to a manual merge, never `setup 
     ]);
     assertEquals(begin.code, 0, begin.output);
 
-    const done = await runAgent(dir, ["setup", "done", "--force", "--json"]);
+    await Deno.remove(defaultMapPath(dir), { recursive: true });
+    await Deno.mkdir(defaultMapPath(dir));
+    await Deno.writeTextFile(defaultMapPath(dir, "README.md"), "# Real Map\n");
+    await Deno.writeTextFile(
+      join(dir, "discern/instructions.md"),
+      "# Project instructions\n\nA real project pitch.\n\n## Conventions\n\nReal conventions.\n",
+    );
+    const wired = await runAgent(dir, ["config", "set-job", "test", "true"]);
+    assertEquals(wired.code, 0, wired.output);
+    const refreshed = await runAgent(dir, ["refresh"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author setup", "--no-gpg-sign");
+
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);
     const obj = JSON.parse(done.stdout);
     assertEquals(obj.data.landing.branch, "feature-x");
     assertEquals(obj.data.landing.on_setup_branch, false);
+    assertEquals(obj.data.reactivation, undefined);
+    assertEquals(obj.data.optional_improvement, undefined);
+    assert(
+      !obj.hints.some((hint: string) =>
+        hint.includes("restart") || hint.includes("improvement")
+      ),
+    );
     assertLacksHint(obj, HINTS["setup-done-land-dedicated"], {
       branch: "feature-x",
       target: "main",

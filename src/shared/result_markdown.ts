@@ -738,6 +738,13 @@ const presentSetupStep: ResultMarkdownPresenter = (result) => {
   const spine = object(data.spine) ?? {};
   const title = text(data.title);
   const instructions = verbatimText(data.instructions);
+  const phase = text(spine.phase);
+  const stableTarget = text(spine.stable_target);
+  const authority = strings(spine.authority_boundaries);
+  const decisions = strings(spine.human_decisions);
+  const stops = strings(spine.stop_conditions);
+  const recovery = strings(spine.recovery);
+  const relay = strings(spine.relay);
   return {
     state: defaultState(
       result,
@@ -748,35 +755,81 @@ const presentSetupStep: ResultMarkdownPresenter = (result) => {
       }${title === undefined ? "" : `, ${title}`}, is ready to follow.`,
     ),
     evidence: unique([
+      phase === undefined ? undefined : `Phase: ${phase}`,
+      stableTarget === undefined ? undefined : `Stable target: ${stableTarget}`,
       text(spine.intent),
-      listFact("Read", strings(spine.files_to_read)),
+      listFact("Inspect before acting", strings(spine.files_to_read)),
       ...strings(spine.must_do),
       text(spine.completion_check) === undefined
         ? undefined
         : `Completion check: ${text(spine.completion_check)}`,
     ]),
-    supportingMarkdown: instructions === undefined
-      ? []
-      : [`### Step instructions\n\n${instructions}`],
-    boundary: strings(spine.what_not_to_do),
-    action: text(spine.next_action) === undefined
-      ? []
-      : [text(spine.next_action) ?? ""],
+    supportingMarkdown: [
+      ...(instructions === undefined
+        ? []
+        : [`### Step instructions\n\n${instructions}`]),
+      ...(relay.length === 0
+        ? []
+        : [`### Relay to the owner\n\n${
+          relay.map((item) => `- ${item}`).join("\n")
+        }`]),
+    ],
+    boundary: unique([
+      ...authority.map((item) => `Authority: ${item}`),
+      ...decisions.map((item) => `Owner decision: ${item}`),
+      ...strings(spine.what_not_to_do),
+      ...stops.map((item) => `Stop: ${item}`),
+    ]),
+    action: unique([
+      ...recovery.map((item) => `Recovery: ${item}`),
+      text(spine.next_action) === undefined
+        ? undefined
+        : text(spine.next_action),
+    ]),
   };
 };
 
 const presentSetupDone: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const assurance = object(data.assurance);
+  const inventory = object(data.inventory);
   const landing = object(data.landing);
   const reactivation = object(data.reactivation);
+  const improvement = object(data.optional_improvement);
+  const forced = boolean(data.forced) === true;
   const unmet = records(data.unmet);
   const instructions = verbatimText(data.instructions);
-  const action = boolean(landing?.on_target) === false
-    ? text(landing?.command)
-    : text(reactivation?.summary);
+  const activation = records(reactivation?.per_agent).flatMap((agent) =>
+    unique([
+      text(agent.step),
+      text(agent.check) === undefined
+        ? undefined
+        : `Verify activation with ${code(agent.check)}.`,
+      text(agent.recovery),
+      text(agent.cli_fallback) === undefined
+        ? undefined
+        : `CLI fallback: ${code(agent.cli_fallback)}.`,
+    ])
+  );
+  const action = forced
+    ? []
+    : boolean(landing?.on_target) === false
+    ? unique([text(landing?.command)])
+    : unique([
+      ...activation,
+      text(improvement?.command) === undefined
+        ? undefined
+        : `After activation succeeds, optionally run ${
+          code(improvement?.command)
+        }.`,
+    ]);
   return {
-    state: defaultState(result, "discern setup is complete."),
+    state: defaultState(
+      result,
+      forced
+        ? "discern setup was recorded without Gate Proof."
+        : "discern setup is complete.",
+    ),
     evidence: unique([
       assurance === undefined
         ? undefined
@@ -790,6 +843,24 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
         boolean(data.worktree_proven) === true ? "yes" : "no"
       }.`,
       gateProofFact(data.proof),
+      inventory === undefined
+        ? undefined
+        : `Map regions: ${
+          number(object(inventory.map_regions)?.count) ?? 0
+        }; ledger items: ${
+          number(object(inventory.ledger_items)?.count) ?? 0
+        }.`,
+      inventory === undefined
+        ? undefined
+        : `Jobs — enforced: ${
+          strings(object(inventory.jobs)?.enforced).join(", ") || "none"
+        }; deferred: ${
+          strings(object(inventory.jobs)?.deferred).join(", ") || "none"
+        }; absent: ${
+          strings(object(inventory.jobs)?.absent).join(", ") || "none"
+        }; do not apply: ${
+          strings(object(inventory.jobs)?.not_applicable).join(", ") || "none"
+        }.`,
       listFact("Leftover setup markers", strings(data.leftover)),
       ...unmet.slice(0, MAX_LIST_ITEMS).map((check) => {
         const step = number(check.step);
@@ -805,13 +876,15 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
     supportingMarkdown: instructions === undefined
       ? []
       : [`### Completion instructions\n\n${instructions}`],
-    action: action === undefined ? [] : [action],
+    action,
   };
 };
 
 const presentSetupAccept: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const landed = boolean(data.landed);
+  const reactivation = object(data.reactivation);
+  const improvement = object(data.optional_improvement);
   return {
     state: defaultState(
       result,
@@ -842,6 +915,25 @@ const presentSetupAccept: ResultMarkdownPresenter = (result) => {
           boolean(data.branch_deleted) === true ? "yes" : "no"
         }.`
         : undefined,
+    ]),
+    action: landed !== true ? [] : unique([
+      ...records(reactivation?.per_agent).flatMap((agent) =>
+        unique([
+          text(agent.step),
+          text(agent.check) === undefined
+            ? undefined
+            : `Verify activation with ${code(agent.check)}.`,
+          text(agent.recovery),
+          text(agent.cli_fallback) === undefined
+            ? undefined
+            : `CLI fallback: ${code(agent.cli_fallback)}.`,
+        ])
+      ),
+      text(improvement?.command) === undefined
+        ? undefined
+        : `After activation succeeds, optionally run ${
+          code(improvement?.command)
+        }.`,
     ]),
   };
 };

@@ -13,9 +13,10 @@
  *     for nothing — such a job is deferred with the additive `self_supplied`
  *     marker (ADR 0220), so a fresh scaffold can never award itself coverage;
  *   - integration, over the real `setup done` CLI: the `--json` envelope carries the
- *     assurance block + verdict + the landing summary, and the human output names what
- *     is enforced vs deferred, where the just-finished work lives, the exact land
- *     command, and the ongoing-use steer.
+ *     assurance block + verdict + the landing summary and mechanically derived
+ *     completion inventory. The human output names what is enforced vs deferred,
+ *     where the just-finished work lives, and the exact land command without asking
+ *     for reactivation or improvement before landing.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -30,7 +31,6 @@ import {
 } from "../src/shared/result_schemas.ts";
 import { resultPresenterForVerb } from "../src/shared/result_contracts.ts";
 import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
-import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { KNOWN_VERBS } from "../src/shared/verbs.ts";
 import { sectionBlockFromTemplate } from "../src/lib/config_template.ts";
@@ -424,7 +424,7 @@ Deno.test("setup done terminal, JSON, and Markdown agree on the applicable denom
   });
 });
 
-Deno.test("setup done --json carries the landing summary + coach pointer", async () => {
+Deno.test("forced setup done carries a mechanical inventory and unproved recovery", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await writeConfig(dir, MIXED_CONFIG);
@@ -439,23 +439,21 @@ Deno.test("setup done --json carries the landing summary + coach pointer", async
     assertEquals(res.data.landing.branch, "discern-setup");
     assertEquals(res.data.landing.target, "main");
     assertEquals(res.data.landing.on_target, false);
-    // The ongoing-use steer resolves the live coach verb (improve), never hardcoded.
-    assertEquals(res.data.coach.verb, "improvement");
-    assertStringIncludes(res.data.coach.command, "discern improvement --json");
-    // The ordered next-action hints name landing and the coach.
-    assertHasHint(res, HINTS["setup-done-land-dedicated"], {
-      branch: "discern-setup",
-      target: "main",
-      acceptCommand: ACCEPT_COMMAND_REF,
-    });
-    assertHasHint(res, HINTS["setup-run-coach"], {
-      coachVerb: "improvement",
-      todoRel: "discern/TODO.md",
-    });
+    assertEquals(res.data.inventory.map_regions.count, 0);
+    assertEquals(res.data.inventory.map_regions.items, []);
+    assertEquals(res.data.inventory.ledger_items.count, 0);
+    assertEquals(res.data.inventory.ledger_items.items, []);
+    assertEquals(
+      Object.values(res.data.inventory.jobs).flat().length,
+      Object.keys(KNOWN_JOBS).length,
+    );
+    assertHasHint(res, HINTS["setup-forced-needs-proof"]);
+    assertEquals(res.data.reactivation, undefined);
+    assertEquals(res.data.optional_improvement, undefined);
   });
 });
 
-Deno.test("setup done's human output names where the work lives, the land command, and the coach", async () => {
+Deno.test("setup done's forced human output withholds the unproved landing path", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await writeConfig(dir, MIXED_CONFIG);
@@ -464,17 +462,16 @@ Deno.test("setup done's human output names where the work lives, the land comman
 
     const done = await runAgent(dir, ["setup", "done", "--force"]);
     assertEquals(done.code, 0, done.output);
-    // Celebratory + honest coverage.
+    // Honest coverage and the unproved recovery remain visible.
     assertTerminalTextIncludes(done.stdout, "Setup complete");
     assertTerminalTextIncludes(done.stdout, "Quality coverage: partial");
     assertStringIncludes(done.stdout, "enforced");
     assertStringIncludes(done.stdout, "deferred");
-    // Where the work lives + the EXACT land command (the largest clean-room UX gap).
-    assertStringIncludes(done.stdout, "discern-setup");
-    assertTerminalTextIncludes(done.stdout, "discern setup accept");
-    assertStringIncludes(done.stdout, "main");
-    // The ongoing-use steer.
-    assertTerminalTextIncludes(done.stdout, "discern improvement --json");
+    assertStringIncludes(done.stdout, "without `--force`");
+    assertTerminalTextIncludes(done.stdout, "before landing or activation");
+    assert(!done.stdout.includes("discern setup accept"));
+    assert(!done.stdout.includes("start a fresh session"));
+    assert(!done.stdout.includes("discern improvement"));
   });
 });
 

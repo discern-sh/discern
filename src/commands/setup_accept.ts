@@ -75,7 +75,11 @@ import {
   writePreflightDiagnostic,
   writePreflightFailureMessage,
 } from "../shared/write_preflight.ts";
-import { writtenProviderArtifactPathsForAgents } from "../lib/providers.ts";
+import {
+  reactivationHandoff,
+  writtenProviderArtifactPathsForAgents,
+} from "../lib/providers.ts";
+import { fire, HINTS, hintTexts } from "../shared/hints.ts";
 
 /** Options for `discern setup accept` (global flags + preview). */
 export interface SetupAcceptOptions {
@@ -763,6 +767,13 @@ export async function runSetupAccept(
     mergedInto: target,
   });
   const branchDeleted = branchDeletion.kind !== "refused";
+  const reactivation = reactivationHandoff(landingConfig);
+  const postLandingHints = hintTexts([
+    ...(reactivation.per_agent.length > 0
+      ? [fire(HINTS["setup-reactivate-tools"])]
+      : []),
+    fire(HINTS["setup-improvement-after-activation"]),
+  ]);
 
   const data: SetupAcceptData = {
     landed: true,
@@ -777,6 +788,11 @@ export async function runSetupAccept(
     proof_note: proofNote,
     local_artifacts_converged: true,
     proof_cleared: proofCleared,
+    reactivation,
+    optional_improvement: {
+      command: "discern improvement --json",
+      after: "activation_verified",
+    },
     ...(proofCleared || cleared.reason === undefined
       ? {}
       : { proof_clear_error: cleared.reason }),
@@ -786,6 +802,7 @@ export async function runSetupAccept(
       ok: true,
       verb: "setup accept",
       message: `Setup landed onto ${target}.`,
+      hints: postLandingHints,
       data,
     });
     return 0;
@@ -832,5 +849,19 @@ export async function runSetupAccept(
       }`,
     );
   }
+  if (reactivation.per_agent.length === 0) {
+    log.info("No configured provider needs a fresh-session activation step.");
+  } else {
+    log.line("Activate discern from a fresh provider session:");
+    for (const agent of reactivation.per_agent) {
+      log.line(`  • ${agent.label}: ${agent.step}`);
+      log.line(`    Verify with \`${agent.check}\`.`);
+      log.line(`    If it fails, ${agent.recovery}`);
+      log.line(`    CLI fallback: \`${agent.cli_fallback}\`.`);
+    }
+  }
+  log.info(
+    "Only after every applicable activation check succeeds, optionally run `discern improvement --json` for an owner review.",
+  );
   return 0;
 }

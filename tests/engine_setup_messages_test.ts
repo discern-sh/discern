@@ -9,6 +9,7 @@
 
 import { assert, assertStringIncludes } from "@std/assert";
 import {
+  type CompletionContext,
   completionMessage,
   confirmedBeginCommand,
   consentMessage,
@@ -29,7 +30,7 @@ const AGENTS = {
 
 // ── consentMessage ───────────────────────────────────────────────────────────
 
-Deno.test("consentMessage carries the relay licence, the verbatim model question, the three pillars, the cost, and the worktree path", () => {
+Deno.test("consentMessage carries the verbatim-protected confirmations, three pillars, cost, reversibility, and worktree path", () => {
   const msg = consentMessage({
     worktreePath: WT,
     docsExists: false,
@@ -40,29 +41,30 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   // genre (ADR 0086): reword allowed, dropping a point not.
   assertStringIncludes(
     msg,
-    "adapt the wording to your own voice if you like, but keep every point",
+    "adapt the framing to your own voice, but keep every list item",
   );
   // The verbatim carve-out: quoted text is exempt from the adapt licence. A cold run
   // showed the bare licence licenses trimming the question's second sentence.
   assertStringIncludes(
     msg,
-    "relay anything in quotation marks word for word",
+    "relay every numbered confirmation word for word",
   );
-  // The model question, verbatim, inside quotation marks with the word-for-word cue.
+  // The model question stays neutral and provenance is separate.
   assertStringIncludes(
     msg,
-    'Ask them this, word for word: "Am I your most capable model? Everything I configure here is inherited by every future session."',
+    "Which available model do you want to use for this setup?",
   );
+  assertStringIncludes(msg, "record `unreported`");
   // The three plain-word pillars, jargon glossed once.
   assertStringIncludes(
     msg,
-    "quality checks — your formatter, linter, and tests",
+    "Quality checks: the project's formatter, linter, tests",
   );
-  assertStringIncludes(msg, "isolated working copies (git worktrees)");
-  assertStringIncludes(msg, "shared project instructions");
+  assertStringIncludes(msg, "Isolated working copies (git worktrees)");
+  assertStringIncludes(msg, "Shared project instructions");
   // Placement stays consent: the tracked-by-default posture is disclosed — the
   // agent files land committed so out-of-tool sessions can read them.
-  assertStringIncludes(msg, "the agent files are committed");
+  assertStringIncludes(msg, "generated agent files are committed");
   // The footprint story in namespace terms (ADR 0099): one root file, one visible
   // folder (the map glossed for a novice) — scoped to what discern itself OWNS, with
   // the provider config files acknowledged as the user's own tools' integrations.
@@ -71,13 +73,16 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   // — and must never return.
   assertStringIncludes(msg, "one root file (`discern.toml`)");
   assertStringIncludes(msg, "one visible `discern/` folder");
-  assertStringIncludes(msg, "map of your codebase");
+  assertStringIncludes(msg, "agent-maintained Map");
   assertStringIncludes(
     msg,
-    "agent-maintained account of how the codebase fits together",
+    "preserve its workflows",
   );
-  assertStringIncludes(msg, "author the project's map and instructions");
-  assertStringIncludes(msg, "the files your coding tools require");
+  assertStringIncludes(msg, "author the Map and instructions");
+  assertStringIncludes(
+    msg,
+    "integration files the selected coding tools require",
+  );
   assert(
     !msg.includes("author the project's docs and instructions"),
     "the setup plan must name the map rather than teach docs as its synonym",
@@ -88,7 +93,7 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   // The honest time+token expectation and the safety frame.
   assertStringIncludes(msg, "20–40 minutes");
   assertStringIncludes(msg, "discern-setup");
-  assertStringIncludes(msg, "no API key");
+  assertStringIncludes(msg, "No API key");
   // The exact worktree path, and the confirmed command with no --map.
   assertStringIncludes(msg, WT);
   assertStringIncludes(msg, "--confirmed");
@@ -104,8 +109,8 @@ Deno.test("consentMessage reassures about existing docs and never offers to adop
   });
   // The reassurance: the human's docs stay theirs; the map is a separate tree
   // with its own named home.
-  assertStringIncludes(withDocs, "You already have a docs/ folder");
-  assertStringIncludes(withDocs, "discern won't touch it");
+  assertStringIncludes(withDocs, "already has `docs/`");
+  assertStringIncludes(withDocs, "does not adopt or overwrite it");
   assertStringIncludes(withDocs, SOURCE_PATHS.map.defaultPath);
   // The retired adoption offer must never return: no question, no --map coda —
   // pointing the map at human-curated docs is not something setup suggests.
@@ -121,7 +126,7 @@ Deno.test("consentMessage reassures about existing docs and never offers to adop
     gitRepo: true,
     agents: AGENTS,
   });
-  assert(!noDocs.includes("You already have a docs/ folder"));
+  assert(!noDocs.includes("already has `docs/`"));
   assert(!noDocs.includes("--map"));
 });
 
@@ -137,7 +142,10 @@ Deno.test("consentMessage makes the agent set a consent point, with --agents as 
     detected,
     "I found Claude Code, Cursor on this machine",
   );
-  assertStringIncludes(detected, "say the word to skip or add one");
+  assertStringIncludes(
+    detected,
+    "Should I wire discern into that set, or change it?",
+  );
   // The mechanics ride OUTSIDE the fence, agent-facing, with the REAL effective
   // set as the example — copied verbatim it wires exactly what would have been
   // wired anyway, so the example can't mislead.
@@ -158,8 +166,8 @@ Deno.test("consentMessage makes the agent set a consent point, with --agents as 
       detected: false,
     },
   });
-  assertStringIncludes(defaulted, "discern's default set: Claude Code");
-  assertStringIncludes(defaulted, "say the word to change it");
+  assertStringIncludes(defaulted, "proposed default set is Claude Code");
+  assertStringIncludes(defaulted, "Should I use that set, or change it?");
 });
 
 Deno.test("consentMessage conditions every isolation promise on git being present", () => {
@@ -178,16 +186,16 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
     "a non-git consent must not promise the isolated branch unconditionally",
   );
   assertStringIncludes(nonGit, "git init");
-  assertStringIncludes(nonGit, "OK to initialize git here?");
+  assertStringIncludes(nonGit, "May I run `git init` here");
   assertStringIncludes(
     nonGit,
-    "once git is initialized I work on a dedicated `discern-setup` branch",
+    "after git exists, setup works on a dedicated `discern-setup` branch",
   );
   // The agent's next step is to initialize git and re-run the preflight — the
   // begin command comes after the repo actually exists.
   assertStringIncludes(
     nonGit,
-    "initialize git (`git init`), re-run `discern setup verify`",
+    "initialize git, re-run `discern setup verify`",
   );
 
   const withGit = consentMessage({
@@ -199,11 +207,11 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
   assert(!withGit.includes("git init"), "a git repo needs no git-init step");
   assertStringIncludes(
     withGit,
-    "I work on a dedicated `discern-setup` branch, so nothing touches your main branch",
+    "setup works on a dedicated `discern-setup` branch and does not reach the integration branch",
   );
 });
 
-Deno.test("consentMessage keeps the message body concise (≤ ~290 words of prose)", () => {
+Deno.test("consentMessage keeps the itemized message body within its bounded relay budget", () => {
   // The message the human reads sits between the two fences; the framing line and the
   // command ride outside it. Keep it short enough to survive a single read — the base
   // case at the ~290-word target (the three pillars, the honest footprint story with
@@ -220,8 +228,8 @@ Deno.test("consentMessage keeps the message body concise (≤ ~290 words of pros
     return body.trim().split(/\s+/).filter(Boolean).length;
   };
   const base = wordsOf(false);
-  assert(base > 0 && base <= 295, `base message body was ${base} words`);
-  assert(wordsOf(true) <= 355, `docs message body was ${wordsOf(true)} words`);
+  assert(base > 0 && base <= 320, `base message body was ${base} words`);
+  assert(wordsOf(true) <= 370, `docs message body was ${wordsOf(true)} words`);
 });
 
 // ── confirmedBeginCommand ────────────────────────────────────────────────────
@@ -261,8 +269,46 @@ function assurance(verdict: SetupAssurance["verdict"]): SetupAssurance {
 
 const READY_REACTIVATION = {
   summary: "…",
-  per_agent: [{ label: "Claude Code", step: "start a new session" }],
+  per_agent: [{
+    label: "Claude Code",
+    step: "load the registered integration",
+    check: "discern_status",
+    recovery: "reload the integration and retry.",
+    cli_fallback: "discern status --json",
+  }],
 };
+
+const INVENTORY = {
+  map_regions: { count: 2, items: ["00-orientation", "10-runtime"] },
+  ledger_items: { count: 1, items: ["Resolve retry ownership"] },
+  jobs: {
+    enforced: ["test"],
+    deferred: ["format"],
+    absent: ["lint"],
+    not_applicable: ["build"],
+  },
+};
+
+/** Build a complete closing relay context around one landing state. */
+function completionContext(
+  landing: {
+    inRepo: boolean;
+    branch: string;
+    target: string;
+    onTarget: boolean;
+    onSetupBranch: boolean;
+  },
+  verdict: SetupAssurance["verdict"] = "full",
+): CompletionContext {
+  return {
+    assurance: assurance(verdict),
+    inventory: INVENTORY,
+    landing,
+    reactivation: READY_REACTIVATION,
+    proofLine: "Proof abc123 — gate green",
+    forced: false,
+  };
+}
 
 Deno.test("completionMessage renders honest coverage for each verdict", () => {
   const landing = {
@@ -272,11 +318,7 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
     onTarget: false,
     onSetupBranch: false,
   };
-  const full = completionMessage({
-    assurance: assurance("full"),
-    landing,
-    reactivation: READY_REACTIVATION,
-  });
+  const full = completionMessage(completionContext(landing));
   assertStringIncludes(full, "6 of 6 applicable protections");
   // The close restates the contained footprint the consent message promised —
   // and names `discern uninstall` as the undo, since the branch-delete story
@@ -285,22 +327,14 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
   assertStringIncludes(full, "`discern/` folder");
   assertStringIncludes(full, "discern uninstall");
 
-  const partial = completionMessage({
-    assurance: assurance("partial"),
-    landing,
-    reactivation: READY_REACTIVATION,
-  });
+  const partial = completionMessage(completionContext(landing, "partial"));
   assertStringIncludes(partial, "2 of 6 applicable protections");
   assertStringIncludes(
     partial,
     "Not running yet: typecheck, test, build, smoke",
   );
 
-  const minimal = completionMessage({
-    assurance: assurance("minimal"),
-    landing,
-    reactivation: READY_REACTIVATION,
-  });
+  const minimal = completionMessage(completionContext(landing, "minimal"));
   assertStringIncludes(minimal, "No quality checks are wired yet");
 });
 
@@ -313,12 +347,7 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
       onTarget: boolean;
       onSetupBranch: boolean;
     },
-  ) =>
-    completionMessage({
-      assurance: assurance("minimal"),
-      landing,
-      reactivation: READY_REACTIVATION,
-    });
+  ) => completionMessage(completionContext(landing, "minimal"));
 
   assertStringIncludes(
     ctx({
@@ -378,7 +407,7 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
   );
 });
 
-Deno.test("completionMessage omits the reactivation step when nothing wired at session start", () => {
+Deno.test("completionMessage withholds restart and improvement until landing, then gives exact activation checks", () => {
   const landing = {
     inRepo: false,
     branch: "",
@@ -386,34 +415,38 @@ Deno.test("completionMessage omits the reactivation step when nothing wired at s
     onTarget: false,
     onSetupBranch: false,
   };
-  const withAgents = completionMessage({
-    assurance: assurance("full"),
-    landing,
-    reactivation: READY_REACTIVATION,
-  });
-  assertStringIncludes(withAgents, "start a fresh session");
-  assertStringIncludes(withAgents, "Claude Code: start a new session");
-  // Reactivation rides the headline, BEFORE the bullets: cold runs show a courier
-  // agent keeps the opening sentence and prunes middle bullets, and the fresh-session
-  // step is the one instruction a novice cannot recover on their own.
-  assert(
-    withAgents.indexOf("start a fresh session") <
-      withAgents.indexOf("6 of 6 applicable protections"),
-    "the reactivation step must precede the coverage bullet",
+  const withAgents = completionMessage(completionContext(landing));
+  assertStringIncludes(withAgents, "Start a fresh Claude Code session");
+  assertStringIncludes(withAgents, "`discern_status`");
+  assertStringIncludes(withAgents, "CLI fallback: `discern status --json`");
+  assertStringIncludes(
+    withAgents,
+    "Only after every applicable activation check succeeds",
   );
-  assert(
-    withAgents.indexOf("Claude Code: start a new session") <
-      withAgents.indexOf("6 of 6 applicable protections"),
-    "the provider-specific handoff must be relayed before the coverage bullet",
-  );
+  assertStringIncludes(withAgents, "Map regions (2)");
+  assertStringIncludes(withAgents, "Deferred-work ledger items (1)");
 
   const noAgents = completionMessage({
     assurance: assurance("full"),
+    inventory: INVENTORY,
     landing,
     reactivation: { summary: "", per_agent: [] },
+    proofLine: "Proof abc123 — gate green",
+    forced: false,
   });
   assert(
     !noAgents.includes("start a fresh session"),
     "an agent that wired nothing at session start is never told to restart",
   );
+
+  const unlanded = completionMessage(completionContext({
+    inRepo: true,
+    branch: "discern-setup",
+    target: "main",
+    onTarget: false,
+    onSetupBranch: true,
+  }));
+  assertStringIncludes(unlanded, "`main` does not contain it yet");
+  assert(!unlanded.includes("start a fresh"));
+  assert(!unlanded.includes("discern improvement"));
 });

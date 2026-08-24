@@ -292,7 +292,11 @@ export async function compileInstructions(
     log.info(`registered the discern MCP server in: ${mcpWired.join(", ")}`);
   }
   if (providerRefresh.mcpFirstInstall) {
-    const restartHint = fire(HINTS["refresh-mcp-first-install"]);
+    const restartHint = fire(
+      config.meta.bootstrapped
+        ? HINTS["refresh-mcp-first-install"]
+        : HINTS["refresh-mcp-setup-deferred"],
+    );
     hints.push(restartHint);
     log.info(restartHint.text);
   }

@@ -361,7 +361,7 @@ export function buildCli(
     )
     .example(
       "Agent in the main checkout?",
-      "discern start  →  (move into provided worktree...)  →  discern status  →  (write code...)  →  discern done  →  report ready for review",
+      "discern start  →  (re-root at the returned worktree path...)  →  discern status  →  (write code...)  →  discern done  →  report ready for review",
     )
     .example(
       "Agent in a worktree?",
@@ -481,7 +481,7 @@ export function buildCli(
     )
     .option(
       "--model <model:string>",
-      "The model you, the agent, are running as — recorded as setup provenance for support triage.",
+      "Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.",
     )
     .option(
       "-y, --yes",
@@ -528,8 +528,13 @@ export function buildCli(
     }));
 
   const setupDone = new Command()
-    .description("Validate setup and record [meta].bootstrapped.")
-    .option("--force", "Record completion even if skeleton markers remain.")
+    .description(
+      "Prove the committed setup, return canonical Proof and completion inventory, and record [meta].bootstrapped.",
+    )
+    .option(
+      "--force",
+      "Record an explicitly unproved completion; setup acceptance will refuse it.",
+    )
     .action(recordedExit("setup done", async (options) => {
       const { runSetupDone } = await import("./commands/setup.ts");
       return await runSetupDone({
@@ -540,7 +545,7 @@ export function buildCli(
 
   const setupAccept = new Command()
     .description(
-      `Land the finished setup branch on the trunk${trunkName} — the shared landing branch.`,
+      `Land the proved setup branch on the trunk${trunkName}, then return provider activation checks.`,
     )
     .option("--dry-run", "Print the plan and change nothing.")
     .action(recordedExit("setup accept", async (options) => {
@@ -584,7 +589,7 @@ export function buildCli(
     )
     .option(
       "--model <model:string>",
-      "The model you, the agent, are running as — recorded as setup provenance for support triage.",
+      "Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.",
     )
     .option(
       "-y, --yes",

@@ -341,7 +341,7 @@ Usage: `discern setup [options]`
 | `--agents <agents>`        | Comma-separated agent files to emit: claude_code, codex, gemini, cursor, copilot.                                                                           |
 | `--map <path>`             | Project-relative directory for the project map — discern's agent-maintained documentation tree.                                                             |
 | `--config <file>`          | JSON answers file (or - for stdin) to scaffold declaratively.                                                                                               |
-| `--model <model>`          | The model you, the agent, are running as — recorded as setup provenance for support triage.                                                                 |
+| `--model <model>`          | Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.                                                     |
 | `--dry-run`                | Print the plan and write nothing.                                                                                                                           |
 | `--force`                  | Re-run even if already set up (re-scaffold + re-seed).                                                                                                      |
 | `--allow-dirty`            | Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.                                       |
@@ -369,7 +369,7 @@ Usage: `discern setup begin [options]`
 | `--agents <agents>`        | Comma-separated agent files to emit: claude_code, codex, gemini, cursor, copilot.                                                                           |
 | `--map <path>`             | Project-relative directory for the project map — discern's agent-maintained documentation tree.                                                             |
 | `--config <file>`          | JSON answers file (or - for stdin) to scaffold declaratively.                                                                                               |
-| `--model <model>`          | The model you, the agent, are running as — recorded as setup provenance for support triage.                                                                 |
+| `--model <model>`          | Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.                                                     |
 | `--dry-run`                | Print the plan and write nothing.                                                                                                                           |
 | `--force`                  | Re-run even if already set up (re-scaffold + re-seed).                                                                                                      |
 | `--allow-dirty`            | Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.                                       |
@@ -383,17 +383,17 @@ Usage: `discern setup step <n> [options]`
 
 #### `discern setup done`
 
-Validate setup and record [meta].bootstrapped.
+Prove the committed setup, return canonical Proof and completion inventory, and record [meta].bootstrapped.
 
 Usage: `discern setup done [options]`
 
-| Option    | Description                                        |
-| --------- | -------------------------------------------------- |
-| `--force` | Record completion even if skeleton markers remain. |
+| Option    | Description                                                                |
+| --------- | -------------------------------------------------------------------------- |
+| `--force` | Record an explicitly unproved completion; setup acceptance will refuse it. |
 
 #### `discern setup accept`
 
-Land the finished setup branch on the trunk — the shared landing branch.
+Land the proved setup branch on the trunk, then return provider activation checks.
 
 Usage: `discern setup accept [options]`
 

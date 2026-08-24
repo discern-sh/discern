@@ -12,17 +12,9 @@ The **deferred-work ledger**: the agent-maintained record of outstanding work �
 
 ---
 
-## 📚 Documentation — finish the seeded map
-
-`discern setup` lays the map at `{{map_dir}}` as a skeleton: `00-orientation/` and the numbered subsystem subtrees (`10-…` onward) ship as stubs, still to be written from the code. Filling them is the one piece of work a fresh project starts out owing.
-
-- [ ] **Document each numbered doc subtree.** Use the `discern-document-subsystem` skill — one run per subsystem — to write that subtree's `README.md` and its leaves from the real code, replacing the placeholder stubs setup laid. Delete each subtree's line as you fill it, and delete this whole section once the tree is complete.
-
----
-
 <!--
-  The severity buckets below start empty by design — beyond the documentation
-  item above, a fresh project owes nothing yet. Add items under the heading that
+  The severity buckets below start empty by design — a fresh project owes nothing
+  by default. Add only concrete unresolved decisions or defects under the heading that
   fits; create a new bucket only if none do. Suggested order is most-urgent first.
 -->
 

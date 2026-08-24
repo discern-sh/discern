@@ -30,6 +30,7 @@ import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
 import {
+  DOCTOR_ORIENTATION_MAX_CHARS,
   executionModelHumanGroups,
   renderDoctorCheck,
   renderDoctorCheckLine,
@@ -173,13 +174,52 @@ async function setupInstall(dir: string, slug = "doc-demo"): Promise<void> {
   assertEquals(code, 0, "setup should scaffold a healthy install");
 }
 
-/** Run `doctor --json` and return the parsed payload alongside the exit code. */
+/** Run the explicit verbose structured doctor used by execution-model tests. */
 async function runDoctorJson(
   dir: string,
 ): Promise<{ code: number; payload: DoctorPayload }> {
-  const { code, stdout } = await runCli(["doctor", "--json"], dir);
+  const { code, stdout } = await runCli([
+    "doctor",
+    "--verbose",
+    "--json",
+  ], dir);
   return { code, payload: JSON.parse(stdout) as DoctorPayload };
 }
+
+Deno.test("doctor default JSON is a bounded orientation result and verbose opts into the execution model", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const routine = await runCli(["doctor", "--json"], dir);
+    assertEquals(routine.code, 0, routine.stderr);
+    assert(
+      routine.stdout.length <= DOCTOR_ORIENTATION_MAX_CHARS,
+      `routine doctor used ${routine.stdout.length} characters`,
+    );
+    const bounded = JSON.parse(routine.stdout) as DoctorPayload & {
+      hints?: string[];
+    };
+    assertEquals(bounded.data.execution_model, undefined);
+    assert(
+      bounded.hints?.some((hint) =>
+        hint.includes("discern doctor --verbose --json")
+      ),
+    );
+
+    const verbose = await runDoctorJson(dir);
+    assert(verbose.payload.data.execution_model !== undefined);
+
+    for (let call = 0; call < 2; call += 1) {
+      const status = await runCli(["status", "--json"], dir);
+      assertEquals(status.code, 0, status.stderr);
+      assert(
+        status.stdout.length <= DOCTOR_ORIENTATION_MAX_CHARS,
+        `routine status call ${
+          call + 1
+        } used ${status.stdout.length} characters`,
+      );
+    }
+  });
+});
 
 /** Find a named check in a payload, asserting it is present. */
 function check(payload: DoctorPayload, name: string): DoctorCheck {

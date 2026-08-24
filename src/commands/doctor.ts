@@ -110,10 +110,13 @@ import { inDeskSession } from "../engine/desk/session.ts";
 export interface DoctorOptions {
   json: boolean;
   noColor: boolean;
-  /** Show the per-step execution-model hints (the human render hides them by default,
-   * pointing at `--verbose`; the `--json` model always carries them). */
+  /** Show the complete execution model. Human output adds per-step hints; structured
+   * output includes `data.execution_model`, omitted by default to stay bounded. */
   verbose: boolean;
 }
+
+/** Maximum serialized characters for the routine structured orientation result. */
+export const DOCTOR_ORIENTATION_MAX_CHARS = 12_000;
 
 /** The slice of an agent's settings file the worktree-automation check reads: the
  * hook groups whose inner `command` strings it scans for a foreign worktree hook.
@@ -1215,11 +1218,12 @@ async function loadModelConfig(
  * Compute the `doctor` {@link DiscernResult} without printing — the entry point the
  * MCP server renders, and the source the CLI's `--json` serializes. Runs the
  * install checks and folds them into the envelope (`ok` = no failed checks; warnings
- * keep exit 0 but surface as `status: "warn"` in `data.checks`, and the per-verb
- * execution model rides in `data.execution_model`).
+ * keep exit 0 but surface as `status: "warn"` in `data.checks`). The per-verb
+ * execution model rides in `data.execution_model` only for an explicit verbose call.
  */
 export async function doctorResult(
   destDir: string,
+  options: { verbose?: boolean } = {},
 ): Promise<DiscernResult<DoctorData>> {
   const checks = await runChecks(destDir);
   const cfg = await loadModelConfig(destDir);
@@ -1227,6 +1231,9 @@ export async function doctorResult(
   const hints = [
     ...(midSetup(cfg) ? [fire(HINTS["setup-unfinished-doctor"])] : []),
     ...(!ok ? [fire(HINTS["doctor-failed-checks"])] : []),
+    ...(cfg !== undefined && options.verbose !== true
+      ? [fire(HINTS["doctor-execution-model-verbose"])]
+      : []),
   ];
   return {
     ok,
@@ -1236,7 +1243,7 @@ export async function doctorResult(
       kit_version: KIT_VERSION,
       environment: await doctorEnvironment(),
       checks,
-      ...(cfg !== undefined
+      ...(cfg !== undefined && options.verbose === true
         ? { execution_model: buildExecutionModel(cfg) }
         : {}),
     } satisfies DoctorData,
@@ -1575,7 +1582,7 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   // not a phantom "broken" one at the cwd. Falls back to the cwd when there is no
   // project in the ancestry, so the "discern.toml not found" check still fires.
   const destDir = (await findRoot()) ?? Deno.cwd();
-  const result = await doctorResult(destDir);
+  const result = await doctorResult(destDir, { verbose: options.verbose });
   observeResult(result);
 
   if (options.json) {

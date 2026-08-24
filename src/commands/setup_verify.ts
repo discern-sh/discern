@@ -181,9 +181,8 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
       // The consent conversation rides the prose field the agent relays verbatim,
       // identical in every presentation.
       instructions,
-      // Carry the --model flag in the funnel so the model that runs setup is recorded
-      // as provenance — substitute your own id, or omit it if you don't know it (the
-      // engine ignores the placeholder, so a verbatim copy records nothing).
+      // Carry the explicit --model choice in the funnel. The agent substitutes its
+      // exact self-declared id when known or keeps `unreported`; both are advisory.
       next_action: nextAction,
     };
     log.result({ ok: true, verb: "setup verify", data });

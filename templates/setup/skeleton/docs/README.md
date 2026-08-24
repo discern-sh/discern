@@ -22,13 +22,12 @@ If you're new, start with [00-orientation/](00-orientation/) and follow the trai
 
 <!-- setup fills this -->
 
-The subsystems are numbered subtrees, in the order a newcomer should read them — `10-…` through `80-…`. Each has a `README.md` tour plus deeper leaves. `discern setup` proposes the subtree names from the repo's shape; until then, only the placeholders below exist. Rename and renumber freely — the numbers are a reading order, not a contract.
+The subsystems are numbered subtrees, in the order a newcomer should read them — `10-…` through `80-…`. Setup must author one substantive page for the primary subsystem: where to start, its boundary, and a non-obvious invariant. Add another region only for a genuinely distinct durable boundary when doing so reduces the code a future reader must inspect. The numbers are a reading order, not a target count.
 
 | Path                               | What's in it                                                                                                                                                                                                        |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `10-<subsystem>/`                  | _Proposed during `discern setup`._                                                                                                                                                                                  |
-| `20-<subsystem>/`                  | _Proposed during `discern setup`._                                                                                                                                                                                  |
-| `…`                                | _Add as many numbered subtrees as the system needs._                                                                                                                                                                |
+| `10-<primary-subsystem>/`          | _Authored during `discern setup`: where to start, the durable boundary, and its non-obvious invariant._                                                                                                             |
+| `20-<distinct-subsystem>/`         | _Add only when a second durable boundary needs its own reading path; omit otherwise._                                                                                                                               |
 | [80-development/](80-development/) | Working on {{project_name}}: getting set up, the testing approach, code conventions, and the [gate gotchas](80-development/done-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
 
 ### Reference material
@@ -42,7 +41,7 @@ The subsystems are numbered subtrees, in the order a newcomer should read them �
 
 ## How the map is produced and kept current
 
-The map is seeded once by `discern setup` — the `_internal/` documenter brief included — then grown subtree-by-subtree with the `discern-document-subsystem` skill, which follows that brief at `_internal/documenter-agent-brief.md`. A single skeleton-and-orientation pass establishes the shared terminology and shape before any subtree is filled in.
+The map is seeded once by `discern setup` — the `_internal/` documenter brief included — then maintained with the `discern-document-subsystem` skill, which follows that brief at `_internal/documenter-agent-brief.md`. Setup establishes the shared terminology and shape and completes the primary-subsystem floor; later pages remain proportional to durable boundaries rather than repository size.
 
 Because the map is the canonical account, it must not drift from code. When you change something a doc describes — the architecture, the data model, a subsystem's documented behaviour, a public convention, or whether a feature exists — update the affected docs in the same change.
 

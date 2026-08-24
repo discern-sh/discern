@@ -452,6 +452,17 @@ Rendered example:
 
 > Use an exact suggested path when one is listed; otherwise run the same command without a target to inspect its index, then retry with one returned path.
 
+## `doctor-execution-model-verbose`
+
+- Category: `notice`
+- Audience: `all`
+- Family: `doctor-detail`
+- Emitting context: A non-verbose structured doctor result omits the full execution model.
+
+Rendered example:
+
+> The bounded result omits `data.execution_model`. Run `discern doctor --verbose --json` only when you need the complete per-verb execution model.
+
 ## `doctor-failed-checks`
 
 - Category: `next-step`
@@ -1272,6 +1283,17 @@ Rendered example:
 
 > Restart your coding agent now, or reload its MCP servers, before trying to use the discern tools. This refresh registered the server for the first time, and the registration persists after restart. An open agent session does not discover a newly registered or upgraded discern MCP server automatically. Restarting the session or reloading its MCP servers loads the current server, engine, and templates.
 
+## `refresh-mcp-setup-deferred`
+
+- Category: `guardrail`
+- Audience: `all`
+- Family: `restart-session`
+- Emitting context: Instruction refresh first registers the Model Context Protocol server while setup is unfinished.
+
+Rendered example:
+
+> Continue setup in this session; do not restart now. The completion handoff will ask you to start a fresh session only after setup is proved and landed, then give the exact activation check.
+
 ## `setup-awaiting-confirmation`
 
 - Category: `next-step`
@@ -1281,11 +1303,11 @@ Rendered example:
 
 Rendered example:
 
-> Present the setup instructions in this result to the owner, wait for their answers, then run `discern setup begin --model "<your-model-id>" --confirmed`; its `--confirmed` flag attests only to that conversation.
+> Present the setup instructions in this result to the owner, wait for their answers, then run `discern setup begin --model unreported --confirmed`; its `--confirmed` flag attests that the relay carried the three pillars, footprint, plan, reversibility, every numbered confirmation, and the time-and-tokens expectation.
 
 Interactive example:
 
-> Review the setup instructions and answer its questions, then run the displayed command; its `--confirmed` flag attests only to this conversation.
+> Review the setup instructions and answer its questions, then run the displayed command; its `--confirmed` flag attests that every listed consent fact and numbered confirmation was carried.
 
 ## `setup-done-land-dedicated`
 
@@ -1319,6 +1341,28 @@ Rendered example:
 Rendered example:
 
 > Complete every listed file and unmet check, then re-run `discern setup done`; use `--force` only to record completion without that proof.
+
+## `setup-forced-needs-proof`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `setup-done-next`
+- Emitting context: Setup records completion with --force and therefore has no Gate Proof.
+
+Rendered example:
+
+> Resolve the incomplete or red setup, commit the correction, then run `discern setup done` without `--force` to obtain Proof before landing or activation.
+
+## `setup-improvement-after-activation`
+
+- Category: `next-step`
+- Audience: `agent`
+- Family: `setup-done-next`
+- Emitting context: Landed setup hands off the optional improvement review after activation succeeds.
+
+Rendered example:
+
+> Only after every applicable activation check succeeds, optionally run `discern improvement --json` and review the findings with the owner. This optional ongoing work follows completed setup.
 
 ## `setup-instructions-own-render-skipped`
 
@@ -1363,17 +1407,6 @@ Rendered example:
 Rendered example:
 
 > Fix the setup refresh error, then run `discern refresh`: could not write .codex/config.toml
-
-## `setup-run-coach`
-
-- Category: `next-step`
-- Audience: `agent`
-- Family: `setup-done-next`
-- Emitting context: Setup completes and offers the project coaching follow-up.
-
-Rendered example:
-
-> Deepen your setup: run `discern improvement --json`, review the ranked findings with your owner, apply the bounded changes now, and record larger changes in discern/TODO.md.
 
 ## `setup-unfinished-doctor`
 

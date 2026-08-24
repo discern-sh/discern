@@ -1,7 +1,7 @@
 /**
  * Engine coverage for the read-only phases of the staged setup handshake (ADR 0075):
- * the 3-state WELCOME (`discern setup` / bare `discern`), the `verify` PREFLIGHT, the
- * `setup done` reactivation handoff, and `begin`'s provenance recording. Driven through
+ * the 3-state WELCOME (`discern setup` / bare `discern`), the `verify` PREFLIGHT,
+ * completion's phase boundary, and `begin`'s provenance recording. Driven through
  * the real CLI from the genuinely un-set-up state — the state ADR 0065 warned the suite
  * never exercised — so the read-only-until-`begin` invariant and the funnel are proven
  * where they are real, not asserted in prose.
@@ -52,7 +52,8 @@ const FRESH_WELCOME_FACTS: readonly string[] = [
   "discern uninstall",
   "no API",
   "key, and no surprises",
-  "MOST CAPABLE model",
+  "Choose which available model",
+  "provider and model identifier",
   "Expect roughly 20–40 minutes",
   "FOR CODING AGENTS",
   "verify → begin → author → done",
@@ -316,10 +317,11 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
       "hands you the exact message to relay",
     );
     assertStringIncludes(d.agent_instructions, "discern setup verify");
-    // The human framing carries the most-capable-model nudge the human block makes.
-    assertStringIncludes(d.human_framing, "most capable model");
+    // The human framing keeps model selection neutral and provenance separate.
+    assertStringIncludes(d.human_framing, "Choose which available model");
+    assertStringIncludes(d.human_framing, "provider and model identifier");
     // Both surfaces actually say it, so neither path is the thinner one.
-    assertStringIncludes(human, "MOST CAPABLE");
+    assertStringIncludes(human, "Choose which available model");
     // The footprint story rides both surfaces: one root file, one visible folder.
     assertStringIncludes(d.human_framing, "one visible discern/ folder");
     assertStringIncludes(human, "one visible `discern/` folder");
@@ -360,9 +362,12 @@ Deno.test("verify reports grounded findings and the consent conversation, writin
     // funnel to begin (ADR 0086).
     assertStringIncludes(
       d.instructions,
-      "Relay the message below to your human",
+      "Relay the fenced message below as your next chat message",
     );
-    assertStringIncludes(d.instructions, "Am I your most capable model");
+    assertStringIncludes(
+      d.instructions,
+      "Which available model do you want to use for this setup?",
+    );
     assertStringIncludes(
       d.instructions,
       "Isolated working copies will live beside",
@@ -424,10 +429,11 @@ Deno.test("verify's consent instructions are identical and faithful across the h
     // content a courier agent must carry unweakened (ADR 0086, the two-lane rule).
     for (
       const needle of [
-        "adapt the wording to your own voice if you like, but keep every point",
-        "Am I your most capable model?",
-        "Everything I configure here is inherited by every future session.",
-        "isolated working copies (git worktrees)",
+        "keep every list item",
+        "relay every numbered confirmation word for word",
+        "Which available model do you want to use for this setup?",
+        "Everything configured here is inherited by future sessions.",
+        "Isolated working copies (git worktrees)",
         "20–40 minutes",
         "Isolated working copies will live beside",
         "--confirmed",
@@ -475,8 +481,8 @@ Deno.test("verify reassures about existing docs, and surfaces agent instructions
     // With a docs/ folder present, the relay message promises it stays untouched
     // and names the map's separate home — and never offers to point discern at
     // the human's docs (the retired ADR 0100 opt-in; ADR 0131).
-    assertStringIncludes(d.instructions, "You already have a docs/ folder");
-    assertStringIncludes(d.instructions, "discern won't touch it");
+    assertStringIncludes(d.instructions, "already has `docs/`");
+    assertStringIncludes(d.instructions, "does not adopt or overwrite it");
     assertStringIncludes(d.instructions, SOURCE_PATHS.map.defaultPath);
     assert(
       !d.instructions.includes("--map"),
@@ -494,7 +500,7 @@ Deno.test("verify asks no docs question when the project has no docs folder", as
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     ).data;
     assertEquals(d.findings.docs.exists, false);
-    assert(!d.instructions.includes("You already have a docs/ folder"));
+    assert(!d.instructions.includes("already has `docs/`"));
     assert(!d.instructions.includes("--map"));
     // The default is still stated: the human render names where the map lands.
     const human = (await runAgent(dir, ["setup", "verify"])).stdout;
@@ -513,31 +519,24 @@ Deno.test("verify redirects once setup is recorded (the preflight is moot)", asy
   });
 });
 
-// ── the reactivation handoff + provenance ────────────────────────────────────
+// ── completion phase boundary + provenance ───────────────────────────────────
 
-Deno.test("setup done emits the provider-aware reactivation handoff", async () => {
+Deno.test("forced setup completion withholds activation and improvement without Proof", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // agents: [claude_code]
     const done = await runAgent(dir, ["setup", "done", "--force"]);
     assertEquals(done.code, 0, done.output);
-    // The human handoff names the wired agent and the fresh-session step.
-    assertTerminalTextIncludes(done.stdout, "load them at session start");
-    assertTerminalTextIncludes(done.stdout, "Claude Code");
-    // The --json carries it structurally for an agent to act on.
+    assertTerminalTextIncludes(done.stdout, "activation handoff are withheld");
+    assert(!done.stdout.includes("start a fresh Claude Code session"));
+    assert(!done.stdout.includes("discern improvement"));
     const d = JSON.parse(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
     ).data;
-    assert(typeof d.reactivation.summary === "string");
+    assertEquals(d.reactivation, undefined);
+    assertEquals(d.optional_improvement, undefined);
     assert(
-      d.reactivation.per_agent.some((a: {
-        agent: string;
-        check: string;
-        cli_fallback: string;
-      }) =>
-        a.agent === "claude_code" && a.check === "discern_status" &&
-        a.cli_fallback === "discern status --json"
-      ),
-      `expected claude_code in the handoff: ${JSON.stringify(d.reactivation)}`,
+      d.instructions.includes("cannot use setup acceptance"),
+      d.instructions,
     );
   });
 });
@@ -561,15 +560,14 @@ Deno.test("setup done serves the completion message at parity across the human r
     );
     assertStringIncludes(human, d.instructions);
 
-    // The close carries the relay licence, the honest coverage (minimal here — the
-    // seeded tidy job is housekeeping, nothing of the project's own is wired), the
-    // reactivation step, and the landing account — in BOTH surfaces.
+    // The close carries the relay licence, honest coverage, canonical inventory,
+    // and the unproved boundary — in BOTH surfaces.
     for (
       const needle of [
         "Relay the message below to your human",
-        "discern is set up",
+        "discern setup was recorded without a Gate Proof",
         "No quality checks are wired yet",
-        "start a fresh session",
+        "Map regions",
       ]
     ) {
       assertStringIncludes(
@@ -579,6 +577,8 @@ Deno.test("setup done serves the completion message at parity across the human r
       );
       assertStringIncludes(human, needle, `human render missing: ${needle}`);
     }
+    assert(!d.instructions.includes("start a fresh Claude Code session"));
+    assert(!d.instructions.includes("discern improvement"));
 
     // Faithfulness (ADR 0041): the real serialized envelope validates against schema.
     SetupDoneOutputSchema.parse(res);
@@ -606,9 +606,21 @@ Deno.test("begin records the agent's self-declared model + discern version as pr
   });
 });
 
-Deno.test("begin ignores a literal model placeholder, recording no bogus provenance", async () => {
-  // The verify funnel shows `--model "<your-model-id>"`; an agent that copies it
-  // verbatim instead of substituting must not record `<your-model-id>` as the model.
+Deno.test("begin records explicit unreported provenance when the runtime model is unknown", async () => {
+  await withTempDir(async (dir) => {
+    await freshRepo(dir);
+    const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      'setup_model = "unreported"',
+    );
+  });
+});
+
+Deno.test("begin normalizes a retired model placeholder to explicit unreported provenance", async () => {
+  // Compatibility callers may still copy the retired placeholder. It must never
+  // be stored literally; uncertainty is represented by the supported value.
   await withTempDir(async (dir) => {
     await freshRepo(dir);
     const r = await runAgent(dir, [
@@ -620,9 +632,7 @@ Deno.test("begin ignores a literal model placeholder, recording no bogus provena
     ]);
     assertEquals(r.code, 0, r.output);
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
-    assert(
-      !toml.includes("setup_model"),
-      `a placeholder model must not be recorded: ${toml}`,
-    );
+    assertStringIncludes(toml, 'setup_model = "unreported"');
+    assert(!toml.includes("<your-model-id>"));
   });
 });

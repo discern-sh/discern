@@ -795,40 +795,103 @@
                         "spine": {
                           "type": "object",
                           "properties": {
+                            "phase": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "stable_target": {
+                              "type": "string",
+                              "minLength": 1
+                            },
                             "intent": {
-                              "type": "string"
+                              "type": "string",
+                              "minLength": 1
                             },
                             "files_to_read": {
+                              "minItems": 1,
                               "type": "array",
                               "items": {
-                                "type": "string"
+                                "type": "string",
+                                "minLength": 1
                               }
                             },
                             "must_do": {
+                              "minItems": 1,
                               "type": "array",
                               "items": {
-                                "type": "string"
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "authority_boundaries": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "human_decisions": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
                               }
                             },
                             "what_not_to_do": {
+                              "minItems": 1,
                               "type": "array",
                               "items": {
-                                "type": "string"
+                                "type": "string",
+                                "minLength": 1
                               }
                             },
                             "completion_check": {
-                              "type": "string"
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "stop_conditions": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "recovery": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
                             },
                             "next_action": {
-                              "type": "string"
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "relay": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
                             }
                           },
                           "required": [
+                            "phase",
+                            "stable_target",
                             "intent",
                             "files_to_read",
                             "must_do",
+                            "authority_boundaries",
+                            "human_decisions",
                             "what_not_to_do",
                             "completion_check",
+                            "stop_conditions",
+                            "recovery",
                             "next_action"
                           ]
                         },
@@ -1536,40 +1599,103 @@
                 "spine": {
                   "type": "object",
                   "properties": {
+                    "phase": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "stable_target": {
+                      "type": "string",
+                      "minLength": 1
+                    },
                     "intent": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "files_to_read": {
+                      "minItems": 1,
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                       }
                     },
                     "must_do": {
+                      "minItems": 1,
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "authority_boundaries": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "human_decisions": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
                       }
                     },
                     "what_not_to_do": {
+                      "minItems": 1,
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                       }
                     },
                     "completion_check": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "stop_conditions": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "recovery": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
                     },
                     "next_action": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "relay": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
                     }
                   },
                   "required": [
+                    "phase",
+                    "stable_target",
                     "intent",
                     "files_to_read",
                     "must_do",
+                    "authority_boundaries",
+                    "human_decisions",
                     "what_not_to_do",
                     "completion_check",
+                    "stop_conditions",
+                    "recovery",
                     "next_action"
                   ]
                 },
@@ -2105,6 +2231,93 @@
                     "verdict"
                   ]
                 },
+                "inventory": {
+                  "type": "object",
+                  "properties": {
+                    "map_regions": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "count",
+                        "items"
+                      ]
+                    },
+                    "ledger_items": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "count",
+                        "items"
+                      ]
+                    },
+                    "jobs": {
+                      "type": "object",
+                      "properties": {
+                        "enforced": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "deferred": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "absent": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "not_applicable": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "enforced",
+                        "deferred",
+                        "absent",
+                        "not_applicable"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "map_regions",
+                    "ledger_items",
+                    "jobs"
+                  ]
+                },
                 "landing": {
                   "type": "object",
                   "properties": {
@@ -2190,7 +2403,7 @@
                     "per_agent"
                   ]
                 },
-                "coach": {
+                "optional_improvement": {
                   "type": "object",
                   "properties": {
                     "verb": {
@@ -2198,11 +2411,16 @@
                     },
                     "command": {
                       "type": "string"
+                    },
+                    "after": {
+                      "type": "string",
+                      "const": "activation_verified"
                     }
                   },
                   "required": [
                     "verb",
-                    "command"
+                    "command",
+                    "after"
                   ]
                 },
                 "instructions": {
@@ -2217,9 +2435,8 @@
                 "marker_committed",
                 "leftover",
                 "assurance",
+                "inventory",
                 "landing",
-                "reactivation",
-                "coach",
                 "instructions"
               ]
             },
@@ -2799,6 +3016,76 @@
                 },
                 "proof_clear_error": {
                   "type": "string"
+                },
+                "reactivation": {
+                  "type": "object",
+                  "properties": {
+                    "summary": {
+                      "type": "string"
+                    },
+                    "per_agent": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agent": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "step": {
+                            "type": "string"
+                          },
+                          "check_kind": {
+                            "type": "string",
+                            "enum": [
+                              "mcp",
+                              "cli"
+                            ]
+                          },
+                          "check": {
+                            "type": "string"
+                          },
+                          "recovery": {
+                            "type": "string"
+                          },
+                          "cli_fallback": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "agent",
+                          "label",
+                          "step",
+                          "check_kind",
+                          "check",
+                          "recovery",
+                          "cli_fallback"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "summary",
+                    "per_agent"
+                  ]
+                },
+                "optional_improvement": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "after": {
+                      "type": "string",
+                      "const": "activation_verified"
+                    }
+                  },
+                  "required": [
+                    "command",
+                    "after"
+                  ]
                 }
               },
               "required": [

@@ -118,7 +118,7 @@ Setup consent is not write authority. Effectful commands probe plan-derived targ
 
 A green `done` result uses compact `data.proof`; `data.gate_ran` says whether Gate work ran or current Proof was reused. `data.mode = "report"` and checkpoint `review` are present only for the explicit CI lane; `checkpoint_drops` retains classified fail-open evidence. A successful `accept` carries only its consent-qualified `data.proof_line` plus any retained drops; the paste-ready review page remains available through terminal `discern status --verbose`. These projections remove repeated renderings while preserving the claim needed to report the result.
 
-Successful `setup done` carries registry-derived `data.reactivation`: each provider's check kind, exact check, local recovery, and CLI fallback.
+An unlanded successful `setup done` carries Proof, canonical completion inventory, and landing state without reactivation or improvement advice. After successful `setup accept`, registry-derived `data.reactivation` carries each provider's exact check, local recovery, and CLI fallback; `data.optional_improvement` is explicitly conditional on activation verification. An in-place completion already on the integration branch projects the same ordered activation contract.
 
 A successful `accept` reports the permission it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. The terminal proof line and `data.proof_line` repeat that evidence.
 

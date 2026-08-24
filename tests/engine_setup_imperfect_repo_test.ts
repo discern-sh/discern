@@ -195,7 +195,11 @@ Deno.test("verify in a non-git directory serves git-init-first and promises no i
       !d.instructions.includes("so nothing touches your main branch"),
       "the served message must not promise branch isolation without git",
     );
-    assertStringIncludes(d.instructions, "OK to initialize git here?");
+    assertStringIncludes(d.instructions, "May I run `git init` here");
+    assertStringIncludes(
+      d.instructions,
+      "then repeat the preflight before setup begins?",
+    );
 
     // Parity (ADR 0086): a flag-less fresh `begin` re-serves the identical
     // conditioned message.

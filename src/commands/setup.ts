@@ -163,9 +163,17 @@ import {
   type LandingSummary,
   landingSummary,
 } from "./setup_accept.ts";
-import { KNOWN_ENGINE_VERBS } from "../engine/dispatch.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { instructionSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
+import {
+  renderSetupReadinessTable,
+  renderSetupReporterTable,
+  renderSetupScopeExamples,
+} from "../shared/setup_guidance.ts";
+import {
+  deriveSetupCompletionInventory,
+  type SetupCompletionInventory,
+} from "../shared/setup_inventory.ts";
 import {
   clearSetupMachineryCommitEvidence,
   readSetupMachineryCommitEvidence,
@@ -961,12 +969,11 @@ async function seedInstructions(
 
 /**
  * Record setup provenance into the freshly-scaffolded `discern.toml` (ADR 0075):
- * `[meta].setup_version` (the discern version that ran `begin`) and, when the agent
- * declared one via `--model`, `[meta].setup_model`. For the support triage `doctor`
- * surfaces; advisory only — discern can't verify a self-declared model. Comment-
- * preserving (mirrors how `setup done` records `bootstrapped`). The caller gates this
- * on `freshInstall`, so a pre-existing config seed is never edited; the per-key
- * `has()` guard is belt-and-suspenders, keeping it write-once even if that changes.
+ * `[meta].setup_version` (the discern version that ran `begin`) and
+ * `[meta].setup_model` (the exact self-declared identifier, or `unreported`). These
+ * fields support triage and remain advisory because discern cannot verify a runtime
+ * model. The caller gates this on `freshInstall`, so a pre-existing config seed is
+ * never edited; each key is write-once.
  */
 async function recordProvenance(
   root: string,
@@ -986,13 +993,14 @@ async function recordProvenance(
     editor.setString("meta.setup_version", KIT_VERSION);
     changed = true;
   }
-  const declared = model?.trim();
-  // Ignore the literal placeholder (`--model "<your-model-id>"`) the verify funnel
-  // shows: an agent that copies it verbatim instead of substituting must not record a
-  // bogus `<your-model-id>` as the provenance.
-  const isPlaceholder = declared !== undefined && declared.includes("<");
+  const supplied = model?.trim();
+  // Every fresh setup records one honest advisory value. An omitted value and an
+  // angle-bracket placeholder both mean the runtime did not report its model.
+  const declared = supplied === undefined || supplied.length === 0 ||
+      supplied.includes("<")
+    ? "unreported"
+    : supplied;
   if (
-    declared !== undefined && declared.length > 0 && !isPlaceholder &&
     !existing.has("meta.setup_model")
   ) {
     editor.setString("meta.setup_model", declared);
@@ -1071,7 +1079,10 @@ function renderSetupPaths(
     .replaceAll("{{todo_path}}", paths.todoRel)
     .replaceAll("{{instruction_path}}", paths.instructionRel)
     .replaceAll("{{brief_path}}", SOURCE_PATHS.brief.defaultPath)
-    .replaceAll("{{diagnostic_formats}}", diagnosticFormatList());
+    .replaceAll("{{diagnostic_formats}}", diagnosticFormatList())
+    .replaceAll("{{reporter_guidance_table}}", renderSetupReporterTable())
+    .replaceAll("{{worktree_readiness_table}}", renderSetupReadinessTable())
+    .replaceAll("{{scope_examples}}", renderSetupScopeExamples());
 }
 
 /** Ask Git for the repository root around `start`, accepting non-repositories. */
@@ -2579,14 +2590,13 @@ function emitSetupFinalTreeDirty(
 /** The view `printDoneSuccess` renders — the celebrate/assure/land/onboard pieces of a
  * completed `setup done`, computed once and shared with the `--json` envelope. */
 interface DoneSuccessView {
-  opts: SetupDoneOptions;
   forced: boolean;
   leftover: string[];
   markerCommit: MarkerCommitOutcome;
   assurance: SetupAssurance;
+  inventory: SetupCompletionInventory;
   landing: LandingSummary;
-  reactivation: ReturnType<typeof reactivationHandoff>;
-  coachVerb: string;
+  reactivation?: ReturnType<typeof reactivationHandoff> | undefined;
   /** The ready-to-relay completion message — carried verbatim, identical to the
    * `--json` `instructions` field (ADR 0086). */
   instructions: string;
@@ -2595,18 +2605,20 @@ interface DoneSuccessView {
   worktreeProven: boolean;
   /** The canonical ready-to-relay proof line, absent on forced completion. */
   proofLine?: string | undefined;
-  /** The configured deferred-work ledger path (`[project].todo`). */
-  todoRel: string;
 }
 
-/** The ordered next-action hints `setup done --json` carries for an agent (A11): land
- * the work, reactivate the tools, then deepen the setup with the coach. */
+/** Phase-correct next actions. An unlanded result carries landing only; activation
+ * and optional improvement appear only when the integration branch has setup. */
 function doneHints(
   landing: LandingSummary,
-  coachVerb: string,
-  todoRel: string,
+  reactivation: ReturnType<typeof reactivationHandoff> | undefined,
+  activationAvailable: boolean,
+  forced: boolean,
 ): string[] {
   const hints: FiredHint[] = [];
+  if (forced) {
+    return hintTexts([fire(HINTS["setup-forced-needs-proof"])]);
+  }
   if (landing.inRepo && !landing.onTarget && landing.branch !== "") {
     // `setup accept` lands ONLY the dedicated setup branch — an in-place setup on
     // the user's own branch is steered to a manual merge, because the land
@@ -2625,11 +2637,15 @@ function doneHints(
           setupBranch: SETUP_BRANCH,
         }),
     );
+    return hintTexts(hints);
   }
-  hints.push(fire(HINTS["setup-reactivate-tools"]));
-  hints.push(
-    fire(HINTS["setup-run-coach"], { coachVerb, todoRel }),
-  );
+  if (!activationAvailable) {
+    return hintTexts(hints);
+  }
+  if (reactivation !== undefined && reactivation.per_agent.length > 0) {
+    hints.push(fire(HINTS["setup-reactivate-tools"]));
+  }
+  hints.push(fire(HINTS["setup-improvement-after-activation"]));
   return hintTexts(hints);
 }
 
@@ -2713,31 +2729,37 @@ function landStep(landing: LandingSummary, n: number): string[] {
   ];
 }
 
-/** Render the warm, honest completion output (A11/A12): celebrate the achievement,
- * report what coverage is actually active, and lay out the ordered follow-ups (land →
- * reactivate → deepen). The `--json` envelope is rendered from the SAME computed
+/** Render the honest completion output (A11/A12): report Proof and the canonical
+ * inventory, then either land or activate. The `--json` envelope is rendered from the SAME computed
  * pieces, so the two surfaces can't drift (ADR 0028). */
 function printDoneSuccess(view: DoneSuccessView): void {
   const {
-    opts,
     forced,
     leftover,
     markerCommit,
     assurance,
+    inventory,
     landing,
     reactivation,
-    coachVerb,
     instructions,
     worktreeProven,
     proofLine,
-    todoRel,
   } = view;
 
+  const setupUnlanded = landing.inRepo && !landing.onTarget;
   const completionLines = [
-    opts.force
+    forced
       ? "Setup complete — discern is set up here (recorded with --force; the gate was not proven)."
-      : "Setup complete — nice work! discern is now wired into this project and your quality gate is green.",
-    "The one-time setup is finished, so `discern setup` retires and hides itself from here on.",
+      : setupUnlanded
+      ? `Setup Proof is ready on \`${
+        landing.branch || SETUP_BRANCH
+      }\`; \`${landing.target}\` does not contain setup yet.`
+      : `Setup Proof is ready on \`${landing.target}\`; discern is available on the integration branch.`,
+    forced
+      ? "The completion marker is present, but Proof and the activation handoff are withheld."
+      : setupUnlanded
+      ? "Land it or leave the proved branch for review. Do not restart or begin improvement work before landing and activation verification."
+      : "The one-time authoring work is finished; verify activation from a fresh provider session before optional improvement work.",
   ];
   if (forced) {
     completionLines.push(
@@ -2776,17 +2798,43 @@ function printDoneSuccess(view: DoneSuccessView): void {
     ]
     : [];
 
-  // The ordered follow-ups (A11): land → reactivate → deepen.
-  const nextLines = ["What's next:", ...landStep(landing, 1)];
-  nextLines.push(`  2. Reactivate discern's tools — ${reactivation.summary}`);
-  for (const a of reactivation.per_agent) {
-    nextLines.push(`       • ${a.label}: ${a.step}`);
+  const inventoryLines = [
+    `Map regions (${inventory.map_regions.count}): ${
+      inventoryLabel(inventory.map_regions.items)
+    }.`,
+    `Deferred-work ledger items (${inventory.ledger_items.count}): ${
+      inventoryLabel(inventory.ledger_items.items)
+    }.`,
+    `Jobs enforced: ${inventoryLabel(inventory.jobs.enforced)}.`,
+    `Jobs deferred: ${inventoryLabel(inventory.jobs.deferred)}.`,
+    `Jobs absent: ${inventoryLabel(inventory.jobs.absent)}.`,
+    `Jobs that do not apply: ${inventoryLabel(inventory.jobs.not_applicable)}.`,
+  ];
+
+  // The ordered follow-up is either landing alone, or provider activation then
+  // an explicitly optional ongoing review.
+  const nextLines = forced
+    ? [
+      "What's next:",
+      "  1. Resolve the incomplete or red setup, commit the correction, then run",
+      "     `discern setup done` without `--force` to obtain Proof before landing or activation.",
+    ]
+    : ["What's next:", ...landStep(landing, 1)];
+  if (!forced && !setupUnlanded && reactivation !== undefined) {
+    let next = 2;
+    for (const agent of reactivation.per_agent) {
+      nextLines.push(
+        `  ${next}. Start a fresh ${agent.label} session: ${agent.step}`,
+        `     Verify activation with \`${agent.check}\`. If it fails, ${agent.recovery}`,
+        `     CLI fallback: \`${agent.cli_fallback}\`.`,
+      );
+      next += 1;
+    }
+    nextLines.push(
+      `  ${next}. Only after every applicable activation check succeeds, optionally run`,
+      "     `discern improvement --json` for an owner review of ongoing work.",
+    );
   }
-  nextLines.push(
-    `  3. Deepen your setup: run \`discern ${coachVerb} --json\` (the project coach),`,
-    "     review the findings with your human, do the quick wins now, and defer larger",
-    `     initiatives to ${todoRel}.`,
-  );
 
   // The ready-to-relay completion message, carried verbatim (identical to the `--json`
   // `instructions` field) so a courier agent can hand the human a warm close (ADR 0086).
@@ -2794,10 +2842,16 @@ function printDoneSuccess(view: DoneSuccessView): void {
     { id: "completion", items: completionLines },
     { id: "proof", items: proofLine === undefined ? [] : [proofLine] },
     { id: "assurance", items: assuranceGroupLines },
+    { id: "inventory", items: inventoryLines },
     { id: "worktree-proof", items: worktreeLines },
     { id: "next-actions", items: nextLines },
     { id: "relay-instructions", items: [instructions] },
   ]));
+}
+
+/** Render one canonical inventory list for the human completion surface. */
+function inventoryLabel(items: readonly string[]): string {
+  return items.length === 0 ? "none" : items.join(", ");
 }
 
 /**
@@ -2956,28 +3010,29 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
 
   const forced = opts.force;
 
-  // Celebrate, assure, and steer (A11/A12). The agent files, MCP servers, and session
-  // hooks were wired at `begin` but coding agents load them at SESSION START, so this
-  // session can't see them yet — hence the reactivation handoff (ADR 0075). Alongside
-  // it: an honest per-known-job coverage summary (so "gate proven" can't read as "every
-  // protection runs"), where the just-finished work lives + how to land it on the
-  // integration branch, and a steer into ongoing use via the project coach. Reuse the
-  // config proven loadable above (the marker write only flips a bool); re-read the raw
-  // TOML so the assurance sees the just-written marker line.
+  // Report Proof, assurance, the mechanically derived closing inventory, and one
+  // phase-correct next action. Provider activation is withheld until setup already
+  // lives on the integration branch; improvement remains optional after activation.
   const cfg = doneCfg;
   const rawToml = await Deno.readTextFile(path);
   const assurance = assessSetupAssurance(cfg, rawToml);
   const landing = await landingSummary(root, cfg);
-  const reactivation = reactivationHandoff(cfg);
-  // Resolve the coach verb from the live engine-verb SSOT (improvement, or audit before
-  // the earlier rename) rather than hardcoding, so the steer survives vocabulary changes.
-  const coachVerb = KNOWN_ENGINE_VERBS.has("improvement")
-    ? "improvement"
-    : "audit";
+  const inventory = await deriveSetupCompletionInventory(root, cfg, assurance);
+  const readyForActivation = !forced && (!landing.inRepo || landing.onTarget);
+  const reactivation = readyForActivation
+    ? reactivationHandoff(cfg)
+    : undefined;
   // The closing relay block — the ready-to-relay "message to your human" a courier agent
   // hands over, composed from the same pieces the structured surface carries (ADR 0086),
   // and rendered identically on both surfaces.
-  const instructions = completionMessage({ assurance, landing, reactivation });
+  const instructions = completionMessage({
+    assurance,
+    inventory,
+    landing,
+    reactivation,
+    proofLine: proof?.proof_line,
+    forced,
+  });
 
   const data: SetupDoneData = {
     bootstrapped: true,
@@ -2991,6 +3046,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     ...(proof === undefined ? {} : { proof, proof_line: proof.proof_line }),
     leftover,
     assurance,
+    inventory,
     landing: {
       in_repo: landing.inRepo,
       branch: landing.branch,
@@ -2999,14 +3055,22 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
       on_setup_branch: landing.onSetupBranch,
       command: ACCEPT_COMMAND,
     },
-    reactivation,
-    coach: { verb: coachVerb, command: `discern ${coachVerb} --json` },
+    ...(reactivation === undefined ? {} : { reactivation }),
+    ...(readyForActivation
+      ? {
+        optional_improvement: {
+          verb: "improvement",
+          command: "discern improvement --json",
+          after: "activation_verified" as const,
+        },
+      }
+      : {}),
     instructions,
   };
   const result: DiscernResult<SetupDoneData> = {
     ok: true,
     verb: "setup done",
-    hints: doneHints(landing, coachVerb, cfg.project.todo),
+    hints: doneHints(landing, reactivation, readyForActivation, forced),
     data,
   };
   observeResult(result);
@@ -3016,18 +3080,16 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   }
 
   printDoneSuccess({
-    opts,
     forced,
     leftover,
     markerCommit,
     assurance,
+    inventory,
     landing,
     reactivation,
-    coachVerb,
     instructions,
     worktreeProven,
     proofLine: proof?.proof_line,
-    todoRel: cfg.project.todo,
   });
   return 0;
 }

@@ -37,6 +37,7 @@ import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { INSTRUCTIONS_H1 } from "./engine_setup_shared.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import { inspectGateProof } from "../src/engine/gate/proof.ts";
+import { SETUP_RESULT_MAX_CHARS } from "../src/shared/setup_pages.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const HIDE_CURSOR = `${CSI}?25l`;
@@ -210,6 +211,10 @@ Deno.test("setup done human output relays the same canonical Proof line stored f
     assertEquals(proof.status, "honored");
     assert(proof.proof_line !== undefined);
     assertStringIncludes(done.stdout, proof.proof_line);
+    assert(
+      done.stdout.length <= SETUP_RESULT_MAX_CHARS,
+      `setup done human output exceeded ${SETUP_RESULT_MAX_CHARS} characters`,
+    );
   });
 });
 
@@ -1005,10 +1010,7 @@ Deno.test("discern setup preserves the project name's casing in the scaffolded f
   });
 });
 
-Deno.test("the laid TODO.md records the deferred discern-document-subsystem work (so the doc subtrees get filled)", async () => {
-  // The numbered doc subtrees ship as stubs from setup; cold runs kept mentioning the
-  // deferral in passing and losing it. The skeleton now bakes it in structurally, so a
-  // freshly-laid TODO always points the next session at the `discern-document-subsystem` skill.
+Deno.test("the laid TODO.md starts empty instead of seeding generic documentation work", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
@@ -1016,7 +1018,11 @@ Deno.test("the laid TODO.md records the deferred discern-document-subsystem work
     assertEquals(r.code, 0, r.output);
 
     const todo = await Deno.readTextFile(join(dir, "discern/TODO.md"));
-    assertStringIncludes(todo, "discern-document-subsystem");
+    assert(
+      !/^- \[ \]/m.test(todo),
+      `a fresh ledger must not invent unresolved work:\n${todo}`,
+    );
+    assertStringIncludes(todo, "concrete unresolved decisions or defects");
   });
 });
 
@@ -1416,7 +1422,23 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     ).data.instructions;
     assertEquals(res.data.instructions, verifyInstructions);
-    assertStringIncludes(res.data.instructions, "Am I your most capable model");
+    assertStringIncludes(
+      res.data.instructions,
+      "Which available model do you want to use for this setup?",
+    );
+    const attestation = res.hints.join("\n");
+    for (
+      const fact of [
+        "three pillars",
+        "footprint",
+        "plan",
+        "reversibility",
+        "numbered confirmation",
+        "time-and-tokens",
+      ]
+    ) {
+      assertStringIncludes(attestation, fact);
+    }
 
     // The human render carries the same message verbatim (dual-addressed, ADR 0078),
     // and still writes nothing.
@@ -1640,27 +1662,19 @@ Deno.test("discern setup --json emits the DiscernResult envelope", async () => {
   });
 });
 
-Deno.test("the brief teaches transparency-not-interrogation (narrate + atomic commits), not a per-step confirm gate (ADR 0044/0077)", async () => {
+Deno.test("the brief teaches bounded authoring with explicit authority and no mid-setup activation", async () => {
   // Read the printed brief directly — `templates/` is excluded from `deno fmt`,
   // so these anchors stay on one line and won't be reflowed out from under us.
   const brief = await Deno.readTextFile(
     join(REAL_TEMPLATES, "setup", "instructions.md"),
   );
 
-  // The interaction model is taught: the agent is the configuration engine and the
-  // stance is transparency-not-interrogation (ADR 0077's revision of 0044), the
-  // five-beat narration pattern, discern named as the source of the recommendation,
-  // per-stage atomic commits, and the explicit carve-out for a genuine decision.
+  // Reversible project authoring stays agent-owned; material decisions stay human-owned.
   assertStringIncludes(brief, "configuration engine");
-  assertStringIncludes(brief, "transparency, not interrogation");
-  assertStringIncludes(brief, "five beats");
-  assertStringIncludes(brief, "Name `discern` as the source");
-  assertStringIncludes(brief, "atomic commit");
-  assertStringIncludes(brief, "genuine decision");
-
-  // Reversibility-IS-safety is spelled out — the commit is the undo — so
-  // "proceed without asking" can never be read as "act irreversibly".
-  assertStringIncludes(brief, "the undo");
+  assertStringIncludes(brief, "Inspect before claiming");
+  assertStringIncludes(brief, "preserve the project");
+  assertStringIncludes(brief, "revertible commit");
+  assertStringIncludes(brief, "cost, data, access");
 
   // The old propose-and-confirm gate is reconciled away in EVERY place it lived:
   // the operating principle, the Step 7 capability gate, and the stop-condition.
@@ -1678,35 +1692,29 @@ Deno.test("the brief teaches transparency-not-interrogation (narrate + atomic co
     "the capability-fill confirm gate must not return in the stop-conditions",
   );
 
-  // The warmer narration must NOT soften the incompleteness signal (ADR 0037):
-  // per-stage commits are transparency during setup, not "setup complete".
-  assertStringIncludes(brief, "Narration is not completion");
+  assertStringIncludes(brief, "Do not restart");
+  assertStringIncludes(brief, "Do not run `discern improvement` during setup");
   assertStringIncludes(brief, "You are not done until all of these are true");
 });
 
-Deno.test("the brief reframes Step 0 as a relayed model question, explains the map, and resolves five-beats vs volume to one rule (ADR 0077)", async () => {
+Deno.test("the brief keeps model selection neutral and bounds Map scope by durable boundaries", async () => {
   const brief = await Deno.readTextFile(
     join(REAL_TEMPLATES, "setup", "instructions.md"),
   );
 
-  // Step 0 is a CHECKPOINT: `verify` serves the model question in its consent message,
-  // and Step 0 confirms it actually reached the human (asking now if it was skipped) —
-  // not a self-assessment the agent can rationalize past (ADR 0086).
-  assertStringIncludes(brief, "am I your most capable model");
-  assertStringIncludes(brief, "## Step 0 — Checkpoint");
+  assertStringIncludes(brief, "exact provider/model identifier");
+  assertStringIncludes(brief, "literal advisory value `unreported`");
+  assertStringIncludes(brief, "## Step 0 - Confirm consent");
+  assert(!brief.toLowerCase().includes("most capable model"));
   assert(
     !brief.includes("right tool for this job"),
     "Step 0's self-assessment framing must not return — it is now a relayed question",
   );
 
-  // WHY the map matters: the map/instructions are the source of truth that every
-  // future agent session and discern itself read from, and the map gives people
-  // an audit of what those agents understand. Stated before authoring and again
-  // in the closing summary.
-  assertStringIncludes(brief, "single source of truth");
-  assertStringIncludes(brief, "audit what future agents understand");
-  assertStringIncludes(brief, "map and instructions");
-  assertStringIncludes(brief, "what the map is for");
+  assertStringIncludes(brief, "primary subsystem");
+  assertStringIncludes(brief, "durable subsystem boundary");
+  assertStringIncludes(brief, "reduce future repository reading");
+  assertStringIncludes(brief, "not target counts");
 
   // The brief is the canonical agent-facing setup script. A new step anywhere in
   // it auto-enrols in this check, while the separate `docs/` reassurance stays in
@@ -1728,10 +1736,8 @@ Deno.test("the brief reframes Step 0 as a relayed model question, explains the m
     ["docs"],
   );
 
-  // The five-beats/volume tension resolves to ONE rule: the full five beats only for
-  // genuine additions/forks; the obvious jobs batch into one recommendation.
-  assertStringIncludes(brief, "Reserve the full five beats");
-  assertStringIncludes(brief, "concise recommendation");
+  assertStringIncludes(brief, "concrete unresolved decisions or defects");
+  assertStringIncludes(brief, "never generic aspirations");
 });
 
 Deno.test("the brief wires the gate before any authoring, with a refresh before the first gate run (ADR 0077)", async () => {
@@ -1745,59 +1751,39 @@ Deno.test("the brief wires the gate before any authoring, with a refresh before 
   // commits clean. Guards against the job step drifting back behind the
   // authoring steps.
   const gateStep = brief.indexOf(
-    "## Step 2 — Sniff the stack and recommend the jobs",
+    "## Step 2 - Preserve project workflows and configure the Gate",
   );
   const firstAuthoringStep = brief.indexOf(
-    "## Step 4 — Draft the design principles",
+    "## Step 4 - Draft project-specific design principles",
   );
   assert(gateStep !== -1 && firstAuthoringStep !== -1);
   assert(
     gateStep < firstAuthoringStep,
     "the job step must precede the authoring steps",
   );
-  assertStringIncludes(brief, "Wire the project's formatter first");
+  assertStringIncludes(brief, "discern config set-job");
 
   // Stale generated files fail `done`'s currency check, so the brief must sequence
   // `discern refresh` before the first gate run in the wiring step — otherwise the
   // first gate run is a guaranteed failure.
   assertStringIncludes(brief, "run `discern refresh`");
-  assertStringIncludes(brief, "currency check");
+  assertStringIncludes(brief, "discern prepare --json");
 });
 
-Deno.test("the brief keeps wired commands honest: exit-on-its-own, install consent, worktree convergence", async () => {
+Deno.test("the brief keeps jobs, reporters, and worktree resources honest", async () => {
   const brief = await Deno.readTextFile(
     join(REAL_TEMPLATES, "setup", "instructions.md"),
   );
 
-  // Step 7: every wired command must terminate non-interactively — watch-mode
-  // runners in their single-run form — so a watcher trips the gate's timeout in
-  // authoring, not on every later run.
-  assertStringIncludes(brief, "must exit on its own");
-  assertStringIncludes(brief, "single-run form");
-
-  // Step 7: installing a NEW dependency is a batched consent point (ADR 0113),
-  // while wiring an existing tool stays narrate-and-proceed.
+  assertStringIncludes(brief, "original exit status");
+  assertStringIncludes(brief, "keep routine green output concise");
+  assertStringIncludes(brief, "--not-applicable");
   assertStringIncludes(
     brief,
-    "installing a new dependency is a genuine decision",
+    "A new dependency, network access, paid service",
   );
-  assertStringIncludes(brief, "never a narrate-and-proceed");
-  assertStringIncludes(
-    brief,
-    "_Wiring a tool the project already has_ stays narrate-and-proceed",
-  );
-
-  // Step 8: convergence is check-then-install (the template's own
-  // fast-when-current rule), env inheritance and the database rows are in the
-  // culprits table, and hosted databases get honesty rather than magic.
-  assertStringIncludes(brief, "fast when current");
-  assertStringIncludes(brief, "check-then-install");
-  assertStringIncludes(brief, "env-file secrets (any stack)");
-  assertStringIncludes(brief, "a file-based database");
-  assertStringIncludes(
-    brief,
-    "discern can't conjure isolated copies of a hosted service",
-  );
+  assertStringIncludes(brief, "tracked binary databases");
+  assertStringIncludes(brief, "cost- or data-bearing resource policy");
 
   // The config template's smoke example is a placeholder that fails loudly if
   // copied verbatim — the old `node -e 'require(\"./\")'` silently failed on
@@ -1816,15 +1802,16 @@ Deno.test("the brief keeps wired commands honest: exit-on-its-own, install conse
   );
 });
 
-Deno.test("the brief frames setup as a chance to add missing well-established tooling, not just wire existing tools", async () => {
-  // Setup should raise the project's quality floor: a standard tool the stack is
-  // MISSING is a proactive recommendation (walked through the five beats), not a
-  // slot left blank. Guards against the brief drifting back to detection-only.
+Deno.test("the brief never marks an expected missing protection inapplicable to improve assurance", async () => {
   const brief = await Deno.readTextFile(
     join(REAL_TEMPLATES, "setup", "instructions.md"),
   );
-  assertStringIncludes(brief, "raise the project's floor");
-  assertStringIncludes(brief, "intend to add one");
-  // The "leave unset" instructions are scoped to genuine absence, not un-adopted tools.
-  assertStringIncludes(brief, "genuinely has no standard tool");
+  assertStringIncludes(
+    brief,
+    "leave a missing but expected protection applicable and absent",
+  );
+  assertStringIncludes(
+    brief,
+    "Do not mark a missing expected protection inapplicable",
+  );
 });
