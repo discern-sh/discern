@@ -16,6 +16,10 @@ _Setup keeps consent, provider authority, landing authority, and observed write 
 
 Owner consent authorizes the requested setup act. Provider authorization controls what the running process may access. A landing grant authorizes discern to advance trunk within its recorded scope. None of those proves that a filesystem or Git write will work now.
 
+Before consent, setup recommends the strongest suitable reasoning model and explains the lasting reason. This model studies the repository and authors the Gate, worktree policy, Map, and instructions later sessions inherit. The executing agent separately reports its current self-declared provider/model identifier, or `unreported`. The owner then chooses the model.
+
+To switch, the owner uses the coding tool's model selector and opens a fresh project session. The current agent stops without beginning setup. To continue, the owner confirms the current model. Setup stores its reported value only as advisory provenance.
+
 An effectful setup command therefore performs its own point-in-time write preflight. Success means only that representative writes worked in that invocation; discern cannot grant, persist, or bypass the provider's policy. Logbook recording remains advisory: a denied Logbook write warns and disables recording for the process, but does not become a required setup target.
 
 ## The effect plan owns required writes
@@ -34,6 +38,6 @@ A denial returns `write_access` with the exact path and retry command and leaves
 
 After interruption, `discern setup` or `discern status` resumes the recorded phase and branch without replaying writes.
 
-`setup done` proves the committed tree and derives its Map, TODO, and job inventory. Off the trunk, every surface leads with Proof and landing; restart and improvement remain absent.
+`setup done` proves the committed tree and derives its Map, TODO, and job inventory. It also derives the primary subsystem's start point, boundary, non-obvious invariant, project principles, and instruction sources from committed authorities. This qualitative account explains what later sessions inherit. The counts support it. Off the trunk, every surface leads with Proof and landing. Restart and improvement remain absent.
 
 After `setup accept`, each integration gets a registry-derived check, local recovery, and `discern status --json` fallback; MCP uses `discern_status`. Run the exact check in a fresh session. Success makes the optional `discern improvement` owner review available.

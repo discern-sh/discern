@@ -18,13 +18,17 @@ Tell your coding agent:
 
 > Set this project up with discern.
 
-The agent runs `discern`. In a repository without an install, discern routes it into setup and serves a welcome message. The agent then runs `discern setup verify`, which returns a consent message for you.
+The agent runs `discern`. In a repository without an install, discern routes it into setup and serves a welcome message. The welcome recommends the strongest suitable reasoning model and explains why. That model studies the repository and authors the Gate, worktree policy, Map, and instructions later sessions inherit. To change models, use your coding tool's model selector and open a fresh project session. Repeat the setup request there.
 
-Read that message before answering. It names the paths setup plans to add or share, the coding agents it can wire, and the commands it expects to run. It also explains removal. If the plan names the wrong repository or agents, correct the request before you approve it.
+The selected agent runs `discern setup verify`, which returns a consent message for you.
+
+Read that message before answering. It repeats the model outcome, recommendation, switch route, and current-agent stop boundary. The agent separately reports its current self-declared provider/model identifier, or `unreported`, before you choose.
+
+The message names the paths setup plans to add or share, coding agents it can wire, worktree location, and time and token expectation. It also states the authority that final confirmation grants and explains removal. Correct the request before approval when it names the wrong repository, model path, or agent set.
 
 Reply in plain language, for example:
 
-> Yes. Set up Codex and Claude Code in this repository.
+> Continue with this model. Set up Codex and Claude Code in this repository, keep the proposed worktree location, and begin the isolated setup branch.
 
 The agent attests that consent happened when it begins ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)). `verify` remains read-only. Each later effectful command checks its plan-derived writes before its first effect. Denial preserves the phase, and success is point-in-time rather than provider authorization; see [Setup command boundaries](../70-reference/setup-command-boundaries.md).
 
@@ -36,6 +40,8 @@ discern commits its scaffolded wiring before the handoff. Final completion commi
 
 Watch the branch rather than the main checkout. The agent makes small authoring commits as it completes the staged setup brief. [What setup added](after-setup.md) explains each group in the diff.
 
+The agent narrates each major stage with its owner benefit. It handles routine reversible authoring without asking for file-by-file permission. It waits when repository evidence cannot settle product intent or a Gate protection needs a consequential effect. It also waits for corrections to its subsystem understanding and for owner decisions about cost, durable data, shared access, or binary merges.
+
 After interruption, run `discern setup` or `discern status`; the recorded phase, branch, and continuation avoid replaying completed writes. Stable step ids preserve resumption while their registry orders evidence and smoke before final documentation.
 
 ## Setup verifies the checkout can reproduce
@@ -44,7 +50,7 @@ When the authored files are committed, the agent runs `discern setup done`. A pr
 
 If any final check fails, setup restores `[meta].bootstrapped` to the incomplete state. A successful non-forced result includes the structured Proof inspection and a one-line Proof you can relay. `--force` is visibly unproved and cannot be accepted through the proved setup landing path.
 
-A failure result includes the failed command and output. A pass returns protection coverage, canonical Map, ledger, and job inventories, and one valid next action ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
+A failure result includes the failed command and output. A pass explains the primary subsystem, starting point, boundary, and non-obvious invariant. It also names project principles, instruction sources, protection coverage, and concrete open items. Canonical Map, ledger, and job inventories support that account ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
 
 An unlanded result offers landing or later review; the trunk lacks setup, so restart and improvement stay absent. After `discern setup accept`, start fresh, run its exact provider check, and use the served recovery or CLI fallback if needed. Generated files do not prove activation. Success makes `discern improvement` optional ongoing work ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 

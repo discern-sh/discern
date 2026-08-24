@@ -1169,6 +1169,35 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "setup-human-moments",
+    title: "Setup human moments",
+    what:
+      "The semantic contracts for setup's first-use explanations, owner decisions, progress relays, completion handoff, landing choice, and activation handoff.",
+    source: {
+      kind: "module",
+      module: "src/shared/setup_experience.ts",
+      exportName: "SETUP_HUMAN_MOMENTS",
+    },
+    guards: [
+      "tests/engine_setup_operational_contract_test.ts",
+      "tests/engine_setup_welcome_test.ts",
+      "tests/engine_setup_messages_test.ts",
+      "tests/engine_setup_handoff_test.ts",
+      "tests/engine_setup_accept_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the setup pages and lifecycle results define these reader-facing moments in context",
+      },
+      featureCanon: { nodeId: "setup" },
+    },
+    members: async () =>
+      (await import("../src/shared/setup_experience.ts"))
+        .SETUP_HUMAN_MOMENTS.map((moment) => moment.id),
+  },
+  {
     id: "authored-commit-sites",
     title: "discern-authored commit sites",
     what:

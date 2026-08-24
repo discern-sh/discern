@@ -48,9 +48,10 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                        | `scripts/brand/voice.ts#BRAND_FOUNDATION_READING_STEPS`                           | 4       | —                | —                           |
 | [`demand-canon`](#demand-canon--demand-canon)                                                                         | `scripts/brand/demand.ts#DEMAND_CANON`                                            | 46      | —                | —                           |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
+| [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 15      | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 4       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
-| [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
+| [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 4       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 189     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 45      | "Tip"            | node `tips`                 |
@@ -97,9 +98,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 86      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 87      | —                | node `canonical-sets`       |
 
-86 sets · 137 guard tests · 58 committed artifacts.
+87 sets · 142 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -176,9 +177,14 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/engine_patterns_test.ts`                    | [`git-admin-state`](#git-admin-state--git-admin-state), [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                        |
 | `tests/engine_plan_parity_test.ts`                 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/engine_proof_render_test.ts`                | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tests/engine_setup_accept_test.ts`                | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/engine_setup_assurance_test.ts`             | [`jobs`](#jobs--gate-jobs)                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `tests/engine_setup_handoff_test.ts`               | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/engine_setup_messages_test.ts`              | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/engine_setup_operational_contract_test.ts`  | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/engine_setup_pages_test.ts`                 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/engine_setup_phase_parity_test.ts`          | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `tests/engine_setup_welcome_test.ts`               | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/engine_subprocess_ssot_test.ts`             | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/engine_verb_parity_test.ts`                 | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/engine_write_preflight_test.ts`             | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -1227,6 +1233,31 @@ The staged-setup handshake's sub-verb sequence.
 - Glossary: not enrolled — the CLI reference documents these sub-verbs under setup
 - Feature canon: described by the `setup` node
 
+## `setup-human-moments` — Setup human moments
+
+The semantic contracts for setup's first-use explanations, owner decisions, progress relays, completion handoff, landing choice, and activation handoff.
+
+- Source: `src/shared/setup_experience.ts` — `SETUP_HUMAN_MOMENTS`
+- Members: 15
+  - `first-use-value`
+  - `model-selection`
+  - `setup-started`
+  - `project-intent-gap`
+  - `gate-protection-change`
+  - `authored-source-collision`
+  - `lasting-project-context`
+  - `owner-policy-conflict`
+  - `first-green-gate`
+  - `subsystem-sanity-check`
+  - `worktree-resource-policy`
+  - `documentation-claim-gap`
+  - `completion-handoff`
+  - `landing-choice`
+  - `activation-handoff`
+- Guards: `tests/engine_setup_operational_contract_test.ts`, `tests/engine_setup_welcome_test.ts`, `tests/engine_setup_messages_test.ts`, `tests/engine_setup_handoff_test.ts`, `tests/engine_setup_accept_test.ts`
+- Glossary: not enrolled — the setup pages and lifecycle results define these reader-facing moments in context
+- Feature canon: described by the `setup` node
+
 ## `authored-commit-sites` — discern-authored commit sites
 
 The workflows whose diffs discern composes and commits. Every member must route through the attributed, pathspec-limited commit boundary.
@@ -1260,10 +1291,11 @@ The shipped capability modules whose importers are restricted: attributed commit
 The machine-checkable predicates behind setup's observable progress. Each mirrors its setup page's completion-check field, so a resumed session derives completed work from the tree.
 
 - Source: `src/shared/setup_checks.ts` — `SETUP_COMPLETION_CHECKS`
-- Members: 3
+- Members: 4
   - `known_jobs`
   - `design_principles`
   - `instructions`
+  - `primary_subsystem_context`
 - Guards: `tests/engine_setup_pages_test.ts`
 - Glossary: not enrolled — the setup pages describe each progress predicate in reader-facing prose
 - Feature canon: described by the `setup-observability` node
@@ -3050,7 +3082,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Instruct
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 86
+- Members: 87
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -3087,6 +3119,7 @@ This meta-registry: the closed set of closed sets.
   - `brand-foundation-reading-steps`
   - `demand-canon`
   - `setup-subverbs`
+  - `setup-human-moments`
   - `authored-commit-sites`
   - `restricted-writer-modules`
   - `setup-completion-checks`

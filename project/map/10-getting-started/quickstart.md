@@ -14,7 +14,9 @@ _Install the binary, let your agent set the project up, and take one change thro
 
 You need a Git repository and a coding agent. discern supports Claude Code, Codex, Gemini, Cursor, and GitHub Copilot. An installed project does not need Deno or Node to run discern because the product is one self-contained binary. Once installed, discern makes zero network calls.
 
-discern sets no minimum model. Each refusal and failure report names the next valid action. Choose a model that can follow the project's instructions and perform the requested task.
+discern sets no hard minimum model. For this one-time setup, use the strongest suitable reasoning model available. That model studies the repository. It authors the Gate, worktree policy, Map, and instructions later sessions inherit. Stronger reasoning is more likely to catch false assumptions and preserve existing workflows before those choices become project context.
+
+Use your coding tool's model selector before setup begins. When changing models, open a fresh session in this project and give that session the setup request below. During consent, the executing agent reports its current self-declared provider/model identifier, or `unreported`, before you choose. Setup records the same advisory provenance only when you continue. Neither the report nor the record verifies capability.
 
 ## 1. Install the binary
 
@@ -32,11 +34,13 @@ In your project, tell your agent:
 
 The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing, discern serves a consent message for the agent to relay. The message names each planned change: a `discern.toml` file at the repository root, a visible `discern/` folder for project-owned content, the agent-maintained Map, the agent files each coding agent reads, and a delimited `.gitignore` block. Project-authored instructions, Map pages, and Skills remain plain Markdown. `discern uninstall` removes the wiring.
 
-Answer in plain language: "Yes. Set up Claude Code and Codex." Setup cannot proceed until the agent records your consent ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
+The consent message repeats the model recommendation and names the available paths. Continue with the current model, or use the coding tool's model selector and open a fresh project session. Repeat the setup request there. The current agent stops when you switch.
+
+Consent also covers the coding tools to wire, worktree location, time and token investment, and setup branch footprint. Answer each item in plain language. Setup cannot proceed until the agent attests that the complete consent exchange happened ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
 `setup verify` is read-only. Each later effectful command checks its own plan-derived write targets before effects; denial preserves the phase and names the path and retry. The check is point-in-time, not cached provider authority ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
-Setup works on `discern-setup` until landing. The agent inventories code and commands, preserves existing workflows, and authors final orientation after smoke. The Map gets one substantive primary-subsystem page plus only distinct durable boundaries.
+Setup works on `discern-setup` until landing. The agent inventories code and commands, preserves existing workflows, and authors final orientation after smoke. Before synthesis, it shows you the proposed primary subsystem, start point, boundary, and non-obvious invariant. You can correct that project understanding before it becomes lasting context. The Map gets the substantive primary-subsystem page plus only distinct durable boundaries.
 
 Keep routine green output concise. Recognized captured formats include SARIF and JUnit XML; use them only when they preserve exit status and improve failure diagnostics. File-only and inherently verbose formats stay off the routine path.
 
@@ -44,7 +48,7 @@ Keep routine green output concise. Recognized captured formats include SARIF and
 
 `discern setup done` commits the completion marker, refreshes and diagnoses that commit, proves it in a temporary worktree, then runs the final Gate and returns its [one-line Proof](../20-quality-gate/the-proof.md). A failure in either checkout restores setup to incomplete ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
 
-The result carries Proof, its branch, configured-job assurance, and derived Map and ledger counts. Then it's your turn:
+The result carries Proof, its branch, and configured-job assurance. Its derived account covers the primary subsystem, project principles, protections, open items, instruction sources, Map regions, and jobs. Then it's your turn:
 
 1. **Review and land.** Preview with `discern setup accept --dry-run`, or leave the proved branch for later. Do not restart before landing.
 2. **Start a fresh session.** Follow the provider check or CLI fallback served by acceptance.
