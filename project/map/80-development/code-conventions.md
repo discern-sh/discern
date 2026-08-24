@@ -45,6 +45,23 @@ When the count reaches 0, turn the detector into an always-on zero-count test, r
 | Falling ceiling | [`discern.toml`](../../../discern.toml)                                              |
 | Controls        | [`tests/lint_suppressions_test.ts`](../../../tests/lint_suppressions_test.ts)        |
 
+## Declare structural guard scope
+
+A structural guard is authored test or lint code that enumerates source files, inspects their text or syntax, and enforces one invariant across files. Behavioral fixture tests, fixture walkers, code generators, and production directory traversal use enumeration as input or behavior. They fall outside this class because they do not define the membership boundary of a repository rule.
+
+Every structural guard obtains its files from [`structuralGuardScope`](../../../tests/structural_guard_scope.ts) at the guard's call site ([ADR 0324](../_adr/0324-structural-guards-declare-git-derived-source-universes.md)). The declaration gives the guard a unique `<module>.ts#<local-id>` identity and selects a Git-derived base universe:
+
+| Claim                                                         | Universe           |
+| ------------------------------------------------------------- | ------------------ |
+| Authored TypeScript and TSX                                   | `authored-ts`      |
+| Every authored JavaScript and TypeScript extension Deno lints | `authored-deno`    |
+| Repository Markdown                                           | `tracked-markdown` |
+| Files in the repository's text contract                       | `authored-text`    |
+
+A repository-wide claim uses its complete base universe. An intentionally narrower invariant adds an `include` predicate and a one-line reason that states the semantic boundary, such as a shipped surface or production-only rule. A specialized universe is exceptional: it still lets Git derive membership, names an extension family or the fixture-inclusive text contract, and explains why no canonical universe fits. Never import a canonical file universe directly into a structural guard or preserve member paths, roots, or globs as its scan set.
+
+[`tests/structural_guard_scope_test.ts`](../../../tests/structural_guard_scope_test.ts) scans the complete authored TypeScript universe with a syntax-aware detector. It rejects direct universe consumption, hand-rooted source walks, local member lists, invalid specialized universes, and duplicate declarations. Its injected repositories prove that a new source tree enrolls without another test edit.
+
 ## Conventions to follow
 
 The conventions the tooling cannot fully enforce, but the project still holds:

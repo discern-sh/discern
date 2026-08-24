@@ -309,6 +309,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0321 — Diagram geometry follows Markdown code-block semantics](0321-diagram-geometry-follows-markdown-code-block-semantics.md)
 - [0322 — Setup is one bounded operational journey](0322-setup-is-one-bounded-operational-journey.md)
 - [0323 — Standards hold normalized enforcement definitions](0323-standards-hold-normalized-enforcement-definitions.md)
+- [0324 — Structural guards declare Git-derived source universes](0324-structural-guards-declare-git-derived-source-universes.md)
 
 <!-- END GENERATED: current ADR records -->
 
