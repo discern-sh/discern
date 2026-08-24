@@ -39,6 +39,7 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
+import { withTempDir } from "./helpers.ts";
 
 const DESK_DRIVER = fromFileUrl(
   new URL("fixtures/desk_interactive_driver.ts", import.meta.url),
@@ -202,77 +203,77 @@ async function assertInterruptStopsTree(
   signal: Deno.Signal,
   prepare: (root: string) => Promise<BlackBoxRun>,
 ): Promise<void> {
-  const root = await Deno.makeTempDir({ prefix: "discern-interrupt-" });
-  let enginePid: number | undefined;
-  let leaderPid: number | undefined;
-  let descendantPid: number | undefined;
-  let serverPort: number | undefined;
-  try {
-    const run = await prepare(root);
-    const engine = new Deno.Command("deno", {
-      args: engineRunArgs(run.args),
-      cwd: run.cwd,
-      env: await engineEnv(),
-      stdin: "null",
-      stdout: "piped",
-      stderr: "piped",
-      detached: Deno.build.os !== "windows",
-    }).spawn();
-    enginePid = engine.pid;
-    const statusPromise = engine.status;
-    // Drain both streams so a full pipe can never wedge the engine.
-    const drained = Promise.all([
-      new Response(engine.stdout).text(),
-      new Response(engine.stderr).text(),
-    ]);
+  await withTempDir(async (root) => {
+    let enginePid: number | undefined;
+    let leaderPid: number | undefined;
+    let descendantPid: number | undefined;
+    let serverPort: number | undefined;
+    try {
+      const run = await prepare(root);
+      const engine = new Deno.Command("deno", {
+        args: engineRunArgs(run.args),
+        cwd: run.cwd,
+        env: await engineEnv(),
+        stdin: "null",
+        stdout: "piped",
+        stderr: "piped",
+        detached: Deno.build.os !== "windows",
+      }).spawn();
+      enginePid = engine.pid;
+      const statusPromise = engine.status;
+      // Drain both streams so a full pipe can never wedge the engine.
+      const drained = Promise.all([
+        new Response(engine.stdout).text(),
+        new Response(engine.stderr).text(),
+      ]);
 
-    await waitForSurfaceStart(
-      () => {
-        try {
-          leaderPid = Number(
-            Deno.readTextFileSync(run.leaderPidFile).trim(),
-          );
-          descendantPid = Number(
-            Deno.readTextFileSync(run.descendantPidFile).trim(),
-          );
-          if (run.portFile !== undefined) {
-            serverPort = Number(Deno.readTextFileSync(run.portFile).trim());
+      await waitForSurfaceStart(
+        () => {
+          try {
+            leaderPid = Number(
+              Deno.readTextFileSync(run.leaderPidFile).trim(),
+            );
+            descendantPid = Number(
+              Deno.readTextFileSync(run.descendantPidFile).trim(),
+            );
+            if (run.portFile !== undefined) {
+              serverPort = Number(Deno.readTextFileSync(run.portFile).trim());
+            }
+            return Number.isFinite(leaderPid) && leaderPid > 0 &&
+              Number.isFinite(descendantPid) && descendantPid > 0 &&
+              (run.portFile === undefined ||
+                (Number.isFinite(serverPort) && (serverPort ?? 0) > 0));
+          } catch {
+            return false;
           }
-          return Number.isFinite(leaderPid) && leaderPid > 0 &&
-            Number.isFinite(descendantPid) && descendantPid > 0 &&
-            (run.portFile === undefined ||
-              (Number.isFinite(serverPort) && (serverPort ?? 0) > 0));
-        } catch {
-          return false;
-        }
-      },
-      statusPromise,
-      drained,
-    );
+        },
+        statusPromise,
+        drained,
+      );
 
-    Deno.kill(engine.pid, signal);
-    const status = await statusPromise;
-    const [outText, errText] = await drained;
-    const interrupted = status.signal === signal ||
-      (status.signal === null && status.code === SIGNAL_EXIT_CODES[signal]);
-    assert(
-      interrupted,
-      `expected death by ${signal} or exit ${SIGNAL_EXIT_CODES[signal]}, got ${
-        JSON.stringify(status)
-      }\n${outText}${errText}`,
-    );
+      Deno.kill(engine.pid, signal);
+      const status = await statusPromise;
+      const [outText, errText] = await drained;
+      const interrupted = status.signal === signal ||
+        (status.signal === null && status.code === SIGNAL_EXIT_CODES[signal]);
+      assert(
+        interrupted,
+        `expected death by ${signal} or exit ${
+          SIGNAL_EXIT_CODES[signal]
+        }, got ${JSON.stringify(status)}\n${outText}${errText}`,
+      );
 
-    await waitForTreeShutdown(
-      leaderPid as number,
-      descendantPid as number,
-      serverPort,
-    );
-  } finally {
-    if (descendantPid !== undefined) killForCleanup(descendantPid);
-    if (leaderPid !== undefined) killForCleanup(leaderPid);
-    if (enginePid !== undefined) killForCleanup(enginePid);
-    await Deno.remove(root, { recursive: true });
-  }
+      await waitForTreeShutdown(
+        leaderPid as number,
+        descendantPid as number,
+        serverPort,
+      );
+    } finally {
+      if (descendantPid !== undefined) killForCleanup(descendantPid);
+      if (leaderPid !== undefined) killForCleanup(leaderPid);
+      if (enginePid !== undefined) killForCleanup(enginePid);
+    }
+  }, { prefix: "discern-interrupt-" });
 }
 
 Deno.test("the interrupt harness reports an early surface exit without spending its readiness allowance", async () => {
@@ -446,8 +447,7 @@ async function prepareWithGotchas(root: string): Promise<BlackBoxRun> {
 async function assertDeskInterruptReapsAndResumes(
   signal: Deno.Signal,
 ): Promise<void> {
-  const root = await Deno.makeTempDir({ prefix: "discern-interrupt-desk-" });
-  try {
+  await withTempDir(async (root) => {
     const pidFile = join(root, "desk_child.pid");
     const output = await new Deno.Command("deno", {
       args: repoSourceRunArgs(DESK_DRIVER, [
@@ -481,9 +481,7 @@ async function assertDeskInterruptReapsAndResumes(
       result.code !== 0,
       "an interrupted launch must not report a clean exit to the desk",
     );
-  } finally {
-    await Deno.remove(root, { recursive: true });
-  }
+  }, { prefix: "discern-interrupt-desk-" });
 }
 
 /**

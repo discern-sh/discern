@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { Logger } from "../src/lib/log.ts";
 import { runShellRouted } from "../src/engine/worktree/shell.ts";
-import { pinnedTerminal } from "./helpers.ts";
+import { pinnedTerminal, withTempDir } from "./helpers.ts";
 
 const DRIVER = fromFileUrl(
   new URL("fixtures/owned_child_driver.ts", import.meta.url),
@@ -69,8 +69,7 @@ Deno.test({
     "a routed setup command quiesces background descendants before returning",
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    const dir = await Deno.makeTempDir({ prefix: "discern-shell-quiesce-" });
-    try {
+    await withTempDir(async (dir) => {
       const late = join(dir, "late");
       const ready = join(dir, "ready");
       const release = join(dir, "release");
@@ -102,8 +101,6 @@ Deno.test({
         undefined,
         "a setup command returned while its process group could still write",
       );
-    } finally {
-      await Deno.remove(dir, { recursive: true });
-    }
+    }, { prefix: "discern-shell-quiesce-" });
   },
 });

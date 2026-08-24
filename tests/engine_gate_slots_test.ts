@@ -411,8 +411,7 @@ Deno.test("test slots: an accounted ancestor suppresses the gate slot surface", 
 
 Deno.test("gate slots: cap=1 serializes two concurrent test runs and begins before the wait", async () => {
   await withTempDir(async (dir) => {
-    const aux = await Deno.makeTempDir({ prefix: "discern-slots-aux-" });
-    try {
+    await withTempDir(async (aux) => {
       const logPath = join(aux, "markers.log");
       const jobPath = await writeMarkerJob(aux, logPath, "1.5");
       await scaffoldEngine(dir);
@@ -469,9 +468,7 @@ Deno.test("gate slots: cap=1 serializes two concurrent test runs and begins befo
       } finally {
         release();
       }
-    } finally {
-      await Deno.remove(aux, { recursive: true });
-    }
+    }, { prefix: "discern-slots-aux-" });
   });
 });
 
@@ -580,8 +577,7 @@ Deno.test("gate slots: a contended done displays slot wait beside run timings", 
 
 Deno.test("gate slots: cap=2 lets two test runs overlap", async () => {
   await withTempDir(async (dir) => {
-    const aux = await Deno.makeTempDir({ prefix: "discern-slots-aux-" });
-    try {
+    await withTempDir(async (aux) => {
       const logPath = join(aux, "markers.log");
       // A handshake job: each run announces itself, then succeeds only once it
       // has seen BOTH announcements — provable overlap, no fixed sleeps. Under
@@ -634,16 +630,13 @@ Deno.test("gate slots: cap=2 lets two test runs overlap", async () => {
       );
       assertEquals(parseEnvelope(a.stdout, "cap=2 run A").waited_ms, 0);
       assertEquals(parseEnvelope(b.stdout, "cap=2 run B").waited_ms, 0);
-    } finally {
-      await Deno.remove(aux, { recursive: true });
-    }
+    }, { prefix: "discern-slots-aux-" });
   });
 });
 
 Deno.test("gate slots: a check failure fails fast without ever waiting for a slot", async () => {
   await withTempDir(async (dir) => {
-    const aux = await Deno.makeTempDir({ prefix: "discern-slots-aux-" });
-    try {
+    await withTempDir(async (aux) => {
       const logPath = join(aux, "markers.log");
       await scaffoldEngine(dir);
       await writeConfig(
@@ -687,9 +680,7 @@ Deno.test("gate slots: a check failure fails fast without ever waiting for a slo
       } finally {
         release();
       }
-    } finally {
-      await Deno.remove(aux, { recursive: true });
-    }
+    }, { prefix: "discern-slots-aux-" });
   });
 });
 
@@ -733,8 +724,7 @@ Deno.test("gate slots: prepare never draws a slot", async () => {
 
 Deno.test("gate slots: standards' measurement pass enrols like a test run", async () => {
   await withTempDir(async (dir) => {
-    const aux = await Deno.makeTempDir({ prefix: "discern-slots-aux-" });
-    try {
+    await withTempDir(async (aux) => {
       const logPath = join(aux, "markers.log");
       const stdPath = await writeMarkerJob(
         aux,
@@ -792,9 +782,7 @@ Deno.test("gate slots: standards' measurement pass enrols like a test run", asyn
       } finally {
         release();
       }
-    } finally {
-      await Deno.remove(aux, { recursive: true });
-    }
+    }, { prefix: "discern-slots-aux-" });
   });
 });
 

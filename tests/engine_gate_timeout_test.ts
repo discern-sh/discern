@@ -154,8 +154,7 @@ async function waitForExit(pid: number): Promise<void> {
 }
 
 Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a genuine timeout failure", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-timeout-" });
-  try {
+  await withTempDir(async (dir) => {
     const pending = runParallel([
       // Record the backgrounded grandchild's PID so the test can prove the whole
       // process GROUP died, not just the direct `sh`.
@@ -198,9 +197,7 @@ Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a
       (await Deno.readTextFile(join(dir, "inner.pid"))).trim(),
     );
     await waitForExit(innerPid);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-timeout-" });
 });
 
 Deno.test("gate timeout: an escaped descendant holding the pipes cannot wedge the watchdog — the job stays bounded and fails as a genuine timeout", async () => {
@@ -211,8 +208,7 @@ Deno.test("gate timeout: an escaped descendant holding the pipes cannot wedge th
   // waited for pipe EOF — the daemon's whole lifetime (15s here; forever for a
   // real daemon) — and, the direct shell having exited 0, reported the job OK
   // with the recorded timeout silently swallowed.
-  const dir = await Deno.makeTempDir({ prefix: "discern-timeout-escape-" });
-  try {
+  await withTempDir(async (dir) => {
     const pending = runParallel([
       {
         label: "escape",
@@ -247,9 +243,7 @@ Deno.test("gate timeout: an escaped descendant holding the pipes cannot wedge th
       elapsed < DIRECT_WATCHDOG_CEILING_MS,
       `the kill path should release the held pipes within its grace, took ${elapsed}ms`,
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-timeout-escape-" });
 });
 
 Deno.test("gate timeout: a job that finishes within budget is untouched", async () => {

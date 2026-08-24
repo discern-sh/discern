@@ -200,11 +200,8 @@ async function runObservedResize(
     };
   },
 ): Promise<ViewportRunResult> {
-  const markerDir = await Deno.makeTempDir({
-    prefix: "discern-viewport-ready-",
-  });
-  const markerPath = join(markerDir, "ready");
-  try {
+  return await withTempDir(async (markerDir) => {
+    const markerPath = join(markerDir, "ready");
     return await runAgentPtyWithViewport(root, args, {
       size: options.size,
       resize: {
@@ -219,9 +216,7 @@ async function runObservedResize(
       },
       timeoutMs: 15_000,
     });
-  } finally {
-    await Deno.remove(markerDir, { recursive: true }).catch(() => undefined);
-  }
+  }, { prefix: "discern-viewport-ready-" });
 }
 
 Deno.test({

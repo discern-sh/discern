@@ -2937,10 +2937,7 @@ Deno.test("discern mcp: a `path` outside any discern project falls through to no
     await gitInit(dir);
     // A path with no discern.toml in it or any ancestor (the system temp, outside the
     // project tree) → findRoot returns undefined → the uniform not_initialized refusal.
-    const outside = await Deno.makeTempDir({
-      prefix: "discern-not-a-project-",
-    });
-    try {
+    await withTempDir(async (outside) => {
       await using mcp = await spawnMcp(dir);
       await mcp.send({
         jsonrpc: "2.0",
@@ -2962,9 +2959,7 @@ Deno.test("discern mcp: a `path` outside any discern project falls through to no
         "not_initialized",
       );
       assertEquals(await mcp.close(), 0);
-    } finally {
-      await Deno.remove(outside, { recursive: true });
-    }
+    }, { prefix: "discern-not-a-project-" });
   });
 });
 
