@@ -30,19 +30,15 @@ In your project, tell your agent:
 
 > Set this project up with discern.
 
-The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing, discern serves a consent message for the agent to relay. The message names each planned change: a `discern.toml` file at the repository root, a visible `discern/` folder for project-owned content, the maintained project guide (the Map), the agent files each coding agent reads, and a delimited `.gitignore` block. Project-authored instructions, Map pages, and Skills remain plain Markdown. `discern uninstall` removes discern's wiring and generated integration while retaining authored guide, instruction, and deferred-work content for your review or removal.
+The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing, its consent message covers the `discern.toml` and `discern/` footprint, coding-tool integrations, removal behavior, model, evidence-backed project name, separate-workspace location, and expected time and tokens. Confirm each item in plain language; the agent records that the complete exchange happened ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
-The consent message repeats the model recommendation, switch route, and current-agent stop boundary. It also proposes the strongest project name supported by the README or project metadata, then covers the coding tools to wire, separate-workspace location, time and token investment, and setup branch footprint. Confirm or correct the name because it will appear in the maintained guide and agent instructions. Answer each item in plain language. Setup cannot proceed until the agent attests that the complete exchange happened ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
+`setup verify` is read-only. Later commands check their planned write targets before effects and preserve the setup phase on denial ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
-`setup verify` is read-only. Each later effectful command checks its own plan-derived write targets before effects; denial preserves the phase and names the path and retry. The check is point-in-time, not cached provider authority ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
-
-Setup works on `discern-setup` until landing. The agent inventories code and commands, preserves existing workflows, and writes the final project guide only after proving the workflows together. Before that guide becomes lasting context, it explains where later agents will start, what that area is responsible for, one important rule the code depends on, and any other area with a genuinely distinct responsibility. Correct a substantive misunderstanding, or say “use your recommendation” if the evidence-backed account looks right.
-
-Keep routine green output concise. Recognized captured formats include SARIF and JUnit XML; use them only when they preserve exit status and improve failure diagnostics. File-only and inherently verbose formats stay off the routine path.
+Setup stays on `discern-setup` until landing. After proving existing workflows together, the agent explains where later agents start, that area's responsibility, one important rule, and any other distinct area. Correct a substantive misunderstanding, or say “use your recommendation.”
 
 ## 3. Verify setup in an isolated checkout
 
-`discern setup done` commits the completion marker, refreshes and diagnoses that commit, proves it in a separate working copy, then runs the final quality check and returns [one-line proof that the finished change passed the project's checks](../20-quality-gate/the-proof.md), called Proof. A failure in either checkout restores setup to incomplete ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
+`discern setup done` commits and diagnoses completion, proves it in a separate working copy, runs the final quality check, and returns [proof that the finished change passed the project's checks](../20-quality-gate/the-proof.md), called Proof. A failure restores setup to incomplete ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
 
 The result explains where later agents start, which other areas have distinct responsibilities, one important rule setup found, which checks now run, and what remains open. It also carries the precise branch, check, guide, and instruction inventories for technical review. Then it's your turn:
 
