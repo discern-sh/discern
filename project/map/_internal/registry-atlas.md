@@ -16,11 +16,11 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 3       | —                | —                           |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 22      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 18      | —                | node `mcp-surface`          |
-| [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
+| [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
 | [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 41      | —                | —                           |
 | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                        | `src/shared/checkpoints.ts#CHECKPOINT_FIELD_ROLES`                                | 21      | —                | node `checkpoints`          |
 | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)       | `src/shared/experimental.ts#EXPERIMENTAL_ENVIRONMENT_VARIABLES`                   | 2       | —                | —                           |
-| [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 10      | —                | —                           |
+| [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 11      | —                | —                           |
 | [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `cli-help`             |
 | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                    | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                       | 2       | —                | node `consent-attestations` |
 | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                        | `src/shared/consent.ts#LANDING_CONSENT_SOURCES`                                   | 3       | —                | node `consent-attestations` |
@@ -416,11 +416,11 @@ The MCP tool table; verb parity ties every tool to a CLI verb, and the live tool
   - `discern_status`
   - `discern_start`
   - `discern_prepare`
-  - `discern_test`
   - `discern_done`
   - `discern_update`
   - `discern_await`
   - `discern_accept`
+  - `discern_test`
   - `discern_standards`
   - `discern_impact`
   - `discern_coupling`
@@ -440,11 +440,10 @@ The MCP tool table; verb parity ties every tool to a CLI verb, and the live tool
 The lifecycle sequence that leads schema-deferred clients through status, Worktree entry, iteration, the final Gate, synchronization, and authorized landing.
 
 - Source: `src/engine/mcp/server.ts` — `MCP_CORE_LIFECYCLE`
-- Members: 8
+- Members: 7
   - `discern_status`
   - `discern_start`
   - `discern_prepare`
-  - `discern_test`
   - `discern_done`
   - `discern_update`
   - `discern_await`
@@ -553,7 +552,7 @@ The environment-only switches for reversible trials, with one exact activation r
 The core policy statements carried by bundled instructions and MCP server instructions, with probes that recognize each authored restatement.
 
 - Source: `src/shared/operating_policies.ts` — `OPERATING_POLICIES`
-- Members: 10
+- Members: 11
   - `worktree-continuity`
   - `worktree-first`
   - `never-adopt`
@@ -564,6 +563,7 @@ The core policy statements carried by bundled instructions and MCP server instru
   - `await-longest-safe`
   - `accept-on-handoff`
   - `checkpoint-declarations`
+  - `standalone-test-on-demand`
 - Guards: `tests/agent_policy_parity_test.ts`
 - Glossary: not enrolled — existing Glossary entries define the reader-facing concepts behind these internal policy identifiers
 - Feature canon: not enrolled — the instruction, Worktree, Standard, and MCP nodes own the enforced behaviors

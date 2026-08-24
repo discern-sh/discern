@@ -47,7 +47,7 @@ Choose among terminal, Markdown, JSON, and MCP delivery through [Result formats 
 | `discern_start`       | Create and set up a new isolated worktree, then report its prospective landing authority.                                                                                 | Mutating; each successful call creates a new worktree.               |
 | `discern_done`        | Run the full Gate and return steps, diagnostics, an optional Proof, and verified landing authority. `ci: true` explicitly reports checkpoint review without declarations. | Runs project commands; fix-stage commands may rewrite.               |
 | `discern_prepare`     | Run the fix stage, `[generated]` regenerations, and checks for the fast inner loop.                                                                                       | Runs project commands; fixers and regenerations may rewrite.         |
-| `discern_test`        | Run the configured test job on its own.                                                                                                                                   | Runs a project command.                                              |
+| `discern_test`        | Run the complete configured test stage on demand, outside the full Gate. `discern_done` includes the same stage, so it needs no standalone test preflight.                | Runs project commands.                                               |
 | `discern_update`      | Merge the selected base into this branch and re-materialize generated files.                                                                                              | Mutating and idempotent for the same inputs.                         |
 | `discern_await`       | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.                                                                     | Read-only and idempotent; timeouts return a normal result.           |
 | `discern_standards`   | Measure Standards, compare limits, and optionally pin improvements.                                                                                                       | Runs project commands; pinning changes and commits config.           |
@@ -68,7 +68,7 @@ Tools that require completed setup return a controlled `not_set_up` result until
 
 ### Startup discovery
 
-MCP `tools/list` returns full definitions. Clients choose the startup context. discern's instructions stay under 2KB and lead with status, start, prepare/test, done, update/await, and accept.
+MCP `tools/list` returns full definitions. Clients choose the startup context. discern's instructions stay under 2KB and lead with status, start, prepare, done, update/await, and accept. The standalone test tool follows the core lifecycle as an on-demand operation.
 
 ### Find a map or manual page
 

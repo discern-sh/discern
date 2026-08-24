@@ -672,34 +672,34 @@ async function seedHintFollowThroughLogbook(dir: string): Promise<void> {
     },
   });
 
-  // Red-gate remedy: two prepare/test actions, one next-done boundary, and a
+  // Red-gate remedy: two prepare actions, one next-done boundary, and a
   // trailing unresolved firing.
   add({
     verb: "done",
     outcome: "failed",
-    failed_stage: "check/test",
-    hint_ids: [HINTS["gate-failure-check-test"].id],
+    failed_stage: "check",
+    hint_ids: [HINTS["gate-failure-check"].id],
   });
   add({ verb: "prepare" });
   add({
     verb: "done",
     outcome: "failed",
-    failed_stage: "check/test",
-    hint_ids: [HINTS["done-unchanged-tree-red"].id],
+    failed_stage: "check",
+    hint_ids: [HINTS["gate-failure-check"].id],
   });
   add({ verb: "done" });
   add({
-    verb: "test",
+    verb: "done",
     outcome: "failed",
-    failed_stage: "test",
-    hint_ids: [HINTS["gate-failure-test"].id],
+    failed_stage: "check",
+    hint_ids: [HINTS["gate-failure-check"].id],
   });
-  add({ verb: "test" });
+  add({ verb: "prepare" });
   add({
     verb: "done",
     outcome: "failed",
-    failed_stage: "check/test",
-    hint_ids: [HINTS["gate-failure-check-test"].id],
+    failed_stage: "check",
+    hint_ids: [HINTS["gate-failure-check"].id],
   });
 
   // Main-worktree-first: start, dirty-trunk activity, start, then one

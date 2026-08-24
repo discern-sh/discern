@@ -972,7 +972,7 @@ Better:
 
 ### Exact failure: stronger
 
-> The \`test\` job failed. Run \`npm test -- upload-retry\` to reproduce the first diagnostic, fix it, then run \`discern test\` again.
+> The \`test\` job failed. Run \`npm test -- upload-retry\` to reproduce the first diagnostic, fix it, then run that command again. Commit the final tree and run \`discern done\`; the Gate runs the complete test stage.
 
 ### Blaming the agent: reject
 

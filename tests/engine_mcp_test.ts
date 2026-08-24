@@ -3302,11 +3302,11 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
         "discern_status",
         "discern_start",
         "discern_prepare",
-        "discern_test",
         "discern_done",
         "discern_update",
         "discern_await",
         "discern_accept",
+        "discern_test",
         "discern_standards",
         "discern_impact",
         "discern_coupling",
@@ -3492,6 +3492,15 @@ function instructionContractFailures(instructions: string): string[] {
 }
 
 Deno.test("discern mcp: initialization instructions fit 2KB with the core lifecycle first", () => {
+  assertEquals(MCP_CORE_LIFECYCLE, [
+    "discern_status",
+    "discern_start",
+    "discern_prepare",
+    "discern_done",
+    "discern_update",
+    "discern_await",
+    "discern_accept",
+  ]);
   assertEquals(instructionContractFailures(buildInstructions()), []);
 });
 
@@ -3506,10 +3515,10 @@ Deno.test("the MCP instruction detector rejects future over-budget and misordere
   assert(
     instructionContractFailures(
       ordered.replace(
-        "discern_prepare discern_test",
-        "discern_test discern_prepare",
+        "discern_prepare discern_done",
+        "discern_done discern_prepare",
       ),
-    ).some((f) => f.includes("discern_test")),
+    ).some((f) => f.includes("discern_prepare")),
   );
 });
 

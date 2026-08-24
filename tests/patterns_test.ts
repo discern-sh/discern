@@ -2789,20 +2789,20 @@ Deno.test("hint follow-through: every declaring registry entry resolves followed
     hint.family === "gate-failure-remedy"
   );
   assert(gateRemedies.length > 0, "the gate-failure remedy family is empty");
-  // The outcome rule scores prepare/test usage, so an entry declares it exactly
-  // when its own rendered text prescribes that inner loop — derived from the
-  // template, never from a hand-kept id list, so a reworded remedy enrols or
-  // retires itself and the detector never scores an action a hint didn't ask for.
+  // The outcome rule scores prepare usage, so an entry declares it exactly
+  // when its own text prescribes prepare as the iteration loop. This is derived
+  // from the template, never a hand-kept id list, so rewording a remedy enrols
+  // or retires it and the detector never scores an action the hint did not ask for.
   for (const hint of gateRemedies) {
     const rendered = renderCommandRefsCli(
       (hint.template as (params: unknown) => string)(hint.example),
     );
-    const prescribesInnerLoop = /`discern (?:prepare|test)`/.test(rendered);
+    const prescribesInnerLoop = /Iterate with `discern prepare`/.test(rendered);
     assertEquals(
       hint.followThrough !== undefined,
       prescribesInnerLoop,
       `${hint.id}: a gate-failure remedy declares the outcome rule exactly ` +
-        `when its text prescribes the prepare/test inner loop`,
+        `when its text prescribes prepare as the iteration loop`,
     );
   }
   assert(
@@ -2812,7 +2812,6 @@ Deno.test("hint follow-through: every declaring registry entry resolves followed
   for (
     const required of [
       "status-branch-behind",
-      "done-unchanged-tree-red",
       "ensure-main-worktree-first",
     ] as const
   ) {
@@ -3088,7 +3087,7 @@ Deno.test("hint follow-through stays distinct from skipped prepare", () => {
       buildStreamFacts(followed, "main"),
     ).status,
     "quiet",
-    "prepare/test follow-through does not erase skipped-prepare's independent population",
+    "prepare follow-through does not erase skipped-prepare's independent population",
   );
 });
 

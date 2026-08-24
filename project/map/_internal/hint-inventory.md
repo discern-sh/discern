@@ -494,7 +494,7 @@ Rendered example:
 
 Rendered example:
 
-> Fix the failure the last run reported, iterating with `discern prepare` or `discern test`, then re-run `discern done` — nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Use the explicit rerun only to probe for a flaky verdict: `discern done --rerun` does that, and records the rerun as a probe.
+> Fix the failure the last run reported with its reproduce command or `discern prepare`, then re-run `discern done`. Nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Use the explicit rerun only to probe for a flaky verdict: `discern done --rerun` does that, and records the rerun as a probe.
 
 ## `ensure-main-worktree-first`
 
@@ -604,7 +604,7 @@ Rendered example:
 
 Rendered example:
 
-> Fix the problems in the diagnostics, iterating narrow: `discern prepare` re-runs the checks and `discern test` the tests. Re-run `discern done` only once both are green: every red `discern done` pays for the full gate.
+> Fix the problems in the diagnostics. Use `discern prepare` for fix and check failures, and use each test diagnostic's reproduce command for test failures. Commit the final tree, then run `discern done`; it runs the complete test stage.
 
 ## `gate-failure-fix`
 
@@ -764,7 +764,7 @@ Rendered example:
 
 Rendered example:
 
-> Fix the failing tests in the diagnostics; each carries its reproduce command. Iterate with `discern test`, which runs the tests alone. Re-run `discern done` only once `discern test` is green: every red `discern done` pays for the full gate.
+> Fix the failing tests with each diagnostic's reproduce command. Use `discern test` only when the complete test stage is the intended standalone result. Commit the final tree, then run `discern done`; it runs the complete test stage.
 
 ## `gate-failure-tracked-artifacts`
 

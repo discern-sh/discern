@@ -1,25 +1,24 @@
 /**
  * Red-gate remedy routing guard. The defect class: an agent-facing next step
- * that, at a red `done`, routes ITERATION back through the full gate. The
- * fast inner loop (`discern prepare` / `discern test`) exists so a failing
- * change is fixed without paying full gate time per attempt — a remedy that
- * says "fix, then re-run" with no fast loop teaches `done`-only iteration
- * (the logbook's `skipped-prepare` detector measures the damage).
+ * that routes iteration through either the full Gate or its complete standalone
+ * test stage before the required final Gate. Both paths repeat the expensive
+ * test job instead of using a diagnostic's reproduce command.
  *
- * Two auto-enrolling sweeps over closed sets:
+ * Three auto-enrolling sweeps over closed sets:
  *
  * 1. Every {@link FAILED_STAGES} remedy claiming generic code-fix work — the
  *    diagnostic cores' signature, "fix the … in the diagnostics" — must name
- *    a narrow iteration (`discern prepare`, `discern test`, or the
- *    diagnostic's own reproduce command for stages no narrower verb
- *    re-checks), and must name its re-run verb (`discern done`) rather than
+ *    a narrow iteration (`discern prepare` or the diagnostic's own reproduce
+ *    command), and must name its re-run verb (`discern done`) rather than
  *    the verb-generic "the current discern command": only `done` fires stage
  *    remedies. One-shot mechanical remedies (refresh, renumber, grant
  *    access) name their concrete action instead of that signature and stay
  *    exempt — after a one-shot fix, re-running the gate directly IS the
  *    next step.
- * 2. Every `done-rerun`-family hint telling the agent to fix a failure must
- *    name a fast-loop verb alongside its `discern done` re-run.
+ * 2. Test-bearing remedies must route through the diagnostic reproduce
+ *    commands and state that `discern done` includes the complete test stage.
+ * 3. Every `done-rerun`-family hint telling the agent to fix a failure must
+ *    name a narrow command alongside its `discern done` re-run.
  *
  * Each sweep asserts it matched at least one member, so a reworded signature
  * fails the guard loudly instead of leaving it vacuously green.
@@ -37,12 +36,31 @@ const CODE_FIX_SIGNATURE =
 /** A rerun hint's claim that a failure needs fixing before the re-run. */
 const FIX_THE_FAILURE = /fix the failure/iu;
 
-/** A named narrow iteration — a fast-loop verb, or the per-diagnostic
- * reproduce command for stages (build, scope gates) no narrower verb
- * re-checks. Either routing spares the agent a full-gate attempt per fix. */
-const FAST_LOOP = /`discern (?:prepare|test)`|reproduce command/u;
+/** A named narrow iteration: preparation or the failed diagnostic itself. */
+const NARROW_LOOP = /`discern prepare`|reproduce command/u;
 
-Deno.test("code-fix stage remedies route iteration through the fast loop", () => {
+/** Report test remedies that can cause a standalone full-suite preflight. */
+function testRemedyFailures(label: string, text: string): string[] {
+  const failures: string[] = [];
+  if (!/diagnostic(?:'s|s')? reproduce command/iu.test(text)) {
+    failures.push(`${label}: missing the diagnostic reproduce command`);
+  }
+  if (!/`discern done`[^.]{0,120}complete test stage/iu.test(text)) {
+    failures.push(
+      `${label}: does not say that \`discern done\` includes the complete test stage`,
+    );
+  }
+  if (
+    /iterate with `discern test`|only once `discern test` is green/iu.test(text)
+  ) {
+    failures.push(
+      `${label}: requires a standalone test pass before \`discern done\``,
+    );
+  }
+  return failures;
+}
+
+Deno.test("code-fix stage remedies route iteration through a narrow loop", () => {
   const failures: string[] = [];
   let members = 0;
   for (const stage of FAILED_STAGES) {
@@ -51,10 +69,10 @@ Deno.test("code-fix stage remedies route iteration through the fast loop", () =>
       continue;
     }
     members += 1;
-    if (!FAST_LOOP.test(text)) {
+    if (!NARROW_LOOP.test(text)) {
       failures.push(
-        `${stage}: claims code-fix work but names no fast inner loop ` +
-          "(`discern prepare` / `discern test`)",
+        `${stage}: claims code-fix work but names no narrow iteration ` +
+          "(`discern prepare` / reproduce command)",
       );
     }
     if (/the current discern command/u.test(text)) {
@@ -73,12 +91,41 @@ Deno.test("code-fix stage remedies route iteration through the fast loop", () =>
   assertEquals(
     failures,
     [],
-    "a red `done` must hand the agent the fast inner loop, never a bare " +
+    "a red `done` must hand the agent a narrow loop, never a bare " +
       `full-gate re-run:\n  ${failures.join("\n  ")}`,
   );
 });
 
-Deno.test("done-rerun hints route the fix through the fast loop", () => {
+Deno.test("test-bearing remedies avoid a standalone full-suite preflight", () => {
+  const failures = FAILED_STAGES
+    .filter((stage) => stage.includes("test"))
+    .flatMap((stage) => {
+      const { text } = gateFailureRemedy(stage);
+      return testRemedyFailures(stage, text);
+    });
+  assertEquals(
+    failures,
+    [],
+    "test failures should iterate on their diagnostics, then use the final Gate:\n  " +
+      failures.join("\n  "),
+  );
+});
+
+Deno.test("the test-remedy detector rejects a future standalone preflight", () => {
+  assertEquals(
+    testRemedyFailures(
+      "future verifier",
+      "Fix the diagnostics. Iterate with `discern test`. Re-run `discern done` only once `discern test` is green.",
+    ),
+    [
+      "future verifier: missing the diagnostic reproduce command",
+      "future verifier: does not say that `discern done` includes the complete test stage",
+      "future verifier: requires a standalone test pass before `discern done`",
+    ],
+  );
+});
+
+Deno.test("done-rerun hints route the fix through a narrow loop", () => {
   const failures: string[] = [];
   let members = 0;
   for (const [key, value] of Object.entries(HINTS)) {
@@ -95,10 +142,10 @@ Deno.test("done-rerun hints route the fix through the fast loop", () => {
       continue;
     }
     members += 1;
-    if (!FAST_LOOP.test(text)) {
+    if (!NARROW_LOOP.test(text)) {
       failures.push(
-        `${key}: tells the agent to fix a failure without naming the fast ` +
-          "inner loop (`discern prepare` / `discern test`)",
+        `${key}: tells the agent to fix a failure without naming a narrow ` +
+          "loop (`discern prepare` / reproduce command)",
       );
     }
   }
@@ -111,7 +158,7 @@ Deno.test("done-rerun hints route the fix through the fast loop", () => {
   assertEquals(
     failures,
     [],
-    "a red-verdict rerun hint must route the fix through the fast loop:\n  " +
+    "a red-verdict rerun hint must route the fix through a narrow loop:\n  " +
       failures.join("\n  "),
   );
 });

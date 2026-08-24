@@ -26,6 +26,8 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 
 ## 🟡 Smaller fixes & polish
 
+- [ ] **Detect duplicated standalone-test preflights before the Gate.** Add a Logbook detector for a green `discern test` followed by `discern done` on the same unchanged commit and validation configuration. Report the repeated test duration, and distinguish an intentional standalone result from a redundant final preflight. Evidence: `src/engine/logbook/detectors.ts`; `src/engine/logbook/validation_findings.ts`; `tests/engine_patterns_test.ts`.
+
 - [ ] **Show persistent and external state in the public system map.** Update the diagram and its architectural summary to include Git-admin runtime records and optional managed resources while preserving the narrower truth that discern requires no daemon or product database. Evidence: `project/map/00-orientation/system-map.md`; `project/map/70-reference/artifact-ownership.md`; `project/map/30-worktrees/the-resources.md`.
 
 - [ ] **Keep public documentation links inside the public projection.** Remove or replace links from published pages into contributor-only sections, or deliberately publish the required destinations; add a projection-aware link guard so an existing source file cannot hide an unreachable public link. Public-manual workstream 6A closes this against the new manual and separate public Map sets. Evidence: `project/map/_private/planning/public-manual-workstreams/6a-corpus-integration-and-coverage.md`; `src/lib/paths.ts`; `src/lib/docs.ts`.

@@ -62,10 +62,9 @@ export const OPERATING_POLICIES = [
   {
     id: "worktree-first",
     statement:
-      "On the trunk, discern_start opens a new effort's isolated worktree and " +
-      "re-aims the tools. Move your OWN file operations too (re-root, or " +
-      "prefix shell commands with `cd <path> &&` and pass `path`); otherwise " +
-      "edits land on the trunk while the gate runs in the worktree.",
+      "On trunk, discern_start opens an isolated worktree for the effort and " +
+      "re-aims the tools. Move your OWN file operations there too; otherwise " +
+      "edits land on trunk while its gate runs in the worktree.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/(own|isolated) worktree/i, /discern_start/],
   },
@@ -77,9 +76,10 @@ export const OPERATING_POLICIES = [
   },
   {
     id: "iterate-fast-loop",
-    statement: "Iterate with discern_prepare; discern_test runs the tests.",
+    statement:
+      "Iterate with discern_prepare or a diagnostic's reproduce command.",
     surfaces: OPERATING_POLICY_SURFACES,
-    probes: [/discern_prepare/, /iterat/i],
+    probes: [/discern_prepare/, /diagnostic's reproduce command/i, /iterat/i],
   },
   {
     id: "done-is-the-bar",
@@ -143,6 +143,19 @@ export const OPERATING_POLICIES = [
       /owner[^.\n]{0,80}explicit acceptance/i,
       /exact[^.\n]{0,40}declared-unmet set/i,
       /grants never cover/i,
+    ],
+  },
+  {
+    id: "standalone-test-on-demand",
+    statement:
+      "discern_test runs the complete test stage on demand. discern_done " +
+      "includes that test stage, so the final Gate needs no " +
+      "standalone test preflight.",
+    surfaces: OPERATING_POLICY_SURFACES,
+    probes: [
+      /discern_test[^.\n]{0,100}complete test stage[^.\n]{0,60}on demand/i,
+      /discern_done[^.\n]{0,100}includes[^.\n]{0,60}test stage/i,
+      /final Gate[^.\n]{0,80}no standalone test preflight/i,
     ],
   },
 ] as const satisfies readonly OperatingPolicy[];

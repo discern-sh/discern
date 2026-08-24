@@ -177,6 +177,23 @@ const WORKTREE_OWNERSHIP_REQUIREMENTS = [
   },
 ] as const;
 
+const STANDALONE_TEST_REQUIREMENTS = [
+  {
+    meaning: "the standalone test stage is on demand",
+    pattern:
+      /discern[_ ]test[^.\n]{0,100}complete test stage[^.\n]{0,60}on demand/i,
+  },
+  {
+    meaning: "the final Gate already includes the test stage",
+    pattern:
+      /discern[_ ]done[^.\n]{0,100}(?:already )?includes[^.\n]{0,60}test stage/i,
+  },
+  {
+    meaning: "a final Gate needs no standalone test preflight",
+    pattern: /final Gate[^.\n]{0,80}no standalone test preflight/i,
+  },
+] as const;
+
 interface NamedText {
   readonly label: string;
   readonly text: string;
@@ -323,6 +340,42 @@ Deno.test("every worktree-entry surface keeps follow-up turns in the effort's ex
     "a main-rooted follow-up must be told to resume its recorded worktree before any surface suggests a fresh one:\n  " +
       failures.join("\n  "),
   );
+});
+
+Deno.test("standalone tests remain on demand across agent-facing surfaces", async () => {
+  const policy = (OPERATING_POLICIES as readonly OperatingPolicy[]).find(
+    (candidate) => candidate.id === "standalone-test-on-demand",
+  );
+  assert(
+    policy !== undefined,
+    "the standalone-test-on-demand operating policy must remain registered",
+  );
+  const tool = TOOLS.find((candidate) => candidate.name === "discern_test");
+  assert(tool !== undefined, "the test MCP tool must remain registered");
+  const surfaces = [
+    { label: "canonical standalone-test policy", text: policy.statement },
+    { label: "bundled instructions", text: await instructionBlob() },
+    { label: "MCP instructions", text: buildInstructions() },
+    { label: "test MCP tool", text: tool.description },
+  ];
+  const failures = requirementFailures(STANDALONE_TEST_REQUIREMENTS, surfaces);
+  assertEquals(
+    failures,
+    [],
+    "every agent-facing test surface must keep the full standalone stage out of the final preflight:\n  " +
+      failures.join("\n  "),
+  );
+});
+
+Deno.test("control: standalone-test detector rejects a future preflight instruction", () => {
+  const failures = requirementFailures(STANDALONE_TEST_REQUIREMENTS, [
+    {
+      label: "future verifier",
+      text:
+        "Run verify_all until it passes. Run finish_project after the suite is green.",
+    },
+  ]);
+  assertEquals(failures.length, STANDALONE_TEST_REQUIREMENTS.length);
 });
 
 Deno.test("control: worktree-continuity detector rejects renamed fresh-start advice", () => {

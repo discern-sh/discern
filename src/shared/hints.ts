@@ -161,7 +161,7 @@ const RED_GATE_FOLLOW_THROUGH = Object.freeze(
   {
     family: "red-gate-remedy",
     kind: "branch-action-before-boundary",
-    actionVerbs: Object.freeze(["prepare", "test"] as const),
+    actionVerbs: Object.freeze(["prepare"] as const),
     boundaryVerb: "done",
   } as const satisfies HintFollowThroughRule,
 );
@@ -182,7 +182,7 @@ const CHECKPOINT_DECLARATION_FOLLOW_THROUGH = Object.freeze(
 );
 
 /**
- * A gate-failure remedy that prescribes the prepare/test inner loop carries the
+ * A gate-failure remedy that prescribes the prepare inner loop carries the
  * family's declared outcome rule; a remedy prescribing another action (refresh,
  * update, a reproduce command) declares none, so the follow-through detector
  * never scores a hint against an action its text did not ask for. The parity
@@ -437,18 +437,19 @@ const GATE_PREPARE_REMEDY_CORE =
   `loop. Re-run ${CMD.done} only once ${CMD.prepare} is green: every red ` +
   `${CMD.done} pays for the full gate, tests included.`;
 
-/** The test-stage remedy: iterate on the tests alone, not the whole gate. */
+/** The test-stage remedy: reproduce narrowly, then run the final Gate. */
 const GATE_TEST_REMEDY_CORE =
-  "Fix the failing tests in the diagnostics; each carries its reproduce command. " +
-  `Iterate with ${CMD.test}, which runs the tests alone. ` +
-  `Re-run ${CMD.done} only once ${CMD.test} is green: every red ${CMD.done} ` +
-  `pays for the full gate.`;
+  "Fix the failing tests with each diagnostic's reproduce command. " +
+  `Use ${CMD.test} only when the complete test stage is the intended ` +
+  `standalone result. Commit the final tree, then run ${CMD.done}; it runs ` +
+  `the complete test stage.`;
 
 /** The combined-stage remedy names the narrow loop for each half. */
 const GATE_CHECK_TEST_REMEDY_CORE =
-  `Fix the problems in the diagnostics, iterating narrow: ${CMD.prepare} ` +
-  `re-runs the checks and ${CMD.test} the tests. Re-run ${CMD.done} only ` +
-  `once both are green: every red ${CMD.done} pays for the full gate.`;
+  `Fix the problems in the diagnostics. Use ${CMD.prepare} for fix and ` +
+  `check failures, and use each test diagnostic's reproduce command for ` +
+  `test failures. Commit the final tree, then run ${CMD.done}; it runs the ` +
+  `complete test stage.`;
 
 /** The remedy for stages no narrower loop re-checks (build, scope gates):
  * the diagnostic's own reproduce command is the iteration. */
@@ -2105,11 +2106,10 @@ export const HINTS = {
     when:
       "`done` is asked to re-run on the exact tree it last judged red, without `--rerun`.",
     family: "done-rerun",
-    followThrough: RED_GATE_FOLLOW_THROUGH,
     example: undefined,
     template: (): string =>
-      `Fix the failure the last run reported, iterating with ${CMD.prepare} ` +
-      `or ${CMD.test}, then re-run ${CMD.done} — nothing ` +
+      "Fix the failure the last run reported with its reproduce command or " +
+      `${CMD.prepare}, then re-run ${CMD.done}. Nothing ` +
       "changed since it judged this exact tree red, so an identical rerun " +
       "expects the identical verdict. Use the explicit rerun only to probe " +
       `for a flaky verdict: ${
@@ -2518,7 +2518,7 @@ export const HINTS = {
   }),
 
   /** The diagnostic-driven remedy for a standalone test-stage failure. */
-  "gate-failure-test": defineGateFailureRemedyHint({
+  "gate-failure-test": defineHint({
     id: "gate-failure-test",
     category: "next-step",
     audience: "all",
@@ -2529,7 +2529,7 @@ export const HINTS = {
   }),
 
   /** The diagnostic-driven remedy for the full gate's combined check/test stage. */
-  "gate-failure-check-test": defineGateFailureRemedyHint({
+  "gate-failure-check-test": defineHint({
     id: "gate-failure-check-test",
     category: "next-step",
     audience: "all",

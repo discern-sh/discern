@@ -324,7 +324,6 @@ export const MCP_CORE_LIFECYCLE = [
   "discern_status",
   "discern_start",
   "discern_prepare",
-  "discern_test",
   "discern_done",
   "discern_update",
   "discern_await",
@@ -333,6 +332,7 @@ export const MCP_CORE_LIFECYCLE = [
 
 const TOOL_PRIORITY = [
   ...MCP_CORE_LIFECYCLE,
+  "discern_test",
   "discern_standards",
   "discern_impact",
   "discern_coupling",
@@ -529,10 +529,13 @@ export const TOOLS: McpTool[] = orderTools([
     title: "Run the tests",
     outputSchema: TestOutputSchema.shape,
     annotations: MUTATING,
-    description: "Run the project's configured test job on its own " +
-      "(the `test` stage, outside the " +
-      "full gate) and return the result envelope. When no test command is configured " +
-      "it is a trivial pass carrying a hint that says so.",
+    description:
+      "discern_test runs the project's complete test stage on demand, " +
+      "outside the full Gate, and returns the result envelope. discern_done already " +
+      "includes the same test stage, so a final Gate run needs no standalone test " +
+      "preflight. While iterating, use each diagnostic's reproduce_cmd or a targeted " +
+      "project command. When no test command is configured, discern_test returns a " +
+      "trivial pass with a hint that says so.",
     inputSchema: { ...PATH_PARAM },
     run: (root, _args, signal) => testResult(root, signal),
   }),
@@ -2054,18 +2057,16 @@ function registerResources(
  */
 export function buildInstructions(): string {
   const lines = [
-    "discern provides the gate and isolated worktrees; use the tools and " +
-    "read their results.",
+    "discern provides the Gate and isolated worktrees. Use its tools and results.",
     "",
     "- Start with discern_status.",
     ...operatingPolicyStatementsFor("mcp-instructions").map(
       (statement) => `- ${statement}`,
     ),
     "",
-    "- discern_refresh fixes stale files/skills; discern_map the map; " +
-    "discern_docs the manual; discern_doctor install faults.",
-    "- discern_standards measures deferred standards; discern_patterns " +
-    "history; discern_improvement next work.",
+    "- Tools: discern_refresh, discern_map, discern_docs, discern_doctor, " +
+    "discern_standards, discern_patterns, " +
+    "discern_improvement.",
   ];
   return lines.join("\n");
 }
