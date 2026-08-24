@@ -223,7 +223,7 @@ Deno.test({
           const action = await assertRejects(
             actionRun,
             Error,
-            "phase 3/3 complete",
+            "exceeded 5000ms",
           );
           const dismissedAt = action.message.indexOf("× Dismissed.");
           assert(dismissedAt >= 0, action.message);
