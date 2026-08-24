@@ -461,7 +461,7 @@ Rendered example:
 
 Rendered example:
 
-> The bounded result omits `data.execution_model`. Run `discern doctor --verbose --json` only when you need the complete per-verb execution model.
+> The bounded result keeps the per-verb execution model behind `discern doctor --verbose --json`; use it only when that detail is needed.
 
 ## `doctor-failed-checks`
 

@@ -30,8 +30,10 @@ An effectful setup command therefore performs its own point-in-time write prefli
 
 A denial returns `write_access` with the exact path and retry command and leaves the setup phase unchanged. Successful probes leave no temporary entry or changed marker. Later effects can still fail and follow ordinary partial-effect recovery.
 
-## Resume, then verify activation
+## Prove, land, then verify activation
 
-After interruption or restart, run `discern setup` or `discern status`. The recorded phase, dedicated branch, and bounded continuation let setup resume without replaying completed writes.
+After interruption, `discern setup` or `discern status` resumes the recorded phase and branch without replaying writes.
 
-After completion, `setup done` serves one registry-derived activation check, one provider-local recovery step, and `discern status --json` as the CLI fallback. MCP integrations use the local `discern_status` call. Run the exact check in the fresh session: generated files alone do not prove that the provider loaded them.
+`setup done` proves the committed tree and derives its Map, TODO, and job inventory. Off the trunk, every surface leads with Proof and landing; restart and improvement remain absent.
+
+After `setup accept`, each integration gets a registry-derived check, local recovery, and `discern status --json` fallback; MCP uses `discern_status`. Run the exact check in a fresh session. Success makes the optional `discern improvement` owner review available.

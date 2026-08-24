@@ -2608,7 +2608,7 @@ interface DoneSuccessView {
 }
 
 /** Phase-correct next actions. An unlanded result carries landing only; activation
- * and optional improvement appear only when the integration branch has setup. */
+ * and optional improvement appear only when the trunk has setup. */
 function doneHints(
   landing: LandingSummary,
   reactivation: ReturnType<typeof reactivationHandoff> | undefined,
@@ -2754,7 +2754,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
       ? `Setup Proof is ready on \`${
         landing.branch || SETUP_BRANCH
       }\`; \`${landing.target}\` does not contain setup yet.`
-      : `Setup Proof is ready on \`${landing.target}\`; discern is available on the integration branch.`,
+      : `Setup Proof is ready on \`${landing.target}\`; discern is available on the trunk.`,
     forced
       ? "The completion marker is present, but Proof and the activation handoff are withheld."
       : setupUnlanded
@@ -3012,7 +3012,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
 
   // Report Proof, assurance, the mechanically derived closing inventory, and one
   // phase-correct next action. Provider activation is withheld until setup already
-  // lives on the integration branch; improvement remains optional after activation.
+  // lives on the trunk; improvement remains optional after activation.
   const cfg = doneCfg;
   const rawToml = await Deno.readTextFile(path);
   const assurance = assessSetupAssurance(cfg, rawToml);

@@ -3701,7 +3701,9 @@ export const HINTS = {
     family: "doctor-detail",
     example: undefined,
     template: (): string =>
-      "The bounded result omits `data.execution_model`. Run `discern doctor --verbose --json` only when you need the complete per-verb execution model.",
+      `The bounded result keeps the per-verb execution model behind ${
+        discernCommand("doctor", flag("verbose"), flag("json"))
+      }; use it only when that detail is needed.`,
   }),
 
   /** Upgrade never checks the network, so it names the installed update channel. */

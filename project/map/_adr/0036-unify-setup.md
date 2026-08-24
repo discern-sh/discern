@@ -6,6 +6,7 @@
 > - **[ADR 0037](0037-setup-incompleteness-observable.md) — hardened:** the unfinished-setup state became observable, so the handoff can't be mistaken for completion.
 > - **[ADR 0044](0044-setup-involve-not-gate.md) — interaction model:** the propose-and-confirm setup-brief interaction model established here was later revised to _involve, don't gate_.
 > - **[ADR 0075](0075-setup-staged-handshake.md) — staged handshake:** the single-shot flow was staged into the consent-driven handshake; the unified zero-config verb and the `setup done` bar stand.
+> - **[ADR 0322](0322-setup-is-one-bounded-operational-journey.md) — neutral model choice:** setup no longer asks an agent to certify its own capability. The owner chooses among available models; setup records an exact self-declared identifier or `unreported` as advisory provenance.
 
 **Status**: accepted
 

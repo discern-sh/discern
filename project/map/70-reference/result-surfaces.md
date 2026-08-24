@@ -34,4 +34,8 @@ An authored Markdown presentation selects facts from the registered result contr
 
 `status` has an additional size boundary. Its default CLI JSON, MCP `structuredContent`, and live resource are bounded orientation projections with true omitted counts. `discern status --verbose --json` and `discern_status` with `verbose: true` select full structured status. Both default command surfaces advertise that route in `hints`; [Status and session hints](../30-worktrees/status.md) defines the fields and caps.
 
+Default doctor JSON and `discern_doctor` return environment and actionable checks without `data.execution_model`. Their hint names `discern doctor --verbose --json`; MCP accepts `verbose: true`. Human doctor uses `--verbose` for per-step hints.
+
+`setup begin` emits the operating contract and first page; `setup step <n>` emits one page. Each shares its parsed operational spine across structured, human, and Markdown surfaces. `setup done` returns Proof, assurance, derived inventory, and one phase-valid action.
+
 See [MCP tools and result contracts](mcp-and-results.md) for the tool registry, envelope fields, schemas, resources, and exit codes.

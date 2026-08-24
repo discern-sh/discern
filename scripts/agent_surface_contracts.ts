@@ -623,45 +623,54 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
       targets: [
         target(
           "root",
-          "each absolute probe-worktree path returned by discern start",
-          "enter the absolute path it returns",
+          "the dedicated setup branch",
+          "keep every change on the setup branch until the owner chooses to land it",
         ),
         target(
           "stable",
-          "the numbered setup page returned by discern setup step",
-          "Lost the top of this brief? Re-run `discern setup begin` to reprint it in full (or `discern setup step <n>` for just one step).",
+          "the stable numbered page returned by discern setup step",
+          "Re-run `discern setup begin` for the preamble and first page, or `discern setup step <n>` for one stable page.",
         ),
       ],
       sequence: [
-        act("## Step 0 — Checkpoint: the model question, then orient"),
-        act(
-          "## Step 9 — Record, summarise, and prove it with `discern setup done`",
-        ),
+        act("## Step 0 - Confirm consent, provenance, and install health"),
+        act("## Step 9 - Reconcile, commit, prove, and hand off landing"),
         verify("## You are not done until all of these are true"),
       ],
       stop_conditions: [
-        evidence("If the consent conversation didn't happen"),
-        evidence("installing a new dependency is a genuine decision"),
+        evidence(
+          "Stop when the consent relay was incomplete, the provenance value is a placeholder, or doctor reports a failure.",
+        ),
+        evidence(
+          "Stop before an unapproved install or resource effect, when command meaning is ambiguous, or when a reporter masks the original status.",
+        ),
       ],
       recovery: [
         evidence(
-          "Lost the top of this brief? Re-run `discern setup begin` to reprint it in full",
+          "If a condition is false, continue with the page or result recovery that owns it.",
         ),
       ],
       authority: {
         boundary: evidence(
-          "installing a new dependency is a genuine decision",
+          "A clean green Proof authorizes no landing by itself; the owner or a recorded grant decides whether the setup branch lands.",
         ),
-        command: "discern setup begin --confirmed",
+        command: "discern setup accept",
         recheck: evidence(
-          "`discern setup begin --confirmed` re-verifies the setup consent attestation before scaffolding starts.",
+          "Run the result's `discern setup accept` landing command only with applicable recorded or current owner authority",
         ),
       },
       relay: {
         message: evidence(
-          "I configured <principles>, <subtrees>, and <jobs>. I recorded <todos>. The completion evidence is <proof>.",
+          "Setup authored <map_regions>, recorded <ledger_items>, and configured <jobs>. Assurance: <assurance>. Proof: <proof>. Branch and landing: <landing>.",
         ),
-        facts: ["principles", "subtrees", "jobs", "todos", "proof"],
+        facts: [
+          "map_regions",
+          "ledger_items",
+          "jobs",
+          "assurance",
+          "proof",
+          "landing",
+        ],
       },
     },
   ],

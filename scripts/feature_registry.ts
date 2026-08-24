@@ -3913,7 +3913,10 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "config-command",
           "licenses",
         ],
-        hints: ["ensure-main-worktree-first", "setup-run-coach"],
+        hints: [
+          "ensure-main-worktree-first",
+          "setup-improvement-after-activation",
+        ],
         claims: [
           "installs-a-practice",
           "one-config-file",

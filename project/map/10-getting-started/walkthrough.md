@@ -36,7 +36,7 @@ discern commits its scaffolded wiring before the handoff. Final completion commi
 
 Watch the branch rather than the main checkout. The agent makes small authoring commits as it completes the staged setup brief. [What setup added](after-setup.md) explains each group in the diff.
 
-After interruption, run `discern setup` or `discern status`; the recorded phase, branch, and continuation avoid replaying completed writes.
+After interruption, run `discern setup` or `discern status`; the recorded phase, branch, and continuation avoid replaying completed writes. Stable step ids preserve resumption while their registry orders evidence and smoke before final documentation.
 
 ## Setup verifies the checkout can reproduce
 
@@ -44,18 +44,15 @@ When the authored files are committed, the agent runs `discern setup done`. A pr
 
 If any final check fails, setup restores `[meta].bootstrapped` to the incomplete state. A successful non-forced result includes the structured Proof inspection and a one-line Proof you can relay. `--force` is visibly unproved and cannot be accepted through the proved setup landing path.
 
-A failure result includes the failed command and output. A pass records completion, reports applicable protection coverage, and gives the next actions ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)):
+A failure result includes the failed command and output. A pass returns protection coverage, canonical Map, ledger, and job inventories, and one valid next action ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
 
-1. Review and land the `discern-setup` branch.
-2. Start a fresh coding-agent session.
-
-The restart matters because Model Context Protocol (MCP) servers, hooks, and project instructions load at session start. Run the provider check served by completion; if unavailable, follow its local recovery and CLI fallback. Generated files alone do not prove activation ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
+An unlanded result offers landing or later review; the trunk lacks setup, so restart and improvement stay absent. After `discern setup accept`, start fresh, run its exact provider check, and use the served recovery or CLI fallback if needed. Generated files do not prove activation. Success makes `discern improvement` optional ongoing work ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
 `discern setup accept --dry-run` first validates that Proof without changing a branch or ref. Apply lands the full commit named by Proof and records the standard durable Proof note. If trunk moved after completion, setup acceptance merges trunk into `discern-setup`, runs the Gate on the merge commit, and lands only the new Proof. Missing, stale, dirty, unreadable, mismatched, forced, or declaration-stale evidence returns to `discern setup done` with trunk untouched.
 
 ## The first change uses the daily loop
 
-In the fresh session, ask for a small, real change. The agent orients with `discern status`, then runs `discern start` from the main checkout. That creates a separate worktree and an `agent/…` branch for this task.
+In the fresh session, ask for a small change. After `discern status`, the agent runs `discern start` from the main checkout and re-roots at its returned worktree path on an `agent/…` branch.
 
 The agent edits and tests in that worktree. During iteration it can run `discern prepare`, the shorter loop of fixers, regenerations, and checks. For the intended final commit, it runs `discern done`. The full Gate runs the repository's configured commands and any triggered scope gates or Standards.
 

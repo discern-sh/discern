@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), and known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
+> - **[ADR 0322](0322-setup-is-one-bounded-operational-journey.md) — bounded structured orientation:** default JSON and MCP doctor results carry actionable checks without `data.execution_model`; explicit verbose forms include the complete model. Human output retains its scannable default model and verbose per-step hints.
 
 **Status**: accepted; **amended** — see the _Update_ sections below. Adds an `execution_model` section to `doctor` (human + the `--json` `data.execution_model`), derived from the same plan builders the gate runs ([ADR 0027](0027-plan-apply-engine-execution.md)) and the engine's `STEP_KINDS` vocabulary ([ADR 0028](0028-result-envelope-and-diagnostics.md)), pinned by forcing functions in the spirit of [ADR 0051](0051-canonical-set-parity.md).
 

@@ -16,7 +16,7 @@ You are the configuration engine for this project. Inspect before claiming, pres
 
 ## How to work with the owner
 
-Give the owner facts they must decide and a short relay when facts must survive into chat. Reversible project-specific authoring is yours to carry out and commit. Installing a dependency, creating a cost- or data-bearing resource, choosing between legitimate product meanings, or landing onto the integration branch requires the authority that applies to that act.
+Give the owner facts they must decide and a short relay when facts must survive into chat. Reversible project-specific authoring is yours to carry out and commit. Installing a dependency, creating a cost- or data-bearing resource, choosing between legitimate product meanings, or landing onto the trunk requires the authority that applies to that act.
 
 Setup pages have stable numeric identifiers. Their presentation order is intentionally `0, 1, 2, 3, 4, 5, 7, 8, 6, 9`: Step 7 bounds the Map from the Step 1 subsystem evidence, and Step 8 proves the configured behavior before Step 6 performs final documentation synthesis. Existing sessions can still resume the same `discern setup step <n>` identifier.
 
@@ -393,7 +393,7 @@ relay = [
 
 {{worktree_readiness_table}}
 
-The structural probe runs during `discern setup done` after the completion marker is committed. It uses that exact HEAD, so it sees final setup rather than the integration branch or an uncommitted approximation.
+The structural probe runs during `discern setup done` after the completion marker is committed. It uses that exact HEAD, so it sees final setup rather than the trunk or an uncommitted approximation.
 
 ---
 
@@ -401,7 +401,7 @@ The structural probe runs during `discern setup done` after the completion marke
 
 ```toml
 phase = "final documentation synthesis"
-stable_target = "The Map, development guidance, adoption ADR, instructions, and ledger describe the post-smoke project in present tense, with every claim rechecked against its authority."
+stable_target = "The Map, development pages, adoption ADR, instruction source, and ledger describe the post-smoke project in present tense, with every claim rechecked against its authority."
 intent = "Turn the evidence and proved behavior into the smallest complete final documentation set, then perform the mandatory post-edit factual recheck."
 files_to_read = [
   "the Step 1 evidence inventory and Step 7 bounded page plan",
@@ -458,7 +458,7 @@ must_do = [
   "Reconcile imported instructions with discern's built-in workflow while preserving owner policies; surface any policy decision you cannot make.",
   "Confirm the final factual recheck happened after smoke, remove generic or duplicated ledger items, and commit all final setup work before Proof.",
   "Run `discern setup done` once on the clean commit and use its derived Map-region list, ledger-item list, jobs-by-state, Proof line, branch, and landing choices in the closing relay.",
-  "Accept only with applicable recorded or current owner authority; otherwise leave the proved branch for review and state that the integration branch does not contain setup.",
+  "Run the result's `discern setup accept` landing command only with applicable recorded or current owner authority; otherwise leave the proved branch for review and state that the trunk does not contain setup.",
   "After landing, start the provider-required fresh session, run each exact activation check from the landing result, report its success or recovery, and only then offer `discern improvement --json` as optional owner review.",
 ]
 authority_boundaries = [
@@ -484,6 +484,7 @@ recovery = [
 ]
 next_action = "discern setup done"
 relay = [
+  "Setup authored <map_regions>, recorded <ledger_items>, and configured <jobs>. Assurance: <assurance>. Proof: <proof>. Branch and landing: <landing>.",
   "Quote the result's canonical counts and lists, assurance, exact Proof line, current branch, and landing choices; do not substitute agent arithmetic.",
   "When unlanded, say the target branch does not contain setup and stop before restart. When landed, follow the exact fresh-session activation checks, then describe improvement as optional.",
 ]

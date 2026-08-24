@@ -2209,7 +2209,7 @@ export const SetupDoneDataSchema = z.strictObject({
   assurance: SetupAssuranceSchema,
   inventory: SetupCompletionInventorySchema,
   landing: SetupDoneLandingSchema,
-  /** Present only when setup is already on the integration branch. An unlanded
+  /** Present only when setup is already on the trunk. An unlanded
    * result must lead with landing and must not instruct a premature restart. */
   reactivation: ReactivationSchema.optional(),
   /** Optional ongoing work, available only after activation succeeds. */
@@ -2227,7 +2227,7 @@ export const SetupDoneDataSchema = z.strictObject({
       code: "custom",
       path: ["reactivation"],
       message:
-        "reactivation is available only after proved setup reaches the integration branch",
+        "reactivation is available only after proved setup reaches the trunk",
     });
   }
   if (!activationEligible && data.optional_improvement !== undefined) {
@@ -2235,7 +2235,7 @@ export const SetupDoneDataSchema = z.strictObject({
       code: "custom",
       path: ["optional_improvement"],
       message:
-        "improvement is available only after proved setup reaches the integration branch",
+        "improvement is available only after proved setup reaches the trunk",
     });
   }
   if (

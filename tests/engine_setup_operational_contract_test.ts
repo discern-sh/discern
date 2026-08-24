@@ -208,7 +208,7 @@ Deno.test("shipped setup relay choices stay neutral and keep each consent fact a
   const confirmations = consentConfirmations(context);
   const message = consentMessage(context);
   assertEquals(
-    relay.map((item) => item.id),
+    relay.map((item) => item.key),
     [
       "quality",
       "worktrees",
@@ -218,14 +218,17 @@ Deno.test("shipped setup relay choices stay neutral and keep each consent fact a
       "reversibility",
     ],
   );
-  assert(confirmations.some((item) => item.id === "cost"));
-  for (const item of relay) assert(message.includes(`- ${item.text}`));
+  assert(confirmations.some((item) => item.key === "cost"));
+  for (const item of relay) assert(message.includes(`- ${item.message}`));
   for (const [index, item] of confirmations.entries()) {
-    assert(message.includes(`${index + 1}. ${item.text}`));
+    assert(message.includes(`${index + 1}. ${item.message}`));
   }
   const forbidden = /most capable|\bexpert\b|\bqualified\b|\bsafe model\b/i;
   for (const item of confirmations) {
-    assert(!forbidden.test(item.text), `self-certifying option: ${item.text}`);
+    assert(
+      !forbidden.test(item.message),
+      `self-certifying option: ${item.message}`,
+    );
   }
 });
 

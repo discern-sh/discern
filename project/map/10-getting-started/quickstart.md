@@ -36,18 +36,19 @@ Answer in plain language: "Yes. Set up Claude Code and Codex." Setup cannot proc
 
 `setup verify` is read-only. Each later effectful command checks its own plan-derived write targets before effects; denial preserves the phase and names the path and retry. The check is point-in-time, not cached provider authority ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
-Setup writes ordinary files on a separate `discern-setup` branch, keeping those changes off `main` until you land them. The format job already contains `discern tidy` for discern-owned Markdown and the root config. The agent puts your stack's formatter before it, then wires lint, test, and the other commands your project runs. It fills in instructions and the first Map pages under that live Gate. From that point, each configured agent reads the same compiled instructions and runs the same commands.
+Setup works on `discern-setup` until landing. The agent inventories code and commands, preserves existing workflows, and authors final orientation after smoke. The Map gets one substantive primary-subsystem page plus only distinct durable boundaries.
 
-The Static Analysis Results Interchange Format (SARIF) is a machine-readable findings format. During setup, configure tools to emit SARIF or JUnit XML to captured `stdout` or `stderr`. Failed jobs become per-finding diagnostics. discern does not inspect report files. Other captured output remains raw.
+Keep routine green output concise. Recognized captured formats include SARIF and JUnit XML; use them only when they preserve exit status and improve failure diagnostics. File-only and inherently verbose formats stay off the routine path.
 
 ## 3. Verify setup in an isolated checkout
 
 `discern setup done` commits the completion marker, refreshes and diagnoses that commit, proves it in a temporary worktree, then runs the final Gate and returns its [one-line Proof](../20-quality-gate/the-proof.md). A failure in either checkout restores setup to incomplete ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
 
-Then it's your turn:
+The result carries Proof, its branch, configured-job assurance, and derived Map and ledger counts. Then it's your turn:
 
-1. **Start a fresh agent session and run the check served by `setup done`.** If it is unavailable, follow its local recovery and use `discern status --json` as the fallback.
-2. **Review and land the `discern-setup` branch.** Setup is ordinary file edits on a branch you can read.
+1. **Review and land.** Preview with `discern setup accept --dry-run`, or leave the proved branch for later. Do not restart before landing.
+2. **Start a fresh session.** Follow the provider check or CLI fallback served by acceptance.
+3. **Verify activation.** Report the check. Success completes setup; `discern improvement --json` remains optional.
 
 <!-- discern-workflow:procedure -->
 
@@ -62,7 +63,7 @@ In the fresh session, ask for a small, real change. The agent takes it through t
 
 **Steps:**
 
-1. **Start the worktree.** The agent runs `discern start` and gets an isolated checkout on an `agent/…` branch without editing the main checkout.
+1. **Start the worktree.** The agent runs `discern start`, then re-roots at its returned isolated checkout path on an `agent/…` branch.
 2. **Make the change.** It edits and checks the requested work inside that worktree.
 3. **Run the full Gate.** It runs `discern done`. The Gate runs the format, build, lint, and test commands declared in `discern.toml`. A failure gives the agent the failing command and its output.
 4. **Report the result.** On green, the agent ends its report with the one-line Proof and waits. Read the full Proof with `discern status --verbose`.

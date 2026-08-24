@@ -1,6 +1,9 @@
 # ADR 0077: The setup agent is the configuration engine — transparency over interrogation
 
-> **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Job-model vocabulary ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> - **Neutral capability boundary ([ADR 0322](0322-setup-is-one-bounded-operational-journey.md)):** the agent remains the configuration engine, but it no longer authors or selects a self-certifying capability label. The owner receives a neutral model choice, while exact provider/model facts are separate advisory provenance.
 
 **Status**: accepted; revises the _emphasis_ of [ADR 0044](0044-setup-involve-not-gate.md) (involve, don't gate) and preserves the incompleteness signaling of [ADR 0037](0037-setup-incompleteness-observable.md), the promise-keeping of [ADR 0065](0065-setup-keeps-its-promises.md), and the staged handshake of [ADR 0075](0075-setup-staged-handshake.md). Touches only the agent-facing surfaces those ADRs govern — the printed brief (`templates/setup/instructions.md`) and the read-only `verify`/welcome surfaces — never the engine or the phase set.
 

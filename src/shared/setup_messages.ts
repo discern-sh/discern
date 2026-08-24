@@ -162,8 +162,8 @@ function fence(label: string): string {
  */
 /** One item inside the verbatim-protected consent relay. */
 export interface ConsentRelayItem {
-  readonly id: string;
-  readonly text: string;
+  readonly key: string;
+  readonly message: string;
 }
 
 /** The load-bearing consent facts, each in its own list item. */
@@ -174,38 +174,38 @@ export function consentRelayItems(
     ? "Plan: I will inspect the repository, ask one bounded batch for facts it cannot supply, preserve its workflows, configure the Gate and worktree readiness, author the Map and instructions, prove the exact committed setup, and offer landing choices."
     : "Plan: after you approve version control, I will initialize git, re-run the read-only preflight, inspect the repository, preserve its workflows, configure the Gate and worktree readiness, author the Map and instructions, prove the exact committed setup, and offer landing choices.";
   const reversibility = ctx.gitRepo
-    ? "Reversibility: setup works on a dedicated `discern-setup` branch and does not reach the integration branch until you choose to land it. You can leave or delete that branch before landing; later, `discern uninstall` removes the wiring while retaining your authored content. No API key or outside discern service is involved."
-    : "Reversibility: after git exists, setup works on a dedicated `discern-setup` branch and does not reach the integration branch until you choose to land it. You can leave or delete that branch before landing; later, `discern uninstall` removes the wiring while retaining your authored content. No API key or outside discern service is involved.";
+    ? "Reversibility: setup works on a dedicated `discern-setup` branch and does not reach the trunk until you choose to land it. You can leave or delete that branch before landing; later, `discern uninstall` removes the wiring while retaining your authored content. No API key or outside discern service is involved."
+    : "Reversibility: after git exists, setup works on a dedicated `discern-setup` branch and does not reach the trunk until you choose to land it. You can leave or delete that branch before landing; later, `discern uninstall` removes the wiring while retaining your authored content. No API key or outside discern service is involved.";
   return [
     {
-      id: "quality",
-      text:
+      key: "quality",
+      message:
         "Quality checks: the project's formatter, linter, tests, and other applicable checks run through one Gate.",
     },
     {
-      id: "worktrees",
-      text:
+      key: "worktrees",
+      message:
         "Isolated working copies (git worktrees): each task gets its own checkout so parallel changes do not share a working tree.",
     },
     {
-      id: "instructions",
-      text:
+      key: "instructions",
+      message:
         "Shared project instructions: one authored source tells future coding sessions how this project works; generated agent files are committed so other sessions can read them.",
     },
     {
-      id: "footprint",
-      text:
+      key: "footprint",
+      message:
         `Footprint: discern owns one root file (\`discern.toml\`), one visible \`discern/\` folder containing the instruction source and deferred-work ledger, and the agent-maintained Map at \`${SOURCE_PATHS.map.defaultPath}\`. It also updates the integration files the selected coding tools require.`,
     },
     ...(ctx.docsExists
       ? [{
-        id: "existing-docs",
-        text:
+        key: "existing-docs",
+        message:
           "Existing documentation: this project already has `docs/`; it remains owner material and discern does not adopt or overwrite it. The Map is a separate tree.",
       }]
       : []),
-    { id: "plan", text: plan },
-    { id: "reversibility", text: reversibility },
+    { key: "plan", message: plan },
+    { key: "reversibility", message: reversibility },
   ];
 }
 
@@ -216,34 +216,34 @@ export function consentConfirmations(
   const agentLabels = ctx.agents.wired.map((agent) => agent.label).join(", ");
   return [
     {
-      id: "model",
-      text:
+      key: "model",
+      message:
         "Which available model do you want to use for this setup? Everything configured here is inherited by future sessions. I will report the provider/model identifier separately when I know it, or record `unreported` when I do not.",
     },
     ...(ctx.gitRepo ? [] : [{
-      id: "git-init",
-      text:
+      key: "git-init",
+      message:
         "This folder is not under version control, and the isolated branch and undo path require it. May I run `git init` here, then repeat the preflight before setup begins?",
     }]),
     {
-      id: "agents",
-      text: ctx.agents.detected
+      key: "agents",
+      message: ctx.agents.detected
         ? `I found ${agentLabels} on this machine. Should I wire discern into that set, or change it?`
         : `I found no specific coding tool, so the proposed default set is ${agentLabels}. Should I use that set, or change it?`,
     },
     {
-      id: "worktree-path",
-      text:
+      key: "worktree-path",
+      message:
         `Isolated working copies will live beside this project at ${ctx.worktreePath}. Keep that location?`,
     },
     {
-      id: "cost",
-      text:
+      key: "cost",
+      message:
         "Setup usually takes 20–40 minutes and a meaningful number of tokens. Continue with that expectation?",
     },
     {
-      id: "ready",
-      text: "Ready for me to begin the isolated setup branch?",
+      key: "ready",
+      message: "Ready for me to begin the isolated setup branch?",
     },
   ];
 }
@@ -260,11 +260,11 @@ export function consentMessage(ctx: ConsentContext): string {
     "",
     "I propose a one-time discern setup for this project. These facts and choices define it:",
     "",
-    ...relayItems.map((item) => `- ${item.text}`),
+    ...relayItems.map((item) => `- ${item.message}`),
     "",
     "Confirm each numbered point:",
     "",
-    ...confirmations.map((item, index) => `${index + 1}. ${item.text}`),
+    ...confirmations.map((item, index) => `${index + 1}. ${item.message}`),
     "",
     fence("end of message"),
     "",

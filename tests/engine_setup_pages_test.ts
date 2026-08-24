@@ -191,7 +191,7 @@ Deno.test("setup step <n> human output renders the operational spine from the pa
     assertTerminalTextIncludes(r.stdout, "Completion check");
     assertTerminalTextIncludes(r.stdout, "Stop and recover");
     assertTerminalTextIncludes(r.stdout, "Recovery:");
-    assertStringIncludes(r.stdout, "discern setup step 5");
+    assertTerminalTextIncludes(r.stdout, "discern setup step 5");
     // The raw spine fence must never leak into the human rendering.
     assert(!r.stdout.includes("```toml"), r.stdout);
   });

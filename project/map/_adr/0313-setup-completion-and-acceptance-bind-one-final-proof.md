@@ -1,5 +1,7 @@
 # ADR 0313: Setup completion and acceptance bind one final Proof
 
+> **Amendment ([ADR 0322](0322-setup-is-one-bounded-operational-journey.md)).** The completion result derives canonical Map, ledger, and job inventories after Proof. While Proof remains off the trunk, every surface stops at landing choices; acceptance owns the later activation handoff, and improvement is optional only after activation succeeds.
+
 **Status**: accepted. Revises the completion order in [ADR 0065](0065-setup-keeps-its-promises.md), applies the Proof identity from [ADR 0067](0067-accept-validates-the-landed-tree.md) to the setup landing path in [ADR 0081](0081-setup-accept-command.md), sharpens the worktree probe from [ADR 0090](0090-setup-proves-worktree-viability.md), and extends the receiving-checkout guarantee from [ADR 0098](0098-accept-refreshes-the-landing-checkout.md).
 
 ## Context

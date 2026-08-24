@@ -1,5 +1,7 @@
 # ADR 0320: Setup plans own write authority and activation recovery
 
+> **Amendment ([ADR 0322](0322-setup-is-one-bounded-operational-journey.md)).** First registration during unfinished setup explicitly defers restart. Provider-derived recovery is served only after setup is available on the trunk, through in-place completion or successful setup acceptance.
+
 **Status**: accepted; extends the staged handshake of [ADR 0075](0075-setup-staged-handshake.md), the real-operation preflight of [ADR 0152](0152-slow-workflows-prove-write-authority-first.md), the advisory Logbook boundary of [ADR 0160](0160-local-logbook-advisory-readers.md), and the vendor-security boundary of [ADR 0193](0193-discern-does-not-enforce-the-vendor-security-boundary.md).
 
 ## Context

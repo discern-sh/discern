@@ -57,7 +57,10 @@ Deno.test("diagnostic formats enrol setup, improvement, and public instructions"
   );
   assertStringIncludes(
     quickstart,
-    `emit ${diagnosticFormatList("or")} to captured`,
+    diagnosticFormatList(),
     "public setup instructions must list every supported diagnostic format",
   );
+  assertStringIncludes(quickstart, "routine green output concise");
+  assertStringIncludes(quickstart, "preserve exit status");
+  assertStringIncludes(quickstart, "File-only and inherently verbose formats");
 });

@@ -1,5 +1,7 @@
 # ADR 0086: setup serves ready-to-relay messages and gates a fresh scaffold on a `--confirmed` attestation
 
+> **Amendment ([ADR 0322](0322-setup-is-one-bounded-operational-journey.md)).** Every must-survive consent fact now occupies its own list item and every numbered confirmation is word-for-word protected. Model choice is neutral, completion counts derive mechanically, and reactivation appears only after setup is on the trunk.
+
 **Status**: accepted; revises the _emphasis_ of [ADR 0075](0075-setup-staged-handshake.md) (the staged, consent-driven handshake), [ADR 0077](0077-setup-agent-is-the-configuration-engine.md) (transparency over interrogation), and [ADR 0078](0078-setup-pages-and-per-step-proof.md) (stateless pages, the two-lane rule) — structure preserved, the prose lane's genre changed. Builds on [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope per verb) and [ADR 0041](0041-self-describing-mcp-surface.md) (schema-backed `data`).
 
 ## Context

@@ -159,7 +159,7 @@ A coding agent can preview effects, distinguish proof from permission, and stop 
 - **Why it follows:** One install surface owns setup and its observability, doctor, upgrade, uninstall, presets, configuration editing, and license reporting; setup proves its worktree path before declaring readiness.
 - **Boundary:** Lifecycle verbs manage discern's declared footprint and provider integrations, not arbitrary project files or provider state outside their ownership contract.
 - **Direct product basis:** Install and lifecycle · Agent-driven setup · Observable incompleteness · Provider-aware activation recovery · Doctor · Upgrade and migrations · Uninstall · Presets · Config without a parser · Licenses and notices.
-- **Agent hints:** `ensure-main-worktree-first` · `setup-run-coach`.
+- **Agent hints:** `ensure-main-worktree-first` · `setup-improvement-after-activation`.
 - **Public claims:** `installs-a-practice` · `one-config-file` · `setup-proves-worktree`.
 
 ## Carry project context across sessions
@@ -282,7 +282,7 @@ Every feature node has one global role: direct, supporting, or recorded absent. 
 - `gate-prove-it-works` — run-the-relevant-gate-efficiently
 - `gate-relay-proof` — prove-the-exact-tree
 - `gate-relay-uncovered-authority` — land-only-with-release-authority
-- `setup-run-coach` — manage-the-installation-lifecycle
+- `setup-improvement-after-activation` — manage-the-installation-lifecycle
 - `silent-worktree-divergence` — own-one-isolated-effort
 - `start-landing-authority` — land-only-with-release-authority
 - `start-mcp-re-root` — own-one-isolated-effort

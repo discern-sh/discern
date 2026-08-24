@@ -1,6 +1,9 @@
 # ADR 0078: setup steps are stateless machine-readable pages with derived per-step proof
 
-> **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> **Amendments.**
+>
+> - **Job-model vocabulary ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
+> - **[ADR 0322](0322-setup-is-one-bounded-operational-journey.md) — operational page registry:** page identifiers remain stable while a versioned registry owns presentation order and exact continuations. The spine now carries the full operational contract, and human and Markdown renderers project it from the same parsed authority as JSON.
 
 **Status**: accepted; builds on [ADR 0075](0075-setup-staged-handshake.md) (the staged handshake, stateless derived progress, and the read-only `setup step <n>` re-serve), [ADR 0065](0065-setup-keeps-its-promises.md) (`setup done` is a proven gate), [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope per verb), and [ADR 0041](0041-self-describing-mcp-surface.md) (schema-backed `data`). Reshapes the content of `templates/setup/instructions.md` and the `begin` / `step` / `done` surfaces.
 

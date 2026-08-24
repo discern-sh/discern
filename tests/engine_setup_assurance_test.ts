@@ -467,7 +467,7 @@ Deno.test("setup done's forced human output withholds the unproved landing path"
     assertTerminalTextIncludes(done.stdout, "Quality coverage: partial");
     assertStringIncludes(done.stdout, "enforced");
     assertStringIncludes(done.stdout, "deferred");
-    assertStringIncludes(done.stdout, "without `--force`");
+    assertTerminalTextIncludes(done.stdout, "without `--force`");
     assertTerminalTextIncludes(done.stdout, "before landing or activation");
     assert(!done.stdout.includes("discern setup accept"));
     assert(!done.stdout.includes("start a fresh session"));

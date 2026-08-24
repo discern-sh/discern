@@ -307,6 +307,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0319 — Current green Proof composes and red reruns stay explicit](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md)
 - [0320 — Setup plans own write authority and activation recovery](0320-setup-plans-own-write-authority-and-activation-recovery.md)
 - [0321 — Diagram geometry follows Markdown code-block semantics](0321-diagram-geometry-follows-markdown-code-block-semantics.md)
+- [0322 — Setup is one bounded operational journey](0322-setup-is-one-bounded-operational-journey.md)
 
 <!-- END GENERATED: current ADR records -->
 

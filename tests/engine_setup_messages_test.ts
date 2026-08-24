@@ -207,7 +207,7 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
   assert(!withGit.includes("git init"), "a git repo needs no git-init step");
   assertStringIncludes(
     withGit,
-    "setup works on a dedicated `discern-setup` branch and does not reach the integration branch",
+    "setup works on a dedicated `discern-setup` branch and does not reach the trunk",
   );
 });
 
