@@ -19,11 +19,9 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
-
-const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const SRC = join(REPO_ROOT, "src");
+import { join } from "@std/path";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** The quoted argument literals that make git print tracked-file paths. */
 const PATH_LISTING_FLAGS = [
@@ -77,12 +75,18 @@ function enclosingArray(text: string, index: number): string | undefined {
 
 Deno.test("every git path-listing invocation in src/** passes -z", async () => {
   const offenders: string[] = [];
-  for await (const entry of walk(SRC, { includeDirs: false })) {
-    if (!entry.path.endsWith(".ts")) {
-      continue;
-    }
-    const rel = relative(REPO_ROOT, entry.path);
-    const text = await Deno.readTextFile(entry.path);
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/git_path_quoting_test.ts#nul-separated-git-paths",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The Git path-output contract governs production command argument arrays implemented beneath src.",
+        include: (path) => path.startsWith("src/"),
+      },
+    })
+  ) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const flag of PATH_LISTING_FLAGS) {
       let from = 0;
       while (true) {

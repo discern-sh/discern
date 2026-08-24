@@ -23,7 +23,13 @@ import {
   type DiagramViolation,
   scanMarkdownDiagrams,
 } from "../src/lib/diagram_geometry.ts";
-import { REPO_ROOT, TRACKED_MD_FILES } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
+
+const DIAGRAM_FILES = await structuralGuardScope({
+  guard: "tests/diagram_geometry_test.ts#fenced-diagram-geometry",
+  universe: "tracked-markdown",
+});
 
 /** Wrap fixture rows in the Markdown fence required to activate diagram scanning. */
 function fenced(...lines: string[]): string {
@@ -220,7 +226,7 @@ Deno.test("box-drawing characters outside fences are ignored", () => {
 
 Deno.test("the tracked-Markdown universe covers the shipped surface", () => {
   assert(
-    TRACKED_MD_FILES.some((rel) => rel.startsWith("templates/")),
+    DIAGRAM_FILES.some((rel) => rel.startsWith("templates/")),
     "templates/ ships to every project — if it left the universe, seed " +
       "diagrams would go unguarded",
   );
@@ -228,7 +234,7 @@ Deno.test("the tracked-Markdown universe covers the shipped surface", () => {
 
 Deno.test("every code-block box-drawing diagram in tracked Markdown is geometrically sound", async () => {
   const failures: string[] = [];
-  for (const rel of TRACKED_MD_FILES) {
+  for (const rel of DIAGRAM_FILES) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const v of scanMarkdownDiagrams(text)) {
       failures.push(`${rel}:${v.line}:${v.column} "${v.glyph}" ${v.reason}`);

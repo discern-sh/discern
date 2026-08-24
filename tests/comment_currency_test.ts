@@ -44,22 +44,40 @@
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { extractSourceComments } from "../scripts/source_comments.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** TypeScript scanned for backward-looking `//` and block comments: the
  * authored universe minus `tests/`, the one documented exclusion above. */
-const TS_FILES = AUTHORED_TS_FILES.filter((rel) => !rel.startsWith("tests/"));
+const TS_FILES = await structuralGuardScope({
+  guard: "tests/comment_currency_test.ts#production-comment-currency",
+  universe: "authored-ts",
+  narrow: {
+    reason:
+      "The invariant governs production comments; tests legitimately describe historical defects and planted controls.",
+    include: (rel) => !rel.startsWith("tests/"),
+  },
+});
 
 /**
  * `#`-commented files scanned the same way — the shipped config surface every
  * install receives, plus this repo's own config: the places a stale reference
  * reaches a reader with no context for discern's internal history.
  */
-const HASH_FILES = [
+const HASH_COMMENT_PATHS = new Set([
   "templates/discern.toml.tmpl",
   "templates/.gitignore.fragment",
   "discern.toml",
-];
+]);
+const HASH_FILES = await structuralGuardScope({
+  guard: "tests/comment_currency_test.ts#hash-comment-currency",
+  universe: "authored-text",
+  narrow: {
+    reason:
+      "Hash-comment currency governs the shipped and dogfood config surfaces.",
+    include: (rel) => HASH_COMMENT_PATHS.has(rel),
+  },
+});
 
 /** The inline annotation that exempts one comment, with a mandatory reason. */
 const SUPPRESS = "discern-allow-retrospective:";

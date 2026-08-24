@@ -32,11 +32,8 @@ import {
   renderCommandRefsCli,
   stripCommandRefs,
 } from "../src/shared/command_reference.ts";
-import {
-  AUTHORED_TS_FILES,
-  REPO_AUTHORED_PATHS,
-  REPO_ROOT,
-} from "./repo_authored_paths.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** The channel-owning module — the closed universe every hint is defined in. */
 const HINTS_MODULE = join(REPO_ROOT, "src", "shared", "hints.ts");
@@ -198,10 +195,17 @@ Deno.test("every constructor-built reference in authored source names a live ver
   const pattern = /(?:discernCommand|ownerDiscernCommand)\(\s*"([^"\n]*)"/g;
   const failures: string[] = [];
   let scanned = 0;
-  // Narrower than AUTHORED_TS_FILES for a stated reason: test files construct
-  // deliberately invalid references as negative fixtures (and this guard's
-  // own scan pattern), which are not shipped call sites.
-  for (const rel of AUTHORED_TS_FILES.filter((r) => !r.startsWith("tests/"))) {
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/hint_command_guard_test.ts#constructor-command-paths",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Only shipped call sites build command references; tests deliberately construct invalid references as controls.",
+        include: (rel) => !rel.startsWith("tests/"),
+      },
+    })
+  ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const match of source.matchAll(pattern)) {
       const words = match[1] ?? "";

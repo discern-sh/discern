@@ -12,7 +12,8 @@
 
 import { join } from "@std/path";
 import { assertEquals } from "@std/assert";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const CALL = "new Logger(";
 
@@ -57,10 +58,17 @@ const SELF = "tests/logger_ambient_guard_test.ts";
 
 Deno.test("human-mode test Loggers pin their terminal context", async () => {
   const offenders: string[] = [];
-  for (const file of AUTHORED_TS_FILES) {
-    if (!file.startsWith("tests/") || file === SELF) {
-      continue;
-    }
+  for (
+    const file of await structuralGuardScope({
+      guard: "tests/logger_ambient_guard_test.ts#test-terminal-context",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Only test Loggers must pin terminal capability; production ambient resolution is product behavior.",
+        include: (rel) => rel.startsWith("tests/") && rel !== SELF,
+      },
+    })
+  ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, file));
     for (const span of loggerOptionSpans(source)) {
       if (span.includes("json: false") && !span.includes("terminal")) {

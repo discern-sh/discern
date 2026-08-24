@@ -29,6 +29,7 @@ import {
   renderClaAssistantMetadata,
 } from "../scripts/contributor_agreement.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const CONTRIBUTING = join(REPO_ROOT, "CONTRIBUTING.md");
 const INDIVIDUAL_CLA = join(REPO_ROOT, "CLA.md");
@@ -377,11 +378,17 @@ Deno.test("issue intake stays structured and every template has valid metadata",
   assertEquals(config.blank_issues_enabled, false);
 
   const names = new Set<string>();
-  const entries = [];
-  for await (const entry of Deno.readDir(ISSUE_TEMPLATE_DIR)) {
-    if (entry.isFile && entry.name.endsWith(".md")) entries.push(entry.name);
-  }
-  entries.sort();
+  const prefix = ".github/ISSUE_TEMPLATE/";
+  const entries = (await structuralGuardScope({
+    guard: "tests/contributor_governance_test.ts#issue-template-metadata",
+    universe: "tracked-markdown",
+    narrow: {
+      reason:
+        "Structured issue intake governs direct Markdown templates in GitHub's issue-template directory.",
+      include: (path) =>
+        path.startsWith(prefix) && !path.slice(prefix.length).includes("/"),
+    },
+  })).map((path) => path.slice(prefix.length));
   for (const name of entries) {
     const path = join(ISSUE_TEMPLATE_DIR, name);
     const markdown = await Deno.readTextFile(path);
@@ -411,15 +418,24 @@ Deno.test("issue intake stays structured and every template has valid metadata",
 });
 
 Deno.test("repository-file links in contributor intake resolve", async () => {
-  for (
-    const source of [
-      CONTRIBUTING,
-      INDIVIDUAL_CLA,
-      CORPORATE_CLA,
-      PR_TEMPLATE,
-      PROPOSAL_TEMPLATE,
-    ]
-  ) {
+  const governed = new Set([
+    "CONTRIBUTING.md",
+    "CLA.md",
+    "CCLA.md",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/ISSUE_TEMPLATE/change_proposal.md",
+  ]);
+  const files = await structuralGuardScope({
+    guard: "tests/contributor_governance_test.ts#intake-document-links",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Repository-link integrity governs the five contributor intake documents.",
+      include: (rel) => governed.has(rel),
+    },
+  });
+  for (const rel of files) {
+    const source = join(REPO_ROOT, rel);
     const markdown = await Deno.readTextFile(source);
     for (const { target, line } of extractDocLinks(markdown)) {
       if (/^(?:[a-z]+:|#|\/)/i.test(target)) continue;

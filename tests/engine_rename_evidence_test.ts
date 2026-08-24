@@ -16,11 +16,9 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
-import { walk } from "@std/fs";
-
-const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const SRC = join(REPO_ROOT, "src");
+import { join } from "@std/path";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** Files whose name-listing reads deliberately FOLLOW renames (history miners
  * that keep a renamed file's history continuous — `git log -M --name-only`). */
@@ -35,9 +33,18 @@ const NAME_LISTING = /"--name-(?:only|status)"/g;
 Deno.test("every name-listing git diff passes --no-renames (evidence reads must keep the vacated path)", async () => {
   const offenders: string[] = [];
   const staleSanctions = new Set(RENAME_FOLLOWERS);
-  for await (const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })) {
-    const rel = relative(REPO_ROOT, entry.path);
-    const text = await Deno.readTextFile(entry.path);
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/engine_rename_evidence_test.ts#engine-name-listing-diffs",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The evidence contract governs production Git change-set readers implemented beneath src.",
+        include: (path) => path.startsWith("src/"),
+      },
+    })
+  ) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const match of text.matchAll(NAME_LISTING)) {
       if (RENAME_FOLLOWERS.has(rel)) {
         staleSanctions.delete(rel);

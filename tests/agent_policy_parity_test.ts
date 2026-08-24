@@ -26,16 +26,24 @@ import {
   type OperatingPolicySurface,
 } from "../src/shared/operating_policies.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** The bundled instructions templates as one searchable blob (source text, so
  * conditional sections are always present). */
 async function instructionBlob(): Promise<string> {
-  const dir = join(REPO_ROOT, "templates", "instructions");
   const parts: string[] = [];
-  for await (const entry of Deno.readDir(dir)) {
-    if (entry.isFile && entry.name.endsWith(".md")) {
-      parts.push(await Deno.readTextFile(join(dir, entry.name)));
-    }
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/agent_policy_parity_test.ts#instruction-policy-surface",
+      universe: "tracked-markdown",
+      narrow: {
+        reason:
+          "The authored agent-file policy surface consists of Markdown templates beneath templates/instructions.",
+        include: (path) => path.startsWith("templates/instructions/"),
+      },
+    })
+  ) {
+    parts.push(await Deno.readTextFile(join(REPO_ROOT, rel)));
   }
   assert(
     parts.length > 0,

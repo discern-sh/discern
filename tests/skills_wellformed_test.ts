@@ -4,50 +4,56 @@
  * (the configured `[skills].dir`).
  *
  * This test is itself an instance of the discipline it protects: it does not
- * check one skill, it iterates the canonical sets — `bundledSkillNames()` over
- * `resolveBundledSkillsDir()` and the configured authored dir — the SAME
- * sources the materializer drives off, so a newly-added skill in either
- * container auto-enrols and a malformed or mis-named one fails the gate.
+ * check one skill, it declares the Git-derived bundled and configured skill
+ * containers, so a newly-added skill in either one auto-enrols and a malformed
+ * or mis-named entry fails the gate.
  * "Well-formed" is `skillFrontmatterIssues`, the one validator the engine's
  * gate precondition also applies: valid YAML whose `name`/`description` are
  * non-empty strings, with `name` equal to the directory.
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join } from "@std/path";
-import { resolveBundledSkillsDir } from "../src/lib/paths.ts";
+import { basename, dirname, join, relative } from "@std/path";
 import {
-  bundledSkillNames,
   SKILL_DESCRIPTION_MAX_LENGTH,
   skillFrontmatterIssues,
 } from "../src/lib/skills.ts";
-import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-/** Every skill directory under `dir`, with its SKILL.md text; [] when absent. */
-async function skillsUnder(
-  dir: string,
+const BUNDLED_SKILLS = "templates/skills";
+const AUTHORED_SKILLS = relative(REPO_ROOT, REPO_AUTHORED_PATHS.skills);
+
+/** Whether one repo-relative path is a skill entry in the named container. */
+function skillEntryUnder(rel: string, container: string): boolean {
+  return rel.startsWith(`${container}/`) && rel.endsWith("/SKILL.md");
+}
+
+/** Read declared SKILL.md files with their directory-derived names. */
+async function skillEntries(
+  files: readonly string[],
 ): Promise<{ name: string; text: string }[]> {
-  const out: { name: string; text: string }[] = [];
-  let entries: Deno.DirEntry[];
-  try {
-    entries = (await Array.fromAsync(Deno.readDir(dir)))
-      .filter((e) => e.isDirectory)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return [];
-    throw error;
-  }
-  for (const entry of entries) {
-    out.push({
-      name: entry.name,
-      text: await Deno.readTextFile(join(dir, entry.name, "SKILL.md")),
-    });
-  }
-  return out;
+  return await Promise.all(files.map(async (rel) => ({
+    name: basename(dirname(rel)),
+    text: await Deno.readTextFile(join(REPO_ROOT, rel)),
+  })));
 }
 
 Deno.test("every bundled and authored skill is well-formed", async () => {
-  const bundled = await skillsUnder(await resolveBundledSkillsDir());
+  const files = await structuralGuardScope({
+    guard: "tests/skills_wellformed_test.ts#skill-frontmatter",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Skill frontmatter governs each bundled and configured SKILL.md entry.",
+      include: (rel) =>
+        skillEntryUnder(rel, BUNDLED_SKILLS) ||
+        skillEntryUnder(rel, AUTHORED_SKILLS),
+    },
+  });
+  const bundled = await skillEntries(
+    files.filter((rel) => skillEntryUnder(rel, BUNDLED_SKILLS)),
+  );
   assert(
     bundled.length > 0,
     "expected at least one bundled skill under templates/skills/",
@@ -56,7 +62,9 @@ Deno.test("every bundled and authored skill is well-formed", async () => {
     { label: "bundled", skills: bundled },
     {
       label: "authored",
-      skills: await skillsUnder(REPO_AUTHORED_PATHS.skills),
+      skills: await skillEntries(
+        files.filter((rel) => skillEntryUnder(rel, AUTHORED_SKILLS)),
+      ),
     },
   ];
 
@@ -77,12 +85,18 @@ Deno.test("every bundled and authored skill is well-formed", async () => {
 });
 
 Deno.test("bundled skills: every one carries the discern attribution", async () => {
-  const dir = await resolveBundledSkillsDir();
-  for (const name of await bundledSkillNames()) {
+  const files = await structuralGuardScope({
+    guard: "tests/skills_wellformed_test.ts#bundled-skill-attribution",
+    universe: "authored-text",
+    narrow: {
+      reason: "Attribution travels with every bundled SKILL.md entry.",
+      include: (rel) => skillEntryUnder(rel, BUNDLED_SKILLS),
+    },
+  });
+  for (const { name, text } of await skillEntries(files)) {
     // Provenance travels with the file wherever it materializes. Asserted on
     // the raw frontmatter text (the flat reader deliberately surfaces only
     // name/description); the exact author string is the single source below.
-    const text = await Deno.readTextFile(join(dir, name, "SKILL.md"));
     const fence = text.indexOf("\n---", 3);
     const front = fence === -1 ? text : text.slice(0, fence);
     assert(
@@ -98,18 +112,30 @@ Deno.test("bundled skills: every catalog table lists every one", async () => {
   // added skill can silently ship undocumented. Iterate the SAME canonical set the
   // materializer drives off, so a new skill auto-enrols here and every public or
   // contributor catalog must name it or the gate fails.
-  const names = await bundledSkillNames();
-  const catalogs = [
-    join(REPO_AUTHORED_PATHS.map, "45-skills", "bundled-skills.md"),
-    join(REPO_AUTHORED_PATHS.map, "80-development", "install-surface.md"),
-  ];
-  for (const catalog of catalogs) {
-    const doc = await Deno.readTextFile(catalog);
+  const catalogRels = new Set([
+    join(REPO_AUTHORED_PATHS.mapRel, "45-skills", "bundled-skills.md"),
+    join(REPO_AUTHORED_PATHS.mapRel, "80-development", "install-surface.md"),
+  ]);
+  const files = await structuralGuardScope({
+    guard: "tests/skills_wellformed_test.ts#bundled-skill-catalogs",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Bundled SKILL.md entries and their two public catalogs form this parity contract.",
+      include: (rel) =>
+        skillEntryUnder(rel, BUNDLED_SKILLS) || catalogRels.has(rel),
+    },
+  });
+  const names = (await skillEntries(
+    files.filter((rel) => skillEntryUnder(rel, BUNDLED_SKILLS)),
+  )).map((skill) => skill.name);
+  for (const rel of files.filter((path) => catalogRels.has(path))) {
+    const doc = await Deno.readTextFile(join(REPO_ROOT, rel));
     const missing = names.filter((name) => !doc.includes(`\`${name}\``));
     assertEquals(
       missing,
       [],
-      `${catalog}'s bundled-skills table must name every bundled skill`,
+      `${rel}'s bundled-skills table must name every bundled skill`,
     );
   }
 });

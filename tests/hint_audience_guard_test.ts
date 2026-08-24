@@ -16,12 +16,10 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
-import { join, relative } from "@std/path";
+import { join } from "@std/path";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { type HintAudience, HINTS } from "../src/shared/hints.ts";
-
-const SRC = join(REPO_ROOT, "src");
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** The channel-owning module: the one legal home for raw hint iteration. */
 const CHANNEL_OWNER = "src/shared/hints.ts";
@@ -31,14 +29,21 @@ const RAW_HINT_LOOP = /for\s*\(\s*const\s+\w+\s+of\s+\(?\s*[\w.?]*\.hints\b/;
 
 Deno.test("interactive renderers never iterate the raw hints channel", async () => {
   const offenders: string[] = [];
-  for await (
-    const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/hint_audience_guard_test.ts#raw-hints-channel-loops",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Raw hint-channel iteration is a production rendering boundary implemented beneath src; tests contain detector prose and fixtures.",
+        include: (path) => path.startsWith("src/"),
+      },
+    })
   ) {
-    const rel = relative(REPO_ROOT, entry.path);
     if (rel === CHANNEL_OWNER) {
       continue;
     }
-    const source = await Deno.readTextFile(entry.path);
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     const lines = source.split("\n");
     for (const [index, line] of lines.entries()) {
       if (RAW_HINT_LOOP.test(line)) {

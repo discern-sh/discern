@@ -27,10 +27,9 @@
  */
 
 import { assert } from "@std/assert";
-import { walk } from "@std/fs";
-import { fromFileUrl, join, relative } from "@std/path";
-
-const REPO = fromFileUrl(new URL("../", import.meta.url));
+import { join } from "@std/path";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /**
  * Collect every string-literal body in `src`, skipping comments. A small char
@@ -93,26 +92,30 @@ function namesBranchAsMain(literal: string): boolean {
 /** The integration-branch MESSAGE surfaces: the worktree lifecycle + gate engine,
  * plus the CLI command descriptions. `git.ts` is excluded (see the file header). */
 async function scopedFiles(): Promise<string[]> {
-  const files = [
-    join(REPO, "src/main.ts"),
-    join(REPO, "src/engine/dispatch.ts"),
-  ];
-  for (const dir of ["src/engine/worktree", "src/engine/gate"]) {
-    for await (const entry of walk(join(REPO, dir), { exts: [".ts"] })) {
-      if (entry.name !== "git.ts") {
-        files.push(entry.path);
-      }
-    }
-  }
-  return files;
+  return await structuralGuardScope({
+    guard: "tests/engine_branch_neutral_test.ts#integration-branch-messages",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "The integration-branch wording contract governs CLI descriptions plus worktree and Gate message surfaces; git.ts names the main checkout instead.",
+      include: (path) =>
+        path === "src/main.ts" || path === "src/engine/dispatch.ts" ||
+        ((path.startsWith("src/engine/worktree/") ||
+          path.startsWith("src/engine/gate/")) && !path.endsWith("/git.ts")),
+    },
+  });
 }
 
 Deno.test("no user-facing string names the integration branch the literal 'main'", async () => {
   const offenders: string[] = [];
   for (const file of await scopedFiles()) {
-    for (const literal of stringLiterals(await Deno.readTextFile(file))) {
+    for (
+      const literal of stringLiterals(
+        await Deno.readTextFile(join(REPO_ROOT, file)),
+      )
+    ) {
       if (namesBranchAsMain(literal)) {
-        offenders.push(`${relative(REPO, file)}  ${literal}`);
+        offenders.push(`${file}  ${literal}`);
       }
     }
   }

@@ -18,8 +18,7 @@
  * All three checks iterate the live tree, so a newly added page auto-enrols.
  */
 
-import { walk } from "@std/fs";
-import { dirname, relative } from "@std/path";
+import { dirname, join } from "@std/path";
 import { assert, assertEquals } from "@std/assert";
 import { validateFrontmatter } from "../src/lib/frontmatter.ts";
 import {
@@ -29,18 +28,26 @@ import {
 } from "../src/lib/docs.ts";
 import { loadDocsSite } from "../site/docs.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 Deno.test("every map doc's frontmatter satisfies the strict schema", async () => {
   const failures: string[] = [];
-  for await (
-    const entry of walk(REPO_AUTHORED_PATHS.map, {
-      exts: [".md"],
-      includeDirs: false,
-      skip: [/(^|\/)_private(\/|$)/],
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/map_frontmatter_test.ts#strict-map-frontmatter",
+      universe: "tracked-markdown",
+      narrow: {
+        reason:
+          "The strict metadata house style governs this repository's configured map except its non-shipped private planning subtree.",
+        include: (path) =>
+          path.startsWith(`${REPO_AUTHORED_PATHS.mapRel}/`) &&
+          !path.startsWith(`${REPO_AUTHORED_PATHS.mapRel}/_private/`),
+      },
     })
   ) {
-    const issues = validateFrontmatter(await Deno.readTextFile(entry.path));
-    const rel = relative(REPO_ROOT, entry.path);
+    const issues = validateFrontmatter(
+      await Deno.readTextFile(join(REPO_ROOT, rel)),
+    );
     failures.push(...issues.map((issue) => `${rel}: ${issue}`));
   }
   assertEquals(

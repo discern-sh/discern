@@ -16,12 +16,8 @@ import { assert, assertEquals, assertThrows } from "@std/assert";
 import { join } from "@std/path";
 import type { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
-import {
-  AUTHORED_TS_FILES,
-  isRepoMapPath,
-  REPO_ROOT,
-  TRACKED_MD_FILES,
-} from "./repo_authored_paths.ts";
+import { isRepoMapPath, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import {
   addWorktree,
   defaultMapPath,
@@ -512,10 +508,18 @@ Deno.test("accept's partial envelope carries the exact irreversible effect state
 });
 
 Deno.test("every canonical error slug has a production source anchor", async () => {
+  const errorSourceFiles = await structuralGuardScope({
+    guard: "tests/result_schemas_test.ts#error-slug-source-anchors",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Public error slugs require production emission anchors; the result registry is the vocabulary authority, not an emitter.",
+      include: (rel) =>
+        rel.startsWith("src/") && rel !== "src/shared/result.ts",
+    },
+  });
   const sources = await Promise.all(
-    AUTHORED_TS_FILES
-      .filter((rel) => rel.startsWith("src/") && rel !== "src/shared/result.ts")
-      .map((rel) => Deno.readTextFile(join(REPO_ROOT, rel))),
+    errorSourceFiles.map((rel) => Deno.readTextFile(join(REPO_ROOT, rel))),
   );
   const unanchored = ERROR_SLUGS.filter((slug) =>
     !sources.some((text) =>
@@ -792,10 +796,25 @@ Deno.test("current-facing prose keeps fail-fast cancellation distinct from skipp
     "this guard follows the canonical STEP_OUTCOMES distinction",
   );
   const currentFacingFiles = [
-    ...AUTHORED_TS_FILES.filter((rel) => !rel.startsWith("tests/")),
-    ...TRACKED_MD_FILES.filter((rel) =>
-      !isRepoMapPath(rel, "_adr") && !isRepoMapPath(rel, "_private")
-    ),
+    ...await structuralGuardScope({
+      guard: "tests/result_schemas_test.ts#current-facing-source-outcomes",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Current-facing product prose lives outside tests, whose fixtures intentionally describe invalid outcome wording.",
+        include: (rel) => !rel.startsWith("tests/"),
+      },
+    }),
+    ...await structuralGuardScope({
+      guard: "tests/result_schemas_test.ts#current-facing-markdown-outcomes",
+      universe: "tracked-markdown",
+      narrow: {
+        reason:
+          "Accepted decisions and private planning are historical records; current-facing Markdown must preserve the live outcome distinction.",
+        include: (rel) =>
+          !isRepoMapPath(rel, "_adr") && !isRepoMapPath(rel, "_private"),
+      },
+    }),
   ].sort();
   const conflatesOutcomes =
     /\b(?:fail-fast(?:-cancelled)?\s+(?:collateral|siblings?)|cancelled\s+siblings?)\b[\s\S]{0,240}?\b(?:report(?:ed|s)?(?:\s+as)?|ended)\s+[`"']?skipped\b/i;

@@ -47,6 +47,7 @@ import {
 } from "./registry_atlas_scan.ts";
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const REGISTRY_MODULE = "scripts/canonical_sets.ts";
 
@@ -66,13 +67,18 @@ async function fileText(rel: string): Promise<string | undefined> {
 
 /** All conventionally named guard tests on disk, as `tests/…` paths. */
 async function conventionalGuardFiles(): Promise<string[]> {
-  const files: string[] = [];
-  for await (const item of Deno.readDir(join(REPO_ROOT, "tests"))) {
-    if (item.isFile && isConventionalGuard(item.name)) {
-      files.push(`tests/${item.name}`);
-    }
-  }
-  return files.sort();
+  return await structuralGuardScope({
+    guard:
+      "tests/canonical_sets_enrolment_test.ts#conventional-guard-filenames",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "ADR 0176 bounds canonical-set enrollment to top-level test files carrying the established guard suffixes.",
+      include: (path) =>
+        path.startsWith("tests/") && path.split("/").length === 2 &&
+        isConventionalGuard(path.slice("tests/".length)),
+    },
+  });
 }
 
 // --- Predicates, pure over their inputs so the controls can inject fixtures.

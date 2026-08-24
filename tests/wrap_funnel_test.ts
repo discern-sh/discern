@@ -21,7 +21,8 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** The one module allowed to observe terminal dimensions. */
 const HOME = "src/lib/terminal.ts";
@@ -33,9 +34,15 @@ function codeOnly(src: string): string {
 }
 
 /** Runtime source only: tests may name unsafe shapes as detector fixtures. */
-const RUNTIME_DENO_FILES = AUTHORED_DENO_FILES.filter((rel) =>
-  !rel.startsWith("tests/")
-);
+const RUNTIME_DENO_FILES = await structuralGuardScope({
+  guard: "tests/wrap_funnel_test.ts#runtime-dimension-readers",
+  universe: "authored-deno",
+  narrow: {
+    reason:
+      "The invariant governs runtime terminal-dimension readers; tests name unsafe shapes as detector controls.",
+    include: (rel) => !rel.startsWith("tests/"),
+  },
+});
 
 /** The terminal-dimension reads that must funnel through {@link HOME}. */
 const DIMENSION_READS = [

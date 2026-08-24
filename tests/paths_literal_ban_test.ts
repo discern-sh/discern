@@ -16,7 +16,8 @@ import {
   SOURCE_PATH_NAMES,
   SOURCE_PATHS,
 } from "../src/shared/paths_registry.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** The files permitted to carry a registry default verbatim. */
 const ALLOWED = new Set([
@@ -39,7 +40,12 @@ Deno.test("no registry path default appears as a literal outside the registry", 
     def: SOURCE_PATHS[name].defaultPath,
   }));
   const offenders: string[] = [];
-  for (const rel of AUTHORED_TS_FILES) {
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/paths_literal_ban_test.ts#configured-path-literals",
+      universe: "authored-ts",
+    })
+  ) {
     // Tests deliberately carry literals as independent expectations and
     // fixtures. Runtime code has no such reason.
     if (rel.startsWith("tests/") || ALLOWED.has(rel)) {

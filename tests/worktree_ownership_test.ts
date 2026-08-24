@@ -6,7 +6,18 @@ import {
   branchWithoutOwnershipReason,
   classifyAutomaticBranchOwnership,
 } from "../src/engine/worktree/ownership.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
+
+const WORKTREE_RUNTIME_FILES = await structuralGuardScope({
+  guard: "tests/worktree_ownership_test.ts#worktree-runtime-ownership",
+  universe: "authored-ts",
+  narrow: {
+    reason:
+      "Automatic branch ownership and worktree cleanup are production contracts implemented beneath src.",
+    include: (path) => path.startsWith("src/"),
+  },
+});
 
 const SETTINGS = { slug: "project", branchPrefix: "agent/" } as const;
 
@@ -104,7 +115,7 @@ async function productionCallers(
   const callers: Record<string, number> = {};
   const call = new RegExp(`\\b${symbol}\\s*\\(`, "gu");
   for (
-    const rel of AUTHORED_TS_FILES.filter((path) => path.startsWith("src/"))
+    const rel of WORKTREE_RUNTIME_FILES
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     let count = [...source.matchAll(call)].length;
@@ -143,7 +154,7 @@ Deno.test("automatic branch deletion and worktree removal stay enrolled in their
   const rawBranchDeletion: string[] = [];
   const rawRefDeletion: string[] = [];
   for (
-    const rel of AUTHORED_TS_FILES.filter((path) => path.startsWith("src/"))
+    const rel of WORKTREE_RUNTIME_FILES
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (/\[\s*["']branch["']\s*,\s*["']-(?:d|D)["']/u.test(source)) {

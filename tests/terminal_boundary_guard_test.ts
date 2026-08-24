@@ -4,20 +4,29 @@
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { dirname, join, normalize } from "@std/path";
-import {
-  AUTHORED_DENO_FILES,
-  AUTHORED_TS_FILES,
-  REPO_ROOT,
-} from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const TERMINAL_AUTHORITY = "src/lib/terminal.ts";
 const TEXT_AUTHORITY = "src/lib/text.ts";
-const RUNTIME_TS_FILES = AUTHORED_TS_FILES.filter((rel) =>
-  !rel.startsWith("tests/")
-);
-const RUNTIME_DENO_FILES = AUTHORED_DENO_FILES.filter((rel) =>
-  !rel.startsWith("tests/")
-);
+const RUNTIME_TS_FILES = await structuralGuardScope({
+  guard: "tests/terminal_boundary_guard_test.ts#runtime-terminal-typescript",
+  universe: "authored-ts",
+  narrow: {
+    reason:
+      "The terminal boundary governs runtime presentation code; tests contain planted violations and never render product output.",
+    include: (rel) => !rel.startsWith("tests/"),
+  },
+});
+const RUNTIME_DENO_FILES = await structuralGuardScope({
+  guard: "tests/terminal_boundary_guard_test.ts#runtime-terminal-deno",
+  universe: "authored-deno",
+  narrow: {
+    reason:
+      "The terminal boundary governs runtime presentation code; tests contain planted violations and never render product output.",
+    include: (rel) => !rel.startsWith("tests/"),
+  },
+});
 const INTERACTION_AUTHORITY = "src/lib/terminal_interaction.ts";
 const PAINTER_AUTHORITY = "src/lib/terminal_painter.ts";
 const LIVE_VIEWPORT_CONTROLLER = "src/engine/gate/gate_tty.ts";

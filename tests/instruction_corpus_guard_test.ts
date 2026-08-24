@@ -18,14 +18,14 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join, relative } from "@std/path";
-import { walk } from "@std/fs";
+import { join } from "@std/path";
 import type { Command } from "@cliffy/command";
 import { buildCli } from "../src/main.ts";
 import { cliCommandModel } from "../src/shared/cli_reference_codegen.ts";
 import { validateFencedCommand } from "../src/lib/docs_integrity.ts";
 import { buildInstructions, TOOLS } from "../src/engine/mcp/server.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** One scanned document: a label for failure messages plus its text. */
 interface CorpusDoc {
@@ -33,23 +33,24 @@ interface CorpusDoc {
   readonly text: string;
 }
 
-/** Every Markdown file under a templates/ subtree, labelled repo-relative. */
-async function markdownDocs(dir: string): Promise<CorpusDoc[]> {
-  const docs: CorpusDoc[] = [];
-  for await (const entry of walk(dir, { exts: [".md"], includeDirs: false })) {
-    docs.push({
-      label: relative(REPO_ROOT, entry.path),
-      text: await Deno.readTextFile(entry.path),
-    });
-  }
-  return docs;
-}
-
 /** The whole shipped agent-facing corpus, one doc per surface. */
 async function collectCorpus(): Promise<CorpusDoc[]> {
+  const markdown = await structuralGuardScope({
+    guard: "tests/instruction_corpus_guard_test.ts#shipped-agent-corpus",
+    universe: "tracked-markdown",
+    narrow: {
+      reason:
+        "The agent-facing corpus consists of the shipped instruction templates and bundled skill trees plus runtime MCP descriptions.",
+      include: (rel) =>
+        rel.startsWith("templates/instructions/") ||
+        rel.startsWith("templates/skills/"),
+    },
+  });
   const docs: CorpusDoc[] = [
-    ...(await markdownDocs(join(REPO_ROOT, "templates", "instructions"))),
-    ...(await markdownDocs(join(REPO_ROOT, "templates", "skills"))),
+    ...await Promise.all(markdown.map(async (rel): Promise<CorpusDoc> => ({
+      label: rel,
+      text: await Deno.readTextFile(join(REPO_ROOT, rel)),
+    }))),
     { label: "mcp server instructions", text: buildInstructions() },
     ...TOOLS.map((tool) => ({
       label: `mcp tool ${tool.name}`,
@@ -85,13 +86,18 @@ function skillSpans(text: string): string[] {
 
 /** The bundled skill set: one directory per skill under templates/skills. */
 async function bundledSkillNames(): Promise<Set<string>> {
-  const names = new Set<string>();
-  for await (
-    const entry of Deno.readDir(join(REPO_ROOT, "templates", "skills"))
-  ) {
-    if (entry.isDirectory) names.add(entry.name);
-  }
-  return names;
+  const files = await structuralGuardScope({
+    guard: "tests/instruction_corpus_guard_test.ts#bundled-skill-names",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Bundled skill membership is directory-driven beneath the shipped templates/skills tree.",
+      include: (rel) => rel.startsWith("templates/skills/"),
+    },
+  });
+  return new Set(
+    files.flatMap((rel) => rel.split("/")[2] ?? []),
+  );
 }
 
 Deno.test("shipped corpus command spans validate against the live CLI", async () => {

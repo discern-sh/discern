@@ -2,7 +2,6 @@
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { join } from "@std/path";
-import { walk } from "@std/fs";
 import {
   recommendSetupDocumentationScope,
   SETUP_READINESS_CATEGORIES,
@@ -46,6 +45,7 @@ import {
   RESULT_MARKDOWN_PRESENTERS,
 } from "../src/shared/result_markdown.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
 
@@ -533,18 +533,31 @@ Deno.test("first MCP registration during unfinished setup defers restart to the 
 });
 
 Deno.test("every shipped start description states that start returns a path", async () => {
+  const files = await structuralGuardScope({
+    guard:
+      "tests/engine_setup_operational_contract_test.ts#start-path-descriptions",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "This wording contract governs shipped templates and the two CLI command descriptions.",
+      include: (rel) =>
+        rel.startsWith("templates/") ||
+        rel === "src/engine/dispatch.ts" ||
+        rel === "src/main.ts",
+    },
+  });
   const falseClaims: string[] = [];
-  for await (const entry of walk(REAL_TEMPLATES, { includeDirs: false })) {
-    const text = await Deno.readTextFile(entry.path);
+  for (const rel of files.filter((path) => path.startsWith("templates/"))) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (
       /discern start[^\n]*(moves you|changes (?:the )?directory)/i.test(text)
     ) {
-      falseClaims.push(entry.path);
+      falseClaims.push(rel);
     }
   }
   assertEquals(falseClaims, []);
   const commandSurface = await Deno.readTextFile(
-    join(REPO_ROOT, "src", "engine", "dispatch.ts"),
+    join(REPO_ROOT, "src/engine/dispatch.ts"),
   );
   assert(commandSurface.includes("then print its path"));
   assert(
@@ -552,7 +565,7 @@ Deno.test("every shipped start description states that start returns a path", as
       commandSurface,
     ),
   );
-  const rootHelp = await Deno.readTextFile(join(REPO_ROOT, "src", "main.ts"));
+  const rootHelp = await Deno.readTextFile(join(REPO_ROOT, "src/main.ts"));
   assert(rootHelp.includes("re-root at the returned worktree path"));
   assert(
     !/discern start[^.\n]*(moves you|changes (?:the )?directory)/i.test(

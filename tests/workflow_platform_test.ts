@@ -1,12 +1,11 @@
 /** Native macOS gates public changes and releases, whose Mac binaries are notarized. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { walk } from "@std/fs";
 import { parse as parseYaml } from "@std/yaml";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 import { parseConfigOrThrow, toCommand } from "../src/shared/config_schema.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-const GITHUB = new URL("../.github/", import.meta.url);
 const DISCERN_TOML = new URL("../discern.toml", import.meta.url);
 const GATE = new URL("../.github/workflows/gate.yml", import.meta.url);
 const RELEASE = new URL("../.github/workflows/release.yml", import.meta.url);
@@ -53,17 +52,14 @@ interface GithubYaml {
 }
 
 /** Parse every workflow or local action under `.github`; new YAML auto-enrols. */
-async function githubYaml(): Promise<GithubYaml[]> {
+async function githubYaml(files: readonly string[]): Promise<GithubYaml[]> {
   const documents: GithubYaml[] = [];
-  for await (
-    const entry of walk(GITHUB, {
-      exts: [".yml", ".yaml"],
-      includeDirs: false,
-    })
-  ) {
-    const source = await Deno.readTextFile(entry.path);
+  for (const rel of files) {
+    const source = await Deno.readTextFile(
+      new URL(`../${rel}`, import.meta.url),
+    );
     documents.push({
-      path: entry.path,
+      path: rel,
       mappings: yamlMappings(parseYaml(source)),
     });
   }
@@ -112,7 +108,16 @@ Deno.test("new commits cancel superseded gate runs on the same ref", () => {
 
 Deno.test("hosted automation never exports a trunk override into project tests", async () => {
   const offenders: string[] = [];
-  for (const document of await githubYaml()) {
+  const files = await structuralGuardScope({
+    guard: "tests/workflow_platform_test.ts#hosted-trunk-overrides",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "This environment boundary governs GitHub workflow and action YAML.",
+      include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
+    },
+  });
+  for (const document of await githubYaml(files)) {
     for (const { path, value } of document.mappings) {
       if (Object.hasOwn(value, "DISCERN_TRUNK")) {
         offenders.push(`${document.path}:${path}.DISCERN_TRUNK`);
@@ -153,7 +158,16 @@ Deno.test("local gates default to JUnit and hosted full gates select pretty outp
     "deno task test --reporter=${DISCERN_GATE_TEST_REPORTER:-junit}",
   );
 
-  const documents = await githubYaml();
+  const documents = await githubYaml(
+    await structuralGuardScope({
+      guard: "tests/workflow_platform_test.ts#hosted-gate-reporters",
+      universe: "authored-text",
+      narrow: {
+        reason: "This reporter rule governs GitHub workflow and action YAML.",
+        include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
+      },
+    }),
+  );
   const gateCommands = documents.flatMap(({ mappings }) =>
     mappings.filter(({ value }) => isFullGateCommand(value.run))
   );

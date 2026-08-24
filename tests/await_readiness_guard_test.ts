@@ -9,7 +9,18 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
+
+const AWAIT_TEST_FILES = await structuralGuardScope({
+  guard: "tests/await_readiness_guard_test.ts#await-test-readiness",
+  universe: "authored-ts",
+  narrow: {
+    reason:
+      "The invariant governs test synchronization around asynchronous probes; runtime await implementations follow a different contract.",
+    include: (path) => path.startsWith("tests/"),
+  },
+});
 
 interface PendingAwait {
   readonly name: string;
@@ -228,7 +239,7 @@ Deno.test("await harness: elapsed time cannot stand in for readiness", async () 
 
   const offenders: string[] = [];
   for (
-    const rel of AUTHORED_TS_FILES.filter((path) => path.startsWith("tests/"))
+    const rel of AWAIT_TEST_FILES
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const violation of preReadinessAwaits(source)) {
@@ -275,7 +286,7 @@ Deno.test("job-runner behavior clocks start after observable readiness", async (
 
   const offenders: string[] = [];
   for (
-    const rel of AUTHORED_TS_FILES.filter((path) => path.startsWith("tests/"))
+    const rel of AWAIT_TEST_FILES
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     const sourceFile = project.createSourceFile(rel, source, {

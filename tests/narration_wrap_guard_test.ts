@@ -16,7 +16,8 @@
 
 import { join } from "@std/path";
 import { assertEquals } from "@std/assert";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const CALL = "assertStringIncludes(";
 const SELF = "tests/narration_wrap_guard_test.ts";
@@ -96,10 +97,17 @@ export function wrapSensitiveAssertions(
 
 Deno.test("spaced phrases on rendered output assert content, not the wrap", async () => {
   const offenders: string[] = [];
-  for (const file of AUTHORED_TS_FILES) {
-    if (!file.startsWith("tests/") || file === SELF) {
-      continue;
-    }
+  for (
+    const file of await structuralGuardScope({
+      guard: "tests/narration_wrap_guard_test.ts#wrap-independent-assertions",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The invariant governs test assertions over captured output; runtime code does not make those assertions.",
+        include: (rel) => rel.startsWith("tests/") && rel !== SELF,
+      },
+    })
+  ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, file));
     offenders.push(...wrapSensitiveAssertions(file, source));
   }

@@ -44,6 +44,7 @@ import {
 } from "../src/lib/agent_gitignore.ts";
 import { stripGeneratedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
@@ -278,18 +279,20 @@ Deno.test("every known agent has registered mark, silhouette, and wordmark SVGs"
     }
   }
 
-  const assetDir = join(
-    REPO,
-    "site",
-    "pages",
-    PROVIDER_BRAND_ASSET_ROOT.slice(1),
+  const assetPrefix = `site/pages/${PROVIDER_BRAND_ASSET_ROOT.slice(1)}/`;
+  const onDisk = (await structuralGuardScope({
+    guard: "tests/agent_parity_test.ts#provider-brand-assets",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Provider brand parity governs direct SVG files in the registry-owned integration asset directory.",
+      include: (path) =>
+        path.startsWith(assetPrefix) && path.endsWith(".svg") &&
+        !path.slice(assetPrefix.length).includes("/"),
+    },
+  })).map((path) =>
+    `${PROVIDER_BRAND_ASSET_ROOT}/${path.slice(assetPrefix.length)}`
   );
-  const onDisk: string[] = [];
-  for await (const entry of Deno.readDir(assetDir)) {
-    if (entry.isFile && entry.name.endsWith(".svg")) {
-      onDisk.push(`${PROVIDER_BRAND_ASSET_ROOT}/${entry.name}`);
-    }
-  }
   assertEquals(
     onDisk.sort(),
     registered.sort(),

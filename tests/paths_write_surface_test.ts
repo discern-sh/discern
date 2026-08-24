@@ -39,6 +39,9 @@ import {
   projectArtifactPaths,
 } from "../src/lib/artifact_ownership.ts";
 import { writeEnvVar } from "../src/engine/worktree/env_file.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
+
+const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 
 // ── leg 1: the static funnel ─────────────────────────────────────────────────
 
@@ -216,19 +219,23 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
 ]);
 
-const SRC = join(dirname(fromFileUrl(import.meta.url)), "..", "src");
-
 /** Every `.ts` file under `src/`, as `[repo-relative path, contents]`. */
 async function srcFiles(): Promise<Array<[string, string]>> {
   const out: Array<[string, string]> = [];
-  const src = SRC;
-  for await (const entry of walk(src, { includeDirs: false })) {
-    if (!entry.path.endsWith(".ts")) {
-      continue;
-    }
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/paths_write_surface_test.ts#production-write-primitives",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The write-site funnel governs production filesystem mutations implemented beneath src.",
+        include: (path) => path.startsWith("src/"),
+      },
+    })
+  ) {
     out.push([
-      join("src", relative(src, entry.path)),
-      await Deno.readTextFile(entry.path),
+      rel,
+      await Deno.readTextFile(join(REPO_ROOT, rel)),
     ]);
   }
   return out;

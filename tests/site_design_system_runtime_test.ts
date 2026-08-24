@@ -6,7 +6,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { fromFileUrl, join, relative } from "@std/path";
+import { fromFileUrl, join } from "@std/path";
 import { packageManifest, type RuntimeManifest } from "discern-design-system";
 import {
   COPIED_PAGE_ASSETS,
@@ -24,9 +24,9 @@ import { formatGeneratedText } from "../site/page-src/format-generated.ts";
 import { renderMarketingPage } from "../site/page-src/renderers.ts";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SITE_ROOT = join(ROOT, "site");
 const DESIGN_SYSTEM_VERSION = "0.26.1";
 const DESIGN_SYSTEM_SPECIFIER =
   `jsr:@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}`;
@@ -96,17 +96,6 @@ async function git(args: string[]): Promise<Deno.CommandOutput> {
     stdout: "piped",
     stderr: "piped",
   }).output();
-}
-
-/** Recursively enumerate every generated bundle file for tracked-output and provenance checks. */
-async function walk(directory: string): Promise<string[]> {
-  const files: string[] = [];
-  for await (const entry of Deno.readDir(directory)) {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory) files.push(...await walk(path));
-    else files.push(path);
-  }
-  return files;
 }
 
 /** Resolve one declared design-system bundle's generated output directory. */
@@ -205,9 +194,16 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
   );
   assert(`@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}` in lock.jsr);
 
-  const sourceFiles = (await walk(SITE_ROOT)).filter((path) =>
-    /\.[cm]?[jt]sx?$/.test(path)
-  );
+  const sourceFiles = await structuralGuardScope({
+    guard:
+      "tests/site_design_system_runtime_test.ts#design-system-import-provenance",
+    universe: "authored-deno",
+    narrow: {
+      reason:
+        "Design-system import provenance governs authored site runtime modules.",
+      include: (rel) => rel.startsWith("site/"),
+    },
+  });
   const forbidden = [
     "site/design-system",
     "jsr:@discern-sh/design-system",
@@ -216,11 +212,11 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
     "/design-system/dist/",
   ];
   const violations: string[] = [];
-  for (const path of sourceFiles) {
-    const source = await Deno.readTextFile(path);
+  for (const rel of sourceFiles) {
+    const source = await Deno.readTextFile(join(ROOT, rel));
     for (const pattern of forbidden) {
       if (source.includes(pattern)) {
-        violations.push(`${relative(ROOT, path)}: ${pattern}`);
+        violations.push(`${rel}: ${pattern}`);
       }
     }
   }
@@ -363,19 +359,25 @@ Deno.test("consumer CSS never targets a package-manifest-owned class", async () 
   );
   assert(owned.size > 0);
   const violations: string[] = [];
-  for (const path of await walk(SITE_ROOT)) {
-    const repoPath = relative(ROOT, path);
-    if (
-      !path.endsWith(".css") ||
-      repoPath.startsWith("site/pages/assets/design-system/")
-    ) continue;
+  const files = await structuralGuardScope({
+    guard: "tests/site_design_system_runtime_test.ts#owned-css-selectors",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Package-owned selector isolation governs authored consumer CSS outside emitted bundles.",
+      include: (rel) =>
+        rel.startsWith("site/") && rel.endsWith(".css") &&
+        !rel.startsWith("site/pages/assets/design-system/"),
+    },
+  });
+  for (const rel of files) {
     for (
       const selector of componentOwnedSelectors(
-        await Deno.readTextFile(path),
+        await Deno.readTextFile(join(ROOT, rel)),
         owned,
       )
     ) {
-      violations.push(`${repoPath}: ${selector}`);
+      violations.push(`${rel}: ${selector}`);
     }
   }
   assertEquals(violations, []);

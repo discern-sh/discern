@@ -15,11 +15,14 @@ import {
   DISCERN_ENVIRONMENT_VARIABLE_NAMES,
   DISCERN_ENVIRONMENT_VARIABLES,
 } from "../src/shared/environment_variables.ts";
-import {
-  AUTHORED_TEXT_FILES,
-  isRepoMapPath,
-  REPO_ROOT,
-} from "./repo_authored_paths.ts";
+import { isRepoMapPath, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
+
+const ENVIRONMENT_CONTRACT_FILES = await structuralGuardScope({
+  guard:
+    "tests/environment_variables_enrolment_test.ts#environment-contract-census",
+  universe: "authored-text",
+});
 
 const REGISTRY_REL = "src/shared/environment_variables.ts";
 const ENVIRONMENT_NAME_SOURCE = String.raw`DISCERN_[A-Z][A-Z0-9_]*`;
@@ -143,7 +146,7 @@ function environmentEnrollmentFailures(
 /** Read every current authored contract surface except the registry itself. */
 async function currentContractTexts(): Promise<Map<string, string>> {
   const texts = new Map<string, string>();
-  for (const rel of AUTHORED_TEXT_FILES) {
+  for (const rel of ENVIRONMENT_CONTRACT_FILES) {
     if (rel === REGISTRY_REL || !isCurrentContractPath(rel)) continue;
     texts.set(rel, await Deno.readTextFile(join(REPO_ROOT, rel)));
   }

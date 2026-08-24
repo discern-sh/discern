@@ -43,6 +43,7 @@ import { runVale } from "../scripts/vale_lib.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 Deno.test("every committed style file matches its renderer (run `deno task codegen`)", async () => {
   const files = valeStyleFiles();
@@ -58,6 +59,15 @@ Deno.test("every committed style file matches its renderer (run `deno task codeg
 });
 
 Deno.test("every generated style directory contains exactly the rendered set", async () => {
+  const styleFiles = await structuralGuardScope({
+    guard: "tests/brand_vale_codegen_test.ts#generated-vale-style-files",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "The Vale registry generates the tracked YAML files beneath the repository's .vale style directories.",
+      include: (path) => path.startsWith(".vale/") && path.endsWith(".yml"),
+    },
+  });
   const expected = new Map<string, Set<string>>();
   for (const register of REGISTERS) {
     expected.set(valeStyleName(register), new Set());
@@ -72,10 +82,12 @@ Deno.test("every generated style directory contains exactly the rendered set", a
       names.size > 0,
       `${style} renders no rules — a register lost its enforcement`,
     );
-    const onDisk = new Set<string>();
-    for await (const entry of Deno.readDir(join(REPO_ROOT, ".vale", style))) {
-      if (entry.isFile) onDisk.add(entry.name);
-    }
+    const prefix = `.vale/${style}/`;
+    const onDisk = new Set(
+      styleFiles.filter((rel) => rel.startsWith(prefix)).map((rel) =>
+        rel.slice(prefix.length)
+      ),
+    );
     assertEquals(
       [...onDisk].sort(),
       [...names].sort(),

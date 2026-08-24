@@ -1,19 +1,13 @@
 import { assertEquals } from "@std/assert";
-import { join, relative } from "@std/path";
+import { join } from "@std/path";
 import { HINTS } from "../src/shared/hints.ts";
 import {
   renderCommandRefsCli,
   renderCommandRefsMcp,
 } from "../src/shared/command_reference.ts";
 import { mcpToolNameForVerb } from "../src/engine/mcp/server.ts";
-
-const AGENT_FACING_SURFACES = [
-  "templates/instructions",
-  "templates/skills",
-  "src/main.ts",
-  "src/engine/status/status.ts",
-  "src/engine/mcp/server.ts",
-] as const;
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const MISLEADING_ACCEPTANCE_PATTERNS: Array<{
   name: string;
@@ -59,20 +53,6 @@ const VERIFIED_AUTHORITY_HINT_IDS = new Set([
   "status-land-under-verified-authority",
 ]);
 
-/** Flatten either a file or a directory tree into the concrete surfaces the guard scans. */
-async function filesUnder(path: string): Promise<string[]> {
-  const stat = await Deno.stat(path);
-  if (stat.isFile) {
-    return [path];
-  }
-
-  const files: string[] = [];
-  for await (const entry of Deno.readDir(path)) {
-    files.push(...await filesUnder(join(path, entry.name)));
-  }
-  return files;
-}
-
 /** Locate the first line matching each instruction pattern that overstates landing authority. */
 function acceptanceViolations(label: string, text: string): string[] {
   const violations: string[] = [];
@@ -88,14 +68,26 @@ function acceptanceViolations(label: string, text: string): string[] {
 }
 
 Deno.test("agent-facing instructions do not present acceptance as the next autonomous step", async () => {
-  const files = (await Promise.all(AGENT_FACING_SURFACES.map(filesUnder)))
-    .flat()
-    .sort();
+  const files = await structuralGuardScope({
+    guard:
+      "tests/agent_acceptance_instruction_test.ts#autonomous-acceptance-copy",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "This authority rule governs shipped agent copy and runtime hint surfaces.",
+      include: (rel) =>
+        rel.startsWith("templates/instructions/") ||
+        rel.startsWith("templates/skills/") ||
+        rel === "src/main.ts" ||
+        rel === "src/engine/status/status.ts" ||
+        rel === "src/engine/mcp/server.ts",
+    },
+  });
   const violations: string[] = [];
 
-  for (const file of files) {
-    const text = await Deno.readTextFile(file);
-    violations.push(...acceptanceViolations(relative(".", file), text));
+  for (const rel of files) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+    violations.push(...acceptanceViolations(rel, text));
   }
 
   assertEquals(violations, []);

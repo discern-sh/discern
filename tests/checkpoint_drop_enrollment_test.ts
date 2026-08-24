@@ -35,7 +35,8 @@ import {
   projectGateResult,
   projectStatusResult,
 } from "../src/shared/result_wire.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
 
 const POLICY_COMMIT = "a".repeat(40);
@@ -222,7 +223,16 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
 
 Deno.test("checkpoint drops: high-level fail-open owners cannot append advisory-only evidence", async () => {
   for (
-    const rel of AUTHORED_TS_FILES.filter((path) => !path.startsWith("tests/"))
+    const rel of await structuralGuardScope({
+      guard:
+        "tests/checkpoint_drop_enrollment_test.ts#production-drop-producers",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Only production code emits checkpoint drops; tests contain synthetic drop shapes used to verify the detector.",
+        include: (rel) => !rel.startsWith("tests/"),
+      },
+    })
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     assert(

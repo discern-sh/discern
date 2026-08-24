@@ -29,7 +29,13 @@ import {
   scanMarkdownTables,
   type TableViolation,
 } from "../src/lib/table_integrity.ts";
-import { REPO_ROOT, TRACKED_MD_FILES } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
+
+const MARKDOWN_TABLE_FILES = await structuralGuardScope({
+  guard: "tests/markdown_table_integrity_test.ts#markdown-table-shapes",
+  universe: "tracked-markdown",
+});
 
 /** Terminate fixture rows as a complete Markdown table block. */
 function table(...rows: string[]): string {
@@ -194,7 +200,7 @@ Deno.test("pipes in prose without a delimiter row are not a table", () => {
 
 Deno.test("the tracked-Markdown universe covers the row that motivated the guard", () => {
   assert(
-    TRACKED_MD_FILES.includes("templates/setup/instructions.md"),
+    MARKDOWN_TABLE_FILES.includes("templates/setup/instructions.md"),
     "templates/setup/instructions.md ships the setup brief — if it left " +
       "the universe, the table this guard exists for would go unguarded",
   );
@@ -202,7 +208,7 @@ Deno.test("the tracked-Markdown universe covers the row that motivated the guard
 
 Deno.test("every GFM table row in tracked Markdown splits cleanly against its header", async () => {
   const failures: string[] = [];
-  for (const rel of TRACKED_MD_FILES) {
+  for (const rel of MARKDOWN_TABLE_FILES) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const v of scanMarkdownTables(text)) {
       failures.push(`${rel}:${v.line} [${v.kind}] ${v.reason}`);

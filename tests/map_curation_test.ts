@@ -27,23 +27,42 @@ import { stageBundledDocs } from "../scripts/build.ts";
 import { loadDocsSite } from "../site/docs.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const MAP_DIR = REPO_AUTHORED_PATHS.map;
+const MAP_MARKDOWN_FILES = await structuralGuardScope({
+  guard: "tests/map_curation_test.ts#configured-map-sections",
+  universe: "tracked-markdown",
+  narrow: {
+    reason:
+      "Section classification and projection are contracts of this repository's configured map tree.",
+    include: (rel) => rel.startsWith(`${REPO_AUTHORED_PATHS.mapRel}/`),
+  },
+});
 
 /** This repo's top-level configured-map entry names. */
-async function topLevelDocEntries(): Promise<string[]> {
-  const names: string[] = [];
-  for await (const entry of Deno.readDir(MAP_DIR)) names.push(entry.name);
-  return names.sort();
+function topLevelDocEntries(): string[] {
+  const prefix = `${REPO_AUTHORED_PATHS.mapRel}/`;
+  return [
+    ...new Set(
+      MAP_MARKDOWN_FILES.map((rel) => rel.slice(prefix.length).split("/")[0])
+        .filter((name): name is string => name !== undefined),
+    ),
+  ].sort();
 }
 
 /** Every numbered map directory, independent of its current registry name. */
-async function numberedSectionDirs(): Promise<string[]> {
-  const dirs: string[] = [];
-  for await (const entry of Deno.readDir(MAP_DIR)) {
-    if (entry.isDirectory && /^\d\d-/.test(entry.name)) dirs.push(entry.name);
-  }
-  return dirs.sort();
+function numberedSectionDirs(): string[] {
+  const prefix = `${REPO_AUTHORED_PATHS.mapRel}/`;
+  return [
+    ...new Set(MAP_MARKDOWN_FILES.flatMap((rel) => {
+      const within = rel.slice(prefix.length);
+      const name = within.split("/")[0];
+      return within.includes("/") && name !== undefined && /^\d\d-/.test(name)
+        ? [name]
+        : [];
+    })),
+  ].sort();
 }
 
 /** The public section rows authored under the manual's `The sections` H2. */
@@ -148,10 +167,10 @@ Deno.test("isBundledDocEntry follows the total section registry", () => {
 });
 
 Deno.test("every numbered section and public projection agrees", async () => {
-  const names = await topLevelDocEntries();
+  const names = topLevelDocEntries();
   const embedded = names.filter(isBundledDocEntry);
   const internalEmbedded = embedded.filter((n) => n.startsWith("_"));
-  const numbered = await numberedSectionDirs();
+  const numbered = numberedSectionDirs();
   const docsDirs = numbered.filter(isBundledDocEntry);
   const site = await loadDocsSite();
 

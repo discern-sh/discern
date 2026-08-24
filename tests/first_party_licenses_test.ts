@@ -4,8 +4,8 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { ensureDir, walk } from "@std/fs";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { ensureDir } from "@std/fs";
+import { dirname, join } from "@std/path";
 import {
   FIRST_PARTY_LICENSE_ARTIFACT_PATHS,
   firstPartyLicenseBundlePayload,
@@ -21,8 +21,10 @@ import {
   type FirstPartyLegalDocumentDeclaration,
 } from "../src/shared/license_registry.ts";
 import { withTempDir } from "./helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+const repoRoot = REPO_ROOT;
 
 Deno.test("every authored first-party legal document is registered exactly once", async () => {
   const declaredPaths = FIRST_PARTY_LEGAL_DOCUMENTS.map((document) =>
@@ -34,12 +36,16 @@ Deno.test("every authored first-party legal document is registered exactly once"
   assertEquals(declaredPaths.filter((path) => path === "LICENSE"), ["LICENSE"]);
   assertEquals(declaredPaths.filter((path) => path === "NOTICE"), ["NOTICE"]);
 
-  const authoredPaths = ["LICENSE", "NOTICE"];
-  for await (
-    const entry of walk(join(repoRoot, "LICENSES"), { includeDirs: false })
-  ) {
-    authoredPaths.push(relative(repoRoot, entry.path));
-  }
+  const authoredPaths = await structuralGuardScope({
+    guard: "tests/first_party_licenses_test.ts#legal-document-registry",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "The first-party legal registry governs root notices and the LICENSES tree.",
+      include: (rel) =>
+        rel === "LICENSE" || rel === "NOTICE" || rel.startsWith("LICENSES/"),
+    },
+  });
   assertEquals(
     [...declaredPaths].sort(),
     authoredPaths.sort(),

@@ -1,7 +1,9 @@
 /** Production publishing stays coupled to the installable release tag. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { walk } from "@std/fs";
+import { join } from "@std/path";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const WORKFLOWS = new URL("../.github/workflows/", import.meta.url);
 const RELEASE = new URL("release.yml", WORKFLOWS);
@@ -26,15 +28,21 @@ Deno.test("the production site deploy is a release-tag-only path", async () => {
 
 Deno.test("no second workflow can deploy main or bypass the tag release", async () => {
   const deployers: string[] = [];
-  for await (
-    const entry of walk(WORKFLOWS, {
-      exts: [".yml", ".yaml"],
-      includeDirs: false,
+  const prefix = ".github/workflows/";
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/site_release_deploy_test.ts#site-deploy-workflows",
+      universe: "authored-text",
+      narrow: {
+        reason:
+          "The production deployment singleton is enforced across tracked YAML workflows beneath .github/workflows.",
+        include: (path) => path.startsWith(prefix) && /\.ya?ml$/.test(path),
+      },
     })
   ) {
-    const text = await Deno.readTextFile(entry.path);
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (/\bdeno deploy\b|\bdeployctl\b/.test(text)) {
-      deployers.push(entry.name);
+      deployers.push(rel.slice(prefix.length));
     }
   }
   assertEquals(deployers, ["release.yml"]);

@@ -7,9 +7,9 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join, toFileUrl } from "@std/path";
 import { Project, SyntaxKind } from "ts-morph";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import {
   DEFAULT_SITE_DEV_PORT,
   LOCAL_SITE_BUILD_TASKS,
@@ -99,15 +99,20 @@ function unmanagedSiteServerStarts(
 /** Load every authored TypeScript source in the site's architectural boundary. */
 async function authoredSiteSources(): Promise<AuthoredSource[]> {
   const sources: AuthoredSource[] = [];
-  for await (
-    const entry of walk(join(REPO, "site"), {
-      exts: [".ts"],
-      includeDirs: false,
+  for (
+    const path of await structuralGuardScope({
+      guard: "tests/site_development_test.ts#site-server-boundaries",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The local-server ownership and import boundary governs authored TypeScript beneath the site subtree.",
+        include: (rel) => rel.startsWith("site/"),
+      },
     })
   ) {
     sources.push({
-      path: `site/${entry.path.slice(join(REPO, "site").length + 1)}`,
-      text: await Deno.readTextFile(entry.path),
+      path,
+      text: await Deno.readTextFile(join(REPO, path)),
     });
   }
   return sources;

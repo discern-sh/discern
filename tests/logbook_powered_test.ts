@@ -6,11 +6,8 @@ import {
   logbookPoweredPhraseList,
 } from "../src/shared/logbook_powered.ts";
 import { renderConfigReferenceDoc } from "../src/shared/config_codegen.ts";
-import {
-  AUTHORED_TS_FILES,
-  REPO_AUTHORED_PATHS,
-  REPO_ROOT,
-} from "./repo_authored_paths.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 // These hold every wording surface that explains `[project].logbook = false` to
 // the registry in `logbook_powered.ts` (ADR 0160): the hand-authored surfaces —
@@ -170,7 +167,12 @@ Deno.test("every module reading the logbook is claimed by a registry member, and
   assert(entryNames.length > 0, "no read entry points found — census is blind");
 
   // Member → code: each claimed reader exists and actually reads the logbook.
-  const authored = new Set(AUTHORED_TS_FILES);
+  const authored = new Set(
+    await structuralGuardScope({
+      guard: "tests/logbook_powered_test.ts#registered-reader-paths",
+      universe: "authored-ts",
+    }),
+  );
   for (const member of LOGBOOK_POWERED) {
     for (const rel of member.readers) {
       assert(
@@ -187,11 +189,18 @@ Deno.test("every module reading the logbook is claimed by a registry member, and
 
   // Code → member: a consuming module outside the substrate must be claimed.
   const claimed = new Set(LOGBOOK_POWERED.flatMap((m) => m.readers));
-  const scanSet = AUTHORED_TS_FILES.filter((rel) =>
-    rel.startsWith("src/") &&
-    !rel.startsWith(SUBSTRATE_PREFIX) &&
-    !(ENTRY_MODULES as readonly string[]).includes(rel)
-  );
+  const scanSet = await structuralGuardScope({
+    guard: "tests/logbook_powered_test.ts#unclaimed-logbook-readers",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "The reader registry governs production consumers outside the logbook substrate and its declared entry modules.",
+      include: (rel) =>
+        rel.startsWith("src/") &&
+        !rel.startsWith(SUBSTRATE_PREFIX) &&
+        !(ENTRY_MODULES as readonly string[]).includes(rel),
+    },
+  });
   const unclaimed: string[] = [];
   for (const rel of scanSet) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
@@ -211,9 +220,16 @@ Deno.test("every module reading the logbook is claimed by a registry member, and
 Deno.test("historical archive selection stays confined to the advisory Patterns reader", async () => {
   const callers: string[] = [];
   for (
-    const rel of AUTHORED_TS_FILES.filter((path) =>
-      path.startsWith("src/") && path !== "src/engine/logbook/read.ts"
-    )
+    const rel of await structuralGuardScope({
+      guard: "tests/logbook_powered_test.ts#historical-archive-readers",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Historical archive selection is a production-reader rule; the read authority itself defines the selected API.",
+        include: (path) =>
+          path.startsWith("src/") && path !== "src/engine/logbook/read.ts",
+      },
+    })
   ) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (/\breadLogbookFile\(/.test(text)) {

@@ -20,7 +20,8 @@ import {
   DISCERN_WORDMARK,
 } from "../src/shared/brand.ts";
 import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
-import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 Deno.test("the project mark is U+25EE and the README opens with its wordmark", async () => {
   assertEquals(DISCERN_MARK.codePointAt(0), 0x25ee);
@@ -68,7 +69,12 @@ const MARK_GLYPH_HOMES: ReadonlyMap<string, readonly string[]> = new Map([
 
 Deno.test("mark-family glyph literals stay at their constants and golden tests", async () => {
   const offenders: string[] = [];
-  for (const rel of AUTHORED_DENO_FILES) {
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/brand_mark_test.ts#canonical-mark-literals",
+      universe: "authored-deno",
+    })
+  ) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const [glyph, homes] of MARK_GLYPH_HOMES) {
       if (text.includes(glyph) && !homes.includes(rel)) {

@@ -43,7 +43,8 @@ import {
   type EnrolledValidator,
   NON_VALIDATOR_IMPORTS,
 } from "./validator_registry.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const REGISTRY_MODULE = "tests/validator_registry.ts";
 const DOGFOOD_ANCHOR = "tests/repo_authored_paths.ts";
@@ -366,7 +367,12 @@ function ledgerOffenders(
 
 const UNIVERSE: Universe = await (async () => {
   const files = new Map<string, string>();
-  for (const rel of AUTHORED_TS_FILES) {
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/validator_enrolment_test.ts#validator-import-graph",
+      universe: "authored-ts",
+    })
+  ) {
     files.set(rel, await Deno.readTextFile(join(REPO_ROOT, rel)));
   }
   return files;

@@ -6,7 +6,7 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { ensureDir, walk } from "@std/fs";
+import { ensureDir } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
 import {
   assertFrontmatterPreserved,
@@ -18,6 +18,7 @@ import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { scanRuledBanners } from "../src/lib/config_banners.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -286,19 +287,25 @@ Deno.test("a parse failure aborts bare tidy before any Markdown write", async ()
 });
 
 Deno.test("the real map corpus and discern.toml are formatter-idempotent", async () => {
-  const mapRoot = join(REPO_ROOT, "project", "map");
+  const mapFiles = await structuralGuardScope({
+    guard: "tests/engine_tidy_test.ts#map-formatter-idempotence",
+    universe: "tracked-markdown",
+    narrow: {
+      reason: "This formatter contract governs the configured project Map.",
+      include: (rel) => rel.startsWith("project/map/"),
+    },
+  });
   let count = 0;
-  for await (
-    const entry of walk(mapRoot, { includeDirs: false, exts: [".md"] })
-  ) {
-    const before = await Deno.readTextFile(entry.path);
-    const once = await formatMarkdownText(entry.path, before);
+  for (const rel of mapFiles) {
+    const path = join(REPO_ROOT, rel);
+    const before = await Deno.readTextFile(path);
+    const once = await formatMarkdownText(path, before);
     assertEquals(
-      await formatMarkdownText(entry.path, once),
+      await formatMarkdownText(path, once),
       once,
-      entry.path,
+      path,
     );
-    assertEquals(fencedBlocks(once), fencedBlocks(before), entry.path);
+    assertEquals(fencedBlocks(once), fencedBlocks(before), path);
     count += 1;
   }
   assert(count > 300);

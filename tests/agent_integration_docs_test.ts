@@ -22,7 +22,8 @@ import { join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { providerFor, wiredMcp } from "../src/lib/providers.ts";
 import { extractTitle } from "../src/lib/docs.ts";
-import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import {
   mcpServerArgsForNativeAgent,
   NATIVE_MCP_TIMEOUT_POLICY,
@@ -42,17 +43,25 @@ function reuseCanonicalAgents(): readonly string[] {
 async function integrationDocs(): Promise<
   Array<{ file: string; text: string }>
 > {
-  const dir = join(REPO_AUTHORED_PATHS.map, "60-agent-integrations");
   const docs: Array<{ file: string; text: string }> = [];
-  for await (const entry of Deno.readDir(dir)) {
-    if (
-      entry.isFile && entry.name.endsWith(".md") && entry.name !== "README.md"
-    ) {
-      docs.push({
-        file: entry.name,
-        text: await Deno.readTextFile(join(dir, entry.name)),
-      });
-    }
+  const prefix = `${REPO_AUTHORED_PATHS.mapRel}/60-agent-integrations/`;
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/agent_integration_docs_test.ts#provider-integration-docs",
+      universe: "tracked-markdown",
+      narrow: {
+        reason:
+          "Provider documentation parity governs leaf pages in the configured agent-integrations section, excluding its section index.",
+        include: (path) =>
+          path.startsWith(prefix) && path !== `${prefix}README.md` &&
+          !path.slice(prefix.length).includes("/"),
+      },
+    })
+  ) {
+    docs.push({
+      file: rel.slice(prefix.length),
+      text: await Deno.readTextFile(join(REPO_ROOT, rel)),
+    });
   }
   return docs;
 }

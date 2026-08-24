@@ -12,7 +12,8 @@
 
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const SELF = "tests/gotcha_test_layering_test.ts";
 const BLACK_BOX_PROBE = "tests/engine_gate_failure_tail_test.ts";
@@ -37,9 +38,17 @@ const ENGINE_LAUNCH = new RegExp(
 Deno.test("gotcha matcher variants stay at the in-process tail seam", async () => {
   const offenders: string[] = [];
   for (
-    const rel of AUTHORED_TS_FILES.filter((path) =>
-      path.startsWith("tests/") && path.endsWith("_test.ts") && path !== SELF
-    )
+    const rel of await structuralGuardScope({
+      guard: "tests/gotcha_test_layering_test.ts#matcher-test-layering",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The invariant governs executable test cases named by the established _test.ts convention, excluding its own detector source.",
+        include: (path) =>
+          path.startsWith("tests/") && path.endsWith("_test.ts") &&
+          path !== SELF,
+      },
+    })
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (!MATCHER_MARKERS.some((marker) => source.includes(marker))) {

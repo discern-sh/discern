@@ -30,16 +30,25 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
-import { join, relative } from "@std/path";
+import { join } from "@std/path";
 import { stringLiterals } from "./vocab_scan.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { QUESTIONS } from "../src/shared/questions.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-const SRC = join(REPO_ROOT, "src");
-const TEMPLATES = join(REPO_ROOT, "templates");
-const ADRS = join(REPO_AUTHORED_PATHS.map, "_adr");
+const ACTIVE_ADR_FILES = await structuralGuardScope({
+  guard: "tests/adr_vocab_guard_test.ts#active-adr-vocabulary",
+  universe: "tracked-markdown",
+  narrow: {
+    reason:
+      "Vocabulary amendments apply to active ADR records at the configured ADR root, not its README, template, or superseded subtree.",
+    include: (rel) => {
+      const prefix = `${REPO_AUTHORED_PATHS.mapRel}/_adr/`;
+      return rel.startsWith(prefix) && !rel.slice(prefix.length).includes("/");
+    },
+  },
+});
 
 /** A numbered citation of an internal decision: "ADR 0034", "adr-12", "ADR0101". */
 const ADR_CITATION = /\bADR[\s-]?\d+/gi;
@@ -86,11 +95,18 @@ function shippedOffendersIn(rel: string, text: string): string[] {
 
 Deno.test("src/ string literals never cite ADR numbers", async () => {
   const offenders: string[] = [];
-  for await (
-    const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/adr_vocab_guard_test.ts#source-string-citations",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Numbered internal ADR citations are forbidden in production string literals beneath src; comments and tests may cite decisions.",
+        include: (path) => path.startsWith("src/"),
+      },
+    })
   ) {
-    const source = await Deno.readTextFile(entry.path);
-    const rel = relative(REPO_ROOT, entry.path);
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const { text, line } of stringLiterals(source)) {
       for (const hit of citationsIn(text)) {
         offenders.push(`${rel}:${line} string contains "${hit}"`);
@@ -109,14 +125,18 @@ Deno.test("src/ string literals never cite ADR numbers", async () => {
 
 Deno.test("shipped templates/ never cite ADR numbers", async () => {
   const offenders: string[] = [];
-  for await (const entry of walk(TEMPLATES, { includeDirs: false })) {
-    let text: string;
-    try {
-      text = await Deno.readTextFile(entry.path);
-    } catch {
-      continue; // non-text / unreadable → nothing to leak
-    }
-    const rel = relative(REPO_ROOT, entry.path);
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/adr_vocab_guard_test.ts#shipped-template-citations",
+      universe: "authored-text",
+      narrow: {
+        reason:
+          "Every text file beneath templates ships verbatim to other projects and must stand without this repository's decision numbers.",
+        include: (path) => path.startsWith("templates/"),
+      },
+    })
+  ) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const hit of shippedOffendersIn(rel, text)) {
       offenders.push(`${rel} contains "${hit}"`);
     }
@@ -131,15 +151,14 @@ Deno.test("shipped templates/ never cite ADR numbers", async () => {
 
 Deno.test("active ADRs either speak the canon or carry an ADR 0120 amendment", async () => {
   const offenders: string[] = [];
-  for await (const entry of walk(ADRS, { includeDirs: false, maxDepth: 1 })) {
-    const rel = relative(REPO_ROOT, entry.path);
+  for (const rel of ACTIVE_ADR_FILES) {
     if (
       !rel.endsWith(".md") ||
       rel.endsWith("/0000-template.md") ||
       rel.endsWith("/README.md") ||
       rel.endsWith("/0120-launch-verb-canon.md")
     ) continue;
-    const contents = await Deno.readTextFile(entry.path);
+    const contents = await Deno.readTextFile(join(REPO_ROOT, rel));
     const retired = contents.match(RETIRED_ADR_POINTER) ?? [];
     if (retired.length > 0 && !ADR_0120_AMENDMENT.test(contents)) {
       offenders.push(
@@ -164,15 +183,14 @@ Deno.test("active ADRs either speak the canon or carry an ADR 0120 amendment", a
 
 Deno.test("active ADRs that retain Recipe history carry an ADR 0137 amendment", async () => {
   const offenders: string[] = [];
-  for await (const entry of walk(ADRS, { includeDirs: false, maxDepth: 1 })) {
-    const rel = relative(REPO_ROOT, entry.path);
+  for (const rel of ACTIVE_ADR_FILES) {
     if (
       !rel.endsWith(".md") ||
       rel.endsWith("/0000-template.md") ||
       rel.endsWith("/README.md") ||
       rel.endsWith("/0137-project-scripts-live-under-the-script-command.md")
     ) continue;
-    const contents = await Deno.readTextFile(entry.path);
+    const contents = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (
       /\brecipes?\b/iu.test(contents) && !contents.includes(ADR_0137_AMENDMENT)
     ) {

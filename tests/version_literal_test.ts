@@ -9,11 +9,8 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { KIT_VERSION } from "../src/lib/version.ts";
-import {
-  AUTHORED_TS_FILES,
-  authoredTsFiles,
-  REPO_ROOT,
-} from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 
@@ -39,11 +36,19 @@ async function hardcodedVersionSites(
 // The single source itself — the one place the semver may appear quoted.
 const ALLOWED = ["src/lib/version.ts"];
 
+/** Resolve the repository-wide version-literal universe for any Git fixture. */
+function versionGuardFiles(root: string): Promise<string[]> {
+  return structuralGuardScope({
+    guard: "tests/version_literal_test.ts#hardcoded-package-version",
+    universe: "authored-ts",
+  }, root);
+}
+
 Deno.test("authored TypeScript never hardcodes the package semver", async () => {
   assertEquals(
     await hardcodedVersionSites(
       REPO_ROOT,
-      AUTHORED_TS_FILES,
+      await versionGuardFiles(REPO_ROOT),
       KIT_VERSION,
       ALLOWED,
     ),
@@ -63,7 +68,12 @@ Deno.test("the version guard enrolls a fresh literal in any authored tree", asyn
       `export const banner = "unrelated v3.2.1";\n`,
     );
     assertEquals(
-      await hardcodedVersionSites(dir, await authoredTsFiles(dir), "3.2.1", []),
+      await hardcodedVersionSites(
+        dir,
+        await versionGuardFiles(dir),
+        "3.2.1",
+        [],
+      ),
       [],
       "a version inside a longer string is not a quoted literal",
     );
@@ -72,7 +82,12 @@ Deno.test("the version guard enrolls a fresh literal in any authored tree", asyn
       `export const version = "3.2.1";\n`,
     );
     assertEquals(
-      await hardcodedVersionSites(dir, await authoredTsFiles(dir), "3.2.1", []),
+      await hardcodedVersionSites(
+        dir,
+        await versionGuardFiles(dir),
+        "3.2.1",
+        [],
+      ),
       ["scripts/emit_release.ts"],
     );
   });

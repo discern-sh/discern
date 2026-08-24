@@ -26,9 +26,21 @@
 import { assert, assertEquals } from "@std/assert";
 import { dirname, fromFileUrl, join, relative, resolve } from "@std/path";
 import { importSpecifiers } from "./logbook_no_network_test.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
-const CHECKPOINTS_DIR = join(REPO_ROOT, "src", "engine", "checkpoints");
+const CHECKPOINT_MODULE_FILES = await structuralGuardScope({
+  guard:
+    "tests/checkpoint_observation_boundary_test.ts#checkpoint-package-modules",
+  universe: "authored-ts",
+  narrow: {
+    reason:
+      "The observation boundary enrolls direct TypeScript modules in the production checkpoint package.",
+    include: (path) =>
+      path.startsWith("src/engine/checkpoints/") &&
+      path.slice("src/engine/checkpoints/".length).split("/").length === 1,
+  },
+});
 
 /** The one checkpoint-package module allowed to consume Logbook readers, with
  * the reason enforced beside it (see the module doc). */
@@ -37,16 +49,10 @@ const READ_SURFACE_EXCEPTIONS = new Set(["report.ts"]);
 /** Every checkpoint decision module: the package minus the read-surface
  * exceptions, plus the acceptance interlock. Derived from the filesystem so a
  * new module auto-enrols. */
-async function interlockEntryFiles(): Promise<string[]> {
-  const out: string[] = [];
-  for await (const entry of Deno.readDir(CHECKPOINTS_DIR)) {
-    if (
-      entry.isFile && entry.name.endsWith(".ts") &&
-      !READ_SURFACE_EXCEPTIONS.has(entry.name)
-    ) {
-      out.push(join(CHECKPOINTS_DIR, entry.name));
-    }
-  }
+function interlockEntryFiles(): string[] {
+  const out = CHECKPOINT_MODULE_FILES.filter((rel) =>
+    !READ_SURFACE_EXCEPTIONS.has(rel.slice(rel.lastIndexOf("/") + 1))
+  ).map((rel) => join(REPO_ROOT, rel));
   assert(out.length > 0, "the checkpoint package has no modules to guard");
   out.push(
     join(REPO_ROOT, "src", "engine", "worktree", "acceptance_checkpoints.ts"),
@@ -73,7 +79,7 @@ async function walkInterlockGraph(): Promise<{
   files: string[];
   dynamicOffenders: string[];
 }> {
-  const queue = await interlockEntryFiles();
+  const queue = interlockEntryFiles();
   const files = new Set<string>();
   const dynamicOffenders: string[] = [];
   const seen = new Set<string>();
@@ -138,16 +144,13 @@ Deno.test("checkpoint interlock: its module graph reaches no Logbook module", as
   );
 });
 
-Deno.test("checkpoint read-surface exceptions stay an exact, reviewed set", async () => {
+Deno.test("checkpoint read-surface exceptions stay an exact, reviewed set", () => {
   // The exception list must describe reality in both directions: every named
   // file exists (a rename cannot silently widen the guard), and report.ts —
   // the always-ok read verb — is the only member.
-  const names: string[] = [];
-  for await (const entry of Deno.readDir(CHECKPOINTS_DIR)) {
-    if (entry.isFile) {
-      names.push(entry.name);
-    }
-  }
+  const names = CHECKPOINT_MODULE_FILES.map((rel) =>
+    rel.slice(rel.lastIndexOf("/") + 1)
+  );
   for (const exception of READ_SURFACE_EXCEPTIONS) {
     assert(
       names.includes(exception),

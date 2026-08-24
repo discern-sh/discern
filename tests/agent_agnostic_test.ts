@@ -17,12 +17,11 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
-import { fromFileUrl, join, relative } from "@std/path";
+import { join } from "@std/path";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { stringLiterals } from "./vocab_scan.ts";
-
-const REPO = fromFileUrl(new URL("../", import.meta.url));
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /**
  * Provider-specific path fragments the stack-neutral engine must never CONSTRUCT,
@@ -154,12 +153,21 @@ function assertExceptionsAreLive(
 Deno.test("the stack-neutral engine builds no provider-specific agent path", async () => {
   const hits: AgentPathHit[] = [];
   const scannedRels = new Set<string>();
-  for await (
-    const entry of walk(join(REPO, "src", "engine"), { exts: [".ts"] })
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/agent_agnostic_test.ts#stack-neutral-engine-paths",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Agent-specific feature paths are forbidden specifically in the stack-neutral engine subtree.",
+        include: (path) => path.startsWith("src/engine/"),
+      },
+    })
   ) {
-    const rel = relative(REPO, entry.path);
     scannedRels.add(rel);
-    hits.push(...agentPathHits(rel, await Deno.readTextFile(entry.path)));
+    hits.push(
+      ...agentPathHits(rel, await Deno.readTextFile(join(REPO_ROOT, rel))),
+    );
   }
   assertExceptionsAreLive(hits, scannedRels);
   const offenders = hits.filter((hit) => !isException(hit));
@@ -178,18 +186,24 @@ Deno.test("the generic resource tests and the shared engine harness build no age
   const hits: AgentPathHit[] = [];
   const scannedRels = new Set<string>();
   for (
-    const rel of [
-      "tests/worktree_resources_test.ts",
-      "tests/engine_worktree_resources_test.ts",
-      // The shared engine-test harness: `addWorktree` once placed test worktrees
-      // under `.claude/worktrees`; it now resolves the default sibling through the
-      // production `resolveWorktreeRoot`, so this guard keeps it agent-neutral.
-      "tests/engine_helpers.ts",
-    ]
+    const rel of await structuralGuardScope({
+      guard: "tests/agent_agnostic_test.ts#generic-resource-test-paths",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Only the two generic resource suites and their shared engine harness promise provider-neutral fixture paths.",
+        include: (path) =>
+          new Set([
+            "tests/worktree_resources_test.ts",
+            "tests/engine_worktree_resources_test.ts",
+            "tests/engine_helpers.ts",
+          ]).has(path),
+      },
+    })
   ) {
     scannedRels.add(rel);
     hits.push(
-      ...agentPathHits(rel, await Deno.readTextFile(join(REPO, rel))),
+      ...agentPathHits(rel, await Deno.readTextFile(join(REPO_ROOT, rel))),
     );
   }
   assertExceptionsAreLive(hits, scannedRels);

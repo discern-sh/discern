@@ -18,7 +18,6 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
 import { basename, dirname, join, relative } from "@std/path";
 import {
   retiredPattern,
@@ -36,11 +35,7 @@ import {
   REPO_ROOT,
 } from "./repo_authored_paths.ts";
 import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
-
-const SRC = join(REPO_ROOT, "src");
-
-/** The site tree — every served page, asset, and copy string is live prose. */
-const SITE = join(REPO_ROOT, "site");
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** Generated vendor output under site/ (materialized design-system bundles) —
  * not authored here, so not this repo's vocabulary to police. */
@@ -48,7 +43,7 @@ const SITE_GENERATED_PREFIXES = Object.values(DESIGN_SYSTEM_BUNDLES).map((b) =>
   join("site", b.output)
 );
 
-/** Extensions that never carry prose (binary assets). */
+/** Site extensions that never carry prose (binary assets). */
 const BINARY_EXTS = [
   ".png",
   ".ico",
@@ -59,47 +54,70 @@ const BINARY_EXTS = [
   ".woff2",
 ];
 
+/** Whether `rel` is inside one repo-relative tree. */
+function under(rel: string, tree: string): boolean {
+  return rel === tree || rel.startsWith(`${tree}/`);
+}
+
+const PROSE_TREE_RELS = [
+  "templates",
+  "tests/fixtures/templates",
+  relative(REPO_ROOT, REPO_AUTHORED_PATHS.skills),
+  relative(REPO_ROOT, REPO_AUTHORED_PATHS.scripts),
+  REPO_AUTHORED_PATHS.mapRel,
+];
+
+/** The root prose files held to the canon alongside the trees. */
+const ROOT_PROSE_RELS = [
+  "README.md",
+  "CONTRIBUTING.md",
+  "discern.toml",
+  ...REPO_AUTHORED_PATHS.instructions.map((path) => relative(REPO_ROOT, path)),
+];
+
+/** Every live vocabulary surface, including the inert shipped-template fixtures. */
+const VOCABULARY_FILES = await structuralGuardScope({
+  guard: "tests/vocab_drift_test.ts#live-vocabulary-surfaces",
+  universe: {
+    kind: "specialized",
+    name: "live prose text including shipped-template fixtures",
+    text: true,
+    reason:
+      "The vocabulary contract includes inert shipped-template fixtures omitted by authored-text.",
+  },
+  narrow: {
+    reason:
+      "The vocabulary canon governs binary strings and user-visible prose surfaces.",
+    include: (rel) =>
+      (under(rel, "src") && rel.endsWith(".ts")) ||
+      (under(rel, "site") &&
+        !SITE_GENERATED_PREFIXES.some((prefix) => under(rel, prefix)) &&
+        !BINARY_EXTS.some((ext) => rel.endsWith(ext))) ||
+      PROSE_TREE_RELS.some((tree) => under(rel, tree)) ||
+      ROOT_PROSE_RELS.includes(rel),
+  },
+});
+
 /**
  * Every scanned site file: TypeScript modules contribute their string
  * literals (code identifiers are not prose), everything else its raw text.
  */
-async function siteFiles(): Promise<{
+async function siteFiles(files: readonly string[]): Promise<{
   literals: Array<[string, ReturnType<typeof stringLiterals>]>;
   prose: Array<[string, string]>;
 }> {
   const literals: Array<[string, ReturnType<typeof stringLiterals>]> = [];
   const prose: Array<[string, string]> = [];
-  for await (const entry of walk(SITE, { includeDirs: false })) {
-    const rel = relative(REPO_ROOT, entry.path);
-    if (SITE_GENERATED_PREFIXES.some((prefix) => rel.startsWith(prefix))) {
-      continue;
-    }
-    if (BINARY_EXTS.some((ext) => entry.name.endsWith(ext))) continue;
-    if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) {
-      literals.push([rel, stringLiterals(await Deno.readTextFile(entry.path))]);
+  for (const rel of files.filter((path) => under(path, "site"))) {
+    const path = join(REPO_ROOT, rel);
+    if (rel.endsWith(".ts") || rel.endsWith(".tsx")) {
+      literals.push([rel, stringLiterals(await Deno.readTextFile(path))]);
     } else {
-      prose.push([rel, await Deno.readTextFile(entry.path)]);
+      prose.push([rel, await Deno.readTextFile(path)]);
     }
   }
   return { literals, prose };
 }
-
-/** The prose trees a user or their agent reads, walked in full. */
-const PROSE_TREES = [
-  join(REPO_ROOT, "templates"),
-  join(REPO_ROOT, "tests", "fixtures", "templates"),
-  REPO_AUTHORED_PATHS.skills,
-  REPO_AUTHORED_PATHS.scripts,
-  REPO_AUTHORED_PATHS.map,
-];
-
-/** The root prose files held to the canon alongside the trees. */
-const ROOT_PROSE = [
-  join(REPO_ROOT, "README.md"),
-  join(REPO_ROOT, "CONTRIBUTING.md"),
-  join(REPO_ROOT, "discern.toml"),
-  ...REPO_AUTHORED_PATHS.instructions,
-];
 
 /** The generated glossary page — the declaration surface, where a retired
  * phrase legitimately appears (as a search alias pointing at the canon). */
@@ -124,42 +142,34 @@ function allowedFor(synonym: RetiredSynonym, rel: string): boolean {
 }
 
 /** Every scanned prose file, as `[repo-relative path, visible text]`. */
-async function proseFiles(): Promise<Array<[string, string]>> {
+async function proseFiles(
+  files: readonly string[],
+): Promise<Array<[string, string]>> {
   const out: Array<[string, string]> = [];
-  for (const root of PROSE_TREES) {
-    for await (const entry of walk(root, { includeDirs: false })) {
-      const rel = relative(REPO_ROOT, entry.path);
-      if (structurallyExempt(rel)) continue;
-      let text: string;
-      try {
-        text = await Deno.readTextFile(entry.path);
-      } catch {
-        continue; // non-text / unreadable → nothing to drift
-      }
-      out.push([rel, visibleMarkdown(text)]);
+  for (const rel of files) {
+    if (under(rel, "src") || under(rel, "site") || structurallyExempt(rel)) {
+      continue;
     }
-  }
-  for (const path of ROOT_PROSE) {
-    out.push([
-      relative(REPO_ROOT, path),
-      visibleMarkdown(await Deno.readTextFile(path)),
-    ]);
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+    out.push([rel, visibleMarkdown(text)]);
   }
   return out;
 }
 
 Deno.test("no live surface uses vocabulary the term registry retired", async () => {
-  const site = await siteFiles();
-  const prose = [...(await proseFiles()), ...site.prose];
+  const site = await siteFiles(VOCABULARY_FILES);
+  const prose = [...(await proseFiles(VOCABULARY_FILES)), ...site.prose];
   const src: Array<[string, ReturnType<typeof stringLiterals>]> = [
     ...site.literals,
+    ...await Promise.all(
+      VOCABULARY_FILES.filter((rel) => under(rel, "src")).map(async (rel) =>
+        [
+          rel,
+          stringLiterals(await Deno.readTextFile(join(REPO_ROOT, rel))),
+        ] as [string, ReturnType<typeof stringLiterals>]
+      ),
+    ),
   ];
-  for await (const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })) {
-    src.push([
-      relative(REPO_ROOT, entry.path),
-      stringLiterals(await Deno.readTextFile(entry.path)),
-    ]);
-  }
 
   const offenders: string[] = [];
   for (const { term, synonym } of retiredSynonyms()) {
@@ -196,21 +206,24 @@ Deno.test("no live surface uses vocabulary the term registry retired", async () 
 });
 
 Deno.test("every retired-phrase exception still names a real path", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/vocab_drift_test.ts#retired-exception-targets",
+    universe: {
+      kind: "specialized",
+      name: "authored text including shipped-template fixtures",
+      text: true,
+      reason:
+        "Retired-phrase allowances may name inert template fixtures omitted by authored-text.",
+    },
+  });
   for (const { term, synonym } of retiredSynonyms()) {
     for (const { path } of synonym.allowed ?? []) {
-      const dir = join(REPO_ROOT, dirname(path));
+      const dir = dirname(path);
       const prefix = basename(path);
-      let found = false;
-      try {
-        for await (const entry of Deno.readDir(dir)) {
-          if (entry.name === prefix || entry.name.startsWith(prefix)) {
-            found = true;
-            break;
-          }
-        }
-      } catch {
-        // missing directory → the exception is stale
-      }
+      const found = files.some((rel) =>
+        dirname(rel) === dir &&
+        (basename(rel) === prefix || basename(rel).startsWith(prefix))
+      );
       assert(
         found,
         `"${term}" carries a retired-phrase exception for "${path}", but no ` +
@@ -220,10 +233,10 @@ Deno.test("every retired-phrase exception still names a real path", async () => 
   }
 });
 
-// Positive control on the widened universe: the site walk really reaches the
-// surfaces the scan is meant to police (an empty walk would pass vacuously).
+// Positive control on the widened universe: the Git projection really reaches
+// the surfaces the scan is meant to police (an empty set would pass vacuously).
 Deno.test("the vocabulary scan universe reaches the site tree", async () => {
-  const site = await siteFiles();
+  const site = await siteFiles(VOCABULARY_FILES);
   assert(
     site.prose.some(([rel]) => rel === "site/pages/assets/og-card.svg"),
     "site prose files should include the social card",

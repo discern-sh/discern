@@ -9,11 +9,8 @@
 
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import {
-  AUTHORED_TS_FILES,
-  authoredTsFiles,
-  REPO_ROOT,
-} from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -39,9 +36,20 @@ const ALLOWED = [
   "tests/owned_child_boundary_test.ts",
 ];
 
+/** Resolve the repository-wide launcher universe for live and planted roots. */
+function ownedChildGuardFiles(root: string): Promise<string[]> {
+  return structuralGuardScope({
+    guard: "tests/owned_child_boundary_test.ts#inherited-terminal-launchers",
+    universe: "authored-ts",
+  }, root);
+}
+
 Deno.test("every inherited-terminal child uses the owned-child boundary", async () => {
   assertEquals(
-    await inheritedTerminalSites(REPO_ROOT, AUTHORED_TS_FILES),
+    await inheritedTerminalSites(
+      REPO_ROOT,
+      await ownedChildGuardFiles(REPO_ROOT),
+    ),
     ALLOWED,
     "move inherited-terminal Deno.Command launches into runOwnedChild",
   );
@@ -61,7 +69,7 @@ Deno.test("the owned-child guard enrolls an unrelated future launcher", async ()
       );
     }
     assertEquals(
-      await inheritedTerminalSites(dir, await authoredTsFiles(dir)),
+      await inheritedTerminalSites(dir, await ownedChildGuardFiles(dir)),
       ["another/container/relay.ts", "scripts/fresh_helper.ts"],
     );
   });

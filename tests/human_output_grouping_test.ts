@@ -19,7 +19,8 @@ import {
   populatedHumanOutputGroups,
   renderHumanOutputGroups,
 } from "../src/shared/result.ts";
-import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { makeOut } from "../src/engine/output.ts";
 import {
   groupedSelectionEntries,
@@ -711,7 +712,16 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
   const offenders: string[] = [];
   const idiomFindings = new Map<string, LocatedIdiomFinding[]>();
   for (
-    const rel of AUTHORED_DENO_FILES.filter((path) => path.startsWith("src/"))
+    const rel of await structuralGuardScope({
+      guard:
+        "tests/human_output_grouping_test.ts#managed-human-output-boundaries",
+      universe: "authored-deno",
+      narrow: {
+        reason:
+          "Discern-managed human output is emitted by production modules beneath src; tests only exercise and plant shapes.",
+        include: (path) => path.startsWith("src/"),
+      },
+    })
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const finding of manualBoundaryFindings(source)) {

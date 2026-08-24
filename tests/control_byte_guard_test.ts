@@ -11,14 +11,15 @@
  * before this guard existed — and the guard's own first draft caught its
  * author pasting the bytes it bans.
  *
- * The scan set is {@link AUTHORED_TEXT_FILES} — every tracked file that is
+ * The scan set is the declared authored-text universe — every tracked file that is
  * text by contract — so a new tree or format enrols automatically. Tab,
  * newline, and carriage return are ordinary text bytes and stay legal.
  */
 
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { AUTHORED_TEXT_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const TAB = 0x09;
 const LINE_FEED = 0x0a;
@@ -69,7 +70,12 @@ Deno.test("the scanner flags a raw control byte and passes ordinary text", () =>
 
 Deno.test("no authored text file carries a raw control byte", async () => {
   const offenders: string[] = [];
-  for (const rel of AUTHORED_TEXT_FILES) {
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/control_byte_guard_test.ts#raw-control-bytes",
+      universe: "authored-text",
+    })
+  ) {
     const findings = controlByteFindings(
       await Deno.readFile(join(REPO_ROOT, rel)),
     );

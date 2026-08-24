@@ -59,9 +59,16 @@ const NON_AUTHORED_PREFIXES = ["tests/fixtures/"];
  * plus untracked-but-not-ignored files matching `patterns`, which keeps build
  * products and vendored trees (`dist/`, `node_modules/`, …) out because the
  * gitignore already names them. */
-async function gitListedAuthoredFiles(
+export interface GitListedRepoFilesOptions {
+  /** Include inert TypeScript fixture data that authored-code universes omit. */
+  readonly includeTestFixtures?: boolean;
+}
+
+/** Enumerate Git-known files once for canonical and specialized universes. */
+export async function gitListedRepoFiles(
   root: string,
   patterns: readonly string[],
+  options: GitListedRepoFilesOptions = {},
 ): Promise<string[]> {
   const { success, stdout, stderr } = await new Deno.Command("git", {
     args: [
@@ -88,7 +95,10 @@ async function gitListedAuthoredFiles(
     .split("\0")
     .filter((rel) => rel.length > 0)
     .filter((rel) => !isHostMetadataPath(rel))
-    .filter((rel) => !NON_AUTHORED_PREFIXES.some((p) => rel.startsWith(p)));
+    .filter((rel) =>
+      options.includeTestFixtures === true ||
+      !NON_AUTHORED_PREFIXES.some((p) => rel.startsWith(p))
+    );
   const present: string[] = [];
   for (const rel of listed) {
     // A file can stay in Git's index after deletion from the working tree;
@@ -109,14 +119,14 @@ async function gitListedAuthoredFiles(
 export async function authoredTsFiles(
   root: string = REPO_ROOT,
 ): Promise<string[]> {
-  return await gitListedAuthoredFiles(root, ["*.ts", "*.tsx"]);
+  return await gitListedRepoFiles(root, ["*.ts", "*.tsx"]);
 }
 
 /** Every authored source extension accepted by `deno lint`. */
 export async function authoredDenoFiles(
   root: string = REPO_ROOT,
 ): Promise<string[]> {
-  return await gitListedAuthoredFiles(root, [
+  return await gitListedRepoFiles(root, [
     "*.ts",
     "*.tsx",
     "*.mts",
@@ -151,7 +161,7 @@ export const AUTHORED_TS_ROOTS: string[] = [
 export async function trackedMarkdownFiles(
   root: string = REPO_ROOT,
 ): Promise<string[]> {
-  return await gitListedAuthoredFiles(root, ["*.md"]);
+  return await gitListedRepoFiles(root, ["*.md"]);
 }
 
 /** The tracked-Markdown universe of this checkout, enumerated once. */
@@ -165,6 +175,17 @@ export const TRACKED_MD_FILES: string[] = await trackedMarkdownFiles();
  */
 const BINARY_EXTENSIONS = [".png", ".wasm"];
 
+/** Enumerate text-contract files, optionally including inert test fixtures. */
+export async function gitListedTextFiles(
+  root: string,
+  options: GitListedRepoFilesOptions = {},
+): Promise<string[]> {
+  const listed = await gitListedRepoFiles(root, [], options);
+  return listed.filter(
+    (rel) => !BINARY_EXTENSIONS.some((ext) => rel.endsWith(ext)),
+  );
+}
+
 /**
  * Every tracked or authored file that is text by contract — the whole
  * enumeration minus {@link BINARY_EXTENSIONS} — for guards about bytes
@@ -175,10 +196,7 @@ const BINARY_EXTENSIONS = [".png", ".wasm"];
 export async function authoredTextFiles(
   root: string = REPO_ROOT,
 ): Promise<string[]> {
-  const listed = await gitListedAuthoredFiles(root, []);
-  return listed.filter(
-    (rel) => !BINARY_EXTENSIONS.some((ext) => rel.endsWith(ext)),
-  );
+  return await gitListedTextFiles(root);
 }
 
 /** The authored-text universe of this checkout, enumerated once. */

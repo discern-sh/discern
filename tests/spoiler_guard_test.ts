@@ -13,7 +13,8 @@
 
 import { assert, assertEquals, assertMatch } from "@std/assert";
 import { join } from "@std/path";
-import { AUTHORED_TEXT_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** The phrase, assembled at runtime only; tolerates any word separator. */
 const PHRASE = new RegExp(`${atob("ZWFzdGVy")}[\\s-]*${atob("ZWdn")}`, "i");
@@ -31,7 +32,12 @@ function scannedPortion(rel: string, text: string): string {
 
 Deno.test("the hidden verb's surprise stays out of committed text", async () => {
   const offenders: string[] = [];
-  for (const rel of AUTHORED_TEXT_FILES) {
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/spoiler_guard_test.ts#hidden-surprise-phrase",
+      universe: "authored-text",
+    })
+  ) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (PHRASE.test(scannedPortion(rel, text))) {
       offenders.push(rel);

@@ -14,7 +14,8 @@ import {
 } from "../src/shared/subprocess.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** Assert one argv contains a literal option. */
 function hasArg(args: readonly string[], arg: string): void {
@@ -115,7 +116,16 @@ Deno.test("discern merge arguments clear branch options and pin the requested to
 Deno.test("every production branch merge uses the config-invariant argument authority", async () => {
   const offenders: string[] = [];
   for (
-    const rel of AUTHORED_TS_FILES.filter((path) => path.startsWith("src/"))
+    const rel of await structuralGuardScope({
+      guard:
+        "tests/git_config_invariance_test.ts#production-branch-merge-arguments",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The config-invariant merge authority governs production Git invocations beneath src.",
+        include: (path) => path.startsWith("src/"),
+      },
+    })
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const match of source.matchAll(/\[\s*"merge"\s*,/g)) {

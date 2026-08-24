@@ -23,8 +23,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { walk } from "@std/fs";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   engineRunArgs,
@@ -35,7 +34,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { AUTHORED_TS_FILES } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import {
   CLI_JSON_CONTRACT_EXCLUSIONS,
@@ -49,7 +48,6 @@ import {
 } from "../src/shared/result_contracts.ts";
 
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const SRC = join(REPO_ROOT, "src");
 
 /**
  * Assert a `<verb> --json` run emitted ONLY the envelope. The compact envelope is a
@@ -913,12 +911,21 @@ Deno.test("serializeResult reaches stdout ONLY through the emitResult chokepoint
     join("src", "engine", "mcp", "server.ts"), // builds the MCP tool result
   ]);
   const offenders: string[] = [];
-  for await (const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })) {
-    const rel = relative(REPO_ROOT, entry.path);
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/engine_json_purity_test.ts#result-serialization-callers",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Result serialization callers are production boundaries implemented beneath src; tests contain direct controls.",
+        include: (path) => path.startsWith("src/"),
+      },
+    })
+  ) {
     if (allowed.has(rel)) {
       continue;
     }
-    const text = await Deno.readTextFile(entry.path);
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (/serializeResult\s*\(/.test(text)) {
       offenders.push(rel);
     }
@@ -954,10 +961,17 @@ Deno.test("source-engine subprocesses inherit the quiet Deno launcher", async ()
     ["DENO", "JSON"].join("_"),
   ];
   const offenders: string[] = [];
-  for (const rel of AUTHORED_TS_FILES) {
-    if (!rel.startsWith("tests/") || allowed.has(rel)) {
-      continue;
-    }
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/engine_json_purity_test.ts#quiet-test-launcher-callers",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Only test sources can bypass the shared source-engine launcher; its two owning controls remain explicit exclusions.",
+        include: (path) => path.startsWith("tests/") && !allowed.has(path),
+      },
+    })
+  ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (
       privateIdentifiers.some((identifier) =>
@@ -983,12 +997,21 @@ Deno.test("authored Markdown reaches agents only through the CLI and MCP result 
     join("src", "engine", "mcp", "server.ts"),
   ]);
   const offenders: string[] = [];
-  for await (const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })) {
-    const rel = relative(REPO_ROOT, entry.path);
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/engine_json_purity_test.ts#markdown-result-renderers",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "Markdown result rendering is a production delivery boundary implemented beneath src; tests invoke it as controls.",
+        include: (path) => path.startsWith("src/"),
+      },
+    })
+  ) {
     if (allowed.has(rel)) {
       continue;
     }
-    const source = await Deno.readTextFile(entry.path);
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (/renderResultMarkdown\s*\(/.test(source)) {
       offenders.push(rel);
     }
@@ -1003,12 +1026,21 @@ Deno.test("authored Markdown reaches agents only through the CLI and MCP result 
 });
 
 Deno.test("CLI and MCP share the registered failure-recovery preparation", async () => {
-  for (
-    const rel of [
-      join("src", "shared", "emit.ts"),
-      join("src", "engine", "mcp", "server.ts"),
-    ]
-  ) {
+  const consumers = new Set([
+    join("src", "shared", "emit.ts"),
+    join("src", "engine", "mcp", "server.ts"),
+  ]);
+  const files = await structuralGuardScope({
+    guard: "tests/engine_json_purity_test.ts#failure-recovery-consumers",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Failure recovery is prepared at the CLI and MCP delivery boundaries.",
+      include: (rel) => consumers.has(rel),
+    },
+  });
+  assertEquals(files.length, consumers.size);
+  for (const rel of files) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     assertStringIncludes(
       text,

@@ -19,8 +19,9 @@
  */
 
 import { assert } from "@std/assert";
-import { walk } from "@std/fs";
-import { fromFileUrl } from "@std/path";
+import { join } from "@std/path";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** Test files exempt from the rule — each needs a justification. Empty today. */
 const ALLOWLIST: ReadonlySet<string> = new Set<string>();
@@ -37,24 +38,27 @@ const FORBIDDEN = [
 ].map((f) => ({ ...f, needle: `Deno.${f.api}(` }));
 
 Deno.test("no test file mutates process-global cwd or env (parallel-safety guard)", async () => {
-  const testsDir = fromFileUrl(new URL(".", import.meta.url));
-  const self = fromFileUrl(import.meta.url);
   const offenders: string[] = [];
 
-  // maxDepth 1 keeps this to the test files themselves, never the fixtures tree.
-  for await (
-    const entry of walk(testsDir, {
-      maxDepth: 1,
-      includeDirs: false,
-      exts: [".ts"],
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/parallel_safety_test.ts#test-process-global-mutations",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The parallel-safety invariant governs top-level test modules; inert fixtures and non-test source cannot race test workers.",
+        include: (path) =>
+          path.startsWith("tests/") && path.split("/").length === 2 &&
+          path !== "tests/parallel_safety_test.ts",
+      },
     })
   ) {
-    if (entry.path === self) continue; // the guard names the needles; don't scan it
-    if (ALLOWLIST.has(entry.name)) continue;
-    const source = await Deno.readTextFile(entry.path);
+    const name = rel.slice("tests/".length);
+    if (ALLOWLIST.has(name)) continue;
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const { needle, state } of FORBIDDEN) {
       if (source.includes(needle)) {
-        offenders.push(`${entry.name}: ${needle} mutates the process ${state}`);
+        offenders.push(`${name}: ${needle} mutates the process ${state}`);
       }
     }
   }

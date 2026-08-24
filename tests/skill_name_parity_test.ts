@@ -17,11 +17,10 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { join, relative } from "@std/path";
-import { walk } from "@std/fs";
-import { bundledSkillNames } from "../src/lib/skills.ts";
 import { SKILL_CITATION_BARE } from "../src/lib/docs_integrity.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { withoutRegistryAtlasMembers } from "./registry_atlas_scan.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** The citation grammar, from its single source (docs_integrity.ts): two-plus
  * segments after the prefix, reached at a word boundary. This repo-local sweep
@@ -58,30 +57,36 @@ const NON_SKILL_TOKENS = new Map<string, string>([
 
 const EXEMPT_SEGMENTS = ["/_adr/", "/_private/"] as const;
 
-/** The live surfaces: engine + installer source, shipped templates, and this
- * repo's configured authored prose. Tests and project scripts are deliberately
- * NOT swept — tests fabricate discern-* identifiers freely and verify their
- * real citations by execution; scripts are executable namespaces. */
-const SWEEP_ROOTS: readonly string[] = [
-  join(REPO_ROOT, "src"),
-  join(REPO_ROOT, "templates"),
-  ...REPO_AUTHORED_PATHS.instructions,
-  REPO_AUTHORED_PATHS.skills,
-  REPO_AUTHORED_PATHS.map,
-];
+const AUTHORED_SKILLS_REL = relative(REPO_ROOT, REPO_AUTHORED_PATHS.skills)
+  .replaceAll("\\", "/");
+const AUTHORED_SKILLS_PREFIX = `${AUTHORED_SKILLS_REL}/`;
+const INSTRUCTION_RELS = new Set(
+  REPO_AUTHORED_PATHS.instructions.map((path) =>
+    relative(REPO_ROOT, path).replaceAll("\\", "/")
+  ),
+);
 
 Deno.test("skill-name parity: every live discern-* citation ships", async () => {
-  const known = new Set(await bundledSkillNames());
-  try {
-    for await (const e of Deno.readDir(REPO_AUTHORED_PATHS.skills)) {
-      if (e.isDirectory) {
-        known.add(e.name);
-      }
-    }
-  } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) {
-      throw error;
-    }
+  const known = new Set<string>();
+  const bundledPrefix = "templates/skills/";
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/skill_name_parity_test.ts#known-skill-directories",
+      universe: "authored-text",
+      narrow: {
+        reason:
+          "Known skill membership is directory-driven by the bundled and configured authored skill source trees.",
+        include: (path) =>
+          path.startsWith(bundledPrefix) ||
+          path.startsWith(AUTHORED_SKILLS_PREFIX),
+      },
+    })
+  ) {
+    const prefix = rel.startsWith(bundledPrefix)
+      ? bundledPrefix
+      : AUTHORED_SKILLS_PREFIX;
+    const name = rel.slice(prefix.length).split("/")[0];
+    if (name !== undefined) known.add(name);
   }
   assert(known.size > 0, "expected at least one known skill");
   for (const [token, reason] of NON_SKILL_TOKENS) {
@@ -100,35 +105,30 @@ Deno.test("skill-name parity: every live discern-* citation ships", async () => 
       }
     }
   };
-  for (const root of SWEEP_ROOTS) {
-    const info = await Deno.stat(root).catch(() => undefined);
-    if (info === undefined) {
-      continue;
-    }
-    if (info.isFile) {
-      const rel = relative(REPO_ROOT, root).replaceAll("\\", "/");
-      scan(
+  const mapPrefix = `${REPO_AUTHORED_PATHS.mapRel}/`;
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/skill_name_parity_test.ts#live-skill-citations",
+      universe: "authored-text",
+      narrow: {
+        reason:
+          "Live skill citations appear in product source, shipped templates, configured instructions, authored skills, and current map prose; tests and executable scripts use fixture namespaces.",
+        include: (path) =>
+          (path.startsWith("src/") || path.startsWith("templates/") ||
+            INSTRUCTION_RELS.has(path) ||
+            path.startsWith(AUTHORED_SKILLS_PREFIX) ||
+            path.startsWith(mapPrefix)) &&
+          !EXEMPT_SEGMENTS.some((segment) => `/${path}`.includes(segment)),
+      },
+    })
+  ) {
+    scan(
+      rel,
+      withoutRegistryAtlasMembers(
         rel,
-        withoutRegistryAtlasMembers(
-          rel,
-          await Deno.readTextFile(root),
-        ),
-      );
-      continue;
-    }
-    for await (const entry of walk(root, { includeDirs: false })) {
-      const rel = relative(REPO_ROOT, entry.path).replaceAll("\\", "/");
-      if (EXEMPT_SEGMENTS.some((seg) => `/${rel}`.includes(seg))) {
-        continue;
-      }
-      scan(
-        rel,
-        withoutRegistryAtlasMembers(
-          rel,
-          await Deno.readTextFile(entry.path),
-        ),
-      );
-    }
+        await Deno.readTextFile(join(REPO_ROOT, rel)),
+      ),
+    );
   }
   assertEquals(
     [...new Set(offenders)].sort(),

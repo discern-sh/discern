@@ -10,11 +10,8 @@ import {
 } from "../src/shared/git_admin_state.ts";
 import { addWorktree, gitInit, gitOut } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
-import {
-  AUTHORED_TS_FILES,
-  authoredTsFiles,
-  REPO_ROOT,
-} from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** Resolve Git's possibly relative admin path against the command checkout. */
 function absoluteFrom(cwd: string, path: string): string {
@@ -104,9 +101,21 @@ const GIT_PATH_ALLOWED = [
   "tests/git_admin_state_test.ts",
 ];
 
+/** Resolve the repository-wide Git-path caller universe for any Git fixture. */
+function gitPathGuardFiles(root: string): Promise<string[]> {
+  return structuralGuardScope({
+    guard: "tests/git_admin_state_test.ts#git-path-callers",
+    universe: "authored-ts",
+  }, root);
+}
+
 Deno.test("only the Git-admin registry resolver may invoke --git-path", async () => {
   assertEquals(
-    await gitPathInvokers(REPO_ROOT, AUTHORED_TS_FILES, GIT_PATH_ALLOWED),
+    await gitPathInvokers(
+      REPO_ROOT,
+      await gitPathGuardFiles(REPO_ROOT),
+      GIT_PATH_ALLOWED,
+    ),
     [],
     "register the artifact and resolve it through gitAdminStatePath",
   );
@@ -122,7 +131,7 @@ Deno.test("the --git-path guard enrolls a fresh caller in any authored tree", as
       `await run("git", ["rev-parse", "--git-path", "hooks"]);\n`,
     );
     assertEquals(
-      await gitPathInvokers(dir, await authoredTsFiles(dir), []),
+      await gitPathInvokers(dir, await gitPathGuardFiles(dir), []),
       ["scripts/fresh_probe.ts"],
     );
   });

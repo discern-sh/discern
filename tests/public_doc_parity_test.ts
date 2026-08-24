@@ -18,14 +18,14 @@
  * it is to consume the predicate and add the registry entry.
  */
 
-import { walk } from "@std/fs";
-import { join, relative } from "@std/path";
+import { join } from "@std/path";
 import { assert, assertEquals } from "@std/assert";
 import {
   PUBLIC_DOC_SURFACES,
   PUBLIC_DOC_SURFACES_PENDING,
 } from "../src/lib/docs.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** The model itself — the one definition site of the predicate. */
 const MODEL = "src/lib/docs.ts";
@@ -72,20 +72,23 @@ Deno.test("every enrolled surface consumes the predicate; every pending one does
 
 Deno.test("no module outside the registry touches the page-level publish axis", async () => {
   const offenders: string[] = [];
-  for (const root of ["src", "site", "scripts"]) {
-    for await (
-      const entry of walk(join(REPO_ROOT, root), {
-        exts: [".ts"],
-        includeDirs: false,
-        skip: [/node_modules/],
-      })
-    ) {
-      const rel = relative(REPO_ROOT, entry.path);
-      if (PUBLISH_ACCESS_EXCEPTIONS.has(rel)) continue;
-      const text = await Deno.readTextFile(entry.path);
-      if (/\.publish\b/.test(text)) {
-        offenders.push(rel);
-      }
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/public_doc_parity_test.ts#publication-axis-readers",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The publication model governs production, site, and repository-tool modules; tests and project scripts consume its outputs as controls.",
+        include: (path) =>
+          path.startsWith("src/") || path.startsWith("site/") ||
+          path.startsWith("scripts/"),
+      },
+    })
+  ) {
+    if (PUBLISH_ACCESS_EXCEPTIONS.has(rel)) continue;
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+    if (/\.publish\b/.test(text)) {
+      offenders.push(rel);
     }
   }
   assertEquals(

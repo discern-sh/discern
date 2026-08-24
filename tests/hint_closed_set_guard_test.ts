@@ -8,13 +8,12 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
-import { join, relative } from "@std/path";
+import { join } from "@std/path";
 import { inlineHintLiterals } from "./hint_scan.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-const SRC = join(REPO_ROOT, "src");
-const REGISTRY = join(SRC, "shared/hints.ts");
+const REGISTRY = "src/shared/hints.ts";
 
 Deno.test("hint guard: inline literals are rejected at hints[] and FiredHint construction", () => {
   const source = [
@@ -46,12 +45,18 @@ Deno.test("hint guard: registry lookups and unrelated string arrays stay legal",
 
 Deno.test("no string literal reaches hints[] or FiredHint construction outside the registry", async () => {
   const offenders: string[] = [];
-  for await (
-    const entry of walk(SRC, { includeDirs: false, exts: [".ts"] })
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/hint_closed_set_guard_test.ts#inline-hint-literals",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The hint registry governs production hint construction beneath src; its own definition is the one legal literal authority.",
+        include: (path) => path.startsWith("src/") && path !== REGISTRY,
+      },
+    })
   ) {
-    if (entry.path === REGISTRY) continue;
-    const source = await Deno.readTextFile(entry.path);
-    const rel = relative(REPO_ROOT, entry.path);
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const finding of inlineHintLiterals(source)) {
       offenders.push(
         `${rel}:${finding.line} ${finding.sink} contains ${

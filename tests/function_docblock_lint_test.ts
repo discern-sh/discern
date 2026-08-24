@@ -6,7 +6,8 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import functionDocblockPlugin from "../scripts/function_docblock_lint.ts";
-import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const RULE_ID = "discern/require-function-docblock";
 
@@ -163,7 +164,12 @@ function staleBlock(): boolean { return marker; }
 
 Deno.test("every authored Deno function declaration has informative JSDoc", async () => {
   const missing: string[] = [];
-  for (const rel of AUTHORED_DENO_FILES) {
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/function_docblock_lint_test.ts#informative-jsdoc",
+      universe: "authored-deno",
+    })
+  ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const diagnostic of diagnostics(source, rel)) {
       missing.push(

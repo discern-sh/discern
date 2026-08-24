@@ -11,7 +11,8 @@ import {
   assertMatch,
   assertStringIncludes,
 } from "@std/assert";
-import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { parseValeVersion, runVale } from "../scripts/vale_lib.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -60,7 +61,12 @@ Deno.test("Vale packages are immutable release artifacts", async () => {
 Deno.test("authored Deno sources invoke Vale only through its wrapper", async () => {
   const directVale = /new\s+Deno\.Command\(\s*["']vale["']/;
   const offenders: string[] = [];
-  for (const rel of AUTHORED_DENO_FILES) {
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/prose_toolchain_test.ts#prose-toolchain-imports",
+      universe: "authored-deno",
+    })
+  ) {
     if (rel === "scripts/vale_lib.ts") continue;
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (directVale.test(source)) offenders.push(rel);

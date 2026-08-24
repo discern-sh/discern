@@ -35,6 +35,7 @@ import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { docsResult } from "../src/commands/docs.ts";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
@@ -1012,12 +1013,27 @@ Deno.test("related decisions render exactly the collected citation set", async (
 });
 
 Deno.test("unpublished tiers never surface under /docs", async () => {
-  // The complement of the allowlist, read from disk so a new tier auto-enrols.
-  for await (const entry of Deno.readDir(REPO_AUTHORED_PATHS.map)) {
-    if (!entry.isDirectory) continue;
-    if (BUNDLED_PUBLIC_DOC_DIRS.includes(entry.name)) continue;
-    const res = await get(`/docs/${sectionSlugOf(entry.name)}`, BROWSER);
-    assertEquals(res.status, 404, `tier ${entry.name} must not publish`);
+  const prefix = `${REPO_AUTHORED_PATHS.mapRel}/`;
+  const files = await structuralGuardScope({
+    guard: "tests/site_docs_test.ts#unpublished-map-tiers",
+    universe: "tracked-markdown",
+    narrow: {
+      reason:
+        "The unpublished-tier complement is derived from every Markdown-bearing directory in the configured map.",
+      include: (path) => path.startsWith(prefix),
+    },
+  });
+  const tiers = [
+    ...new Set(files.flatMap((rel) => {
+      const within = rel.slice(prefix.length);
+      const tier = within.split("/")[0];
+      return within.includes("/") && tier !== undefined ? [tier] : [];
+    })),
+  ];
+  for (const tier of tiers) {
+    if (BUNDLED_PUBLIC_DOC_DIRS.includes(tier)) continue;
+    const res = await get(`/docs/${sectionSlugOf(tier)}`, BROWSER);
+    assertEquals(res.status, 404, `tier ${tier} must not publish`);
     await res.body?.cancel();
   }
 });

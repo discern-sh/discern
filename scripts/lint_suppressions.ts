@@ -5,15 +5,16 @@
  * stderr and prints `DISCERN_METRIC lint_suppressions <count>` on stdout.
  */
 
-import {
-  AUTHORED_DENO_FILES,
-  REPO_ROOT,
-} from "../tests/repo_authored_paths.ts";
+import { REPO_ROOT } from "../tests/repo_authored_paths.ts";
+import { structuralGuardScope } from "../tests/structural_guard_scope.ts";
 import { lintSuppressionsInFiles } from "./lint_suppressions_lib.ts";
 
 const findings = await lintSuppressionsInFiles(
   REPO_ROOT,
-  AUTHORED_DENO_FILES,
+  await structuralGuardScope({
+    guard: "scripts/lint_suppressions.ts#authored-deno-directives",
+    universe: "authored-deno",
+  }),
 );
 for (const finding of findings) {
   console.error(`${finding.file}:${finding.line} ${finding.directive}`);

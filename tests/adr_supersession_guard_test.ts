@@ -13,13 +13,28 @@
  * records.
  */
 
-import { join, relative } from "@std/path";
+import { basename, dirname, join } from "@std/path";
 import { assertEquals } from "@std/assert";
 import { ADR_SUBDIR, adrNumberOf } from "../src/lib/adr_numbers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const ADR_DIR = join(REPO_AUTHORED_PATHS.map, ADR_SUBDIR);
 const SUPERSEDED_DIR = join(ADR_DIR, "_superseded");
+const ADR_REL = join(REPO_AUTHORED_PATHS.mapRel, ADR_SUBDIR);
+const SUPERSEDED_REL = join(ADR_REL, "_superseded");
+
+/** Every active or archived decision record governed by supersession hygiene. */
+const ADR_RECORD_FILES = await structuralGuardScope({
+  guard: "tests/adr_supersession_guard_test.ts#supersession-hygiene",
+  universe: "tracked-markdown",
+  narrow: {
+    reason:
+      "Supersession hygiene governs numbered records in the active and archived ADR directories.",
+    include: (rel) =>
+      dirname(rel) === ADR_REL || dirname(rel) === SUPERSEDED_REL,
+  },
+});
 
 /** The copy-paste template's number — its placeholder status line legitimately
  * contains "superseded by ADR-NNNN", so every rule skips it. */
@@ -33,21 +48,20 @@ interface AdrRecord {
 }
 
 /** Numbered records directly inside a directory (no recursion), template excluded. */
-async function recordsIn(dir: string): Promise<AdrRecord[]> {
+async function recordsIn(archived: boolean): Promise<AdrRecord[]> {
   const records: AdrRecord[] = [];
-  for await (const entry of Deno.readDir(dir)) {
-    if (!entry.isFile) {
-      continue;
-    }
-    const number = adrNumberOf(entry.name);
+  const directory = archived ? SUPERSEDED_REL : ADR_REL;
+  for (
+    const rel of ADR_RECORD_FILES.filter((path) => dirname(path) === directory)
+  ) {
+    const number = adrNumberOf(basename(rel));
     if (number === undefined || number === TEMPLATE_NUMBER) {
       continue;
     }
-    const path = join(dir, entry.name);
     records.push({
       number,
-      path: relative(REPO_ROOT, path),
-      text: await Deno.readTextFile(path),
+      path: rel,
+      text: await Deno.readTextFile(join(REPO_ROOT, rel)),
     });
   }
   return records.sort((a, b) => a.number.localeCompare(b.number));
@@ -81,8 +95,8 @@ function citedNumbers(sentence: string): string[] {
 Deno.test("every record carries the one findable status form", async () => {
   const failures: string[] = [];
   const records = [
-    ...(await recordsIn(ADR_DIR)),
-    ...(await recordsIn(SUPERSEDED_DIR)),
+    ...(await recordsIn(false)),
+    ...(await recordsIn(true)),
   ];
   for (const record of records) {
     if (statusValue(record.text) === undefined) {
@@ -99,7 +113,7 @@ Deno.test("every record carries the one findable status form", async () => {
 
 Deno.test("a record whose status declares it superseded lives under _superseded/", async () => {
   const failures: string[] = [];
-  for (const record of await recordsIn(ADR_DIR)) {
+  for (const record of await recordsIn(false)) {
     const status = statusValue(record.text);
     if (status !== undefined && /^superseded by/i.test(status)) {
       failures.push(
@@ -112,9 +126,9 @@ Deno.test("a record whose status declares it superseded lives under _superseded/
 
 Deno.test("a status-line supersession claim is recorded on both records", async () => {
   const failures: string[] = [];
-  const current = await recordsIn(ADR_DIR);
+  const current = await recordsIn(false);
   const archivedNumbers = new Set(
-    (await recordsIn(SUPERSEDED_DIR)).map((r) => r.number),
+    (await recordsIn(true)).map((r) => r.number),
   );
   const byNumber = new Map(current.map((r) => [r.number, r]));
   for (const record of current) {
@@ -154,7 +168,7 @@ Deno.test("a status-line supersession claim is recorded on both records", async 
 
 Deno.test("every archived record opens with its retirement banner", async () => {
   const failures: string[] = [];
-  for (const record of await recordsIn(SUPERSEDED_DIR)) {
+  for (const record of await recordsIn(true)) {
     const beforeFirstHeading = record.text.split("\n## ")[0] ?? "";
     if (!/^> \*\*/m.test(beforeFirstHeading)) {
       failures.push(

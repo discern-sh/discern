@@ -1,12 +1,11 @@
 /** Remote workflow actions are immutable, and release artifacts carry provenance. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { basename, fromFileUrl, join } from "@std/path";
+import { basename, join } from "@std/path";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-const WORKFLOWS = fromFileUrl(
-  new URL("../.github/workflows/", import.meta.url),
-);
-const RELEASE = join(WORKFLOWS, "release.yml");
+const RELEASE = join(REPO_ROOT, ".github/workflows/release.yml");
 const SHA = /^[0-9a-f]{40}$/;
 
 interface ActionUse {
@@ -35,14 +34,20 @@ function isPinned(action: string): boolean {
 
 Deno.test("every remote workflow action is pinned to an immutable commit", async () => {
   const failures: string[] = [];
-  for await (const entry of Deno.readDir(WORKFLOWS)) {
-    if (!entry.isFile || !/\.ya?ml$/.test(entry.name)) {
-      continue;
-    }
-    const source = await Deno.readTextFile(join(WORKFLOWS, entry.name));
+  const files = await structuralGuardScope({
+    guard: "tests/workflow_supply_chain_test.ts#remote-action-pinning",
+    universe: "authored-text",
+    narrow: {
+      reason: "Remote action pinning governs every GitHub workflow YAML file.",
+      include: (rel) =>
+        rel.startsWith(".github/workflows/") && /\.ya?ml$/.test(rel),
+    },
+  });
+  for (const rel of files) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const use of remoteActionUses(source)) {
       if (!isPinned(use.action)) {
-        failures.push(`${entry.name}:${use.line}: ${use.action}`);
+        failures.push(`${basename(rel)}:${use.line}: ${use.action}`);
       }
     }
   }
@@ -99,12 +104,16 @@ Deno.test("every published binary and checksum receives build provenance", async
 });
 
 Deno.test("the pin guard scans the complete workflow directory", async () => {
-  const names: string[] = [];
-  for await (const entry of Deno.readDir(WORKFLOWS)) {
-    if (entry.isFile && /\.ya?ml$/.test(entry.name)) {
-      names.push(basename(entry.name));
-    }
-  }
+  const names = (await structuralGuardScope({
+    guard: "tests/workflow_supply_chain_test.ts#workflow-universe-control",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "This control proves Git-derived workflow YAML coverage stays populated.",
+      include: (rel) =>
+        rel.startsWith(".github/workflows/") && /\.ya?ml$/.test(rel),
+    },
+  })).map((rel) => basename(rel));
   assert(names.includes("gate.yml"));
   assert(names.includes("release.yml"));
 });

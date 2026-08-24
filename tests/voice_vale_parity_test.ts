@@ -21,8 +21,7 @@ import { BANNED_MOVES, BANNED_WORDS } from "../scripts/brand/voice.ts";
 import { runVale } from "../scripts/vale_lib.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
-
-const STYLE_DIR = join(REPO_ROOT, ".vale", "Discern");
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 interface ValeAlert {
   Check?: unknown;
@@ -182,11 +181,13 @@ const ERROR_RULE_FIXTURES = {
 } as const satisfies Record<string, string>;
 
 /** Every regex pattern written in a list or scalar by an authored rule. */
-async function stylePatterns(): Promise<{ file: string; pattern: string }[]> {
+async function stylePatterns(
+  files: readonly string[],
+): Promise<{ file: string; pattern: string }[]> {
   const patterns: { file: string; pattern: string }[] = [];
-  for await (const entry of Deno.readDir(STYLE_DIR)) {
-    if (!entry.isFile || !entry.name.endsWith(".yml")) continue;
-    const text = await Deno.readTextFile(join(STYLE_DIR, entry.name));
+  for (const rel of files) {
+    const file = basename(rel);
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     let inList = false;
     let inSwap = false;
     for (const raw of text.split("\n")) {
@@ -198,19 +199,19 @@ async function stylePatterns(): Promise<{ file: string; pattern: string }[]> {
         inList = key === "tokens" || key === "raw";
         inSwap = key === "swap";
         if (key === "token" && value) {
-          patterns.push({ file: entry.name, pattern: unquote(value) });
+          patterns.push({ file, pattern: unquote(value) });
         }
         continue;
       }
       const item = line.match(/^\s+-\s+(.*)$/);
       if (inList && item) {
-        patterns.push({ file: entry.name, pattern: unquote(item[1] ?? "") });
+        patterns.push({ file, pattern: unquote(item[1] ?? "") });
         continue;
       }
       const swapKey = line.match(/^\s+([^:]+):\s+.+$/);
       if (inSwap && swapKey) {
         patterns.push({
-          file: entry.name,
+          file,
           pattern: unquote((swapKey[1] ?? "").trim()),
         });
       }
@@ -406,11 +407,20 @@ Deno.test("every banned move is mechanical or has an explicit residual", async (
 
 Deno.test("every error-level house rule proves its block and code-span escape", async () => {
   const actual: string[] = [];
-  for await (const entry of Deno.readDir(STYLE_DIR)) {
-    if (!entry.isFile || !entry.name.endsWith(".yml")) continue;
-    const source = await Deno.readTextFile(join(STYLE_DIR, entry.name));
+  const files = await structuralGuardScope({
+    guard: "tests/voice_vale_parity_test.ts#error-level-rules",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "This severity contract governs every authored Discern Vale rule.",
+      include: (rel) =>
+        rel.startsWith(".vale/Discern/") && rel.endsWith(".yml"),
+    },
+  });
+  for (const rel of files) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (/^level:\s*error\s*$/m.test(source)) {
-      actual.push(basename(entry.name, ".yml"));
+      actual.push(basename(rel, ".yml"));
     }
   }
   assertEquals(
@@ -455,7 +465,16 @@ Deno.test("every error-level house rule proves its block and code-span escape", 
 });
 
 Deno.test("every Discern pattern survives a source-line wrap", async () => {
-  const offenders = (await stylePatterns()).filter((pattern) =>
+  const files = await structuralGuardScope({
+    guard: "tests/voice_vale_parity_test.ts#source-wrap-patterns",
+    universe: "authored-text",
+    narrow: {
+      reason: "This pattern rule governs every authored Discern Vale rule.",
+      include: (rel) =>
+        rel.startsWith(".vale/Discern/") && rel.endsWith(".yml"),
+    },
+  });
+  const offenders = (await stylePatterns(files)).filter((pattern) =>
     pattern.pattern.includes(" ")
   );
   assertEquals(

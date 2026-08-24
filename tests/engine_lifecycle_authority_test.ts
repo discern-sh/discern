@@ -26,7 +26,8 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const BASE_CONFIG = [
   "[project]",
@@ -370,9 +371,16 @@ Deno.test("MCP and CLI carry the same authority projection at every lifecycle mo
 });
 
 Deno.test("landing authority has one runtime derivation boundary", async () => {
-  const sourceFiles = AUTHORED_TS_FILES.filter((path) =>
-    path.startsWith("src/")
-  );
+  const sourceFiles = await structuralGuardScope({
+    guard:
+      "tests/engine_lifecycle_authority_test.ts#landing-authority-boundary",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Landing-authority derivation is a production lifecycle boundary implemented beneath src.",
+      include: (path) => path.startsWith("src/"),
+    },
+  });
   const readers: string[] = [];
   const directPolicyReaders: string[] = [];
   for (const path of sourceFiles) {
@@ -395,13 +403,18 @@ Deno.test("landing authority has one runtime derivation boundary", async () => {
   ]);
   assertEquals(directPolicyReaders, []);
 
-  for (
-    const path of [
-      "src/engine/gate/finish.ts",
-      "src/engine/status/status.ts",
-      "src/engine/worktree/lifecycle.ts",
-    ]
-  ) {
+  const consumers = new Set([
+    "src/engine/gate/finish.ts",
+    "src/engine/status/status.ts",
+    "src/engine/worktree/lifecycle.ts",
+  ]);
+  const consumerFiles = sourceFiles.filter((rel) => consumers.has(rel));
+  assertEquals(
+    consumerFiles.length,
+    consumers.size,
+    "every declared landing-authority consumer belongs to the source universe",
+  );
+  for (const path of consumerFiles) {
     const text = await Deno.readTextFile(join(REPO_ROOT, path));
     assert(
       text.includes("inspectLandingAuthority"),

@@ -32,7 +32,6 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { encodeBase64 } from "@std/encoding/base64";
-import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { gzipSync } from "zlib";
 import {
@@ -44,6 +43,7 @@ import {
 } from "../src/shared/third_party_codegen.ts";
 import { licensesResult } from "../src/commands/licenses.ts";
 import type { ThirdPartyComponent } from "../src/lib/third_party_types.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -149,13 +149,20 @@ Deno.test("the complete license report includes the committed third-party notice
 });
 
 Deno.test("every vendored formatter WASM is registered and credited", async () => {
-  const directory = join(repoRoot, "src/lib/tidy_plugins");
-  const onDisk: string[] = [];
-  for await (const entry of Deno.readDir(directory)) {
-    if (entry.isFile && entry.name.endsWith(".wasm")) {
-      onDisk.push(`src/lib/tidy_plugins/${entry.name}`);
-    }
-  }
+  const onDisk = await structuralGuardScope({
+    guard: "tests/third_party_notices_test.ts#vendored-wasm-registry",
+    universe: {
+      kind: "specialized",
+      name: "vendored WebAssembly components",
+      extensions: [".wasm"],
+      reason:
+        "Binary WebAssembly components are intentionally outside every canonical text universe.",
+    },
+    narrow: {
+      reason: "The notices registry governs vendored formatter plugins only.",
+      include: (rel) => rel.startsWith("src/lib/tidy_plugins/"),
+    },
+  });
   assertEquals(
     onDisk.sort(),
     VENDORED_WASM_COMPONENTS.map((component) => component.path).toSorted(),
@@ -246,9 +253,17 @@ Deno.test("every jsr:/npm: package src/ imports through the import map is credit
   };
 
   const imported = new Set<string>();
-  for await (const entry of walk(join(repoRoot, "src"))) {
-    if (!entry.isFile || !entry.path.endsWith(".ts")) continue;
-    const source = await Deno.readTextFile(entry.path);
+  const files = await structuralGuardScope({
+    guard: "tests/third_party_notices_test.ts#direct-import-credits",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "The compiled binary dependency report governs runtime modules under src.",
+      include: (rel) => rel.startsWith("src/"),
+    },
+  });
+  for (const rel of files) {
+    const source = await Deno.readTextFile(join(repoRoot, rel));
     for (const match of source.matchAll(/from\s*["']([^"']+)["']/g)) {
       const spec = match[1];
       if (spec === undefined) continue;

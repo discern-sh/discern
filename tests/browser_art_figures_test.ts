@@ -1,7 +1,10 @@
 /** Series-wide metre laws for every figure-series browser artwork. */
 
 import { assert, assertEquals } from "@std/assert";
+import { join } from "@std/path";
 import { FIGURE_SERIES_SLUGS } from "../art/browser/registry.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** One beat of the shared metre, in seconds. */
 const BEAT_SECONDS = 1.2;
@@ -172,16 +175,19 @@ function unitDashScalingConflicts(
 async function browserArtworkSources(): Promise<
   Array<{ name: string; source: string }>
 > {
-  const directory = new URL("../art/browser/", import.meta.url);
-  const names: string[] = [];
-  for await (const entry of Deno.readDir(directory)) {
-    if (entry.isFile && entry.name.endsWith(".tsx")) names.push(entry.name);
-  }
-  names.sort();
+  const files = await structuralGuardScope({
+    guard: "tests/browser_art_figures_test.ts#unit-dash-scaling",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "This SVG geometry invariant governs every browser artwork TSX module.",
+      include: (rel) => rel.startsWith("art/browser/") && rel.endsWith(".tsx"),
+    },
+  });
   return await Promise.all(
-    names.map(async (name) => ({
-      name,
-      source: await Deno.readTextFile(new URL(name, directory)),
+    files.map(async (rel) => ({
+      name: rel.slice("art/browser/".length),
+      source: await Deno.readTextFile(join(REPO_ROOT, rel)),
     })),
   );
 }

@@ -14,7 +14,6 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
 import {
   RETIRED_COMMAND_REDIRECTS,
@@ -27,34 +26,35 @@ import {
   REPO_ROOT,
 } from "./repo_authored_paths.ts";
 import { withoutRegistryAtlasMembers } from "./registry_atlas_scan.ts";
-
-const SRC = join(REPO_ROOT, "src");
-const TEMPLATES = join(REPO_ROOT, "templates");
-const SCRIPTS = join(REPO_ROOT, "scripts");
-const SKILLS = REPO_AUTHORED_PATHS.skills;
-const GITHUB = join(REPO_ROOT, ".github");
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** The retired Deno-task alias names that should no longer exist anywhere. */
 const RETIRED_TOKENS = ["selfsync", "selfcheck"];
 
-/** Every file under `root`, as `[repo-relative path, contents]`. */
-async function textFiles(root: string): Promise<Array<[string, string]>> {
-  const out: Array<[string, string]> = [];
-  for await (const entry of walk(root, { includeDirs: false })) {
-    let text: string;
-    try {
-      text = await Deno.readTextFile(entry.path);
-    } catch {
-      continue; // non-text / unreadable → nothing to leak
-    }
-    out.push([relative(REPO_ROOT, entry.path), text]);
-  }
-  return out;
+/** Read declared repository-relative text files with their stable labels. */
+async function textFiles(
+  files: readonly string[],
+): Promise<Array<[string, string]>> {
+  return await Promise.all(
+    files.map(async (rel): Promise<[string, string]> => [
+      rel,
+      await Deno.readTextFile(join(REPO_ROOT, rel)),
+    ]),
+  );
 }
 
 Deno.test("the retired self-host aliases appear nowhere under src/", async () => {
   const offenders: string[] = [];
-  for (const [rel, text] of await textFiles(SRC)) {
+  const files = await structuralGuardScope({
+    guard: "tests/dev_vocab_guard_test.ts#retired-source-aliases",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "The retired self-host aliases were implementation vocabulary, so their absence contract is confined to production src files.",
+      include: (rel) => rel.startsWith("src/"),
+    },
+  });
+  for (const [rel, text] of await textFiles(files)) {
     for (const token of RETIRED_TOKENS) {
       if (text.includes(token)) offenders.push(`${rel} contains "${token}"`);
     }
@@ -71,7 +71,16 @@ Deno.test("the retired self-host aliases appear nowhere under src/", async () =>
 Deno.test("shipped templates/ never name engine-developer commands", async () => {
   const banned = ["deno task", ...RETIRED_TOKENS];
   const offenders: string[] = [];
-  for (const [rel, text] of await textFiles(TEMPLATES)) {
+  const files = await structuralGuardScope({
+    guard: "tests/dev_vocab_guard_test.ts#shipped-template-commands",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "This invariant protects the templates distribution surface that every installed project receives verbatim.",
+      include: (rel) => rel.startsWith("templates/"),
+    },
+  });
+  for (const [rel, text] of await textFiles(files)) {
     for (const token of banned) {
       if (text.includes(token)) offenders.push(`${rel} contains "${token}"`);
     }
@@ -84,10 +93,6 @@ Deno.test("shipped templates/ never name engine-developer commands", async () =>
     }`,
   );
 });
-
-const MAP = REPO_AUTHORED_PATHS.map;
-const TESTS = join(REPO_ROOT, "tests");
-const PROJECT_SCRIPTS = REPO_AUTHORED_PATHS.scripts;
 
 /**
  * discern's one update channel is the install script (`src/lib/version.ts`
@@ -102,14 +107,20 @@ const PROJECT_SCRIPTS = REPO_AUTHORED_PATHS.scripts;
 Deno.test("no shipped surface invents an update channel", async () => {
   const banned = [/\bbrew\b/i, /\bself-update\b/i];
   const offenders: string[] = [];
-  const files = [
-    ...await textFiles(SRC),
-    ...await textFiles(TEMPLATES),
-    ...(await textFiles(MAP)).filter(([rel]) =>
-      !rel.startsWith(`${REPO_AUTHORED_PATHS.mapRel}/_`) &&
-      !isRepoMapPath(rel, "80-development")
-    ),
-  ];
+  const shippedFiles = await structuralGuardScope({
+    guard: "tests/dev_vocab_guard_test.ts#shipped-update-channels",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Update-channel promises can ship from production source, templates, or public map pages; private and contributor records are not product promises.",
+      include: (rel) =>
+        rel.startsWith("src/") || rel.startsWith("templates/") ||
+        (rel.startsWith(`${REPO_AUTHORED_PATHS.mapRel}/`) &&
+          !rel.startsWith(`${REPO_AUTHORED_PATHS.mapRel}/_`) &&
+          !isRepoMapPath(rel, "80-development")),
+    },
+  });
+  const files = await textFiles(shippedFiles);
   for (const [rel, text] of files) {
     for (const pattern of banned) {
       const hit = text.match(pattern);
@@ -127,13 +138,6 @@ Deno.test("no shipped surface invents an update channel", async () => {
       }`,
   );
 });
-
-const ROOT_TEXT_FILES = [
-  "README.md",
-  "CONTRIBUTING.md",
-  "deno.json",
-  "discern.toml",
-];
 
 const RETIRED_COMMAND_ALLOWLIST = new Set([
   "tests/dev_vocab_guard_test.ts",
@@ -174,59 +178,43 @@ const RETIRED_COMMAND_TOKENS = [
   "`worktree:*`",
 ];
 
-/** Read an optional repository-relative text surface without making absence a scan failure. */
-async function maybeTextFile(
-  rel: string,
-): Promise<[string, string] | undefined> {
-  try {
-    return [rel, await Deno.readTextFile(join(REPO_ROOT, rel))];
-  } catch {
-    return undefined;
-  }
-}
-
-/** Read an optional configured text surface and retain its repository-relative label. */
-async function maybeConfiguredTextFile(
-  path: string,
-): Promise<[string, string] | undefined> {
-  try {
-    return [relative(REPO_ROOT, path), await Deno.readTextFile(path)];
-  } catch {
-    return undefined;
-  }
-}
+/** Operational and product-text trees where command/config vocabulary is executable. */
+const COMMAND_SURFACE_TREES = [
+  "src",
+  "tests",
+  REPO_AUTHORED_PATHS.mapRel,
+  "templates",
+  "scripts",
+  relative(REPO_ROOT, REPO_AUTHORED_PATHS.scripts),
+  relative(REPO_ROOT, REPO_AUTHORED_PATHS.skills),
+  ".github",
+];
+const COMMAND_SURFACE_FILES = new Set([
+  "README.md",
+  "CONTRIBUTING.md",
+  "deno.json",
+  "discern.toml",
+  ...REPO_AUTHORED_PATHS.instructions.map((path) => relative(REPO_ROOT, path)),
+  relative(REPO_ROOT, REPO_AUTHORED_PATHS.todo),
+]);
 
 /** Assemble every authored, generated, and configured text surface that can publish command vocabulary. */
 async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
-  const out: Array<[string, string]> = [];
-  for (
-    const root of [
-      SRC,
-      TESTS,
-      MAP,
-      TEMPLATES,
-      SCRIPTS,
-      PROJECT_SCRIPTS,
-      SKILLS,
-      GITHUB,
-    ]
-  ) {
-    out.push(...await textFiles(root));
-  }
-  for (const rel of ROOT_TEXT_FILES) {
-    const file = await maybeTextFile(rel);
-    if (file !== undefined) out.push(file);
-  }
-  for (
-    const path of [
-      ...REPO_AUTHORED_PATHS.instructions,
-      REPO_AUTHORED_PATHS.todo,
-    ]
-  ) {
-    const file = await maybeConfiguredTextFile(path);
-    if (file !== undefined) out.push(file);
-  }
-  return out.filter(([rel]) => !RETIRED_COMMAND_ALLOWLIST.has(rel)).map(
+  const files = await structuralGuardScope({
+    guard: "tests/dev_vocab_guard_test.ts#live-command-vocabulary",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Callable and config vocabulary governs operational code, tests, shipped copy, project instructions, and contributor automation.",
+      include: (rel) =>
+        COMMAND_SURFACE_TREES.some((tree) =>
+          rel === tree || rel.startsWith(`${tree}/`)
+        ) || COMMAND_SURFACE_FILES.has(rel),
+    },
+  });
+  return (await textFiles(files)).filter(([rel]) =>
+    !RETIRED_COMMAND_ALLOWLIST.has(rel)
+  ).map(
     ([rel, text]): [string, string] => [
       rel,
       withoutRegistryAtlasMembers(rel, text),

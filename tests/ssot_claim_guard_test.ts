@@ -15,7 +15,7 @@
  * MATCHER RULES — conservative by design; a comment referencing another
  * module's SSOT must never fire:
  *
- * Where it looks: the authored-TypeScript universe (`AUTHORED_TS_FILES`),
+ * Where it looks: the declared authored-TypeScript universe,
  * minus `*_test.ts` files — a test's prose describes the set it guards,
  * never one it owns; non-test registry modules under `tests/` (like
  * `spawn_surfaces.ts`) stay scanned. Only doc-comment blocks count, in two
@@ -56,7 +56,8 @@ import {
   type CanonicalSetEntry,
   UNAFFILIATED_SETS,
 } from "../scripts/canonical_sets.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const REGISTRY_MODULE = "scripts/canonical_sets.ts";
 
@@ -247,7 +248,12 @@ function ledgerOffenders(
 
 const UNIVERSE: ReadonlyMap<string, LedgerTarget> = await (async () => {
   const targets = new Map<string, LedgerTarget>();
-  for (const rel of AUTHORED_TS_FILES) {
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/ssot_claim_guard_test.ts#single-source-claims",
+      universe: "authored-ts",
+    })
+  ) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     targets.set(rel, { text, claims: ssotClaims(rel, text) });
   }

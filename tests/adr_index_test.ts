@@ -13,8 +13,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { walk } from "@std/fs";
-import { dirname, join, relative } from "@std/path";
+import { dirname, join } from "@std/path";
 import { adrIndexState } from "../src/lib/adr_index.ts";
 import {
   type AdrRecord,
@@ -24,6 +23,7 @@ import {
 } from "../src/lib/docs.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const ADR_DIR = join(REPO_AUTHORED_PATHS.map, "_adr");
 
@@ -243,20 +243,30 @@ Deno.test("the two shipped ADR skeletons are identical", async () => {
   // authored source; `deno task codegen` produces the skill's copy. This
   // byte-identity check backstops the generator: it fails when a copy is
   // edited by hand or a new source file is not yet enrolled and regenerated.
-  const setupSkel = join(REPO_ROOT, "templates/setup/skeleton/docs/_adr");
-  const skillSkel = join(
-    REPO_ROOT,
-    "templates/skills/discern-write-adr/skeleton/docs/_adr",
-  );
-  const filesIn = async (dir: string): Promise<Map<string, string>> => {
+  const setupPrefix = "templates/setup/skeleton/docs/_adr/";
+  const skillPrefix = "templates/skills/discern-write-adr/skeleton/docs/_adr/";
+  const skeletonFiles = await structuralGuardScope({
+    guard: "tests/adr_index_test.ts#shipped-adr-skeleton-parity",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "The setup and bundled write-ADR skeleton directories are two delivery paths for one shipped record template.",
+      include: (rel) =>
+        rel.startsWith(setupPrefix) || rel.startsWith(skillPrefix),
+    },
+  });
+  const filesIn = async (prefix: string): Promise<Map<string, string>> => {
     const out = new Map<string, string>();
-    for await (const entry of walk(dir, { includeDirs: false })) {
-      out.set(relative(dir, entry.path), await Deno.readTextFile(entry.path));
+    for (const rel of skeletonFiles.filter((path) => path.startsWith(prefix))) {
+      out.set(
+        rel.slice(prefix.length),
+        await Deno.readTextFile(join(REPO_ROOT, rel)),
+      );
     }
     return out;
   };
-  const setupFiles = await filesIn(setupSkel);
-  const skillFiles = await filesIn(skillSkel);
+  const setupFiles = await filesIn(setupPrefix);
+  const skillFiles = await filesIn(skillPrefix);
   assertEquals(
     [...setupFiles.keys()].sort(),
     [...skillFiles.keys()].sort(),
@@ -320,10 +330,20 @@ Deno.test("ADR index: every relative link in the README resolves to a file", asy
 
 Deno.test("ADR record: every relative Markdown-file link resolves", async () => {
   const dangling: string[] = [];
-  for await (
-    const entry of walk(ADR_DIR, { includeDirs: false, exts: [".md"] })
+  const prefix = `${REPO_AUTHORED_PATHS.mapRel}/_adr/`;
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/adr_index_test.ts#adr-relative-markdown-links",
+      universe: "tracked-markdown",
+      narrow: {
+        reason:
+          "Relative record links are an invariant of Markdown files in the configured active and superseded ADR tree.",
+        include: (path) => path.startsWith(prefix),
+      },
+    })
   ) {
-    const text = await Deno.readTextFile(entry.path);
+    const path = join(REPO_ROOT, rel);
+    const text = await Deno.readTextFile(path);
     for (
       const match of text.matchAll(
         /\]\((?!https?:|mailto:|#)([^)#]+\.md)(?:#[^)]*)?\)/g,
@@ -331,10 +351,10 @@ Deno.test("ADR record: every relative Markdown-file link resolves", async () => 
     ) {
       const target = match[1] ?? "";
       try {
-        await Deno.stat(join(dirname(entry.path), target));
+        await Deno.stat(join(dirname(path), target));
       } catch {
         dangling.push(
-          `${relative(ADR_DIR, entry.path)} -> ${target}`,
+          `${rel.slice(prefix.length)} -> ${target}`,
         );
       }
     }

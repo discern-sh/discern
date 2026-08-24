@@ -11,7 +11,8 @@ import {
   type PlanStep,
   verbatimStepLabel,
 } from "../src/shared/result.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const RULE_ID = "discern/built-in-step-label-registry";
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -86,8 +87,15 @@ Deno.test("step-label types reject a file-local static alias", () => {
 
 Deno.test("authored static step labels come from the built-in registry", async () => {
   const offenders: string[] = [];
-  // Test modules construct forbidden fixtures and cannot emit product results.
-  const sources = AUTHORED_TS_FILES.filter((rel) => !rel.endsWith("_test.ts"));
+  const sources = await structuralGuardScope({
+    guard: "tests/built_in_step_labels_test.ts#static-plan-step-labels",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Files ending _test.ts construct forbidden controls and cannot emit product results; executable helpers remain enrolled.",
+      include: (rel) => !rel.endsWith("_test.ts"),
+    },
+  });
   for (const rel of sources) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const diagnostic of diagnostics(source, rel)) {

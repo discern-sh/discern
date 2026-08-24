@@ -17,32 +17,49 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
+import { gitInit } from "./engine_helpers.ts";
 import {
   declaredInterruptSurfaces,
   homesThatMaySpawn,
   SPAWN_HOMES,
 } from "./spawn_surfaces.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
-const SRC = join(REPO_ROOT, "src");
-
-/** Every `.ts` file under `root`, as `[display-relative path, contents]`. */
+/** Read declared TypeScript files as `[repo-relative path, contents]`. */
 async function tsFiles(
   root: string,
-  displayRoot = root,
+  files: readonly string[],
 ): Promise<Array<[string, string]>> {
-  const out: Array<[string, string]> = [];
-  for await (const entry of walk(root, { includeDirs: false })) {
-    if (!entry.path.endsWith(".ts")) continue;
-    out.push([
-      relative(displayRoot, entry.path).replaceAll("\\", "/"),
-      await Deno.readTextFile(entry.path),
-    ]);
-  }
-  return out;
+  return await Promise.all(
+    files.map(async (rel): Promise<[string, string]> => [
+      rel,
+      await Deno.readTextFile(join(root, rel)),
+    ]),
+  );
+}
+
+/** Production modules capable of spawning a child process. */
+function productionSpawnFiles(): Promise<string[]> {
+  return structuralGuardScope({
+    guard: "tests/engine_subprocess_ssot_test.ts#production-spawn-sites",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "The spawn-home registry governs production subprocess constructors implemented beneath src.",
+      include: (path) => path.startsWith("src/"),
+    },
+  });
+}
+
+/** Repository-wide injected universe proving a future container auto-enrols. */
+function plantedSpawnFiles(root: string): Promise<string[]> {
+  return structuralGuardScope({
+    guard: "tests/engine_subprocess_ssot_test.ts#future-spawn-site-control",
+    universe: "authored-ts",
+  }, root);
 }
 
 /**
@@ -56,10 +73,10 @@ const SPAWN_SITE = /new\s+Deno\.Command\s*\(|["']node:child_process["']/g;
 /** Count the constructor sites per file under `root`; zero-count files omitted. */
 async function spawnSites(
   root: string,
-  displayRoot = root,
+  files: readonly string[],
 ): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
-  for (const [rel, text] of await tsFiles(root, displayRoot)) {
+  for (const [rel, text] of await tsFiles(root, files)) {
     const found = text.match(SPAWN_SITE)?.length ?? 0;
     if (found > 0) counts.set(rel, found);
   }
@@ -67,7 +84,7 @@ async function spawnSites(
 }
 
 Deno.test("every subprocess constructor site lives in a registered spawn home", async () => {
-  const found = await spawnSites(SRC, REPO_ROOT);
+  const found = await spawnSites(REPO_ROOT, await productionSpawnFiles());
   const actual = Object.fromEntries([...found].sort());
   const expected = Object.fromEntries(
     SPAWN_HOMES.map((entry) => [entry.home, entry.sites] as const).sort(),
@@ -91,8 +108,9 @@ Deno.test("the spawn-site guard enrolls an unrelated future spawner", async () =
       // "sh"/"git" pattern, caught by the constructor scan.
       `const tool = "unrelated-tool";\nnew Deno.Command(tool, {}).spawn();\n`,
     );
+    await gitInit(dir);
     assertEquals(
-      Object.fromEntries(await spawnSites(dir)),
+      Object.fromEntries(await spawnSites(dir, await plantedSpawnFiles(dir))),
       { "another/container/relay.ts": 1 },
     );
   });
@@ -114,7 +132,9 @@ const GIT_SPAWN = /new Deno\.Command\(\s*(?:gitBin\(\)|["']git["'])/;
 Deno.test("every git spawn lives in a registered Git home", async () => {
   const gitHomes = homesThatMaySpawn("git");
   const offenders: string[] = [];
-  for (const [rel, text] of await tsFiles(SRC, REPO_ROOT)) {
+  for (
+    const [rel, text] of await tsFiles(REPO_ROOT, await productionSpawnFiles())
+  ) {
     if (gitHomes.has(rel)) continue;
     if (GIT_SPAWN.test(text)) offenders.push(rel);
   }
@@ -134,7 +154,9 @@ const SH_SPAWN = /new Deno\.Command\(\s*["']sh["']/;
 Deno.test("every sh -c spawn funnels through a sanctioned runner", async () => {
   const shHomes = homesThatMaySpawn("sh");
   const offenders: string[] = [];
-  for (const [rel, text] of await tsFiles(SRC, REPO_ROOT)) {
+  for (
+    const [rel, text] of await tsFiles(REPO_ROOT, await productionSpawnFiles())
+  ) {
     if (shHomes.has(rel)) continue;
     if (SH_SPAWN.test(text)) offenders.push(rel);
   }

@@ -16,7 +16,8 @@ import {
   experimentalEnvironmentEnabled,
 } from "../src/shared/experimental.ts";
 import { fakeEnv } from "./helpers.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const EXPERIMENTAL_DOC =
   "project/map/50-engine-internals/experimental-behaviors.md";
@@ -92,7 +93,13 @@ Deno.test("the await call cap activates only on a positive whole number", () => 
 Deno.test("every experimental environment name comes from the registry", async () => {
   const registered = Object.values(EXPERIMENTAL_ENVIRONMENT_VARIABLES).sort();
   const observed = new Set<string>();
-  for (const rel of AUTHORED_TS_FILES) {
+  for (
+    const rel of await structuralGuardScope({
+      guard:
+        "tests/experimental_environment_enrolment_test.ts#experimental-environment-names",
+      universe: "authored-ts",
+    })
+  ) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const name of experimentalEnvironmentNames(text)) observed.add(name);
   }

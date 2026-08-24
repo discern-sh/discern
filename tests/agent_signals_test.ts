@@ -4,8 +4,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { walk } from "@std/fs";
-import { fromFileUrl, join, relative } from "@std/path";
+import { join } from "@std/path";
 import {
   AGENT_CATALOGUE,
   AGENT_NAMES,
@@ -27,8 +26,18 @@ import {
 } from "../src/engine/logbook/agent_signals.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { fakeEnv } from "./helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-const REPO = fromFileUrl(new URL("../", import.meta.url));
+const AGENT_SIGNAL_SOURCE_FILES = await structuralGuardScope({
+  guard: "tests/agent_signals_test.ts#production-agent-signal-boundaries",
+  universe: "authored-ts",
+  narrow: {
+    reason:
+      "Agent signal recording and reading are production boundaries implemented beneath src; tests exercise their controls.",
+    include: (path) => path.startsWith("src/"),
+  },
+});
 const NO_HOST_MARKERS = (_path: string): Promise<boolean> =>
   Promise.resolve(false);
 
@@ -188,15 +197,10 @@ Deno.test("agent catalogue: every source class carries a lifetime and every iden
 
 Deno.test("agent detection is imported only by the two logbook recording chokepoints", async () => {
   const consumers: string[] = [];
-  for await (
-    const entry of walk(join(REPO, "src"), {
-      includeDirs: false,
-      exts: [".ts"],
-    })
-  ) {
-    const source = await Deno.readTextFile(entry.path);
+  for (const rel of AGENT_SIGNAL_SOURCE_FILES) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (/["'][^"'\n]*agent_signals\.ts["']/.test(source)) {
-      consumers.push(relative(REPO, entry.path));
+      consumers.push(rel);
     }
   }
   assertEquals(
@@ -211,15 +215,10 @@ Deno.test("agent detection is imported only by the two logbook recording chokepo
 
 Deno.test("stored identity evidence is read only through the canonical effective view", async () => {
   const sources: [string, string][] = [];
-  for await (
-    const entry of walk(join(REPO, "src"), {
-      includeDirs: false,
-      exts: [".ts"],
-    })
-  ) {
+  for (const rel of AGENT_SIGNAL_SOURCE_FILES) {
     sources.push([
-      relative(REPO, entry.path),
-      await Deno.readTextFile(entry.path),
+      rel,
+      await Deno.readTextFile(join(REPO_ROOT, rel)),
     ]);
   }
   assertEquals(

@@ -1,8 +1,7 @@
 /** Registry, routing, and static-rendering contracts for the internal art archive. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { walk } from "@std/fs";
-import { join, relative } from "@std/path";
+import { join } from "@std/path";
 import { createElement } from "react";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
@@ -23,6 +22,7 @@ import {
 } from "../site/specimens.ts";
 import { handler, PAGES } from "../site/serve.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const EXPECTED_BROWSER_ART = [
   ["alignment", "Alignment", "3006e8622db947c4417b4df2055e28820646ad2e"],
@@ -53,30 +53,23 @@ function readableText(value: string | null): string {
 
 /** Current and future files whose naming must stay independent of the old brief. */
 async function neutralArtSources(): Promise<Array<[string, string]>> {
-  const paths = [
-    join(REPO_ROOT, "site/page-src/art-gallery.tsx"),
-    join(REPO_ROOT, "site/page-src/art-gallery.css"),
-  ];
-  for await (
-    const entry of walk(join(REPO_ROOT, "art/browser"), {
-      includeDirs: false,
-    })
-  ) {
-    paths.push(entry.path);
-  }
-  for await (
-    const entry of walk(join(REPO_ROOT, "tests"), {
-      includeDirs: false,
-      exts: [".ts"],
-      maxDepth: 1,
-    })
-  ) {
-    if (/\/browser_art_.+_test\.ts$/.test(entry.path)) paths.push(entry.path);
-  }
+  const paths = await structuralGuardScope({
+    guard: "tests/art_browser_gallery_test.ts#neutral-browser-art-vocabulary",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Neutral study vocabulary governs the browser-art tree, its gallery source pair, and conventionally named browser-art controls.",
+      include: (path) =>
+        path.startsWith("art/browser/") ||
+        path === "site/page-src/art-gallery.tsx" ||
+        path === "site/page-src/art-gallery.css" ||
+        /^tests\/browser_art_.+_test\.ts$/.test(path),
+    },
+  });
   return await Promise.all(
-    paths.sort().map(async (path) => [
-      relative(REPO_ROOT, path),
-      await Deno.readTextFile(path),
+    paths.map(async (path) => [
+      path,
+      await Deno.readTextFile(join(REPO_ROOT, path)),
     ]),
   );
 }

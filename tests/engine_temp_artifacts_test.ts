@@ -13,8 +13,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { basename, dirname, fromFileUrl, join, relative } from "@std/path";
-import { walk } from "@std/fs";
+import { basename, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
   makeTempArtifact,
@@ -36,6 +35,8 @@ import {
   suiteTempDir,
   writeConfig,
 } from "./engine_helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -389,18 +390,26 @@ Deno.test("engine suite: spawned-engine artifacts land in the suite temp home, n
 
 // ── the structural guard ─────────────────────────────────────────────────────────
 
-const SRC_DIR = join(dirname(fromFileUrl(import.meta.url)), "..", "src");
 const REGISTRY_REL = join("src", "shared", "temp_artifacts.ts");
 const WRITE_PREFLIGHT_REL = join("src", "shared", "write_preflight.ts");
 
 Deno.test("temp artifacts: src/ mints temp files only through the registry (the reaper's coverage is total)", async () => {
   const offenders: string[] = [];
-  for await (const entry of walk(SRC_DIR, { exts: [".ts"] })) {
-    const rel = join("src", relative(SRC_DIR, entry.path));
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/engine_temp_artifacts_test.ts#temp-primitive-callers",
+      universe: "authored-ts",
+      narrow: {
+        reason:
+          "The temp-artifact registry governs production primitive callers implemented beneath src.",
+        include: (path) => path.startsWith("src/"),
+      },
+    })
+  ) {
     if (rel === REGISTRY_REL) {
       continue; // the one place allowed to call the primitive
     }
-    const text = await Deno.readTextFile(entry.path);
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (rel === WRITE_PREFLIGHT_REL) {
       const primitives = text.match(/Deno\.makeTemp(File|Dir)(Sync)?\(/g) ?? [];
       assertEquals(

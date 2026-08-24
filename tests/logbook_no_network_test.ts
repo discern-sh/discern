@@ -23,9 +23,9 @@
 
 import { assert, assertEquals, assertMatch } from "@std/assert";
 import { dirname, fromFileUrl, join, relative, resolve } from "@std/path";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
-const LOGBOOK_DIR = join(REPO_ROOT, "src", "engine", "logbook");
 
 /**
  * A reach into the network, spelled any way Deno source can spell it. Scanned
@@ -88,12 +88,17 @@ export function importSpecifiers(
 
 /** The logbook subsystem's entry modules: every .ts file in its directory. */
 async function logbookEntryFiles(): Promise<string[]> {
-  const out: string[] = [];
-  for await (const entry of Deno.readDir(LOGBOOK_DIR)) {
-    if (entry.isFile && entry.name.endsWith(".ts")) {
-      out.push(join(LOGBOOK_DIR, entry.name));
-    }
-  }
+  const out = (await structuralGuardScope({
+    guard: "tests/logbook_no_network_test.ts#logbook-graph-entry-modules",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "The no-network graph starts from every direct TypeScript module in the production logbook package.",
+      include: (path) =>
+        path.startsWith("src/engine/logbook/") &&
+        !path.slice("src/engine/logbook/".length).includes("/"),
+    },
+  })).map((rel) => join(REPO_ROOT, rel));
   assert(out.length > 0, "the logbook subsystem has no modules to guard");
   return out.sort();
 }
