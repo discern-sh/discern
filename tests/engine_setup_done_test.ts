@@ -1689,7 +1689,7 @@ Deno.test("the brief teaches bounded authoring with explicit authority and no mi
   assertStringIncludes(brief, "cost, data, access");
 
   // The old propose-and-confirm gate is reconciled away in EVERY place it lived:
-  // the operating principle, the Step 7 capability gate, and the stop-condition.
+  // the operating principle, the per-step capability gate, and the stop-condition.
   // These are the structural guards that keep the consent gate from creeping back.
   assert(
     !brief.includes("Propose, don't overwrite"),

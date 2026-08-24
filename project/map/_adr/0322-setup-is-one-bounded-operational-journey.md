@@ -12,11 +12,11 @@ The operational defect class is any setup fact that exists in one delivery lane,
 
 ## Decision
 
-**Setup is one versioned operational journey whose parsed page, final Proof, landing state, and provider registry determine every presentation.**
+**Setup is one operational journey whose parsed page, final Proof, landing state, and provider registry determine every presentation.**
 
-### Stable pages, reordered dependencies
+### Sequential pages and dependency order
 
-`SETUP_PAGE_REGISTRY` owns stable numeric page identifiers, presentation order, and exact next commands. The v2 order is `0, 1, 2, 3, 4, 5, 7, 8, 6, 9`: project and subsystem evidence precedes Map planning, Gate and smoke behavior precede final documentation synthesis, and final synthesis precedes the clean commit and Proof transaction. Existing setup sessions keep their numeric resume handles; moving whole registered pages changes presentation without renumbering state.
+`SETUP_PAGE_REGISTRY` owns the numbered page set, numeric presentation order, and exact next commands. Pages run from `0` through `9` without gaps or reversals. Project and subsystem evidence precedes Map planning, Gate and smoke behavior precede final documentation synthesis, and final synthesis precedes the clean commit and Proof transaction. The parser rejects an authored heading or continuation that departs from that sequence.
 
 Every page's co-located TOML spine carries its phase, stable target, inputs, ordered actions, authority boundaries, canonical owner-moment ids, prohibited actions, completion check, stop conditions, recovery, and exact continuation. The parser resolves each owner moment into complete prose and a compact typed projection. Human, Markdown, JSON, and MCP presentations consume the same result. Full semantic sentences appear once, while integrations receive the moment kind, recommendation, options, and wait state.
 
@@ -61,7 +61,7 @@ No tracked mutation follows successful final Proof inside setup completion. A re
 
 ## Alternatives considered
 
-- **Renumber the pages into presentation order.** Rejected because numeric ids are resume handles for in-progress setup. A versioned order registry changes dependencies without stranding those sessions.
+- **Preserve the old page numbers as compatibility handles.** Rejected because discern is pre-release and no external setup session depends on those numbers. Aliases or a versioned order would retain a confusing journey and create a second page contract.
 - **Keep the operational spine only in JSON.** Rejected because many agents read human or Markdown output, and clean-room runs showed that one lane can be compressed or ignored. Both lanes must retain the load-bearing facts.
 - **Review first-use nuance only as copy.** Rejected because a later rewrite can preserve nouns while dropping outcome, reason, consequences, and action. An id-independent schema and future-sibling fixture guard the semantic roles.
 - **Keep a manual `discern start` probe for teaching.** Rejected because it defaults to trunk, duplicates the machine-owned current-HEAD probe, and creates needless setup and teardown effects.

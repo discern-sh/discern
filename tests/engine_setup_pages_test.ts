@@ -13,7 +13,7 @@
  *     PASSES when every check is satisfied — the anti-shallow-compliance guard;
  *  4. every completion check's `describe` matches its page's `completion_check`
  *     spine field (so the brief and the predicate can't drift);
- *  5. the shipped brief parses into every versioned page (a malformed spine fails here).
+ *  5. the shipped brief parses into every sequential page (a malformed spine fails here).
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -53,7 +53,7 @@ const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
 
 // ── the page parser + the brief's structure ─────────────────────────────────
 
-Deno.test("the shipped brief parses in versioned dependency order and every page has the operational spine", async () => {
+Deno.test("the shipped brief parses in sequential dependency order and every page has the operational spine", async () => {
   // This is also the malformed-spine guard: a step with a broken `toml` block makes
   // parseSetupBrief throw, failing the gate before such a brief could ship.
   const text = await Deno.readTextFile(BRIEF);

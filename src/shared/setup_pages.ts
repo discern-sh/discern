@@ -38,31 +38,27 @@ export type { SetupPageSpine, SetupStepData };
 export type SetupPage = SetupStepData;
 
 /**
- * Versioned presentation registry for the stable setup page identifiers.
+ * Presentation authority for the numbered setup journey.
  *
- * Page numbers are public resume handles: an in-progress setup may already have
- * been told to run `discern setup step <n>`. Wave 4 changes the dependency order
- * without renumbering those handles. The registry is therefore the authority for
- * presentation order and the exact next command; the authored headings may move,
- * but a missing, duplicate, or reordered member fails parsing.
+ * Pages run in numeric order. The registry derives each exact continuation from
+ * that order, while parsing requires the authored headings and spine commands to
+ * match it. A missing, duplicate, reordered, or misdirected page therefore fails
+ * before any setup surface can serve the brief.
  */
-export const SETUP_PAGE_REGISTRY_VERSION = 2;
-export const SETUP_PAGE_REGISTRY = [
-  { step: 0, nextCommand: "discern setup step 1" },
-  { step: 1, nextCommand: "discern setup step 2" },
-  { step: 2, nextCommand: "discern setup step 3" },
-  { step: 3, nextCommand: "discern setup step 4" },
-  { step: 4, nextCommand: "discern setup step 5" },
-  { step: 5, nextCommand: "discern setup step 7" },
-  { step: 7, nextCommand: "discern setup step 8" },
-  { step: 8, nextCommand: "discern setup step 6" },
-  { step: 6, nextCommand: "discern setup step 9" },
-  { step: 9, nextCommand: "discern setup done" },
-] as const;
+const SETUP_PAGE_COUNT = 10;
+export const SETUP_PAGE_REGISTRY: readonly {
+  step: number;
+  nextCommand: string;
+}[] = Array.from({ length: SETUP_PAGE_COUNT }, (_, step) => ({
+  step,
+  nextCommand: step === SETUP_PAGE_COUNT - 1
+    ? "discern setup done"
+    : `discern setup step ${step + 1}`,
+}));
 
-/** Stable ids of pages that author architecture, ownership, command, or
+/** Registered pages that author architecture, ownership, command, or
  * instruction claims and must therefore carry the final evidence-recheck action. */
-export const SETUP_DOCUMENTATION_CLAIM_STEPS = [4, 5, 7, 6] as const;
+export const SETUP_DOCUMENTATION_CLAIM_STEPS = [4, 5, 6, 8] as const;
 
 /** Useful-context ceilings for the default progressive-disclosure surfaces. */
 export const SETUP_PAGE_MAX_CHARS = 12_000;
@@ -143,11 +139,9 @@ export function parseSetupBrief(text: string): SetupBrief {
     actual.some((step, index) => step !== expected[index])
   ) {
     throw new Error(
-      `Setup page registry v${SETUP_PAGE_REGISTRY_VERSION} expects authored order ${
+      `Setup page registry expects authored order ${
         expected.join(", ")
-      }; found ${
-        actual.join(", ")
-      }. Keep stable page ids and move whole page sections into registry order.`,
+      }; found ${actual.join(", ")}. Number each page in presentation order.`,
     );
   }
   for (const [index, page] of authoredPages.entries()) {

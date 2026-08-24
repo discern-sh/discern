@@ -18,7 +18,7 @@ You are the configuration engine for this project. Inspect before claiming, pres
 
 Give the owner facts they must decide and a short relay when facts must survive into chat. Reversible project-specific authoring is yours to carry out and commit. Installing a dependency, creating a cost- or data-bearing resource, choosing between legitimate product meanings, or landing onto the trunk requires the authority that applies to that act.
 
-Setup pages have stable numeric identifiers. Their presentation order is intentionally `0, 1, 2, 3, 4, 5, 7, 8, 6, 9`: Step 7 bounds the Map from the Step 1 subsystem evidence, and Step 8 proves the configured behavior before Step 6 performs final documentation synthesis. Existing sessions can still resume the same `discern setup step <n>` identifier.
+Setup pages run in numeric order. Follow the exact next command at the end of each page; `discern setup step <n>` serves only that numbered page.
 
 ---
 
@@ -99,7 +99,7 @@ recovery = [
 next_action = "discern setup step 2"
 ```
 
-The inventory is working evidence, not another documentation tree. Keep it in the setup session until Step 6 turns verified facts into the final Map.
+The inventory is working evidence, not another documentation tree. Keep it in the setup session until Step 8 turns verified facts into the final Map.
 
 ---
 
@@ -194,7 +194,7 @@ recovery = [
 next_action = "discern setup step 4"
 ```
 
-The scaffold is a starting shape. The final Map is determined by Step 1 evidence and Step 7's bounded scope, not by the number of seeded folders.
+The scaffold is a starting shape. The final Map is determined by Step 1 evidence and Step 6's bounded scope, not by the number of seeded folders.
 
 ---
 
@@ -211,7 +211,7 @@ files_to_read = [
 ]
 must_do = [
   "Replace the example with at least three project-specific principles that state a decision rule, its reason, and its practical consequence.",
-  "Attach or retain the code/config authority for every architecture, ownership, test-behavior, or command claim so Step 6 can recheck it after smoke wiring.",
+  "Attach or retain the code/config authority for every architecture, ownership, test-behavior, or command claim so Step 8 can recheck it after smoke wiring.",
   "Recheck each drafted claim against its authority now; label anything not yet verified as an open item in {{todo_path}} instead of asserting it.",
 ]
 authority_boundaries = [
@@ -271,14 +271,14 @@ stop_conditions = [
 recovery = [
   "Fix the refresh diagnostic; retain and surface an owner-policy conflict for Step 9 instead of deleting it without authority.",
 ]
-next_action = "discern setup step 7"
+next_action = "discern setup step 6"
 ```
 
 Instructions are a small operational surface. Put durable subsystem boundaries and invariants in the Map, and point to them.
 
 ---
 
-## Step 7 - Bound the Map from subsystem evidence
+## Step 6 - Bound the Map from subsystem evidence
 
 ```toml
 phase = "Map scope design"
@@ -304,7 +304,7 @@ what_not_to_do = [
   "Do not create a region per folder, technology, or interesting detail.",
   "Do not settle for a one-sentence primary subsystem page.",
   "Do not add generic TODOs such as improve tests, add documentation, or revisit architecture.",
-  "Do not author final orientation yet; Step 8 must establish the configured smoke behavior first.",
+  "Do not author final orientation yet; Step 7 must establish the configured smoke behavior first.",
 ]
 completion_check = "The page plan includes one substantive primary subsystem and only evidence-backed additional boundaries; every proposed TODO is concrete, evidenced, and unresolved."
 stop_conditions = [
@@ -313,7 +313,7 @@ stop_conditions = [
 recovery = [
   "Collapse the candidate into the nearest authoritative page or drop it; turn an uncertain claim into one evidenced open item instead of prose.",
 ]
-next_action = "discern setup step 8"
+next_action = "discern setup step 7"
 ```
 
 Calibrated applications of the same heuristic:
@@ -324,7 +324,7 @@ These are boundary examples, not target counts. A project with one durable subsy
 
 ---
 
-## Step 8 - Configure worktree readiness and prove the smoke path
+## Step 7 - Configure worktree readiness and prove the smoke path
 
 ```toml
 phase = "worktree readiness and smoke"
@@ -360,7 +360,7 @@ stop_conditions = [
 recovery = [
   "Use the failing command's diagnostic, keep the resource unconfigured, and record the exact owner decision or missing provider adapter; do not replace it with web-search instructions.",
 ]
-next_action = "discern setup step 6"
+next_action = "discern setup step 8"
 ```
 
 {{worktree_readiness_table}}
@@ -369,22 +369,22 @@ The structural probe runs during `discern setup done` after the completion marke
 
 ---
 
-## Step 6 - Synthesize and fact-check the final Map
+## Step 8 - Synthesize and fact-check the final Map
 
 ```toml
 phase = "final documentation synthesis"
 stable_target = "The Map, development pages, adoption ADR, instruction source, and ledger describe the post-smoke project in present tense, with every claim rechecked against its authority."
 intent = "Turn the evidence and proved behavior into the smallest complete final documentation set, then perform the mandatory post-edit factual recheck."
 files_to_read = [
-  "the Step 1 evidence inventory and Step 7 bounded page plan",
-  "the Step 8 Gate, smoke, and readiness configuration that now exists",
+  "the Step 1 evidence inventory and Step 6 bounded page plan",
+  "the Step 7 Gate, smoke, and readiness configuration that now exists",
   "{{map_dir}}README.md, 00-orientation/, 80-development/, and _adr/",
   "{{instruction_path}} and {{todo_path}}",
 ]
 must_do = [
   "Author final orientation from the subsystem evidence, including how the Map is used and where a new agent starts.",
-  "Author the substantive primary-subsystem README with non-empty `## Start here`, `## Boundary`, and `## Non-obvious invariant` sections; add only the distinct pages selected in Step 7.",
-  "Reconcile the 80-development pages and the adoption ADR with the supported commands, Gate, worktree readiness, and smoke behavior proved in Step 8.",
+  "Author the substantive primary-subsystem README with non-empty `## Start here`, `## Boundary`, and `## Non-obvious invariant` sections; add only the distinct pages selected in Step 6.",
+  "Reconcile the 80-development pages and the adoption ADR with the supported commands, Gate, worktree readiness, and smoke behavior proved in Step 7.",
   "After all documentation edits, target every architecture, ownership, test-behavior, and command claim and recheck it against current code/config; link the authority where useful.",
   "Replace a claim that cannot be verified with a clearly labeled concrete item in {{todo_path}}, then run `discern refresh` and `discern prepare --json`.",
 ]
@@ -473,4 +473,4 @@ Do not paraphrase this list to the user as completed work; it is work to do now,
 - `discern setup done` returns canonical Proof and inventory for that exact commit.
 - An unlanded branch is reported as unlanded. Restart and provider activation happen only after landing; optional improvement follows a successful activation check.
 
-If a condition is false, continue with the page or result recovery that owns it. Re-run `discern setup begin` for the preamble and first page, or `discern setup step <n>` for one stable page.
+If a condition is false, continue with the page or result recovery that owns it. Re-run `discern setup begin` for the preamble and first page, or `discern setup step <n>` for one numbered page.

@@ -526,7 +526,7 @@ export const SETUP_HUMAN_MOMENTS = [
   },
   {
     id: "lasting-project-context",
-    surfaces: ["step-4", "step-5", "step-6", "step-7"],
+    surfaces: ["step-4", "step-5", "step-6", "step-8"],
     kind: "explanation",
     phase: "project context",
     trigger:
@@ -616,7 +616,7 @@ export const SETUP_HUMAN_MOMENTS = [
   },
   {
     id: "first-green-gate",
-    surfaces: ["step-2", "step-8"],
+    surfaces: ["step-2", "step-7"],
     kind: "progress",
     phase: "Gate proof",
     trigger:
@@ -654,7 +654,7 @@ export const SETUP_HUMAN_MOMENTS = [
   },
   {
     id: "subsystem-sanity-check",
-    surfaces: ["step-7"],
+    surfaces: ["step-6"],
     kind: "decision",
     phase: "Map scope design",
     trigger:
@@ -719,7 +719,7 @@ export const SETUP_HUMAN_MOMENTS = [
   },
   {
     id: "worktree-resource-policy",
-    surfaces: ["step-8"],
+    surfaces: ["step-7"],
     kind: "decision",
     phase: "worktree readiness and smoke",
     trigger:
@@ -782,7 +782,7 @@ export const SETUP_HUMAN_MOMENTS = [
   },
   {
     id: "documentation-claim-gap",
-    surfaces: ["step-6"],
+    surfaces: ["step-8"],
     kind: "decision",
     phase: "final documentation synthesis",
     trigger:
