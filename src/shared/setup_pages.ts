@@ -16,11 +16,20 @@
  */
 
 import { parse as parseToml } from "@std/toml";
+import { z } from "@zod/zod";
 import {
+  SETUP_PAGE_SPINE_COMMON_SHAPE,
   type SetupPageSpine,
   SetupPageSpineSchema,
   type SetupStepData,
 } from "./result_schemas.ts";
+import {
+  assertSetupHumanSurfaceConsumption,
+  projectSetupHumanMoment,
+  renderSetupHumanMoments,
+  resolveSetupHumanMoments,
+  type SetupHumanSurface,
+} from "./setup_experience.ts";
 
 export type { SetupPageSpine, SetupStepData };
 
@@ -78,6 +87,14 @@ const EPILOGUE_HEADING = /^##\s+You are not done\b/;
 const ANY_H2 = /^##\s/;
 /** The opening fence of a step's spine block. */
 const SPINE_FENCE_OPEN = /^```toml\b/;
+
+/** The authored spine names canonical moments by id. The public result carries
+ * the resolved contracts and compatibility summaries, never a second authored
+ * version of their meaning. */
+const SetupAuthoredPageSpineSchema = z.strictObject({
+  ...SETUP_PAGE_SPINE_COMMON_SHAPE,
+  owner_moments: z.array(z.string().trim().min(1)),
+});
 
 /** Parse the whole brief into its preamble, numbered pages, and epilogue. Throws a
  * clear error if a step is missing or has a malformed spine block. */
@@ -191,19 +208,39 @@ function splitSpineAndProse(
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Setup Step ${n} spine is not valid TOML: ${message}`);
   }
-  const parsed = SetupPageSpineSchema.safeParse(raw);
+  const parsed = SetupAuthoredPageSpineSchema.safeParse(raw);
   if (!parsed.success) {
     throw new Error(
       `Setup Step ${n} spine is missing or mistyped fields: ${parsed.error.message}`,
     );
   }
 
-  const instructions = body
+  const surface = `step-${n}` as SetupHumanSurface;
+  assertSetupHumanSurfaceConsumption(surface, parsed.data.owner_moments);
+  const ownerMoments = resolveSetupHumanMoments(parsed.data.owner_moments);
+  const humanDecisions = ownerMoments.filter((moment) =>
+    moment.kind === "decision"
+  ).map((moment) => moment.purpose);
+  const relay = ownerMoments.flatMap((moment) =>
+    moment.relay === undefined ? [] : [moment.relay.message]
+  );
+  const prose = body
     .slice(close + 1)
     .join("\n")
     .replace(/\n+---\s*$/, "")
     .trim();
-  return { spine: parsed.data, instructions };
+  const momentsProse = renderSetupHumanMoments(ownerMoments);
+  const instructions = [
+    momentsProse,
+    ...(prose.length === 0 ? [] : ["### Rationale and examples", "", prose]),
+  ].filter((part) => part.length > 0).join("\n\n");
+  const spine = SetupPageSpineSchema.parse({
+    ...parsed.data,
+    owner_moments: ownerMoments.map(projectSetupHumanMoment),
+    human_decisions: humanDecisions,
+    ...(relay.length === 0 ? {} : { relay }),
+  });
+  return { spine, instructions };
 }
 
 /**
@@ -234,17 +271,14 @@ export function renderSetupPage(page: SetupPage): string {
     "",
     ...ordered(spine.must_do),
     "",
-    "### Authority and owner decisions",
+    "### Authority",
     "",
     ...bullets(spine.authority_boundaries.map((item) => `Authority: ${item}`)),
-    ...bullets(spine.human_decisions.map((item) => `Owner decision: ${item}`)),
     "",
     "### Do not",
     "",
     ...bullets(spine.what_not_to_do),
-    ...(page.instructions.length === 0
-      ? []
-      : ["", "### Rationale and examples", "", page.instructions]),
+    ...(page.instructions.length === 0 ? [] : ["", page.instructions]),
     "",
     "### Completion check",
     "",
@@ -254,9 +288,6 @@ export function renderSetupPage(page: SetupPage): string {
     "",
     ...bullets(spine.stop_conditions.map((item) => `Stop: ${item}`)),
     ...bullets(spine.recovery.map((item) => `Recovery: ${item}`)),
-    ...(spine.relay === undefined
-      ? []
-      : ["", "### Relay to the owner", "", ...bullets(spine.relay)]),
     "",
     "### Next command",
     "",

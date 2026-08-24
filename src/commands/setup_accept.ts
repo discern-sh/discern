@@ -80,6 +80,24 @@ import {
   writtenProviderArtifactPathsForAgents,
 } from "../lib/providers.ts";
 import { fire, HINTS, hintTexts } from "../shared/hints.ts";
+import {
+  assertSetupHumanSurfaceConsumption,
+  type SetupHumanMoment,
+  setupHumanMomentsForSurface,
+} from "../shared/setup_experience.ts";
+
+/** Resolve the activation handoff consumed after setup acceptance. */
+function setupAcceptanceActivationMoment(): SetupHumanMoment {
+  const moment = setupHumanMomentsForSurface("setup-accept").find(
+    (candidate) => candidate.id === "activation-handoff",
+  );
+  if (moment === undefined) {
+    throw new Error("Setup acceptance activation moment is not configured.");
+  }
+  return moment;
+}
+const ACTIVATION_MOMENT = setupAcceptanceActivationMoment();
+assertSetupHumanSurfaceConsumption("setup-accept", [ACTIVATION_MOMENT.id]);
 
 /** Options for `discern setup accept` (global flags + preview). */
 export interface SetupAcceptOptions {
@@ -793,6 +811,9 @@ export async function runSetupAccept(
       command: "discern improvement --json",
       after: "activation_verified",
     },
+    ...(reactivation.per_agent.length === 0
+      ? {}
+      : { activation_context: ACTIVATION_MOMENT.why }),
     ...(proofCleared || cleared.reason === undefined
       ? {}
       : { proof_clear_error: cleared.reason }),
@@ -852,6 +873,7 @@ export async function runSetupAccept(
   if (reactivation.per_agent.length === 0) {
     log.info("No configured provider needs a fresh-session activation step.");
   } else {
+    log.info(ACTIVATION_MOMENT.why);
     log.line("Activate discern from a fresh provider session:");
     for (const agent of reactivation.per_agent) {
       log.line(`  • ${agent.label}: ${agent.step}`);

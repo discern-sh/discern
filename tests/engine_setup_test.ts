@@ -525,6 +525,13 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
       defaultMapPath(dir, "README.md"),
       "# Real docs\n",
     );
+    await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
+    await Deno.writeTextFile(
+      defaultMapPath(dir, "10-runtime", "README.md"),
+      "# Runtime\n\n## Start here\n\nBegin at `main.ts`.\n\n" +
+        "## Boundary\n\nThe runtime owns project execution.\n\n" +
+        "## Non-obvious invariant\n\nPreserve the configured command's exit status.\n",
+    );
     // ADR 0078: `done` also requires ≥1 wired capability (a derived per-step check).
     await runAgent(dir, ["config", "set-job", "test", "true"]);
     const tidied = await runAgent(dir, ["tidy", "--json"]);

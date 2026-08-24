@@ -1303,11 +1303,11 @@ Rendered example:
 
 Rendered example:
 
-> Present the setup instructions in this result to the owner, wait for their answers, then run `discern setup begin --model unreported --confirmed`; its `--confirmed` flag attests that the relay carried the three pillars, footprint, plan, reversibility, every numbered confirmation, and the time-and-tokens expectation.
+> Present the setup instructions in this result to the owner, wait for their answers, then run `discern setup begin --model unreported --confirmed`; its `--confirmed` flag attests that the relay carried the three pillars, footprint, plan, reversibility, why the setup model affects future sessions, how the owner switches in a fresh session, the current self-declared provider/model fact, the agent's stop/continue boundary, every numbered confirmation, and the time-and-tokens expectation.
 
 Interactive example:
 
-> Review the setup instructions and answer its questions, then run the displayed command; its `--confirmed` flag attests that every listed consent fact and numbered confirmation was carried.
+> Review the setup instructions and answer its questions, then run the displayed command only if the owner chose to continue in this session; its `--confirmed` flag attests that every listed consent fact, the model switch route, current self-declared provider/model fact, stop boundary, and every numbered confirmation was carried.
 
 ## `setup-done-land-dedicated`
 

@@ -42,9 +42,7 @@ authority_boundaries = [
   "The model identifier is self-declared provenance for support context, not verified capability or permission.",
   "Install health does not authorize project changes or landing; each later page names its own boundary.",
 ]
-human_decisions = [
-  "The owner chooses which available model performs setup during the consent exchange; the agent reports known provider/model facts separately and uses `unreported` when it cannot know them.",
-]
+owner_moments = ["model-selection"]
 what_not_to_do = [
   "Do not ask the agent to certify that it is capable, expert, safe, or the best option.",
   "Do not restart this unfinished setup merely because refresh registered MCP integration.",
@@ -58,9 +56,6 @@ recovery = [
   "Re-serve consent with `discern setup verify`, use the exact fix on each doctor check, and re-run the default bounded commands before continuing.",
 ]
 next_action = "discern setup step 1"
-relay = [
-  "If consent must be repaired, relay the fenced verify message without compressing its list or numbered confirmations.",
-]
 ```
 
 Provenance answers “what did this agent report itself as?” It never answers “was this model qualified?” The supported begin command uses `--model unreported` when the exact identifier is unavailable, so uncertainty stays visible without blocking setup.
@@ -88,9 +83,7 @@ must_do = [
 authority_boundaries = [
   "Repository code, configuration, and executable command definitions are the authority for technical claims; owner answers are the authority for product intent that is absent from the repository.",
 ]
-human_decisions = [
-  "The owner resolves only missing product intent, the real project name, and legitimate alternative meanings the evidence cannot choose.",
-]
+owner_moments = ["project-intent-gap"]
 what_not_to_do = [
   "Do not author final orientation before this subsystem evidence exists.",
   "Do not infer documentation scope from repository size, folder count, or enthusiasm.",
@@ -104,9 +97,6 @@ recovery = [
   "Present the conflicting evidence as one owner decision; record an unresolved technical claim as a concrete item in {{todo_path}} rather than guessing.",
 ]
 next_action = "discern setup step 2"
-relay = [
-  "Relay only the bounded discovery batch: the missing fact, the evidence already inspected, and the choice or answer needed.",
-]
 ```
 
 The inventory is working evidence, not another documentation tree. Keep it in the setup session until Step 6 turns verified facts into the final Map.
@@ -135,9 +125,7 @@ authority_boundaries = [
   "Setup may register existing project commands with discern. Any independent change to a project command needs evidence and the project's normal owner authority.",
   "A new dependency, network access, paid service, install script, or lockfile change requires current owner consent before the effect runs.",
 ]
-human_decisions = [
-  "The owner decides whether to install missing tooling, choose between legitimate command alternatives, or accept a long-running, networked, cost-bearing, or data-bearing Gate action.",
-]
+owner_moments = ["gate-protection-change", "first-green-gate"]
 what_not_to_do = [
   "Do not rewrite an existing aggregate command to invoke `discern done`, replace its meaning, or create recursion.",
   "Do not hand-edit ordered job arrays or applicability when the supported `discern config set-job` forms exist.",
@@ -152,9 +140,6 @@ recovery = [
   "Keep the existing concise command, use the failing result's captured output, and ask one owner decision only when the evidence leaves a real fork.",
 ]
 next_action = "discern setup step 3"
-relay = [
-  "Relay the commands reused, the protections still absent, and any installation or resource decision. Do not claim the project aggregate is the Gate unless the configured construction proves it.",
-]
 ```
 
 Supported examples:
@@ -193,9 +178,7 @@ authority_boundaries = [
   "The configured authored sources own project knowledge; generated agent files are refreshed outputs and are never hand-edited.",
   "Existing human documentation remains owner material unless the configured discern footprint explicitly points elsewhere by prior choice.",
 ]
-human_decisions = [
-  "Escalate only a genuine collision where preserving both authored meanings is impossible; show both paths and the consequence of each choice.",
-]
+owner_moments = ["authored-source-collision"]
 what_not_to_do = [
   "Do not adopt or overwrite an existing documentation tree by inference.",
   "Do not hand-edit generated agent files or generated references.",
@@ -234,9 +217,7 @@ must_do = [
 authority_boundaries = [
   "Code and configuration prove current behavior; a principle records the non-mechanical decision rule that behavior embodies.",
 ]
-human_decisions = [
-  "Ask only when two evidenced design rules conflict and choosing one would change product intent or a hard-to-reverse architecture boundary.",
-]
+owner_moments = ["lasting-project-context"]
 what_not_to_do = [
   "Do not write generic engineering virtues, discern's own principles, or historical bug commentary.",
   "Do not convert an unverified inference into confident present-tense prose.",
@@ -277,9 +258,7 @@ authority_boundaries = [
   "{{instruction_path}} is the authored project instruction authority; provider agent files are generated projections.",
   "Instruction compilation may project project facts but does not authorize changing the commands those facts describe.",
 ]
-human_decisions = [
-  "Escalate an imported rule only when reconciling it would change product intent, security posture, data handling, or another owner policy.",
-]
+owner_moments = ["lasting-project-context", "owner-policy-conflict"]
 what_not_to_do = [
   "Do not hand-edit AGENTS.md, CLAUDE.md, GEMINI.md, or another generated provider file.",
   "Do not repeat subsystem documentation or stale setup history in always-loaded instructions.",
@@ -311,7 +290,7 @@ files_to_read = [
   "{{todo_path}} and its item format",
 ]
 must_do = [
-  "Select one substantive primary-subsystem page that will say where to start, define the boundary, and explain one non-obvious invariant.",
+  "Select one substantive primary-subsystem README as the first numbered subsystem region in Map reading order; its exact `## Start here`, `## Boundary`, and `## Non-obvious invariant` sections give the completion result a canonical qualitative summary.",
   "Select an additional page only for a genuinely distinct durable boundary when that page will reduce future repository reading; retain authority paths for every selected page.",
   "Identify only concrete unresolved decisions or defects for {{todo_path}}, each with evidence and consequence; select none when nothing remains open.",
   "Recheck every proposed architecture, ownership, test-behavior, and command claim against code/config before it enters the final page plan.",
@@ -320,9 +299,7 @@ authority_boundaries = [
   "A Map page earns its place through a durable decision boundary and reduced future reading, not repository size, folder count, or a seeded placeholder.",
   "The TODO ledger records concrete unresolved decisions or defects, never generic aspirations or facts already expressed by configuration.",
 ]
-human_decisions = [
-  "Ask for owner input only when the evidence exposes a real boundary choice or unresolved product ownership; page count itself is not an owner decision.",
-]
+owner_moments = ["lasting-project-context", "subsystem-sanity-check"]
 what_not_to_do = [
   "Do not create a region per folder, technology, or interesting detail.",
   "Do not settle for a one-sentence primary subsystem page.",
@@ -370,9 +347,7 @@ authority_boundaries = [
   "Setup may configure project-local idempotent convergence. Cost, durable data, shared credentials, destructive teardown, and external-service policy remain owner decisions.",
   "Only `discern setup done` owns the normal setup worktree probe and its cleanup; prose does not substitute another lifecycle implementation.",
 ]
-human_decisions = [
-  "The owner decides every cost- or data-bearing resource policy, whether binary database merges are acceptable, and whether concurrent worktrees may share a hosted service.",
-]
+owner_moments = ["first-green-gate", "worktree-resource-policy"]
 what_not_to_do = [
   "Do not run bare `discern start` as a setup probe and do not create then retire a redundant worktree on the normal path.",
   "Do not point parallel worktrees at shared mutable state without an explicit owner decision and recorded consequence.",
@@ -386,9 +361,6 @@ recovery = [
   "Use the failing command's diagnostic, keep the resource unconfigured, and record the exact owner decision or missing provider adapter; do not replace it with web-search instructions.",
 ]
 next_action = "discern setup step 6"
-relay = [
-  "Relay only owner-gated resource choices: the concrete resource, cost/data consequence, safe alternatives, and the decision required.",
-]
 ```
 
 {{worktree_readiness_table}}
@@ -411,7 +383,7 @@ files_to_read = [
 ]
 must_do = [
   "Author final orientation from the subsystem evidence, including how the Map is used and where a new agent starts.",
-  "Author the substantive primary-subsystem page with its entry point, boundary, and non-obvious invariant; add only the distinct pages selected in Step 7.",
+  "Author the substantive primary-subsystem README with non-empty `## Start here`, `## Boundary`, and `## Non-obvious invariant` sections; add only the distinct pages selected in Step 7.",
   "Reconcile the 80-development pages and the adoption ADR with the supported commands, Gate, worktree readiness, and smoke behavior proved in Step 8.",
   "After all documentation edits, target every architecture, ownership, test-behavior, and command claim and recheck it against current code/config; link the authority where useful.",
   "Replace a claim that cannot be verified with a clearly labeled concrete item in {{todo_path}}, then run `discern refresh` and `discern prepare --json`.",
@@ -420,15 +392,13 @@ authority_boundaries = [
   "The Map records boundaries, invariants, intent, and navigation that code cannot express; code and config remain the behavior authority.",
   "A hard-to-reverse or surprising architectural decision belongs in an ADR, not an orientation aside.",
 ]
-human_decisions = [
-  "Ask only when the final evidence exposes an unresolved product or architecture choice that cannot be truthfully documented as current behavior.",
-]
+owner_moments = ["lasting-project-context", "documentation-claim-gap"]
 what_not_to_do = [
   "Do not preserve pre-smoke claims, skeleton notices, historical setup narration, or mechanically derivable inventories as independent prose.",
   "Do not claim an unverified architecture, ownership, test behavior, or command contract.",
   "Do not add a page or TODO merely to make the setup look comprehensive.",
 ]
-completion_check = "Final documentation describes the post-smoke project; every factual claim has a current authority recheck, and every unverifiable claim is a concrete open ledger item."
+completion_check = "The final primary-subsystem README has non-empty Start here, Boundary, and Non-obvious invariant sections."
 stop_conditions = [
   "Stop when a claim remains unverifiable, refresh changes an unexpected authored source, or prepare reports a diagnostic.",
 ]
@@ -446,7 +416,7 @@ This is the last synthesis step because the configured smoke and worktree model 
 
 ```toml
 phase = "completion and landing handoff"
-stable_target = "All final setup work is committed; `discern setup done` returns canonical Proof and a mechanical completion inventory; the owner receives branch-aware landing choices before any restart or optional improvement."
+stable_target = "All final setup work is committed; `discern setup done` returns canonical Proof and a derived qualitative and mechanical completion account; the owner receives branch-aware landing choices before any restart or optional improvement."
 intent = "Perform the final reconciliation, commit the exact setup tree, let the engine derive the closing inventory and Proof, and preserve the landing and activation authority sequence."
 files_to_read = [
   "{{instruction_path}} including imported rules",
@@ -457,7 +427,7 @@ files_to_read = [
 must_do = [
   "Reconcile imported instructions with discern's built-in workflow while preserving owner policies; surface any policy decision you cannot make.",
   "Confirm the final factual recheck happened after smoke, remove generic or duplicated ledger items, and commit all final setup work before Proof.",
-  "Run `discern setup done` once on the clean commit and use its derived Map-region list, ledger-item list, jobs-by-state, Proof line, branch, and landing choices in the closing relay.",
+  "Run `discern setup done` once on the clean commit and use its derived primary-subsystem context, project principles, instruction sources, Map-region list, ledger-item list, jobs-by-state, Proof line, branch, and landing choices in the closing relay.",
   "Run the result's `discern setup accept` landing command only with applicable recorded or current owner authority; otherwise leave the proved branch for review and state that the trunk does not contain setup.",
   "After landing, start the provider-required fresh session, run each exact activation check from the landing result, report its success or recovery, and only then offer `discern improvement --json` as optional owner review.",
 ]
@@ -466,16 +436,14 @@ authority_boundaries = [
   "The exact provider activation check confirms activation. Generated files, a restart request, or agent confidence do not.",
   "No tracked mutation may follow Proof before landing; any change invalidates the evidence and requires another setup done run.",
 ]
-human_decisions = [
-  "The owner chooses land now, leave the branch for review, or decline it; after activation they choose whether to review optional improvement findings.",
-]
+owner_moments = ["completion-handoff", "landing-choice", "activation-handoff"]
 what_not_to_do = [
   "Do not count Map regions, ledger items, or job states by hand.",
   "Do not lead an unlanded completion with restart or improvement, and do not mutate the branch after Proof.",
   "Do not present self-authored option labels that assert the agent is capable, expert, safe, or qualified.",
   "Do not use `--force` to hide a real incomplete step or red Gate.",
 ]
-completion_check = "`discern setup done` returns success for the clean final commit, with canonical Proof, completion inventory, branch-aware landing choices, and no post-Proof mutation."
+completion_check = "`discern setup done` returns success for the clean final commit, with canonical Proof, qualitative project context, mechanical completion inventory, branch-aware landing choices, and no post-Proof mutation."
 stop_conditions = [
   "Stop on any incomplete check, red Gate, failed structural probe, missing Proof, missing provider activation adapter, or absent landing authority.",
 ]
@@ -483,14 +451,9 @@ recovery = [
   "Follow the result's named recovery, commit any correction, rerun setup done for the new tree, and leave a proved branch unlanded when authority is absent.",
 ]
 next_action = "discern setup done"
-relay = [
-  "Setup authored <map_regions>, recorded <ledger_items>, and configured <jobs>. Assurance: <assurance>. Proof: <proof>. Branch and landing: <landing>.",
-  "Quote the result's canonical counts and lists, assurance, exact Proof line, current branch, and landing choices; do not substitute agent arithmetic.",
-  "When unlanded, say the target branch does not contain setup and stop before restart. When landed, follow the exact fresh-session activation checks, then describe improvement as optional.",
-]
 ```
 
-The completion result is the relay authority. Its inventory is derived from the configured Map, TODO ledger, and known-job assurance, so the closing message cannot disagree with its own repository state.
+The completion result is the relay authority. Its primary-subsystem context, project principles, instruction sources, Map and TODO inventory, and known-job assurance derive from the configured authorities, so the closing message cannot disagree with its own repository state.
 
 ---
 

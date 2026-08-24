@@ -781,6 +781,9 @@
                 "instructions": {
                   "type": "string"
                 },
+                "human_relay": {
+                  "type": "string"
+                },
                 "page": {
                   "anyOf": [
                     {
@@ -831,14 +834,6 @@
                                 "minLength": 1
                               }
                             },
-                            "human_decisions": {
-                              "minItems": 1,
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "minLength": 1
-                              }
-                            },
                             "what_not_to_do": {
                               "minItems": 1,
                               "type": "array",
@@ -871,6 +866,85 @@
                               "type": "string",
                               "minLength": 1
                             },
+                            "owner_moments": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "explanation",
+                                      "progress",
+                                      "decision",
+                                      "completion"
+                                    ]
+                                  },
+                                  "phase": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "purpose": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "recommendation": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "decision": {
+                                    "type": "object",
+                                    "properties": {
+                                      "recommended_option": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "option_ids": {
+                                        "minItems": 2,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "agent_waits": {
+                                        "type": "boolean",
+                                        "const": true
+                                      }
+                                    },
+                                    "required": [
+                                      "recommended_option",
+                                      "option_ids",
+                                      "agent_waits"
+                                    ]
+                                  },
+                                  "relay_protection": {
+                                    "type": "string",
+                                    "enum": [
+                                      "adaptive",
+                                      "verbatim-list"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "kind",
+                                  "phase",
+                                  "purpose"
+                                ]
+                              }
+                            },
+                            "human_decisions": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
                             "relay": {
                               "minItems": 1,
                               "type": "array",
@@ -887,12 +961,13 @@
                             "files_to_read",
                             "must_do",
                             "authority_boundaries",
-                            "human_decisions",
                             "what_not_to_do",
                             "completion_check",
                             "stop_conditions",
                             "recovery",
-                            "next_action"
+                            "next_action",
+                            "owner_moments",
+                            "human_decisions"
                           ]
                         },
                         "instructions": {
@@ -1635,14 +1710,6 @@
                         "minLength": 1
                       }
                     },
-                    "human_decisions": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    },
                     "what_not_to_do": {
                       "minItems": 1,
                       "type": "array",
@@ -1675,6 +1742,85 @@
                       "type": "string",
                       "minLength": 1
                     },
+                    "owner_moments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "explanation",
+                              "progress",
+                              "decision",
+                              "completion"
+                            ]
+                          },
+                          "phase": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "purpose": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "recommendation": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "decision": {
+                            "type": "object",
+                            "properties": {
+                              "recommended_option": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "option_ids": {
+                                "minItems": 2,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "agent_waits": {
+                                "type": "boolean",
+                                "const": true
+                              }
+                            },
+                            "required": [
+                              "recommended_option",
+                              "option_ids",
+                              "agent_waits"
+                            ]
+                          },
+                          "relay_protection": {
+                            "type": "string",
+                            "enum": [
+                              "adaptive",
+                              "verbatim-list"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "phase",
+                          "purpose"
+                        ]
+                      }
+                    },
+                    "human_decisions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
                     "relay": {
                       "minItems": 1,
                       "type": "array",
@@ -1691,12 +1837,13 @@
                     "files_to_read",
                     "must_do",
                     "authority_boundaries",
-                    "human_decisions",
                     "what_not_to_do",
                     "completion_check",
                     "stop_conditions",
                     "recovery",
-                    "next_action"
+                    "next_action",
+                    "owner_moments",
+                    "human_decisions"
                   ]
                 },
                 "instructions": {
@@ -2234,6 +2381,88 @@
                 "inventory": {
                   "type": "object",
                   "properties": {
+                    "project_context": {
+                      "type": "object",
+                      "properties": {
+                        "primary_subsystem": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "region": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "page": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "start_here": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "boundary": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "non_obvious_invariant": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "region",
+                                "page",
+                                "title",
+                                "start_here",
+                                "boundary",
+                                "non_obvious_invariant"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "principles": {
+                          "type": "object",
+                          "properties": {
+                            "count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          },
+                          "required": [
+                            "count",
+                            "items"
+                          ]
+                        },
+                        "instruction_sources": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "primary_subsystem",
+                        "principles",
+                        "instruction_sources"
+                      ]
+                    },
                     "map_regions": {
                       "type": "object",
                       "properties": {
@@ -2313,6 +2542,7 @@
                     }
                   },
                   "required": [
+                    "project_context",
                     "map_regions",
                     "ledger_items",
                     "jobs"
@@ -3070,6 +3300,10 @@
                     "summary",
                     "per_agent"
                   ]
+                },
+                "activation_context": {
+                  "type": "string",
+                  "minLength": 1
                 },
                 "optional_improvement": {
                   "type": "object",

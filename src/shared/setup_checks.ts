@@ -26,6 +26,7 @@ import { KNOWN_JOBS } from "./capabilities.ts";
 import type { DiscernConfig } from "./config_schema.ts";
 import { normalizeMapDir } from "./map_path.ts";
 import { instructionSeedRel } from "./paths_registry.ts";
+import { deriveSetupPrimarySubsystem } from "./setup_project_context.ts";
 
 /** What a completion predicate reads: the project root and its loaded config. */
 export interface SetupCheckContext {
@@ -68,7 +69,7 @@ async function readFileOr(
 
 /**
  * The registry. Only the steps with a machine-checkable predicate appear here —
- * steps 0/1/3/6/7/8 are self-verified prose checks with no derived proof. Each
+ * steps 0/1/3/7/8 are self-verified prose checks with no derived proof. Each
  * `describe` mirrors its page's `completion_check` field; the parity test pins
  * them together so neither can drift.
  */
@@ -131,6 +132,15 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
       const pitchFilled = !/_\(one-line pitch/i.test(text);
       const conventionsFilled = !/_\(replace this section/i.test(text);
       return hasConventions && pitchFilled && conventionsFilled;
+    },
+  },
+  {
+    step: 6,
+    name: "primary_subsystem_context",
+    describe:
+      "The final primary-subsystem README has non-empty Start here, Boundary, and Non-obvious invariant sections.",
+    async evaluate({ root, config }): Promise<boolean> {
+      return (await deriveSetupPrimarySubsystem(root, config.map.dir)) !== null;
     },
   },
 ];

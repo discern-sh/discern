@@ -3505,11 +3505,16 @@ export const HINTS = {
       "Present the setup instructions in this result to the owner, wait for their " +
       `answers, then run ${command}; its \`--confirmed\` flag attests that ` +
       "the relay carried the three pillars, footprint, plan, reversibility, " +
-      "every numbered confirmation, and the time-and-tokens expectation.",
+      "why the setup model affects future sessions, how the owner switches in " +
+      "a fresh session, the current self-declared provider/model fact, the " +
+      "agent's stop/continue boundary, every numbered confirmation, and the " +
+      "time-and-tokens expectation.",
     interactiveTemplate: (): string =>
       "Review the setup instructions and answer its questions, then run the " +
-      "displayed command; its `--confirmed` flag attests that every listed " +
-      "consent fact and numbered confirmation was carried.",
+      "displayed command only if the owner chose to continue in this session; " +
+      "its `--confirmed` flag attests that every listed consent fact, the model " +
+      "switch route, current self-declared provider/model fact, stop boundary, " +
+      "and every numbered confirmation was carried.",
   }),
 
   /** Setup completion carries the unfinished files and checks as structured

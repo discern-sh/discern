@@ -650,6 +650,37 @@ Deno.test("setup consent keeps the consent exchange ahead of its confirmed comma
   );
 });
 
+Deno.test("setup Markdown presents the canonical human relay exactly once", () => {
+  const relay = "I am now studying the repository before I configure it.";
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "setup",
+      data: { human_relay: relay },
+    },
+    resultPresenterForVerb("setup"),
+  );
+
+  assertStringIncludes(rendered, `### Setup instructions\n\n${relay}`);
+  assertEquals(rendered.split(relay).length - 1, 1);
+});
+
+Deno.test("setup acceptance Markdown explains why activation needs a fresh session", () => {
+  const activation =
+    "Start a fresh session so it can load the newly landed project instructions and MCP servers.";
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "setup accept",
+      data: { landed: true, activation_context: activation },
+    },
+    resultPresenterForVerb("setup accept"),
+  );
+
+  assertStringIncludes(rendered, activation);
+  assertEquals(rendered.split(activation).length - 1, 1);
+});
+
 Deno.test("documentation suggestions and coupling commits survive text-only delivery", () => {
   const docs = renderResultMarkdown(
     {

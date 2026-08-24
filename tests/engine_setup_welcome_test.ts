@@ -53,7 +53,11 @@ const FRESH_WELCOME_FACTS: readonly string[] = [
   "no API",
   "key, and no surprises",
   "Choose which available model",
-  "provider and model identifier",
+  "strongest suitable reasoning model",
+  "model selector",
+  "open a fresh session",
+  "future sessions",
+  "provider/model identifier",
   "Expect roughly 20–40 minutes",
   "FOR CODING AGENTS",
   "verify → begin → author → done",
@@ -317,9 +321,14 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
       "hands you the exact message to relay",
     );
     assertStringIncludes(d.agent_instructions, "discern setup verify");
-    // The human framing keeps model selection neutral and provenance separate.
+    // The human framing recommends a model for the long-lived outcome, gives the
+    // concrete switch route, and keeps provenance separate.
     assertStringIncludes(d.human_framing, "Choose which available model");
-    assertStringIncludes(d.human_framing, "provider and model identifier");
+    assertStringIncludes(d.human_framing, "strongest suitable reasoning model");
+    assertStringIncludes(d.human_framing, "model selector");
+    assertStringIncludes(d.human_framing, "open a fresh session");
+    assertStringIncludes(d.human_framing, "future sessions");
+    assertStringIncludes(d.human_framing, "Provider/model provenance");
     // Both surfaces actually say it, so neither path is the thinner one.
     assertStringIncludes(human, "Choose which available model");
     // The footprint story rides both surfaces: one root file, one visible folder.
@@ -432,7 +441,13 @@ Deno.test("verify's consent instructions are identical and faithful across the h
         "keep every list item",
         "relay every numbered confirmation word for word",
         "Which available model do you want to use for this setup?",
-        "Everything configured here is inherited by future sessions.",
+        "Gate, worktree policy, Map, and instructions future sessions inherit",
+        "strongest suitable reasoning model",
+        "open a fresh project session",
+        "I will stop here",
+        "Current provider/model (self-declared)",
+        "never copy the placeholder",
+        "Only if the owner chooses to continue in this session",
         "Isolated working copies (git worktrees)",
         "20–40 minutes",
         "Isolated working copies will live beside",

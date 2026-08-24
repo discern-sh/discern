@@ -171,6 +171,10 @@ import {
   renderSetupScopeExamples,
 } from "../shared/setup_guidance.ts";
 import {
+  assertSetupHumanSurfaceConsumption,
+  setupHumanMomentsForSurface,
+} from "../shared/setup_experience.ts";
+import {
   deriveSetupCompletionInventory,
   type SetupCompletionInventory,
 } from "../shared/setup_inventory.ts";
@@ -1689,6 +1693,21 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     // Keep `instructions` as the rendered brief — the agent still gets the full text.
   }
 
+  const startedMoment = setupHumanMomentsForSurface("setup-started")[0];
+  if (startedMoment === undefined || startedMoment.relay === undefined) {
+    throw new Error("Setup started human moment is not configured.");
+  }
+  assertSetupHumanSurfaceConsumption("setup-started", [startedMoment.id]);
+  const startedRelay = setupBranch === undefined
+    ? startedMoment.relay.message.replace(
+      "on its reviewable branch",
+      "in the current checkout",
+    )
+    : startedMoment.relay.message.replace(
+      "its reviewable branch",
+      `the \`${setupBranch}\` reviewable branch`,
+    );
+
   if (opts.json) {
     const setupOk = instructionsCompiled;
     log.result({
@@ -1729,6 +1748,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         skeletons: laid,
         skipped,
         instructions,
+        human_relay: startedRelay,
         // The structured first page (ADR 0078); the rest are pulled via `setup step`.
         page: firstPage ?? null,
       },
@@ -1756,9 +1776,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // The started moment — the third human touchpoint of the served-message handshake
   // (ADR 0086): a one-line relay so the human hears setup has begun and what's next,
   // even from an agent that only couriers discern's words.
-  const relayLine = setupBranch !== undefined
-    ? `Tell your human: setup has started on the \`${setupBranch}\` branch — next I'll study the repo and come back with a few questions.`
-    : "Tell your human: setup has started — next I'll study the repo and come back with a few questions.";
+  const relayLine = `Tell your human: ${startedRelay}`;
   const scaffoldLines: string[] = [];
   if (setupBranch !== undefined) {
     scaffoldLines.push(
@@ -3423,7 +3441,7 @@ async function emitAwaitingConsent(
   );
   const command = confirmedBeginCommand();
   const message =
-    "Setup needs your human's consent before it writes anything. Relay the message below, wait for their answers, then re-run `begin` with --confirmed.";
+    "Setup needs the owner's consent before it writes anything. Relay the message below and wait. If the owner chooses another model, stop in this session. Re-run `begin` with --confirmed only when the owner chooses to continue here and every other answer is settled.";
   if (opts.json) {
     log.result({
       ok: false,

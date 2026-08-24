@@ -49,12 +49,19 @@ Deno.test("consentMessage carries the verbatim-protected confirmations, three pi
     msg,
     "relay every numbered confirmation word for word",
   );
-  // The model question stays neutral and provenance is separate.
+  // The recommendation explains the inherited outcome, gives the concrete switch
+  // route, and keeps provenance separate from capability.
   assertStringIncludes(
     msg,
     "Which available model do you want to use for this setup?",
   );
-  assertStringIncludes(msg, "record `unreported`");
+  assertStringIncludes(msg, "Gate, worktree policy, Map, and instructions");
+  assertStringIncludes(msg, "strongest suitable reasoning model");
+  assertStringIncludes(msg, "open a fresh project session");
+  assertStringIncludes(msg, "I will stop here");
+  assertStringIncludes(msg, "advisory provenance");
+  assertStringIncludes(msg, "Current provider/model (self-declared)");
+  assertStringIncludes(msg, "never copy the placeholder");
   // The three plain-word pillars, jargon glossed once.
   assertStringIncludes(
     msg,
@@ -76,12 +83,12 @@ Deno.test("consentMessage carries the verbatim-protected confirmations, three pi
   assertStringIncludes(msg, "agent-maintained Map");
   assertStringIncludes(
     msg,
-    "preserve its workflows",
+    "preserve workflows",
   );
   assertStringIncludes(msg, "author the Map and instructions");
   assertStringIncludes(
     msg,
-    "integration files the selected coding tools require",
+    "selected coding tools' integration files",
   );
   assert(
     !msg.includes("author the project's docs and instructions"),
@@ -144,8 +151,9 @@ Deno.test("consentMessage makes the agent set a consent point, with --agents as 
   );
   assertStringIncludes(
     detected,
-    "Should I wire discern into that set, or change it?",
+    "I recommend wiring that detected set",
   );
+  assertStringIncludes(detected, "Keep it, or name a different set");
   // The mechanics ride OUTSIDE the fence, agent-facing, with the REAL effective
   // set as the example — copied verbatim it wires exactly what would have been
   // wired anyway, so the example can't mislead.
@@ -167,7 +175,7 @@ Deno.test("consentMessage makes the agent set a consent point, with --agents as 
     },
   });
   assertStringIncludes(defaulted, "proposed default set is Claude Code");
-  assertStringIncludes(defaulted, "Should I use that set, or change it?");
+  assertStringIncludes(defaulted, "Keep it, or name the tools you use");
 });
 
 Deno.test("consentMessage conditions every isolation promise on git being present", () => {
@@ -189,7 +197,7 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
   assertStringIncludes(nonGit, "May I run `git init` here");
   assertStringIncludes(
     nonGit,
-    "after git exists, setup works on a dedicated `discern-setup` branch",
+    "after git exists, setup stays on a dedicated `discern-setup` branch",
   );
   // The agent's next step is to initialize git and re-run the preflight — the
   // begin command comes after the repo actually exists.
@@ -207,14 +215,14 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
   assert(!withGit.includes("git init"), "a git repo needs no git-init step");
   assertStringIncludes(
     withGit,
-    "setup works on a dedicated `discern-setup` branch and does not reach the trunk",
+    "setup stays on a dedicated `discern-setup` branch until you choose to land it",
   );
 });
 
 Deno.test("consentMessage keeps the itemized message body within its bounded relay budget", () => {
   // The message the human reads sits between the two fences; the framing line and the
   // command ride outside it. Keep it short enough to survive a single read — the base
-  // case at the ~290-word target (the three pillars, the honest footprint story with
+  // case at the ~430-word target (the three pillars, the honest footprint story with
   // the provider files acknowledged, the named undo, and the agent-set consent
   // point), the docs case adding only its one extra reassurance bullet.
   const wordsOf = (docsExists: boolean): number => {
@@ -228,8 +236,8 @@ Deno.test("consentMessage keeps the itemized message body within its bounded rel
     return body.trim().split(/\s+/).filter(Boolean).length;
   };
   const base = wordsOf(false);
-  assert(base > 0 && base <= 320, `base message body was ${base} words`);
-  assert(wordsOf(true) <= 370, `docs message body was ${wordsOf(true)} words`);
+  assert(base > 0 && base <= 440, `base message body was ${base} words`);
+  assert(wordsOf(true) <= 490, `docs message body was ${wordsOf(true)} words`);
 });
 
 // ── confirmedBeginCommand ────────────────────────────────────────────────────
@@ -279,6 +287,18 @@ const READY_REACTIVATION = {
 };
 
 const INVENTORY = {
+  project_context: {
+    primary_subsystem: {
+      region: "10-runtime",
+      page: "discern/map/10-runtime/README.md",
+      title: "Runtime",
+      start_here: "Begin at `src/runtime.ts`.",
+      boundary: "The runtime owns command execution.",
+      non_obvious_invariant: "Every command preserves the child exit status.",
+    },
+    principles: { count: 2, items: ["Preserve status", "Plan effects"] },
+    instruction_sources: ["discern/instructions.md"],
+  },
   map_regions: { count: 2, items: ["00-orientation", "10-runtime"] },
   ledger_items: { count: 1, items: ["Resolve retry ownership"] },
   jobs: {
@@ -320,6 +340,12 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
   };
   const full = completionMessage(completionContext(landing));
   assertStringIncludes(full, "6 of 6 applicable protections");
+  assertStringIncludes(full, "Primary subsystem: Runtime");
+  assertStringIncludes(full, "Begin at `src/runtime.ts`");
+  assertStringIncludes(full, "The runtime owns command execution");
+  assertStringIncludes(full, "Every command preserves the child exit status");
+  assertStringIncludes(full, "Project principles (2)");
+  assertStringIncludes(full, "Future sessions load project instructions from");
   // The close restates the contained footprint the consent message promised —
   // and names `discern uninstall` as the undo, since the branch-delete story
   // retires once the setup accepts.
@@ -369,16 +395,17 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
     }),
     "already lives on `main`",
   );
-  assertStringIncludes(
-    ctx({
-      inRepo: true,
-      branch: "discern-setup",
-      target: "main",
-      onTarget: false,
-      onSetupBranch: true,
-    }),
-    "discern setup accept",
-  );
+  const setupBranch = ctx({
+    inRepo: true,
+    branch: "discern-setup",
+    target: "main",
+    onTarget: false,
+    onSetupBranch: true,
+  });
+  assertStringIncludes(setupBranch, "discern setup accept");
+  assertStringIncludes(setupBranch, "does not authorize landing");
+  assertStringIncludes(setupBranch, "decline");
+  assertStringIncludes(setupBranch, "I will wait");
   // The user's OWN branch (an --allow-dirty in-place setup): `setup accept` would
   // sweep that branch's own commits onto the trunk, so the recommendation is a
   // manual merge, never the land command.
@@ -389,7 +416,10 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
     onTarget: false,
     onSetupBranch: false,
   });
-  assertStringIncludes(ownBranch, "usual way");
+  assertStringIncludes(ownBranch, "usual Git workflow");
+  assertStringIncludes(ownBranch, "leave the branch for review");
+  assertStringIncludes(ownBranch, "decline it");
+  assertStringIncludes(ownBranch, "I will wait");
   assert(
     !ownBranch.includes("discern setup accept"),
     `a non-setup branch must never be steered to setup accept:\n${ownBranch}`,
@@ -403,7 +433,7 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
       onTarget: false,
       onSetupBranch: false,
     }),
-    "Check that branch out",
+    "Check out `discern-setup`",
   );
 });
 
@@ -424,7 +454,7 @@ Deno.test("completionMessage withholds restart and improvement until landing, th
     "Only after every applicable activation check succeeds",
   );
   assertStringIncludes(withAgents, "Map regions (2)");
-  assertStringIncludes(withAgents, "Deferred-work ledger items (1)");
+  assertStringIncludes(withAgents, "Concrete open items (1)");
 
   const noAgents = completionMessage({
     assurance: assurance("full"),

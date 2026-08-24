@@ -293,10 +293,17 @@ async function layMarkerFreeProject(
   await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
     recursive: true,
   });
+  await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
   await Deno.mkdir(join(dir, "discern"), { recursive: true });
   await Deno.writeTextFile(
     defaultMapPath(dir, "00-orientation", "design-principles.md"),
     principles,
+  );
+  await Deno.writeTextFile(
+    defaultMapPath(dir, "10-runtime", "README.md"),
+    "# Runtime\n\n## Start here\n\nBegin at `src/runtime.ts`.\n\n" +
+      "## Boundary\n\nThe runtime owns execution.\n\n" +
+      "## Non-obvious invariant\n\nEvery command preserves child exit status.\n",
   );
   await Deno.writeTextFile(
     join(dir, "discern/instructions.md"),
@@ -376,8 +383,15 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
     const res = JSON.parse(done.stdout);
     assertEquals(res.data.bootstrapped, true);
     assertEquals(res.data.gate_proven, true);
-    assertEquals(res.data.inventory.map_regions.count, 1);
-    assertEquals(res.data.inventory.map_regions.items, ["00-orientation"]);
+    assertEquals(res.data.inventory.map_regions.count, 2);
+    assertEquals(res.data.inventory.map_regions.items, [
+      "00-orientation",
+      "10-runtime",
+    ]);
+    assertEquals(
+      res.data.inventory.project_context.primary_subsystem.title,
+      "Runtime",
+    );
     assertEquals(res.data.inventory.ledger_items.count, 0);
     assertEquals(res.data.landing.on_target, false);
     assertEquals(res.data.reactivation, undefined);
@@ -527,6 +541,41 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
         root,
         config: baseConfig({ jobs: { test: "true" } }),
       });
+    },
+  },
+  primary_subsystem_context: {
+    async fail(root): Promise<EvalCtx> {
+      const config = baseConfig();
+      await Deno.mkdir(join(root, config.map.dir), { recursive: true });
+      await Deno.writeTextFile(
+        join(root, config.map.dir, "README.md"),
+        "# Demo map\n",
+      );
+      await Deno.mkdir(join(root, config.map.dir, "10-runtime"), {
+        recursive: true,
+      });
+      await Deno.writeTextFile(
+        join(root, config.map.dir, "10-runtime", "README.md"),
+        "# Runtime\n\n## Start here\n\nBegin here.\n\n## Boundary\n\nOwns execution.\n",
+      );
+      return { root, config };
+    },
+    async pass(root): Promise<EvalCtx> {
+      const config = baseConfig();
+      await Deno.mkdir(join(root, config.map.dir, "10-runtime"), {
+        recursive: true,
+      });
+      await Deno.writeTextFile(
+        join(root, config.map.dir, "README.md"),
+        "# Demo map\n",
+      );
+      await Deno.writeTextFile(
+        join(root, config.map.dir, "10-runtime", "README.md"),
+        "# Runtime\n\n## Start here\n\nBegin here.\n\n" +
+          "## Boundary\n\nOwns execution.\n\n" +
+          "## Non-obvious invariant\n\nPreserve child status.\n",
+      );
+      return { root, config };
     },
   },
 };

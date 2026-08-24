@@ -40,6 +40,7 @@ import {
   STEP_OUTCOMES,
 } from "./result.ts";
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
+import { SetupHumanMomentProjectionSchema } from "./setup_experience.ts";
 import {
   CHECKPOINT_MODES,
   CHECKPOINT_OBLIGATION_STATES,
@@ -2003,19 +2004,28 @@ export type DocsData = z.infer<typeof DocsDataSchema>;
  * TOML block against this, so a malformed spine fails loudly rather than serving
  * half a page.
  */
-export const SetupPageSpineSchema = z.strictObject({
+export const SETUP_PAGE_SPINE_COMMON_SHAPE = {
   phase: z.string().trim().min(1),
   stable_target: z.string().trim().min(1),
   intent: z.string().trim().min(1),
   files_to_read: z.array(z.string().trim().min(1)).min(1),
   must_do: z.array(z.string().trim().min(1)).min(1),
   authority_boundaries: z.array(z.string().trim().min(1)).min(1),
-  human_decisions: z.array(z.string().trim().min(1)).min(1),
   what_not_to_do: z.array(z.string().trim().min(1)).min(1),
   completion_check: z.string().trim().min(1),
   stop_conditions: z.array(z.string().trim().min(1)).min(1),
   recovery: z.array(z.string().trim().min(1)).min(1),
   next_action: z.string().trim().min(1),
+} as const;
+
+export const SetupPageSpineSchema = z.strictObject({
+  ...SETUP_PAGE_SPINE_COMMON_SHAPE,
+  /** Typed routing state derived from the canonical human-moment registry. The
+   * complete semantic contract is carried once in `instructions`. */
+  owner_moments: z.array(SetupHumanMomentProjectionSchema),
+  /** Backward-compatible decision summaries derived from `owner_moments`. */
+  human_decisions: z.array(z.string().trim().min(1)),
+  /** Backward-compatible relay messages derived from `owner_moments`. */
   relay: z.array(z.string().trim().min(1)).min(1).optional(),
 });
 export type SetupPageSpine = z.infer<typeof SetupPageSpineSchema>;
@@ -2167,9 +2177,22 @@ const SetupCompletionListSchema = z.strictObject({
   message: "count must equal the number of inventory items",
 });
 
-/** Mechanical counts and lists quoted by setup's closing relay. Every field is
- * derived from the final configured authorities after Proof, never agent arithmetic. */
+/** Qualitative project context plus mechanical counts and lists quoted by setup's
+ * closing relay. Every field derives from final authorities after Proof, never
+ * agent recollection or arithmetic. */
 export const SetupCompletionInventorySchema = z.strictObject({
+  project_context: z.strictObject({
+    primary_subsystem: z.strictObject({
+      region: z.string().trim().min(1),
+      page: z.string().trim().min(1),
+      title: z.string().trim().min(1),
+      start_here: z.string().trim().min(1),
+      boundary: z.string().trim().min(1),
+      non_obvious_invariant: z.string().trim().min(1),
+    }).nullable(),
+    principles: SetupCompletionListSchema,
+    instruction_sources: z.array(z.string().trim().min(1)),
+  }),
   map_regions: SetupCompletionListSchema,
   ledger_items: SetupCompletionListSchema,
   jobs: z.strictObject({
@@ -2310,6 +2333,8 @@ export const SetupDataSchema = z.strictObject({
   skeletons: z.array(z.string()).optional(),
   skipped: z.array(z.string()).optional(),
   instructions: z.string().optional(),
+  /** Ready-to-relay progress message derived from the setup human-moment authority. */
+  human_relay: z.string().optional(),
   page: SetupStepDataSchema.nullable().optional(),
   changes: z.array(z.string()).optional(),
 });
@@ -2346,6 +2371,8 @@ export const SetupAcceptDataSchema = z.strictObject({
   proof_clear_error: z.string().optional(),
   /** Provider-specific fresh-session checks printed only after a successful land. */
   reactivation: ReactivationSchema.optional(),
+  /** Why the fresh session is required, derived from the setup human-moment authority. */
+  activation_context: z.string().trim().min(1).optional(),
   optional_improvement: z.strictObject({
     command: z.string(),
     after: z.literal("activation_verified"),

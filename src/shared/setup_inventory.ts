@@ -1,16 +1,22 @@
 /**
- * Mechanical completion inventory for setup's closing relay.
+ * Derived completion account for setup's closing relay.
  *
- * The agent must not count the Map, ledger, or job states from memory. This
- * module derives those facts from the configured authorities after the final
- * setup tree has been proved, so every presentation can quote one inventory.
+ * The agent must not reconstruct project context, Map and ledger counts, or job
+ * states from memory. This module derives those facts from configured authorities
+ * after the final setup tree has been proved, so every presentation quotes one
+ * qualitative and mechanical account.
  */
 
 import { join } from "@std/path";
 import type { DiscernConfig } from "./config_schema.ts";
 import type { SetupAssurance } from "./setup_assurance.ts";
+import {
+  deriveSetupProjectContext,
+  type SetupProjectContext,
+} from "./setup_project_context.ts";
 
 export interface SetupCompletionInventory {
+  project_context: SetupProjectContext;
   map_regions: { count: number; items: string[] };
   ledger_items: { count: number; items: string[] };
   jobs: {
@@ -59,15 +65,20 @@ async function ledgerItems(root: string, todoRel: string): Promise<string[]> {
   }
 }
 
-/** Derive the exact completion counts and lists used by every closing surface. */
+/** Derive the exact project context, counts, and lists used by every closing surface. */
 export async function deriveSetupCompletionInventory(
   root: string,
   config: DiscernConfig,
   assurance: SetupAssurance,
 ): Promise<SetupCompletionInventory> {
-  const [regions, ledger] = await Promise.all([
+  const [regions, ledger, projectContext] = await Promise.all([
     mapRegions(root, config.map.dir),
     ledgerItems(root, config.project.todo),
+    deriveSetupProjectContext(
+      root,
+      config.map.dir,
+      config.instructions.sources,
+    ),
   ]);
   const notApplicable = assurance.known_jobs.filter((job) =>
     job.not_applicable === true
@@ -76,6 +87,7 @@ export async function deriveSetupCompletionInventory(
     job.not_applicable !== true
   );
   return {
+    project_context: projectContext,
     map_regions: { count: regions.length, items: regions },
     ledger_items: { count: ledger.length, items: ledger },
     jobs: {

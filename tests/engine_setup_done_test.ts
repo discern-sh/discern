@@ -55,13 +55,19 @@ async function readyForDone(
   await git(dir, "checkout", "-q", "-b", SETUP_BRANCH);
   await runAgent(dir, ["setup", "begin", "--confirmed"], { env }); // lay the skeletons
   // Replace the marker-carrying skeletons with real, marker-free content. The
-  // instructions.md carries a real pitch and a Conventions section so the per-step
-  // instruction check (ADR 0078) passes; design-principles is left absent (N/A).
+  // instructions.md carries a real pitch and Conventions section. The Map carries
+  // the qualitative primary-subsystem contract; design-principles stays absent (N/A).
   await Deno.remove(defaultMapPath(dir), { recursive: true });
-  await Deno.mkdir(defaultMapPath(dir));
+  await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
   await Deno.writeTextFile(
     defaultMapPath(dir, "README.md"),
     "# Real docs\n",
+  );
+  await Deno.writeTextFile(
+    defaultMapPath(dir, "10-runtime", "README.md"),
+    "# Runtime\n\n## Start here\n\nBegin at `main.ts`.\n\n" +
+      "## Boundary\n\nThe runtime owns project execution.\n\n" +
+      "## Non-obvious invariant\n\nPreserve the configured command's exit status.\n",
   );
   await Deno.writeTextFile(
     join(dir, "discern/instructions.md"),
@@ -1631,6 +1637,13 @@ Deno.test("discern setup done ignores a real doc that merely mentions EXAMPLE", 
       defaultMapPath(dir, "README.md"),
       "# Docs\n\nSee the sample config (EXAMPLE) in the appendix.\n",
     );
+    await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
+    await Deno.writeTextFile(
+      defaultMapPath(dir, "10-runtime", "README.md"),
+      "# Runtime\n\n## Start here\n\nBegin at `main.ts`.\n\n" +
+        "## Boundary\n\nThe runtime owns project execution.\n\n" +
+        "## Non-obvious invariant\n\nPreserve the configured command's exit status.\n",
+    );
     // ADR 0078: `done` also requires ≥1 wired capability (a derived per-step check).
     await runAgent(dir, ["config", "set-job", "test", "true"]);
     await runAgent(dir, ["refresh"]);
@@ -1782,7 +1795,7 @@ Deno.test("the brief keeps jobs, reporters, and worktree resources honest", asyn
     "A new dependency, network access, paid service",
   );
   assertStringIncludes(brief, "tracked binary databases");
-  assertStringIncludes(brief, "cost- or data-bearing resource policy");
+  assertStringIncludes(brief, "Cost, durable data, shared credentials");
 
   // The config template's smoke example is a placeholder that fails loudly if
   // copied verbatim — the old `node -e 'require(\"./\")'` silently failed on

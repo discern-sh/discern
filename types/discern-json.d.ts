@@ -520,6 +520,7 @@ export type DiscernSetupResult = {
     skeletons?: Array<string>;
     skipped?: Array<string>;
     instructions?: string;
+    human_relay?: string;
     page?: {
       step: number;
       title: string;
@@ -530,12 +531,25 @@ export type DiscernSetupResult = {
         files_to_read: Array<string>;
         must_do: Array<string>;
         authority_boundaries: Array<string>;
-        human_decisions: Array<string>;
         what_not_to_do: Array<string>;
         completion_check: string;
         stop_conditions: Array<string>;
         recovery: Array<string>;
         next_action: string;
+        owner_moments: Array<{
+          id: string;
+          kind: "explanation" | "progress" | "decision" | "completion";
+          phase: string;
+          purpose: string;
+          recommendation?: string;
+          decision?: {
+            recommended_option: string;
+            option_ids: Array<string>;
+            agent_waits: true;
+          };
+          relay_protection?: "adaptive" | "verbatim-list";
+        }>;
+        human_decisions: Array<string>;
         relay?: Array<string>;
       };
       instructions: string;
@@ -763,12 +777,25 @@ export type DiscernSetupStepResult = {
       files_to_read: Array<string>;
       must_do: Array<string>;
       authority_boundaries: Array<string>;
-      human_decisions: Array<string>;
       what_not_to_do: Array<string>;
       completion_check: string;
       stop_conditions: Array<string>;
       recovery: Array<string>;
       next_action: string;
+      owner_moments: Array<{
+        id: string;
+        kind: "explanation" | "progress" | "decision" | "completion";
+        phase: string;
+        purpose: string;
+        recommendation?: string;
+        decision?: {
+          recommended_option: string;
+          option_ids: Array<string>;
+          agent_waits: true;
+        };
+        relay_protection?: "adaptive" | "verbatim-list";
+      }>;
+      human_decisions: Array<string>;
       relay?: Array<string>;
     };
     instructions: string;
@@ -951,6 +978,21 @@ export type DiscernSetupDoneResult = {
       verdict: "full" | "partial" | "minimal";
     };
     inventory: {
+      project_context: {
+        primary_subsystem: {
+          region: string;
+          page: string;
+          title: string;
+          start_here: string;
+          boundary: string;
+          non_obvious_invariant: string;
+        } | null;
+        principles: {
+          count: number;
+          items: Array<string>;
+        };
+        instruction_sources: Array<string>;
+      };
       map_regions: {
         count: number;
         items: Array<string>;
@@ -1195,6 +1237,7 @@ export type DiscernSetupAcceptResult = {
         cli_fallback: string;
       }>;
     };
+    activation_context?: string;
     optional_improvement?: {
       command: string;
       after: "activation_verified";

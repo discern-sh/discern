@@ -33,6 +33,13 @@ import type { SetupCompletionInventory } from "./setup_inventory.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
 import { type CommandRef, discernCommand, flag } from "./command_reference.ts";
+import {
+  assertSetupHumanSurfaceConsumption,
+  type SetupHumanDecisionMoment,
+  type SetupHumanMoment,
+  setupHumanMomentsForSurface,
+  type SetupHumanSurface,
+} from "./setup_experience.ts";
 
 /** The conventional home of a project's own documentation, probed so the consent
  * message can reassure that discern never touches it — the map is a separate,
@@ -166,16 +173,53 @@ export interface ConsentRelayItem {
   readonly message: string;
 }
 
+/** Resolve one required human moment from a lifecycle surface. */
+function humanMoment(
+  surface: SetupHumanSurface,
+  id: string,
+): SetupHumanMoment {
+  const moment = setupHumanMomentsForSurface(surface).find((candidate) =>
+    candidate.id === id
+  );
+  if (moment === undefined) {
+    throw new Error(`Missing setup human moment ${id} on ${surface}`);
+  }
+  return moment;
+}
+
+/** Resolve one required owner decision from a lifecycle surface. */
+function humanDecision(
+  surface: SetupHumanSurface,
+  id: string,
+): SetupHumanDecisionMoment {
+  const moment = humanMoment(surface, id);
+  if (moment.kind !== "decision") {
+    throw new Error(`Setup human moment is not a decision: ${id}`);
+  }
+  return moment;
+}
+
+const MODEL_SELECTION = humanDecision("consent", "model-selection");
+const COMPLETION_HANDOFF = humanMoment("setup-done", "completion-handoff");
+const LANDING_CHOICE = humanDecision("setup-done", "landing-choice");
+const ACTIVATION_HANDOFF = humanMoment("activation", "activation-handoff");
+assertSetupHumanSurfaceConsumption("consent", [MODEL_SELECTION.id]);
+assertSetupHumanSurfaceConsumption("setup-done", [
+  COMPLETION_HANDOFF.id,
+  LANDING_CHOICE.id,
+]);
+assertSetupHumanSurfaceConsumption("activation", [ACTIVATION_HANDOFF.id]);
+
 /** The load-bearing consent facts, each in its own list item. */
 export function consentRelayItems(
   ctx: ConsentContext,
 ): readonly ConsentRelayItem[] {
   const plan = ctx.gitRepo
-    ? "Plan: I will inspect the repository, ask one bounded batch for facts it cannot supply, preserve its workflows, configure the Gate and worktree readiness, author the Map and instructions, prove the exact committed setup, and offer landing choices."
-    : "Plan: after you approve version control, I will initialize git, re-run the read-only preflight, inspect the repository, preserve its workflows, configure the Gate and worktree readiness, author the Map and instructions, prove the exact committed setup, and offer landing choices.";
+    ? "Plan: I inspect the repository, ask only for missing facts, preserve workflows, prove the Gate and worktrees, author the Map and instructions, then offer landing choices."
+    : "Plan: after approval, I initialize git, repeat preflight, inspect the repository, preserve workflows, prove the Gate and worktrees, author the Map and instructions, then offer landing choices.";
   const reversibility = ctx.gitRepo
-    ? "Reversibility: setup works on a dedicated `discern-setup` branch and does not reach the trunk until you choose to land it. You can leave or delete that branch before landing; later, `discern uninstall` removes the wiring while retaining your authored content. No API key or outside discern service is involved."
-    : "Reversibility: after git exists, setup works on a dedicated `discern-setup` branch and does not reach the trunk until you choose to land it. You can leave or delete that branch before landing; later, `discern uninstall` removes the wiring while retaining your authored content. No API key or outside discern service is involved.";
+    ? "Reversibility: setup stays on a dedicated `discern-setup` branch until you choose to land it. Leave or delete it; `discern uninstall` removes wiring but retains authored content. No API key or outside service is involved."
+    : "Reversibility: after git exists, setup stays on a dedicated `discern-setup` branch until you choose to land it. Leave or delete it; `discern uninstall` removes wiring but retains authored content. No API key or outside service is involved.";
   return [
     {
       key: "quality",
@@ -193,9 +237,14 @@ export function consentRelayItems(
         "Shared project instructions: one authored source tells future coding sessions how this project works; generated agent files are committed so other sessions can read them.",
     },
     {
+      key: "model-rationale",
+      message:
+        "Model choice: the model studies the repository and authors the Gate, worktree policy, Map, and instructions future sessions inherit. Stronger reasoning is more likely to catch false assumptions now and reduce later correction.",
+    },
+    {
       key: "footprint",
       message:
-        `Footprint: discern owns one root file (\`discern.toml\`), one visible \`discern/\` folder containing the instruction source and deferred-work ledger, and the agent-maintained Map at \`${SOURCE_PATHS.map.defaultPath}\`. It also updates the integration files the selected coding tools require.`,
+        `Footprint: discern owns one root file (\`discern.toml\`), one visible \`discern/\` folder for instructions and deferred work, and the agent-maintained Map at \`${SOURCE_PATHS.map.defaultPath}\`. It also updates the selected coding tools' integration files.`,
     },
     ...(ctx.docsExists
       ? [{
@@ -214,11 +263,16 @@ export function consentConfirmations(
   ctx: ConsentContext,
 ): readonly ConsentRelayItem[] {
   const agentLabels = ctx.agents.wired.map((agent) => agent.label).join(", ");
+  const modelOptions = MODEL_SELECTION.options.map((option) =>
+    `   - ${option.label}${
+      option.recommended ? " (recommended)" : ""
+    }: ${option.consequence} Owner: ${option.owner_action} Agent: ${option.agent_action}`
+  ).join("\n");
   return [
     {
       key: "model",
       message:
-        "Which available model do you want to use for this setup? Everything configured here is inherited by future sessions. I will report the provider/model identifier separately when I know it, or record `unreported` when I do not.",
+        `Which available model do you want to use for this setup? ${MODEL_SELECTION.recommendation}\n${modelOptions}`,
     },
     ...(ctx.gitRepo ? [] : [{
       key: "git-init",
@@ -228,22 +282,23 @@ export function consentConfirmations(
     {
       key: "agents",
       message: ctx.agents.detected
-        ? `I found ${agentLabels} on this machine. Should I wire discern into that set, or change it?`
-        : `I found no specific coding tool, so the proposed default set is ${agentLabels}. Should I use that set, or change it?`,
+        ? `I found ${agentLabels} on this machine. I recommend wiring that detected set. Keep it, or name a different set; this decides which coding tools receive discern integration files.`
+        : `I found no specific coding tool, so the proposed default set is ${agentLabels}. Keep it, or name the tools you use; this decides which tools receive discern integration files.`,
     },
     {
       key: "worktree-path",
       message:
-        `Isolated working copies will live beside this project at ${ctx.worktreePath}. Keep that location?`,
+        `Isolated working copies will live beside this project at ${ctx.worktreePath}. I recommend this easy-to-find sibling location so task work stays separate from the main checkout. Keep it, or provide another location.`,
     },
     {
       key: "cost",
       message:
-        "Setup usually takes 20–40 minutes and a meaningful number of tokens. Continue with that expectation?",
+        "Setup usually takes 20–40 minutes and a meaningful number of tokens to study the repository, prove commands, and write inherited project context. Continue with that investment, or defer without changing the project?",
     },
     {
       key: "ready",
-      message: "Ready for me to begin the isolated setup branch?",
+      message:
+        "Ready for me to begin the isolated setup branch and write the stated footprint? This authorizes setup authoring there; it does not authorize landing or a later cost- or data-bearing resource.",
     },
   ];
 }
@@ -254,11 +309,11 @@ export function consentMessage(ctx: ConsentContext): string {
   const relayItems = consentRelayItems(ctx);
   const confirmations = consentConfirmations(ctx);
   return [
-    "Relay the fenced message below as your next chat message. You may adapt the framing to your own voice, but keep every list item, relay anything in quotation marks word for word, and relay every numbered confirmation word for word. Then wait for the answers.",
+    `Relay the fenced message below as your next chat message. You may adapt the framing to your own voice, but keep every list item, relay anything in quotation marks word for word, and relay every numbered confirmation word for word. Immediately afterwards, follow this authority: ${MODEL_SELECTION.authority} Use the exact identifier when known or \`unreported\`; never copy the placeholder. Then wait for the answers.`,
     "",
     fence("message to your human"),
     "",
-    "I propose a one-time discern setup for this project. These facts and choices define it:",
+    "I propose a one-time discern setup for this project. These facts define it:",
     "",
     ...relayItems.map((item) => `- ${item.message}`),
     "",
@@ -268,9 +323,11 @@ export function consentMessage(ctx: ConsentContext): string {
     "",
     fence("end of message"),
     "",
+    "If the owner chooses a different model, stop in this session. Do not run `begin`. The owner uses the coding tool's model selector, opens a fresh session in this project, and pastes `Run discern setup`; the fresh session starts again at the welcome and preflight.",
+    "",
     ctx.gitRepo
-      ? "After every answer is settled, run the command below. Replace `unreported` with your exact self-declared provider/model identifier when known; otherwise keep `unreported`. Provenance is advisory and does not verify capability:"
-      : "After every answer is settled, initialize git, re-run `discern setup verify`, and then run the command below. Replace `unreported` with your exact self-declared provider/model identifier when known; otherwise keep `unreported`. Provenance is advisory and does not verify capability:",
+      ? "Only if the owner chooses to continue in this session and every other answer is settled, run the command below. Replace `unreported` with the exact self-declared provider/model identifier when known; otherwise keep `unreported`. Provenance is advisory and does not verify capability:"
+      : "Only if the owner chooses to continue in this session and every other answer is settled, initialize git, re-run `discern setup verify`, and then run the command below. Replace `unreported` with the exact self-declared provider/model identifier when known; otherwise keep `unreported`. Provenance is advisory and does not verify capability:",
     "",
     `    ${command}`,
     "",
@@ -359,14 +416,19 @@ function landingLine(l: CompletionLanding): string {
     return `Your setup already lives on \`${l.target}\`, so there's nothing to land.`;
   }
   if (l.branch === "") {
-    return `Your setup is on the \`discern-setup\` branch. Check that branch out, then land it onto \`${l.target}\` with \`discern setup accept\`.`;
+    return `Your setup is on the \`discern-setup\` branch, not yet on \`${l.target}\`. Proof verifies the branch and does not authorize landing. Check out \`discern-setup\`, then choose to land it with \`discern setup accept\`, leave it for review, or decline it. I will wait; do not restart or activate before that choice.`;
   }
   if (!l.onSetupBranch) {
     // `setup accept` lands only the dedicated setup branch — recommending it for
     // the user's own branch would sweep that branch's commits onto the trunk.
-    return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. Merge it in your usual way when you're ready — nothing is lost meanwhile.`;
+    return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. Proof verifies the branch and does not authorize landing. I recommend merging it through the project's usual Git workflow when the qualitative handoff matches the project. Choose to merge now, leave the branch for review, or decline it. I will wait; do not restart or activate before that choice.`;
   }
-  return `Your setup is on the \`${l.branch}\` branch, not yet on \`${l.target}\`. I'd recommend landing it now with \`discern setup accept\` — or leave the branch as it is to review first; nothing is lost either way.`;
+  return `${
+    LANDING_CHOICE.relay.message.replace("<branch>", `\`${l.branch}\``).replace(
+      "<trunk>",
+      `\`${l.target}\``,
+    )
+  } To land now, run \`discern setup accept\`.`;
 }
 
 /**
@@ -375,9 +437,9 @@ function landingLine(l: CompletionLanding): string {
  * first-person message covering what the project now has (honest coverage), the
  * contained footprint (the root `discern.toml` plus the `discern/` folder — the
  * namespace story the consent message opened with, closed honestly), the
- * mechanical inventory, Proof, and the next valid phase. An unlanded result stops
- * at the landing choice; an integrated result sequences fresh-session activation
- * before optional improvement. Composed from the already-computed
+ * qualitative project context, mechanical inventory, Proof, and the next valid
+ * phase. An unlanded result stops at the landing choice; an integrated result
+ * sequences fresh-session activation before optional improvement. Composed from the already-computed
  * {@link CompletionContext} pieces — never recomputed.
  */
 export function completionMessage(ctx: CompletionContext): string {
@@ -391,11 +453,29 @@ export function completionMessage(ctx: CompletionContext): string {
     : `discern setup is proved on \`${
       landing.branch || "discern-setup"
     }\`, but \`${landing.target}\` does not contain it yet.`;
+  const primary = inventory.project_context.primary_subsystem;
+  const qualitativeLines = primary === null
+    ? [
+      "  • Primary subsystem context is unavailable. The setup is incomplete or its Map does not yet expose `Start here`, `Boundary`, and `Non-obvious invariant`; do not invent that account.",
+    ]
+    : [
+      `  • Primary subsystem: ${primary.title} (\`${primary.page}\`). Future agents start here: ${primary.start_here}`,
+      `  • Boundary: ${primary.boundary}`,
+      `  • Non-obvious invariant: ${primary.non_obvious_invariant}`,
+    ];
+  qualitativeLines.unshift(`  • ${COMPLETION_HANDOFF.why}`);
   const inventoryLines = [
+    ...qualitativeLines,
+    `  • Project principles (${inventory.project_context.principles.count}): ${
+      inlineInventory(inventory.project_context.principles.items)
+    }.`,
+    `  • Future sessions load project instructions from: ${
+      inlineInventory(inventory.project_context.instruction_sources)
+    }.`,
     `  • Map regions (${inventory.map_regions.count}): ${
       inlineInventory(inventory.map_regions.items)
     }.`,
-    `  • Deferred-work ledger items (${inventory.ledger_items.count}): ${
+    `  • Concrete open items (${inventory.ledger_items.count}): ${
       inlineInventory(inventory.ledger_items.items)
     }.`,
     `  • Jobs enforced: ${
@@ -406,6 +486,7 @@ export function completionMessage(ctx: CompletionContext): string {
   ];
   const activationLines = readyForActivation && reactivation !== undefined
     ? [
+      `  • ${ACTIVATION_HANDOFF.why}`,
       ...(reactivation.per_agent.length === 0
         ? ["  • No configured provider needs a fresh-session activation step."]
         : reactivation.per_agent.flatMap((agent) => [

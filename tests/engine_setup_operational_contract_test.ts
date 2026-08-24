@@ -10,6 +10,16 @@ import {
   setupReporterAction,
 } from "../src/shared/setup_guidance.ts";
 import {
+  assertSetupHumanSurfaceConsumption,
+  projectSetupHumanMoment,
+  SETUP_HUMAN_MOMENTS,
+  setupHumanMomentFacts,
+  SetupHumanMomentSchema,
+  setupHumanMomentsForSurface,
+  type SetupHumanSurface,
+  validateSetupHumanMomentRegistry,
+} from "../src/shared/setup_experience.ts";
+import {
   parseSetupBrief,
   renderSetupPage,
   SETUP_PAGE_REGISTRY,
@@ -24,6 +34,10 @@ import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import {
+  deriveSetupPrimarySubsystem,
+  deriveSetupProjectContext,
+} from "../src/shared/setup_project_context.ts";
+import {
   SetupDoneDataSchema,
   SetupDoneOutputSchema,
 } from "../src/shared/result_schemas.ts";
@@ -34,6 +48,99 @@ import {
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
+
+Deno.test("every setup human moment carries its complete semantic contract", () => {
+  validateSetupHumanMomentRegistry(SETUP_HUMAN_MOMENTS);
+
+  const futureSibling = {
+    id: "storage-selection",
+    surfaces: ["step-1"],
+    kind: "decision",
+    phase: "project inspection",
+    trigger: "Two durable storage systems remain viable.",
+    purpose: "Choose the project's durable storage system.",
+    owner_outcome: "Future sessions configure the chosen storage system.",
+    why: "A silent storage choice would constrain later data work.",
+    current_action: "Compare the supported contract and migration consequence.",
+    authority: "The owner chooses which data contract the project adopts.",
+    reversibility: "Changing later requires a data migration.",
+    recovery: "Keep both candidates unconfigured and preserve the evidence.",
+    recommendation: "Choose the existing project-supported system.",
+    agent_behavior: {
+      before_owner_action: "wait",
+      after_owner_action:
+        "Configure only the storage system the owner chooses.",
+    },
+    options: [
+      {
+        id: "existing",
+        label: "Use existing storage",
+        consequence: "Setup preserves the current data contract.",
+        owner_action: "Confirm the existing storage contract.",
+        agent_action: "Keep the current storage wiring.",
+        recommended: true,
+      },
+      {
+        id: "replacement",
+        label: "Choose replacement storage",
+        consequence: "Setup records the migration as unresolved.",
+        owner_action: "Choose the replacement contract.",
+        agent_action: "Record the migration consequence without applying it.",
+        recommended: false,
+      },
+    ],
+    relay: {
+      protection: "verbatim-list",
+      message:
+        "Choose whether the current contract stays or the migration consequence remains open.",
+      required_facts: ["current contract", "migration consequence"],
+    },
+  } as const;
+  assert(
+    SetupHumanMomentSchema.safeParse(futureSibling).success,
+    "the unrelated future decision is a valid positive control",
+  );
+
+  const missingWhy = structuredClone(futureSibling) as Record<string, unknown>;
+  delete missingWhy.why;
+  const missingCurrentAction = structuredClone(futureSibling) as Record<
+    string,
+    unknown
+  >;
+  delete missingCurrentAction.current_action;
+  const missingWait = structuredClone(futureSibling) as Record<string, unknown>;
+  delete missingWait.agent_behavior;
+  const missingOwnerAction = structuredClone(futureSibling);
+  delete (missingOwnerAction.options[0] as { owner_action?: string })
+    .owner_action;
+  const missingAgentAction = structuredClone(futureSibling);
+  delete (missingAgentAction.options[0] as { agent_action?: string })
+    .agent_action;
+  const selfCertifying = structuredClone(futureSibling);
+  (selfCertifying.options[0] as { label: string }).label =
+    "I am the most capable model";
+  for (
+    const [role, candidate] of [
+      ["why", missingWhy],
+      ["current action", missingCurrentAction],
+      ["wait boundary", missingWait],
+      ["owner action", missingOwnerAction],
+      ["agent action", missingAgentAction],
+      ["neutral option label", selfCertifying],
+    ] as const
+  ) {
+    assert(
+      !SetupHumanMomentSchema.safeParse(candidate).success,
+      `a future decision must fail without its ${role}`,
+    );
+  }
+  assertThrows(
+    () => assertSetupHumanSurfaceConsumption("welcome", ["first-use-value"]),
+    Error,
+    "model-selection",
+    "a fixed lifecycle consumer must fail when it omits a registered sibling",
+  );
+});
 
 Deno.test("every setup page projects the complete operational spine into its human rendering", async () => {
   const brief = parseSetupBrief(await Deno.readTextFile(BRIEF));
@@ -57,6 +164,15 @@ Deno.test("every setup page projects the complete operational spine into its hum
       ...(page.spine.relay ?? []),
       page.spine.next_action,
     ];
+    const moments = setupHumanMomentsForSurface(
+      `step-${page.step}` as SetupHumanSurface,
+    );
+    assertEquals(
+      page.spine.owner_moments,
+      moments.map(projectSetupHumanMoment),
+      `Step ${page.step} must derive its typed moment state from the registry`,
+    );
+    facts.push(...moments.flatMap(setupHumanMomentFacts));
     for (const fact of facts) {
       assert(
         rendered.includes(fact),
@@ -213,12 +329,15 @@ Deno.test("shipped setup relay choices stay neutral and keep each consent fact a
       "quality",
       "worktrees",
       "instructions",
+      "model-rationale",
       "footprint",
       "plan",
       "reversibility",
     ],
   );
   assert(confirmations.some((item) => item.key === "cost"));
+  assert(message.includes("Current provider/model (self-declared)"));
+  assert(message.includes("never copy the placeholder"));
   for (const item of relay) assert(message.includes(`- ${item.message}`));
   for (const [index, item] of confirmations.entries()) {
     assert(message.includes(`${index + 1}. ${item.message}`));
@@ -265,6 +384,23 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
       recursive: true,
     });
     await Deno.writeTextFile(
+      join(dir, SOURCE_PATHS.map.defaultPath, "10-runtime", "README.md"),
+      "# Runtime\n\n## Start here\n\nBegin at `src/runtime.ts`.\n\n" +
+        "## Boundary\n\nThe runtime owns command execution.\n\n" +
+        "## Non-obvious invariant\n\nEvery command preserves child exit status.\n",
+    );
+    await Deno.writeTextFile(
+      join(
+        dir,
+        SOURCE_PATHS.map.defaultPath,
+        "00-orientation",
+        "design-principles.md",
+      ),
+      "# Design principles\n\n## 1. Preserve status\n\nA rule.\n\n" +
+        "## 2. Plan effects\n\nAnother rule.\n\n" +
+        "## 3. Keep context current\n\nA third rule.\n",
+    );
+    await Deno.writeTextFile(
       join(dir, SOURCE_PATHS.todo.defaultPath),
       "# Open work\n\n- [ ] **Resolve retries.** Evidence: src/retry.ts\n" +
         "- [x] **Finished item.** remove me\n" +
@@ -284,6 +420,15 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
       count: 2,
       items: ["Resolve retries.", "Plain unresolved decision"],
     });
+    assertEquals(inventory.project_context.primary_subsystem?.title, "Runtime");
+    assertEquals(inventory.project_context.principles.items, [
+      "Preserve status",
+      "Plan effects",
+      "Keep context current",
+    ]);
+    assertEquals(inventory.project_context.instruction_sources, [
+      SOURCE_PATHS.instructions.defaultPath,
+    ]);
     const jobCount = Object.values(inventory.jobs).flat().length;
     assert(jobCount > 0);
     const contradictory = {
@@ -315,6 +460,56 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
     assert(markdown.stdout.includes("Map regions"));
     assert(!markdown.stdout.includes("discern setup accept"));
     assert(!markdown.stdout.includes("discern improvement"));
+  });
+});
+
+Deno.test("setup qualitative completion context derives from the first durable subsystem authority", async () => {
+  await withTempDir(async (dir) => {
+    const mapDir = "discern/map";
+    await Deno.mkdir(join(dir, mapDir, "00-orientation"), {
+      recursive: true,
+    });
+    await Deno.mkdir(join(dir, mapDir, "10-runtime"), { recursive: true });
+    await Deno.mkdir(join(dir, mapDir, "80-development"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, mapDir, "10-runtime", "README.md"),
+      "# Runtime\n\n## Start here\n\nBegin at `src/runtime.ts`.\n\n" +
+        "## Boundary\n\nOwns command execution.\n\n" +
+        "## Non-obvious invariant\n\nPreserve child status.\n",
+    );
+    await Deno.writeTextFile(
+      join(dir, mapDir, "00-orientation", "design-principles.md"),
+      "# Principles\n\n## 1. Preserve status\n\nText.\n\n" +
+        "## 2. Plan effects\n\nText.\n\n" +
+        "## What these add up to\n\nSummary.\n",
+    );
+    const context = await deriveSetupProjectContext(
+      dir,
+      mapDir,
+      ["discern/instructions.md"],
+    );
+    assertEquals(context.primary_subsystem?.region, "10-runtime");
+    assertEquals(
+      context.primary_subsystem?.start_here,
+      "Begin at `src/runtime.ts`.",
+    );
+    assertEquals(
+      context.primary_subsystem?.boundary,
+      "Owns command execution.",
+    );
+    assertEquals(
+      context.primary_subsystem?.non_obvious_invariant,
+      "Preserve child status.",
+    );
+    assertEquals(context.principles.items, ["Preserve status", "Plan effects"]);
+
+    await Deno.writeTextFile(
+      join(dir, mapDir, "10-runtime", "README.md"),
+      "# Runtime\n\n## Start here\n\nBegin here.\n\n## Boundary\n\nOwns execution.\n",
+    );
+    assertEquals(await deriveSetupPrimarySubsystem(dir, mapDir), null);
   });
 });
 

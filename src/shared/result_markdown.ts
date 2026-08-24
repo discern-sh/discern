@@ -662,6 +662,7 @@ const presentSetup: ResultMarkdownPresenter = (result) => {
     : text(data.next_action) ?? text(data.command);
   const instructions = uniqueVerbatim([
     verbatimText(data.agent_instructions),
+    verbatimText(data.human_relay),
     verbatimText(data.instructions),
     verbatimText(data.human_framing),
   ]).map((value) => `### Setup instructions\n\n${value}`);
@@ -741,10 +742,8 @@ const presentSetupStep: ResultMarkdownPresenter = (result) => {
   const phase = text(spine.phase);
   const stableTarget = text(spine.stable_target);
   const authority = strings(spine.authority_boundaries);
-  const decisions = strings(spine.human_decisions);
   const stops = strings(spine.stop_conditions);
   const recovery = strings(spine.recovery);
-  const relay = strings(spine.relay);
   return {
     state: defaultState(
       result,
@@ -768,15 +767,9 @@ const presentSetupStep: ResultMarkdownPresenter = (result) => {
       ...(instructions === undefined
         ? []
         : [`### Step instructions\n\n${instructions}`]),
-      ...(relay.length === 0
-        ? []
-        : [`### Relay to the owner\n\n${
-          relay.map((item) => `- ${item}`).join("\n")
-        }`]),
     ],
     boundary: unique([
       ...authority.map((item) => `Authority: ${item}`),
-      ...decisions.map((item) => `Owner decision: ${item}`),
       ...strings(spine.what_not_to_do),
       ...stops.map((item) => `Stop: ${item}`),
     ]),
@@ -915,6 +908,7 @@ const presentSetupAccept: ResultMarkdownPresenter = (result) => {
           boolean(data.branch_deleted) === true ? "yes" : "no"
         }.`
         : undefined,
+      landed === true ? text(data.activation_context) : undefined,
     ]),
     action: landed !== true ? [] : unique([
       ...records(reactivation?.per_agent).flatMap((agent) =>

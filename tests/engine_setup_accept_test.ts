@@ -118,6 +118,8 @@ Deno.test("setup accept fast-forwards the setup branch onto main and deletes it"
         agent.check === "discern_status"
       ),
     );
+    assertStringIncludes(data.activation_context, "load MCP servers");
+    assertStringIncludes(data.activation_context, "session start");
     assertEquals(data.optional_improvement, {
       command: "discern improvement --json",
       after: "activation_verified",
@@ -493,6 +495,19 @@ Deno.test("setup done steers a non-setup branch to a manual merge, never `setup 
     await Deno.remove(defaultMapPath(dir), { recursive: true });
     await Deno.mkdir(defaultMapPath(dir));
     await Deno.writeTextFile(defaultMapPath(dir, "README.md"), "# Real Map\n");
+    await Deno.mkdir(defaultMapPath(dir, "00-orientation"));
+    await Deno.writeTextFile(
+      defaultMapPath(dir, "00-orientation", "design-principles.md"),
+      "# Design principles\n\n## 1. First\n\nA.\n\n" +
+        "## 2. Second\n\nB.\n\n## 3. Third\n\nC.\n",
+    );
+    await Deno.mkdir(defaultMapPath(dir, "10-runtime"));
+    await Deno.writeTextFile(
+      defaultMapPath(dir, "10-runtime", "README.md"),
+      "# Runtime\n\n## Start here\n\nBegin at `main.ts`.\n\n" +
+        "## Boundary\n\nThe runtime owns execution.\n\n" +
+        "## Non-obvious invariant\n\nPreserve the process exit status.\n",
+    );
     await Deno.writeTextFile(
       join(dir, "discern/instructions.md"),
       "# Project instructions\n\nA real project pitch.\n\n## Conventions\n\nReal conventions.\n",
@@ -529,7 +544,7 @@ Deno.test("setup done steers a non-setup branch to a manual merge, never `setup 
     });
     assertStringIncludes(
       obj.data.instructions,
-      "usual way",
+      "usual Git workflow",
       "the relay message steers to a manual merge for a non-setup branch",
     );
     assert(

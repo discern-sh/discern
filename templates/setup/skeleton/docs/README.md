@@ -22,11 +22,11 @@ If you're new, start with [00-orientation/](00-orientation/) and follow the trai
 
 <!-- setup fills this -->
 
-The subsystems are numbered subtrees, in the order a newcomer should read them — `10-…` through `80-…`. Setup must author one substantive page for the primary subsystem: where to start, its boundary, and a non-obvious invariant. Add another region only for a genuinely distinct durable boundary when doing so reduces the code a future reader must inspect. The numbers are a reading order, not a target count.
+The subsystems are numbered subtrees, in the order a newcomer should read them — `10-…` through `80-…`. Setup must author one substantive README for the primary subsystem with exact `## Start here`, `## Boundary`, and `## Non-obvious invariant` sections. The completion result derives its qualitative handoff from those sections. Add another region only for a genuinely distinct durable boundary when doing so reduces the code a future reader must inspect. The numbers are a reading order, not a target count.
 
 | Path                               | What's in it                                                                                                                                                                                                        |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `10-<primary-subsystem>/`          | _Authored during `discern setup`: where to start, the durable boundary, and its non-obvious invariant._                                                                                                             |
+| `10-<primary-subsystem>/`          | _Authored during `discern setup`: a README with `Start here`, `Boundary`, and `Non-obvious invariant` sections._                                                                                                    |
 | `20-<distinct-subsystem>/`         | _Add only when a second durable boundary needs its own reading path; omit otherwise._                                                                                                                               |
 | [80-development/](80-development/) | Working on {{project_name}}: getting set up, the testing approach, code conventions, and the [gate gotchas](80-development/done-gate-gotchas.md) the quality gate points at when a step fails in a non-obvious way. |
 
