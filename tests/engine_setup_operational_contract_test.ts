@@ -13,6 +13,7 @@ import {
   assertSetupHumanSurfaceConsumption,
   projectSetupHumanMoment,
   SETUP_HUMAN_MOMENTS,
+  SETUP_HUMAN_SURFACES,
   setupHumanMomentFacts,
   SetupHumanMomentSchema,
   setupHumanMomentsForSurface,
@@ -48,6 +49,28 @@ import {
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
+
+Deno.test("setup pages form one sequential numbered journey", () => {
+  assertEquals(
+    SETUP_PAGE_REGISTRY.map((entry) => entry.step),
+    SETUP_PAGE_REGISTRY.map((_, index) => index),
+    "setup page numbers must follow their presentation order",
+  );
+  assertEquals(
+    SETUP_PAGE_REGISTRY.map((entry) => entry.nextCommand),
+    SETUP_PAGE_REGISTRY.map((_, index, entries) =>
+      index === entries.length - 1
+        ? "discern setup done"
+        : `discern setup step ${index + 1}`
+    ),
+    "each page must name the next sequential command",
+  );
+  assertEquals(
+    SETUP_HUMAN_SURFACES.filter((surface) => surface.startsWith("step-")),
+    SETUP_PAGE_REGISTRY.map((entry) => `step-${entry.step}`),
+    "every numbered page must enroll in the human-moment surface registry",
+  );
+});
 
 Deno.test("every setup human moment carries its complete semantic contract", () => {
   validateSetupHumanMomentRegistry(SETUP_HUMAN_MOMENTS);
@@ -186,18 +209,18 @@ Deno.test("every setup page projects the complete operational spine into its hum
   }
 });
 
-Deno.test("setup's stable page graph gathers evidence before synthesis and smokes before final documentation", async () => {
+Deno.test("setup's sequential page graph gathers evidence before synthesis and smokes before final documentation", async () => {
   const brief = parseSetupBrief(await Deno.readTextFile(BRIEF));
   const order = brief.pages.map((page) => page.step);
   assertEquals(order, SETUP_PAGE_REGISTRY.map((entry) => entry.step));
-  assert(order.indexOf(1) < order.indexOf(7));
-  assert(order.indexOf(8) < order.indexOf(6));
+  assert(order.indexOf(1) < order.indexOf(6));
+  assert(order.indexOf(7) < order.indexOf(8));
   assert(
-    brief.pages.find((page) => page.step === 8)?.spine.what_not_to_do.some(
+    brief.pages.find((page) => page.step === 7)?.spine.what_not_to_do.some(
       (action) => action.includes("bare `discern start`"),
     ),
   );
-  const probeActions = brief.pages.find((page) => page.step === 8)?.spine
+  const probeActions = brief.pages.find((page) => page.step === 7)?.spine
     .must_do.join(" ") ?? "";
   assert(probeActions.includes("structural worktree probe"));
   assert(probeActions.includes("committed completion-marker HEAD"));

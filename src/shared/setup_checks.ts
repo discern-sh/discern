@@ -69,7 +69,7 @@ async function readFileOr(
 
 /**
  * The registry. Only the steps with a machine-checkable predicate appear here —
- * steps 0/1/3/7/8 are self-verified prose checks with no derived proof. Each
+ * steps 0/1/3/6/7 are self-verified prose checks with no derived proof. Each
  * `describe` mirrors its page's `completion_check` field; the parity test pins
  * them together so neither can drift.
  */
@@ -135,7 +135,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     },
   },
   {
-    step: 6,
+    step: 8,
     name: "primary_subsystem_context",
     describe:
       "The final primary-subsystem README has non-empty Start here, Boundary, and Non-obvious invariant sections.",
