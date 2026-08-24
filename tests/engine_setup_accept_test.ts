@@ -115,7 +115,7 @@ Deno.test("setup accept fast-forwards the setup branch onto main and deletes it"
     assertEquals(data.local_artifacts_converged, true);
     assert(
       data.reactivation.per_agent.some((agent: { check: string }) =>
-        agent.check === "discern_status"
+        agent.check === "mcp__discern__discern_status"
       ),
     );
     assertStringIncludes(data.activation_context, "load MCP servers");

@@ -3436,10 +3436,12 @@ async function emitAwaitingConsent(
   opts: SetupOptions,
   destDir: string,
 ): Promise<number> {
-  const instructions = consentMessage(
-    await deriveConsentContext(destDir, (await consentAgentSet()).set),
+  const context = await deriveConsentContext(
+    destDir,
+    (await consentAgentSet()).set,
   );
-  const command = confirmedBeginCommand();
+  const instructions = consentMessage(context);
+  const command = confirmedBeginCommand(context.projectName?.proposed);
   const message =
     "Setup needs the owner's consent before it writes anything. Relay the message below and wait. If the owner chooses another model, stop in this session. Re-run `begin` with --confirmed only when the owner chooses to continue here and every other answer is settled.";
   if (opts.json) {
@@ -3451,7 +3453,9 @@ async function emitAwaitingConsent(
       data: { instructions, command },
       hints: hintTexts([
         fire(HINTS["setup-awaiting-confirmation"], {
-          command: confirmedBeginCommandReference(),
+          command: confirmedBeginCommandReference(
+            context.projectName?.proposed,
+          ),
         }),
       ]),
     });

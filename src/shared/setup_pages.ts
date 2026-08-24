@@ -27,6 +27,7 @@ import {
   assertSetupHumanSurfaceConsumption,
   projectSetupHumanMoment,
   renderSetupHumanMoments,
+  renderSetupOwnerMoment,
   resolveSetupHumanMoments,
   type SetupHumanSurface,
 } from "./setup_experience.ts";
@@ -213,10 +214,10 @@ function splitSpineAndProse(
   assertSetupHumanSurfaceConsumption(surface, parsed.data.owner_moments);
   const ownerMoments = resolveSetupHumanMoments(parsed.data.owner_moments);
   const humanDecisions = ownerMoments.filter((moment) =>
-    moment.kind === "decision"
+    moment.kind === "decision" && moment.applicability.kind === "always"
   ).map((moment) => moment.purpose);
   const relay = ownerMoments.flatMap((moment) =>
-    moment.relay === undefined ? [] : [moment.relay.message]
+    renderSetupOwnerMoment(moment, "novice")?.message ?? []
   );
   const prose = body
     .slice(close + 1)

@@ -541,13 +541,41 @@ export type DiscernSetupResult = {
           kind: "explanation" | "progress" | "decision" | "completion";
           phase: string;
           purpose: string;
+          applicability: {
+            kind: "always";
+          } | {
+            kind: "when";
+            evidence_id: string;
+            condition: string;
+          };
+          fact_ids: Array<string>;
           recommendation?: string;
           decision?: {
+            kind:
+              | "model-selection"
+              | "project-name-confirmation"
+              | "project-intent-gap"
+              | "gate-protection-change"
+              | "authored-source-collision"
+              | "owner-policy-conflict"
+              | "subsystem-sanity-check"
+              | "worktree-resource-policy"
+              | "documentation-claim-gap"
+              | "external-reference-inspection"
+              | "landing-choice";
             recommended_option: string;
             option_ids: Array<string>;
-            agent_waits: true;
+            agent_waits_when_served: true;
+            delegation: {
+              allowed: true;
+              action: "use-recommendation";
+              selects_option: string;
+            } | {
+              allowed: false;
+              reason: string;
+            };
           };
-          relay_protection?: "adaptive" | "verbatim-list";
+          relay_protection: "adaptive" | "verbatim-list";
         }>;
         human_decisions: Array<string>;
         relay?: Array<string>;
@@ -665,6 +693,16 @@ export type DiscernSetupVerifyResult = {
       agents_detected: Array<string>;
       agents_effective: Array<string>;
       worktree_path: string;
+      project_identity: {
+        proposed_name: string;
+        evidence: Array<{
+          source: string;
+          location: string;
+          value: string;
+        }>;
+        fallback_only: boolean;
+        requires_confirmation: true;
+      };
     };
     conflicts?: Array<{
       kind:
@@ -787,13 +825,41 @@ export type DiscernSetupStepResult = {
         kind: "explanation" | "progress" | "decision" | "completion";
         phase: string;
         purpose: string;
+        applicability: {
+          kind: "always";
+        } | {
+          kind: "when";
+          evidence_id: string;
+          condition: string;
+        };
+        fact_ids: Array<string>;
         recommendation?: string;
         decision?: {
+          kind:
+            | "model-selection"
+            | "project-name-confirmation"
+            | "project-intent-gap"
+            | "gate-protection-change"
+            | "authored-source-collision"
+            | "owner-policy-conflict"
+            | "subsystem-sanity-check"
+            | "worktree-resource-policy"
+            | "documentation-claim-gap"
+            | "external-reference-inspection"
+            | "landing-choice";
           recommended_option: string;
           option_ids: Array<string>;
-          agent_waits: true;
+          agent_waits_when_served: true;
+          delegation: {
+            allowed: true;
+            action: "use-recommendation";
+            selects_option: string;
+          } | {
+            allowed: false;
+            reason: string;
+          };
         };
-        relay_protection?: "adaptive" | "verbatim-list";
+        relay_protection: "adaptive" | "verbatim-list";
       }>;
       human_decisions: Array<string>;
       relay?: Array<string>;

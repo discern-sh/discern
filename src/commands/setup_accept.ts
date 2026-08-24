@@ -877,9 +877,6 @@ export async function runSetupAccept(
     log.line("Activate discern from a fresh provider session:");
     for (const agent of reactivation.per_agent) {
       log.line(`  • ${agent.label}: ${agent.step}`);
-      log.line(`    Verify with \`${agent.check}\`.`);
-      log.line(`    If it fails, ${agent.recovery}`);
-      log.line(`    CLI fallback: \`${agent.cli_fallback}\`.`);
     }
   }
   log.info(

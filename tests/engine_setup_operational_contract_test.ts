@@ -1,9 +1,13 @@
 /** Registry-driven guards for setup's bounded operational journey. */
 
-import { assert, assertEquals, assertThrows } from "@std/assert";
+import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join } from "@std/path";
 import {
+  authorizeSetupExternalInspection,
+  classifySetupReferencedPath,
+  inspectSetupExternalReference,
   recommendSetupDocumentationScope,
+  recommendSetupProjectName,
   SETUP_READINESS_CATEGORIES,
   SETUP_REPORTER_EXAMPLES,
   setupReporterAction,
@@ -11,9 +15,13 @@ import {
 import {
   assertSetupHumanSurfaceConsumption,
   projectSetupHumanMoment,
+  renderSetupOwnerMoment,
+  selectSetupRecommendation,
+  SETUP_DECISION_DELEGATION,
+  SETUP_DECISION_KINDS,
   SETUP_HUMAN_MOMENTS,
   SETUP_HUMAN_SURFACES,
-  setupHumanMomentFacts,
+  setupHumanMomentFactIds,
   SetupHumanMomentSchema,
   setupHumanMomentsForSurface,
   type SetupHumanSurface,
@@ -79,8 +87,13 @@ Deno.test("every setup human moment carries its complete semantic contract", () 
     id: "storage-selection",
     surfaces: ["step-1"],
     kind: "decision",
+    decision_kind: "documentation-claim-gap",
     phase: "project inspection",
-    trigger: "Two durable storage systems remain viable.",
+    applicability: {
+      kind: "when",
+      evidence_id: "storage-choice",
+      condition: "Two durable storage systems remain viable.",
+    },
     purpose: "Choose the project's durable storage system.",
     owner_outcome: "Future sessions configure the chosen storage system.",
     why: "A silent storage choice would constrain later data work.",
@@ -116,7 +129,8 @@ Deno.test("every setup human moment carries its complete semantic contract", () 
       protection: "verbatim-list",
       message:
         "Choose whether the current contract stays or the migration consequence remains open.",
-      required_facts: ["current contract", "migration consequence"],
+      experienced:
+        "Keep the current storage contract or retain the migration as an open decision.",
     },
   } as const;
   assert(
@@ -165,7 +179,7 @@ Deno.test("every setup human moment carries its complete semantic contract", () 
   );
 });
 
-Deno.test("every setup page projects the complete operational spine into its human rendering", async () => {
+Deno.test("every setup page projects its operational spine and stable semantic fact ids", async () => {
   const brief = parseSetupBrief(await Deno.readTextFile(BRIEF));
   for (const page of brief.pages) {
     const rendered = renderSetupPage(page);
@@ -195,7 +209,6 @@ Deno.test("every setup page projects the complete operational spine into its hum
       moments.map(projectSetupHumanMoment),
       `Step ${page.step} must derive its typed moment state from the registry`,
     );
-    facts.push(...moments.flatMap(setupHumanMomentFacts));
     for (const fact of facts) {
       assert(
         rendered.includes(fact),
@@ -206,7 +219,165 @@ Deno.test("every setup page projects the complete operational spine into its hum
         `Step ${page.step} Markdown rendering dropped: ${fact}`,
       );
     }
+    for (const moment of moments) {
+      const projection = projectSetupHumanMoment(moment);
+      assertEquals(
+        projection.fact_ids,
+        setupHumanMomentFactIds(moment),
+        `${moment.id} must derive fact enrollment without English matching`,
+      );
+      assert(rendered.includes(moment.owner_outcome));
+      assert(rendered.includes(moment.authority));
+      assert(rendered.includes(moment.reversibility));
+      assert(rendered.includes(moment.recovery));
+    }
   }
+});
+
+Deno.test("conditional owner moments emit neither a decision nor wait without trigger evidence", () => {
+  const conditional = SETUP_HUMAN_MOMENTS.find((moment) =>
+    moment.id === "worktree-resource-policy"
+  );
+  assert(conditional !== undefined);
+  assertEquals(renderSetupOwnerMoment(conditional, "novice"), undefined);
+  assertEquals(
+    renderSetupOwnerMoment(conditional, "novice", {
+      evidenceId: "worktree-resource-consequence",
+      satisfied: false,
+      detail: "No shared resource or durable-data collision was found.",
+    }),
+    undefined,
+  );
+  const served = renderSetupOwnerMoment(conditional, "novice", {
+    evidenceId: "worktree-resource-consequence",
+    satisfied: true,
+    detail: "Two tasks would mutate the same database.",
+  });
+  assert(served !== undefined);
+  assert(served.waitsForOwner);
+});
+
+Deno.test("every decision kind has a closed delegation policy and consequential kinds reject the action", () => {
+  assertEquals(
+    Object.keys(SETUP_DECISION_DELEGATION).sort(),
+    [
+      ...SETUP_DECISION_KINDS,
+    ].sort(),
+  );
+  const decisions = SETUP_HUMAN_MOMENTS.filter((moment) =>
+    moment.kind === "decision"
+  );
+  assertEquals(
+    decisions.map((moment) => moment.decision_kind).sort(),
+    [...SETUP_DECISION_KINDS].sort(),
+  );
+  for (
+    const consequential of [
+      "model-selection",
+      "project-intent-gap",
+      "gate-protection-change",
+      "authored-source-collision",
+      "owner-policy-conflict",
+      "worktree-resource-policy",
+      "external-reference-inspection",
+      "landing-choice",
+    ] as const
+  ) {
+    assertEquals(
+      SETUP_DECISION_DELEGATION[consequential].allowed,
+      false,
+      `${consequential} must retain an explicit owner choice`,
+    );
+  }
+  for (const moment of decisions) {
+    if (moment.kind !== "decision") continue;
+    const policy = SETUP_DECISION_DELEGATION[moment.decision_kind];
+    if (policy.allowed) {
+      const selection = selectSetupRecommendation(moment, "use-recommendation");
+      assert(selection.ownerDirected);
+      assertEquals(
+        selection.selectedOption,
+        moment.options.find((option) => option.recommended)?.id,
+      );
+    } else {
+      assertThrows(
+        () => selectSetupRecommendation(moment, "use-recommendation"),
+        Error,
+        policy.reason,
+      );
+    }
+  }
+});
+
+Deno.test("project identity prefers repository metadata over a clone suffix and still requires confirmation", () => {
+  const recommendation = recommendSetupProjectName([
+    { source: "readme-title", value: "Atlas", location: "README.md" },
+    { source: "package-name", value: "Atlas", location: "package.json" },
+    {
+      source: "directory-fallback",
+      value: "atlas-copy-2",
+      location: ".",
+    },
+  ]);
+  assertEquals(recommendation.proposed, "Atlas");
+  assertEquals(recommendation.fallbackOnly, false);
+  assertEquals(recommendation.evidence.length, 2);
+});
+
+Deno.test("repository-external references are reported before any destination read", async () => {
+  const reference = classifySetupReferencedPath(
+    "/project",
+    "config/local.json",
+    "/other/checkout/data.json",
+    "a source-data checkout",
+  );
+  assertEquals(reference.location, "outside-project");
+  assertEquals(reference.destinationReadAllowed, false);
+  assertEquals(
+    classifySetupReferencedPath(
+      "/project",
+      "config/local.json",
+      "../../other/checkout/data.json",
+      "a source-data checkout",
+    ).location,
+    "outside-project",
+  );
+  assertEquals(
+    classifySetupReferencedPath(
+      "/project",
+      "config/local.json",
+      "../data/project.json",
+      "project data",
+    ).location,
+    "inside-project",
+  );
+  let reads = 0;
+  await assertRejects(
+    async () => {
+      await inspectSetupExternalReference(reference, undefined, () => {
+        reads += 1;
+        return Promise.resolve("unexpected");
+      });
+    },
+    Error,
+    "Owner direction is required",
+  );
+  assertEquals(reads, 0);
+
+  const direction = authorizeSetupExternalInspection(
+    reference,
+    "confirm whether the project depends on that data layout",
+  );
+  const value = await inspectSetupExternalReference(
+    reference,
+    direction,
+    (path) => {
+      reads += 1;
+      return Promise.resolve(path);
+    },
+  );
+  assertEquals(value, "/other/checkout/data.json");
+  assertEquals(reads, 1);
 });
 
 Deno.test("setup's sequential page graph gathers evidence before synthesis and smokes before final documentation", async () => {
@@ -349,10 +520,7 @@ Deno.test("shipped setup relay choices stay neutral and keep each consent fact a
   assertEquals(
     relay.map((item) => item.key),
     [
-      "quality",
-      "worktrees",
-      "instructions",
-      "model-rationale",
+      "lasting-outcome",
       "footprint",
       "plan",
       "reversibility",
@@ -480,7 +648,7 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
     ]);
     assertEquals(markdown.code, 0, markdown.output);
     assert(markdown.stdout.includes("without Gate Proof"));
-    assert(markdown.stdout.includes("Map regions"));
+    assert(markdown.stdout.includes("project-guide areas"));
     assert(!markdown.stdout.includes("discern setup accept"));
     assert(!markdown.stdout.includes("discern improvement"));
   });

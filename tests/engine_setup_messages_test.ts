@@ -14,6 +14,8 @@ import {
   confirmedBeginCommand,
   consentMessage,
 } from "../src/shared/setup_messages.ts";
+import { renderFreshWelcome } from "../src/commands/setup_welcome.ts";
+import { SETUP_REVERSIBILITY } from "../src/shared/setup_experience.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import type { SetupAssurance } from "../src/shared/setup_assurance.ts";
 
@@ -41,54 +43,54 @@ Deno.test("consentMessage carries the verbatim-protected confirmations, three pi
   // genre (ADR 0086): reword allowed, dropping a point not.
   assertStringIncludes(
     msg,
-    "adapt the framing to your own voice, but keep every list item",
+    "as one natural conversation",
   );
   // The verbatim carve-out: quoted text is exempt from the adapt licence. A cold run
   // showed the bare licence licenses trimming the question's second sentence.
   assertStringIncludes(
     msg,
-    "relay every numbered confirmation word for word",
+    "form the consent record",
   );
   // The recommendation explains the inherited outcome, gives the concrete switch
   // route, and keeps provenance separate from capability.
   assertStringIncludes(
     msg,
-    "Which available model do you want to use for this setup?",
+    "Everything I set up here is inherited by future sessions",
   );
-  assertStringIncludes(msg, "Gate, worktree policy, Map, and instructions");
   assertStringIncludes(msg, "strongest suitable reasoning model");
-  assertStringIncludes(msg, "open a fresh project session");
-  assertStringIncludes(msg, "I will stop here");
-  assertStringIncludes(msg, "advisory provenance");
+  assertStringIncludes(msg, "switch models first");
+  assertStringIncludes(msg, "Provenance is advisory");
   assertStringIncludes(msg, "Current provider/model (self-declared)");
   assertStringIncludes(msg, "never copy the placeholder");
   // The three plain-word pillars, jargon glossed once.
   assertStringIncludes(
     msg,
-    "Quality checks: the project's formatter, linter, tests",
+    "Lasting outcome: future sessions inherit",
   );
-  assertStringIncludes(msg, "Isolated working copies (git worktrees)");
-  assertStringIncludes(msg, "Shared project instructions");
+  assertStringIncludes(msg, "separate task workspaces");
+  assertStringIncludes(msg, "maintained project guide");
   // Placement stays consent: the tracked-by-default posture is disclosed — the
   // agent files land committed so out-of-tool sessions can read them.
-  assertStringIncludes(msg, "generated agent files are committed");
+  assertStringIncludes(msg, "reviewable integration files");
   // The footprint story in namespace terms (ADR 0099): one root file, one visible
   // folder (the map glossed for a novice) — scoped to what discern itself OWNS, with
   // the provider config files acknowledged as the user's own tools' integrations.
   // The old blanket containment claim ("nothing else in your repo is touched") was
   // an overclaim — `begin` also writes .mcp.json, agent settings, a gitignore block
   // — and must never return.
-  assertStringIncludes(msg, "one root file (`discern.toml`)");
+  assertStringIncludes(msg, "one root `discern.toml`");
   assertStringIncludes(msg, "one visible `discern/` folder");
-  assertStringIncludes(msg, "agent-maintained Map");
   assertStringIncludes(
     msg,
-    "preserve workflows",
+    "preserve its workflows",
   );
-  assertStringIncludes(msg, "author the Map and instructions");
   assertStringIncludes(
     msg,
-    "selected coding tools' integration files",
+    "write the maintained project guide and agent instructions",
+  );
+  assertStringIncludes(
+    msg,
+    "selected coding tools' reviewable integration files",
   );
   assert(
     !msg.includes("author the project's docs and instructions"),
@@ -99,7 +101,7 @@ Deno.test("consentMessage carries the verbatim-protected confirmations, three pi
   assertStringIncludes(msg, "discern uninstall");
   // The honest time+token expectation and the safety frame.
   assertStringIncludes(msg, "20–40 minutes");
-  assertStringIncludes(msg, "discern-setup");
+  assertStringIncludes(msg, "setup branch");
   assertStringIncludes(msg, "No API key");
   // The exact worktree path, and the confirmed command with no --map.
   assertStringIncludes(msg, WT);
@@ -197,7 +199,7 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
   assertStringIncludes(nonGit, "May I run `git init` here");
   assertStringIncludes(
     nonGit,
-    "after git exists, setup stays on a dedicated `discern-setup` branch",
+    "After Git exists, before landing, the main shared version is unchanged",
   );
   // The agent's next step is to initialize git and re-run the preflight — the
   // begin command comes after the repo actually exists.
@@ -215,7 +217,7 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
   assert(!withGit.includes("git init"), "a git repo needs no git-init step");
   assertStringIncludes(
     withGit,
-    "setup stays on a dedicated `discern-setup` branch until you choose to land it",
+    "Before landing, the main shared version is unchanged",
   );
 });
 
@@ -244,6 +246,10 @@ Deno.test("consentMessage keeps the itemized message body within its bounded rel
 
 Deno.test("confirmedBeginCommand carries --confirmed and never a --map placeholder", () => {
   assertStringIncludes(confirmedBeginCommand(), "--confirmed");
+  assertStringIncludes(
+    confirmedBeginCommand("Atlas Core"),
+    "--name 'Atlas Core'",
+  );
   // The map's home is a default; a placeholder in the default command would
   // push every agent to pass one (ADR 0131).
   assert(!confirmedBeginCommand().includes("--map"));
@@ -279,9 +285,10 @@ const READY_REACTIVATION = {
   summary: "…",
   per_agent: [{
     label: "Claude Code",
-    step: "load the registered integration",
-    check: "discern_status",
-    recovery: "reload the integration and retry.",
+    step:
+      "start a fresh session, inspect its registered tool inventory, then invoke `mcp__discern__discern_status`; if missing, reload the project integration and run `discern doctor`.",
+    check: "mcp__discern__discern_status",
+    recovery: "reload the project integration and retry.",
     cli_fallback: "discern status --json",
   }],
 };
@@ -330,6 +337,28 @@ function completionContext(
   };
 }
 
+Deno.test("welcome, consent, and completion derive one reversibility authority", () => {
+  const welcome = renderFreshWelcome({ tty: false }).join("\n");
+  const consent = consentMessage({
+    worktreePath: WT,
+    docsExists: false,
+    gitRepo: true,
+    agents: AGENTS,
+  });
+  const completion = completionMessage(completionContext({
+    inRepo: false,
+    branch: "",
+    target: "main",
+    onTarget: false,
+    onSetupBranch: false,
+  }));
+  assertStringIncludes(welcome, SETUP_REVERSIBILITY.welcome);
+  assertStringIncludes(welcome, SETUP_REVERSIBILITY.uninstall);
+  assertStringIncludes(consent, SETUP_REVERSIBILITY.beforeLanding);
+  assertStringIncludes(consent, SETUP_REVERSIBILITY.uninstall);
+  assertStringIncludes(completion, SETUP_REVERSIBILITY.uninstall);
+});
+
 Deno.test("completionMessage renders honest coverage for each verdict", () => {
   const landing = {
     inRepo: false,
@@ -340,16 +369,19 @@ Deno.test("completionMessage renders honest coverage for each verdict", () => {
   };
   const full = completionMessage(completionContext(landing));
   assertStringIncludes(full, "6 of 6 applicable protections");
-  assertStringIncludes(full, "Primary subsystem: Runtime");
+  assertStringIncludes(full, "Later agents start in Runtime");
   assertStringIncludes(full, "Begin at `src/runtime.ts`");
   assertStringIncludes(full, "The runtime owns command execution");
   assertStringIncludes(full, "Every command preserves the child exit status");
-  assertStringIncludes(full, "Project principles (2)");
-  assertStringIncludes(full, "Future sessions load project instructions from");
+  assertStringIncludes(full, "Decision rules future work inherits (2)");
+  assertStringIncludes(
+    full,
+    "Future sessions load their project instructions from",
+  );
   // The close restates the contained footprint the consent message promised —
   // and names `discern uninstall` as the undo, since the branch-delete story
   // retires once the setup accepts.
-  assertStringIncludes(full, "Everything discern added is contained");
+  assertStringIncludes(full, "The installed footprint is");
   assertStringIncludes(full, "`discern/` folder");
   assertStringIncludes(full, "discern uninstall");
 
@@ -403,7 +435,7 @@ Deno.test("completionMessage adapts the landing recommendation to where the work
     onSetupBranch: true,
   });
   assertStringIncludes(setupBranch, "discern setup accept");
-  assertStringIncludes(setupBranch, "does not authorize landing");
+  assertStringIncludes(setupBranch, "not permission to merge");
   assertStringIncludes(setupBranch, "decline");
   assertStringIncludes(setupBranch, "I will wait");
   // The user's OWN branch (an --allow-dirty in-place setup): `setup accept` would
@@ -446,15 +478,16 @@ Deno.test("completionMessage withholds restart and improvement until landing, th
     onSetupBranch: false,
   };
   const withAgents = completionMessage(completionContext(landing));
-  assertStringIncludes(withAgents, "Start a fresh Claude Code session");
-  assertStringIncludes(withAgents, "`discern_status`");
-  assertStringIncludes(withAgents, "CLI fallback: `discern status --json`");
+  assertStringIncludes(withAgents, "For Claude Code");
+  assertStringIncludes(withAgents, "registered tool inventory");
+  assertStringIncludes(withAgents, "`mcp__discern__discern_status`");
+  assertStringIncludes(withAgents, "`discern doctor`");
   assertStringIncludes(
     withAgents,
     "Only after every applicable activation check succeeds",
   );
-  assertStringIncludes(withAgents, "Map regions (2)");
-  assertStringIncludes(withAgents, "Concrete open items (1)");
+  assertStringIncludes(withAgents, "project-guide areas (2 total)");
+  assertStringIncludes(withAgents, "Still open (1)");
 
   const noAgents = completionMessage({
     assurance: assurance("full"),

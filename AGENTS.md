@@ -12,7 +12,7 @@ This project uses **discern**, a stack-neutral agent-development system. Everyth
 - **Follow discern's printed next action.** A discern refusal or failure names its own next step in the result, and `hints` are matched to the state you are in. Prefer the stated remedy over improvising around it with raw git or shell — discern gives you instructions which are optimized, deterministic, and fleet-aware.
 - **`discern_docs`** explains how discern works; **`discern_doctor`** diagnoses a misconfigured install.
 
-**Troubleshooting**: MCP tools unreachable? Tell the user and use the **`discern` CLI** as a fallback (`--markdown` to read, `--json` for structured fields, and always read in full — never `tail`, `grep`, or script-filter it, a subset loses hints and remedies). Offer `discern doctor` afterwards. CLI not on PATH? Stop and tell the user: they choose between installing it (`curl discern.sh` explains how) or continuing without discern's protections.
+**Troubleshooting**: MCP tools unreachable? Tell the user and use the **`discern` CLI** as a fallback (`--markdown` for a readable result, `--json` for structured fields). Consume the result's state, diagnostics, location, next action, recovery, Proof, and human relay when present. If output is truncated, use the result's structured or retrievable view; never repeat an effectful command merely to recover omitted output. Offer `discern doctor` afterwards. CLI not on PATH? Stop and tell the user: they choose between installing it (`curl discern.sh` explains how) or continuing without discern's protections.
 
 ## Generated files — don't hand-edit
 

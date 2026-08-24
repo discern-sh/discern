@@ -892,6 +892,52 @@
                                     "type": "string",
                                     "minLength": 1
                                   },
+                                  "applicability": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "const": "always"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind"
+                                        ]
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "const": "when"
+                                          },
+                                          "evidence_id": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "condition": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "evidence_id",
+                                          "condition"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "fact_ids": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
                                   "recommendation": {
                                     "type": "string",
                                     "minLength": 1
@@ -899,6 +945,22 @@
                                   "decision": {
                                     "type": "object",
                                     "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "model-selection",
+                                          "project-name-confirmation",
+                                          "project-intent-gap",
+                                          "gate-protection-change",
+                                          "authored-source-collision",
+                                          "owner-policy-conflict",
+                                          "subsystem-sanity-check",
+                                          "worktree-resource-policy",
+                                          "documentation-claim-gap",
+                                          "external-reference-inspection",
+                                          "landing-choice"
+                                        ]
+                                      },
                                       "recommended_option": {
                                         "type": "string",
                                         "minLength": 1
@@ -911,15 +973,60 @@
                                           "minLength": 1
                                         }
                                       },
-                                      "agent_waits": {
+                                      "agent_waits_when_served": {
                                         "type": "boolean",
                                         "const": true
+                                      },
+                                      "delegation": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "allowed": {
+                                                "type": "boolean",
+                                                "const": true
+                                              },
+                                              "action": {
+                                                "type": "string",
+                                                "const": "use-recommendation"
+                                              },
+                                              "selects_option": {
+                                                "type": "string",
+                                                "minLength": 1
+                                              }
+                                            },
+                                            "required": [
+                                              "allowed",
+                                              "action",
+                                              "selects_option"
+                                            ]
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "allowed": {
+                                                "type": "boolean",
+                                                "const": false
+                                              },
+                                              "reason": {
+                                                "type": "string",
+                                                "minLength": 1
+                                              }
+                                            },
+                                            "required": [
+                                              "allowed",
+                                              "reason"
+                                            ]
+                                          }
+                                        ]
                                       }
                                     },
                                     "required": [
+                                      "kind",
                                       "recommended_option",
                                       "option_ids",
-                                      "agent_waits"
+                                      "agent_waits_when_served",
+                                      "delegation"
                                     ]
                                   },
                                   "relay_protection": {
@@ -934,7 +1041,10 @@
                                   "id",
                                   "kind",
                                   "phase",
-                                  "purpose"
+                                  "purpose",
+                                  "applicability",
+                                  "fact_ids",
+                                  "relay_protection"
                                 ]
                               }
                             },
@@ -1343,6 +1453,54 @@
                     },
                     "worktree_path": {
                       "type": "string"
+                    },
+                    "project_identity": {
+                      "type": "object",
+                      "properties": {
+                        "proposed_name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "evidence": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "location": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "value": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "source",
+                              "location",
+                              "value"
+                            ]
+                          }
+                        },
+                        "fallback_only": {
+                          "type": "boolean"
+                        },
+                        "requires_confirmation": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "proposed_name",
+                        "evidence",
+                        "fallback_only",
+                        "requires_confirmation"
+                      ]
                     }
                   },
                   "required": [
@@ -1351,7 +1509,8 @@
                     "existing_instructions",
                     "agents_detected",
                     "agents_effective",
-                    "worktree_path"
+                    "worktree_path",
+                    "project_identity"
                   ]
                 },
                 "conflicts": {
@@ -1768,6 +1927,52 @@
                             "type": "string",
                             "minLength": 1
                           },
+                          "applicability": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "always"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "when"
+                                  },
+                                  "evidence_id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "condition": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "evidence_id",
+                                  "condition"
+                                ]
+                              }
+                            ]
+                          },
+                          "fact_ids": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
                           "recommendation": {
                             "type": "string",
                             "minLength": 1
@@ -1775,6 +1980,22 @@
                           "decision": {
                             "type": "object",
                             "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "model-selection",
+                                  "project-name-confirmation",
+                                  "project-intent-gap",
+                                  "gate-protection-change",
+                                  "authored-source-collision",
+                                  "owner-policy-conflict",
+                                  "subsystem-sanity-check",
+                                  "worktree-resource-policy",
+                                  "documentation-claim-gap",
+                                  "external-reference-inspection",
+                                  "landing-choice"
+                                ]
+                              },
                               "recommended_option": {
                                 "type": "string",
                                 "minLength": 1
@@ -1787,15 +2008,60 @@
                                   "minLength": 1
                                 }
                               },
-                              "agent_waits": {
+                              "agent_waits_when_served": {
                                 "type": "boolean",
                                 "const": true
+                              },
+                              "delegation": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "allowed": {
+                                        "type": "boolean",
+                                        "const": true
+                                      },
+                                      "action": {
+                                        "type": "string",
+                                        "const": "use-recommendation"
+                                      },
+                                      "selects_option": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "allowed",
+                                      "action",
+                                      "selects_option"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "allowed": {
+                                        "type": "boolean",
+                                        "const": false
+                                      },
+                                      "reason": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "allowed",
+                                      "reason"
+                                    ]
+                                  }
+                                ]
                               }
                             },
                             "required": [
+                              "kind",
                               "recommended_option",
                               "option_ids",
-                              "agent_waits"
+                              "agent_waits_when_served",
+                              "delegation"
                             ]
                           },
                           "relay_protection": {
@@ -1810,7 +2076,10 @@
                           "id",
                           "kind",
                           "phase",
-                          "purpose"
+                          "purpose",
+                          "applicability",
+                          "fact_ids",
+                          "relay_protection"
                         ]
                       }
                     },

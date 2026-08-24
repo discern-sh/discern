@@ -793,16 +793,7 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
   const unmet = records(data.unmet);
   const instructions = verbatimText(data.instructions);
   const activation = records(reactivation?.per_agent).flatMap((agent) =>
-    unique([
-      text(agent.step),
-      text(agent.check) === undefined
-        ? undefined
-        : `Verify activation with ${code(agent.check)}.`,
-      text(agent.recovery),
-      text(agent.cli_fallback) === undefined
-        ? undefined
-        : `CLI fallback: ${code(agent.cli_fallback)}.`,
-    ])
+    unique([text(agent.step)])
   );
   const action = forced
     ? []
@@ -912,16 +903,7 @@ const presentSetupAccept: ResultMarkdownPresenter = (result) => {
     ]),
     action: landed !== true ? [] : unique([
       ...records(reactivation?.per_agent).flatMap((agent) =>
-        unique([
-          text(agent.step),
-          text(agent.check) === undefined
-            ? undefined
-            : `Verify activation with ${code(agent.check)}.`,
-          text(agent.recovery),
-          text(agent.cli_fallback) === undefined
-            ? undefined
-            : `CLI fallback: ${code(agent.cli_fallback)}.`,
-        ])
+        unique([text(agent.step)])
       ),
       text(improvement?.command) === undefined
         ? undefined

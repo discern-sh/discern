@@ -35,11 +35,18 @@ import { runGit } from "./subprocess.ts";
 import { type CommandRef, discernCommand, flag } from "./command_reference.ts";
 import {
   assertSetupHumanSurfaceConsumption,
+  renderSetupOwnerMoment,
+  SETUP_REVERSIBILITY,
   type SetupHumanDecisionMoment,
   type SetupHumanMoment,
   setupHumanMomentsForSurface,
   type SetupHumanSurface,
 } from "./setup_experience.ts";
+import {
+  recommendSetupProjectName,
+  type SetupProjectNameEvidence,
+  type SetupProjectNameRecommendation,
+} from "./setup_guidance.ts";
 
 /** The conventional home of a project's own documentation, probed so the consent
  * message can reassure that discern never touches it — the map is a separate,
@@ -72,6 +79,7 @@ export interface ConsentContext {
   docsExists: boolean;
   gitRepo: boolean;
   agents: ConsentAgentSet;
+  projectName?: SetupProjectNameRecommendation | undefined;
 }
 
 /**
@@ -86,13 +94,77 @@ export interface ConsentContext {
 export async function deriveConsentContext(
   destDir: string,
   agents: ConsentAgentSet,
-): Promise<ConsentContext> {
+): Promise<ConsentContext & { projectName: SetupProjectNameRecommendation }> {
   const docsExists = await pathExists(join(destDir, HUMAN_DOCS_REL));
   const worktreePath = join(dirname(destDir), `${basename(destDir)}.worktrees`);
   const gitRepo =
     (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: destDir }))
       .success;
-  return { worktreePath, docsExists, gitRepo, agents };
+  const projectName = await deriveProjectNameRecommendation(destDir);
+  return { worktreePath, docsExists, gitRepo, agents, projectName };
+}
+
+/** Gather bounded project-owned identity evidence without following external links. */
+async function deriveProjectNameRecommendation(
+  destDir: string,
+): Promise<SetupProjectNameRecommendation> {
+  const candidates: SetupProjectNameEvidence[] = [];
+  for (const readme of ["README.md", "README", "readme.md"]) {
+    const text = await readProjectMetadataFile(destDir, readme);
+    const title = text?.match(/^#\s+(.+?)\s*$/m)?.[1]?.trim();
+    if (title !== undefined && title !== "") {
+      candidates.push({
+        source: "readme-title",
+        value: title,
+        location: readme,
+      });
+      break;
+    }
+  }
+  for (const metadataFile of ["package.json", "deno.json"]) {
+    const text = await readProjectMetadataFile(destDir, metadataFile);
+    if (text === undefined) continue;
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (
+        parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ) {
+        const name = (parsed as Record<string, unknown>).name;
+        if (typeof name === "string" && name.trim() !== "") {
+          candidates.push({
+            source: metadataFile === "package.json"
+              ? "package-name"
+              : "project-metadata",
+            value: name,
+            location: metadataFile,
+          });
+        }
+      }
+    } catch {
+      // Invalid project metadata is reported by its own toolchain; it is not identity evidence.
+    }
+  }
+  candidates.push({
+    source: "directory-fallback",
+    value: basename(destDir),
+    location: ".",
+  });
+  return recommendSetupProjectName(candidates);
+}
+
+/** Read one in-project metadata file without following a symlink outside it. */
+async function readProjectMetadataFile(
+  destDir: string,
+  relativePath: string,
+): Promise<string | undefined> {
+  const path = join(destDir, relativePath);
+  try {
+    const stat = await Deno.lstat(path);
+    if (!stat.isFile || stat.isSymlink) return undefined;
+    return await Deno.readTextFile(path);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -109,17 +181,28 @@ const CONFIRMED_BEGIN_MODEL = "unreported";
 const CONFIRMED_BEGIN_ATTESTATION_FLAG = "confirmed";
 
 /** Render the consent-attested continuation as a plain shell command. */
-export function confirmedBeginCommand(): string {
-  return `discern ${CONFIRMED_BEGIN_WORDS} --${CONFIRMED_BEGIN_MODEL_FLAG} ${CONFIRMED_BEGIN_MODEL} --${CONFIRMED_BEGIN_ATTESTATION_FLAG}`;
+export function confirmedBeginCommand(projectName?: string): string {
+  const name = projectName === undefined
+    ? ""
+    : ` --name ${shellQuote(projectName)}`;
+  return `discern ${CONFIRMED_BEGIN_WORDS}${name} --${CONFIRMED_BEGIN_MODEL_FLAG} ${CONFIRMED_BEGIN_MODEL} --${CONFIRMED_BEGIN_ATTESTATION_FLAG}`;
 }
 
 /** The same continuation as a surface-aware reference for result hints. */
-export function confirmedBeginCommandReference(): CommandRef {
+export function confirmedBeginCommandReference(
+  projectName?: string,
+): CommandRef {
   return discernCommand(
     CONFIRMED_BEGIN_WORDS,
+    ...(projectName === undefined ? [] : [flag("name", projectName)]),
     flag(CONFIRMED_BEGIN_MODEL_FLAG, CONFIRMED_BEGIN_MODEL),
     flag(CONFIRMED_BEGIN_ATTESTATION_FLAG),
   );
+}
+
+/** Quote one confirmed project-name value for the displayed shell command. */
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 /**
@@ -200,10 +283,17 @@ function humanDecision(
 }
 
 const MODEL_SELECTION = humanDecision("consent", "model-selection");
+const PROJECT_NAME_CONFIRMATION = humanDecision(
+  "consent",
+  "project-name-confirmation",
+);
 const COMPLETION_HANDOFF = humanMoment("setup-done", "completion-handoff");
 const LANDING_CHOICE = humanDecision("setup-done", "landing-choice");
 const ACTIVATION_HANDOFF = humanMoment("activation", "activation-handoff");
-assertSetupHumanSurfaceConsumption("consent", [MODEL_SELECTION.id]);
+assertSetupHumanSurfaceConsumption("consent", [
+  MODEL_SELECTION.id,
+  PROJECT_NAME_CONFIRMATION.id,
+]);
 assertSetupHumanSurfaceConsumption("setup-done", [
   COMPLETION_HANDOFF.id,
   LANDING_CHOICE.id,
@@ -215,36 +305,26 @@ export function consentRelayItems(
   ctx: ConsentContext,
 ): readonly ConsentRelayItem[] {
   const plan = ctx.gitRepo
-    ? "Plan: I inspect the repository, ask only for missing facts, preserve workflows, prove the Gate and worktrees, author the Map and instructions, then offer landing choices."
-    : "Plan: after approval, I initialize git, repeat preflight, inspect the repository, preserve workflows, prove the Gate and worktrees, author the Map and instructions, then offer landing choices.";
+    ? "Plan: I will study the repository, preserve its workflows, prove its final quality check and separate task workspaces, write the maintained project guide and agent instructions, then bring the finished branch back for your landing decision."
+    : "Plan: after approval, I will initialize Git and repeat this read-only preflight. Then I will study the repository, preserve its workflows, prove its checks and separate task workspaces, write the maintained project guide and agent instructions, and bring the finished branch back for your landing decision.";
   const reversibility = ctx.gitRepo
-    ? "Reversibility: setup stays on a dedicated `discern-setup` branch until you choose to land it. Leave or delete it; `discern uninstall` removes wiring but retains authored content. No API key or outside service is involved."
-    : "Reversibility: after git exists, setup stays on a dedicated `discern-setup` branch until you choose to land it. Leave or delete it; `discern uninstall` removes wiring but retains authored content. No API key or outside service is involved.";
+    ? `Reversibility: ${SETUP_REVERSIBILITY.beforeLanding} ${SETUP_REVERSIBILITY.uninstall} No API key or outside service is involved.`
+    : `Reversibility: After Git exists, ${
+      SETUP_REVERSIBILITY.beforeLanding.replace(
+        "Before landing",
+        "before landing",
+      )
+    } ${SETUP_REVERSIBILITY.uninstall} No API key or outside service is involved.`;
   return [
     {
-      key: "quality",
+      key: "lasting-outcome",
       message:
-        "Quality checks: the project's formatter, linter, tests, and other applicable checks run through one Gate.",
-    },
-    {
-      key: "worktrees",
-      message:
-        "Isolated working copies (git worktrees): each task gets its own checkout so parallel changes do not share a working tree.",
-    },
-    {
-      key: "instructions",
-      message:
-        "Shared project instructions: one authored source tells future coding sessions how this project works; generated agent files are committed so other sessions can read them.",
-    },
-    {
-      key: "model-rationale",
-      message:
-        "Model choice: the model studies the repository and authors the Gate, worktree policy, Map, and instructions future sessions inherit. Stronger reasoning is more likely to catch false assumptions now and reduce later correction.",
+        "Lasting outcome: future sessions inherit the project's final quality check (Gate), separate task workspaces, maintained project guide, and shared agent instructions.",
     },
     {
       key: "footprint",
       message:
-        `Footprint: discern owns one root file (\`discern.toml\`), one visible \`discern/\` folder for instructions and deferred work, and the agent-maintained Map at \`${SOURCE_PATHS.map.defaultPath}\`. It also updates the selected coding tools' integration files.`,
+        `Footprint: one root \`discern.toml\`, one visible \`discern/\` folder (including the guide at \`${SOURCE_PATHS.map.defaultPath}\`), and the selected coding tools' reviewable integration files.`,
     },
     ...(ctx.docsExists
       ? [{
@@ -263,16 +343,32 @@ export function consentConfirmations(
   ctx: ConsentContext,
 ): readonly ConsentRelayItem[] {
   const agentLabels = ctx.agents.wired.map((agent) => agent.label).join(", ");
-  const modelOptions = MODEL_SELECTION.options.map((option) =>
-    `   - ${option.label}${
-      option.recommended ? " (recommended)" : ""
-    }: ${option.consequence} Owner: ${option.owner_action} Agent: ${option.agent_action}`
-  ).join("\n");
+  const projectName = ctx.projectName ?? recommendSetupProjectName([{
+    source: "directory-fallback",
+    value: "this project",
+    location: ".",
+  }]);
+  const nameEvidence = projectName.evidence.map((item) =>
+    `\`${item.location}\` (${item.source})`
+  ).join(", ");
+  const projectNameOwnerMessage = renderSetupOwnerMoment(
+    PROJECT_NAME_CONFIRMATION,
+    "novice",
+  )?.message;
+  if (projectNameOwnerMessage === undefined) {
+    throw new Error("Project-name confirmation must always be applicable.");
+  }
   return [
     {
       key: "model",
-      message:
-        `Which available model do you want to use for this setup? ${MODEL_SELECTION.recommendation}\n${modelOptions}`,
+      message: MODEL_SELECTION.relay.message,
+    },
+    {
+      key: "project-name",
+      message: projectNameOwnerMessage.replace(
+        "<name>",
+        `“${projectName.proposed}”`,
+      ).replace("<evidence>", nameEvidence),
     },
     ...(ctx.gitRepo ? [] : [{
       key: "git-init",
@@ -305,19 +401,20 @@ export function consentConfirmations(
 
 /** Render the complete itemized consent relay and its attested continuation. */
 export function consentMessage(ctx: ConsentContext): string {
-  const command = confirmedBeginCommand();
+  const projectName = ctx.projectName?.proposed ?? "this project";
+  const command = confirmedBeginCommand(projectName);
   const relayItems = consentRelayItems(ctx);
   const confirmations = consentConfirmations(ctx);
   return [
-    `Relay the fenced message below as your next chat message. You may adapt the framing to your own voice, but keep every list item, relay anything in quotation marks word for word, and relay every numbered confirmation word for word. Immediately afterwards, follow this authority: ${MODEL_SELECTION.authority} Use the exact identifier when known or \`unreported\`; never copy the placeholder. Then wait for the answers.`,
+    `Relay the fenced message below as one natural conversation. Keep each fact and numbered decision complete, and preserve quoted owner actions exactly because they form the consent record. Immediately afterwards, follow this authority: ${MODEL_SELECTION.authority} Use the exact identifier when known or \`unreported\`; never copy the placeholder. Then wait for the answers.`,
     "",
     fence("message to your human"),
     "",
-    "I propose a one-time discern setup for this project. These facts define it:",
+    "I propose a one-time discern setup for this project. Here is what it will change for later work:",
     "",
     ...relayItems.map((item) => `- ${item.message}`),
     "",
-    "Confirm each numbered point:",
+    "I need your answer on these points before anything is written:",
     "",
     ...confirmations.map((item, index) => `${index + 1}. ${item.message}`),
     "",
@@ -331,7 +428,7 @@ export function consentMessage(ctx: ConsentContext): string {
     "",
     `    ${command}`,
     "",
-    `If the owner changed the coding-tool set, pass the exact set to wire: \`--agents ${
+    `If the owner corrected the project name, replace the value of \`--name\` with that confirmed answer. It is the single name authority for every later setup step. If the owner changed the coding-tool set, pass the exact set to wire: \`--agents ${
       ctx.agents.wired.map((agent) => agent.name).join(",")
     }\` (edit that list).`,
   ].join("\n");
@@ -456,31 +553,32 @@ export function completionMessage(ctx: CompletionContext): string {
   const primary = inventory.project_context.primary_subsystem;
   const qualitativeLines = primary === null
     ? [
-      "  • Primary subsystem context is unavailable. The setup is incomplete or its Map does not yet expose `Start here`, `Boundary`, and `Non-obvious invariant`; do not invent that account.",
+      "  • The starting area for future agents is unavailable. The maintained project guide is missing its concrete start, responsibility, or important-rule account; do not invent one.",
     ]
     : [
-      `  • Primary subsystem: ${primary.title} (\`${primary.page}\`). Future agents start here: ${primary.start_here}`,
-      `  • Boundary: ${primary.boundary}`,
-      `  • Non-obvious invariant: ${primary.non_obvious_invariant}`,
+      `  • Later agents start in ${primary.title}: ${primary.start_here} The maintained project guide (Map) records it at \`${primary.page}\`.`,
+      `  • That area's responsibility: ${primary.boundary}`,
+      `  • One important rule setup found: ${primary.non_obvious_invariant}`,
     ];
-  qualitativeLines.unshift(`  • ${COMPLETION_HANDOFF.why}`);
   const inventoryLines = [
     ...qualitativeLines,
-    `  • Project principles (${inventory.project_context.principles.count}): ${
+    `  • Decision rules future work inherits (${inventory.project_context.principles.count}): ${
       inlineInventory(inventory.project_context.principles.items)
     }.`,
-    `  • Future sessions load project instructions from: ${
+    `  • Future sessions load their project instructions from: ${
       inlineInventory(inventory.project_context.instruction_sources)
     }.`,
-    `  • Map regions (${inventory.map_regions.count}): ${
+    `  • Other maintained project-guide areas (${inventory.map_regions.count} total): ${
       inlineInventory(inventory.map_regions.items)
     }.`,
-    `  • Concrete open items (${inventory.ledger_items.count}): ${
+    `  • Still open (${inventory.ledger_items.count}): ${
       inlineInventory(inventory.ledger_items.items)
     }.`,
-    `  • Jobs enforced: ${
+    `  • Checks active: ${
       inlineInventory(inventory.jobs.enforced)
-    }; deferred: ${inlineInventory(inventory.jobs.deferred)}; absent: ${
+    }; deferred housekeeping: ${
+      inlineInventory(inventory.jobs.deferred)
+    }; expected but absent: ${
       inlineInventory(inventory.jobs.absent)
     }; do not apply: ${inlineInventory(inventory.jobs.not_applicable)}.`,
   ];
@@ -489,10 +587,9 @@ export function completionMessage(ctx: CompletionContext): string {
       `  • ${ACTIVATION_HANDOFF.why}`,
       ...(reactivation.per_agent.length === 0
         ? ["  • No configured provider needs a fresh-session activation step."]
-        : reactivation.per_agent.flatMap((agent) => [
-          `  • Start a fresh ${agent.label} session: ${agent.step}`,
-          `    Verify activation with \`${agent.check}\`; if it fails, ${agent.recovery} CLI fallback: \`${agent.cli_fallback}\`.`,
-        ])),
+        : reactivation.per_agent.map((agent) =>
+          `  • For ${agent.label}: ${agent.step}`
+        )),
       "  • Only after every applicable activation check succeeds, optionally run `discern improvement --json` for an owner review of ongoing work.",
     ]
     : [];
@@ -503,10 +600,13 @@ export function completionMessage(ctx: CompletionContext): string {
     "",
     headline,
     "",
-    ...(proofLine === undefined ? [] : [`  • ${proofLine}`]),
+    ...(proofLine === undefined ? [] : [
+      "  • The proof that the finished change passed the project's checks (Proof) is recorded exactly on the next line:",
+      `  • ${proofLine}`,
+    ]),
     `  • ${coverageLine(assurance)}`,
     ...inventoryLines,
-    "  • Everything discern added is contained: `discern.toml` at the root and the `discern/` folder, plus the files your coding tools require — plain files you can read and audit any time. If you ever change your mind, `discern uninstall` takes the wiring back out and leaves your own content in place.",
+    `  • The installed footprint is \`discern.toml\`, the \`discern/\` folder, and the selected coding tools' integration files. ${SETUP_REVERSIBILITY.uninstall}`,
     `  • ${
       forced
         ? "This unproved state cannot use setup acceptance. Resolve the incomplete or red setup, commit the correction, then run `discern setup done` without `--force` before landing or activation."

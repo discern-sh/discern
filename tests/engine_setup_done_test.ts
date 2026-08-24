@@ -1429,7 +1429,7 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
     assertEquals(res.data.instructions, verifyInstructions);
     assertStringIncludes(
       res.data.instructions,
-      "Which available model do you want to use for this setup?",
+      "Would you like to switch models first, or shall I carry on here?",
     );
     const attestation = res.hints.join("\n");
     for (
@@ -1687,6 +1687,17 @@ Deno.test("the brief teaches bounded authoring with explicit authority and no mi
   assertStringIncludes(brief, "preserve the project");
   assertStringIncludes(brief, "revertible commit");
   assertStringIncludes(brief, "cost, data, access");
+  assertStringIncludes(brief, "new to reliable software delivery");
+  assertStringIncludes(brief, "transparency without interrogation");
+  assertStringIncludes(brief, "your natural conversational voice");
+  assertStringIncludes(brief, "name discern as the thing that will keep");
+  assertStringIncludes(brief, "repository-external path");
+  assertStringIncludes(brief, "use its structured or retrievable view");
+  assertStringIncludes(
+    brief,
+    "never repeat an effectful command merely to recover omitted output",
+  );
+  assert(!brief.includes("always read in full"));
 
   // The old propose-and-confirm gate is reconciled away in EVERY place it lived:
   // the operating principle, the per-step capability gate, and the stop-condition.

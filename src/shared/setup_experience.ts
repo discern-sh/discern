@@ -39,6 +39,123 @@ export const SETUP_HUMAN_MOMENT_KINDS = [
 ] as const;
 export type SetupHumanMomentKind = typeof SETUP_HUMAN_MOMENT_KINDS[number];
 
+/** Stable semantic roles carried independently from either English projection. */
+export const SETUP_HUMAN_FACT_ROLES = [
+  "outcome",
+  "reason",
+  "current-action",
+  "authority",
+  "reversibility",
+  "recovery",
+  "recommendation",
+  "option-consequence",
+  "owner-action",
+  "agent-action",
+  "wait-behavior",
+] as const;
+export type SetupHumanFactRole = typeof SETUP_HUMAN_FACT_ROLES[number];
+
+const SETUP_HUMAN_FACT_ROLE_SHAPES = {
+  outcome: "common",
+  reason: "common",
+  "current-action": "common",
+  authority: "common",
+  reversibility: "common",
+  recovery: "common",
+  recommendation: "recommended",
+  "option-consequence": "option",
+  "owner-action": "option",
+  "agent-action": "option",
+  "wait-behavior": "decision",
+} as const satisfies Readonly<
+  Record<
+    SetupHumanFactRole,
+    "common" | "recommended" | "option" | "decision"
+  >
+>;
+
+export const SETUP_OWNER_AUDIENCES = ["novice", "experienced"] as const;
+export type SetupOwnerAudience = typeof SETUP_OWNER_AUDIENCES[number];
+
+export const SETUP_DECISION_KINDS = [
+  "model-selection",
+  "project-name-confirmation",
+  "project-intent-gap",
+  "gate-protection-change",
+  "authored-source-collision",
+  "owner-policy-conflict",
+  "subsystem-sanity-check",
+  "worktree-resource-policy",
+  "documentation-claim-gap",
+  "external-reference-inspection",
+  "landing-choice",
+] as const;
+export type SetupDecisionKind = typeof SETUP_DECISION_KINDS[number];
+
+export const SETUP_RECOMMENDATION_ACTION = "use-recommendation" as const;
+
+/** One verified reversibility account shared by welcome, consent, and completion. */
+export const SETUP_REVERSIBILITY = {
+  welcome:
+    "The welcome is read-only. If setup begins in a Git project, its changes stay on a separate `discern-setup` branch until the owner decides whether to land them.",
+  beforeLanding:
+    "Before landing, the main shared version is unchanged; the setup branch can be reviewed, corrected, left in place, or removed through the normal Git workflow.",
+  uninstall:
+    "`discern uninstall` removes discern's wiring and generated integration, while retaining project-authored guide, instruction, and deferred-work content for owner review or removal.",
+} as const;
+
+/**
+ * Closed policy for the explicit “use your recommendation” action. A new
+ * decision kind cannot become delegable merely because nobody remembered to
+ * classify it.
+ */
+export const SETUP_DECISION_DELEGATION: Readonly<
+  Record<
+    SetupDecisionKind,
+    | { readonly allowed: true }
+    | { readonly allowed: false; readonly reason: string }
+  >
+> = {
+  "model-selection": {
+    allowed: false,
+    reason:
+      "available model capability is not established by repository evidence",
+  },
+  "project-name-confirmation": { allowed: true },
+  "project-intent-gap": {
+    allowed: false,
+    reason:
+      "missing product intent belongs to the owner even when repository evidence supports a recommendation",
+  },
+  "gate-protection-change": {
+    allowed: false,
+    reason: "the choice may add a dependency, cost, or broader access",
+  },
+  "authored-source-collision": {
+    allowed: false,
+    reason: "the choice can displace durable owner-authored material",
+  },
+  "owner-policy-conflict": {
+    allowed: false,
+    reason: "the choice binds future work to an owner policy",
+  },
+  "subsystem-sanity-check": { allowed: true },
+  "worktree-resource-policy": {
+    allowed: false,
+    reason: "the choice may affect cost, access, shared state, or durable data",
+  },
+  "documentation-claim-gap": { allowed: true },
+  "external-reference-inspection": {
+    allowed: false,
+    reason: "the choice broadens inspection beyond the project",
+  },
+  "landing-choice": {
+    allowed: false,
+    reason:
+      "landing changes the main shared version and always stays with the owner",
+  },
+};
+
 const nonEmpty = z.string().trim().min(1);
 
 export const SetupHumanDecisionOptionSchema = z.strictObject({
@@ -56,7 +173,7 @@ export type SetupHumanDecisionOption = z.infer<
 export const SetupHumanRelaySchema = z.strictObject({
   protection: z.enum(["adaptive", "verbatim-list"]),
   message: nonEmpty,
-  required_facts: z.array(nonEmpty).min(1),
+  experienced: nonEmpty,
 });
 export type SetupHumanRelay = z.infer<typeof SetupHumanRelaySchema>;
 
@@ -64,7 +181,14 @@ const commonMomentShape = {
   id: nonEmpty,
   surfaces: z.array(z.enum(SETUP_HUMAN_SURFACES)).min(1),
   phase: nonEmpty,
-  trigger: nonEmpty,
+  applicability: z.union([
+    z.strictObject({ kind: z.literal("always") }),
+    z.strictObject({
+      kind: z.literal("when"),
+      evidence_id: nonEmpty,
+      condition: nonEmpty,
+    }),
+  ]),
   purpose: nonEmpty,
   owner_outcome: nonEmpty,
   why: nonEmpty,
@@ -77,6 +201,7 @@ const commonMomentShape = {
 export const SetupHumanDecisionMomentSchema = z.strictObject({
   ...commonMomentShape,
   kind: z.literal("decision"),
+  decision_kind: z.enum(SETUP_DECISION_KINDS),
   recommendation: nonEmpty,
   agent_behavior: z.strictObject({
     before_owner_action: z.literal("wait"),
@@ -97,7 +222,7 @@ const SetupHumanInformationalMomentSchema = z.strictObject({
     before_owner_action: z.enum(["proceed", "stop"]),
     after_owner_action: nonEmpty,
   }),
-  relay: SetupHumanRelaySchema.optional(),
+  relay: SetupHumanRelaySchema,
 });
 
 /**
@@ -140,19 +265,6 @@ export const SetupHumanMomentSchema = z.union([
       }
     }
   }
-  const relay = moment.relay;
-  if (relay !== undefined) {
-    const normalizedMessage = relay.message.toLowerCase();
-    for (const [index, fact] of relay.required_facts.entries()) {
-      if (!normalizedMessage.includes(fact.toLowerCase())) {
-        context.addIssue({
-          code: "custom",
-          path: ["relay", "required_facts", index],
-          message: `relay message does not carry required fact: ${fact}`,
-        });
-      }
-    }
-  }
 });
 export type SetupHumanMoment = z.infer<typeof SetupHumanMomentSchema>;
 
@@ -162,13 +274,34 @@ export const SetupHumanMomentProjectionSchema = z.strictObject({
   kind: z.enum(SETUP_HUMAN_MOMENT_KINDS),
   phase: nonEmpty,
   purpose: nonEmpty,
+  applicability: z.union([
+    z.strictObject({ kind: z.literal("always") }),
+    z.strictObject({
+      kind: z.literal("when"),
+      evidence_id: nonEmpty,
+      condition: nonEmpty,
+    }),
+  ]),
+  fact_ids: z.array(nonEmpty).min(1),
   recommendation: nonEmpty.optional(),
   decision: z.strictObject({
+    kind: z.enum(SETUP_DECISION_KINDS),
     recommended_option: nonEmpty,
     option_ids: z.array(nonEmpty).min(2),
-    agent_waits: z.literal(true),
+    agent_waits_when_served: z.literal(true),
+    delegation: z.union([
+      z.strictObject({
+        allowed: z.literal(true),
+        action: z.literal(SETUP_RECOMMENDATION_ACTION),
+        selects_option: nonEmpty,
+      }),
+      z.strictObject({
+        allowed: z.literal(false),
+        reason: nonEmpty,
+      }),
+    ]),
   }).optional(),
-  relay_protection: z.enum(["adaptive", "verbatim-list"]).optional(),
+  relay_protection: z.enum(["adaptive", "verbatim-list"]),
 });
 export type SetupHumanMomentProjection = z.infer<
   typeof SetupHumanMomentProjectionSchema
@@ -181,26 +314,40 @@ export function projectSetupHumanMoment(
   const recommended = moment.kind === "decision"
     ? moment.options.find((option) => option.recommended)
     : undefined;
+  const delegation = moment.kind === "decision"
+    ? SETUP_DECISION_DELEGATION[moment.decision_kind]
+    : undefined;
   return SetupHumanMomentProjectionSchema.parse({
     id: moment.id,
     kind: moment.kind,
     phase: moment.phase,
     purpose: moment.purpose,
+    applicability: moment.applicability,
+    fact_ids: setupHumanMomentFactIds(moment),
     ...(moment.recommendation === undefined
       ? {}
       : { recommendation: moment.recommendation }),
     ...(moment.kind === "decision" && recommended !== undefined
       ? {
         decision: {
+          kind: moment.decision_kind,
           recommended_option: recommended.id,
           option_ids: moment.options.map((option) => option.id),
-          agent_waits: true,
+          agent_waits_when_served: true,
+          delegation: delegation?.allowed === true
+            ? {
+              allowed: true,
+              action: SETUP_RECOMMENDATION_ACTION,
+              selects_option: recommended.id,
+            }
+            : {
+              allowed: false,
+              reason: delegation?.reason ?? "decision policy is unavailable",
+            },
         },
       }
       : {}),
-    ...(moment.relay === undefined
-      ? {}
-      : { relay_protection: moment.relay.protection }),
+    relay_protection: moment.relay.protection,
   });
 }
 
@@ -212,7 +359,7 @@ export const SETUP_HUMAN_MOMENTS = [
     surfaces: ["welcome"],
     kind: "explanation",
     phase: "first contact",
-    trigger: "The owner encounters discern in a project that is not set up.",
+    applicability: { kind: "always" },
     purpose: "Explain what this one-time setup changes for later coding work.",
     owner_outcome:
       "Later coding sessions inherit project-specific quality checks, isolated task workspaces, navigation, and operating instructions.",
@@ -233,13 +380,21 @@ export const SETUP_HUMAN_MOMENTS = [
       after_owner_action:
         "The selected coding agent runs the read-only preflight before any setup write.",
     },
+    relay: {
+      protection: "adaptive",
+      message:
+        "This one-time setup gives future coding sessions a reliable way to understand, change, and check this project. I will study the repository, work on a separate reviewable branch, and bring you only the choices that genuinely need you.",
+      experienced:
+        "I will commission the project once: derive its checks, task isolation, project guide, and agent instructions on a reviewable setup branch, while keeping consequential choices and landing with you.",
+    },
   },
   {
     id: "model-selection",
     surfaces: ["welcome", "consent", "step-0"],
     kind: "decision",
+    decision_kind: "model-selection",
     phase: "consent",
-    trigger: "The owner must choose which available model performs setup.",
+    applicability: { kind: "always" },
     purpose: "Choose the reasoning model for the one-time setup.",
     owner_outcome:
       "The Gate, worktree policy, Map, and project instructions inherited by later sessions are grounded in the best repository study the owner chooses to provide now.",
@@ -284,16 +439,9 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "verbatim-list",
       message:
-        "Setup quality affects the Gate, worktree policy, Map, and project instructions future sessions inherit. Before you choose, I report `Current provider/model (self-declared): <identifier or unreported>`. I recommend the strongest suitable reasoning model available. Choose either: use the model selector, open a fresh session in this project, and paste `Run discern setup`, in which case I will stop; or continue with the current model, in which case I will record advisory provenance and proceed after your confirmation.",
-      required_facts: [
-        "future sessions inherit",
-        "Current provider/model (self-declared)",
-        "strongest suitable reasoning model",
-        "model selector",
-        "fresh session",
-        "I will stop",
-        "advisory provenance",
-      ],
+        "Everything I set up here is inherited by future sessions, so it is worth using your strongest suitable reasoning model. I will record the current provider and model as self-reported context, not as proof of capability. Would you like to switch models first, or shall I carry on here? Nothing has been written yet.",
+      experienced:
+        "Setup authors persistent project context. I recommend the strongest suitable reasoning model available. Switch through the provider's model selector and restart with `Run discern setup`, or explicitly continue here; I will record self-declared provenance either way.",
     },
   },
   {
@@ -301,7 +449,7 @@ export const SETUP_HUMAN_MOMENTS = [
     surfaces: ["setup-started"],
     kind: "progress",
     phase: "project inspection",
-    trigger: "The owner authorized setup and the scaffold was applied.",
+    applicability: { kind: "always" },
     purpose: "Explain what has changed and what the agent will do next.",
     owner_outcome:
       "The owner can follow setup as bounded, reviewable stages instead of receiving an unexplained final configuration.",
@@ -323,23 +471,145 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "Setup has started on its reviewable branch. I am studying the repository before deciding what to configure, because the Gate, worktree behavior, Map, and instructions created here will guide future coding sessions. I will handle routine reversible authoring and return when the repository cannot answer a product question or a consequential choice needs you.",
-      required_facts: [
-        "reviewable branch",
-        "studying the repository",
-        "future coding sessions",
-        "routine reversible authoring",
-        "consequential choice",
-      ],
+        "Setup is under way on a separate, reviewable branch. I am studying how this project already works before I change what future coding sessions inherit. I will handle routine reversible authoring and come back only when the code cannot answer an important question or a consequential choice needs you.",
+      experienced:
+        "The isolated setup branch is ready. I am gathering repository evidence before configuring the Gate, worktrees, project guide, or instructions; routine reversible authoring continues without approval, and consequential choices return to you.",
+    },
+  },
+  {
+    id: "project-name-confirmation",
+    surfaces: ["consent"],
+    kind: "decision",
+    decision_kind: "project-name-confirmation",
+    phase: "project inspection",
+    applicability: { kind: "always" },
+    purpose:
+      "Confirm the evidence-backed project name before authored setup content uses it.",
+    owner_outcome:
+      "The maintained project guide and agent instructions use the name the owner recognizes.",
+    why:
+      "README, package, and project metadata are stronger identity evidence than a clone suffix or the current directory name, but the owner remains the authority for how the project is named.",
+    current_action:
+      "Present the strongest supported name and its evidence, then ask the owner to confirm or correct it before authoring project context.",
+    authority:
+      "The repository supplies the recommendation; the owner's answer becomes the single project-name authority for every later setup step.",
+    reversibility:
+      "No authored project page adopts the proposed name before confirmation, and the answer can be corrected before landing.",
+    recovery:
+      "If evidence conflicts, show the candidates and keep the name unresolved until the owner chooses.",
+    recommendation:
+      "Use the strongest name supported by README, package, or project metadata; use the directory basename only as a labeled fallback.",
+    agent_behavior: {
+      before_owner_action: "wait",
+      after_owner_action:
+        "Record the confirmed name once and use that authority throughout the remaining setup journey.",
+    },
+    options: [
+      {
+        id: "confirm-evidence-backed-name",
+        label: "Use the proposed project name",
+        consequence:
+          "The project guide and agent instructions use the name supported by the displayed metadata.",
+        owner_action:
+          "Confirm the proposed name or use the recommendation action.",
+        agent_action:
+          "Record the confirmed name as the only name authority for later setup authoring.",
+        recommended: true,
+      },
+      {
+        id: "correct-project-name",
+        label: "Correct the project name",
+        consequence:
+          "The project guide and agent instructions use the owner's corrected name instead.",
+        owner_action: "Provide the name the project should use.",
+        agent_action:
+          "Record the correction as the only name authority for later setup authoring.",
+        recommended: false,
+      },
+    ],
+    relay: {
+      protection: "adaptive",
+      message:
+        "The strongest project name I found is <name>, supported by <evidence>. That is the name I will use in the maintained project guide and the instructions future coding sessions inherit. Is it right, or should I use a different name?",
+      experienced:
+        "<evidence> supports <name> as the project name. Confirm or correct it before I persist it in the project guide and agent instructions.",
+    },
+  },
+  {
+    id: "external-reference-inspection",
+    surfaces: ["step-1"],
+    kind: "decision",
+    decision_kind: "external-reference-inspection",
+    phase: "project inspection",
+    applicability: {
+      kind: "when",
+      evidence_id: "repository-external-reference",
+      condition:
+        "A project file names an absolute path or a destination outside the repository.",
+    },
+    purpose:
+      "Ask before inspecting a destination outside the project that a project file references.",
+    owner_outcome:
+      "Setup can use relevant cross-project evidence without normalizing unprompted inspection of another checkout or private directory.",
+    why:
+      "A project-owned reference is evidence that the destination may matter, but it is not permission to read beyond this repository.",
+    current_action:
+      "Report the source file, external destination, and apparent role without reading the destination, then ask for specific permission.",
+    authority:
+      "Only the owner can extend setup inspection beyond the repository root.",
+    reversibility:
+      "Nothing outside the project has been read, diffed, or changed before the owner answers.",
+    recovery:
+      "Continue using only the in-project reference and record the evidence limit when permission is declined or absent.",
+    recommendation:
+      "Inspect the external destination only when it is needed to settle a concrete setup question.",
+    agent_behavior: {
+      before_owner_action: "wait",
+      after_owner_action:
+        "Read only the named destination under explicit permission, or continue without it.",
+    },
+    options: [
+      {
+        id: "allow-specific-inspection",
+        label: "Allow this specific inspection",
+        consequence:
+          "Setup may read the named destination only to answer the stated project question; mutation remains unauthorized.",
+        owner_action: "Explicitly permit inspection of the displayed path.",
+        agent_action:
+          "Record the direction and inspect only the named destination for the stated purpose.",
+        recommended: true,
+      },
+      {
+        id: "stay-inside-project",
+        label: "Stay inside this project",
+        consequence:
+          "Setup uses only the reference text and records any resulting evidence limit.",
+        owner_action: "Decline or defer external inspection.",
+        agent_action:
+          "Do not read the destination; continue with repository-local evidence.",
+        recommended: false,
+      },
+    ],
+    relay: {
+      protection: "adaptive",
+      message:
+        "<source file> points to <external path>, which appears to be <role>. I have not opened it. It may answer <specific setup question>; may I look at that location for this purpose, or should I stay inside this project?",
+      experienced:
+        "<source file> references the repository-external path <external path> as <role>. No destination read has occurred. Authorize that bounded inspection for <specific setup question>, or I will continue with repository-local evidence only.",
     },
   },
   {
     id: "project-intent-gap",
     surfaces: ["step-1"],
     kind: "decision",
+    decision_kind: "project-intent-gap",
     phase: "project inspection",
-    trigger:
-      "Repository evidence cannot settle a product fact or two meanings conflict.",
+    applicability: {
+      kind: "when",
+      evidence_id: "project-intent-unsettled",
+      condition:
+        "Repository evidence cannot settle a product fact or two meanings conflict.",
+    },
     purpose:
       "Resolve missing product intent without turning routine discovery into an interview.",
     owner_outcome:
@@ -385,24 +655,23 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "The repository does not settle this product fact: <missing fact>. I inspected <evidence>. I recommend the meaning current behavior supports. Please confirm that meaning, supply a different intended rule, or defer it; I will wait and keep an unsupported choice as a concrete open item.",
-      required_facts: [
-        "does not settle",
-        "I inspected",
-        "I recommend",
-        "Please confirm",
-        "I will wait",
-        "open item",
-      ],
+        "The project does not answer one product question: <missing fact>. I checked <evidence>, and my recommendation is <evidenced meaning>. Should I use that meaning, use a different intention you provide, or leave one clearly marked open item? I have not written the disputed meaning yet.",
+      experienced:
+        "Repository evidence leaves <missing fact> unresolved after checking <evidence>. I recommend <evidenced meaning>. Confirm it, supply different product intent, or defer it as one evidenced open item; I will not write the disputed claim before your choice.",
     },
   },
   {
     id: "gate-protection-change",
     surfaces: ["step-2"],
     kind: "decision",
+    decision_kind: "gate-protection-change",
     phase: "Gate configuration",
-    trigger:
-      "A useful protection is missing or legitimate command alternatives remain.",
+    applicability: {
+      kind: "when",
+      evidence_id: "gate-protection-choice",
+      condition:
+        "A useful protection is missing and adding it requires a new dependency, access, cost, or independent command choice.",
+    },
     purpose:
       "Choose whether setup may add tooling or a consequential Gate action.",
     owner_outcome:
@@ -449,24 +718,23 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "The Gate is missing <protection>. I recommend <smallest project-native addition> because future changes otherwise receive no automatic <feedback>. It would change <dependency, access, cost, or command>. Approve that named effect, or keep the protection visibly absent; I will wait and will not mark it inapplicable to improve the result.",
-      required_facts: [
-        "Gate is missing",
-        "I recommend",
-        "future changes",
-        "It would change",
-        "keep the protection visibly absent",
-        "I will wait",
-      ],
+        "Future changes currently get no automatic <feedback>. I recommend <smallest project-native addition>. That would change <dependency, access, cost, or command>. Would you like me to add that protection, or leave the gap visible? I will make no such change before you choose.",
+      experienced:
+        "The final quality check lacks <protection>. I recommend <smallest project-native addition>; it changes <dependency, access, cost, or command>. Approve that effect or keep the gap explicit. I will not infer consent or mark it inapplicable.",
     },
   },
   {
     id: "authored-source-collision",
     surfaces: ["step-3"],
     kind: "decision",
+    decision_kind: "authored-source-collision",
     phase: "scaffold reconciliation",
-    trigger:
-      "Two authored sources claim incompatible ownership of one file or meaning.",
+    applicability: {
+      kind: "when",
+      evidence_id: "authored-source-collision",
+      condition:
+        "Two authored sources claim incompatible ownership of one file or meaning.",
+    },
     purpose:
       "Choose which authored source owns the conflicting project knowledge.",
     owner_outcome:
@@ -513,15 +781,9 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "Two authored sources conflict: <paths and meanings>. I recommend the configured authored source while preserving the other source's unique owner policy. Confirm that ownership, or identify what must remain separate; I will wait and keep both unchanged until you choose.",
-      required_facts: [
-        "authored sources conflict",
-        "I recommend",
-        "preserving",
-        "Confirm",
-        "I will wait",
-        "both unchanged",
-      ],
+        "Two project-owned instruction sources disagree: <paths and meanings>. I recommend <ownership choice> because it keeps one lasting authority while preserving <unique owner material>. Should I use that arrangement, or keep the sources separate? Both remain unchanged until you choose.",
+      experienced:
+        "Authored sources <paths> claim incompatible ownership of <meaning>. I recommend <ownership choice> while preserving <unique owner material>. Confirm the authority or keep both unchanged; I will not resolve the collision by inference.",
     },
   },
   {
@@ -529,8 +791,7 @@ export const SETUP_HUMAN_MOMENTS = [
     surfaces: ["step-4", "step-5", "step-6", "step-8"],
     kind: "explanation",
     phase: "project context",
-    trigger:
-      "Setup turns repository evidence into the Map and project instructions.",
+    applicability: { kind: "always" },
     purpose: "Explain why this documentation affects later coding sessions.",
     owner_outcome:
       "Future agents start with the project's verified boundaries, invariants, commands, and owner policies instead of rediscovering them or inventing replacements.",
@@ -551,14 +812,26 @@ export const SETUP_HUMAN_MOMENTS = [
       after_owner_action:
         "Keep the documentation present-tense, evidence-linked, and proportional to durable boundaries.",
     },
+    relay: {
+      protection: "adaptive",
+      message:
+        "I am turning what the repository shows into a maintained project guide and one set of instructions for future coding sessions. Later agents can start in the right place and follow the project's important rules without asking you to explain them again.",
+      experienced:
+        "Repository evidence is becoming the project-owned Map and instruction source: durable navigation and operating constraints future agents inherit across providers.",
+    },
   },
   {
     id: "owner-policy-conflict",
     surfaces: ["step-5"],
     kind: "decision",
+    decision_kind: "owner-policy-conflict",
     phase: "instruction draft",
-    trigger:
-      "An imported owner policy conflicts with discern's required workflow or current repository behavior.",
+    applicability: {
+      kind: "when",
+      evidence_id: "owner-policy-conflict",
+      condition:
+        "An imported owner policy conflicts with discern's required workflow or current repository behavior.",
+    },
     purpose:
       "Resolve the policy meaning without deleting an owner instruction by inference.",
     owner_outcome:
@@ -603,15 +876,9 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "The imported owner policy <rule> conflicts with <required workflow or current behavior>, causing <consequence>. I recommend <compatible wording> because it preserves the owner's intent. Approve that wording or leave the conflict unresolved; I will wait and will not delete the policy by inference.",
-      required_facts: [
-        "owner policy",
-        "conflicts",
-        "causing",
-        "I recommend",
-        "preserves",
-        "I will wait",
-      ],
+        "One existing project rule, <rule>, would conflict with <required workflow or current behavior> and cause <consequence>. I recommend <compatible wording>, which keeps the rule's intent without that conflict. Approve that future-work policy, or leave the disagreement open; I will not delete or rewrite it by inference.",
+      experienced:
+        "Imported policy <rule> conflicts with <required workflow or current behavior>, causing <consequence>. I recommend <compatible wording>. Approve that durable policy change or keep the conflict unresolved; no owner rule will be removed by inference.",
     },
   },
   {
@@ -619,8 +886,12 @@ export const SETUP_HUMAN_MOMENTS = [
     surfaces: ["step-2", "step-7"],
     kind: "progress",
     phase: "Gate proof",
-    trigger:
-      "The configured project checks first pass together through discern.",
+    applicability: {
+      kind: "when",
+      evidence_id: "first-green-gate",
+      condition:
+        "The configured project checks first pass together through discern.",
+    },
     purpose: "Mark the first green Gate as an owner-visible setup milestone.",
     owner_outcome:
       "The owner knows which protections now run automatically and which expected protections remain absent or do not apply.",
@@ -642,23 +913,18 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "The configured Gate is green. It now runs <enforced protections>; <absent protections> remain absent, and <inapplicable protections> do not apply. This verifies the configured feedback loop and does not authorize landing. I am continuing to worktree proof and the final project-context recheck.",
-      required_facts: [
-        "configured Gate is green",
-        "remain absent",
-        "do not apply",
-        "does not authorize landing",
-        "final project-context recheck",
-      ],
+        "The project's checks now pass together through discern's final quality check, the Gate. It runs <enforced protections>; <absent protections> are still missing, and <inapplicable protections> do not apply. This proves the configured feedback loop, not permission to land. I am continuing with the separate-workspace proof and final context review.",
+      experienced:
+        "The configured Gate is green with <enforced protections>; <absent protections> remain absent and <inapplicable protections> are excluded. This is scoped evidence, not landing authority. Worktree proof and the final context recheck remain.",
     },
   },
   {
     id: "subsystem-sanity-check",
     surfaces: ["step-6"],
     kind: "decision",
+    decision_kind: "subsystem-sanity-check",
     phase: "Map scope design",
-    trigger:
-      "The agent has a code-backed primary-subsystem understanding and bounded page plan.",
+    applicability: { kind: "always" },
     purpose:
       "Let the owner correct the agent's project mental model before it becomes lasting context.",
     owner_outcome:
@@ -706,24 +972,23 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "My current project understanding is: primary subsystem <name>; start at <path>; boundary <boundary>; non-obvious invariant <invariant>; additional durable pages <list or none>. I recommend this evidence-backed plan. Please confirm the project understanding or correct a substantive boundary, ownership, or starting-point error; I will wait before final synthesis.",
-      required_facts: [
-        "primary subsystem",
-        "start at",
-        "boundary",
-        "non-obvious invariant",
-        "I recommend",
-        "I will wait",
-      ],
+        "Here is my read: the heart of this project is <plain primary area>, and a future agent should begin at <path>. <other durable area account>. One important rule I found is <concrete rule>. I recommend writing the maintained project guide that way. Have I misunderstood anything important?",
+      experienced:
+        "I read <name> as the primary subsystem, starting at <path>, with <boundary>; the concrete invariant is <invariant>, and the additional durable regions are <list or none>. Confirm or correct that model.",
     },
   },
   {
     id: "worktree-resource-policy",
     surfaces: ["step-7"],
     kind: "decision",
+    decision_kind: "worktree-resource-policy",
     phase: "worktree readiness and smoke",
-    trigger:
-      "A worktree need would spend money, touch durable data, share mutable state, broaden access, or make binary merges consequential.",
+    applicability: {
+      kind: "when",
+      evidence_id: "worktree-resource-consequence",
+      condition:
+        "A worktree need would spend money, touch durable data, share mutable state, broaden access, or make binary merges consequential.",
+    },
     purpose: "Choose the resource policy for parallel task workspaces.",
     owner_outcome:
       "Later worktrees avoid accidental shared-data mutation, unexpected cost, credential spread, and unacceptable binary conflicts.",
@@ -768,25 +1033,23 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "Worktree readiness needs a decision about <resource>: concurrent behavior <behavior>; cost, data, access, or merge consequence <consequence>. I recommend <isolated policy> and the lower-impact alternative is <alternative>. Approve that concrete policy or defer it; I will wait and create no resource before your answer.",
-      required_facts: [
-        "Worktree readiness",
-        "concurrent behavior",
-        "consequence",
-        "I recommend",
-        "alternative",
-        "I will wait",
-        "create no resource",
-      ],
+        "Parallel tasks would both affect <resource>. In practice, <observable concurrent behavior>, with this consequence: <cost, data, access, or merge consequence>. I recommend <plain policy>; the lower-impact alternative is <alternative>. Which policy do you want? I will not create or change the resource before you choose.",
+      experienced:
+        "Concurrent worktrees would share <resource>, producing <behavior> and <consequence>. I recommend <isolated policy>; <alternative> is the lower-impact option. Authorize one concrete policy or defer it. No owner-gated resource will be created first.",
     },
   },
   {
     id: "documentation-claim-gap",
     surfaces: ["step-8"],
     kind: "decision",
+    decision_kind: "documentation-claim-gap",
     phase: "final documentation synthesis",
-    trigger:
-      "A product or architecture claim remains consequential but cannot be verified after smoke.",
+    applicability: {
+      kind: "when",
+      evidence_id: "documentation-claim-unverified",
+      condition:
+        "A product or architecture claim remains consequential but cannot be verified after smoke.",
+    },
     purpose:
       "Choose whether missing owner intent resolves the claim or the documentation keeps it open.",
     owner_outcome:
@@ -832,16 +1095,9 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "I cannot verify this proposed claim: <claim>. I checked <evidence>; <authority> is missing. I recommend keeping it out of present-tense documentation and recording <open item>. Confirm that route or supply the product intent; I will wait and will not present absent implementation as current behavior.",
-      required_facts: [
-        "cannot verify",
-        "I checked",
-        "is missing",
-        "I recommend",
-        "open item",
-        "I will wait",
-        "current behavior",
-      ],
+        "I cannot yet support this statement about the project: <claim>. I checked <evidence>, but <authority> is missing. I recommend leaving the claim out of the current project guide and recording <open item> instead. You can confirm that cautious route or tell me the intended product rule.",
+      experienced:
+        "Claim <claim> remains unverified after <evidence>; <authority> is missing. I recommend omitting it from present-tense documentation and recording <open item>. Confirm, supply product intent, or explicitly use the recommendation; absent implementation stays open.",
     },
   },
   {
@@ -849,7 +1105,12 @@ export const SETUP_HUMAN_MOMENTS = [
     surfaces: ["step-9", "setup-done"],
     kind: "completion",
     phase: "completion handoff",
-    trigger: "The clean final setup commit has passed `discern setup done`.",
+    applicability: {
+      kind: "when",
+      evidence_id: "setup-proof-current",
+      condition:
+        "The clean final setup commit has passed `discern setup done`.",
+    },
     purpose:
       "Explain what future sessions now inherit before asking the owner to land it.",
     owner_outcome:
@@ -872,28 +1133,22 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "verbatim-list",
       message:
-        "Setup completion must report: the primary subsystem and where future agents start; the project principles and non-obvious invariant they inherit; the protections the Gate enforces and the protections still absent; concrete open items; Map, ledger, and job inventory; Proof; current branch; landing choices; and the fact that Proof does not itself authorize landing.",
-      required_facts: [
-        "primary subsystem",
-        "future agents start",
-        "project principles",
-        "non-obvious invariant",
-        "protections",
-        "open items",
-        "inventory",
-        "Proof",
-        "current branch",
-        "landing choices",
-        "does not itself authorize landing",
-      ],
+        "Setup is ready for review. Later agents will begin in <plain primary area> at <start point>. The other lasting areas are <durable areas>. One important rule setup found is <concrete rule>. The final quality check now runs <protections>, with <gaps> still open. <open items>. The proof that the finished change passed the project's checks (Proof), <Proof line>, belongs to this exact commit and does not give permission to land. The setup remains on <branch> until you decide what reaches <trunk>.",
+      experienced:
+        "Completion covers primary area <name> at <start>, durable regions <areas>, invariant <rule>, enforced and absent checks, open items, canonical inventory, and <Proof>. Proof binds to the current commit and grants no landing authority; <branch> remains unlanded pending the owner's choice.",
     },
   },
   {
     id: "landing-choice",
     surfaces: ["step-9", "setup-done"],
     kind: "decision",
+    decision_kind: "landing-choice",
     phase: "landing handoff",
-    trigger: "Proved setup is ready on a branch that is not yet the trunk.",
+    applicability: {
+      kind: "when",
+      evidence_id: "proved-setup-unlanded",
+      condition: "Proved setup is ready on a branch that is not yet the trunk.",
+    },
     purpose: "Choose whether the proved setup reaches the project's trunk now.",
     owner_outcome:
       "The owner can land the configured working conditions, leave them for review, or decline them with the branch state explicit.",
@@ -950,17 +1205,9 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "The proved setup is on <branch>; <trunk> does not contain it yet. Proof verifies the branch and does not authorize landing. I recommend landing when the qualitative handoff matches the project. Choose land now, leave the branch for review, or decline it; I will wait and will not restart, activate, or mutate the proved branch before that decision.",
-      required_facts: [
-        "does not contain it yet",
-        "does not authorize landing",
-        "I recommend",
-        "land now",
-        "leave the branch for review",
-        "decline",
-        "I will wait",
-        "will not restart",
-      ],
+        "The proved setup is still on <branch>, so future sessions on <trunk> do not use it yet. The proof that the finished change passed the project's checks (Proof) belongs to this exact branch; it is not permission to merge. I recommend landing only if the project account above looks right. Would you like to land it now, leave it for review, or decline it? I will wait; nothing else will change before your choice.",
+      experienced:
+        "<branch> is proved and absent from <trunk>. Proof verifies the commit and grants no landing authority. Authorize landing, leave the branch for review, or decline it; I will wait, and no restart, activation, or post-Proof mutation occurs first.",
     },
   },
   {
@@ -968,7 +1215,11 @@ export const SETUP_HUMAN_MOMENTS = [
     surfaces: ["step-9", "setup-accept", "activation"],
     kind: "progress",
     phase: "provider activation",
-    trigger: "Proved setup is available on the trunk.",
+    applicability: {
+      kind: "when",
+      evidence_id: "proved-setup-landed",
+      condition: "Proved setup is available on the trunk.",
+    },
     purpose:
       "Move the owner into a fresh session and verify that discern is active there.",
     owner_outcome:
@@ -993,17 +1244,9 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "Setup is now on the trunk. Start the provider-specific fresh session and run the displayed activation check, because coding tools load discern at session start and this setup session cannot verify that future environment. Report the result or follow the displayed recovery. Only after activation succeeds is `discern improvement --json` an optional owner review.",
-      required_facts: [
-        "on the trunk",
-        "fresh session",
-        "activation check",
-        "load discern at session start",
-        "cannot verify",
-        "Report the result",
-        "Only after activation succeeds",
-        "optional owner review",
-      ],
+        "Setup is now in the main shared version. Open the provider's fresh project session, inspect its registered tools before opening external documentation, and invoke the exact local activation action shown below. Report what it returns. If the action is missing, follow the provider-specific local recovery or `discern doctor`; do not repeat an effectful setup command to recover output.",
+      experienced:
+        "Setup is landed. In a fresh provider session, inspect the registered tool inventory, invoke the adapter-owned local activation callable, and report the result. A missing callable routes to its local registration recovery or `discern doctor`, never an effectful rerun.",
     },
   },
 ] as const satisfies readonly SetupHumanMoment[];
@@ -1014,6 +1257,7 @@ export function validateSetupHumanMomentRegistry(
 ): asserts moments is readonly SetupHumanMoment[] {
   const ids = new Set<string>();
   const enrolledSurfaces = new Set<SetupHumanSurface>();
+  const enrolledDecisionKinds = new Set<SetupDecisionKind>();
   for (const [index, candidate] of moments.entries()) {
     const parsed = SetupHumanMomentSchema.safeParse(candidate);
     if (!parsed.success) {
@@ -1025,6 +1269,14 @@ export function validateSetupHumanMomentRegistry(
       throw new Error(`Duplicate setup human moment id: ${parsed.data.id}`);
     }
     ids.add(parsed.data.id);
+    if (parsed.data.kind === "decision") {
+      if (enrolledDecisionKinds.has(parsed.data.decision_kind)) {
+        throw new Error(
+          `Duplicate setup decision kind: ${parsed.data.decision_kind}`,
+        );
+      }
+      enrolledDecisionKinds.add(parsed.data.decision_kind);
+    }
     const momentSurfaces = new Set<SetupHumanSurface>();
     for (const surface of parsed.data.surfaces) {
       if (momentSurfaces.has(surface)) {
@@ -1039,6 +1291,11 @@ export function validateSetupHumanMomentRegistry(
   for (const surface of SETUP_HUMAN_SURFACES) {
     if (!enrolledSurfaces.has(surface)) {
       throw new Error(`Setup human surface has no moment: ${surface}`);
+    }
+  }
+  for (const decisionKind of SETUP_DECISION_KINDS) {
+    if (!enrolledDecisionKinds.has(decisionKind)) {
+      throw new Error(`Setup decision kind has no moment: ${decisionKind}`);
     }
   }
 }
@@ -1097,53 +1354,183 @@ export function assertSetupHumanSurfaceConsumption(
   }
 }
 
-/** A bounded ready-to-serve rendering for the prose lane of setup results. */
+/** Evidence that makes one conditional moment applicable in the current repo. */
+export interface SetupMomentEvidence {
+  readonly evidenceId: string;
+  readonly satisfied: boolean;
+  readonly detail: string;
+}
+
+/** A served owner projection. Conditional moments return no projection absent evidence. */
+export interface SetupOwnerMomentRendering {
+  readonly id: string;
+  readonly audience: SetupOwnerAudience;
+  readonly message: string;
+  readonly factIds: readonly string[];
+  readonly waitsForOwner: boolean;
+}
+
+/** Stable fact identifiers derived from semantic roles, never English substrings. */
+export function setupHumanMomentFactIds(
+  moment: SetupHumanMoment,
+): string[] {
+  const ids: string[] = [];
+  for (const role of SETUP_HUMAN_FACT_ROLES) {
+    const shape = SETUP_HUMAN_FACT_ROLE_SHAPES[role];
+    if (shape === "common") {
+      ids.push(`${moment.id}:${role}`);
+    } else if (shape === "recommended") {
+      if (moment.recommendation !== undefined) {
+        ids.push(`${moment.id}:${role}`);
+      }
+    } else if (shape === "option") {
+      if (moment.kind === "decision") {
+        for (const option of moment.options) {
+          ids.push(`${moment.id}:option:${option.id}:${role}`);
+        }
+      }
+    } else if (moment.kind === "decision") {
+      ids.push(`${moment.id}:${role}`);
+    }
+  }
+  return ids;
+}
+
+/** True only when this moment's structural applicability is established. */
+export function setupHumanMomentApplies(
+  moment: SetupHumanMoment,
+  evidence?: SetupMomentEvidence,
+): boolean {
+  if (moment.applicability.kind === "always") return true;
+  return evidence?.satisfied === true &&
+    evidence.evidenceId === moment.applicability.evidence_id;
+}
+
+/**
+ * Render one owner-language reading from the same record as the operational
+ * projection. An absent trigger produces no question and therefore no wait.
+ */
+export function renderSetupOwnerMoment(
+  moment: SetupHumanMoment,
+  audience: SetupOwnerAudience,
+  evidence?: SetupMomentEvidence,
+): SetupOwnerMomentRendering | undefined {
+  if (!setupHumanMomentApplies(moment, evidence)) return undefined;
+  const base = audience === "novice"
+    ? moment.relay.message
+    : moment.relay.experienced;
+  const delegation = moment.kind === "decision"
+    ? SETUP_DECISION_DELEGATION[moment.decision_kind]
+    : undefined;
+  const recommended = moment.kind === "decision"
+    ? moment.options.find((option) => option.recommended)
+    : undefined;
+  const delegationLine = delegation?.allowed === true &&
+      recommended !== undefined
+    ? audience === "novice"
+      ? ` If you want me to make the safe technical call, reply “use your recommendation”; I will record that direction and select “${recommended.label}.”`
+      : ` Reply \`${SETUP_RECOMMENDATION_ACTION}\` to record explicit direction for option \`${recommended.id}\`.`
+    : "";
+  return {
+    id: moment.id,
+    audience,
+    message: `${base}${delegationLine}`,
+    factIds: setupHumanMomentFactIds(moment),
+    waitsForOwner: moment.kind === "decision",
+  };
+}
+
+export interface SetupRecommendationSelection {
+  readonly decisionKind: SetupDecisionKind;
+  readonly action: typeof SETUP_RECOMMENDATION_ACTION;
+  readonly selectedOption: string;
+  readonly ownerDirected: true;
+}
+
+/** Record the explicit delegation action, rejecting every consequential kind. */
+export function selectSetupRecommendation(
+  moment: SetupHumanDecisionMoment,
+  action: typeof SETUP_RECOMMENDATION_ACTION,
+): SetupRecommendationSelection {
+  const policy = SETUP_DECISION_DELEGATION[moment.decision_kind];
+  if (!policy.allowed) {
+    throw new Error(
+      `Setup decision ${moment.decision_kind} cannot use ${action}: ${policy.reason}.`,
+    );
+  }
+  const recommended = moment.options.find((option) => option.recommended);
+  if (recommended === undefined) {
+    throw new Error(`Setup decision ${moment.id} has no recommendation.`);
+  }
+  return {
+    decisionKind: moment.decision_kind,
+    action,
+    selectedOption: recommended.id,
+    ownerDirected: true,
+  };
+}
+
+/** A bounded agent-operational rendering for the prose lane of setup results. */
 export function renderSetupHumanMoment(moment: SetupHumanMoment): string {
+  const conditional = moment.applicability.kind === "when";
+  const applicabilityLines = moment.applicability.kind === "when"
+    ? [
+      `- **Applicable only with evidence \`${moment.applicability.evidence_id}\`:** ${moment.applicability.condition}`,
+      "- **If absent:** continue without asking the owner and without waiting.",
+    ]
+    : ["- **Applicability:** always serve this moment."];
+  const ownerMessage = renderSetupOwnerMoment(moment, "novice")?.message ??
+    moment.relay.message;
   const lines = [
-    `#### ${
-      moment.kind === "decision" ? "Owner decision" : "Owner context"
+    `#### ${conditional ? "Conditional " : ""}${
+      moment.kind === "decision" ? "owner decision" : "owner context"
     }: ${moment.purpose}`,
     "",
-    `- **Outcome for the owner:** ${moment.owner_outcome}`,
-    `- **Why this matters:** ${moment.why}`,
+    ...applicabilityLines,
+    `- **Outcome / reason:** ${moment.owner_outcome} ${moment.why}`,
     ...(moment.recommendation === undefined
       ? []
       : [`- **Recommendation:** ${moment.recommendation}`]),
-    `- **Action now:** ${moment.current_action}`,
-    `- **Authority:** ${moment.authority}`,
-    `- **Reversibility:** ${moment.reversibility}`,
-    `- **If blocked:** ${moment.recovery}`,
+    `- **Action / authority:** ${moment.current_action} ${moment.authority}`,
+    `- **Reversal / recovery:** ${moment.reversibility} ${moment.recovery}`,
   ];
   if (moment.kind === "decision") {
-    lines.push("", "Options:", "");
+    lines.push("", "Options and consequences:", "");
     for (const [index, option] of moment.options.entries()) {
       lines.push(
         `${index + 1}. **${option.label}${
           option.recommended ? " (recommended)" : ""
-        }**`,
-        `   - Consequence: ${option.consequence}`,
-        `   - Owner action: ${option.owner_action}`,
-        `   - Agent action: ${option.agent_action}`,
+        }** — ${option.consequence} Owner: ${option.owner_action} Agent: ${option.agent_action}`,
       );
     }
+    const delegation = SETUP_DECISION_DELEGATION[moment.decision_kind];
     lines.push(
       "",
-      `Before the owner answers: ${moment.agent_behavior.before_owner_action}.`,
+      ...(delegation.allowed
+        ? [
+          `Safe delegation: an explicit \`${SETUP_RECOMMENDATION_ACTION}\` action selects the recommended option and records owner direction.`,
+        ]
+        : [`Delegation is unavailable: ${delegation.reason}.`]),
+      conditional
+        ? "Only after the applicability evidence is present and the owner wording is served: wait."
+        : `Before the owner answers: ${moment.agent_behavior.before_owner_action}.`,
       `After the owner answers: ${moment.agent_behavior.after_owner_action}`,
     );
   } else {
-    lines.push(
-      `- **Agent behavior:** ${moment.agent_behavior.after_owner_action}`,
-    );
+    lines.push(`- **Then:** ${moment.agent_behavior.after_owner_action}`);
   }
-  if (moment.relay !== undefined) {
-    lines.push(
-      "",
-      `Relay (${moment.relay.protection}):`,
-      "",
-      `> ${moment.relay.message}`,
-    );
-  }
+  lines.push(
+    "",
+    ...(conditional
+      ? [
+        "Owner wording is rendered from this same moment only after its applicability evidence is attached.",
+      ]
+      : [
+        `Owner-language rendering (${moment.relay.protection}, novice default):`,
+        "",
+        `> ${ownerMessage}`,
+      ]),
+  );
   return lines.join("\n");
 }
 
@@ -1162,7 +1549,7 @@ export function renderSetupHumanMoments(
   ].join("\n");
 }
 
-/** Flatten every user-visible semantic fact for parity guards. */
+/** Flatten semantic values for diagnostics; enrollment uses stable fact ids. */
 export function setupHumanMomentFacts(
   moment: SetupHumanMoment,
 ): string[] {
@@ -1183,6 +1570,7 @@ export function setupHumanMomentFacts(
         option.agent_action,
       ])
       : []),
-    ...(moment.relay === undefined ? [] : [moment.relay.message]),
+    moment.relay.message,
+    moment.relay.experienced,
   ];
 }

@@ -61,7 +61,10 @@ Deno.test("setup output can't be mistaken for completion: banner leads, footer s
     // A loud, non-success banner LEADS — the scaffold succeeding is not the task
     // succeeding, and the headline must not read as "done".
     assertTerminalTextIncludes(r.stdout, "SETUP STARTED — NOT FINISHED");
-    assertTerminalTextIncludes(r.stdout, "studying the repository");
+    assertTerminalTextIncludes(
+      r.stdout,
+      "studying how this project already works",
+    );
     assertTerminalTextIncludes(r.stdout, "future coding sessions");
     assertTerminalTextIncludes(r.stdout, "routine reversible authoring");
     assertTerminalTextIncludes(r.stdout, "consequential choice");
@@ -98,7 +101,10 @@ Deno.test("setup --json carries an explicit incomplete signal", async () => {
     assertEquals(obj.data.bootstrapped, false);
     assertEquals(typeof obj.data.next_action, "string");
     assert(obj.data.next_action.includes("discern setup done"));
-    assertStringIncludes(obj.data.human_relay, "studying the repository");
+    assertStringIncludes(
+      obj.data.human_relay,
+      "studying how this project already works",
+    );
     assertStringIncludes(obj.data.human_relay, "future coding sessions");
     assertStringIncludes(obj.data.human_relay, "routine reversible authoring");
     assertStringIncludes(obj.data.human_relay, "consequential choice");

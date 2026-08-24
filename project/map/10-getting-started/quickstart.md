@@ -8,13 +8,13 @@ aliases:
   - install
 ---
 
-# Quickstart: from install to a green Gate
+# Quickstart: from install to a passing final check
 
-_Install the binary, let your agent set the project up, and take one change through the Gate._
+_Install the binary, let your agent set the project up, and take one change through the project's final quality check, called the Gate._
 
 You need a Git repository and a coding agent. discern supports Claude Code, Codex, Gemini, Cursor, and GitHub Copilot. An installed project does not need Deno or Node to run discern because the product is one self-contained binary. Once installed, discern makes zero network calls.
 
-discern sets no hard minimum model. For setup, it recommends the strongest suitable reasoning model available because that model authors the Gate, worktree policy, Map, and instructions later sessions inherit. [Setup decisions](setup-decisions.md) explains the long-term benefit, how to switch models, and which later choices remain yours.
+discern sets no hard minimum model. For setup, it recommends the strongest suitable reasoning model available because that model authors the final quality check, separate-task rules, maintained project guide, and instructions later sessions inherit. [Setup decisions](setup-decisions.md) explains the long-term benefit, how to switch models, and which later choices remain yours.
 
 ## 1. Install the binary
 
@@ -30,25 +30,25 @@ In your project, tell your agent:
 
 > Set this project up with discern.
 
-The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing, discern serves a consent message for the agent to relay. The message names each planned change: a `discern.toml` file at the repository root, a visible `discern/` folder for project-owned content, the agent-maintained Map, the agent files each coding agent reads, and a delimited `.gitignore` block. Project-authored instructions, Map pages, and Skills remain plain Markdown. `discern uninstall` removes the wiring.
+The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing, discern serves a consent message for the agent to relay. The message names each planned change: a `discern.toml` file at the repository root, a visible `discern/` folder for project-owned content, the maintained project guide (the Map), the agent files each coding agent reads, and a delimited `.gitignore` block. Project-authored instructions, Map pages, and Skills remain plain Markdown. `discern uninstall` removes discern's wiring and generated integration while retaining authored guide, instruction, and deferred-work content for your review or removal.
 
-The consent message repeats the model recommendation, switch route, and current-agent stop boundary. It also covers the coding tools to wire, worktree location, time and token investment, and setup branch footprint. Answer each item in plain language. Setup cannot proceed until the agent attests that the complete exchange happened ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
+The consent message repeats the model recommendation, switch route, and current-agent stop boundary. It also proposes the strongest project name supported by the README or project metadata, then covers the coding tools to wire, separate-workspace location, time and token investment, and setup branch footprint. Confirm or correct the name because it will appear in the maintained guide and agent instructions. Answer each item in plain language. Setup cannot proceed until the agent attests that the complete exchange happened ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
 `setup verify` is read-only. Each later effectful command checks its own plan-derived write targets before effects; denial preserves the phase and names the path and retry. The check is point-in-time, not cached provider authority ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
-Setup works on `discern-setup` until landing. The agent inventories code and commands, preserves existing workflows, and authors final orientation after smoke. Before synthesis, it shows you the proposed primary subsystem, start point, boundary, and non-obvious invariant. You can correct that project understanding before it becomes lasting context. The Map gets the substantive primary-subsystem page plus only distinct durable boundaries.
+Setup works on `discern-setup` until landing. The agent inventories code and commands, preserves existing workflows, and writes the final project guide only after proving the workflows together. Before that guide becomes lasting context, it explains where later agents will start, what that area is responsible for, one important rule the code depends on, and any other area with a genuinely distinct responsibility. Correct a substantive misunderstanding, or say “use your recommendation” if the evidence-backed account looks right.
 
 Keep routine green output concise. Recognized captured formats include SARIF and JUnit XML; use them only when they preserve exit status and improve failure diagnostics. File-only and inherently verbose formats stay off the routine path.
 
 ## 3. Verify setup in an isolated checkout
 
-`discern setup done` commits the completion marker, refreshes and diagnoses that commit, proves it in a temporary worktree, then runs the final Gate and returns its [one-line Proof](../20-quality-gate/the-proof.md). A failure in either checkout restores setup to incomplete ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
+`discern setup done` commits the completion marker, refreshes and diagnoses that commit, proves it in a separate working copy, then runs the final quality check and returns [one-line proof that the finished change passed the project's checks](../20-quality-gate/the-proof.md), called Proof. A failure in either checkout restores setup to incomplete ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
 
-The result carries Proof, its branch, and configured-job assurance. Its derived account covers the primary subsystem, project principles, protections, open items, instruction sources, Map regions, and jobs. Then it's your turn:
+The result explains where later agents start, which other areas have distinct responsibilities, one important rule setup found, which checks now run, and what remains open. It also carries the precise branch, check, guide, and instruction inventories for technical review. Then it's your turn:
 
 1. **Review and land.** Preview with `discern setup accept --dry-run`, or leave the proved branch for later. Do not restart before landing.
-2. **Start a fresh session.** Follow the provider check or CLI fallback served by acceptance.
-3. **Verify activation.** Report the check. Success completes setup; `discern improvement --json` remains optional.
+2. **Start a fresh session.** Inspect its registered tools before opening external documentation.
+3. **Verify activation.** Invoke the exact provider-local action served by acceptance. If it is missing, use that provider's local recovery or `discern doctor`; `discern improvement --json` remains optional after success.
 
 <!-- discern-workflow:procedure -->
 

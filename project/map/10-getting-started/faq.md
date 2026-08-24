@@ -37,7 +37,7 @@ Open a new shell, then run `which discern`. If it prints nothing, add the instal
 
 ## The Model Context Protocol tools are unreachable
 
-After setup lands, start the fresh session requested by `setup accept` and run its provider check (`discern_status` for Model Context Protocol integrations). Unlanded `setup done` stops at Proof and landing.
+After setup lands, start the fresh session requested by `setup accept` and inspect its registered tools. Invoke the exact local action named by that provider's handoff; namespaced hosts show their namespaced callable, such as Codex's `mcp__discern__discern_status`. Unlanded `setup done` stops at Proof and landing.
 
 If it is unavailable, follow the served local recovery and use `discern status --json` as the fallback. `discern doctor` diagnoses the integration. Generated files do not prove activation, and discern cannot grant provider trust ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 

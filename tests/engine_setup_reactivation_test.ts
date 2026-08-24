@@ -22,7 +22,7 @@ import { assert } from "@std/assert";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
   ACTIVATION_CLI_CHECK,
-  ACTIVATION_MCP_CHECK,
+  ACTIVATION_TOOL_INVENTORY_ACTION,
   activationCheck,
   providerFor,
   reactivationStep,
@@ -42,7 +42,7 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
     assert(activation.cliFallback === ACTIVATION_CLI_CHECK);
     if (provider.mcp.kind === "wired") {
       assert(activation.kind === "mcp");
-      assert(activation.command === ACTIVATION_MCP_CHECK);
+      assert(activation.command === provider.activation.callable);
     } else {
       assert(activation.kind === "cli");
       assert(activation.command === ACTIVATION_CLI_CHECK);
@@ -90,7 +90,9 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
         step.includes(`\`${activation.command}\``) &&
           step.includes(activation.recovery) &&
           step.includes(`\`${ACTIVATION_CLI_CHECK}\``) &&
-          step.includes("confirmed only when"),
+          step.includes("confirmed only when") &&
+          step.includes(ACTIVATION_TOOL_INVENTORY_ACTION) &&
+          step.includes("`discern doctor`"),
         `"${name}" must serve one exact local check, its registry-owned ` +
           "recovery, and the canonical CLI fallback without inferring activation",
       );

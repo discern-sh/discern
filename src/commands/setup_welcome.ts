@@ -48,6 +48,7 @@ import {
 import { notApplicableCountLabel } from "../shared/setup_assurance.ts";
 import {
   assertSetupHumanSurfaceConsumption,
+  SETUP_REVERSIBILITY,
   type SetupHumanMoment,
   setupHumanMomentsForSurface,
 } from "../shared/setup_experience.ts";
@@ -118,12 +119,18 @@ assertSetupHumanSurfaceConsumption("welcome", [
 ]);
 
 const FRESH_AGENT_INSTRUCTIONS =
-  "You are discern's configuration engine for this project. Drive the verify → begin → author → done workflow through to its real stop boundaries; nothing is written until `discern setup begin`. Run `discern setup verify` now. It hands you the exact message to relay, including why the model choice affects later sessions, how to switch, and how to report your current provider/model separately. Wait for every answer, and run `begin` only if the owner chooses to continue in this session.";
+  "You are discern's configuration engine for this project. Run read-only `discern setup verify` now, relay its owner conversation naturally, and carry setup through each stated next action. Nothing is written until `begin`; wait only for applicable decisions, preserve explicit consent and Proof, and never infer landing authority.";
 
-const FRESH_HUMAN_FRAMING =
-  `discern adds a quality gate, isolated git worktrees, a Map, and shared agent instructions tailored to this repository. ${FIRST_USE_VALUE.owner_outcome} ${FIRST_USE_VALUE.why} Choose which available model should perform this one-time setup. ${
-    MODEL_SELECTION.recommendation ?? ""
-  } ${MODEL_SELECTION.current_action} Setup is isolated, reversible, and requires no API key. Everything discern owns lands in one root file (discern.toml) and one visible discern/ folder, plus the integration files the selected coding tools require; \`discern uninstall\` removes the wiring while retaining authored project content. Expect roughly 20–40 minutes and a meaningful number of tokens. Provider/model provenance is self-declared and advisory.`;
+const FRESH_OWNER_WELCOME = [
+  "Welcome. This one-time setup gives future coding sessions a dependable way to understand, change, and check this project.",
+  "The selected agent will study the repository, preserve its workflows, set up the final quality check (the Gate) and separate working copies for tasks, then write the maintained project guide and shared agent instructions. discern keeps that working practice in place.",
+  "Expect roughly 20–40 minutes and a meaningful number of tokens, prepared as small commits on a separate reviewable branch. You decide cost, access, durable data, new dependencies, exceptions, and landing.",
+  `${SETUP_REVERSIBILITY.welcome} ${SETUP_REVERSIBILITY.uninstall}`,
+  "The footprint is one root `discern.toml`, one visible `discern/` folder, and the selected coding tools' local integration files. No API key or outside service is required by discern itself.",
+  "Because future sessions inherit this work, I recommend your strongest suitable reasoning model. Switch with the coding tool's model selector and start a fresh project session. To stop, say so before `begin`; this welcome and the next preflight are read-only.",
+] as const;
+
+const FRESH_HUMAN_FRAMING = FRESH_OWNER_WELCOME.join(" ");
 
 /** The leading note a non-git first contact carries on both surfaces: the very
  * first step is `git init` — the isolation and undo story every other welcome
@@ -268,49 +275,26 @@ const TTY_MIN_BOX_WIDTH = 24;
  * compact — the full agent preflight is `verify`'s job, not the welcome's.
  */
 const PLAIN_FRESH_WELCOME: readonly string[] = [
-  `${DISCERN_WORDMARK} — quality gates and safe worktrees for coding agents and the humans who run them.`,
+  `${DISCERN_WORDMARK} — a project-owned working practice for coding agents and the people responsible for what lands.`,
   "",
   "This project isn't set up yet.",
   "",
   "  FOR HUMANS",
   RULE,
-  "  Welcome. discern studies this repository and tailors a quality gate, isolated",
-  "  git worktrees, a Map, and shared agent instructions to the project.",
-  `  ${FIRST_USE_VALUE.owner_outcome}`,
-  `  ${FIRST_USE_VALUE.why}`,
-  "  Choose which available model should perform this one-time setup.",
-  `  ${MODEL_SELECTION.recommendation ?? ""}`,
-  "  To switch, use your coding tool's model selector, open a fresh session in",
-  "  this project, and give that session the instruction below. Then setup starts",
-  "  with the model you chose. To get started, tell your coding agent:",
+  ...FRESH_OWNER_WELCOME.map((line) => `  ${line}`),
   "",
+  "  To get started, tell your coding agent:",
   '      "Run `discern setup` in this project."',
-  "",
-  "  Setup is isolated and reversible. Everything discern itself owns lands in",
-  "  one root file (`discern.toml`) and one visible `discern/` folder, plus the",
-  "  config files your coding tools require — your own tools' integrations,",
-  "  wired for you and committed in the open. Your agent works on a dedicated",
-  "  `discern-setup` branch in small step-by-step commits, so you can follow",
-  "  along — and if you change your mind, `discern uninstall` backs it all",
-  "  out. There's no lock-in, no API key, and no surprises.",
-  "",
-  "  Expect roughly 20–40 minutes and a meaningful number of tokens.",
-  "  The executing agent records its self-declared provider/model identifier when",
-  "  known, or `unreported`. That provenance is advisory, not a capability claim.",
   "",
   "  FOR CODING AGENTS",
   RULE,
-  "  You are discern's configuration engine here, set to configure discern for",
-  "  your human. This is a short workflow",
-  "  you DRIVE end to end (verify → begin → author → done) — not a status to",
-  "  relay back and stop on. discern guides each step; NOTHING is written until",
-  "  you explicitly run `begin`.",
+  `  ${FRESH_AGENT_INSTRUCTIONS}`,
   "",
   "  Your next action, now — preview the plan and open the consent conversation:",
   "",
   "      discern setup verify        (read-only; --json/--markdown emit one result)",
   "",
-  "  Run it yourself: it hands you the exact message to relay to your human, then",
+  "  Run it yourself: it hands you the complete owner facts and decisions, then",
   "  points you at the next step. Don't hand this back as a report — carry it through.",
 ];
 
@@ -327,8 +311,6 @@ const PLAIN_FRESH_GROUP_IDS = [
   "setup-state",
   "human-overview",
   "human-action",
-  "reversibility",
-  "setup-investment",
   "agent-overview",
   "agent-next-action",
   "agent-command",
@@ -411,25 +393,18 @@ function styledFreshWelcome(
   const humans = joinVertical([
     terminal.presenter.present(renderSectionCli, {
       title: "FOR HUMANS",
-      body:
-        `Welcome. discern studies this repository and tailors a quality gate, isolated git worktrees, a Map, and shared agent instructions to the project. ${FIRST_USE_VALUE.owner_outcome} ${FIRST_USE_VALUE.why}`,
+      body: FRESH_OWNER_WELCOME.join("\n\n"),
       treatment: "rule",
       spacing: "sm",
       width: innerWidth,
     }),
-    "quality gate   isolated git worktrees   shared agent instructions",
-    `Choose which available model should perform this one-time setup. ${
-      MODEL_SELECTION.recommendation ?? ""
-    } To switch, use your coding tool's model selector, open a fresh session in this project, and give that session the instruction below. Then setup starts with the model you chose. To get started, tell your coding agent:`,
+    "To get started, tell your coding agent:",
     action,
-    "Setup is isolated and reversible. Everything discern itself owns lands in one root file (`discern.toml`) and one visible `discern/` folder, plus the config files your coding tools require — your own tools' integrations, wired for you and committed in the open. Your agent works on a dedicated `discern-setup` branch in small step-by-step commits, so you can follow along — and if you change your mind, `discern uninstall` backs it all out. There's no lock-in, no API key, and no surprises.",
-    "Expect roughly 20–40 minutes and a meaningful number of tokens. The executing agent records its self-declared provider/model identifier when known, or `unreported`. That provenance is advisory, not a capability claim.",
   ], { spacing: 1 });
   const agents = joinVertical([
     terminal.presenter.present(renderSectionCli, {
       title: "FOR CODING AGENTS",
-      body:
-        "You are discern's configuration engine here, set to configure discern for your human. This is a short workflow you DRIVE end to end (verify → begin → author → done) — not a status to relay back and stop on. discern guides each step; NOTHING is written until you explicitly run `begin`.",
+      body: FRESH_AGENT_INSTRUCTIONS,
       treatment: "rule",
       spacing: "sm",
       width: innerWidth,
@@ -441,14 +416,14 @@ function styledFreshWelcome(
       maxWidth: innerWidth,
     }),
     terminal.role(
-      "Run it yourself: it hands you the exact message to relay to your human, then points you at the next step. Don't hand this back as a report — carry it through.",
+      "Run it yourself: it hands you the complete owner facts and decisions, then points you at the next step. Don't hand this back as a report — carry it through.",
       "muted",
     ),
   ], { spacing: 1 });
   const header = joinVertical([
     terminal.tone(mark, "accent", "strong"),
     terminal.role(
-      "quality gates and safe worktrees\nfor coding agents and the humans who run them.",
+      "project-owned working practice\nfor coding agents and the people responsible for what lands.",
       "muted",
     ),
   ]).split("\n");

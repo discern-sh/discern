@@ -85,8 +85,8 @@ export interface AgentReactivation {
 
 /** Canonical CLI activation check and fallback for every provider. */
 export const ACTIVATION_CLI_CHECK = "discern status --json";
-/** Exact local MCP call exposed by a loaded discern integration. */
-export const ACTIVATION_MCP_CHECK = "discern_status";
+export const ACTIVATION_TOOL_INVENTORY_ACTION =
+  "inspect this session's registered tool inventory before opening external documentation";
 
 /** One provider's deterministic post-restart activation contract. */
 export interface ProviderActivationCheck {
@@ -171,10 +171,12 @@ export function reactivationStep(provider: Provider): string | undefined {
     : base;
   const activation = activationCheck(provider);
   const verification =
-    `In that fresh session, call \`${activation.command}\`; ` +
-    "activation is confirmed only when that check returns. If it is unavailable, " +
-    `${activation.recovery}. Use \`${activation.cliFallback}\` as the local CLI ` +
-    "fallback; generated files alone do not prove the session loaded the integration.";
+    `In that fresh session, ${ACTIVATION_TOOL_INVENTORY_ACTION}, then invoke ` +
+    `\`${activation.command}\`; activation is confirmed only when that local ` +
+    `action returns. If it is unavailable, ${activation.recovery}, then run ` +
+    `\`discern doctor\` before consulting external documentation. Use ` +
+    `\`${activation.cliFallback}\` as the local CLI fallback; generated files ` +
+    "alone do not prove the session loaded the integration.";
   const step = `${reactivation}${
     /[.!?]$/.test(reactivation) ? "" : "."
   } ${verification}`;
@@ -280,6 +282,8 @@ export interface TrustGate {
 
 /** Provider-owned recovery wording for a failed local activation check. */
 export interface ProviderActivation {
+  /** Exact callable name as this provider exposes it in a fresh local session. */
+  readonly callable: string;
   readonly recovery: string;
 }
 
@@ -291,7 +295,7 @@ export function activationCheck(
   return {
     kind: provider.mcp.kind === "wired" ? "mcp" : "cli",
     command: provider.mcp.kind === "wired"
-      ? ACTIVATION_MCP_CHECK
+      ? provider.activation.callable
       : ACTIVATION_CLI_CHECK,
     recovery: provider.activation.recovery,
     cliFallback: ACTIVATION_CLI_CHECK,
@@ -1465,6 +1469,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         "discern pre-approves its MCP server (enabledMcpjsonServers in .claude/settings.json) — no separate trust prompt.",
     },
     activation: {
+      callable: "mcp__discern__discern_status",
       recovery:
         "close and reopen Claude Code in this project, then check whether the project MCP server was loaded",
     },
@@ -1577,6 +1582,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         'one-time directory trust for .codex/ project config and rules (set trust_level = "trusted"), plus per-hook hash approval before a committed hook runs (bypass: --dangerously-bypass-hook-trust).',
     },
     activation: {
+      callable: "mcp__discern__discern_status",
       recovery:
         "open a new Codex task for this project and re-check the project integration; if it remains absent, restart the Codex app",
     },
@@ -1661,6 +1667,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         "trust the workspace so committed .gemini/settings.json loads in safe mode (bypass: --skip-trust or GEMINI_CLI_TRUST_WORKSPACE=true); hooks also require hooksConfig.enabled = true to fire.",
     },
     activation: {
+      callable: "discern_status",
       recovery:
         "start a new Gemini CLI session in this project after completing the workspace trust step, then check again",
     },
@@ -1779,6 +1786,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         "trust the workspace, then approve the discern MCP server's tools on first use (bypass for headless: --approve-mcps).",
     },
     activation: {
+      callable: "discern_status",
       recovery:
         "reload the Cursor window, start a new agent conversation in this workspace, and check again",
     },
@@ -1884,6 +1892,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         "add the folder to trustedFolders in ~/.copilot/config.json (bypass for headless: --allow-all-tools --allow-all-paths).",
     },
     activation: {
+      callable: "discern_status",
       recovery:
         "start a new Copilot CLI session in the trusted folder and check again",
     },

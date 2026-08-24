@@ -2085,6 +2085,16 @@ export const SetupVerifyFindingsSchema = z.strictObject({
   agents_detected: z.array(z.string()),
   agents_effective: z.array(z.string()),
   worktree_path: z.string(),
+  project_identity: z.strictObject({
+    proposed_name: z.string().trim().min(1),
+    evidence: z.array(z.strictObject({
+      source: z.string().trim().min(1),
+      location: z.string().trim().min(1),
+      value: z.string().trim().min(1),
+    })).min(1),
+    fallback_only: z.boolean(),
+    requires_confirmation: z.literal(true),
+  }),
 });
 export type SetupVerifyFindings = z.infer<typeof SetupVerifyFindingsSchema>;
 

@@ -9,6 +9,161 @@
  * repository shapes without maintaining a second copy of the guidance.
  */
 
+import { dirname, isAbsolute, relative, resolve } from "@std/path";
+
+export const SETUP_PROJECT_NAME_SOURCES = [
+  "readme-title",
+  "package-name",
+  "project-metadata",
+  "directory-fallback",
+] as const;
+export type SetupProjectNameSource = typeof SETUP_PROJECT_NAME_SOURCES[number];
+
+export interface SetupProjectNameEvidence {
+  readonly source: SetupProjectNameSource;
+  readonly value: string;
+  readonly location: string;
+}
+
+export interface SetupProjectNameRecommendation {
+  readonly proposed: string;
+  readonly evidence: readonly SetupProjectNameEvidence[];
+  readonly fallbackOnly: boolean;
+  readonly conflicting: readonly SetupProjectNameEvidence[];
+}
+
+/**
+ * Recommend project identity from project-owned evidence. Strong metadata beats
+ * a checkout directory or clone suffix; the owner still confirms the result.
+ */
+export function recommendSetupProjectName(
+  candidates: readonly SetupProjectNameEvidence[],
+): SetupProjectNameRecommendation {
+  const usable = candidates.filter((candidate) => candidate.value.trim() !== "")
+    .map((candidate) => ({ ...candidate, value: candidate.value.trim() }));
+  if (usable.length === 0) {
+    throw new Error("Setup project-name recommendation needs one candidate.");
+  }
+  const strong = usable.filter((candidate) =>
+    candidate.source !== "directory-fallback"
+  );
+  const pool = strong.length > 0 ? strong : usable;
+  const scores = new Map<
+    string,
+    { value: string; count: number; first: number }
+  >();
+  for (const [index, candidate] of pool.entries()) {
+    const key = candidate.value.toLocaleLowerCase();
+    const current = scores.get(key);
+    scores.set(key, {
+      value: current?.value ?? candidate.value,
+      count: (current?.count ?? 0) + 1,
+      first: current?.first ?? index,
+    });
+  }
+  const ranked = [...scores.values()].sort((a, b) =>
+    b.count - a.count || a.first - b.first
+  );
+  const winner = ranked[0];
+  if (winner === undefined) {
+    throw new Error("Setup project-name recommendation has no usable value.");
+  }
+  const evidence = pool.filter((candidate) =>
+    candidate.value.toLocaleLowerCase() === winner.value.toLocaleLowerCase()
+  );
+  return {
+    proposed: winner.value,
+    evidence,
+    fallbackOnly: strong.length === 0,
+    conflicting: strong.filter((candidate) =>
+      candidate.value.toLocaleLowerCase() !== winner.value.toLocaleLowerCase()
+    ),
+  };
+}
+
+export interface SetupReferencedPath {
+  readonly sourceFile: string;
+  readonly reference: string;
+  readonly resolved: string;
+  readonly apparentRole: string;
+  readonly location: "inside-project" | "outside-project";
+  readonly destinationReadAllowed: false;
+}
+
+/** Classify a project-file path reference without touching its destination. */
+export function classifySetupReferencedPath(
+  projectRoot: string,
+  sourceFile: string,
+  reference: string,
+  apparentRole: string,
+): SetupReferencedPath {
+  const absoluteRoot = resolve(projectRoot);
+  const absoluteSource = isAbsolute(sourceFile)
+    ? resolve(sourceFile)
+    : resolve(absoluteRoot, sourceFile);
+  const resolvedReference = isAbsolute(reference)
+    ? resolve(reference)
+    : resolve(dirname(absoluteSource), reference);
+  const fromRoot = relative(absoluteRoot, resolvedReference);
+  const outside = fromRoot === ".." ||
+    fromRoot.startsWith("../") || fromRoot.startsWith("..\\") ||
+    isAbsolute(fromRoot);
+  return {
+    sourceFile,
+    reference,
+    resolved: resolvedReference,
+    apparentRole,
+    location: outside ? "outside-project" : "inside-project",
+    destinationReadAllowed: false,
+  };
+}
+
+export interface SetupExternalInspectionDirection {
+  readonly sourceFile: string;
+  readonly resolved: string;
+  readonly ownerDirected: true;
+  readonly purpose: string;
+}
+
+/** Record the bounded owner direction required before an external read. */
+export function authorizeSetupExternalInspection(
+  reference: SetupReferencedPath,
+  purpose: string,
+): SetupExternalInspectionDirection {
+  if (reference.location !== "outside-project") {
+    throw new Error(
+      "Only a repository-external reference needs this direction.",
+    );
+  }
+  if (purpose.trim() === "") {
+    throw new Error("External inspection direction needs a specific purpose.");
+  }
+  return {
+    sourceFile: reference.sourceFile,
+    resolved: reference.resolved,
+    ownerDirected: true,
+    purpose: purpose.trim(),
+  };
+}
+
+/** Apply the boundary before any caller-provided external reader can run. */
+export async function inspectSetupExternalReference<T>(
+  reference: SetupReferencedPath,
+  direction: SetupExternalInspectionDirection | undefined,
+  reader: (resolvedPath: string) => Promise<T>,
+): Promise<T> {
+  if (
+    direction === undefined || !direction.ownerDirected ||
+    direction.sourceFile !== reference.sourceFile ||
+    direction.resolved !== reference.resolved
+  ) {
+    throw new Error(
+      `Owner direction is required before reading repository-external path ${reference.resolved}.`,
+    );
+  }
+  return await reader(reference.resolved);
+}
+
 /** The worktree-readiness categories every setup must inspect. */
 export const SETUP_READINESS_CATEGORIES = [
   {

@@ -132,10 +132,11 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   // worktree path, whether a docs/ folder already exists, whether git is here at
   // all, and the agent set `begin` will wire — derived once in the shared module
   // so `begin`'s `awaiting_consent` refusal re-serves the identical message.
-  const { worktreePath, docsExists, gitRepo } = await deriveConsentContext(
-    destDir,
-    agents.set,
-  );
+  const { worktreePath, docsExists, gitRepo, projectName } =
+    await deriveConsentContext(
+      destDir,
+      agents.set,
+    );
   const existingInstructions = await findExistingInstructions(destDir);
 
   const conflicts = buildConflicts(git, identity, existingInstructions);
@@ -150,12 +151,13 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
     docsExists,
     gitRepo,
     agents: agents.set,
+    projectName,
   });
   // Without git the funnel's next action is to CREATE the repository setup's
   // isolation needs (then re-run the preflight) — never straight to `begin`,
   // which could only proceed in place, with no branch and nothing to land.
   const nextAction = gitRepo
-    ? confirmedBeginCommand()
+    ? confirmedBeginCommand(projectName.proposed)
     : "git init && discern setup verify";
 
   if (opts.json) {
@@ -176,6 +178,16 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
         agents_detected: detected,
         agents_effective: effectiveAgents,
         worktree_path: worktreePath,
+        project_identity: {
+          proposed_name: projectName.proposed,
+          evidence: projectName.evidence.map((item) => ({
+            source: item.source,
+            location: item.location,
+            value: item.value,
+          })),
+          fallback_only: projectName.fallbackOnly,
+          requires_confirmation: true,
+        },
       },
       conflicts,
       // The consent conversation rides the prose field the agent relays verbatim,
@@ -196,6 +208,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
     detected,
     effectiveAgents,
     worktreePath,
+    projectName: projectName.proposed,
     conflicts,
     instructions,
   });
@@ -273,6 +286,7 @@ function printPreflight(p: {
   detected: string[];
   effectiveAgents: string[];
   worktreePath: string;
+  projectName: string;
   conflicts: SetupVerifyConflict[];
   instructions: string;
 }): void {
@@ -306,6 +320,7 @@ function printPreflight(p: {
         `  • Docs .......... ${docs}`,
         `  • Instructions .. ${instructions}`,
         `  • Agents ........ ${agents}`,
+        `  • Project name .. proposed as “${p.projectName}” — confirm it in the conversation below`,
         "  • Worktrees ..... will live beside this repo at:",
         `                    ${p.worktreePath}`,
       ],

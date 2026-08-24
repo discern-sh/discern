@@ -38,30 +38,28 @@ const ANSI_ESCAPE = new RegExp(`${ESC}\\[[0-9;]*m`);
 const FRESH_WELCOME_FACTS: readonly string[] = [
   DISCERN_MARK,
   "discern",
-  "quality gates and safe worktrees",
-  "coding agents and the humans who run them",
+  "project-owned working practice",
+  "people responsible for what lands",
   "This project isn't set up yet.",
   "FOR HUMANS",
-  "quality gate",
-  "isolated git worktrees",
-  "agent instructions",
+  "final quality check",
+  "separate working copies",
+  "shared agent instructions",
   '"Run `discern setup` in this project."',
-  "Setup is isolated and reversible",
+  "welcome is read-only",
+  "separate `discern-setup` branch",
   "one visible `discern/` folder",
-  "config files your coding tools require",
+  "coding tools' local integration files",
   "discern uninstall",
-  "no API",
-  "key, and no surprises",
-  "Choose which available model",
+  "No API key or outside service",
   "strongest suitable reasoning model",
   "model selector",
-  "open a fresh session",
+  "fresh project session",
   "future sessions",
-  "provider/model identifier",
   "Expect roughly 20–40 minutes",
   "FOR CODING AGENTS",
-  "verify → begin → author → done",
-  "NOTHING is written",
+  "carry setup through each stated next action",
+  "Nothing is written",
   "discern setup verify",
   "Don't hand this back as a report",
 ];
@@ -141,11 +139,11 @@ Deno.test("the fresh welcome renderer adds TTY decoration without losing content
   );
   assertStringIncludes(
     styledLines[splitMark.length] ?? "",
-    "quality gates and safe worktrees",
+    "project-owned working practice",
   );
   assertStringIncludes(
     styledLines[splitMark.length + 1] ?? "",
-    "for coding agents and the humans who run them.",
+    "for coding agents and the people responsible",
   );
   const frameStart = styledLines.findIndex((line) => line.startsWith("┌"));
   assert(frameStart >= 0, "expected the package-rendered welcome frame");
@@ -315,24 +313,22 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
 
     // The agent instructions carries the role + the verify funnel the human prose has,
     // and points at verify as the source of the message to relay (ADR 0086).
-    assertStringIncludes(d.agent_instructions, "nothing is written until");
+    assertStringIncludes(d.agent_instructions, "Nothing is written until");
     assertStringIncludes(
       d.agent_instructions,
-      "hands you the exact message to relay",
+      "relay its owner conversation naturally",
     );
     assertStringIncludes(d.agent_instructions, "discern setup verify");
     // The human framing recommends a model for the long-lived outcome, gives the
     // concrete switch route, and keeps provenance separate.
-    assertStringIncludes(d.human_framing, "Choose which available model");
     assertStringIncludes(d.human_framing, "strongest suitable reasoning model");
     assertStringIncludes(d.human_framing, "model selector");
-    assertStringIncludes(d.human_framing, "open a fresh session");
+    assertStringIncludes(d.human_framing, "fresh project session");
     assertStringIncludes(d.human_framing, "future sessions");
-    assertStringIncludes(d.human_framing, "Provider/model provenance");
     // Both surfaces actually say it, so neither path is the thinner one.
-    assertStringIncludes(human, "Choose which available model");
+    assertStringIncludes(human, "strongest suitable reasoning model");
     // The footprint story rides both surfaces: one root file, one visible folder.
-    assertStringIncludes(d.human_framing, "one visible discern/ folder");
+    assertStringIncludes(d.human_framing, "one visible `discern/` folder");
     assertStringIncludes(human, "one visible `discern/` folder");
   });
 });
@@ -355,6 +351,7 @@ Deno.test("the in-progress welcome --json carries the 'your job, not a status' a
 
 Deno.test("verify reports grounded findings and the consent conversation, writing nothing", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Atlas\n");
     await freshRepo(dir);
     const res = JSON.parse(
       (await runAgent(dir, ["setup", "verify", "--json"]))
@@ -365,24 +362,33 @@ Deno.test("verify reports grounded findings and the consent conversation, writin
     assertEquals(d.findings.git.repo, true);
     assertEquals(d.findings.docs.exists, false);
     assert(typeof d.findings.worktree_path === "string");
+    assertEquals(d.findings.project_identity.proposed_name, "Atlas");
+    assertEquals(d.findings.project_identity.fallback_only, false);
+    assertEquals(d.findings.project_identity.requires_confirmation, true);
+    assertEquals(d.findings.project_identity.evidence[0].location, "README.md");
     // The consent conversation rides the prose `instructions` lane (not structured
     // fields the agent summarizes) as a ready-to-relay message: the relay licence,
     // then the points to settle with the human — model, worktree, ready — plus the
     // funnel to begin (ADR 0086).
     assertStringIncludes(
       d.instructions,
-      "Relay the fenced message below as your next chat message",
+      "as one natural conversation",
     );
     assertStringIncludes(
       d.instructions,
-      "Which available model do you want to use for this setup?",
+      "Everything I set up here is inherited by future sessions",
     );
     assertStringIncludes(
       d.instructions,
       "Isolated working copies will live beside",
     );
     assertStringIncludes(d.instructions, "Ready for me to begin");
+    assertStringIncludes(
+      d.instructions,
+      "strongest project name I found is “Atlas”",
+    );
     assertStringIncludes(d.next_action, "begin");
+    assertStringIncludes(d.next_action, "--name 'Atlas'");
     // The command the agent runs after the conversation carries the consent
     // attestation — a fresh begin refuses without it.
     assertStringIncludes(d.next_action, "--confirmed");
@@ -438,19 +444,19 @@ Deno.test("verify's consent instructions are identical and faithful across the h
     // content a courier agent must carry unweakened (ADR 0086, the two-lane rule).
     for (
       const needle of [
-        "keep every list item",
-        "relay every numbered confirmation word for word",
-        "Which available model do you want to use for this setup?",
-        "Gate, worktree policy, Map, and instructions future sessions inherit",
+        "as one natural conversation",
+        "form the consent record",
+        "Everything I set up here is inherited by future sessions",
+        "Lasting outcome: future sessions inherit",
         "strongest suitable reasoning model",
-        "open a fresh project session",
-        "I will stop here",
+        "switch models first",
         "Current provider/model (self-declared)",
         "never copy the placeholder",
         "Only if the owner chooses to continue in this session",
-        "Isolated working copies (git worktrees)",
+        "separate task workspaces",
         "20–40 minutes",
         "Isolated working copies will live beside",
+        "The strongest project name I found",
         "--confirmed",
       ]
     ) {
@@ -582,7 +588,7 @@ Deno.test("setup done serves the completion message at parity across the human r
         "Relay the message below to your human",
         "discern setup was recorded without a Gate Proof",
         "No quality checks are wired yet",
-        "Map regions",
+        "project-guide areas",
       ]
     ) {
       assertStringIncludes(

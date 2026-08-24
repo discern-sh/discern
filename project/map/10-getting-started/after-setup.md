@@ -15,9 +15,9 @@ _Setup works on a `discern-setup` branch. This guide tells you what each part of
 
 Review the branch before landing it. The paths depend on the coding agents you selected and any locations you configured, but each written file belongs to one of the groups below. For the exhaustive inventory and uninstall behavior, use [Files & ownership](../70-reference/artifact-ownership.md).
 
-Successful `discern setup done` commits setup's completion state in `discern.toml`, then returns [Gate Proof](../20-quality-gate/the-proof.md) for that clean branch tip. `discern setup accept` validates that Proof, records it on the landed trunk commit as a Git note, and leaves local agent artifacts current. `--force` returns no Proof and cannot use this landing path.
+Successful `discern setup done` commits setup's completion state in `discern.toml`, then returns [proof that the finished change passed the project's checks](../20-quality-gate/the-proof.md), called Gate Proof, for that exact clean branch tip. `discern setup accept` validates that Proof, records it on the landed main version as a Git note, and leaves local agent files current. `--force` returns no Proof and cannot use this landing path.
 
-Before landing, the handoff explains what later sessions inherit: the primary subsystem and starting point, boundary, invariant, principles, instructions, protections, and open items. Its qualitative facts and supporting counts derive from committed project authorities. [Setup decisions](setup-decisions.md) explains the owner review.
+Before landing, the handoff explains where later sessions start, which other areas have distinct responsibilities, one important project rule, the checks now active, and what remains open. Its explanation and supporting inventory derive from committed project files. [Setup decisions](setup-decisions.md) explains the owner review.
 
 ## Files you edit
 
@@ -50,7 +50,7 @@ The `.gitignore` file gains one marked `# --- discern ---` block. Keep your rule
 
 Each selected coding agent also has integration files. discern adds its own Model Context Protocol (MCP) server, hooks, and permission defaults to the provider's existing configuration. It leaves unrelated entries in place. The [agent integration guides](../60-agent-integrations/) list the exact paths for each provider.
 
-Unlanded `setup done` stops at Proof and landing. After `setup accept` lands, it serves each provider's fresh-session check, recovery, and CLI fallback; see [Setup command boundaries](../70-reference/setup-command-boundaries.md).
+Unlanded `setup done` stops at Proof and the landing choice. After `setup accept` lands, it serves one provider-owned fresh-session instruction: inspect the registered tool inventory, invoke the exact local action, and use the included local recovery if that action is missing. See [Setup command boundaries](../70-reference/setup-command-boundaries.md).
 
 ## Files discern regenerates
 
