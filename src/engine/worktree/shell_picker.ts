@@ -393,7 +393,7 @@ export async function runWorktrees(
     runtime.now(),
     {
       trunk: survey.data.fleet?.find((entry) => entry.is_main)?.branch ??
-        "main",
+        survey.data.git?.trunk ?? "trunk",
       ...(survey.data.fleet_collisions === undefined
         ? {}
         : { fleetCollisions: survey.data.fleet_collisions }),
