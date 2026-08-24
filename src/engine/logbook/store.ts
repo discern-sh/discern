@@ -32,7 +32,9 @@
 
 import { dirname, join } from "@std/path";
 import { ensureDir } from "@std/fs";
+import { z } from "@zod/zod";
 import { KIT_VERSION } from "../../lib/version.ts";
+import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
   LOGBOOK_SCHEMA_VERSION,
@@ -278,13 +280,23 @@ async function rotate(
  * hold different configs, and a shared last-fingerprint would record a phantom
  * `config-change` on every interleaving. A branch entry simply lingers after
  * its worktree lands — a few stale lines of state, accepted for v1. */
-export interface EpochState {
+const epochStateSchema = z.object({
+  schema: z.literal(LOGBOOK_SCHEMA_VERSION),
+  branches: z.record(
+    z.string(),
+    z.object({
+      fingerprint: z.string(),
+      sections: z.record(z.string(), z.string()),
+    }),
+  ),
+});
+
+type ValidatedEpochState = z.infer<typeof epochStateSchema>;
+
+/** The branch-epoch state writers construct before read-time schema validation. */
+export type EpochState = Omit<ValidatedEpochState, "schema"> & {
   schema: number;
-  branches: Record<
-    string,
-    { fingerprint: string; sections: Record<string, string> }
-  >;
-}
+};
 
 /** The epoch sidecar path for a repo. */
 export function epochStatePath(commonGitDir: string): string {
@@ -302,14 +314,9 @@ export async function readEpochState(
     return undefined;
   }
   try {
-    const parsed = JSON.parse(text) as EpochState;
-    if (
-      parsed.schema !== LOGBOOK_SCHEMA_VERSION ||
-      typeof parsed.branches !== "object" || parsed.branches === null
-    ) {
-      return undefined;
-    }
-    return parsed;
+    const parsed: unknown = JSON.parse(text);
+    const result = epochStateSchema.safeParse(parsed);
+    return result.success ? result.data : undefined;
   } catch {
     return undefined;
   }
@@ -326,9 +333,12 @@ export async function writeEpochState(
   const dir = logbookDir(commonGitDir);
   await ensureDir(dir);
   const path = epochStatePath(commonGitDir);
-  const tmp = `${path}.${Deno.pid}.tmp`;
-  await Deno.writeTextFile(tmp, `${JSON.stringify(state, null, 2)}\n`);
-  await Deno.rename(tmp, path);
+  await atomicReplaceJson(path, state, {
+    mode: 0o666,
+    sync: false,
+    space: 2,
+    trailingNewline: true,
+  });
 }
 
 // ── the reset ───────────────────────────────────────────────────────────────

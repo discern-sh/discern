@@ -15,6 +15,7 @@
  */
 
 import { dirname, join } from "@std/path";
+import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import {
@@ -113,9 +114,12 @@ export async function writeTipSeenState(
       return;
     }
     await Deno.mkdir(dirname(path), { recursive: true });
-    const tmp = `${path}.${Deno.pid}.tmp`;
-    await Deno.writeTextFile(tmp, `${JSON.stringify(state, null, 2)}\n`);
-    await Deno.rename(tmp, path);
+    await atomicReplaceJson(path, state, {
+      mode: 0o666,
+      sync: false,
+      space: 2,
+      trailingNewline: true,
+    });
   } catch {
     // Tip state must never cost a session.
   }
