@@ -8,78 +8,14 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { dirname, join } from "@std/path";
 import {
   RESTRICTED_WRITER_MODULES,
   type RestrictedWriterModule,
 } from "./writer_boundaries.ts";
 import { withTempDir } from "./helpers.ts";
+import { type ModuleGraph, shippedModuleGraph } from "./module_graph.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
-
-interface DenoInfoDependency {
-  readonly code?: { readonly specifier?: string };
-}
-
-interface DenoInfoModule {
-  readonly specifier?: string;
-  readonly dependencies?: readonly DenoInfoDependency[];
-}
-
-interface DenoInfo {
-  readonly modules?: readonly DenoInfoModule[];
-}
-
-interface ModuleGraph {
-  readonly modules: ReadonlySet<string>;
-  readonly edges: readonly {
-    readonly from: string;
-    readonly to: string;
-  }[];
-}
-
-/** Map a file URL into the shipped repository graph while excluding external modules. */
-function localModule(root: string, specifier: string): string | undefined {
-  if (!specifier.startsWith("file:")) return undefined;
-  const rel = relative(root, fromFileUrl(specifier)).replaceAll("\\", "/");
-  return rel === ".." || rel.startsWith("../") ? undefined : rel;
-}
-
-/** Read the runtime module graph with Deno's TypeScript parser and resolver. */
-async function shippedModuleGraph(
-  root: string,
-  entrypoint: string,
-): Promise<ModuleGraph> {
-  const resolvedRoot = await Deno.realPath(root);
-  const output = await new Deno.Command(Deno.execPath(), {
-    args: ["info", "--json", entrypoint],
-    cwd: resolvedRoot,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  if (!output.success) {
-    throw new Error(
-      `deno info failed: ${new TextDecoder().decode(output.stderr)}`,
-    );
-  }
-  const info = JSON.parse(
-    new TextDecoder().decode(output.stdout),
-  ) as DenoInfo;
-  const modules = new Set<string>();
-  const edges: Array<{ from: string; to: string }> = [];
-  for (const module of info.modules ?? []) {
-    if (module.specifier === undefined) continue;
-    const from = localModule(resolvedRoot, module.specifier);
-    if (from === undefined) continue;
-    modules.add(from);
-    for (const dependency of module.dependencies ?? []) {
-      const specifier = dependency.code?.specifier;
-      if (specifier === undefined) continue;
-      const to = localModule(resolvedRoot, specifier);
-      if (to !== undefined) edges.push({ from, to });
-    }
-  }
-  return { modules, edges };
-}
 
 /** Validate capability-boundary uniqueness, graph presence, and authorized importer sets. */
 function writerBoundaryOffenders(
