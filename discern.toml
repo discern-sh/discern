@@ -1075,12 +1075,10 @@
   # Cap on how many test-stage runs may be in flight AT ONCE across every checkout
   # of this repository — the main checkout and all its linked worktrees. It counts
   # whole runs (`discern done`'s and `discern test`'s test group, and `discern
-  # standards`' measurement pass). `scripts/run_tests.ts` derives each Deno
-  # runner's worker share from this same cap, so admitted suites remain internally
-  # parallel without multiplying the machine's logical-processor budget. A run arriving
-  # past the cap waits for a slot before its tests start (fix and check stages never
-  # wait), says what it is waiting for, and continues the moment a slot frees.
-  # 0 means no cap.
+  # standards`' measurement pass); each suite's own Deno worker policy remains
+  # independent. A run arriving past the cap waits for a slot before its tests
+  # start (fix and check stages never wait), says what it is waiting for, and
+  # continues the moment a slot frees. 0 means no cap.
   concurrent_test_runs = 2
 
 # ─────────────────────────────────────────────────────────────────────────────

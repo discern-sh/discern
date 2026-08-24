@@ -1,21 +1,24 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
-import {
-  configuredConcurrentTestRuns,
-  testWorkerCount,
-  testWorkerEnvironment,
-} from "../scripts/run_tests.ts";
+import { parse as parseToml } from "@std/toml";
+import { testCommandArgs } from "../scripts/run_tests.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
-Deno.test("the repository admits parallel suites and partitions their Deno workers", async () => {
-  const cap = configuredConcurrentTestRuns(
+Deno.test("the repository admits parallel suites without partitioning Deno workers", async () => {
+  const parsed = parseToml(
     await Deno.readTextFile(join(REPO_ROOT, "discern.toml")),
   );
-  assert(cap >= 2, "the self-hosting suite must not serialize whole test runs");
-  assertEquals(testWorkerEnvironment(18, cap, undefined), {
-    DENO_JOBS: String(testWorkerCount(18, cap)),
-  });
+  const gate = parsed.gate;
+  assert(
+    typeof gate === "object" && gate !== null && !Array.isArray(gate),
+    "discern.toml must carry a [gate] table",
+  );
+  const cap = (gate as Record<string, unknown>).concurrent_test_runs;
+  assert(
+    typeof cap === "number" && cap >= 2,
+    "the self-hosting suite must not serialize whole test runs",
+  );
 
   const deno = JSON.parse(
     await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
@@ -23,13 +26,21 @@ Deno.test("the repository admits parallel suites and partitions their Deno worke
   const task = deno.tasks?.test ?? "";
   assertStringIncludes(task, "discern queue --");
   assertStringIncludes(task, "scripts/run_tests.ts");
-});
 
-Deno.test("test worker allocation stays positive on small and uncapped hosts", () => {
-  assertEquals(testWorkerCount(18, 2), 9);
-  assertEquals(testWorkerCount(1, 2), 1);
-  assertEquals(testWorkerCount(8, 0), 8);
-  assertEquals(testWorkerCount(8, 3), 2);
-  assertEquals(testWorkerEnvironment(18, 2, undefined), { DENO_JOBS: "9" });
-  assertEquals(testWorkerEnvironment(18, 2, "4"), {});
+  const source = await Deno.readTextFile(
+    join(REPO_ROOT, "scripts/run_tests.ts"),
+  );
+  assert(
+    !source.includes("DENO_JOBS"),
+    "the whole-suite admission cap must not rewrite Deno's internal worker count",
+  );
+  assert(
+    !source.includes("hardwareConcurrency"),
+    "the repository runner must not derive a static worker allocation",
+  );
+
+  const forwarded = ["--filter", "probe"];
+  const args = testCommandArgs(forwarded);
+  assert(args.includes("--parallel"), "Deno test files must run in parallel");
+  assertEquals(args.slice(-forwarded.length), forwarded);
 });
