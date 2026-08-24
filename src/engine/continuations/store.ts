@@ -13,6 +13,10 @@ import {
   createContinuationHandle,
   normalizeContinuationHandle,
 } from "../../shared/continuation_handle.ts";
+import {
+  atomicReplaceBytes,
+  isAtomicReplaceTempName,
+} from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 
 export const CONTINUATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -185,8 +189,10 @@ async function pruneForCreate(
   const live: LiveEntry[] = [];
   for await (const entry of Deno.readDir(directory)) {
     if (
-      entry.isFile && entry.name.startsWith(TEMP_PREFIX) &&
-      entry.name.endsWith(TEMP_SUFFIX)
+      entry.isFile &&
+      ((entry.name.startsWith(TEMP_PREFIX) &&
+        entry.name.endsWith(TEMP_SUFFIX)) ||
+        isAtomicReplaceTempName(entry.name))
     ) {
       const tempPath = join(directory, entry.name);
       try {
@@ -234,32 +240,14 @@ async function pruneForCreate(
   }
 }
 
-/** Atomically replace a continuation through a uniquely named temporary sibling. */
+/** Atomically replace a continuation while preserving its private file mode. */
 async function replaceRecord(
   directory: string,
   handle: string,
   bytes: Uint8Array,
 ): Promise<void> {
   const path = recordPath(directory, handle);
-  // This is target-adjacent atomic-write state, not an OS-temp artifact. A
-  // create-new UUID name follows the repository's other same-directory writers
-  // and lets rename stay on one filesystem. `pruneForCreate` reaps an orphan
-  // left by a process crash.
-  const temp = join(
-    directory,
-    `${TEMP_PREFIX}${crypto.randomUUID()}${TEMP_SUFFIX}`,
-  );
-  try {
-    await Deno.writeFile(temp, bytes, { createNew: true, mode: 0o600 });
-    await Deno.rename(temp, path);
-  } catch (error) {
-    try {
-      await Deno.remove(temp);
-    } catch {
-      // Preserve the original write error.
-    }
-    throw error;
-  }
+  await atomicReplaceBytes(path, bytes, { mode: 0o600, sync: false });
 }
 
 /** Allocate a collision-checked handle and persist its bytes with create-new semantics. */
