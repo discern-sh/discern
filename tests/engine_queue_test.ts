@@ -602,7 +602,7 @@ Deno.test("the repository's habitual and targeted test commands stay queue-wrapp
   );
   assertEquals(
     denoConfig.tasks?.test,
-    "deno task test:preflight && discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
+    "deno task test:preflight && discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --allow-sys --parallel",
   );
 
   const testingGuide = await Deno.readTextFile(
