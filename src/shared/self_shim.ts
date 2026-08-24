@@ -36,7 +36,10 @@
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
-import { gitAdminStatePath } from "./git_admin_state.ts";
+import {
+  type GitAdminPathRunner,
+  resolveGitAdminStatePath,
+} from "./git_admin_paths.ts";
 import { sha256Hex } from "./sha256.ts";
 import { makeTempArtifactDir } from "./temp_artifacts.ts";
 
@@ -146,7 +149,10 @@ const resolved = new Map<string, string>();
  * process (the MCP server) can outlive a cleaner, so a vanished shim is
  * re-resolved rather than trusted from the cache.
  */
-export async function selfShimDir(root?: string): Promise<string> {
+export async function selfShimDir(
+  root?: string,
+  gitRunner?: GitAdminPathRunner,
+): Promise<string> {
   const key = root ?? "";
   const cached = resolved.get(key);
   if (cached !== undefined && (await isFile(join(cached, "discern")))) {
@@ -155,7 +161,12 @@ export async function selfShimDir(root?: string): Promise<string> {
   }
   const content = shimContent();
   if (root !== undefined) {
-    const home = await gitAdminStatePath(root, "selfShim");
+    if (gitRunner === undefined) {
+      throw new Error(
+        "repository-backed self-shim resolution requires an injected Git runner",
+      );
+    }
+    const home = await resolveGitAdminStatePath(root, "selfShim", gitRunner);
     if (home !== undefined) {
       try {
         const dir = await ensureShimAt(home, content);
@@ -185,8 +196,9 @@ const PATH_DELIMITER = Deno.build.os === "windows" ? ";" : ":";
 export async function selfShimPath(
   root?: string,
   base?: string,
+  gitRunner?: GitAdminPathRunner,
 ): Promise<string> {
-  const dir = await selfShimDir(root);
+  const dir = await selfShimDir(root, gitRunner);
   const rest = base ?? Deno.env.get("PATH") ?? "";
   return rest === "" ? dir : `${dir}${PATH_DELIMITER}${rest}`;
 }

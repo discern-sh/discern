@@ -19,8 +19,29 @@
  * back here and commits to their attributed boundary.
  */
 
-import { selfShimPath } from "./self_shim.ts";
+import type { GitAdminPathRunner } from "./git_admin_paths.ts";
+import {
+  selfShimDir as resolveSelfShimDir,
+  selfShimPath as resolveSelfShimPath,
+} from "./self_shim.ts";
 import { quiesceProcessGroup, signalProcessGroup } from "./process_group.ts";
+
+/** Bind Git-admin path queries to the canonical generic Git subprocess runner. */
+const selfShimGitRunner: GitAdminPathRunner = async (cwd, args) =>
+  await runGit(args, { cwd });
+
+/** Resolve the running engine's shim directory through the canonical Git runner. */
+export async function selfShimDir(root?: string): Promise<string> {
+  return await resolveSelfShimDir(root, selfShimGitRunner);
+}
+
+/** Build an operator-command PATH through the canonical Git runner and self-shim. */
+export async function selfShimPath(
+  root?: string,
+  base?: string,
+): Promise<string> {
+  return await resolveSelfShimPath(root, base, selfShimGitRunner);
+}
 
 /** The configured git binary (`GIT_BIN`, default `git`) — the one resolver. */
 export function gitBin(): string {

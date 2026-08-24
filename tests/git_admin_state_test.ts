@@ -95,7 +95,7 @@ async function gitPathInvokers(
 
 const GIT_PATH_ALLOWED = [
   // The registry resolver itself — the one production `--git-path` call.
-  "src/shared/git_admin_state.ts",
+  "src/shared/git_admin_paths.ts",
   // This file: the resolver's independent oracle must resolve the same
   // artifacts without going through the code under test.
   "tests/git_admin_state_test.ts",

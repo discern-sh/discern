@@ -1,220 +1,34 @@
 /**
- * Discern-owned state inside Git's administrative directories.
+ * Subprocess-bound façade for Discern-owned Git administration state.
  *
- * The registry is the single source of truth for each artifact's path and
- * lifetime. Worktree-scoped entries resolve through `git rev-parse --git-path`
- * so linked-worktree state follows Git's own lifecycle. Common entries resolve
- * beneath `git rev-parse --git-common-dir` so every worktree shares them.
+ * The registry and path computation live in the dependency-free
+ * `git_admin_paths.ts` leaf. Ordinary callers retain the historical
+ * `gitAdminStatePath(cwd, key)` API here; low-level subprocess consumers inject
+ * the runner directly into the leaf and never circle back through this façade.
  */
 
-import { isAbsolute, join } from "@std/path";
-import { type GitResult, runGit } from "./subprocess.ts";
+import { join } from "@std/path";
+import {
+  GIT_ADMIN_STATE_NAMESPACE,
+  type GitAdminPathRunner,
+  type GitAdminStateKey,
+  gitReportedAdminPath,
+  resolveGitAdminStatePath,
+} from "./git_admin_paths.ts";
+import { runGit } from "./subprocess.ts";
 
-export const GIT_ADMIN_STATE_NAMESPACE = "discern";
-
-interface GitAdminStateEntry {
-  readonly path: string;
-  readonly scope: "common" | "worktree";
-  readonly kind: "directory" | "file";
-  /** Whether slow validation may write this entry after it completes. */
-  readonly validation: boolean;
-}
-
-export const GIT_ADMIN_STATE = {
-  resources: {
-    path: "discern/resources",
-    scope: "common",
-    kind: "directory",
-    validation: false,
-  },
-  logbook: {
-    path: "discern/logbook",
-    scope: "common",
-    kind: "directory",
-    validation: false,
-  },
-  logbookArchives: {
-    path: "discern/logbook-archives",
-    scope: "common",
-    kind: "directory",
-    validation: false,
-  },
-  logbookRecovery: {
-    path: "discern/logbook-recovery",
-    scope: "common",
-    kind: "directory",
-    validation: false,
-  },
-  logbookLifecycleLock: {
-    path: "discern/logbook-lifecycle.lock",
-    scope: "common",
-    kind: "file",
-    validation: false,
-  },
-  validationHmacKey: {
-    path: "discern/validation-hmac-key",
-    scope: "common",
-    kind: "file",
-    validation: false,
-  },
-  crash: {
-    path: "discern/crash",
-    scope: "common",
-    kind: "directory",
-    validation: false,
-  },
-  testSlots: {
-    path: "discern/test-slots",
-    scope: "common",
-    kind: "directory",
-    validation: false,
-  },
-  deskTips: {
-    path: "discern/desk/tips.json",
-    scope: "common",
-    kind: "file",
-    validation: false,
-  },
-  tempArtifactSweep: {
-    path: "discern/temp-artifact-sweep",
-    scope: "common",
-    kind: "file",
-    validation: false,
-  },
-  continuations: {
-    path: "discern/continuations",
-    scope: "common",
-    kind: "directory",
-    validation: false,
-  },
-  retiredWorktreePaths: {
-    path: "discern/retired-worktree-paths",
-    scope: "common",
-    kind: "directory",
-    validation: false,
-  },
-  dropRecoveryLock: {
-    path: "discern/drop-recovery.lock",
-    scope: "common",
-    kind: "file",
-    validation: false,
-  },
-  gateProof: {
-    path: "discern/gate-proof",
-    scope: "worktree",
-    kind: "file",
-    validation: true,
-  },
-  lastGateRun: {
-    path: "discern/last-gate-run",
-    scope: "worktree",
-    kind: "file",
-    validation: true,
-  },
-  standardMeasurements: {
-    path: "discern/standard-measurements",
-    scope: "worktree",
-    kind: "file",
-    validation: true,
-  },
-  ignoredBaseline: {
-    path: "discern/ignored-baseline",
-    scope: "worktree",
-    kind: "file",
-    validation: false,
-  },
-  checkpointOpenQuestions: {
-    path: "discern/checkpoint-open-questions",
-    scope: "worktree",
-    kind: "file",
-    validation: false,
-  },
-  effortGrant: {
-    path: "discern/effort-grant",
-    scope: "worktree",
-    kind: "file",
-    validation: false,
-  },
-  effortGrantClaims: {
-    path: "discern/effort-grant-claims",
-    scope: "worktree",
-    kind: "directory",
-    validation: false,
-  },
-  acceptanceTransaction: {
-    path: "discern/acceptance-transaction.json",
-    scope: "worktree",
-    kind: "file",
-    validation: false,
-  },
-  acceptanceTransactionLock: {
-    path: "discern/acceptance-transaction.lock",
-    scope: "worktree",
-    kind: "file",
-    validation: false,
-  },
-  setupMachineryCommitEvidence: {
-    path: "discern/setup-machinery-commit-evidence.json",
-    scope: "worktree",
-    kind: "file",
-    validation: false,
-  },
-  worktreeReady: {
-    path: "discern/worktree-ready",
-    scope: "worktree",
-    kind: "file",
-    validation: false,
-  },
-  selfShim: {
-    path: "discern/shim",
-    scope: "worktree",
-    kind: "directory",
-    validation: false,
-  },
-} as const satisfies Record<string, GitAdminStateEntry>;
-
-export type GitAdminStateKey = keyof typeof GIT_ADMIN_STATE;
-export type WorktreeAdminStateKey = {
-  [Key in GitAdminStateKey]: typeof GIT_ADMIN_STATE[Key]["scope"] extends
-    "worktree" ? Key : never;
-}[GitAdminStateKey];
-export type ValidationAdminStateKey = {
-  [Key in GitAdminStateKey]: typeof GIT_ADMIN_STATE[Key]["validation"] extends
-    true ? Key : never;
-}[GitAdminStateKey];
-
-export const GIT_ADMIN_STATE_KEYS = Object.keys(
+export {
   GIT_ADMIN_STATE,
-) as GitAdminStateKey[];
-export const WORKTREE_ADMIN_STATE_KEYS = GIT_ADMIN_STATE_KEYS.filter(
-  (key) => GIT_ADMIN_STATE[key].scope === "worktree",
-) as WorktreeAdminStateKey[];
-export const VALIDATION_ADMIN_STATE_KEYS = GIT_ADMIN_STATE_KEYS.filter(
-  (key) => GIT_ADMIN_STATE[key].validation,
-) as ValidationAdminStateKey[];
-
-/** Resolve a Git-reported administrative path to an absolute filesystem path. */
-async function gitPath(
-  cwd: string,
-  args: string[],
-  runner: GitAdminPathRunner,
-): Promise<string | undefined> {
-  const result = await runner(cwd, args);
-  if (!result.success) {
-    return undefined;
-  }
-  const raw = result.stdout.trim();
-  if (raw === "") {
-    return undefined;
-  }
-  return isAbsolute(raw) ? raw : join(cwd, raw);
-}
-
-/** Injectable Git boundary lets bounded callers retain this path authority. */
-export type GitAdminPathRunner = (
-  cwd: string,
-  args: string[],
-) => Promise<GitResult>;
+  GIT_ADMIN_STATE_KEYS,
+  GIT_ADMIN_STATE_NAMESPACE,
+  type GitAdminPathResult,
+  type GitAdminPathRunner,
+  type GitAdminStateKey,
+  VALIDATION_ADMIN_STATE_KEYS,
+  type ValidationAdminStateKey,
+  WORKTREE_ADMIN_STATE_KEYS,
+  type WorktreeAdminStateKey,
+} from "./git_admin_paths.ts";
 
 /** Ordinary unbounded admin-path resolution for non-capture callers. */
 const defaultGitAdminPathRunner: GitAdminPathRunner = async (cwd, args) =>
@@ -226,28 +40,12 @@ export async function gitAdminStatePath(
   key: GitAdminStateKey,
   runner: GitAdminPathRunner = defaultGitAdminPathRunner,
 ): Promise<string | undefined> {
-  const entry = GIT_ADMIN_STATE[key];
-  if (entry.scope === "worktree") {
-    return await gitPath(
-      cwd,
-      ["rev-parse", "--git-path", entry.path],
-      runner,
-    );
-  }
-  const commonDir = await gitPath(
-    cwd,
-    ["rev-parse", "--git-common-dir"],
-    runner,
-  );
-  return commonDir === undefined ? undefined : join(commonDir, entry.path);
+  return await resolveGitAdminStatePath(cwd, key, runner);
 }
 
 /**
- * The `discern/` namespace directories inside Git's administrative area for
- * the repository at `cwd`: the worktree-scoped one and the shared common one,
- * deduplicated (a main checkout has just one). Uninstall removes these whole,
- * so every registered entry — and any future one — exits with the tool
- * (ADR 0104) without a hand-kept list to drift.
+ * The distinct Discern namespace directories in the worktree and common Git
+ * administration areas. Uninstall removes both whole directories.
  */
 export async function gitAdminNamespaceDirs(cwd: string): Promise<string[]> {
   const probes: string[][] = [
@@ -256,14 +54,14 @@ export async function gitAdminNamespaceDirs(cwd: string): Promise<string[]> {
   ];
   const dirs: string[] = [];
   for (const probe of probes) {
-    const resolved = await gitPath(cwd, probe, defaultGitAdminPathRunner);
-    if (resolved === undefined) {
-      continue;
-    }
+    const resolved = await gitReportedAdminPath(
+      cwd,
+      probe,
+      defaultGitAdminPathRunner,
+    );
+    if (resolved === undefined) continue;
     const dir = join(resolved, GIT_ADMIN_STATE_NAMESPACE);
-    if (!dirs.includes(dir)) {
-      dirs.push(dir);
-    }
+    if (!dirs.includes(dir)) dirs.push(dir);
   }
   return dirs;
 }

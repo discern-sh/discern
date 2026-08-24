@@ -24,8 +24,7 @@
 
 import { byteWriter } from "../output.ts";
 import type { Logger } from "../../lib/log.ts";
-import { selfShimPath } from "../../shared/self_shim.ts";
-import { SPAWN_FAILED } from "../../shared/subprocess.ts";
+import { selfShimPath, SPAWN_FAILED } from "../../shared/subprocess.ts";
 import { superviseSpawn } from "../owned_child.ts";
 import {
   KILLED_PIPE_GRACE_MS,
