@@ -2057,7 +2057,7 @@ function registerResources(
  */
 export function buildInstructions(): string {
   const lines = [
-    "discern provides the Gate and isolated worktrees. Use its tools and results.",
+    "discern provides the Gate and worktrees. Use its tools and results.",
     "",
     "- Start with discern_status.",
     ...operatingPolicyStatementsFor("mcp-instructions").map(

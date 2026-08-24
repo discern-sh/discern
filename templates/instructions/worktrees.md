@@ -11,7 +11,7 @@ The `discern_status` fleet isn't a pool. Never adopt another effort's worktree b
 - **`discern_await`** watches a sibling or the trunk in one longest-safe call. Do not surface progress updates until it returns. If `data.met: false`, continue with `data.resume` without surfacing an update. Repeat without a fixed limit until the condition holds, or until stopped or unnecessary. An `ok: false` refusal has no continuation. Do not resume it. Follow its recovery hint. Report only when the condition holds, the watch is unnecessary, or a refusal/error needs action. Always respond to new user input. On success, follow its `start`/`update` hint.
 - **`discern_accept`** lands only with explicit consent from this conversation or machine-verified authority from a recorded grant. A green gate is evidence your work is ready, but the owner decides what to do with it. After a green `discern done`, follow its authority-aware hint: either report the one-line proof and stop, or land under the verified grant. Landing fast-forwards `{{main_branch}}` and removes the worktree and branch.
 
-While iterating, use `discern_prepare`, a diagnostic's reproduce command, or a targeted project command, and commit each logical step. Use `discern_test` when the complete test stage is the intended standalone result. Acceptance lands your branch history as-is.
+Use `discern_test` when the complete test stage is the intended standalone result. While iterating, use `discern_prepare`, a diagnostic's reproduce command, or a targeted project command, and commit each logical step. Acceptance lands your branch history as-is.
 
 **Finishing an effort.** Proof binds to one exact commit, so the order matters:
 
