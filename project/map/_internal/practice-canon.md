@@ -156,7 +156,7 @@ Every verb returns one structured result: the state, the diagnostics with the co
 
 - **Arc:** conduct
 - **Upheld:** automated via `mcp`
-- **Mechanisms:** Interfaces and contracts · One result envelope · Idempotent by contract · A forgiving command line · Normalized diagnostics · Registered hints · The gotchas pointer · Ready-to-relay messages · The agent is the user · Context is a budget · The Model Context Protocol (MCP) server.
+- **Mechanisms:** Interfaces and contracts · One result envelope · Idempotent by contract · A forgiving command line · Normalized diagnostics · Registered hints · The gotchas pointer · Complete owner moments · The agent is the user · Context is a budget · The Model Context Protocol (MCP) server.
 - **Human value:** Spend more time on the product.
 - **Agent outcomes:** Orient from one bounded result · Recover from a truthful refusal · Load only the context needed · Operate as the primary user.
 

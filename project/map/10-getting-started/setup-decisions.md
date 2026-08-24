@@ -1,7 +1,7 @@
 ---
 title: Setup decisions
 description: Understand why setup recommends a strong model, which choices remain yours, and what the agent should handle without interrupting you.
-order: 25
+order: 30
 aliases:
   - setup choices
   - setup model

@@ -1633,15 +1633,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "setup",
         title: "Agent-driven setup",
         what:
-          "`discern setup` is a staged, consent-driven handshake the coding agent completes: it verifies the project read-only, detects the default branch (offering git init on a bare directory), configures `[jobs]` and records which known lifecycles do not apply, proves the project runs in a worktree, and lands the finished configuration with `setup accept`. Before each effectful setup command mutates anything or runs slow project work, its effect plan exercises every predictable required filesystem and Git-admin write in that invocation; a denial names the exact path and retry command without changing setup state. Completion reports enforced protections against the applicable denominator. Each step serves ready-to-relay messages, a fresh scaffold requires a `--confirmed` consent attestation, and installing a dependency is its own consent point.",
+          "`discern setup` is a staged, consent-driven handshake the coding agent completes. It recommends the strongest suitable reasoning model and explains that the model authors the Gate, worktree policy, Map, and instructions later sessions inherit. It verifies the project read-only, detects the default branch (offering git init on a bare directory), configures `[jobs]` and records which known lifecycles do not apply, proves the project in a worktree, and leaves the finished configuration for review and `setup accept`. Predictable writes are probed before each effectful command. Completion explains the primary subsystem, principles, instructions, protections, and open items beside derived inventories and exact Proof. Landing precedes fresh-session activation.",
         why:
-          "Tell your agent to run setup and answer its questions; the configuration engine is the agent, and every irreversible step asks first.",
+          "One careful repository study creates useful working conditions for later sessions while consequential choices and landing remain with the owner.",
         plain: {
           title: "Setup led by the coding agent",
           what:
-            "`discern setup` is a staged, permission-first conversation the coding agent completes: it previews the plan without writing, finds the project's main shared line of work (offering to begin version history in a bare folder), records the project's checks and which familiar steps do not apply, proves the project runs in a separate working copy, and completes the settings with `setup accept`. Before each instruction that will make changes, discern briefly exercises the exact ordinary-file and version-history areas its plan needs; a denied area is named before anything changes. Completion counts only the familiar protections that apply. Every step serves a message ready to pass to the person in charge, starting from nothing requires `--confirmed`, and installing any extra software is its own permission moment.",
+            "`discern setup` is a staged, permission-first conversation led by the coding assistant. It recommends a strong reasoning model and explains why: this one careful study of the project creates the checks, separate-copy rules, project guide, and instructions later sessions use. It previews before writing, preserves existing work, proves the project in a separate copy, and explains the project understanding and protections it created before asking whether to add them to the main shared version. Only then does a fresh session check that the integration loaded.",
           why:
-            "Tell your coding assistant to run setup and answer its questions; the assistant supplies the judgment, and every hard-to-undo step asks first.",
+            "One careful study of the project gives later coding sessions better working conditions, while every consequential choice remains yours.",
         },
         surfaces: ["verb:setup", "config:assurance"],
       },
@@ -1664,30 +1664,30 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "setup-activation",
         title: "Provider-aware activation recovery",
         what:
-          "Setup phase state is resumable through `discern setup` and `discern status`. At completion, the provider registry serves one exact post-restart activation check for each configured agent, one local recovery step when that check fails, and `discern status --json` as the CLI fallback. Generated files alone never count as proof that a fresh session loaded the integration.",
+          "Setup phase state is resumable through `discern setup` and `discern status`. An unlanded completion stops at Proof and the owner's landing choice. After landing, the provider registry serves one exact fresh-session activation check for each configured agent, one local recovery step when it fails, and `discern status --json` as the CLI fallback. Generated files alone never prove that a fresh session loaded the integration; optional improvement follows successful activation.",
         why:
           "An interrupted setup or a provider restart boundary has one bounded continuation instead of a sequence of improvised low-level mutations.",
         plain: {
           title: "One restart check and one way to continue",
           what:
-            "Setup can continue from the point it recorded through `discern setup` or `discern status`. When setup finishes, each configured coding assistant receives one exact check for a new session, one local recovery step if that check fails, and the same command-line fallback. Seeing a file made automatically from a source the project owns does not by itself prove that the new session loaded it.",
+            "Setup resumes from its recorded point. A finished setup stays at review until you land it. After landing, each configured coding assistant receives one exact check for a fresh session, one local recovery step, and the same command-line fallback. Seeing a file made automatically from a source the project owns does not prove the new session loaded it, and optional improvement waits for a successful check.",
           why:
             "An interrupted setup or a restart has one limited continuation instead of a string of improvised low-level changes.",
         },
       },
       {
         id: "relay-messages",
-        title: "Ready-to-relay messages",
+        title: "Complete owner moments",
         what:
-          "At the consent and completion moments, setup serves the message to forward to the human — first-person prose, with each fact that must survive as its own list item — rather than instructions about a message. The identical text is carried in every result representation, including the structured envelope's instructions field.",
+          "Welcome, consent, progress, genuine owner decisions, completion, landing, and activation use enrolled human-moment contracts. Each explains the owner outcome, reason, current action, authority, reversibility, and recovery. A decision also carries one recommendation, option consequences, separate owner and agent actions, and an explicit wait boundary. Consent protects each must-survive fact and numbered confirmation; every result representation derives from the same authority.",
         why:
-          "Forwarding the authored message preserves every required fact and its intended tone.",
+          "A first-time owner understands why a choice matters, what each option changes, and whether the agent is waiting instead of receiving mechanically correct but incomplete prompts.",
         plain: {
-          title: "Messages ready to pass on",
+          title: "Complete explanations at every choice",
           what:
-            "At the permission and completion moments, setup serves the exact message to forward to the person — first-person writing, with each fact that must survive as its own list item — rather than instructions about a message. The identical words travel in the person-facing view and in the tool-readable result.",
+            "From the welcome through activation, setup explains what each important moment means for you. A real choice includes its recommendation, what every option changes, what you need to do, what the coding assistant will do, and whether it is waiting. The permission conversation protects every required fact and numbered answer from being shortened away.",
           why:
-            "Passing on the authored message preserves every required fact and its intended tone.",
+            "You can make an informed choice on your first encounter without already knowing how discern works.",
         },
       },
       {

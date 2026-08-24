@@ -618,7 +618,10 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
       effectful: true,
       cross_worktree: true,
       authority_sensitive: true,
-      relay_bearing: true,
+      // The authored brief carries canonical owner-moment ids. Their resolved
+      // ready-to-send relays are enrolled and checked by setup_experience.ts;
+      // duplicating one message here would create a second prose authority.
+      relay_bearing: false,
       recoverable: true,
       targets: [
         target(
@@ -658,19 +661,6 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         recheck: evidence(
           "Run the result's `discern setup accept` landing command only with applicable recorded or current owner authority",
         ),
-      },
-      relay: {
-        message: evidence(
-          "Setup authored <map_regions>, recorded <ledger_items>, and configured <jobs>. Assurance: <assurance>. Proof: <proof>. Branch and landing: <landing>.",
-        ),
-        facts: [
-          "map_regions",
-          "ledger_items",
-          "jobs",
-          "assurance",
-          "proof",
-          "landing",
-        ],
       },
     },
   ],

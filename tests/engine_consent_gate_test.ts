@@ -125,7 +125,7 @@ const PROBES = {
       env,
       mutated,
       meaning: {
-        act: "Setup needs your human's consent",
+        act: "Setup needs the owner's consent",
         consequence: "before it writes anything",
         scope: join(dirname(dir), `${basename(dir)}.worktrees`),
         continuation: env.data.command,

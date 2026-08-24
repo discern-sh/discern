@@ -285,7 +285,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** The human can add a project-specific engineering practice without manually configuring every check, instruction file, and worktree condition. Their effort goes into intent and consequential choices while the agent handles repository study and implementation.
 - **Mechanism:** The setup agent detects installed providers, studies the repository before asking one concise batch of questions, configures the project's real jobs and instructions, relays consent points clearly, and refuses completion until the Gate and a throwaway worktree probe pass.
-- **Product basis:** Agent-driven setup · Ready-to-relay messages · Detection at setup.
+- **Product basis:** Agent-driven setup · Complete owner moments · Detection at setup.
 
 ### Adopt discern without running another service
 
