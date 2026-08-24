@@ -39,7 +39,7 @@ Open a new shell, then run `which discern`. If it prints nothing, add the instal
 
 Restart the coding-agent session first. Model Context Protocol (MCP) servers and hooks load when a session starts, so the session that ran setup cannot see newly written integration files. Then run the exact post-restart check that `setup done` served for that provider. For MCP-enabled integrations the check is the local `discern_status` call; otherwise it is the registry's canonical CLI check.
 
-If that check is unavailable, follow the one provider-specific local recovery step in the setup result, then try it once more. Use `discern status --json` as the CLI fallback and run `discern doctor` for the integration diagnosis. Codex, Gemini, Cursor, and GitHub Copilot may keep committed integration settings inactive until you trust the folder. Generated files alone do not prove activation, and discern cannot grant or persist the provider's trust or sandbox authority.
+If that check is unavailable, follow the provider-specific local recovery step in the setup result, then try it once more. Use `discern status --json` as the CLI fallback and run `discern doctor` for the integration diagnosis. Codex, Gemini, Cursor, and GitHub Copilot may keep committed integration settings inactive until you trust the folder. Generated files alone do not prove activation, and discern cannot grant or persist the provider's trust or sandbox authority.
 
 Use `--markdown` for concise, prioritized prose or `--json` for exact structured fields. People, coding agents, and scripts can choose either representation to fit the task. Every discern MCP tool has a CLI verb behind it. See [Result formats and delivery](../70-reference/result-surfaces.md).
 

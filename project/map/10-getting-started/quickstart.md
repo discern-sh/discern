@@ -46,7 +46,7 @@ The Static Analysis Results Interchange Format (SARIF) is a machine-readable fin
 
 Then it's your turn:
 
-1. **Start a fresh agent session and run the served check.** The Model Context Protocol (MCP) tools and session hooks load at session start, so the session that ran setup cannot see them yet. `setup done` names one exact provider-aware check. If it is unavailable, follow the one local recovery step and use `discern status --json` as the command-line fallback; generated files alone do not prove activation.
+1. **Start a fresh agent session and run the served check.** The Model Context Protocol (MCP) tools and session hooks load at session start, so the session that ran setup cannot see them yet. `setup done` names the exact provider-aware check. If it is unavailable, follow the local recovery step and use `discern status --json` as the command-line fallback; generated files alone do not prove activation.
 2. **Review and land the `discern-setup` branch.** Setup is ordinary file edits on a branch you can read.
 
 <!-- discern-workflow:procedure -->

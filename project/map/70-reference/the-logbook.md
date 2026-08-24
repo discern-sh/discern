@@ -92,7 +92,7 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 
 Readers skip unknown schema versions, and fields are append-only. `begin` carries run identity. Completion adds outcome and `duration_ms`. Capped runs add `waited_ms`, including `0`; uncapped and older events omit it. Readers derive execution as `duration_ms - (waited_ms ?? 0)` for priors and suite health. End-to-end statistics retain wall time. Other kinds are `config-change`, `pin`, and `prune`.
 
-For `done`, `gate_ran: false` distinguishes reuse of current canonical green Proof from a new measurement. A deliberate same-state `--rerun` records `rerun` in `flags`. The compatibility spelling `done --confirmed` retains its historical `confirmed` flag; the rerun detector recognizes both spellings, while the producing command and `gate_ran` distinguish Gate execution from setup or owner-consent attestation.
+For `done`, `gate_ran: false` distinguishes reuse of current canonical green Proof from a new measurement. An explicit same-state `--rerun` records `rerun` in `flags`. The compatibility spelling `done --confirmed` retains its historical `confirmed` flag; the rerun detector recognizes both spellings, while the producing command and `gate_ran` distinguish Gate execution from setup or owner-consent attestation.
 
 ### Validation evidence
 
@@ -124,7 +124,7 @@ MCP describes the client implementation. An editor, extension, or proxy may sit 
 
 discern writes the Logbook under the Git administrative area, outside commits and ignore rules. The Logbook writer has no network interface under a test in discern's own Gate. A write failure does not change the verb outcome; the verb continues without recording the event.
 
-`discern doctor` judges the recording substrate rather than demanding historical activity. An enabled Logbook with zero prior events is **healthy but empty**, including on the first doctor invocation. Doctor distinguishes that state from **recording disabled**, **schema invalid**, **unwritable**, and **an event expected but absent**. An environment or sandbox denial is a warning: the result names the environmental cause and says recording is disabled for this process. It does not make doctor red, block setup, or enroll the advisory Logbook path in setup's required write plan. A malformed schema or a missing event after the canonical recorder should have observed one remains a distinct actionable diagnostic ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
+`discern doctor` judges the recording substrate rather than demanding historical activity. An enabled Logbook with zero prior events is **healthy but empty**, including on the first doctor invocation. Doctor distinguishes that state from **recording disabled**, **schema invalid**, **write denied**, and **an event expected but absent**. An environment or sandbox denial is a warning: the result names the environmental cause and says recording is disabled for this process. It does not make doctor red, block setup, or enroll the advisory Logbook path in setup's required write plan. A malformed schema or a missing event after the canonical recorder should have observed one remains a distinct actionable diagnostic ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
 
 ## Rotation and config epochs
 

@@ -507,13 +507,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "unchanged-tree-rerun",
         title: "Current green Proof composes; red reruns stay explicit",
         what:
-          "Each completed `discern done` records the exact tree it judged — `HEAD` plus a fingerprint of everything uncommitted — and the verdict, in the worktree's Git admin area. On that identical tree, an ordinary `done` returns a valid current green Proof with `gate_ran: false` and runs no Gate step. An unchanged red verdict, or a green marker without valid current Proof, still refuses read-only; `discern done --rerun` deliberately measures again and records that probe. `--confirmed` remains a compatibility alias for existing Gate scripts. A changed tree runs normally, while `--dry-run` only previews and never reuses evidence.",
+          "Each completed `discern done` records the exact tree it judged — `HEAD` plus a fingerprint of everything uncommitted — and the verdict, in the worktree's Git admin area. On that identical tree, an ordinary `done` returns a valid current green Proof with `gate_ran: false` and runs no Gate step. An unchanged red verdict, or a green marker without valid current Proof, still refuses read-only; `discern done --rerun` measures again and records that explicit probe. `--confirmed` remains a compatibility alias for existing Gate scripts. A changed tree runs normally, while `--dry-run` only previews and never reuses evidence.",
         why:
           "A wrapper can compose with an answer the Gate has already proved without paying for it twice, while a failed tree cannot become green by repetition.",
         plain: {
           title: "Reuse a current pass; make a repeated failure explicit",
           what:
-            "Each completed `discern done` records what it judged — the saved point plus a fingerprint of every unsaved edit — and the verdict, in the version history's housekeeping area. On identical work, an ordinary repeat returns the same still-valid passing evidence without running any check again. A recorded failure, or passing history whose evidence is missing or no longer exact, still refuses without touching anything; `discern done --rerun` deliberately runs it again and records that choice. The older `--confirmed` spelling remains available for existing scripts. Changed work runs normally, while `--dry-run` only previews.",
+            "Each completed `discern done` records what it judged — the saved point plus a fingerprint of every unsaved edit — and the verdict, in the version history's housekeeping area. On identical work, an ordinary repeat returns the same still-valid passing evidence without running any check again. A recorded failure, or passing history whose evidence is missing or no longer exact, still refuses without touching anything; `discern done --rerun` runs it again and records that explicit choice. The older `--confirmed` spelling remains available for existing scripts. Changed work runs normally, while `--dry-run` only previews.",
           why:
             "Another instruction can reuse an answer already proved without paying twice, while repeated failures never turn into passes by themselves.",
         },
@@ -1710,7 +1710,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "doctor",
         title: "Doctor",
         what:
-          "`discern doctor` verifies the installation without changing project state: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, instructions, skills, automation, resource commands, and Logbook configuration. An enabled but empty Logbook is healthy on a new install; disabled, invalid, unwritable, and unexpectedly non-recording states remain distinct. An environment-denied advisory recording write is a warning that disables recording for this process, never a setup blocker. Doctor also prints each verb's execution model: which steps are the project's and which are discern's.",
+          "`discern doctor` verifies the installation without changing project state: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, instructions, skills, automation, resource commands, and Logbook configuration. An enabled but empty Logbook is healthy on a new install; disabled, invalid, write-denied, and unexpectedly non-recording states remain distinct. An environment-denied advisory recording write warns that recording is disabled for this process. The warning does not block setup. Doctor also prints each verb's execution model: which steps are the project's and which are discern's.",
         why:
           "Facts before judgments, and a misconfigured install names its own fix.",
         plain: {

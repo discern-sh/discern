@@ -25,7 +25,7 @@ Proof also carries every structured checkpoint drop from the run: an uncertainty
 
 `done` and `prepare` share package progress, grouped jobs, activity, and commands. `done` adds review, recording, and readiness facts; only `recorded` passes. `prepare` names omitted work. The byte-exact relay stays separate.
 
-An ordinary `done` on the exact state of a complete, valid green Proof returns that canonical Proof without repeating any fixer, job, Standard, or checkpoint mutation. Every successful `done` result says whether work ran: `data.gate_ran` is `true` after measurement and `false` after reuse. The reused result is evidence retrieval, not a new Gate run.
+An ordinary `done` on the exact state of a complete, valid green Proof returns that canonical Proof without repeating any fixer, job, Standard, or checkpoint mutation. Every successful `done` result says whether work ran: `data.gate_ran` is `true` after measurement and `false` after reuse. The reused result retrieves existing evidence and records no new Gate run.
 
 `accept`, `setup done`, and `setup accept` reuse it. Successful non-forced setup completion returns the canonical inspection as `data.proof` and its relay line as `data.proof_line`; the forced path returns neither. Streaming stays raw. CI, `--plain`, oversized, or cursor-ineligible terminals stay static; pipes receive Proof; JSON and MCP omit Components. UTF-8 retains Unicode under `TERM=dumb` and no colour; exact `C` or `POSIX` uses ASCII.
 
@@ -70,12 +70,12 @@ After the trunk fast-forward, normal and setup acceptance write separate result 
 
 ## Re-running an unchanged tree
 
-Beside the Proof, every completed run records the exact tree it judged, its checkpoint declaration evidence, and the verdict in a last-run marker, including red runs. An ordinary `discern done` on an identical state takes one of two paths before any fixer or job:
+Beside the Proof, every completed run records the exact tree it judged, its checkpoint declaration evidence, and the verdict in a last-run marker, including red runs. An ordinary `discern done` on an identical state takes the reuse or refusal path before any fixer or job:
 
 - When the canonical Proof validator finds complete, current, strict green evidence for that exact tree and declaration evidence, `done` returns the stored Proof successfully with `data.gate_ran = false`.
 - When the last verdict was red, or the marker says green but Proof is missing, unreadable, stale, dirty, report-only, or bound to different checkpoint evidence, `done` refuses read-only. Repetition cannot turn that state green.
 
-`discern done --rerun` is the precise spelling for a deliberate same-state remeasurement or environment-only retry. It runs the Gate once and records the rerun flag so same-state divergence remains visible. `discern done --confirmed` remains a compatibility alias for existing scripts, but Gate documentation and remedies use `--rerun`; `--confirmed` continues to express consent on commands where consent is the real concept. Any changed tree runs normally. `--dry-run` remains read-only: it renders the plan, creates no evidence, and does not reuse Proof ([ADR 0319](../_adr/0319-current-green-proof-composes-and-red-reruns-stay-explicit.md), [ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)).
+`discern done --rerun` is the precise spelling for an explicit same-state measurement or environment-only retry. It runs the Gate once and records the rerun flag so same-state divergence remains visible. `discern done --confirmed` remains a compatibility alias for existing scripts, but Gate documentation and remedies use `--rerun`; `--confirmed` continues to express consent on commands where consent is the real concept. Any changed tree runs normally. `--dry-run` remains read-only: it renders the plan, creates no evidence, and does not reuse Proof ([ADR 0319](../_adr/0319-current-green-proof-composes-and-red-reruns-stay-explicit.md), [ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)).
 
 The public result fields are in [MCP tools & results](../70-reference/mcp-and-results.md).
 

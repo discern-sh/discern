@@ -8,7 +8,7 @@
 
 The distinction is syntax, not intent. Both block forms represent code-like literal content and preserve the same box-drawing geometry. An agent should not need to know that the validator's parser happened to recognize only one spelling.
 
-Fenced blocks have an info string, which supports the existing `freeform` opt-out for content where column alignment is deliberately not structural. Indented blocks have no equivalent metadata channel.
+Fenced blocks have an info string, which supports the existing `freeform` opt-out for content whose columns are not structural. Indented blocks have no equivalent metadata channel.
 
 ## Decision
 
@@ -16,7 +16,7 @@ Fenced blocks have an info string, which supports the existing `freeform` opt-ou
 
 - The Markdown block scanner emits literal content for fenced and indented code blocks through one diagram validator. A box-drawing glyph in either form enrolls the block.
 - Both forms use the same display-column alignment rule and the same `diagrams_misaligned` diagnostic with file, line, and column.
-- The existing fenced `freeform` info-string tag remains the explicit opt-out. Because an indented block carries no info string, deliberately freeform box-drawing content must use a fenced block tagged `freeform`.
+- The existing fenced `freeform` info-string tag remains the explicit opt-out. Because an indented block carries no info string, freeform box-drawing content must use a fenced block tagged `freeform`.
 - Tidy's all-or-nothing planning remains unchanged: any misaligned diagram stops the run before a Markdown or TOML target is written.
 - Fixtures cover aligned and misaligned examples in both forms and prove the `freeform` exemption remains limited to the tagged fenced form.
 

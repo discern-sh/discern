@@ -31,12 +31,12 @@ Doctor had a related first-run self-reference. It treated the absence of a histo
 
 - Setup records its phase and dedicated branch. Bare `discern setup` and `discern status` project the exact current phase and bounded discern command that continues it. Recovery does not instruct an agent to reconstruct discern-owned branch, commit, completion, or landing effects with raw Git.
 - Each native provider registry entry owns one exact local activation recovery. `activationCheck` derives whether the check is an MCP status call or the canonical CLI check from the provider's declared integration kind, and supplies `discern status --json` as the CLI fallback.
-- `setup done` returns and renders, for each configured provider, `check_kind`, exact `check`, provider-owned `recovery`, and `cli_fallback`. Only the exact check in a fresh session confirms activation. A failed check serves the one local recovery and fallback; generated integration files are not activation evidence.
+- `setup done` returns and renders, for each configured provider, `check_kind`, exact `check`, provider-owned `recovery`, and `cli_fallback`. Only the exact check in a fresh session confirms activation. A failed check serves the local recovery and fallback; generated integration files are not activation evidence.
 - Generic setup prose stays provider-neutral. Provider entries may name their real trust, reload, or fresh-session step. If a future provider cannot expose a deterministic local check, its registry contract must represent that state honestly and fall back to CLI rather than infer success.
 
 ### Doctor and authorization language
 
-- Doctor validates whether Logbook storage and observation are configured and operable. It distinguishes healthy-but-empty, recording disabled, schema invalid, unwritable, and an event expected but absent. Zero prior events is healthy on a first invocation.
+- Doctor validates whether Logbook storage and observation are configured and operable. It distinguishes healthy-but-empty, recording disabled, schema invalid, write denied, and an event expected but absent. Zero prior events is healthy on a first invocation.
 - Environment-refused Logbook storage is warning severity. It names the environmental cause and consequence—recording disabled for this process—and never blocks setup by itself. Invalid schema and an absent event after the canonical observer should have recorded one remain distinct diagnostics.
 - Product messages keep four concepts separate: owner consent, provider authorization, discern's recorded landing authority, and point-in-time write authority observed by a preflight. discern may request the provider permission required for its planned command, but cannot grant, persist, or bypass it.
 
@@ -47,13 +47,13 @@ Doctor had a related first-run self-reference. It treated the absence of a histo
 - Setup write plans remain broader than Gate validation state but reuse the same filesystem operation semantics and structured refusal. Logbook availability remains advisory even when its path happens to share a Git directory with required setup effects.
 - An interruption or provider restart has one state-derived continuation. Completed setup phases do not need to be replayed as low-level mutations, though a failure after the first irreversible effect can still require the command's explicit partial-effect recovery.
 - Every configured provider auto-enrolls in activation parity. Setup output cannot claim a restart succeeded merely because files were generated.
-- The up-front probes add small filesystem and Git-admin operations. They deliberately prefer a few reversible operations to discovering a predictable denial after expensive or partial work.
+- The up-front probes add small filesystem and Git-admin operations. That cost avoids discovering a predictable denial after expensive or partial work.
 
 ## Alternatives considered
 
 - **Use Gate's admin-state registry as setup's target list.** Rejected because it covers validation markers, not setup's branch, scaffold, commit, worktree-root, merge, note, and deletion effects.
 - **Maintain one probe list per setup command.** Rejected because effect and authority membership would drift; the plan itself must carry the writes.
-- **Probe during `setup verify` or cache success.** Rejected because provider authority can differ in the later invocation, and verify's fixed contract is read-only.
+- **Probe during `setup verify` or cache success.** Rejected because provider authority can differ in the later invocation, and the fixed `verify` contract is read-only.
 - **Make Logbook health a required setup write.** Rejected because recording is advisory and its failure must not acquire enforcement merely by sharing Git storage.
 - **Teach generic provider permission steps.** Rejected because generic templates cannot truthfully describe every host's trust or approval mechanism.
 - **Infer activation from generated files.** Rejected because configuration can exist while the current provider session has not loaded or trusted it.

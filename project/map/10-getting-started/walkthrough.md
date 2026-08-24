@@ -28,7 +28,7 @@ Reply in plain language, for example:
 
 The agent attests that consent happened when it begins. A fresh interactive setup cannot write without that attestation ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
-That attestation answers “did the owner consent?”, not “can this process write?”. `verify` performs no write probe. In the later effectful invocation, setup derives the required targets from its command plan and exercises them after consent and other cheap read-only checks but before its first effect. A denial returns `write_access` with the exact path and a complete retry command, leaving the setup phase unchanged. The probe observes point-in-time authority; it cannot persist or bypass the host's sandbox policy.
+That attestation records the owner's consent. `verify` performs no write probe. In the later effectful invocation, setup checks whether the process can write: it derives the required targets from its command plan and exercises them after consent and other cheap read-only checks but before its first effect. A denial returns `write_access` with the exact path and a complete retry command, leaving the setup phase unchanged. The probe observes point-in-time authority; it cannot persist or bypass the host's sandbox policy.
 
 ## Setup builds on its own branch
 

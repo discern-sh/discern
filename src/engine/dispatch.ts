@@ -272,7 +272,7 @@ export function attachEngineCommands(
     )
     .option(
       "--rerun",
-      "Run the full Gate even when current green Proof covers this exact tree, or deliberately retry an unchanged red verdict. The rerun is recorded.",
+      "Run the full Gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.",
     )
     .option(
       "--confirmed",
