@@ -10,7 +10,7 @@ aliases:
 
 _An agent integration is the provider-specific files, trust decisions, and runtime behavior that connect a coding agent to discern._
 
-discern keeps coding-agent identity in one shared catalog: [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts). Entries with a native provider name form the supported set below. The provider registry in [`src/lib/providers.ts`](../../../src/lib/providers.ts) covers every native integration. It names the instruction file, Skills directory, Model Context Protocol (MCP) config target, hooks, trust gate, and one exact post-restart activation check with local recovery and CLI fallback. It also holds installation evidence, setup advice, interactive command-line interface (CLI) actions, brand assets, and any app-managed worktree lifecycle file.
+discern keeps coding-agent identity in one shared catalog: [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts). Entries with a native provider name form the supported set below. The provider registry in [`src/lib/providers.ts`](../../../src/lib/providers.ts) covers every native integration. It names the instruction file, Skills directory, Model Context Protocol (MCP) config target, hooks, trust gate, activation check and recovery, installation evidence, setup advice, interactive command-line interface (CLI) actions, brand assets, and any app-managed worktree lifecycle file.
 
 The MCP call-duration policy covers the same native set in [`src/shared/mcp_timeout_policy.ts`](../../../src/shared/mcp_timeout_policy.ts). Type-checking and registry tests require each new native provider to declare a timeout profile. Signal-only catalog entries can appear as advisory Logbook evidence, but they never become setup choices.
 
@@ -20,9 +20,9 @@ Each native provider also declares a compact mark and horizontal logo lockup wit
 
 Each provider page lists the files discern writes or co-manages, what stays with the user, and the provider-specific gotchas.
 
-`discern setup done` derives its reactivation handoff from those provider records. For every current MCP-wired integration, the fresh-session check is the local `discern_status` tool call and the fallback is `discern status --json`; the recovery sentence remains provider-owned. The check, not the presence of generated files, confirms that the integration loaded. Registry parity tests auto-enroll every new native provider ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
+`setup done` derives each fresh-session check, local recovery, and CLI fallback from those records; parity tests enroll new providers. Generated files do not prove activation ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
-discern writes workflow integration into vendor surfaces. Those files do not enforce vendor security. The vendor controls sandbox rules, permissions, and approval flows, while the user remains responsible for project security. A setup write preflight can observe representative writes only at that point in its invocation; it does not grant, persist, or bypass vendor authority ([ADR 0193](../_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md)).
+discern writes workflow integration into vendor surfaces but cannot grant or retain vendor authority. The vendor controls sandbox, permissions, and approval flows; the user remains responsible for project security ([ADR 0193](../_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md)).
 
 For the shared instructions behind these files, read [Agent instructions](../40-agent-instructions/). For the isolated checkout lifecycle the hooks prepare, read [Worktrees](../30-worktrees/). The table below is the reading order used in the manual's navigation.
 

@@ -123,9 +123,7 @@ This supports the linked-worktree workflow after `discern_start`. The `writable_
 
 ## Runtime behavior and gotchas
 
-Project `.codex/` config is inert until Codex trusts the directory. That trust is outside the repository; discern can write and point-in-time probe the files, but it cannot self-trust a project, grant sandbox authority, or promise that permission persists.
-
-After setup, open a new Codex task for this project and call `discern_status`; only that result confirms that the project integration loaded. If the call is unavailable, re-check the project integration and restart the Codex app if it remains absent, then use `discern status --json` as the local CLI fallback. Generated `.codex/` files alone are not activation evidence.
+Project `.codex/` config is inert until Codex trusts the directory. That trust is outside the repository; discern can write the files, but it cannot self-trust a project for the user. Start a fresh session or restart Codex when needed so it loads newly written project config and rules.
 
 `discern_start` can re-aim the long-lived discern MCP server at the new worktree, but it cannot move Codex's shell workspace. The writable-root entry in `.codex/config.toml` reduces the resulting sandbox friction for normal file edits and commands; `.codex/rules/discern.rules` covers the expected `git add`/`git commit` prefixes that write linked-worktree Git metadata under the main checkout.
 

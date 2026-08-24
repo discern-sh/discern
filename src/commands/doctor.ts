@@ -933,7 +933,7 @@ export async function runChecks(
 
   // 7d. the Logbook's advisory recording substrate. Health comes from config,
   // a real point-in-time write probe, readable schema, and recorder continuity;
-  // zero historical events is a sound first-install state, never a rerun loop.
+  // an empty event stream is a sound first-install state, never a rerun loop.
   if (gitHealth?.repository.kind === "repository") {
     const commonGitDir = await resolveCommonGitDir(destDir);
     if (commonGitDir !== undefined) {

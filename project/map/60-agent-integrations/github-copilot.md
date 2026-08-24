@@ -92,8 +92,6 @@ discern does not set Copilot sandbox options, tool approval defaults, model sett
 
 Committed Copilot config is inert until the folder is trusted. The trust grant is stored outside the repository in `~/.copilot/config.json` `trustedFolders`. For unattended runs, the provider registry names `--allow-all-tools` and `--allow-all-paths` as headless bypasses.
 
-After setup and folder trust, start a new Copilot CLI session in the trusted folder and call `discern_status`; only that result confirms that the project MCP server loaded. If the call is unavailable, start a new session in the trusted folder and check again, then use `discern status --json` as the local CLI fallback. Generated `.mcp.json` and hook files alone are not activation evidence.
-
 Copilot can move a running session with `/cwd` and can create and enter a native worktree with `/worktree`. It still does not expose a worktree create/remove hook contract for discern to drive. discern owns its own worktree lifecycle through `discern start`, `discern update`, and `discern accept`.
 
 Copilot's `sessionStart` hook can fire per prompt in interactive mode. `discern worktree ensure` is idempotent, so repeated hook calls preserve the resulting state.

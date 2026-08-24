@@ -179,21 +179,25 @@ async function probeDirectoryTree(
   let probeRoot: string | undefined;
   try {
     const parent = await nearestExistingDirectory(target.path);
-    probeRoot = await Deno.makeTempDir({
-      dir: parent,
-      prefix: ".discern-write-tree-probe-",
-    });
+    probeRoot = join(
+      parent,
+      `.discern-write-tree-probe-${crypto.randomUUID()}`,
+    );
+    await Deno.mkdir(probeRoot);
     const representative = join(probeRoot, "nested", "target");
     await Deno.mkdir(representative, { recursive: true });
-    const entry = await Deno.makeTempFile({
-      dir: representative,
-      prefix: ".discern-write-probe-",
+    const result = await probeDirectoryEntry({
+      kind: "directory-entry",
+      path: representative,
+      description: target.description,
     });
-    await Deno.writeTextFile(entry, "discern write probe\n");
-    await Deno.rename(entry, `${entry}.renamed`);
-    await Deno.remove(`${entry}.renamed`);
-    await removeProbeTree(probeRoot);
-    probeRoot = undefined;
+    if (!result.ok) {
+      return {
+        ...result,
+        path: target.path,
+        description: target.description,
+      };
+    }
     return { ok: true };
   } catch (error) {
     return {

@@ -7,7 +7,7 @@
  * Advisory Logbook recording never enters this model.
  */
 
-import { dirname, isAbsolute, join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { resolveCommonGitDir } from "../engine/worktree/git.ts";
 import { runGit } from "./subprocess.ts";
 import {
@@ -131,24 +131,13 @@ export async function plannedFilesystemWrites(
   }];
 }
 
-/** Resolve a Git path as an absolute filesystem target without mutating Git. */
-async function absoluteGitPath(
-  root: string,
-  name: string,
-): Promise<string | undefined> {
-  const absolute = await runGit(
-    ["rev-parse", "--path-format=absolute", "--git-path", name],
-    { cwd: root },
-  );
-  if (absolute.success && absolute.stdout.trim() !== "") {
-    return absolute.stdout.trim();
-  }
-  const fallback = await runGit(["rev-parse", "--git-path", name], {
+/** Resolve this checkout's absolute Git directory without mutating Git. */
+async function checkoutGitDir(root: string): Promise<string | undefined> {
+  const result = await runGit(["rev-parse", "--absolute-git-dir"], {
     cwd: root,
   });
-  const path = fallback.stdout.trim();
-  if (!fallback.success || path === "") return undefined;
-  return isAbsolute(path) ? path : join(root, path);
+  const path = result.stdout.trim();
+  return result.success && path !== "" ? path : undefined;
 }
 
 /**
@@ -160,26 +149,34 @@ export async function plannedGitMutationWrites(
   root: string,
   description: string,
 ): Promise<PlannedWriteTarget[]> {
-  const common = await resolveCommonGitDir(root);
-  if (common === undefined) return [];
+  const [common, checkout] = await Promise.all([
+    resolveCommonGitDir(root),
+    checkoutGitDir(root),
+  ]);
+  if (common === undefined || checkout === undefined) return [];
   const targets: PlannedWriteTarget[] = [{
     kind: "directory-entry",
     path: common,
     description: `${description} Git common directory`,
   }];
+  if (checkout !== common) {
+    targets.push({
+      kind: "directory-entry",
+      path: checkout,
+      description: `${description} checkout Git directory`,
+    });
+  }
   for (
-    const [name, label] of [
-      ["HEAD", "HEAD"],
-      ["index", "index"],
-      ["objects", "object database"],
-      ["refs/heads", "branch refs"],
-      ["refs/notes", "Proof-note refs"],
-      ["logs/refs/heads", "branch reflogs"],
-      ["worktrees", "linked-worktree administration"],
+    const [path, label] of [
+      [join(checkout, "HEAD"), "HEAD"],
+      [join(checkout, "index"), "index"],
+      [join(common, "objects"), "object database"],
+      [join(common, "refs", "heads"), "branch refs"],
+      [join(common, "refs", "notes"), "Proof-note refs"],
+      [join(common, "logs", "refs", "heads"), "branch reflogs"],
+      [join(common, "worktrees"), "linked-worktree administration"],
     ] as const
   ) {
-    const path = await absoluteGitPath(root, name);
-    if (path === undefined) continue;
     targets.push(
       ...await plannedFilesystemWrites(
         path,

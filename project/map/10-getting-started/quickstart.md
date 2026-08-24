@@ -34,7 +34,7 @@ The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-s
 
 Answer in plain language: "Yes. Set up Claude Code and Codex." Setup cannot proceed until the agent records your consent ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
-`discern setup verify` is strictly read-only. Consent does not prove write access: in the later `setup begin`, `setup done`, and `setup accept` invocations, discern first exercises the filesystem and Git-admin writes that command's effect plan requires. If the environment denies one, setup returns the exact path and retry command before changing phase or starting slow work. A successful probe is valid only at that point in that invocation; discern neither grants nor caches provider authorization ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
+`setup verify` is read-only. Each later effectful command checks its own plan-derived write targets before effects; denial preserves the phase and names the path and retry. The check is point-in-time, not cached provider authority ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
 Setup writes ordinary files on a separate `discern-setup` branch, keeping those changes off `main` until you land them. The format job already contains `discern tidy` for discern-owned Markdown and the root config. The agent puts your stack's formatter before it, then wires lint, test, and the other commands your project runs. It fills in instructions and the first Map pages under that live Gate. From that point, each configured agent reads the same compiled instructions and runs the same commands.
 
@@ -46,7 +46,7 @@ The Static Analysis Results Interchange Format (SARIF) is a machine-readable fin
 
 Then it's your turn:
 
-1. **Start a fresh agent session and run the served check.** The Model Context Protocol (MCP) tools and session hooks load at session start, so the session that ran setup cannot see them yet. `setup done` names the exact provider-aware check. If it is unavailable, follow the local recovery step and use `discern status --json` as the command-line fallback; generated files alone do not prove activation.
+1. **Start a fresh agent session and run the check served by `setup done`.** If it is unavailable, follow its local recovery and use `discern status --json` as the fallback.
 2. **Review and land the `discern-setup` branch.** Setup is ordinary file edits on a branch you can read.
 
 <!-- discern-workflow:procedure -->

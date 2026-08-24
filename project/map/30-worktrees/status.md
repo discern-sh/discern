@@ -51,7 +51,7 @@ discern status --verbose --json
 discern status --no-color
 ```
 
-During an unfinished setup, the same read-only result reports the recorded setup phase, dedicated `discern-setup` branch, and exact bounded setup continuation. Use it after interruption or restart; do not replay completed branch, scaffold, completion, or landing writes with raw Git. Status performs no write probe and cannot cache provider authority for the later effectful command. That command derives and exercises its own required targets in its invocation ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
+During setup, this read-only result reports the recorded phase, dedicated branch, and bounded continuation. It performs no write probe; the later effectful command checks its own targets ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
 ## Structured result
 

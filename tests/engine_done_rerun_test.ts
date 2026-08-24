@@ -8,7 +8,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -127,12 +127,12 @@ Deno.test("done: current green Proof is reused on JSON, Markdown, human, and in-
 
     const markdown = await runAgent(wt, ["done", "--markdown"]);
     assertEquals(markdown.code, 0, markdown.output);
-    assertStringIncludes(markdown.output, "no Gate job ran");
+    assertTerminalTextIncludes(markdown.output, "no Gate job ran");
     assertStringIncludes(markdown.output, "Proof");
 
     const human = await runAgent(wt, ["done"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "no Gate job ran");
+    assertTerminalTextIncludes(human.output, "no Gate job ran");
 
     const inProcess = await finishResult(wt, {
       surface: { kind: "quiet" },

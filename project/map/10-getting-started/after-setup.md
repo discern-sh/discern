@@ -48,7 +48,7 @@ The `.gitignore` file gains one marked `# --- discern ---` block. Keep your rule
 
 Each selected coding agent also has integration files. discern adds its own Model Context Protocol (MCP) server, hooks, and permission defaults to the provider's existing configuration. It leaves unrelated entries in place. The [agent integration guides](../60-agent-integrations/) list the exact paths for each provider.
 
-Those files express integration configuration; they do not prove a fresh provider session loaded it. `setup done` returns one registry-derived activation check, recovery step, and CLI fallback for every configured agent. Run the exact check after the restart. The host continues to own sandbox and trust authority: discern's setup consent, recorded landing grants, and point-in-time write probes do not grant or persist that provider permission.
+`setup done` also serves the provider's post-restart activation check; see [Setup command boundaries](../70-reference/setup-command-boundaries.md).
 
 ## Files discern regenerates
 

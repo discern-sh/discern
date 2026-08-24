@@ -949,6 +949,8 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "The installer teaches setup before the Desk becomes available.",
   "feature:setup-observability":
     "Setup displays these operational reports while it runs.",
+  "feature:setup-activation":
+    "Setup completion serves activation recovery before the Desk becomes available.",
   "feature:relay-messages":
     "Relay messages coordinate coding agents; human actions arrive through the Desk.",
   "feature:ownership-buckets":

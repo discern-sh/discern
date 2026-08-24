@@ -1924,7 +1924,7 @@ async function planSetupBranch(
   return { plan: { kind: "git", current, exists } };
 }
 
-/** Apply a previously checked isolated-branch plan. */
+/** Apply the checked isolated-branch plan. */
 async function ensureSetupBranch(
   destDir: string,
   opts: SetupOptions,

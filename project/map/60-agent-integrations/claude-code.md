@@ -113,8 +113,6 @@ The Claude Code settings seed includes the worktree hooks and denies `Read(./.en
 
 ## Runtime behavior and gotchas
 
-After setup, close and reopen Claude Code in this project. In the fresh session, call `discern_status`; only that result confirms that the project MCP server loaded. If the call is unavailable, close and reopen Claude Code once more and check whether the project MCP server was loaded, then use `discern status --json` as the local CLI fallback. Generated `.mcp.json` and settings files alone are not activation evidence.
-
 Among the supported providers, Claude Code exposes the worktree lifecycle hook contract. `WorktreeCreate` and `WorktreeRemove` run `discern worktree hook`; `SessionStart` runs `discern worktree ensure`.
 
 `EnterWorktree` re-roots Claude Code's shell and instruction context, but a stdio MCP process keeps its launch cwd. `discern_start` re-aims discern's live MCP root to its new worktree; a native cwd move does not move a generic server.

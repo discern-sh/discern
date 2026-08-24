@@ -13,7 +13,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   git,
@@ -77,7 +77,7 @@ Deno.test("start: one positional name serves --name syntax and changes nothing o
       if (format !== undefined) argv.push(format);
       const result = await runAgent(dir, argv);
       assertEquals(result.code, 2, result.output);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         result.output,
         "discern start --name setup-probe",
       );
