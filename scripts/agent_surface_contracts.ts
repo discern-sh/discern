@@ -631,8 +631,8 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         ),
         target(
           "stable",
-          "the stable numbered page returned by discern setup step",
-          "Re-run `discern setup begin` for the preamble and first page, or `discern setup step <n>` for one stable page.",
+          "the numbered page returned by discern setup step",
+          "Re-run `discern setup begin` for the preamble and first page, or `discern setup step <n>` for one numbered page.",
         ),
       ],
       sequence: [
