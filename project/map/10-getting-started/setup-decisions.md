@@ -29,9 +29,9 @@ To switch, select another model in your coding tool, open a fresh project sessio
 
 ## Confirm what the project is called
 
-Before setup writes the maintained guide or instructions, it proposes the strongest name supported by the README, package file, or other project metadata. A checkout directory or clone suffix is only a fallback. Confirm or correct the proposal; that answer becomes the one name later setup steps use.
+Before setup writes the maintained guide or instructions, it proposes the strongest name supported by the README, package file, or other project metadata. A checkout directory or clone suffix is only a fallback. Confirm or correct the proposal; later setup steps use that answer as the project name.
 
-When the evidence is clear and you do not have a preference, you can reply **“use your recommendation.”** That is an explicit choice, not inferred consent.
+When the evidence is clear and you do not have a preference, reply **“use your recommendation”** to record your choice and use the proposal.
 
 ## Know which choices remain yours
 
