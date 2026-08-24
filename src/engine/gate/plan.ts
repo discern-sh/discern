@@ -685,6 +685,7 @@ export async function buildGateResultWithHints(
   );
   const data: GateData = {
     ...(plan.mode === "report" ? { mode: plan.mode } : {}),
+    gate_ran: true,
     failed_stage: failedStage,
     scopes_changed: plan.scopesChanged,
   };

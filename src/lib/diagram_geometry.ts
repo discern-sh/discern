@@ -2,11 +2,11 @@
  * Diagram-geometry scanner — the executable predicate behind the
  * misaligned-box-drawing-diagram class.
  *
- * The mechanism that permits the defect: fence bodies are the one Markdown
- * surface no formatter rewrites (the embedded Markdown formatter keeps them
- * byte-for-byte), so a diagram's 2D geometry survives only as long as every
- * editor re-counts columns by hand. This scanner makes the geometry
- * checkable: inside any fenced block that contains box-drawing STRUCTURE (a
+ * The mechanism that permits the defect: code-block bodies are the one
+ * Markdown surface no formatter rewrites, so a diagram's 2D geometry survives
+ * only as long as every editor re-counts columns by hand. This scanner makes
+ * the geometry checkable: inside any fenced or indented block that contains
+ * box-drawing STRUCTURE (a
  * corner or junction glyph), every drawing glyph's vertical claims must be
  * honoured — a glyph that connects upward must find a downward-connecting
  * glyph (or label text, a legal anchor) directly above it, never space or a
@@ -24,9 +24,9 @@
  *    labels legally interrupt shafts (`──discern start──►`);
  *  - an arrowhead may POINT at the glyph it meets instead of continuing its
  *    shaft (`▲` directly under a border's `┬`);
- *  - a fence with no corner/junction glyph is not a diagram (quoted `── job │`
- *    output lines, plain flows) and is skipped, as is everything outside
- *    fences, where proportional rendering makes geometry meaningless;
+ *  - a code block with no corner/junction glyph is not a diagram (quoted
+ *    `── job │` output lines, plain flows) and is skipped, as is proportional
+ *    prose outside code blocks, where geometry is meaningless;
  *  - a fence whose info string carries the word `freeform` is exempt — the
  *    escape for intentional character art that is not a box diagram.
  *
@@ -36,6 +36,16 @@
  */
 
 import { fencedBlocks } from "./docs_integrity.ts";
+
+/** The common geometry-scanner view of either Markdown code-block form. */
+interface DiagramBlock {
+  /** The info string of a fenced block; indented blocks have none. */
+  info: string;
+  /** 1-based source line of the first body row. */
+  startLine: number;
+  /** Code rows with their Markdown indentation removed. */
+  lines: string[];
+}
 
 /** One geometry violation inside a fenced diagram block. */
 export interface DiagramViolation {
@@ -171,13 +181,73 @@ function describe(glyph: string | undefined): string {
 export const FREEFORM_FENCE_WORD = "freeform";
 
 /**
- * Scan one Markdown document: every fenced block containing box-drawing
- * structure is checked as a character grid (code-point columns, the unit an
- * editor aligns by). Returns violations in document order.
+ * Extract Markdown's indented code blocks without double-enrolling fenced
+ * bodies. A block row begins with one tab or four spaces. Blank rows may live
+ * inside a block; trailing blanks are discarded so following prose never joins
+ * it. The scanner needs only this deliberately small renderer-equivalent view:
+ * geometry is activated by box structure, not by a language info string.
+ */
+function indentedCodeBlocks(md: string): DiagramBlock[] {
+  const out: DiagramBlock[] = [];
+  const source = md.split("\n");
+  let fence: string | undefined;
+  let block: DiagramBlock | undefined;
+
+  const flush = (): void => {
+    if (block === undefined) return;
+    while (block.lines.at(-1) === "") block.lines.pop();
+    if (block.lines.length > 0) out.push(block);
+    block = undefined;
+  };
+
+  for (let index = 0; index < source.length; index += 1) {
+    const line = source[index] ?? "";
+    const fenceMarker = line.match(/^ {0,3}(```|~~~)/)?.[1];
+    if (fence !== undefined) {
+      flush();
+      if (fenceMarker === fence && line.trim().startsWith(fence)) {
+        fence = undefined;
+      }
+      continue;
+    }
+    if (fenceMarker !== undefined) {
+      flush();
+      fence = fenceMarker;
+      continue;
+    }
+
+    const indented = line.startsWith("\t")
+      ? line.slice(1)
+      : line.startsWith("    ")
+      ? line.slice(4)
+      : undefined;
+    if (indented !== undefined) {
+      block ??= { info: "", startLine: index + 1, lines: [] };
+      block.lines.push(indented);
+      continue;
+    }
+    if (line.trim() === "" && block !== undefined) {
+      block.lines.push("");
+      continue;
+    }
+    flush();
+  }
+  flush();
+  return out;
+}
+
+/**
+ * Scan one Markdown document: every fenced or indented code block containing
+ * box-drawing structure is checked as a character grid (code-point columns,
+ * the unit an editor aligns by). Returns violations in document order.
  */
 export function scanMarkdownDiagrams(md: string): DiagramViolation[] {
   const out: DiagramViolation[] = [];
-  for (const block of fencedBlocks(md)) {
+  const blocks: DiagramBlock[] = [
+    ...fencedBlocks(md),
+    ...indentedCodeBlocks(md),
+  ].sort((left, right) => left.startLine - right.startLine);
+  for (const block of blocks) {
     if (block.info.split(/\s+/).includes(FREEFORM_FENCE_WORD)) continue;
     const grid = block.lines.map((line) => Array.from(line));
     if (!grid.some((row) => row.some(isStructural))) continue;

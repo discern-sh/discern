@@ -271,10 +271,12 @@ export function attachEngineCommands(
       "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
     )
     .option(
+      "--rerun",
+      "Run the full Gate even when current green Proof covers this exact tree, or deliberately retry an unchanged red verdict. The rerun is recorded.",
+    )
+    .option(
       "--confirmed",
-      "Attest this rerun: run the full gate again on the exact tree it last " +
-        "judged — a flake probe, or a re-measure — and record it. Without the " +
-        "flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it.",
+      "Compatibility alias for --rerun. Existing scripts continue to work; new callers should use the Gate-specific spelling --rerun.",
     )
     .option(
       "--ci",
@@ -346,6 +348,7 @@ export function attachEngineCommands(
           json,
           dryRun: o.dryRun ?? false,
           ci: o.ci ?? false,
+          rerun: o.rerun ?? false,
           confirmed: o.confirmed ?? false,
           plain: plainModeEnabled(),
           ...(o.met === undefined ? {} : { met: o.met }),

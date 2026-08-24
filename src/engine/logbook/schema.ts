@@ -345,6 +345,9 @@ export const verbEventSchema = z.looseObject({
   /** The gate stage that failed, from the envelope's closed vocabulary —
    * "merge" and "test" are different diagnoses wearing the same red. */
   failed_stage: z.string().optional(),
+  /** Whether a `done` invocation executed Gate effects. False identifies an
+   * exact-current green Proof reuse; optional for older logbook lines. */
+  gate_ran: z.boolean().optional(),
   /** The crash signature, when the invocation died on an unexpected throw —
    * what separates "discern hit a bug" from an ordinary red verb, and the
    * field a support conversation joins against the saved crash report. */

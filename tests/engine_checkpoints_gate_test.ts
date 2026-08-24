@@ -44,6 +44,7 @@ interface DoneEnvelope {
   hints?: string[];
   plan?: { details?: string[] };
   data: {
+    gate_ran?: boolean;
     checkpoints: GateCheckpointsData & {
       review?: {
         enforcement: string;
@@ -719,7 +720,7 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
   });
 });
 
-Deno.test("done: declarations replace conclusions without --confirmed, and the rerun guard still holds for true reruns", async () => {
+Deno.test("done: declarations replace conclusions, while a true green rerun reuses Proof", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
@@ -728,11 +729,10 @@ Deno.test("done: declarations replace conclusions without --confirmed, and the r
       0,
     );
 
-    // A literal rerun on the unchanged tree with unchanged declarations
-    // refuses exactly as before.
+    // A literal strict call on the unchanged tree reuses exact current Proof.
     const rerun = await runAgent(wt, ["done", "--json"]);
-    assertEquals(rerun.code, 1, rerun.output);
-    assertEquals(parseJson(rerun.stdout).error, UNCHANGED_TREE_RERUN_SLUG);
+    assertEquals(rerun.code, 0, rerun.output);
+    assertEquals(parseJson(rerun.stdout).data.gate_ran, false);
 
     // Replacing the conclusion is NEW evidence: it proceeds through
     // reconciliation into a fresh gate run with no --confirmed, and the new
@@ -1312,12 +1312,12 @@ question = "${QUESTION_NOTES}"
       "--no-gpg-sign",
     );
 
-    // Before `update`: the unchanged tree meets the RERUN guard, never a
-    // demand from the not-yet-governing checkpoint — and the policy identity
-    // still names the old merge-base.
+    // Before `update`: exact current Proof remains reusable, never a demand
+    // from the not-yet-governing checkpoint — and the policy identity still
+    // names the old merge-base.
     const before = await runAgent(wt, ["done", "--json"]);
-    assertEquals(before.code, 1, before.output);
-    assertEquals(parseJson(before.stdout).error, UNCHANGED_TREE_RERUN_SLUG);
+    assertEquals(before.code, 0, before.output);
+    assertEquals(parseJson(before.stdout).data.gate_ran, false);
     assert(!before.output.includes("risk-notes"), before.output);
     const preUpdate = await runAgent(wt, ["checkpoints", "--json"]);
     assertStringIncludes(preUpdate.stdout, `"policy":"${governed}"`);

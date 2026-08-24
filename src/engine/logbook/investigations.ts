@@ -273,7 +273,7 @@ const validationInstability: InvestigationRelationship = {
         sourceObservation(divergent, { value: 0, unit: "job-runs" }),
         sourceObservation(reruns, {
           value: reruns.evidence.confirmed_runs ?? 0,
-          unit: "confirmed Gate reruns",
+          unit: "explicit Gate reruns",
         }),
       ],
       evidence_boundary: evidenceBoundary(sources, {
@@ -281,19 +281,19 @@ const validationInstability: InvestigationRelationship = {
         completeValidationState: this.completeValidationState,
         setup: divergent.basis?.matched_conditions ?? [],
         limitations: [
-          "The verdict change has complete recorded validation identity; confirmed reruns are a project-level practice count and are not claimed to be the same job or setup.",
+          "The verdict change has complete recorded validation identity; explicit reruns are a project-level practice count and are not claimed to be the same job or setup.",
           "Correlation between the findings does not identify the unstable input or establish a cause.",
         ],
       }),
       summary:
-        "One validation job changed verdict under matched recorded conditions, alongside repeated confirmed Gate reruns.",
+        "One validation job changed verdict under matched recorded conditions, alongside repeated explicit Gate reruns.",
       observed: joinedObservation(sources),
       interpretation:
-        "One validation job changed verdict under matched recorded conditions, alongside repeated confirmed Gate reruns.",
+        "One validation job changed verdict under matched recorded conditions, alongside repeated explicit Gate reruns.",
       diagnostic_action:
         "Reproduce the named job under the recorded envelope, then vary one unrecorded input at a time before changing the Gate or retry policy.",
       falsifier:
-        "The interpretation is weakened if controlled reproductions stay stable and confirmed reruns stop without any validation change.",
+        "The interpretation is weakened if controlled reproductions stay stable and explicit reruns stop without any validation change.",
     }];
   },
 };

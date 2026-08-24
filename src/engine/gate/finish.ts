@@ -45,6 +45,7 @@ import {
   type AdminStateWriteAuthority,
   clearStandardMeasurements,
   currentTreeIdentity,
+  inspectGateProof,
   inspectLastGateRun,
   pinValidatedTree,
   preflightAdminStateWrites,
@@ -1207,8 +1208,8 @@ async function runGate(
         checkpointPreflight?.mode ?? "strict",
       );
   // The last-run marker remembers what this run judged — every verdict, red
-  // included, unlike the proof above — so the next `done` can refuse an
-  // unchanged-tree rerun unless it carries `--confirmed`.
+  // included, unlike the proof above — so the next `done` can resist an
+  // unchanged red retry unless it carries `--rerun` (or its compatibility alias).
   if (writeAuthority !== undefined) {
     await recordLastGateRun(
       root,
@@ -1841,6 +1842,7 @@ function awaitingDeclarationRefusal(
     "the only writes.";
   const checkpoints = gateCheckpointsData(preflight);
   const data: GateData = {
+    gate_ran: false,
     failed_stage: null,
     scopes_changed: [],
     ...(checkpoints === undefined ? {} : { checkpoints }),
@@ -1924,25 +1926,22 @@ async function resolveCheckpointGate(
 }
 
 /**
- * The read-only refusal `done` serves when it is asked to re-run on the exact
- * tree the last run already judged, without a `--confirmed` attestation. An
- * unchanged tree expects an unchanged verdict, so the rerun is either wasted
- * gate time (the last run was green — `status` already shows the proof) or a
- * flake probe that deserves to be deliberate and on the record (the last run
- * was red; retrying until green teaches that red is negotiable). Fires BEFORE
- * the gate machinery — the fix stage rewrites files, and a refusal must touch
- * nothing. Fail-open on every uncertainty: no marker, an unreadable identity,
- * or a differing tree all run the gate normally; `--dry-run` never refuses.
+ * The read-only refusal `done` serves when it is asked to re-run an exact tree
+ * last judged red without a deliberate rerun option, or when a last-green
+ * marker has no complete current Proof to reuse. A red retry deserves an
+ * explicit, recorded flake probe; a green marker without canonical evidence
+ * must not be upgraded into success. Fires before the Gate machinery. Fail-open
+ * on marker uncertainty; `--dry-run` never reaches this boundary.
  */
 async function unchangedTreeRerunRefusal(
   root: string,
-  confirmed: boolean,
+  rerunRequested: boolean,
   /** The current declaration-evidence identity, when known. A conclusion or
    * rationale recorded since the last run makes this a DIFFERENT run — the
    * guard must not refuse it — and an unknown identity fails open. */
   evidenceNow?: string,
 ): Promise<DiscernResult<GateData> | undefined> {
-  if (confirmed) {
+  if (rerunRequested) {
     return undefined;
   }
   const last = await inspectLastGateRun(root);
@@ -1969,10 +1968,47 @@ async function unchangedTreeRerunRefusal(
     error: UNCHANGED_TREE_RERUN_SLUG,
     message: `\`discern done\` already judged this exact tree ${verdict} at ` +
       `${now.head.slice(0, 8)}, and nothing has changed since. Pass ` +
-      `\`--confirmed\` to re-run the gate on it anyway; the rerun is ` +
+      `\`--rerun\` to run the Gate on it anyway; the rerun is ` +
       `recorded. Nothing has run — the tree is untouched.`,
     hints: hintTexts([fire(hint)]),
   };
+}
+
+/**
+ * Reuse the canonical Proof only when it completely proves this exact clean
+ * HEAD. This check runs before checkpoint reconciliation, so the optimization
+ * cannot mutate conclusions, run fixers, measure Standards, or invoke a
+ * configured job. An incomplete legacy marker is a cache miss, never success.
+ */
+async function reusableGreenProof(
+  root: string,
+): Promise<DiscernResult<GateData> | undefined> {
+  const proof = await inspectGateProof(root);
+  if (
+    proof.status !== "honored" || proof.proof_data === undefined ||
+    proof.proof_line === undefined ||
+    proof.checkpoint_drops?.some((drop) =>
+        drop.reason === "declaration_evidence_unavailable"
+      ) === true
+  ) {
+    return undefined;
+  }
+  return {
+    ok: true,
+    verb: "done",
+    message: "Current green Proof covers this exact tree; no Gate job ran.",
+    data: {
+      gate_ran: false,
+      failed_stage: null,
+      scopes_changed: [],
+      proof: proof.proof_data,
+    },
+  };
+}
+
+/** A declaration changes checkpoint evidence and therefore always runs fresh. */
+function hasDeclarations(request: DeclarationRequest): boolean {
+  return request.met.length > 0 || request.unmet !== undefined;
 }
 
 /** The output contract an in-process full-gate caller must choose explicitly. */
@@ -1985,6 +2021,9 @@ export type FinishResultSurface =
 export interface FinishResultOptions {
   surface: FinishResultSurface;
   dryRun?: boolean;
+  /** Deliberately execute the Gate even when exact current Proof is reusable. */
+  rerun?: boolean;
+  /** Deprecated compatibility alias for `rerun`. */
   confirmed?: boolean;
   /** Explicit CI report lane; never inferred from the environment. */
   ci?: boolean;
@@ -2006,9 +2045,9 @@ export interface FinishResultOptions {
  * success or failure tail. Requiring that choice removes the former implicit
  * machine-quiet default from every present and future caller.
  *
- * `dryRun` returns the preview (the plan, nothing run). `confirmed` attests that a
- * rerun on the unchanged last-judged tree is deliberate; without it that rerun
- * refuses read-only. Aborting `signal` tree-kills the in-flight gate jobs and
+ * `dryRun` returns the preview (the plan, nothing run). `rerun` deliberately
+ * executes the Gate on an exact already-judged state; `confirmed` remains a
+ * compatibility alias. Aborting `signal` tree-kills the in-flight gate jobs and
  * returns the run as failed-with-cancellations.
  */
 export async function finishResult(
@@ -2041,6 +2080,13 @@ export async function finishResult(
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
+  const rerunRequested = opts.rerun === true || opts.confirmed === true;
+  if (
+    mode === "strict" && !rerunRequested && !hasDeclarations(declarations)
+  ) {
+    const reused = await reusableGreenProof(root);
+    if (reused !== undefined) return reused;
+  }
   const terminal = terminalContext();
   const checkpointGate = await resolveCheckpointGate(
     root,
@@ -2056,7 +2102,7 @@ export async function finishResult(
     ? undefined
     : await unchangedTreeRerunRefusal(
       root,
-      opts.confirmed ?? false,
+      rerunRequested,
       checkpointGate.preflight.evidence,
     );
   if (refusal !== undefined) {
@@ -2120,6 +2166,7 @@ export async function runFinish(
   opts: {
     json: boolean;
     dryRun?: boolean;
+    rerun?: boolean;
     confirmed?: boolean;
     ci?: boolean;
     plain?: boolean;
@@ -2135,6 +2182,23 @@ export async function runFinish(
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
+  const rerunRequested = opts.rerun === true || opts.confirmed === true;
+  if (
+    mode === "strict" && !rerunRequested && !hasDeclarations(declarations)
+  ) {
+    const reused = await reusableGreenProof(root);
+    if (reused !== undefined) {
+      observeResult(reused);
+      if (opts.json) {
+        emitResult(reused);
+      } else {
+        makeOut(colorEnabled()).ok(
+          reused.message ?? "Current green Proof reused; no Gate job ran.",
+        );
+      }
+      return 0;
+    }
+  }
   const terminal = terminalContext();
   const checkpointGate = await resolveCheckpointGate(
     root,
@@ -2148,7 +2212,7 @@ export async function runFinish(
     ? undefined
     : await unchangedTreeRerunRefusal(
       root,
-      opts.confirmed ?? false,
+      rerunRequested,
       checkpointGate.preflight.evidence,
     );
   if (refusal !== undefined) {

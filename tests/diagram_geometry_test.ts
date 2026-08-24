@@ -1,11 +1,11 @@
 /**
- * The misaligned-diagram class, cured as a class: agents edit fenced
- * box-drawing diagrams as prose, and no formatter owns fence bodies (`deno
- * fmt` skips them; `discern tidy` keeps them byte-for-byte) — so ragged
- * borders and drifted columns accumulated with nothing to stop them.
+ * The misaligned-diagram class, cured as a class: agents edit box-drawing
+ * diagrams inside either Markdown code-block form, and no formatter owns code
+ * bodies — so ragged borders and drifted columns accumulated with nothing to
+ * stop them.
  *
- * The predicate (tests/diagram_geometry.ts): inside any fenced block with
- * box-drawing structure, every drawing glyph's vertical claims must be
+ * The predicate (src/lib/diagram_geometry.ts): inside any fenced or indented
+ * code block with box-drawing structure, every drawing glyph's vertical claims must be
  * reciprocated and every arrowhead must sit on its shaft. The universe is
  * every tracked Markdown file (tests/repo_authored_paths.ts) — map, ADRs,
  * private notes, README, and the shipped `templates/` surface alike — so a
@@ -28,6 +28,11 @@ import { REPO_ROOT, TRACKED_MD_FILES } from "./repo_authored_paths.ts";
 /** Wrap fixture rows in the Markdown fence required to activate diagram scanning. */
 function fenced(...lines: string[]): string {
   return ["```", ...lines, "```", ""].join("\n");
+}
+
+/** Wrap fixture rows in Markdown's other code-block form. */
+function indented(...lines: string[]): string {
+  return [...lines.map((line) => `    ${line}`), ""].join("\n");
 }
 
 /** Reduce geometry findings to stable line, column, and glyph evidence for assertions. */
@@ -125,6 +130,15 @@ Deno.test("a fence tagged freeform is exempt; the same art untagged is not", () 
   );
 });
 
+Deno.test("an indented code block receives the same geometry guard", () => {
+  const found = scanMarkdownDiagrams(indented(
+    "┌────────┐",
+    "│ too wide  │",
+    "└────────┘",
+  ));
+  assertEquals(at(found), ["2:13 │", "2:13 │"]);
+});
+
 // ── tolerance proofs: the corpus's legal idioms stay legal ────────────────────
 
 Deno.test("an aligned pipeline of boxes with arrow shafts is clean", () => {
@@ -212,7 +226,7 @@ Deno.test("the tracked-Markdown universe covers the shipped surface", () => {
   );
 });
 
-Deno.test("every fenced box-drawing diagram in tracked Markdown is geometrically sound", async () => {
+Deno.test("every code-block box-drawing diagram in tracked Markdown is geometrically sound", async () => {
   const failures: string[] = [];
   for (const rel of TRACKED_MD_FILES) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
@@ -223,7 +237,7 @@ Deno.test("every fenced box-drawing diagram in tracked Markdown is geometrically
   assertEquals(
     failures,
     [],
-    "misaligned box-drawing diagram(s). Realign the fence: pad every " +
+    "misaligned box-drawing diagram(s). Realign the code block: pad every " +
       "interior row to the border width, and keep verticals, junctions, " +
       "and arrowheads in the same code-point column as the glyph they " +
       "join. (Scanner: tests/diagram_geometry.ts)",

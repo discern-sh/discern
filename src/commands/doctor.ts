@@ -81,7 +81,15 @@ import {
   type GitHealthReport,
   inspectGitHealth,
 } from "../engine/doctor/git_health.ts";
-import { logbookDir } from "../engine/logbook/store.ts";
+import {
+  disableLogbookWritesForSession,
+  logbookDir,
+} from "../engine/logbook/store.ts";
+import { readLogbookStream } from "../engine/logbook/read.ts";
+import {
+  preflightPlannedWrites,
+  writePreflightFailureMessage,
+} from "../shared/write_preflight.ts";
 import { z } from "@zod/zod";
 import {
   type DiscernResult,
@@ -186,32 +194,16 @@ function gitDisplayVersion(raw: string): string {
   return raw.replace(/^git version\s+/, "");
 }
 
-/** Month files present in the logbook directory that hold at least one byte —
- * evidence that recording writes actually land. */
-async function recordedMonthFiles(dir: string): Promise<number> {
-  let months = 0;
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (!entry.isFile || !/^\d{4}-\d{2}\.jsonl$/.test(entry.name)) {
-        continue;
-      }
-      const stat = await Deno.stat(join(dir, entry.name)).catch(() =>
-        undefined
-      );
-      if (stat !== undefined && stat.size > 0) {
-        months += 1;
-      }
-    }
-  } catch {
-    return 0; // no directory yet — indistinguishable from never-recorded
-  }
-  return months;
-}
+/** A begin event this old without its paired completion is recorder evidence,
+ * not the currently-running doctor invocation. */
+const EXPECTED_COMPLETION_GRACE_MS = 60_000;
 
-/** The logbook health check: recording on and provably landing events. Off is
- * advice (a deliberate choice, but history can't be back-filled); on with no
- * events ever recorded is a failure — writes are broken, or the install is so
- * new no verb has completed, and this very doctor run settles which. */
+/**
+ * The Logbook health check distinguishes configuration, point-in-time write
+ * authority, readable schema, an honestly empty new store, and recorder
+ * continuity. Logbook recording is advisory: every unhealthy state warns but
+ * never makes doctor red or blocks setup by itself.
+ */
 async function logbookCheck(
   config: DiscernConfig,
   commonGitDir: string,
@@ -228,23 +220,81 @@ async function logbookCheck(
     };
   }
   const dir = logbookDir(commonGitDir);
-  const months = await recordedMonthFiles(dir);
-  if (months === 0) {
+  const authority = await preflightPlannedWrites([{
+    kind: "directory-tree",
+    path: dir,
+    description: "the advisory Logbook store",
+  }]);
+  if (!authority.ok) {
+    disableLogbookWritesForSession();
     return {
       name: "logbook",
-      ok: false,
+      ok: true,
+      status: "warn",
       detail:
-        "recording is on, but no events have ever landed — writes may be failing (or no verb has completed here yet)",
+        `recording is configured, but the environment refused this invocation's Logbook write probe; recording is disabled for this session (${
+          writePreflightFailureMessage(authority)
+        })`,
+      fix: `authorize this command to write ${authority.path}, then retry once`,
+    };
+  }
+
+  const stream = await readLogbookStream(commonGitDir);
+  if (stream.unparsed > 0) {
+    return {
+      name: "logbook",
+      ok: true,
+      status: "warn",
+      detail:
+        `recording storage is writable, but its schema/read pass skipped ${stream.unparsed} invalid or unreadable entr${
+          stream.unparsed === 1 ? "y" : "ies"
+        }`,
       fix:
-        `this doctor run itself records one event as it finishes — re-run \`discern doctor\`, and if this stays red, check that ${dir} is writable`,
+        `inspect the month files under ${dir}; preserve valid JSONL events and remove or repair only the malformed entries`,
+    };
+  }
+
+  const completed = stream.events.filter((event) => event.kind === "verb");
+  const completedInvocations = new Set(
+    completed.flatMap((event) =>
+      event.invocation === undefined ? [] : [event.invocation]
+    ),
+  );
+  const cutoff = Date.now() - EXPECTED_COMPLETION_GRACE_MS;
+  const expectedButAbsent = stream.events.filter((event) =>
+    event.kind === "begin" && !completedInvocations.has(event.invocation) &&
+    Date.parse(event.at) < cutoff
+  );
+  if (expectedButAbsent.length > 0) {
+    return {
+      name: "logbook",
+      ok: true,
+      status: "warn",
+      detail:
+        `storage is writable and readable, but ${expectedButAbsent.length} invocation${
+          expectedButAbsent.length === 1 ? " has" : "s have"
+        } a begin event with no expected completion event`,
+      fix:
+        "inspect the interrupted invocation in `discern patterns`; future successful verbs should continue pairing begin and completion events",
+    };
+  }
+
+  if (completed.length === 0) {
+    return {
+      name: "logbook",
+      ok: true,
+      detail:
+        "healthy but empty — recording is configured, storage is readable and writable, and no completed verb has been recorded yet",
     };
   }
   return {
     name: "logbook",
     ok: true,
-    detail: `recording — ${months} month${
-      months === 1 ? "" : "s"
-    } of local history under the git admin area`,
+    detail: `recording — ${completed.length} completed event${
+      completed.length === 1 ? "" : "s"
+    } across ${stream.months.length} month file${
+      stream.months.length === 1 ? "" : "s"
+    } under the git admin area`,
   };
 }
 
@@ -881,13 +931,9 @@ export async function runChecks(
     }
   }
 
-  // 7d. the logbook is recording — discern's local memory of its own use, and
-  // the only place a whole class of agent-driven faults (gate thrash, flaky
-  // tests, instructions gaps) ever becomes visible. Off is a deliberate choice,
-  // surfaced as advice because history can never be recorded retroactively.
-  // On-but-empty is red: either writes are failing, or the install is so new
-  // that no verb has completed yet — and since this doctor run itself appends
-  // an event on completion, a healthy install turns the re-run green.
+  // 7d. the Logbook's advisory recording substrate. Health comes from config,
+  // a real point-in-time write probe, readable schema, and recorder continuity;
+  // zero historical events is a sound first-install state, never a rerun loop.
   if (gitHealth?.repository.kind === "repository") {
     const commonGitDir = await resolveCommonGitDir(destDir);
     if (commonGitDir !== undefined) {

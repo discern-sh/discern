@@ -125,6 +125,16 @@ export function suppressLogbookWrites(): void {
   storeRemovedByThisProcess = true;
 }
 
+/**
+ * Stop advisory recording for the remainder of this process after a real write
+ * probe was denied. A CLI invocation is one process, so this prevents its
+ * trailing completion append from repeating a provider refusal while leaving
+ * every later invocation free to prove authority again.
+ */
+export function disableLogbookWritesForSession(): void {
+  storeRemovedByThisProcess = true;
+}
+
 /** Serialize one event as its single logbook line (trailing newline included). */
 function eventLine(event: LogbookEvent): string {
   return `${JSON.stringify(event)}\n`;

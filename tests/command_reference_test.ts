@@ -68,7 +68,7 @@ Deno.test("a bare tool-backed reference renders the tool name alone", () => {
 });
 
 Deno.test("boolean flags become true-valued parameters; json drops from the tool spelling", () => {
-  const text = `${discernCommand("done", flag("confirmed"))} probes; ${
+  const text = `${discernCommand("done", flag("rerun"))} probes; ${
     discernCommand(
       "map",
       positional("target", "70-reference/cli"),
@@ -77,11 +77,11 @@ Deno.test("boolean flags become true-valued parameters; json drops from the tool
   } reads.`;
   assertEquals(
     renderCommandRefsCli(text),
-    "`discern done --confirmed` probes; `discern map 70-reference/cli --json` reads.",
+    "`discern done --rerun` probes; `discern map 70-reference/cli --json` reads.",
   );
   assertEquals(
     renderCommandRefsMcp(text, TOOL_LOOKUP),
-    '`discern_done` (confirmed: true) probes; `discern_map` (target: "70-reference/cli") reads.',
+    '`discern_done` (rerun: true) probes; `discern_map` (target: "70-reference/cli") reads.',
   );
 });
 

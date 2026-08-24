@@ -469,10 +469,11 @@ export const TOOLS: McpTool[] = orderTools([
       ci: z.boolean().optional().describe(
         "Run the machine Gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
       ),
+      rerun: z.boolean().optional().describe(
+        "Run the full Gate even when current green Proof covers this exact tree, or deliberately retry an unchanged red verdict. The rerun is recorded.",
+      ),
       confirmed: z.boolean().optional().describe(
-        "Attest this rerun: run the full gate again on the exact tree it last " +
-          "judged — a flake probe, or a re-measure — and record it. Without " +
-          "the flag, an unchanged-tree rerun refuses read-only (default false).",
+        "Compatibility alias for rerun. Existing callers continue to work; new callers should use the Gate-specific rerun field.",
       ),
       met: z.array(z.string()).optional().describe(
         "Checkpoint ids whose served question your change satisfies — your " +
@@ -500,6 +501,7 @@ export const TOOLS: McpTool[] = orderTools([
         surface: { kind: "quiet" },
         dryRun: args.dry_run === true,
         ci: args.ci === true,
+        rerun: args.rerun === true,
         confirmed: args.confirmed === true,
         ...(args.met === undefined ? {} : { met: args.met }),
         ...(args.unmet === undefined ? {} : { unmet: args.unmet }),
