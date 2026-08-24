@@ -757,13 +757,15 @@ export const StandardsDataSchema = z.strictObject({
 });
 export type StandardsData = z.infer<typeof StandardsDataSchema>;
 
-/** How the gate's never-loosen verification of `[standards]` limits against the
- * trunk went: `verified` (none loosened — vacuously so for limits new on the
- * branch or a trunk with no config yet), `loosened` (a limit loosened or an
- * entry deleted — the gate fails; per-standard diagnostics carry both values),
- * `unverified` (the trunk cannot be read — an unborn repo or an unfetched CI
- * clone; the gate proceeds LOUDLY, never silently), or `parse_failed` (the
- * trunk's config was fetched but does not parse — the gate fails). */
+/** How the gate's protection of existing `[standards]` definitions and limits
+ * against the trunk went: `verified` (definitions match and no bound loosened —
+ * vacuously so for Standards new on the branch or a trunk with no config yet),
+ * `loosened` (a definition changed, a bound loosened, or an entry was deleted —
+ * the gate fails and per-Standard diagnostics carry the details), `unverified`
+ * (the trunk cannot be read — an unborn repo or an unfetched CI clone; the gate
+ * proceeds LOUDLY, never silently), or `parse_failed` (the trunk's config was
+ * fetched but does not parse — the gate fails). The field name and status value
+ * remain stable result-envelope vocabulary. */
 export const StandardsLimitsSchema = z.strictObject({
   status: z.enum(["verified", "loosened", "unverified", "parse_failed"]),
   trunk: z.string(),

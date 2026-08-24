@@ -1,6 +1,6 @@
 ---
 title: Standards
-description: Hold a quality metric at a floor or ceiling that a branch can tighten but cannot weaken.
+description: Hold a stable quality claim at a floor or ceiling that branches can tighten but not redefine.
 order: 20
 aliases:
   - quality metrics
@@ -13,7 +13,7 @@ aliases:
 
 _Hold a quality measure at a floor or ceiling that later branches cannot weaken._
 
-A quality measure that can only improve (a Standard) is a measured floor or ceiling in `discern.toml`. Every entry declares its direction: `direction = "up"` holds a floor; `direction = "down"` holds a ceiling. Omitting it is invalid. Before expensive work, `discern done` rejects a branch that weakens or deletes a trunk limit ([ADR 0133](../_adr/0133-standards-join-the-gate.md)).
+A quality measure that can only improve (a Standard) is a measured floor or ceiling in `discern.toml`. Every entry declares its direction: `direction = "up"` holds a floor; `direction = "down"` holds a ceiling. Omitting it is invalid. Before expensive work, `discern done` rejects a branch that redefines the quality claim, weakens its bound, or deletes it ([ADR 0133](../_adr/0133-standards-join-the-gate.md), [ADR 0323](../_adr/0323-standards-hold-normalized-enforcement-definitions.md)).
 
 ## Add a Standard
 
@@ -33,6 +33,22 @@ DISCERN_METRIC coverage 91.4
 
 `metric` overrides the emitted metric name. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
 
+## Keep its meaning stable
+
+An existing Standard holds three field roles:
+
+| Role                 | Fields                                                            | Branch policy                                                          |
+| -------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Enforcement meaning  | `metric`, `direction`, `run`, `per`, `scale`, `measure`, `inputs` | Must match normalized trunk; controls the claim or evidence freshness. |
+| Monotonic bound      | `limit`                                                           | May only tighten: floors rise; ceilings fall.                          |
+| Execution or pinning | `margin`, `timeout`                                               | May change without redefining the claim.                               |
+
+Comparison applies schema defaults and equivalent scalar/list command forms, so omitted historical defaults match explicit current spelling. The policy is keyed by `StandardConfig`; new fields require a code policy and normalization.
+
+`margin` changes only a future pin target. `timeout` bounds the same command; a timeout records no green evidence. Neither changes the measured claim.
+
+Intentional redefinition or recalibration requires owner approval on trunk, followed by `discern update`. Branch reasons and measured-breach overrides cannot waive it.
+
 ## Choose a number that survives growth
 
 Ask before wiring: does this number move when the project healthily grows? The answer decides how to hold it.
@@ -45,7 +61,7 @@ Report a breach the work itself caused (the deliverable grew what the metric mea
 
 ## What the Gate does
 
-The Gate checks limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Limits never defer. `discern prepare` skips measurement.
+The Gate checks normalized definitions and limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Definition and limit checks never defer. `discern prepare` skips measurement.
 
 Package StandardMeter views retain each reading, limit, headroom, trajectory, measurement source, margin, and pin eligibility. Deferred and skipped facts invent no value. [`presentation.ts`](../../../src/engine/gate/presentation.ts) only maps `GateStandard` facts; the Gate still decides comparisons and pin eligibility.
 
@@ -53,7 +69,7 @@ One pure Gate function decides mechanical pin eligibility from direction, measur
 
 ## Run standards directly
 
-`discern standards` freshly measures every Standard, including `measure = "on-demand"`. First it checks branch limits and trunk-only entries from one trunk snapshot. A loosened Standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid measurements.
+`discern standards` freshly measures every Standard, including `measure = "on-demand"`. First it checks branch definitions, limits, and trunk-only entries from one trunk snapshot. A redefined or loosened Standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid measurements.
 
 Runnable measurements share one parallel, fail-fast-off group. The gate runner supplies global and per-standard timeouts, process-tree kill, durations, terminal interruption, and Model Context Protocol cancellation. Output stays buffered until the result envelope renders ([ADR 0155](../_adr/0155-standalone-standards-share-the-gate-job-pipeline.md)).
 
@@ -64,6 +80,7 @@ A failure puts its reason, value, limit, and command in `diagnostics[]`. [Tool r
 | Failure                                    | Response                                                                                                          |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | The metric regressed                       | Move it the right way within the task's scope. Report a breach the work itself caused; the owner moves the limit. |
+| The branch redefined an existing Standard  | Restore the trunk definition. For an intentional change, ask the owner to change trunk, then update the worktree. |
 | The branch weakened or deleted a limit     | Restore the trunk value. Tell the owner if the old limit is no longer valid.                                      |
 | The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                             |
 | The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate. |
@@ -82,7 +99,7 @@ Pin records a clean `HEAD` before reading values and rechecks before editing. A 
 | ----------------------------------------- | ------------------------------------------------------------------- |
 | Config fields and validation              | [`config_schema.ts`](../../../src/shared/config_schema.ts)          |
 | Pure standard plan                        | [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts)     |
-| Shared trunk-limit verification           | [`standard_limits.ts`](../../../src/engine/gate/standard_limits.ts) |
+| Shared trunk definition and limit check   | [`standard_limits.ts`](../../../src/engine/gate/standard_limits.ts) |
 | Shared measurement and pin execution      | [`standards.ts`](../../../src/engine/gate/standards.ts)             |
 | Gate replay and deferral policy           | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts)   |
 | Human Standard presentation               | [`presentation.ts`](../../../src/engine/gate/presentation.ts)       |

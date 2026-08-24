@@ -5,6 +5,7 @@
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** the retired product-category wording reads as `discern`, the gate, or the bar, and current pointers use known/custom `job` (formerly gate `capability` / custom `check`); the decision and reasoning are unchanged.
 > - **[ADR 0077](0077-setup-agent-is-the-configuration-engine.md) — emphasis revised:** the setup agent is the configuration engine — transparency over interrogation — revised after cold runs showed "don't gate" degrading into "don't involve"; the involve-don't-gate headline stands.
 > - **[ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md) — interaction surface:** the interaction model gained served relay messages and the fresh-scaffold `--confirmed` attestation.
+> - **[ADR 0322](0322-setup-is-one-bounded-operational-journey.md), current journey:** `SETUP_PAGE_REGISTRY` owns the live sequential page order and `SETUP_HUMAN_MOMENTS` owns the interaction contracts. Numbered step references below describe the former brief.
 
 **Status**: accepted
 

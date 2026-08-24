@@ -8,6 +8,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   git,
@@ -698,6 +699,14 @@ Deno.test("standards: non-numeric emitted metrics fail before comparison", async
 Deno.test("standards: a plan/projection length mismatch is a failed integrity step", () => {
   const standard: PlannedStandard = {
     name: "coverage",
+    spec: {
+      direction: "up",
+      limit: 80,
+      run: "echo 'DISCERN_METRIC coverage 80'",
+      scale: 1,
+      margin: 0,
+      measure: "gate",
+    },
     metric: "coverage",
     direction: "up",
     limit: 80,
@@ -864,9 +873,10 @@ Deno.test("standards: a rate is invariant under proportional growth (the fix)", 
       limit: "21", // ceiling on the RATE (per 1,000 words)
       per: '{ words = "content/**" }',
       scale: "1000",
-      run: "echo 'DISCERN_METRIC prose 3'",
+      run: "echo DISCERN_METRIC prose $(cat metric.txt)",
     });
     await writeConfig(dir, cfg);
+    await Deno.writeTextFile(join(dir, "metric.txt"), "3\n");
     await writeWordFile(dir, "content/a.txt", 150); // 3 / 150 * 1000 = 20.0
     await gitInit(dir);
     const small = await runAgent(dir, ["standards"]);
@@ -876,17 +886,7 @@ Deno.test("standards: a rate is invariant under proportional growth (the fix)", 
     // Grow the corpus and the alerts proportionally: density stays 20.0, so the
     // SAME ceiling still holds — growth alone never breaches it.
     await writeWordFile(dir, "content/a.txt", 300);
-    await writeConfig(
-      dir,
-      standardConfig({
-        name: "prose",
-        direction: "down",
-        limit: "21",
-        per: '{ words = "content/**" }',
-        scale: "1000",
-        run: "echo 'DISCERN_METRIC prose 6'", // 6 / 300 * 1000 = 20.0
-      }),
-    );
+    await Deno.writeTextFile(join(dir, "metric.txt"), "6\n");
     const grown = await runAgent(dir, ["standards", "--force"]);
     assertEquals(grown.code, 0, grown.output);
     assertTerminalTextIncludes(grown.stdout, "within the ceiling");
@@ -903,24 +903,17 @@ Deno.test("standards: the same growth breaks a raw count, and the failure points
         name: "prose",
         direction: "down",
         limit: "3",
-        run: "echo 'DISCERN_METRIC prose 3'",
+        run: "echo DISCERN_METRIC prose $(cat metric.txt)",
       }),
     );
+    await Deno.writeTextFile(join(dir, "metric.txt"), "3\n");
     await gitInit(dir);
     const small = await runAgent(dir, ["standards"]);
     assertEquals(small.code, 0, small.output); // 3 within the ceiling of 3
 
     // Same proportional growth as the rate test — but a raw count rises with size
     // and breaches the ceiling, the exact trap `per` removes.
-    await writeConfig(
-      dir,
-      standardConfig({
-        name: "prose",
-        direction: "down",
-        limit: "3",
-        run: "echo 'DISCERN_METRIC prose 6'",
-      }),
-    );
+    await Deno.writeTextFile(join(dir, "metric.txt"), "6\n");
     const grown = await runAgent(dir, ["standards", "--force"]);
     assertEquals(grown.code, 1, grown.output);
     assertTerminalTextIncludes(grown.stderr, "exceeds the ceiling");

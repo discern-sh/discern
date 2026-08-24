@@ -308,6 +308,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0320 — Setup plans own write authority and activation recovery](0320-setup-plans-own-write-authority-and-activation-recovery.md)
 - [0321 — Diagram geometry follows Markdown code-block semantics](0321-diagram-geometry-follows-markdown-code-block-semantics.md)
 - [0322 — Setup is one bounded operational journey](0322-setup-is-one-bounded-operational-journey.md)
+- [0323 — Standards hold normalized enforcement definitions](0323-standards-hold-normalized-enforcement-definitions.md)
 
 <!-- END GENERATED: current ADR records -->
 

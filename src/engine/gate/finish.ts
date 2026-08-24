@@ -563,8 +563,9 @@ async function runGate(
     runOut.warn(mergeWarning.text);
   }
 
-  // 1a. The never-loosen verification (Tier 1, ADR 0133) — every configured
-  //     [standards] limit against the trunk's committed copy, deletions included.
+  // 1a. The Standard protection (Tier 1) — every existing [standards]
+  //     definition and limit against the trunk's committed copy, deletions
+  //     included.
   //     Placed HERE, directly after the merge check: it is the cheapest
   //     precondition after it (one git read, milliseconds), it guards the very
   //     config every later job table was built from, and the merge check must

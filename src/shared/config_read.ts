@@ -6,8 +6,9 @@
  *
  *   - `discern config <get|array|has|subsections|keys> <key>` — the Project-Script-facing
  *     passthrough, a `jq`-for-the-config that reads arbitrary dotted keys verbatim.
- *   - the standard "never-loosen vs main" baseline, which reads an *older* config
- *     out of `git show main:discern.toml` and only wants one number out of it.
+ *   - the Standard baseline, which reads an *older* config out of
+ *     `git show main:discern.toml` and compares its definition and bound without
+ *     requiring that trunk config to satisfy the current complete schema.
  *
  * It carries no schema knowledge, so there is nothing here to drift. The TOML
  * syntax diagnostics and the typed loader live in `config_schema.ts`; the errors
