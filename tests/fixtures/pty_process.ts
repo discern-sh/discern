@@ -91,7 +91,7 @@ export async function runPtyProcess(
   ) {
     throw new TypeError("PTY geometry must use positive integer dimensions");
   }
-  const command = geometry === undefined
+  const targetCommand = geometry === undefined
     ? [options.command, ...options.args]
     : [
       "sh",
@@ -103,6 +103,16 @@ export async function runPtyProcess(
       options.command,
       ...options.args,
     ];
+  // util-linux script(1) uses its inherited SHELL to interpret -c. SHELL is
+  // also command input in tests that exercise shell selection, so an explicit
+  // override must travel inside the PTY command instead of replacing the
+  // wrapper's own interpreter. BSD script receives the same argv harmlessly.
+  const commandShell = options.env?.SHELL;
+  const command = commandShell === undefined
+    ? targetCommand
+    : ["/usr/bin/env", `SHELL=${commandShell}`, ...targetCommand];
+  const wrapperEnvironment = { ...options.env };
+  delete wrapperEnvironment.SHELL;
   const keepInputOpen = options.keepInputOpen === true;
   const inputModes = Number(keepInputOpen) +
     Number(options.initialInput !== undefined) +
@@ -132,7 +142,7 @@ export async function runPtyProcess(
           COLUMNS: String(geometry.columns),
           LINES: String(geometry.rows),
         }),
-      ...options.env,
+      ...wrapperEnvironment,
     },
     stdin: inputModes > 0 ? "piped" : "null",
     stdout: "piped",

@@ -96,6 +96,10 @@ try {
 }
 `;
 
+const SHELL_REPORTING_CHILD = `
+console.log("command-shell:" + Deno.env.get("SHELL"));
+`;
+
 Deno.test({
   name: "PTY input requires an opt-in before continuing a lone Escape write",
   ignore: Deno.build.os === "windows",
@@ -218,6 +222,57 @@ Deno.test({
       }
     }
     assertEquals(violations, []);
+  },
+});
+
+Deno.test({
+  name: "PTY wrapper cannot consume the command's SHELL override",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      const script = join(dir, "script");
+      const commandShell = join(dir, "command-shell");
+      await Deno.writeTextFile(
+        script,
+        [
+          "#!/bin/sh",
+          // Emulate util-linux script(1): its -c command is interpreted by the
+          // wrapper's own $SHELL before the target process can start.
+          'if [ "$2" = "-e" ]; then',
+          '  exec "${SHELL:-/bin/sh}" -c "$4"',
+          "fi",
+          // Accept the BSD argv shape too, so the Linux contract remains
+          // executable on every Unix development host.
+          "shift 2",
+          'exec "${SHELL:-/bin/sh}" -c \'exec "$@"\' discern-script "$@"',
+          "",
+        ].join("\n"),
+      );
+      await Deno.chmod(script, 0o755);
+      await Deno.writeTextFile(
+        commandShell,
+        [
+          "#!/bin/sh",
+          'echo "wrapper intercepted command"',
+          "exit 0",
+          "",
+        ].join("\n"),
+      );
+      await Deno.chmod(commandShell, 0o755);
+
+      const result = await runPtyProcess({
+        command: Deno.execPath(),
+        args: ["eval", SHELL_REPORTING_CHILD],
+        cwd: REPO_ROOT,
+        env: {
+          PATH: `${dir}:${Deno.env.get("PATH") ?? ""}`,
+          SHELL: commandShell,
+        },
+      });
+
+      assertEquals(result.code, 0, result.transcript);
+      assertStringIncludes(result.transcript, `command-shell:${commandShell}`);
+    });
   },
 });
 
