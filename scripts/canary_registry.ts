@@ -48,12 +48,24 @@ export const CANARY_CONVENTION_PATTERN: RegExp =
  */
 export const CANARY_EXTRA_TEST_FILES: readonly CanaryRegistryEntry[] = [
   {
+    file: "tests/adr_citation_form_test.ts",
+    reason: "hot in the recorded failure ranking; static citation-form scan",
+  },
+  {
     file: "tests/brand_mark_test.ts",
     reason: "hot in the recorded failure ranking; static brand-output checks",
   },
   {
     file: "tests/comment_currency_test.ts",
     reason: "hot in the recorded failure ranking; static comment scan",
+  },
+  {
+    file: "tests/engine_temp_artifacts_test.ts",
+    reason: "hot in the recorded failure ranking; near-second artifact checks",
+  },
+  {
+    file: "tests/hint_surface_rendering_test.ts",
+    reason: "hot in the recorded failure ranking; sub-second hint rendering",
   },
   {
     file: "tests/logbook_test.ts",
@@ -67,6 +79,22 @@ export const CANARY_EXTRA_TEST_FILES: readonly CanaryRegistryEntry[] = [
   {
     file: "tests/map_frontmatter_test.ts",
     reason: "hot in the recorded failure ranking; static map metadata checks",
+  },
+  {
+    file: "tests/paths_write_surface_test.ts",
+    reason: "hot in the recorded failure ranking; near-second surface checks",
+  },
+  {
+    file: "tests/site_design_system_runtime_test.ts",
+    reason: "hot in the recorded failure ranking; sub-second runtime checks",
+  },
+  {
+    file: "tests/site_prose_test.ts",
+    reason: "hot in the recorded failure ranking; sub-second prose checks",
+  },
+  {
+    file: "tests/skill_name_parity_test.ts",
+    reason: "hot in the recorded failure ranking; sub-second parity checks",
   },
   {
     file: "tests/vocab_drift_test.ts",
@@ -90,9 +118,46 @@ export const CANARY_EXCLUDED_TEST_FILES: readonly CanaryRegistryEntry[] = [
     reason: "hot on record, but renders the docs end-to-end; over the bar",
   },
   {
+    file: "tests/engine_desk_tty_test.ts",
+    reason: "hot on record, but an end-to-end TTY suite (measured ~25s)",
+  },
+  {
+    file: "tests/engine_done_tty_test.ts",
+    reason: "hot on record, but an end-to-end TTY suite (measured ~18s)",
+  },
+  {
     file: "tests/engine_json_purity_test.ts",
     reason:
       "hot on record, but drives engine subprocesses (measured ~12s alone)",
+  },
+  {
+    file: "tests/engine_mcp_test.ts",
+    reason: "hot on record, but an end-to-end MCP suite (measured ~63s)",
+  },
+  {
+    file: "tests/engine_setup_handoff_test.ts",
+    reason: "hot on record, but an end-to-end setup suite (measured ~13s)",
+  },
+  {
+    file: "tests/engine_status_test.ts",
+    reason: "hot on record, but an end-to-end status suite (measured ~70s)",
+  },
+  {
+    file: "tests/flagship_terminal_capture_test.ts",
+    reason: "hot on record, but renders terminal captures (measured ~12s)",
+  },
+  {
+    file: "tests/interactive_tty_test.ts",
+    reason: "hot on record, but an end-to-end TTY suite (measured ~5s)",
+  },
+  {
+    file: "tests/site_smoke_test.ts",
+    reason:
+      "hot on record, but serves the built site and needs the preflight",
+  },
+  {
+    file: "tests/validation_evidence_test.ts",
+    reason: "hot on record, but drives validation runs (measured ~10s)",
   },
 ];
 
