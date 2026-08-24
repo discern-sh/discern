@@ -60,7 +60,10 @@ export interface TestFailureRecord {
 export function rankTestFailures(
   events: readonly TestFailureEvidence[],
 ): TestFailureRecord[] {
-  const byFile = new Map<string, { redRuns: number; cases: number; lastAt: string }>();
+  const byFile = new Map<
+    string,
+    { redRuns: number; cases: number; lastAt: string }
+  >();
   for (const event of events) {
     if (event.kind !== "verb" || event.diagnostics === undefined) continue;
     const filesInEvent = new Set<string>();
@@ -149,7 +152,13 @@ async function main(): Promise<void> {
       `across ${stream.months.length} Logbook month file(s).\n`,
   );
   console.log(
-    ["red runs".padStart(8), "cases".padStart(6), "last seen ", "status   ", "file"]
+    [
+      "red runs".padStart(8),
+      "cases".padStart(6),
+      "last seen ",
+      "status   ",
+      "file",
+    ]
       .join(" "),
   );
   for (const record of ranking.slice(0, RANKING_ROWS)) {

@@ -69,8 +69,7 @@ export const CANARY_EXTRA_TEST_FILES: readonly CanaryRegistryEntry[] = [
   },
   {
     file: "tests/logbook_test.ts",
-    reason:
-      "leads the recorded failure ranking; sub-second logbook unit suite",
+    reason: "leads the recorded failure ranking; sub-second logbook unit suite",
   },
   {
     file: "tests/map_curation_test.ts",
@@ -152,8 +151,7 @@ export const CANARY_EXCLUDED_TEST_FILES: readonly CanaryRegistryEntry[] = [
   },
   {
     file: "tests/site_smoke_test.ts",
-    reason:
-      "hot on record, but serves the built site and needs the preflight",
+    reason: "hot on record, but serves the built site and needs the preflight",
   },
   {
     file: "tests/validation_evidence_test.ts",

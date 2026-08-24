@@ -2738,6 +2738,32 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .map((entry) => `${entry.module}#${entry.exportName}`),
   },
   {
+    id: "canary-tests",
+    title: "Canary test membership",
+    what:
+      "The recorded judgments behind the canary check job: extras promoted on recorded failure evidence and refusals with their cost measurements, layered over the guard- and enrolment-name convention.",
+    source: {
+      kind: "module",
+      module: "scripts/canary_registry.ts",
+      exportName: "CANARY_EXTRA_TEST_FILES",
+    },
+    guards: ["tests/canary_registry_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the canary is one configured gate job; the registry records repository-local test-scheduling judgments",
+      },
+      featureCanon: {
+        absent:
+          "repository-local job wiring over the generic [jobs] table, not a shipped discern feature",
+      },
+    },
+    members: async () =>
+      (await import("./canary_registry.ts")).CANARY_EXTRA_TEST_FILES
+        .map((entry) => entry.file),
+  },
+  {
     id: "canonical-sets",
     title: "Canonical sets",
     what: "This meta-registry: the closed set of closed sets.",
