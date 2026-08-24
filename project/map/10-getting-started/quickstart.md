@@ -36,6 +36,8 @@ The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-s
 
 Setup stays on `discern-setup` until landing. After proving existing workflows together, the agent explains where later agents start, that area's responsibility, one important rule, and any other distinct area. Correct a substantive misunderstanding, or say “use your recommendation.”
 
+Keep routine green output concise; use SARIF and JUnit XML only when they preserve exit status and improve failures. File-only and inherently verbose formats stay off that path.
+
 ## 3. Verify setup in an isolated checkout
 
 `discern setup done` commits and diagnoses completion, proves it in a separate working copy, runs the final quality check, and returns [proof that the finished change passed the project's checks](../20-quality-gate/the-proof.md), called Proof. A failure restores setup to incomplete ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
