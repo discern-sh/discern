@@ -111,7 +111,7 @@ const IN_PROGRESS_AGENT_INSTRUCTIONS =
   "Finishing setup is YOUR job, not a status to report back. Continue the setup brief, then run `discern setup done` to validate and record completion — and don't tell the user setup is done until it passes. Reprint the brief any time with `discern setup begin` (idempotent; it won't touch your work).";
 
 const ABANDONED_AGENT_INSTRUCTIONS =
-  `Setup is already in progress on the \`${SETUP_BRANCH}\` branch — resume it there; do NOT start setup again from this branch (that would re-scaffold over the half-finished install). Check the branch out (\`git checkout ${SETUP_BRANCH}\`), reprint the brief with \`discern setup begin\`, continue it, then run \`discern setup done\` to finish.`;
+  `Setup is already in progress on the \`${SETUP_BRANCH}\` branch. Resume it with \`discern setup begin --confirmed\`; discern checks out that branch and reprints the current brief without replaying completed scaffold writes. Continue it, then run \`discern setup done\` to finish.`;
 
 /**
  * Render the welcome for the cwd's project, resolving its lifecycle phase from config
@@ -145,7 +145,7 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
         data: {
           phase: "in_progress",
           complete: false,
-          next_action: `git checkout ${SETUP_BRANCH}`,
+          next_action: "discern setup begin --confirmed",
           agent_instructions: ABANDONED_AGENT_INSTRUCTIONS,
         },
       });
@@ -444,9 +444,8 @@ function styledFreshWelcome(
 }
 
 /** The abandoned-mid-setup welcome: a `discern-setup` branch exists with setup's
- * work, but the current branch has no config — the resume is to check the branch
- * out, never to re-enter the fresh funnel (whose re-scaffold would pollute the
- * half-finished install). */
+ * work, but the current branch has no config. `setup begin` owns the bounded
+ * checkout-and-reprint continuation and recognizes the existing scaffold. */
 function abandonedSetupWelcomeGroups(): HumanOutputGroup<string>[] {
   return [
     {
@@ -463,15 +462,14 @@ function abandonedSetupWelcomeGroups(): HumanOutputGroup<string>[] {
     {
       id: "agent-resume",
       items: [
-        "Agents: resume the setup there — do NOT start setup again from this branch",
-        "(that would re-scaffold over the half-finished install). Your next actions:",
+        "Agents: resume through discern's bounded continuation; it preserves the",
+        "dedicated branch and does not replay completed scaffold writes:",
       ],
     },
     {
       id: "resume-commands",
       items: [
-        `    git checkout ${SETUP_BRANCH}`,
-        "    discern setup begin        (reprints the brief; idempotent)",
+        "    discern setup begin --confirmed",
       ],
     },
     {

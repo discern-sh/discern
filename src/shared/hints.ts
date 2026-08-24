@@ -2103,7 +2103,7 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "`done` is asked to re-run on the exact tree it last judged red, without `--confirmed`.",
+      "`done` is asked to re-run on the exact tree it last judged red, without `--rerun`.",
     family: "done-rerun",
     followThrough: RED_GATE_FOLLOW_THROUGH,
     example: undefined,
@@ -2111,9 +2111,9 @@ export const HINTS = {
       `Fix the failure the last run reported, iterating with ${CMD.prepare} ` +
       `or ${CMD.test}, then re-run ${CMD.done} — nothing ` +
       "changed since it judged this exact tree red, so an identical rerun " +
-      "expects the identical verdict. Use the confirmed rerun only to probe " +
+      "expects the identical verdict. Use the explicit rerun only to probe " +
       `for a flaky verdict: ${
-        discernCommand("done", flag("confirmed"))
+        discernCommand("done", flag("rerun"))
       } does that, and ` +
       "records the rerun as a probe.",
   }),
@@ -2123,14 +2123,14 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "`done` is asked to re-run on the exact tree it last judged green, without `--confirmed`.",
+      "`done` found a last-green marker but no complete current Proof to reuse, without `--rerun`.",
     family: "done-rerun",
     example: undefined,
     template: (): string =>
       `Run ${CMD.status} — this exact tree already passed ${CMD.done}, ` +
       "and status shows whether Proof remains valid without re-running anything. " +
       `To re-run the full gate on it anyway, run ${
-        discernCommand("done", flag("confirmed"))
+        discernCommand("done", flag("rerun"))
       }.`,
   }),
 
@@ -2734,7 +2734,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "Grant the write access named by the diagnostics, then re-run the current discern command. The gate needs that access to persist its state.",
+      "Allow the current invocation to write the path named by the diagnostics, then re-run the discern command. A successful probe confirms only point-in-time write authority; discern does not grant or persist host permission.",
   }),
 
   /** Proof covers the configured checks and leaves artifact verification to

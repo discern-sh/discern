@@ -370,7 +370,7 @@ files_to_read = [
 must_do = [
   "Create a probe worktree with `discern start`, enter the absolute path it returns, and run `discern done` there — it runs your `smoke` check too, so a green gate run means the app boots in the copy.",
   "Fix whatever the copy is missing by wiring [worktree]: copy env files and generate keys in `steps` (one-shot), install dependencies in `ensure` (every pass — check-then-install, so it's fast when current), declare a database/container as `[worktree.resources.<name>]`, list plain env vars in `inherit_env`.",
-  "Iterate until the probe's `discern done` is green, commit your [worktree] wiring, then remove the probe; record anything you cannot resolve now in {{todo_path}}.",
+  "Iterate until the probe's `discern done` is green, commit your [worktree] wiring, then discard the named probe with `discern worktree drop <path> --force`; record anything you cannot resolve now in {{todo_path}}.",
 ]
 what_not_to_do = [
   "Do not leave the probe worktree behind — remove it once the copy works, or once you have recorded what is blocking it.",
@@ -410,14 +410,13 @@ cd <that path>
 discern done           # runs the gate — and your smoke check — in the copy
 ```
 
-Whatever fails is exactly what did not travel. Fix it in `[worktree]` back in the main checkout, commit, and re-probe. When `discern done` is green in the copy, discard the throwaway — from the main checkout:
+Whatever fails is exactly what did not travel. Fix it in `[worktree]` back in the main checkout, commit, and re-probe. When `discern done` is green in the copy, discard the named throwaway through discern's bounded lifecycle — from the main checkout:
 
 ```sh
-git worktree remove <that path> --force
-git branch -D <its agent/… branch>
+discern worktree drop <that path> --force
 ```
 
-It holds no work you need; the fix lives in `[worktree]`, committed on your setup branch.
+It holds no work you need; the fix lives in `[worktree]`, committed on your setup branch. `worktree drop` checks the exact target, tears down declared resources, and retains the branch tip under a bounded recovery ref before removing the checkout and branch. Do not replace it with raw Git removal.
 
 You do not have to catch everything by hand: **`discern setup done` runs this same probe structurally** — it creates a worktree, runs the gate inside it, and tears it down — and it will _refuse to finish_ if the app cannot run in a copy, naming what broke. This step is your chance to get the wiring right first, so `done` is a confirmation, not a surprise. Record anything you genuinely cannot resolve now (a database the user must provision, a secret only they hold) in `{{todo_path}}`, so the gap is visible rather than a landmine on the first real task.
 

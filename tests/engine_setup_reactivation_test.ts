@@ -20,7 +20,13 @@
 
 import { assert } from "@std/assert";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
-import { providerFor, reactivationStep } from "../src/lib/providers.ts";
+import {
+  ACTIVATION_CLI_CHECK,
+  ACTIVATION_MCP_CHECK,
+  activationCheck,
+  providerFor,
+  reactivationStep,
+} from "../src/lib/providers.ts";
 
 Deno.test("every provider's setup reactivation step follows from its wiring", () => {
   for (const name of AGENT_NAMES) {
@@ -31,6 +37,16 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
     );
 
     const step = reactivationStep(provider);
+    const activation = activationCheck(provider);
+    assert(activation.recovery === provider.activation.recovery);
+    assert(activation.cliFallback === ACTIVATION_CLI_CHECK);
+    if (provider.mcp.kind === "wired") {
+      assert(activation.kind === "mcp");
+      assert(activation.command === ACTIVATION_MCP_CHECK);
+    } else {
+      assert(activation.kind === "cli");
+      assert(activation.command === ACTIVATION_CLI_CHECK);
+    }
     // What discern wired for this agent that a coding agent loads at SESSION START — the
     // live MCP server, session hooks, or project rules. Any means a fresh session is
     // needed.
@@ -69,6 +85,14 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
         step !== undefined && step.length > 0,
         `"${name}" wires MCP, hooks, or project rules but reactivationStep returned ` +
           `none — the setup-done handoff would skip a vendor that needs reactivating`,
+      );
+      assert(
+        step.includes(`\`${activation.command}\``) &&
+          step.includes(activation.recovery) &&
+          step.includes(`\`${ACTIVATION_CLI_CHECK}\``) &&
+          step.includes("confirmed only when"),
+        `"${name}" must serve one exact local check, its registry-owned ` +
+          "recovery, and the canonical CLI fallback without inferring activation",
       );
       // A vendor that gates committed config behind a one-time trust must carry that
       // action in its step (the same trust.hint doctor surfaces), so the user isn't left

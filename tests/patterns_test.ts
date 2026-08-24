@@ -1007,18 +1007,19 @@ const FIXTURES: Record<string, DetectorFixtures> = {
   },
   "confirmed-rerun": {
     firing: run([
-      { verb: "done", flags: ["confirmed"] },
-      { verb: "done", flags: ["confirmed"] },
+      { verb: "done", flags: ["rerun"] },
+      { verb: "done", flags: ["rerun"] },
+      // The compatibility spelling remains enrolled while callers migrate.
       { verb: "done", flags: ["confirmed"] },
     ]),
     quiet: run([
-      { verb: "done", flags: ["confirmed"] },
+      { verb: "done", flags: ["rerun"] },
       { verb: "done" },
       { verb: "done" },
     ]),
     sparse: run([
-      { verb: "done", flags: ["confirmed"] },
-      { verb: "done", flags: ["confirmed"] },
+      { verb: "done", flags: ["rerun"] },
+      { verb: "done", flags: ["rerun"] },
     ]),
   },
   "dormant-verbs": {

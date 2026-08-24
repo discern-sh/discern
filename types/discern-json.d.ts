@@ -950,6 +950,10 @@ export type DiscernSetupDoneResult = {
         agent: string;
         label: string;
         step: string;
+        check_kind: "mcp" | "cli";
+        check: string;
+        recovery: string;
+        cli_fallback: string;
       }>;
     };
     coach: {
@@ -2365,6 +2369,7 @@ export type DiscernDoneResult = {
   verb: "done";
   data?: {
     mode?: "strict" | "report";
+    gate_ran?: boolean;
     failed_stage:
       | "fix"
       | "build"

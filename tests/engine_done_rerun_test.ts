@@ -1,17 +1,14 @@
 /**
- * The unchanged-tree rerun precondition on `done`. A completed gate run
- * records what it judged (the last-run marker); asking `done` to re-run on
- * that exact tree without `--confirmed` refuses read-only, with a
- * verdict-specific recovery: a red tree deserves a fix (or a deliberate,
- * recorded flake probe), a green tree already stands and `status` shows the
- * proof. Any change to the tree — a commit, an edit — runs the gate
- * normally, and so does `--dry-run`; the precondition guards only the
- * literal-rerun case where the verdict is already known.
+ * The exact-state `done` contract. Canonical current green Proof is reusable
+ * without executing any Gate effect; red or incomplete evidence never becomes
+ * green through repetition. `--rerun` is the precise deliberate-execution
+ * spelling and `--confirmed` remains a tested compatibility alias. Any change
+ * to the tree runs normally, and `--dry-run` remains a read-only preview.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   git,
@@ -79,7 +76,7 @@ async function worktreeWithWork(
   return wt;
 }
 
-Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and --confirmed re-runs it", async () => {
+Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and --rerun executes it", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithWork(dir, CHECKED_CONFIG, CHECK_FAILS);
 
@@ -97,12 +94,12 @@ Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and
     assertEquals(env.ok, false);
     assertEquals(env.error, UNCHANGED_TREE_RERUN_SLUG);
     assertEquals(env.steps, undefined, "a refusal must run nothing");
-    assertStringIncludes(env.message, "--confirmed");
+    assertStringIncludes(env.message, "--rerun");
     assertHasHint(env, HINTS["done-unchanged-tree-red"]);
 
     // The attestation re-runs the real gate: the verdict is red again with the
     // job's own diagnostics, not a refusal.
-    const probed = await runAgent(wt, ["done", "--confirmed", "--json"]);
+    const probed = await runAgent(wt, ["done", "--rerun", "--json"]);
     assertEquals(probed.code, 1, probed.output);
     const probedEnv = parseJson(probed.stdout);
     assertEquals(probedEnv.error, undefined);
@@ -110,23 +107,97 @@ Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and
   });
 });
 
-Deno.test("done: an unchanged tree the gate judged GREEN refuses a bare rerun toward status", async () => {
+Deno.test("done: current green Proof is reused on JSON, Markdown, human, and in-process surfaces", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithWork(dir, GREEN_CONFIG);
 
     const first = await runAgent(wt, ["done", "--json"]);
     assertEquals(first.code, 0, first.output);
+    const firstEnv = parseJson(first.stdout);
+    assertEquals(firstEnv.data.gate_ran, true);
 
     const rerun = await runAgent(wt, ["done", "--json"]);
-    assertEquals(rerun.code, 1, rerun.output);
+    assertEquals(rerun.code, 0, rerun.output);
     const env = parseJson(rerun.stdout);
-    assertEquals(env.error, UNCHANGED_TREE_RERUN_SLUG);
-    assertHasHint(env, HINTS["done-unchanged-tree-green"]);
+    assertEquals(env.ok, true);
+    assertEquals(env.steps, undefined, "Proof reuse executes zero Gate steps");
+    assertEquals(env.data.gate_ran, false);
+    assertEquals(env.data.proof, firstEnv.data.proof);
+    assertStringIncludes(env.message, "no Gate job ran");
 
-    // The confirmed rerun is green exactly as before, proof included.
-    const again = await runAgent(wt, ["done", "--confirmed", "--json"]);
-    assertEquals(again.code, 0, again.output);
-    assertEquals(parseJson(again.stdout).data.gate_proof.status, "recorded");
+    const markdown = await runAgent(wt, ["done", "--markdown"]);
+    assertEquals(markdown.code, 0, markdown.output);
+    assertTerminalTextIncludes(markdown.output, "no Gate job ran");
+    assertStringIncludes(markdown.output, "Proof");
+
+    const human = await runAgent(wt, ["done"]);
+    assertEquals(human.code, 0, human.output);
+    assertTerminalTextIncludes(human.output, "no Gate job ran");
+
+    const inProcess = await finishResult(wt, {
+      surface: { kind: "quiet" },
+    });
+    assertEquals(inProcess.ok, true);
+    assertEquals(inProcess.data?.gate_ran, false);
+    assertEquals(inProcess.steps, undefined);
+  });
+});
+
+Deno.test("done: Proof reuse executes zero configured fix, check, test, or Standard jobs", async () => {
+  await withTempDir(async (dir) => {
+    const config = [
+      "[project]",
+      'slug = "engine-test"',
+      "",
+      "[repository]",
+      'trunk = "main"',
+      "",
+      "[jobs]",
+      'format = "sh format-count.sh"',
+      'test = "sh test-count.sh"',
+      "",
+      "[jobs.custom-check]",
+      'stage = "check"',
+      'run = "sh check-count.sh"',
+      "",
+      "[standards.size]",
+      'direction = "down"',
+      "limit = 1",
+      'run = "sh standard-count.sh"',
+      "",
+    ].join("\n");
+    await scaffoldEngine(dir);
+    await writeConfig(dir, config);
+    for (const name of ["format", "check", "test"]) {
+      await writeExecutable(
+        join(dir, `${name}-count.sh`),
+        `#!/usr/bin/env sh\nprintf x >> ../${name}-count\n`,
+      );
+    }
+    await writeExecutable(
+      join(dir, "standard-count.sh"),
+      "#!/usr/bin/env sh\nprintf x >> ../standard-count\nprintf 'DISCERN_METRIC size 1\\n'\n",
+    );
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "rerun-effects");
+    await Deno.writeTextFile(join(wt, "feature.txt"), "branch work\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feat: work", "--no-gpg-sign");
+
+    const first = await runAgent(wt, ["done", "--json"]);
+    assertEquals(first.code, 0, first.output);
+    const counts = ["format", "check", "test", "standard"];
+    const before = await Promise.all(
+      counts.map((name) => Deno.readTextFile(join(wt, "..", `${name}-count`))),
+    );
+
+    const reused = await runAgent(wt, ["done", "--json"]);
+    assertEquals(reused.code, 0, reused.output);
+    assertEquals(parseJson(reused.stdout).data.gate_ran, false);
+    const after = await Promise.all(
+      counts.map((name) => Deno.readTextFile(join(wt, "..", `${name}-count`))),
+    );
+    assertEquals(after, before, "reuse must execute no configured effect");
   });
 });
 
@@ -164,29 +235,37 @@ Deno.test("done: --dry-run never refuses, and never counts as the previous run",
     assertEquals(preview.code, 0, preview.output);
     assertEquals(parseJson(preview.stdout).error, undefined);
 
-    // …and does not overwrite what the last REAL run judged: the bare rerun
-    // still refuses afterward.
+    // …and does not overwrite what the last REAL run judged: current Proof is
+    // still reused afterward, rather than evidence being invented by preview.
     const rerun = await runAgent(wt, ["done", "--json"]);
-    assertEquals(parseJson(rerun.stdout).error, UNCHANGED_TREE_RERUN_SLUG);
+    assertEquals(parseJson(rerun.stdout).data.gate_ran, false);
   });
 });
 
-Deno.test("done: the refusal reaches the in-process entry point the MCP server calls", async () => {
+Deno.test("done: --rerun and the --confirmed compatibility alias both execute the in-process Gate", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithWork(dir, GREEN_CONFIG);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
 
-    const refused = await finishResult(wt, {
+    const reused = await finishResult(wt, {
       surface: { kind: "quiet" },
     });
-    assertEquals(refused.ok, false);
-    assertEquals(refused.error, UNCHANGED_TREE_RERUN_SLUG);
+    assertEquals(reused.ok, true);
+    assertEquals(reused.data?.gate_ran, false);
+
+    const rerun = await finishResult(wt, {
+      surface: { kind: "quiet" },
+      rerun: true,
+    });
+    assertEquals(rerun.ok, true, JSON.stringify(rerun));
+    assertEquals(rerun.data?.gate_ran, true);
 
     const confirmed = await finishResult(wt, {
       surface: { kind: "quiet" },
       confirmed: true,
     });
     assertEquals(confirmed.ok, true, JSON.stringify(confirmed));
+    assertEquals(confirmed.data?.gate_ran, true);
   });
 });
 
@@ -201,10 +280,56 @@ Deno.test("done: the last-run marker lives in the worktree's git admin dir and a
     assertEquals(marker.passed, true);
     assertEquals(marker.head, (await gitOut(wt, "rev-parse", "HEAD")).trim());
 
-    // A corrupt marker must never block the gate: the rerun runs normally.
+    // Canonical Proof, not the last-run marker, is the reuse authority.
     await Deno.writeTextFile(markerPath, "not json\n");
     const rerun = await runAgent(wt, ["done", "--json"]);
     assertEquals(rerun.code, 0, rerun.output);
-    assertEquals(parseJson(rerun.stdout).error, undefined);
+    assertEquals(parseJson(rerun.stdout).data.gate_ran, false);
   });
 });
+
+for (
+  const evidenceCase of [
+    {
+      name: "missing",
+      mutate: async (path: string): Promise<void> => await Deno.remove(path),
+    },
+    {
+      name: "stale",
+      mutate: async (path: string): Promise<void> => {
+        const raw = await Deno.readTextFile(path);
+        await Deno.writeTextFile(path, raw.replace(/^[^\n]+/, "0".repeat(40)));
+      },
+    },
+    {
+      name: "unreadable",
+      mutate: async (path: string): Promise<void> => {
+        await Deno.remove(path);
+        await Deno.mkdir(path);
+      },
+    },
+    {
+      name: "incomplete",
+      mutate: async (path: string): Promise<void> => {
+        const raw = await Deno.readTextFile(path);
+        await Deno.writeTextFile(path, `${raw.split("\n")[0]}\n`);
+      },
+    },
+  ] as const
+) {
+  Deno.test(`done: ${evidenceCase.name} Proof never enters the green reuse path`, async () => {
+    await withTempDir(async (dir) => {
+      const wt = await worktreeWithWork(dir, GREEN_CONFIG);
+      assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
+      const proofPath = await gitAdminStatePath(wt, "gateProof");
+      assert(proofPath !== undefined);
+      await evidenceCase.mutate(proofPath);
+
+      const result = await runAgent(wt, ["done", "--json"]);
+      assertEquals(result.code, 1, result.output);
+      const envelope = parseJson(result.stdout);
+      assertEquals(envelope.error, UNCHANGED_TREE_RERUN_SLUG);
+      assertEquals(envelope.data?.gate_ran, undefined);
+    });
+  });
+}

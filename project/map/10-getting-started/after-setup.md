@@ -48,6 +48,8 @@ The `.gitignore` file gains one marked `# --- discern ---` block. Keep your rule
 
 Each selected coding agent also has integration files. discern adds its own Model Context Protocol (MCP) server, hooks, and permission defaults to the provider's existing configuration. It leaves unrelated entries in place. The [agent integration guides](../60-agent-integrations/) list the exact paths for each provider.
 
+`setup done` also serves the provider's post-restart activation check; see [Setup command boundaries](../70-reference/setup-command-boundaries.md).
+
 ## Files discern regenerates
 
 Agent files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` come from discern's built-in instructions plus your authored sources. The files are committed so a bare clone gives its coding agents the same instructions. Edit the source and run `discern refresh`. The Gate rejects a tracked generated copy that has drifted ([ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).

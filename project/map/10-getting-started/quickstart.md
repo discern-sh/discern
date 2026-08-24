@@ -34,6 +34,8 @@ The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-s
 
 Answer in plain language: "Yes. Set up Claude Code and Codex." Setup cannot proceed until the agent records your consent ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
+`setup verify` is read-only. Each later effectful command checks its own plan-derived write targets before effects; denial preserves the phase and names the path and retry. The check is point-in-time, not cached provider authority ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
+
 Setup writes ordinary files on a separate `discern-setup` branch, keeping those changes off `main` until you land them. The format job already contains `discern tidy` for discern-owned Markdown and the root config. The agent puts your stack's formatter before it, then wires lint, test, and the other commands your project runs. It fills in instructions and the first Map pages under that live Gate. From that point, each configured agent reads the same compiled instructions and runs the same commands.
 
 The Static Analysis Results Interchange Format (SARIF) is a machine-readable findings format. During setup, configure tools to emit SARIF or JUnit XML to captured `stdout` or `stderr`. Failed jobs become per-finding diagnostics. discern does not inspect report files. Other captured output remains raw.
@@ -44,7 +46,7 @@ The Static Analysis Results Interchange Format (SARIF) is a machine-readable fin
 
 Then it's your turn:
 
-1. **Start a fresh agent session.** The Model Context Protocol (MCP) tools and session hooks load at session start, so the session that ran setup cannot see them yet.
+1. **Start a fresh agent session and run the check served by `setup done`.** If it is unavailable, follow its local recovery and use `discern status --json` as the fallback.
 2. **Review and land the `discern-setup` branch.** Setup is ordinary file edits on a branch you can read.
 
 <!-- discern-workflow:procedure -->

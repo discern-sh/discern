@@ -468,22 +468,22 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: `done-rerun`
-- Emitting context: `done` is asked to re-run on the exact tree it last judged green, without `--confirmed`.
+- Emitting context: `done` found a last-green marker but no complete current Proof to reuse, without `--rerun`.
 
 Rendered example:
 
-> Run `discern status` — this exact tree already passed `discern done`, and status shows whether Proof remains valid without re-running anything. To re-run the full gate on it anyway, run `discern done --confirmed`.
+> Run `discern status` — this exact tree already passed `discern done`, and status shows whether Proof remains valid without re-running anything. To re-run the full gate on it anyway, run `discern done --rerun`.
 
 ## `done-unchanged-tree-red`
 
 - Category: `next-step`
 - Audience: `all`
 - Family: `done-rerun`
-- Emitting context: `done` is asked to re-run on the exact tree it last judged red, without `--confirmed`.
+- Emitting context: `done` is asked to re-run on the exact tree it last judged red, without `--rerun`.
 
 Rendered example:
 
-> Fix the failure the last run reported, iterating with `discern prepare` or `discern test`, then re-run `discern done` — nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Use the confirmed rerun only to probe for a flaky verdict: `discern done --confirmed` does that, and records the rerun as a probe.
+> Fix the failure the last run reported, iterating with `discern prepare` or `discern test`, then re-run `discern done` — nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Use the explicit rerun only to probe for a flaky verdict: `discern done --rerun` does that, and records the rerun as a probe.
 
 ## `ensure-main-worktree-first`
 
@@ -786,7 +786,7 @@ Rendered example:
 
 Rendered example:
 
-> Grant the write access named by the diagnostics, then re-run the current discern command. The gate needs that access to persist its state.
+> Allow the current invocation to write the path named by the diagnostics, then re-run the discern command. A successful probe confirms only point-in-time write authority; discern does not grant or persist host permission.
 
 ## `gate-job-loud-success`
 

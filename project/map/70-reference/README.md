@@ -42,3 +42,4 @@ For setup and first-use steps, start in [Getting started](../10-getting-started/
 | [Logbook lifecycle](logbook-lifecycle.md)                                 | Preview, confirm, archive, reset, recover, and read sealed Logbook history.              |
 | [Checkpoint state & declarations](checkpoint-state.md)                    | Look up open-question states, declaration and variance flags, and the read surfaces.     |
 | [Checkpoint `when` protocol](checkpoint-when-protocol.md)                 | Consume the versioned command input, match output, and temporary-file lifecycle.         |
+| [Setup command boundaries](setup-command-boundaries.md)                   | Separate setup consent, write access, recovery, and provider activation.                 |

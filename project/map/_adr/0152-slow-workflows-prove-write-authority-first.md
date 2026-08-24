@@ -4,6 +4,7 @@
 >
 > - **Vocabulary ([ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 > - **[ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md) — registry:** the former `ADMIN_STATE_FILES` registry is now represented by the validation-marked subset of the complete `GIT_ADMIN_STATE` registry. The branded authority and auto-enrolment rule are unchanged; the nested namespace is created before its write probe.
+> - **[ADR 0320](0320-setup-plans-own-write-authority-and-activation-recovery.md) — setup effects:** the shared real-operation preflight now also consumes setup plans. Setup effect membership and required targets live in `setup_effects.ts`, not in the Gate's validation-state registry or command-local path lists; `verify`, dry runs, and advisory Logbook writes remain outside the boundary.
 
 **Status**: accepted. Refines the gate receipt's best-effort write policy ([ADR 0067](0067-accept-validates-the-landed-tree.md)), extends the measurement-receipt flow ([ADR 0112](0112-standard-measurement-receipt.md)), and preserves `smoke` as the project's fast readiness job ([ADR 0090](0090-setup-proves-worktree-viability.md)).
 

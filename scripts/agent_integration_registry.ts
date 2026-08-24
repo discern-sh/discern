@@ -476,6 +476,11 @@ export const PROVIDER_FIELD_NOTES: Readonly<
       "`TrustGate { required, hint }` — one-time trust for committed MCP/hooks",
     absent: null,
   },
+  activation: {
+    meaning:
+      "Provider-owned local recovery when the exact post-restart integration check is unavailable",
+    absent: null,
+  },
   humanSetupAdvice: {
     meaning:
       "Vendor-UI setup a human must perform; relayed at `setup done`, never applied (ADR 0075)",
@@ -699,11 +704,11 @@ const REGISTRY_MECHANICS =
 - **Typed MCP status (ADR 0072).** \`mcp\` is a required discriminated \`McpStatus\`: \`wired\`, \`pending\` with a committable target file, or \`none\`. A missing declaration is a compile error. The parity test requires a \`pending\` entry to name a real target. Every current agent is \`wired\`; the derived matrix surfaces a later regression to \`pending\` at the next code generation.
 - **App-managed worktree-lifecycle seam (ADR 0073).** An optional \`worktreeApp\` co-manages a configuration file that the agent app generates, such as Codex's \`environment.toml\`. \`wireProviderWorktreeApp\` re-emits the discern-owned entries on every refresh alongside MCP wiring, preserves the app's keys, and repairs entries after the app rewrites the file. Codex declares this seam; other providers skip it when \`worktreeApp\` is absent.
 - **Provider-driven settings seam (ADR 0071).** \`settingsSeeds()\` derives each hooks provider's settings file + per-provider merge strategy (default: the JSON deep-merge; group-dedup where the vendor's hook groups hold the command at the group level). The scaffolder routes settings templates by that registry-derived set, so a new hooks provider seeds purely from a \`HooksIntegration\` declaration + a dropped template.
-- **Trust diagnostic and reactivation (ADR 0075).** \`trust\` records whether committed MCP servers and hooks need a one-time folder trust and names the required action. \`doctor\` reports that state per agent, and the post-setup handoff derives each restart and trust step from the same fields.
+- **Trust diagnostic and activation (ADR 0075).** \`trust\` records whether committed MCP servers and hooks need a one-time folder trust and names the required action. \`activation\` owns the provider-specific local recovery. The post-setup handoff derives the exact MCP-or-CLI check, recovery, and CLI fallback from those registry facts; generated files alone never count as activation evidence.
 
 **Coverage gaps fail the Gate through these mechanisms:**
 
-1. **The total \`Record\`** — a new name in \`AGENT_NAMES\` without a complete \`PROVIDERS\` entry is a compile error (ADR 0031), and the required \`mcp\` / \`trust\` / \`binaries\` / \`brand\` / \`cli\` fields make their declaration compile-mandatory too.
+1. **The total \`Record\`** — a new name in \`AGENT_NAMES\` without a complete \`PROVIDERS\` entry is a compile error (ADR 0031), and the required \`mcp\` / \`trust\` / \`activation\` / \`binaries\` / \`brand\` / \`cli\` fields make their declaration compile-mandatory too.
 2. **The parity test** (\`tests/agent_parity_test.ts\`) — for every \`AGENT_NAMES\` entry it asserts tracked and ignored file state, neutral scopes, each hooks provider's seed template (event keys + session-hook needle), non-empty \`binaries\`, the canonical and reuse-canonical invariants, an accounted MCP status, and trust metadata. A new agent fails the Gate at each incomplete seam (ADR 0043/0051).
 3. **\`discern doctor\`** reports per-configured-agent coverage explicitly (\`src/commands/doctor.ts\` §8b): for each agent it prints what is wired (Instructions, Skills, MCP, and hooks) and the one-time trust step (or that none is needed) — so the expected divergences are visible rather than read as a bug.
 4. **This page itself** — code generation derives the cells from \`PROVIDERS\`, and the Gate diffs the committed copy. The typed commentary layer fails compilation until verdict prose covers a new agent.`;

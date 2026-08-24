@@ -428,7 +428,7 @@ export async function recordGateOutcome(
 
 /**
  * The refusal slug `done` serves when it is asked to re-run on the exact tree
- * it last judged without the `--confirmed` attestation. Gate-owned, not part of
+ * it last judged without the explicit `--rerun` request. Gate-owned, not part of
  * the consent-gated class: that class refuses unconditionally until an owner's
  * consent arrives, while this gate fires only when the tree is unchanged and is
  * satisfied by the caller's own attestation that the rerun is deliberate.

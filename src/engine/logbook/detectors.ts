@@ -1689,19 +1689,21 @@ const forceHabit: Detector = {
 
 const confirmedRerun: Detector = {
   id: "confirmed-rerun",
-  title: "Recurring confirmed Gate reruns",
+  title: "Recurring explicit Gate reruns",
   family: "behaviour",
   scope: "project",
   tier: "batch",
   tone: "attention",
-  // Each --confirmed re-runs a tree the gate already judged — one is a
-  // deliberate probe; three is a habit worth naming.
+  // Each explicit rerun re-executes a tree the Gate already judged — one is a
+  // deliberate probe; three is a habit worth naming. The legacy flag remains
+  // enrolled while compatibility callers migrate.
   threshold: 3,
   next_step:
     "Inspect why each already-judged tree was rerun. If a job changed verdict under matched recorded conditions, use the `discern-cure-a-bug` diagnose procedure; otherwise keep the recorded reason as context rather than inferring instability.",
   detect(facts): DetectorOutcome {
     const confirmed = facts.agentish.filter((e) =>
-      e.verb === "done" && (e.flags ?? []).includes("confirmed")
+      e.verb === "done" && ((e.flags ?? []).includes("rerun") ||
+        (e.flags ?? []).includes("confirmed"))
     );
     const branches = new Set(
       confirmed.map((e) => e.branch).filter((b): b is string => b !== null),
@@ -1712,7 +1714,7 @@ const confirmedRerun: Detector = {
       ? [{
         summary: "The Gate was repeatedly rerun on already-judged trees.",
         observed:
-          `\`done --confirmed\` re-ran the Gate on an already-judged tree ${
+          `an explicit \`done\` rerun re-executed the Gate on an already-judged tree ${
             formatHumanNumber(confirmed.length)
           } times across ${
             formatHumanNumber(doneRuns)

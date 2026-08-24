@@ -2155,12 +2155,32 @@
                           },
                           "step": {
                             "type": "string"
+                          },
+                          "check_kind": {
+                            "type": "string",
+                            "enum": [
+                              "mcp",
+                              "cli"
+                            ]
+                          },
+                          "check": {
+                            "type": "string"
+                          },
+                          "recovery": {
+                            "type": "string"
+                          },
+                          "cli_fallback": {
+                            "type": "string"
                           }
                         },
                         "required": [
                           "agent",
                           "label",
-                          "step"
+                          "step",
+                          "check_kind",
+                          "check",
+                          "recovery",
+                          "cli_fallback"
                         ]
                       }
                     }
@@ -6844,6 +6864,9 @@
                     "strict",
                     "report"
                   ]
+                },
+                "gate_ran": {
+                  "type": "boolean"
                 },
                 "failed_stage": {
                   "anyOf": [

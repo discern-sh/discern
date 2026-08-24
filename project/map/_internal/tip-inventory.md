@@ -621,6 +621,7 @@ The enrollment guard derives every feature node and top-level verb from its live
 | `feature:result-envelope`                 | The integration reference documents the result envelope for machine consumers.                                                       |
 | `feature:session-hooks`                   | Setup documentation owns session-hook integration and reactivation steps.                                                            |
 | `feature:setup`                           | The installer teaches setup before the Desk becomes available.                                                                       |
+| `feature:setup-activation`                | Setup completion serves activation recovery before the Desk becomes available.                                                       |
 | `feature:setup-observability`             | Setup displays these operational reports while it runs.                                                                              |
 | `feature:single-binary`                   | The install and architecture references document this packaging property.                                                            |
 | `feature:staged-pipeline`                 | The `done` tip teaches the human-visible result of this Gate execution sequence.                                                     |

@@ -25,6 +25,13 @@ import {
   gitAdminStatePath,
   VALIDATION_ADMIN_STATE_KEYS,
 } from "../src/shared/git_admin_state.ts";
+import {
+  preflightSetupEffects,
+  setupEffectPlan,
+  setupPlannedWrites,
+  setupRequiredEffect,
+} from "../src/shared/setup_effects.ts";
+import { preflightPlannedWrites } from "../src/shared/write_preflight.ts";
 
 /** Decode a preflight refusal envelope before asserting that no later effect ran. */
 // deno-lint-ignore no-explicit-any
@@ -262,5 +269,44 @@ Deno.test("admin-state preflight is non-applicable before a checkout has Git met
         JSON.stringify(result)
       }`,
     );
+  });
+});
+
+Deno.test("directory-tree probes a missing target without debris or marker changes", async () => {
+  await withTempDir(async (dir) => {
+    const parent = join(dir, "writable-parent");
+    const target = join(parent, "future", "worktrees");
+    await Deno.mkdir(parent);
+    const marker = join(parent, "existing-marker");
+    await Deno.writeTextFile(marker, "unchanged\n");
+    const before = await directoryEntryNames(parent);
+
+    const result = await preflightPlannedWrites([{
+      kind: "directory-tree",
+      path: target,
+      description: "future worktree root",
+    }]);
+    assert(result.ok, JSON.stringify(result));
+    assertEquals(await pathExists(target), false);
+    assertEquals(await directoryEntryNames(parent), before);
+    assertEquals(await Deno.readTextFile(marker), "unchanged\n");
+  });
+});
+
+Deno.test("a fixture-added setup effect automatically supplies the probe population", async () => {
+  await withTempDir(async (dir) => {
+    const blocked = join(dir, "planned-target");
+    await Deno.writeTextFile(blocked, "not a directory\n");
+    const effect = setupRequiredEffect("begin-scaffold", {
+      kind: "directory-tree",
+      path: blocked,
+      description: "fixture-added setup effect",
+    });
+    const plan = setupEffectPlan("begin", [effect]);
+    assertEquals(setupPlannedWrites(plan), [...effect.writes]);
+
+    const result = await preflightSetupEffects(plan);
+    assert(!result.ok);
+    assertEquals(result.path, blocked);
   });
 });

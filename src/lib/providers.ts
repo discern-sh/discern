@@ -77,6 +77,23 @@ export interface AgentReactivation {
   readonly agent: string;
   readonly label: string;
   readonly step: string;
+  readonly check_kind: "mcp" | "cli";
+  readonly check: string;
+  readonly recovery: string;
+  readonly cli_fallback: string;
+}
+
+/** Canonical CLI activation check and fallback for every provider. */
+export const ACTIVATION_CLI_CHECK = "discern status --json";
+/** Exact local MCP call exposed by a loaded discern integration. */
+export const ACTIVATION_MCP_CHECK = "discern_status";
+
+/** One provider's deterministic post-restart activation contract. */
+export interface ProviderActivationCheck {
+  readonly kind: "mcp" | "cli";
+  readonly command: string;
+  readonly recovery: string;
+  readonly cliFallback: string;
 }
 
 /**
@@ -101,7 +118,16 @@ export function reactivationHandoff(
     if (step === undefined) {
       continue; // nothing discern wired for this agent loads at session start
     }
-    per_agent.push({ agent: name, label: provider.label, step });
+    const activation = activationCheck(provider);
+    per_agent.push({
+      agent: name,
+      label: provider.label,
+      step,
+      check_kind: activation.kind,
+      check: activation.command,
+      recovery: activation.recovery,
+      cli_fallback: activation.cliFallback,
+    });
   }
   return {
     summary: fire(HINTS["setup-reactivate-tools"]).text,
@@ -143,11 +169,20 @@ export function reactivationStep(provider: Provider): string | undefined {
   const reactivation = provider.trust.required
     ? `${base}, then ${provider.trust.hint}`
     : base;
+  const activation = activationCheck(provider);
+  const verification =
+    `In that fresh session, call \`${activation.command}\`; ` +
+    "activation is confirmed only when that check returns. If it is unavailable, " +
+    `${activation.recovery}. Use \`${activation.cliFallback}\` as the local CLI ` +
+    "fallback; generated files alone do not prove the session loaded the integration.";
+  const step = `${reactivation}${
+    /[.!?]$/.test(reactivation) ? "" : "."
+  } ${verification}`;
   return provider.humanSetupAdvice === undefined
-    ? reactivation
+    ? step
     : `${provider.humanSetupAdvice.handoff}${
       /[.!?]$/.test(provider.humanSetupAdvice.handoff) ? "" : "."
-    } Then ${reactivation}`;
+    } Then ${step}`;
 }
 
 // ── the per-agent integration surfaces ──────────────────────────────────────
@@ -241,6 +276,26 @@ export interface TrustGate {
   /** The user-facing action that grants trust (when `required`), or the reason none
    * is needed (when not). Shown verbatim by the per-agent diagnostic; always present. */
   readonly hint: string;
+}
+
+/** Provider-owned recovery wording for a failed local activation check. */
+export interface ProviderActivation {
+  readonly recovery: string;
+}
+
+/** Derive the exact check from the integration kind; provider wording stays in
+ * its registry entry and the CLI fallback remains shared. */
+export function activationCheck(
+  provider: Provider,
+): ProviderActivationCheck {
+  return {
+    kind: provider.mcp.kind === "wired" ? "mcp" : "cli",
+    command: provider.mcp.kind === "wired"
+      ? ACTIVATION_MCP_CHECK
+      : ACTIVATION_CLI_CHECK,
+    recovery: provider.activation.recovery,
+    cliFallback: ACTIVATION_CLI_CHECK,
+  };
 }
 
 /** One interactive CLI entry point the desk can offer for a provider. The
@@ -576,6 +631,8 @@ export interface Provider {
    * four non-Claude vendors gate committed config behind a trust). See {@link TrustGate}.
    */
   readonly trust: TrustGate;
+  /** Exact local recovery when the post-restart activation check is absent. */
+  readonly activation: ProviderActivation;
   /** Human-facing provider setup that discern reports but never applies. */
   readonly humanSetupAdvice?: HumanSetupAdvice;
   /**
@@ -1407,6 +1464,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       hint:
         "discern pre-approves its MCP server (enabledMcpjsonServers in .claude/settings.json) — no separate trust prompt.",
     },
+    activation: {
+      recovery:
+        "close and reopen Claude Code in this project, then check whether the project MCP server was loaded",
+    },
     skillsDir: {
       path: CLAUDE_SKILLS_DIR,
       ownership: { generated: true },
@@ -1515,6 +1576,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       hint:
         'one-time directory trust for .codex/ project config and rules (set trust_level = "trusted"), plus per-hook hash approval before a committed hook runs (bypass: --dangerously-bypass-hook-trust).',
     },
+    activation: {
+      recovery:
+        "open a new Codex task for this project and re-check the project integration; if it remains absent, restart the Codex app",
+    },
   },
   gemini: {
     name: "gemini",
@@ -1594,6 +1659,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       required: true,
       hint:
         "trust the workspace so committed .gemini/settings.json loads in safe mode (bypass: --skip-trust or GEMINI_CLI_TRUST_WORKSPACE=true); hooks also require hooksConfig.enabled = true to fire.",
+    },
+    activation: {
+      recovery:
+        "start a new Gemini CLI session in this project after completing the workspace trust step, then check again",
     },
   },
   cursor: {
@@ -1709,6 +1778,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       hint:
         "trust the workspace, then approve the discern MCP server's tools on first use (bypass for headless: --approve-mcps).",
     },
+    activation: {
+      recovery:
+        "reload the Cursor window, start a new agent conversation in this workspace, and check again",
+    },
     humanSetupAdvice: {
       handoff:
         "Turn off External File Protection under Cursor Settings → Agents → Auto-Run for uninterrupted edits from Local sessions into discern-created sibling worktrees. This user-wide setting lets Cursor's built-in file tools write outside the open workspace. To keep it enabled, start the session with Cursor's Worktree option.",
@@ -1810,6 +1883,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       hint:
         "add the folder to trustedFolders in ~/.copilot/config.json (bypass for headless: --allow-all-tools --allow-all-paths).",
     },
+    activation: {
+      recovery:
+        "start a new Copilot CLI session in the trusted folder and check again",
+    },
   },
 };
 
@@ -1883,6 +1960,34 @@ export function allInstructionFiles(): InstructionFile[] {
  * carries `AGENTS.md` twice. */
 export function allInstructionFilePaths(): string[] {
   return emittedInstructionPaths(allInstructionFiles());
+}
+
+/**
+ * Every project-relative artifact discern may write for the selected providers,
+ * derived from their registry entries. Setup's write plan and refresh consumers
+ * use this instead of copying MCP, hooks, rules, app, instruction, and skills
+ * paths into a second list.
+ */
+export function writtenProviderArtifactPathsForAgents(
+  agents: readonly string[],
+): string[] {
+  const out: string[] = [];
+  const add = (path: string | undefined): void => {
+    if (path !== undefined && !out.includes(path)) out.push(path);
+  };
+  for (const agent of agents) {
+    const provider = providerFor(agent);
+    if (provider === undefined) continue;
+    add(provider.instructionFile.path);
+    if (provider.mcp.kind === "wired") {
+      add(provider.mcp.integration.configFile);
+    }
+    add(provider.hooks?.settingsFile);
+    add(provider.worktreeApp?.configFile);
+    add(provider.projectRules?.rulesFile);
+    add(provider.skillsDir?.path);
+  }
+  return out;
 }
 
 /** Every distinct skills directory discern materializes into across all known

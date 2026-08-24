@@ -51,6 +51,8 @@ discern status --verbose --json
 discern status --no-color
 ```
 
+During setup, this read-only result reports the recorded phase, dedicated branch, and bounded continuation. It performs no write probe; the later effectful command checks its own targets ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
+
 ## Structured result
 
 `discern status --json`, MCP `structuredContent`, and the status resource default to the bounded orientation projection. `data.projection.mode` is `orientation`; `data.projection.omitted` gives the true overflow for each capped collection. Repeated collections retain at most six members. Fleet uses a distinct bounded shape: the main row plus six non-main samples, while `data.fleet_total` records the complete non-main count. Landing history stays out of the orientation payload.

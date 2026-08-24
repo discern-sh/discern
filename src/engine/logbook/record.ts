@@ -281,6 +281,7 @@ function diagnosticClasses(
 
 /** The gate fields worth lifting when a payload carries them. */
 const liftedGateShape = z.looseObject({
+  gate_ran: z.boolean().optional(),
   failed_stage: z.string().nullable().optional(),
   scopes_changed: z.array(z.string()).optional(),
 });
@@ -359,6 +360,7 @@ interface LiftedPin {
 /** Everything liftable from one envelope's `data`, already reduced to the
  * event vocabulary. */
 interface LiftedData {
+  gateRan?: boolean;
   failedStage?: string;
   scopes?: string[];
   standards?: StandardReading[];
@@ -378,6 +380,9 @@ function liftData(data: unknown): LiftedData {
   const lifted: LiftedData = {};
   const gate = liftedGateShape.safeParse(data);
   if (gate.success) {
+    if (gate.data.gate_ran !== undefined) {
+      lifted.gateRan = gate.data.gate_ran;
+    }
     if (
       gate.data.failed_stage !== undefined && gate.data.failed_stage !== null
     ) {
@@ -608,6 +613,7 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
           ...(report.result?.error !== undefined
             ? { error: report.result.error }
             : {}),
+          ...(lifted.gateRan !== undefined ? { gate_ran: lifted.gateRan } : {}),
           ...(lifted.failedStage !== undefined
             ? { failed_stage: lifted.failedStage }
             : {}),

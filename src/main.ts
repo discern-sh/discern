@@ -234,6 +234,44 @@ function setJobValidationMessage(
   return `${condition}. Run \`${correction}\`.`;
 }
 
+/**
+ * Serve the one natural positional `start` mistake with a copyable correction.
+ * Parsing stays strict: only one name-shaped positional token, with no
+ * `--name`, qualifies. Every other Cliffy validation error remains untouched.
+ */
+function startValidationMessage(
+  argv: readonly string[],
+  message: string,
+): string | undefined {
+  const start = argv.indexOf("start");
+  if (
+    start === -1 ||
+    argv.some((token) => token === "--name" || token.startsWith("--name="))
+  ) {
+    return undefined;
+  }
+  const valueOptions = new Set(["--from", "--theme"]);
+  const positionals: string[] = [];
+  for (let index = start + 1; index < argv.length; index += 1) {
+    const token = argv[index] ?? "";
+    if (valueOptions.has(token)) {
+      index += 1;
+      continue;
+    }
+    if (token.startsWith("-")) continue;
+    positionals.push(token);
+  }
+  const candidate = positionals.length === 1 ? positionals[0] : undefined;
+  if (
+    candidate === undefined ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(candidate)
+  ) {
+    return undefined;
+  }
+  const condition = message.replace(/[.\s]+$/, "");
+  return `${condition}. Run:\n\`discern start --name ${candidate}\``;
+}
+
 const SET_JOB_OPTION_TOKENS = new Set([
   "-h",
   "--help",
@@ -367,12 +405,20 @@ export function buildCli(
         : fullPath.replace(/^discern\s+/, "");
       const resultVerb = cliJsonResultVerb(commandPath) ??
         (commandPath === "" ? "discern" : commandPath);
+      const startMessage = commandPath === "start"
+        ? startValidationMessage(activeDiscernArgv, error.message)
+        : undefined;
       const message = commandPath === "config set-job"
         ? setJobValidationMessage(activeDiscernArgv, error.message)
-        : error.message;
+        : startMessage ?? error.message;
       if (!quietResultRequested(activeDiscernArgv)) {
-        if (commandPath === "config set-job") {
-          new Logger({ json: false, noColor: false }).error(message);
+        if (commandPath === "config set-job" || startMessage !== undefined) {
+          const log = new Logger({ json: false, noColor: false });
+          if (startMessage !== undefined) {
+            log.errorBlock(message);
+          } else {
+            log.error(message);
+          }
           Deno.exit(error.exitCode);
         }
         return;

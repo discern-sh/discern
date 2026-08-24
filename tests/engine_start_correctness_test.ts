@@ -13,7 +13,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   git,
@@ -65,6 +65,39 @@ async function assertNoStartDebris(dir: string, output: string): Promise<void> {
     `a failed start must not leave a worktree directory\n${output}`,
   );
 }
+
+Deno.test("start: one positional name serves --name syntax and changes nothing on every surface", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const before = await gitOut(dir, "status", "--porcelain=v1");
+
+    for (const format of ["--json", "--markdown", undefined] as const) {
+      const argv = ["start", "setup-probe"];
+      if (format !== undefined) argv.push(format);
+      const result = await runAgent(dir, argv);
+      assertEquals(result.code, 2, result.output);
+      assertTerminalTextIncludes(
+        result.output,
+        "discern start --name setup-probe",
+      );
+      if (format === "--json") {
+        const envelope = JSON.parse(result.stdout) as {
+          error?: string;
+          message?: string;
+        };
+        assertEquals(envelope.error, "invalid_arguments");
+        assertStringIncludes(
+          envelope.message ?? "",
+          "discern start --name setup-probe",
+        );
+      }
+    }
+
+    assertEquals(await gitOut(dir, "status", "--porcelain=v1"), before);
+    await assertNoStartDebris(dir, "positional-name parser refusal");
+  });
+});
 
 // ── the bad-state table: each row is one repo state `start` must refuse cleanly ──
 

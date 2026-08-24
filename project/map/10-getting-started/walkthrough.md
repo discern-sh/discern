@@ -26,7 +26,7 @@ Reply in plain language, for example:
 
 > Yes. Set up Codex and Claude Code in this repository.
 
-The agent attests that consent happened when it begins. A fresh interactive setup cannot write without that attestation ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
+The agent attests that consent happened when it begins ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)). `verify` remains read-only. Each later effectful command checks its plan-derived writes before its first effect. Denial preserves the phase, and success is point-in-time rather than provider authorization; see [Setup command boundaries](../70-reference/setup-command-boundaries.md).
 
 ## Setup builds on its own branch
 
@@ -35,6 +35,8 @@ The agent attests that consent happened when it begins. A fresh interactive setu
 discern commits its scaffolded wiring before the handoff. Final completion commits the marker before producing [Gate Proof](../20-quality-gate/the-proof.md). Those commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. Agent-authored commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
 
 Watch the branch rather than the main checkout. The agent makes small authoring commits as it completes the staged setup brief. [What setup added](after-setup.md) explains each group in the diff.
+
+After interruption, run `discern setup` or `discern status`; the recorded phase, branch, and continuation avoid replaying completed writes.
 
 ## Setup verifies the checkout can reproduce
 
@@ -47,7 +49,7 @@ A failure result includes the failed command and output. A pass records completi
 1. Review and land the `discern-setup` branch.
 2. Start a fresh coding-agent session.
 
-The restart matters because Model Context Protocol (MCP) servers, hooks, and project instructions load when a session starts. The session that created them cannot gain those integrations retroactively.
+The restart matters because Model Context Protocol (MCP) servers, hooks, and project instructions load at session start. Run the provider check served by completion; if unavailable, follow its local recovery and CLI fallback. Generated files alone do not prove activation ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
 `discern setup accept --dry-run` first validates that Proof without changing a branch or ref. Apply lands the full commit named by Proof and records the standard durable Proof note. If trunk moved after completion, setup acceptance merges trunk into `discern-setup`, runs the Gate on the merge commit, and lands only the new Proof. Missing, stale, dirty, unreadable, mismatched, forced, or declaration-stale evidence returns to `discern setup done` with trunk untouched.
 

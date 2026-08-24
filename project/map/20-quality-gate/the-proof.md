@@ -25,6 +25,8 @@ Proof also carries every structured checkpoint drop from the run: an uncertainty
 
 `done` and `prepare` share package progress, grouped jobs, activity, and commands. `done` adds review, recording, and readiness facts; only `recorded` passes. `prepare` names omitted work. The byte-exact relay stays separate.
 
+On exact, complete, current green Proof, ordinary `done` returns that Proof without Gate work. `data.gate_ran` distinguishes measurement (`true`) from reuse (`false`).
+
 `accept`, `setup done`, and `setup accept` reuse it. Successful non-forced setup completion returns the canonical inspection as `data.proof` and its relay line as `data.proof_line`; the forced path returns neither. Streaming stays raw. CI, `--plain`, oversized, or cursor-ineligible terminals stay static; pipes receive Proof; JSON and MCP omit Components. UTF-8 retains Unicode under `TERM=dumb` and no colour; exact `C` or `POSIX` uses ASCII.
 
 `waited_ms` reports capped-run waits; durable Proof omits them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
@@ -46,7 +48,7 @@ Before jobs run and again before the Proof is written, the Gate requires an empt
 
 The Gate can still pass when a review Proof is withheld for one of those identity or summary reasons. Its result explains why no Proof was emitted and tells you what to do next. Commit the intended tree, then rerun `discern done` on the clean final commit.
 
-Write authority is different. Before any declared job or Standard measurement starts, discern performs a create, write, rename, and remove probe beside its Git administration marker files. If a sandbox or filesystem permission blocks that write, `done` fails immediately with `failed_stage = "write_access"` and a diagnostic naming the path. That early refusal prevents a green Gate result from being discarded because its Proof could not be saved ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
+Write authority is different. Before any declared job or Standard measurement starts, discern performs a create, write, rename, and remove probe beside its Git administration marker files. If a sandbox or filesystem permission blocks that write, `done` fails immediately with `failed_stage = "write_access"` and a diagnostic naming the path. That early refusal prevents a green Gate result from being discarded because its Proof could not be saved. The probe observes only that invocation; provider authority may change later ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 
 ## How later commands use it
 
@@ -54,7 +56,7 @@ discern stores the validated commit, structured Proof, and both renderings in th
 
 | Surface                | What it does with the Proof                                                                                                                                                                                                                                                                                                                      |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `discern done`         | Prints the job table and line at a TTY, or the page when piped. JSON and MCP return compact `data.proof`; Markdown selects the bounded facts for its evidence section.                                                                                                                                                                           |
+| `discern done`         | Prints measured results normally; exact current green evidence instead returns its Proof with `data.gate_ran = false` and no Gate step. JSON and MCP return compact `data.proof`; Markdown selects bounded evidence.                                                                                                                             |
 | `discern status`       | Reports whether the marker still matches the clean current `HEAD`. JSON, Markdown, MCP, and the status resource return Proof status plus compact facts; terminal `--verbose` retrieves the page. Status also reads a landed trunk-tip Proof from the local or fetched notes ref as `data.landed_proof`.                                          |
 | `discern accept`       | Uses an honored strict marker to avoid repeating the Gate jobs and checks the current tracked-refresh plan before the fast-forward. It rejects report-only Proof, retains checkpoint drops through review, returns consent-qualified `data.proof_line`, and records the complete structured Proof plus presentation as a Git note after landing. |
 | `discern setup done`   | Clears earlier evidence, commits the completion marker, probes that commit in a linked worktree, runs the final Gate last, and succeeds only with honored structured Proof for the clean marker-bearing `HEAD`. A failed final leg restores setup to incomplete.                                                                                 |
@@ -68,7 +70,12 @@ After the trunk fast-forward, normal and setup acceptance write separate result 
 
 ## Re-running an unchanged tree
 
-Beside the Proof, every completed run records the exact tree it judged, its checkpoint declaration evidence, and the verdict in a last-run marker, including red runs. Ask `discern done` to run again on that identical state and it refuses read-only before any job or fixer runs. An unchanged tree expects an unchanged verdict. A green rerun repeats the full Gate for the result `discern status` already shows; retrying a red run until it passes can hide a flake. `discern done --confirmed` reruns it as an attested, recorded probe. Any edit, commit, changed checkpoint conclusion, or `--dry-run` runs as normal ([ADR 0185](../_adr/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md), [ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)).
+Every completed run records its exact tree, checkpoint evidence, and verdict. Before any fixer or job, ordinary `done` on that state:
+
+- returns canonical Proof with `data.gate_ran = false` only when strict evidence is complete and current; or
+- refuses read-only after red, or when green evidence is missing, unreadable, stale, dirty, report-only, or declaration-stale.
+
+`discern done --rerun` explicitly measures the same state and records that choice. Existing `done --confirmed` scripts remain compatible; consent-bearing commands keep `--confirmed`. Changed trees run normally, while `--dry-run` creates and reuses no evidence ([ADR 0319](../_adr/0319-current-green-proof-composes-and-red-reruns-stay-explicit.md), [ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)).
 
 The public result fields are in [MCP tools & results](../70-reference/mcp-and-results.md).
 

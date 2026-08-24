@@ -1,6 +1,6 @@
 # ADR 0293: Checkpoint declarations interlock the gate through open questions and relevance-sensitive subjects
 
-**Status**: accepted; sits beside the machine checks of [ADR 0133](0133-standards-join-the-gate.md), the rerun guard of [ADR 0185](0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md), and the consent record of [ADR 0134](0134-accept-attests-consent.md), without joining the consent-gated class
+**Status**: accepted; sits beside the machine checks of [ADR 0133](0133-standards-join-the-gate.md), the rerun and Proof-reuse boundary of [ADR 0319](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md), and the consent record of [ADR 0134](0134-accept-attests-consent.md), without joining the consent-gated class
 
 ## Context
 

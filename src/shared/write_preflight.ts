@@ -8,6 +8,7 @@
  * return a structured failure instead of throwing.
  */
 
+import { dirname, join } from "@std/path";
 import type { Diagnostic } from "./result.ts";
 
 /** One predictable write surface a workflow will need later. */
@@ -21,6 +22,12 @@ export type PlannedWriteTarget =
   | {
     /** Open this existing file for writing without changing its contents. */
     kind: "existing-file";
+    path: string;
+    description: string;
+  }
+  | {
+    /** Create a representative directory tree without materializing this path. */
+    kind: "directory-tree";
     path: string;
     description: string;
   };
@@ -53,6 +60,12 @@ async function removeProbe(path: string | undefined): Promise<void> {
     return;
   }
   await Deno.remove(path).catch(() => {});
+}
+
+/** Best-effort recursive cleanup for a temporary probe directory. */
+async function removeProbeTree(path: string | undefined): Promise<void> {
+  if (path === undefined) return;
+  await Deno.remove(path, { recursive: true }).catch(() => {});
 }
 
 /** Exercise the directory operations used by Git-admin marker writes and Git's
@@ -106,6 +119,98 @@ async function probeExistingFile(
   }
 }
 
+/** Find the nearest existing directory above a path that does not yet exist. */
+async function nearestExistingDirectory(path: string): Promise<string> {
+  let candidate = dirname(path);
+  while (true) {
+    try {
+      const stat = await Deno.stat(candidate);
+      if (!stat.isDirectory) {
+        throw new Error(`${candidate} exists but is not a directory`);
+      }
+      return candidate;
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    const parent = dirname(candidate);
+    if (parent === candidate) {
+      throw new Error(`no existing parent directory for ${path}`);
+    }
+    candidate = parent;
+  }
+}
+
+/**
+ * Exercise directory creation when a planned directory may not exist yet.
+ * Existing targets receive the exact entry probe. Missing targets are
+ * represented under a temporary sibling rooted at their nearest existing
+ * ancestor; the real target is never created and cleanup removes the complete
+ * representative tree.
+ */
+async function probeDirectoryTree(
+  target: Extract<PlannedWriteTarget, { kind: "directory-tree" }>,
+): Promise<WritePreflightResult> {
+  try {
+    const stat = await Deno.stat(target.path);
+    if (!stat.isDirectory) {
+      return {
+        ok: false,
+        path: target.path,
+        description: target.description,
+        reason: "the planned directory path exists but is not a directory",
+      };
+    }
+    return await probeDirectoryEntry({
+      kind: "directory-entry",
+      path: target.path,
+      description: target.description,
+    });
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      return {
+        ok: false,
+        path: target.path,
+        description: target.description,
+        reason: errorText(error),
+      };
+    }
+  }
+
+  let probeRoot: string | undefined;
+  try {
+    const parent = await nearestExistingDirectory(target.path);
+    probeRoot = join(
+      parent,
+      `.discern-write-tree-probe-${crypto.randomUUID()}`,
+    );
+    await Deno.mkdir(probeRoot);
+    const representative = join(probeRoot, "nested", "target");
+    await Deno.mkdir(representative, { recursive: true });
+    const result = await probeDirectoryEntry({
+      kind: "directory-entry",
+      path: representative,
+      description: target.description,
+    });
+    if (!result.ok) {
+      return {
+        ...result,
+        path: target.path,
+        description: target.description,
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      path: target.path,
+      description: target.description,
+      reason: errorText(error),
+    };
+  } finally {
+    await removeProbeTree(probeRoot);
+  }
+}
+
 /** Probe each distinct target in order and stop at the first denial. */
 export async function preflightPlannedWrites(
   targets: readonly PlannedWriteTarget[],
@@ -119,7 +224,9 @@ export async function preflightPlannedWrites(
     seen.add(identity);
     const result = target.kind === "directory-entry"
       ? await probeDirectoryEntry(target)
-      : await probeExistingFile(target);
+      : target.kind === "existing-file"
+      ? await probeExistingFile(target)
+      : await probeDirectoryTree(target);
     if (!result.ok) {
       return result;
     }
@@ -131,7 +238,7 @@ export async function preflightPlannedWrites(
 export function writePreflightFailureMessage(
   failure: WritePreflightFailure,
 ): string {
-  return `Discern cannot write ${failure.description} at ${failure.path}: ${failure.reason}. Grant this command write access to that path, then retry.`;
+  return `Discern cannot write ${failure.description} at ${failure.path}: ${failure.reason}. Allow this invocation to write that path, then retry. A successful probe confirms only that the representative write worked at that moment in that invocation.`;
 }
 
 /** Tier-0 diagnostic for a built-in write-authority denial. */

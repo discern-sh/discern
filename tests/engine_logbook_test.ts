@@ -23,6 +23,7 @@ import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   defaultMapPath,
+  git,
   gitInit,
   runAgent,
   scaffoldEngine,
@@ -650,32 +651,46 @@ Deno.test("logbook: unavailable pre-boundary evidence cannot replace the gate's 
   });
 });
 
-Deno.test("logbook: an unchanged-tree rerun refusal records its slug, and a confirmed rerun records the flag", async () => {
+Deno.test("logbook: Proof reuse and both deliberate rerun spellings remain distinct", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, `[jobs]\ntest = "echo ok"\n`);
     await gitInit(dir);
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
-    // The bare rerun refuses; the confirmed rerun runs. Both are events.
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 1);
+    const wt = await addWorktree(dir, "proof-reuse-logbook");
+    await Deno.writeTextFile(join(wt, "feature.txt"), "feature\n");
+    await git(wt, "add", "feature.txt");
+    await git(wt, "commit", "-q", "-m", "add feature", "--no-gpg-sign");
+    const firstRun = await runAgent(wt, ["done", "--json"]);
+    assertEquals(firstRun.code, 0, firstRun.output);
+    // Bare strict done reuses current Proof; both explicit spellings run.
+    const reused = await runAgent(wt, ["done", "--json"]);
+    assertEquals(reused.code, 0, reused.output);
     assertEquals(
-      (await runAgent(dir, ["done", "--confirmed", "--json"])).code,
+      (await runAgent(wt, ["done", "--rerun", "--json"])).code,
       0,
     );
+    const compatibility = await runAgent(wt, [
+      "done",
+      "--confirmed",
+      "--json",
+    ]);
+    assertEquals(compatibility.code, 0, compatibility.output);
 
     const events = verbEvents(await readEvents(dir));
-    assertEquals(events.length, 3);
-    const [first, refusal, probe] = events;
+    assertEquals(events.length, 4);
+    const [first, reuse, probe, compatibilityProbe] = events;
     assertEquals(first?.outcome, "ok");
     assertEquals(first?.flags, undefined);
-    // The refusal is `refused` — not red — with the machine-stable slug, so a
-    // reader can tell "the gate said no" from "the gate said broken".
-    assertEquals(refusal?.outcome, "refused");
-    assertEquals(refusal?.error, "unchanged_tree_rerun");
-    // The attestation lands as a flag NAME: the habituation signal a detector
-    // reads, exactly as `--force` does.
+    assertEquals(first?.gate_ran, true);
+    assertEquals(reuse?.outcome, "ok");
+    assertEquals(reuse?.gate_ran, false);
+    assertEquals(reuse?.flags, undefined);
     assertEquals(probe?.outcome, "ok");
-    assertEquals(probe?.flags, ["confirmed"]);
+    assertEquals(probe?.gate_ran, true);
+    assertEquals(probe?.flags, ["rerun"]);
+    assertEquals(compatibilityProbe?.outcome, "ok");
+    assertEquals(compatibilityProbe?.gate_ran, true);
+    assertEquals(compatibilityProbe?.flags, ["confirmed"]);
   });
 });
 

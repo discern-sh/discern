@@ -23,6 +23,8 @@ discern doctor
 
 It checks that `discern.toml` parses, the schema matches the installed binary, configured commands resolve on `PATH`, and each selected coding agent has its expected integration. In a Git repository it also checks recovery retention, author and committer identity, required signing programs, hidden index flags and sparse checkout, worktree-local config placement, and repository ownership. It reads every registered worktree because one checkout can carry a narrower Git override than its siblings.
 
+An empty enabled Logbook is healthy. A denied recording write warns and disables recording for this process without blocking setup; disabled, invalid, and missed-event states stay distinct.
+
 Recovery advice warns without making doctor fail. An unusable commit identity or required signer, hidden tracked paths outside an intentional sparse checkout, unsafe worktree-config placement, or Git's dubious-ownership refusal fails and names the next command. For a bug report, capture the structured result:
 
 ```sh
@@ -35,15 +37,15 @@ Open a new shell, then run `which discern`. If it prints nothing, add the instal
 
 ## The Model Context Protocol tools are unreachable
 
-Restart the coding-agent session first. Model Context Protocol (MCP) servers and hooks load when a session starts, so the session that ran setup cannot see newly written integration files.
+Restart the coding-agent session first, then run the provider check served by `setup done` (`discern_status` for Model Context Protocol integrations).
 
-If the tools remain unavailable, run `discern doctor`. Codex, Gemini, Cursor, and GitHub Copilot may keep committed integration settings inactive until you trust the folder. The diagnostic names the provider-specific action.
+If it is unavailable, follow the served local recovery and use `discern status --json` as the fallback. `discern doctor` diagnoses the integration. Generated files do not prove activation, and discern cannot grant provider trust ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
 Use `--markdown` for concise, prioritized prose or `--json` for exact structured fields. People, coding agents, and scripts can choose either representation to fit the task. Every discern MCP tool has a CLI verb behind it. See [Result formats and delivery](../70-reference/result-surfaces.md).
 
 ## The session has left the workflow
 
-Run `discern status` to recover the current state and next valid action. If the same command loop recurs, run `discern patterns`. It reports a recorded loop only after the evidence reaches that detector's threshold, and each finding recommends an investigation.
+Run `discern status` to recover the current state and next valid action. During setup it also reports the phase, branch, and bounded continuation. If the same command loop recurs, run `discern patterns`. It reports a recorded loop only after the evidence reaches that detector's threshold, and each finding recommends an investigation.
 
 ## `discern done` returned a failed Gate
 

@@ -87,6 +87,12 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
     surface: "the `discern checkpoints` observed-history section",
     readers: ["src/engine/checkpoints/report.ts"],
   },
+  {
+    key: "doctor-recorder-continuity",
+    phrase: "recorder continuity checks in `discern doctor`",
+    surface: "the Logbook check in `discern doctor`",
+    readers: ["src/commands/doctor.ts"],
+  },
 ];
 
 /**

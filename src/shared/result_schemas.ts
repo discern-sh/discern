@@ -967,6 +967,9 @@ export type CheckpointsData = z.infer<typeof CheckpointsDataSchema>;
  * verification against the trunk. */
 export const GateDataSchema = z.strictObject({
   mode: z.enum(GATE_MODES).optional(),
+  /** Whether this invocation executed the Gate. False on exact green Proof
+   * reuse and pre-Gate checkpoint serving; optional for older producers. */
+  gate_ran: z.boolean().optional(),
   failed_stage: z.enum(FAILED_STAGES).nullable(),
   scopes_changed: z.array(z.string()),
   standards: z.array(GateStandardSchema).optional(),
@@ -2129,6 +2132,10 @@ export const ReactivationSchema = z.strictObject({
       agent: z.string(),
       label: z.string(),
       step: z.string(),
+      check_kind: z.enum(["mcp", "cli"]),
+      check: z.string(),
+      recovery: z.string(),
+      cli_fallback: z.string(),
     }),
   ),
 });

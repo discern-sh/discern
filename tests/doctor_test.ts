@@ -1808,21 +1808,20 @@ Deno.test("doctor --json: omits the execution model when there is no readable co
   });
 });
 
-Deno.test("doctor: the logbook check covers off, empty, and recording — the class of substrate states", async () => {
+Deno.test("doctor: the logbook check covers healthy-empty, recording, and disabled states", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     await gitInit(dir);
 
-    // Enabled but no event has ever landed: red, with the self-verifying fix —
-    // this very doctor run appends the first event as it exits.
+    // Enabled with no completed event yet is a healthy new-install state. The
+    // first invocation settles it in one pass rather than demanding a rerun.
     const empty = await runDoctorJson(dir);
     const emptyCheck = check(empty.payload, "logbook");
-    assertEquals(emptyCheck.status, "fail");
-    assertStringIncludes(emptyCheck.detail, "no events");
-    assertStringIncludes(emptyCheck.fix ?? "", "re-run");
-    assertEquals(empty.code, 1, "an enabled-but-silent logbook fails doctor");
+    assertEquals(emptyCheck.status, "ok");
+    assertStringIncludes(emptyCheck.detail, "healthy but empty");
+    assertEquals(empty.code, 0, "an empty new Logbook is sound immediately");
 
-    // The re-run finds the event the first run recorded: green.
+    // A later invocation observes the canonical recorder's completed event.
     const recording = await runDoctorJson(dir);
     const recordingCheck = check(recording.payload, "logbook");
     assertEquals(recordingCheck.status, "ok");
@@ -1842,6 +1841,77 @@ Deno.test("doctor: the logbook check covers off, empty, and recording — the cl
     assertStringIncludes(offCheck.detail, "off");
     assertStringIncludes(offCheck.fix ?? "", "re-enabling");
     assertEquals(off.code, 0, "a deliberate opt-out advises, never fails");
+  });
+});
+
+Deno.test("doctor: an environment-denied Logbook write is advisory and disables this session", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await gitInit(dir);
+    const discernAdmin = join(dir, ".git", "discern");
+    await Deno.mkdir(discernAdmin, { recursive: true });
+    await Deno.chmod(discernAdmin, 0o500);
+    try {
+      const denied = await runDoctorJson(dir);
+      const logbook = check(denied.payload, "logbook");
+      assertEquals(logbook.status, "warn");
+      assertStringIncludes(logbook.detail, "environment refused");
+      assertStringIncludes(logbook.detail, "disabled for this session");
+      assertStringIncludes(logbook.detail, join(discernAdmin, "logbook"));
+      assertEquals(denied.code, 0, "advisory recording cannot make doctor red");
+    } finally {
+      await Deno.chmod(discernAdmin, 0o700);
+    }
+  });
+});
+
+Deno.test("doctor: corrupt schema and an expected-but-absent completion are distinct warnings", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await gitInit(dir);
+    assertEquals((await runDoctorJson(dir)).code, 0);
+    const logbookDir = join(dir, ".git", "discern", "logbook");
+    const months: string[] = [];
+    for await (const entry of Deno.readDir(logbookDir)) {
+      if (entry.isFile && /^\d{4}-\d{2}\.jsonl$/.test(entry.name)) {
+        months.push(entry.name);
+      }
+    }
+    const month = months.sort().at(-1);
+    assert(month !== undefined, "doctor should have recorded a month file");
+    const monthPath = join(logbookDir, month);
+
+    await Deno.writeTextFile(monthPath, "not json\n", { append: true });
+    const corrupt = await runDoctorJson(dir);
+    const corruptCheck = check(corrupt.payload, "logbook");
+    assertEquals(corruptCheck.status, "warn");
+    assertStringIncludes(corruptCheck.detail, "invalid or unreadable");
+    assertEquals(corrupt.code, 0);
+
+    const cleanLines = (await Deno.readTextFile(monthPath)).split("\n")
+      .filter((line) => line.trim() !== "" && line !== "not json");
+    const oldBegin = JSON.stringify({
+      schema: 1,
+      at: "2020-01-01T00:00:00.000Z",
+      kind: "begin",
+      invocation: "missing-completion-fixture",
+      verb: "done",
+      surface: "cli",
+      driver: {},
+      branch: "main",
+      head: null,
+      epoch: null,
+    });
+    await Deno.writeTextFile(
+      monthPath,
+      `${[...cleanLines, oldBegin].join("\n")}\n`,
+    );
+    const absent = await runDoctorJson(dir);
+    const absentCheck = check(absent.payload, "logbook");
+    assertEquals(absentCheck.status, "warn");
+    assertStringIncludes(absentCheck.detail, "no expected completion event");
+    assert(!absentCheck.detail.includes("invalid or unreadable"));
+    assertEquals(absent.code, 0);
   });
 });
 

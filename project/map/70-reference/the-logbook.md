@@ -35,6 +35,7 @@ Setting `[project].logbook = false` stops new evidence for every feature below. 
 - wait estimates when concurrent test runs queue, and contention readings
 - the in-flight check on the contained-worktree offer; an installation with recording off uses a one-hour inactivity period
 - observed checkpoint economics (`discern checkpoints`)
+- recorder continuity checks in `discern doctor`
 
 ## Where findings appear
 
@@ -72,8 +73,9 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 | `crash`        | error class name and one code location                                  |
 | `duration_ms`  | end-to-end wall-clock milliseconds                                      |
 | `waited_ms`    | test-run slot-wait milliseconds on capped runs                          |
+| `gate_ran`     | whether this `done` invocation executed Gate work                       |
 | `target`       | page served, miss, new branch, or queued command                        |
-| `flags`        | `["force"]` (names without values)                                      |
+| `flags`        | `["force"]` (names without values, including `rerun` when requested)    |
 | `change`       | files/insertions/deletions/commits vs the trunk                         |
 | `scopes`       | the configured scopes touched                                           |
 | `steps`        | per-step labels, stages, outcomes, timings                              |
@@ -90,6 +92,8 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 `partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The Logbook omits the message and stack. A saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the Desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
 
 Readers skip unknown schema versions, and fields are append-only. `begin` carries run identity. Completion adds outcome and `duration_ms`. Capped runs add `waited_ms`, including `0`; uncapped and older events omit it. Readers derive execution as `duration_ms - (waited_ms ?? 0)` for priors and suite health. End-to-end statistics retain wall time. Other kinds are `config-change`, `pin`, and `prune`.
+
+For `done`, `gate_ran: false` marks current-Proof reuse. `--rerun` records `rerun`; compatible `done --confirmed` retains `confirmed`, and detectors recognize both.
 
 ### Validation evidence
 
@@ -120,6 +124,8 @@ MCP describes the client implementation. An editor, extension, or proxy may sit 
 ## Local storage only
 
 discern writes the Logbook under the Git administrative area, outside commits and ignore rules. The Logbook writer has no network interface under a test in discern's own Gate. A write failure does not change the verb outcome; the verb continues without recording the event.
+
+Doctor treats an enabled empty Logbook as healthy, including on first use. Disabled, invalid, write-denied, and expected-but-absent states stay distinct. Environmental denial warns and disables recording for the process; it does not block setup ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
 
 ## Rotation and config epochs
 

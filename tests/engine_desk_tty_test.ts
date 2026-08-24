@@ -204,7 +204,10 @@ Deno.test({
           runDeskTty(project, {
             geometry: { columns: 86, rows: 28 },
             colorMode: "no-color-env",
-            timeoutMs: 5_000,
+            // The short deadline characterises Escape's known stranded reader.
+            // Ctrl-C is a successful journey and keeps the harness's ordinary
+            // readiness allowance, including under full-suite load.
+            ...(key === "escape" ? { timeoutMs: 5_000 } : {}),
             input: [{
               waitFor: TASK_ROOT_READY,
               chunks: [{ keys: ["enter"] }],
