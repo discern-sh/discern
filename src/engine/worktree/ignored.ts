@@ -13,6 +13,8 @@
  */
 
 import { dirname, join } from "@std/path";
+import { z } from "@zod/zod";
+import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
@@ -32,10 +34,22 @@ interface IgnoredRootFingerprint {
   bytes: number;
 }
 
-interface IgnoredBaseline {
-  version: 2;
-  roots: IgnoredRootFingerprint[];
-}
+const ignoredRootFingerprintSchema = z.object({
+  path: z.string(),
+  kind: z.enum(["file", "dir", "symlink", "other", "missing"]),
+  mode: z.enum(["content", "metadata"]),
+  digest: z.string(),
+  files: z.number(),
+  bytes: z.number(),
+});
+
+/** The complete versioned ignored-file baseline accepted from durable state. */
+const ignoredBaselineSchema = z.object({
+  version: z.literal(BASELINE_VERSION),
+  roots: z.array(ignoredRootFingerprintSchema),
+});
+
+type IgnoredBaseline = z.infer<typeof ignoredBaselineSchema>;
 
 export interface IgnoredFileChangeSummary {
   status:
@@ -92,7 +106,12 @@ export async function recordIgnoredFileBaseline(
   const baseline: IgnoredBaseline = { version: BASELINE_VERSION, roots };
   try {
     await Deno.mkdir(dirname(path), { recursive: true });
-    await Deno.writeTextFile(path, `${JSON.stringify(baseline, null, 2)}\n`);
+    await atomicReplaceJson(path, baseline, {
+      mode: 0o666,
+      sync: false,
+      space: 2,
+      trailingNewline: true,
+    });
   } catch {
     // Best effort: a missing baseline makes accept skip the drift warning rather
     // than fail setup or invent a noisy full ignored-file listing.
@@ -169,36 +188,12 @@ async function readBaseline(
     return undefined;
   }
   try {
-    const parsed = JSON.parse(raw) as Partial<IgnoredBaseline>;
-    if (parsed.version !== BASELINE_VERSION || !Array.isArray(parsed.roots)) {
-      return undefined;
-    }
-    const roots = parsed.roots.filter(isFingerprint);
-    if (roots.length !== parsed.roots.length) {
-      return undefined;
-    }
-    return {
-      version: BASELINE_VERSION,
-      roots,
-    };
+    const parsed: unknown = JSON.parse(raw);
+    const result = ignoredBaselineSchema.safeParse(parsed);
+    return result.success ? result.data : undefined;
   } catch {
     return undefined;
   }
-}
-
-/** Validate the complete persisted shape of one ignored-root fingerprint. */
-function isFingerprint(value: unknown): value is IgnoredRootFingerprint {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const root = value as Partial<IgnoredRootFingerprint>;
-  return typeof root.path === "string" &&
-    (root.kind === "file" || root.kind === "dir" || root.kind === "symlink" ||
-      root.kind === "other" || root.kind === "missing") &&
-    (root.mode === "content" || root.mode === "metadata") &&
-    typeof root.digest === "string" &&
-    typeof root.files === "number" &&
-    typeof root.bytes === "number";
 }
 
 /** Fingerprint Git's current ignored roots, promoting eligible roots to bounded content hashes. */
