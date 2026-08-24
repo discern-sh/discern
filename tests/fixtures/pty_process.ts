@@ -4,6 +4,9 @@ const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
 const ESCAPE_BYTE = 0x1b;
 
+/** Infrastructure allowance for a successful process under concurrent suite load. */
+export const TEST_PROCESS_TIMEOUT_MS = 180_000;
+
 /** One input write relative to an observed-ready phase. */
 export interface PtyInputStep {
   readonly delayMs?: number;
@@ -20,7 +23,7 @@ export interface PtyInputStep {
 /** Input that cannot begin until the child has rendered a named marker. */
 export interface PtyInputPhase {
   readonly waitFor: string | readonly [string, ...string[]];
-  /** Required quiet output window after readiness, before capture and input. */
+  /** Bounded pause after readiness so a multi-write frame can settle. */
   readonly settleMs?: number;
   /** Save the rendered transcript when this phase becomes ready. */
   readonly captureAs?: string;
@@ -40,13 +43,14 @@ export interface PtyProcessOptions {
   readonly cwd: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly geometry?: PtyGeometry;
+  /** Bytes written immediately after spawn, then the PTY input side closes. */
+  readonly initialInput?: string | Uint8Array;
   readonly input?: readonly PtyInputPhase[];
   /** Keep the PTY input side open until a non-interactive child exits. */
   readonly keepInputOpen?: boolean;
-  /** Maximum interval while starting or reaching scripted input progress. */
+  /** Behavioral completion bound. Scripted-input runs start it only after the
+   * final readiness-gated input phase completes. */
   readonly timeoutMs?: number;
-  /** Maximum interval from final scripted input completion to process exit. */
-  readonly exitTimeoutMs?: number;
 }
 
 /** Complete observable process result; product values travel elsewhere. */
@@ -100,8 +104,13 @@ export async function runPtyProcess(
       ...options.args,
     ];
   const keepInputOpen = options.keepInputOpen === true;
-  if (keepInputOpen && options.input !== undefined) {
-    throw new TypeError("keepInputOpen and input are mutually exclusive");
+  const inputModes = Number(keepInputOpen) +
+    Number(options.initialInput !== undefined) +
+    Number(options.input !== undefined);
+  if (inputModes > 1) {
+    throw new TypeError(
+      "keepInputOpen, initialInput, and input are mutually exclusive",
+    );
   }
   const scriptArgs = Deno.build.os === "darwin"
     ? ["-q", "/dev/null", ...command]
@@ -125,33 +134,15 @@ export async function runPtyProcess(
         }),
       ...options.env,
     },
-    stdin: keepInputOpen || options.input !== undefined ? "piped" : "null",
+    stdin: inputModes > 0 ? "piped" : "null",
     stdout: "piped",
     stderr: "piped",
   });
   const process = child.spawn();
   const heldWriter = keepInputOpen ? process.stdin.getWriter() : undefined;
 
-  let timedOut = false;
-  const timeoutMs = options.timeoutMs ?? 5_000;
-  const exitTimeoutMs = options.exitTimeoutMs ?? timeoutMs;
-  let expiredTimeoutMs = timeoutMs;
-  let timeoutCleanup: Promise<void> | undefined;
-  let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
-  const renewTimeout = (nextTimeoutMs = timeoutMs): void => {
-    if (timedOut) return;
-    if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
-    timeoutTimer = setTimeout(() => {
-      timedOut = true;
-      expiredTimeoutMs = nextTimeoutMs;
-      timeoutCleanup = terminateProcessTree(process);
-    }, nextTimeoutMs);
-  };
-  renewTimeout();
-
   let observedStdout = "";
   let observedStderr = "";
-  let outputRevision = 0;
   const keyframes: Record<string, string> = {};
   let inputProgress = "no scripted input";
   let outputFinished = false;
@@ -163,12 +154,10 @@ export async function runPtyProcess(
   };
   const stdoutBytes = collectOutput(process.stdout, (text) => {
     observedStdout += text;
-    outputRevision += 1;
     notifyOutput();
   });
   const stderrBytes = collectOutput(process.stderr, (text) => {
     observedStderr += text;
-    outputRevision += 1;
     notifyOutput();
   });
   const outputComplete = Promise.all([stdoutBytes, stderrBytes]).then(() => {
@@ -197,18 +186,27 @@ export async function runPtyProcess(
       await new Promise<void>((resolve) => outputWaiters.push(resolve));
     }
   };
-  /** Wait until no decoded output arrives for one complete quiet window. */
-  const waitForOutputToSettle = async (quietMs: number): Promise<void> => {
-    if (quietMs === 0) return;
-    let revision = outputRevision;
-    while (true) {
-      await delay(quietMs);
-      if (revision === outputRevision) return;
-      revision = outputRevision;
-    }
-  };
+  const initialInput = options.initialInput;
+  const immediateInput = initialInput === undefined
+    ? undefined
+    : (async (): Promise<void> => {
+      const writer = process.stdin.getWriter();
+      inputProgress = "writing initial input";
+      try {
+        const bytes = typeof initialInput === "string"
+          ? ENCODER.encode(initialInput)
+          : initialInput;
+        if (bytes.length > 0) await writer.write(bytes);
+        inputProgress = "initial input complete";
+      } finally {
+        await writer.close().catch(() => undefined);
+      }
+    })().then(
+      () => undefined,
+      (error: unknown) => error,
+    );
   const inputPhases = options.input;
-  const input = inputPhases === undefined
+  const phasedInput = inputPhases === undefined
     ? undefined
     : (async (): Promise<void> => {
       const writer = process.stdin.getWriter();
@@ -220,9 +218,8 @@ export async function runPtyProcess(
             JSON.stringify(phase.waitFor);
           await waitForOutput(phase.waitFor, cursor);
           inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} ready`;
-          renewTimeout();
           const settleMs = phase.settleMs ?? 0;
-          await waitForOutputToSettle(settleMs);
+          if (settleMs > 0) await delay(settleMs);
           if (phase.captureAs !== undefined) {
             if (phase.captureAs.length === 0) {
               throw new TypeError("PTY keyframe name must not be empty");
@@ -251,14 +248,10 @@ export async function runPtyProcess(
             if (bytes !== undefined && bytes.length > 0) {
               await writer.write(bytes);
             }
-            renewTimeout();
           }
           cursor = nextCursor;
           inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} complete`;
-          renewTimeout();
         }
-        if (inputPhases.length === 0) inputProgress = "scripted input complete";
-        renewTimeout(exitTimeoutMs);
       } finally {
         await writer.close().catch(() => undefined);
       }
@@ -266,10 +259,36 @@ export async function runPtyProcess(
       () => undefined,
       (error: unknown) => error,
     );
+  const input = immediateInput ?? phasedInput;
 
-  const status = await process.status;
-  if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
-  await timeoutCleanup;
+  const timeoutMs = options.timeoutMs ?? TEST_PROCESS_TIMEOUT_MS;
+  const statusPromise = process.status;
+  let timedOut = false;
+  let inputError: unknown;
+  if (input !== undefined) {
+    const readiness = await settledWithin(input, TEST_PROCESS_TIMEOUT_MS);
+    if (readiness.kind === "timeout") {
+      timedOut = true;
+    } else {
+      inputError = readiness.value;
+    }
+  }
+  if (timedOut || inputError !== undefined) {
+    await terminateProcessTree(process);
+  }
+  let status: Deno.CommandStatus;
+  if (timedOut || inputError !== undefined) {
+    status = await statusPromise;
+  } else {
+    const completion = await settledWithin(statusPromise, timeoutMs);
+    if (completion.kind === "timeout") {
+      timedOut = true;
+      await terminateProcessTree(process);
+      status = await statusPromise;
+    } else {
+      status = completion.value;
+    }
+  }
   await heldWriter?.close().catch(() => undefined);
   await outputComplete;
   const [stdoutOutput, stderrOutput] = await Promise.all([
@@ -281,11 +300,10 @@ export async function runPtyProcess(
   const transcriptBytes = concatenateBytes(stdoutOutput, stderrOutput);
   if (timedOut) {
     throw new Error(
-      `pseudo-terminal command exceeded ${expiredTimeoutMs}ms ` +
+      `pseudo-terminal command exceeded ${timeoutMs}ms ` +
         `(${inputProgress}):\n${stdout}${stderr}`,
     );
   }
-  const inputError = await input;
   if (inputError !== undefined) {
     const message = inputError instanceof Error
       ? inputError.message
@@ -302,6 +320,27 @@ export async function runPtyProcess(
     transcriptBytes,
     keyframes,
   };
+}
+
+/** Resolve one harness phase without letting an infrastructure hang run forever. */
+async function settledWithin<T>(
+  pending: Promise<T>,
+  timeoutMs: number,
+): Promise<
+  | { readonly kind: "value"; readonly value: T }
+  | { readonly kind: "timeout" }
+> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      pending.then((value) => ({ kind: "value" as const, value })),
+      new Promise<{ readonly kind: "timeout" }>((resolve) => {
+        timer = setTimeout(() => resolve({ kind: "timeout" }), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 /** Stop the PTY wrapper and every child still below it. A timeout must not
@@ -383,9 +422,7 @@ function validateInput(
   for (const phase of phases) {
     const settleMs = phase.settleMs ?? 0;
     if (!Number.isSafeInteger(settleMs) || settleMs < 0 || settleMs > 1_000) {
-      throw new TypeError(
-        "PTY phase quiet window must be between 0 and 1000ms",
-      );
+      throw new TypeError("PTY phase settle time must be between 0 and 1000ms");
     }
     for (const step of phase.steps) {
       const bytes = inputBytes(step);

@@ -25,7 +25,7 @@ import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   git,
   gitInit,
-  runAgentPty,
+  runAgentPtyJourney,
   scaffoldEngine,
   writeExecutable,
 } from "./engine_helpers.ts";
@@ -325,20 +325,22 @@ Deno.test({
       );
       try {
         await git(dir, "worktree", "add", "-q", "-b", "agent/other", target);
-        const result = await runAgentPty(nested, ["worktrees"], {
+        const result = await runAgentPtyJourney(nested, ["worktrees"], {
           env: {
             SHELL: shell,
             WORKTREE_PICKER_TEST_CWD: observed,
           },
-          input: "\r",
-          timeoutMs: 10_000,
+          input: [{
+            waitFor: "Choose a worktree to open at src/engine",
+            steps: [{ bytes: "\r" }],
+          }],
         });
-        assertEquals(result.code, 0, result.output);
+        assertEquals(result.code, 0, result.transcript);
         assertTerminalTextIncludes(
-          result.output,
+          result.transcript,
           "Choose a worktree to open at src/engine",
         );
-        assertTerminalTextIncludes(result.output, "agent/other");
+        assertTerminalTextIncludes(result.transcript, "agent/other");
         assertEquals(
           (await Deno.readTextFile(observed)).trim(),
           join(await Deno.realPath(target), "src", "engine"),

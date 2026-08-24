@@ -221,7 +221,6 @@ Deno.test("setup done TTY uses the live activity frame for both composite gates"
 
     const done = await runAgentPty(dir, ["setup", "done"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 30_000,
     });
     assertEquals(done.code, 0, done.output);
 

@@ -60,10 +60,11 @@ import {
   type PtyGeometry,
   type PtyInputPhase,
   runPtyProcess,
+  TEST_PROCESS_TIMEOUT_MS,
 } from "./pty_process.ts";
 
 const HARNESS_PATH = fromFileUrl(import.meta.url);
-const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_TIMEOUT_MS = TEST_PROCESS_TIMEOUT_MS;
 const SAFE_SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
 const MARKER_OPEN = "\uE000";
 const MARKER_CLOSE = "\uE001";
@@ -524,7 +525,7 @@ export interface DeskTtyInputChunk {
 export interface DeskTtyInputPhase {
   readonly waitFor: string | readonly [string, ...string[]];
   readonly captureAs?: string;
-  /** Require a quiet output window before capturing and sending chunks. */
+  /** Pause after the readiness marker before capturing and sending chunks. */
   readonly settleMs?: number;
   readonly chunks: readonly [DeskTtyInputChunk, ...DeskTtyInputChunk[]];
 }
@@ -636,8 +637,6 @@ export async function runDeskTty(
     readonly input: readonly DeskTtyInputPhase[];
     readonly env?: Readonly<Record<string, string>>;
     readonly timeoutMs?: number;
-    /** Override the deadline after the final scripted input completes. */
-    readonly exitTimeoutMs?: number;
   },
 ): Promise<DeskTtyRunResult> {
   assertGeometry(options.geometry);
@@ -745,9 +744,6 @@ export async function runDeskTty(
       geometry: options.geometry,
       input,
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      ...(options.exitTimeoutMs === undefined
-        ? {}
-        : { exitTimeoutMs: options.exitTimeoutMs }),
     });
     const terminal = JSON.parse(
       await Deno.readTextFile(resultPath),

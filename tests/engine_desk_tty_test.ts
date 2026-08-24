@@ -204,9 +204,10 @@ Deno.test({
           runDeskTty(project, {
             geometry: { columns: 86, rows: 28 },
             colorMode: "no-color-env",
-            // The short exit deadline characterises Escape's known stranded
-            // reader without spending its readiness allowance under load.
-            ...(key === "escape" ? { exitTimeoutMs: 5_000 } : {}),
+            // The short deadline characterises Escape's known stranded reader.
+            // Ctrl-C is a successful journey and keeps the harness's ordinary
+            // readiness allowance, including under full-suite load.
+            ...(key === "escape" ? { timeoutMs: 5_000 } : {}),
             input: [{
               waitFor: TASK_ROOT_READY,
               chunks: [{ keys: ["enter"] }],
@@ -279,7 +280,9 @@ async function thresholdFrame(taskCount: number): Promise<DeskVisibleFrame> {
         geometry: { columns: 100, rows: 50 },
         colorMode: "no-color-env",
         input: [{
-          waitFor: TASK_ROOT_READY,
+          waitFor: taskCount > 8
+            ? ["Choose a task or action", "Type to filter"]
+            : TASK_ROOT_READY,
           captureAs: `${taskCount}-tasks`,
           chunks: [{
             ...(taskCount > 8 ? { input: "Quit" } : { keys: ["end"] }),

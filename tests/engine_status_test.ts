@@ -849,7 +849,6 @@ Deno.test({
 
       const colored = await runAgentPty(dir, ["status"], {
         env,
-        timeoutMs: 15_000,
       });
       assertEquals(colored.code, 0, colored.output);
       assertStringIncludes(colored.output, `${STATUS_ESCAPE}[`);
@@ -866,7 +865,6 @@ Deno.test({
 
       const plain = await runAgentPty(dir, ["status", "--no-color"], {
         env,
-        timeoutMs: 15_000,
       });
       assertEquals(plain.code, 0, plain.output);
       assert(!plain.output.includes(STATUS_ESCAPE), plain.output);

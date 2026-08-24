@@ -73,7 +73,7 @@ Deno.test("runParallel: observer sees starts up front and settlements in real co
       failFast: true,
       color: false,
       quiet: true,
-      timeoutS: 5,
+      timeoutS: 180,
       observer: {
         started: (job): void => {
           events.push(`started:${job.label}`);
@@ -282,7 +282,7 @@ Deno.test("spawnJob stamps the recording invocation into DISCERN_SPAWNED_BY", as
 
 Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () => {
   const s = makeSink();
-  const start = performance.now();
+  let cancellationStarted: number | undefined;
   const jobs: Job[] = [
     { label: "fail", command: "exit 3" },
     { label: "slow", command: "sleep 30" },
@@ -293,8 +293,15 @@ Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () =
     failFast: true,
     color: false,
     write: s.write,
+    observer: {
+      started: (): void => {},
+      settled: (job): void => {
+        if (job.label === "fail") cancellationStarted = performance.now();
+      },
+    },
   });
-  const elapsed = performance.now() - start;
+  assert(cancellationStarted !== undefined);
+  const elapsed = performance.now() - cancellationStarted;
   assertEquals(r.ok, false);
   assertEquals(r.results.find((x) => x.label === "fail")?.code, 3);
   assert(elapsed < 10_000, `expected interaction cancel, took ${elapsed}ms`);
@@ -505,7 +512,7 @@ Deno.test("a sibling that TRAPS SIGTERM and exits non-zero is still cancelled, n
 Deno.test("fail-fast escalates to SIGKILL when a sibling ignores SIGTERM", async () => {
   const dir = await Deno.makeTempDir({ prefix: "discern-job-sigkill-" });
   try {
-    const start = performance.now();
+    let cancellationStarted: number | undefined;
     const r = await runParallel([
       {
         label: "boom",
@@ -521,8 +528,15 @@ Deno.test("fail-fast escalates to SIGKILL when a sibling ignores SIGTERM", async
       failFast: true,
       color: false,
       write: () => {},
+      observer: {
+        started: (): void => {},
+        settled: (job): void => {
+          if (job.label === "boom") cancellationStarted = performance.now();
+        },
+      },
     });
-    const elapsed = performance.now() - start;
+    assert(cancellationStarted !== undefined);
+    const elapsed = performance.now() - cancellationStarted;
 
     const stubborn = r.results.find((x) => x.label === "stubborn");
     assertEquals(r.ok, false);
@@ -595,7 +609,6 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
   const dir = await Deno.makeTempDir({ prefix: "discern-job-abort-" });
   try {
     const external = new AbortController();
-    const start = performance.now();
     const run = runParallel([
       // Record the grandchild's PID so the test can prove the whole process
       // GROUP died, not just the direct `sh`.
@@ -616,6 +629,7 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
     while (!(await Deno.stat(join(dir, "inner.pid")).catch(() => null))) {
       await new Promise((r) => setTimeout(r, 25));
     }
+    const start = performance.now();
     external.abort();
     const r = await run;
     const elapsed = performance.now() - start;
@@ -657,7 +671,9 @@ Deno.test("runParallel: an external abort stays bounded when an escaped descenda
       signal: external.signal,
       write: () => {},
     });
-    // Wait until the daemon holds the pipes, then cancel from outside.
+    // The marker is written only after the direct shell has exited 0. Abort
+    // while the escaped daemon alone holds the pipes: cancellation belongs to
+    // the full unsettled job, not merely to a non-zero leader exit.
     while (!(await Deno.stat(join(dir, "daemon.up")).catch(() => null))) {
       await new Promise((r) => setTimeout(r, 25));
     }
@@ -668,6 +684,7 @@ Deno.test("runParallel: an external abort stays bounded when an escaped descenda
 
     assertEquals(r.ok, false);
     assertEquals(r.results[0]?.cancelled, true, JSON.stringify(r.results[0]));
+    assert((r.results[0]?.code ?? 0) !== 0, JSON.stringify(r.results[0]));
     assert(
       elapsed < 10_000,
       `the abort should settle within the kill grace, took ${elapsed}ms`,

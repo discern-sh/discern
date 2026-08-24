@@ -425,7 +425,6 @@ Deno.test("accept TTY: a proofless validation shows the full gate moving live", 
 
     const accepted = await runAgentPty(wt, ["accept", "--confirmed"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 20_000,
     });
     assertEquals(accepted.code, 0, accepted.output);
 

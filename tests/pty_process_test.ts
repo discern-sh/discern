@@ -11,7 +11,7 @@ import { runPtyProcess } from "./fixtures/pty_process.ts";
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
 const SLOW_RAW_CHILD = `
-await new Promise((resolve) => setTimeout(resolve, 600));
+await new Promise((resolve) => setTimeout(resolve, 2_500));
 Deno.stdin.setRaw(true);
 try {
   console.log("fresh sibling ready");
@@ -142,7 +142,7 @@ Deno.test({
 });
 
 Deno.test({
-  name: "PTY timeout renews when a scripted input phase makes progress",
+  name: "PTY completion timeout starts after the final scripted input phase",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const result = await runPtyProcess({
@@ -165,7 +165,7 @@ Deno.test({
 });
 
 Deno.test({
-  name: "PTY phase settling waits for one quiet output window",
+  name: "PTY ordered readiness markers capture a complete multi-write frame",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const result = await runPtyProcess({
@@ -173,8 +173,7 @@ Deno.test({
       args: ["eval", MULTI_WRITE_FRAME_CHILD],
       cwd: REPO_ROOT,
       input: [{
-        waitFor: "frame begins",
-        settleMs: 450,
+        waitFor: ["frame begins", "frame complete"],
         captureAs: "settled-frame",
         steps: [{ bytes: "x" }],
       }],
@@ -212,7 +211,7 @@ Deno.test({
 });
 
 Deno.test({
-  name: "PTY exit timeout kills the real descendant after observed readiness",
+  name: "PTY timeout kills the real descendant after observed readiness",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -227,8 +226,7 @@ Deno.test({
               waitFor: "timeout child ready",
               steps: [{}],
             }],
-            timeoutMs: 2_000,
-            exitTimeoutMs: 800,
+            timeoutMs: 800,
           }),
         Error,
         "exceeded 800ms",

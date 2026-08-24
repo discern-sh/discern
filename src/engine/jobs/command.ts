@@ -397,6 +397,11 @@ export async function spawnJob(
   // child, so the drains cannot wait for its unrelated lifetime.
   await quiesceProcessGroup(pid);
   await drained;
+  // Cancellation is judged at the job's full settlement boundary, not only
+  // from the direct process exit. A command may exit 0 while an escaped
+  // descendant still holds its pipes; an external abort during that drain is
+  // cancellation of an in-flight job, even though the reaped leader was green.
+  const abortedBeforeSettlement = signal?.aborted ?? false;
 
   // Stop the watchdog the moment the job has settled (pipes drained AND the
   // process reaped), before any further awaits, so a job that finished within
@@ -417,13 +422,13 @@ export async function spawnJob(
     ? { outputLines: 0, errorLikeLines: 0 }
     : await outputRecorder.finish();
 
-  // A job killed mid-run keeps its real exit code via finalCode. "Cancelled" means
-  // fail-fast aborted the run AND this job did not exit clean — keyed on the abort
-  // signal, NOT the OS signal, so a sibling that TRAPS SIGTERM and exits non-zero is
-  // still recognised as cancelled (not a genuine failure). The job that failed
-  // FIRST built its result before its own `.then` fired the abort, so its
-  // `signal.aborted` is still false → it is correctly NOT cancelled and keeps its
-  // diagnostic. A job that finished clean (code 0) before an abort stays ok.
+  // A job killed mid-run keeps its real exit code via finalCode. "Cancelled"
+  // means fail-fast aborted the run before this job fully settled — keyed on
+  // the abort signal, NOT only the OS exit signal, so a sibling that traps
+  // SIGTERM or whose clean leader left held pipes is still recognised as
+  // cancelled (not a genuine failure). The job that failed first builds its
+  // result before its own `.then` fires the abort, so it keeps its diagnostic.
+  // A job that fully settled before an abort stays ok.
   const exitCode = finalCode(status.code, status.signal);
   // A fired watchdog is a genuine FAILURE even when the direct child exited 0:
   // a command that daemonized left work — and the job's output pipes — running
@@ -431,11 +436,14 @@ export async function spawnJob(
   // the recorded timeout. Everything downstream (ok/failed, banners, fail-fast,
   // diagnostics) keys off `code`, so enforce the invariant at the producer:
   // timedOutAfterS present ⇒ code !== 0.
-  const code = timedOutAfterS !== undefined && exitCode === 0 ? 1 : exitCode;
-  // A timed-out job is a genuine failure, never a cancelled sibling: exclude it here
-  // so it keeps its diagnostic even if a fail-fast/external abort also raced in.
-  const cancelled = timedOutAfterS === undefined &&
-    (opts.signal?.aborted ?? false) && code !== 0;
+  // A timed-out job is a genuine failure, never a cancelled sibling. An abort
+  // observed before full settlement is cancellation even if the direct child
+  // already exited 0; force that interrupted result non-zero so the stage
+  // cannot report green.
+  const cancelled = timedOutAfterS === undefined && abortedBeforeSettlement;
+  const code = (timedOutAfterS !== undefined || cancelled) && exitCode === 0
+    ? 1
+    : exitCode;
   const durationS = Math.round((performance.now() - start) / 1000);
   const result: JobResult = {
     label: job.label,

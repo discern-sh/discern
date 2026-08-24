@@ -159,7 +159,6 @@ Deno.test("done human output leaves live activity facts and the compact TTY proo
     );
     const tty = await runAgentPty(ttyWorktree, ["done"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 15_000,
     });
     assertEquals(tty.code, 0, tty.output);
     assertStringIncludes(tty.output, "Gate");
@@ -199,7 +198,6 @@ Deno.test("done human output leaves live activity facts and the compact TTY proo
     );
     const failing = await runAgentPty(failingWorktree, ["done"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 15_000,
     });
     assertEquals(failing.code, 1, failing.output);
     assert(failing.stdout.includes(REPAINT), failing.output);
@@ -229,7 +227,6 @@ Deno.test("done human output leaves live activity facts and the compact TTY proo
       const staticWorktree = await committedWorktree(main, name);
       const staticTty = await runAgentPty(staticWorktree, args, {
         env,
-        timeoutMs: 15_000,
       });
       assertEquals(staticTty.code, 0, staticTty.output);
       assertTerminalTextIncludes(staticTty.output, "Gate progress");
@@ -260,7 +257,6 @@ Deno.test("done human output leaves live activity facts and the compact TTY proo
     const jsonWorktree = await committedWorktree(main, "json-proof");
     const json = await runAgentPty(jsonWorktree, ["done", "--json"], {
       env: { NO_COLOR: "1" },
-      timeoutMs: 15_000,
     });
     assertEquals(json.code, 0, json.output);
     const jsonStart = json.stdout.indexOf("{");
@@ -419,9 +415,6 @@ Deno.test({
 
       const human = await runAgentPty(dir, ["done"], {
         env: { COLUMNS: "80", LINES: "18", NO_COLOR: "1", CI: "false" },
-        // This case deliberately pushes more than the capture cap through a
-        // real PTY. Keep a bounded but load-tolerant budget for parallel suites.
-        timeoutMs: 30_000,
       });
       assertEquals(human.code, 1, human.output);
       assertStringIncludes(human.stdout, REPAINT);
@@ -496,7 +489,6 @@ Deno.test("done TTY: a chatty Gate keeps one bounded package-owned live frame", 
 
     const result = await runAgentPty(worktree, ["done"], {
       env: { COLUMNS: "80", LINES: "24", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 20_000,
     });
 
     assertEquals(result.code, 0, result.output);
