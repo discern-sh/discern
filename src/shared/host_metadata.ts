@@ -1,4 +1,4 @@
-/** Host-created filesystem entries that are not authored project content. */
+/** Host-created entries excluded from every authored and template projection. */
 const HOST_METADATA_PATH =
   /(?:^|[/\\])(?:\._[^/\\]*|\$recycle\.bin|\.(?:apdisk|appledouble|ds_store|fseventsd|lsoverride|spotlight-v100|temporaryitems|trashes)|desktop\.ini|ehthumbs(?:_vista)?\.db|icon\r|thumbs\.db(?::encryptable)?)(?:[/\\]|$)/i;
 

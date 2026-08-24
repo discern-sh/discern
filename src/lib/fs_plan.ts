@@ -39,6 +39,7 @@ import {
   settingsSeeds,
 } from "./providers.ts";
 import { CONFIG_REL, type EnvReader } from "../shared/env.ts";
+import { isHostMetadataPath } from "../shared/host_metadata.ts";
 import { formatDiscernTomlBytes } from "./tidy_format.ts";
 
 /** How an op relates to whatever is already on disk at its target. */
@@ -212,6 +213,14 @@ export async function buildPlan(params: {
       SEPARATOR,
       "/",
     );
+
+    // The source checkout and user-authored preset directories are physical
+    // trees, so host-created files can appear without entering Git. They are
+    // never project seeds; keep the shared distribution-input boundary in
+    // force here before any target or content planning.
+    if (isHostMetadataPath(templateRel)) {
+      continue;
+    }
 
     // Skip the binary's own artifacts — never seeded into the user's tree.
     if (excludeNonSeed && isNonSeed(templateRel)) {

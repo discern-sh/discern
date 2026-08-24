@@ -34,7 +34,7 @@ import {
 import { splitNulRecords } from "../src/shared/git_paths.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { BUILD_TARGETS, type BuildTarget } from "./build_targets.ts";
-import { isHostMetadataPath } from "./host_metadata.ts";
+import { isHostMetadataPath } from "../src/shared/host_metadata.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 

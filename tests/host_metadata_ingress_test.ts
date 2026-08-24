@@ -2,7 +2,7 @@
 
 import { assertEquals } from "@std/assert";
 import { dirname, join } from "@std/path";
-import { isHostMetadataPath } from "../scripts/host_metadata.ts";
+import { isHostMetadataPath } from "../src/shared/host_metadata.ts";
 import { authoredTextFiles } from "./repo_authored_paths.ts";
 import { withTempDir } from "./helpers.ts";
 

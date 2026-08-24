@@ -4,7 +4,7 @@
  * substitution, `.tmpl` stripping, exec-bit preservation, settings deep-merge
  * into an existing file, `.gitignore` block idempotency, write-once seed
  * skipping, the `excludeNonSeed` skip of the binary's `skills/`/`instructions/`
- * subtrees, and dry-run-writes-nothing.
+ * subtrees, host-metadata exclusion, and dry-run-writes-nothing.
  *
  * They use the fixture (not the real templates) so they stay stable while other
  * agents fill the real tree.
@@ -125,6 +125,43 @@ Deno.test("init copies a token-free file verbatim", async () => {
     assertStringIncludes(doc, "verbatim SEED");
     // No token machinery touched a verbatim file.
     assert(!doc.includes("{{"));
+  });
+});
+
+Deno.test("template plans exclude host metadata without excluding authored hidden seeds", async () => {
+  await withTempDir(async (src) => {
+    const hostMetadata = [
+      ".DS_Store",
+      "nested/Thumbs.db",
+      "nested/._seed.md",
+      "nested/.Spotlight-V100/index",
+    ];
+    for (const rel of hostMetadata) {
+      await Deno.mkdir(dirname(join(src, rel)), { recursive: true });
+      await Deno.writeTextFile(join(src, rel), "host-created\n");
+    }
+    await Deno.writeTextFile(
+      join(src, ".authored-hidden-seed"),
+      "project-owned\n",
+    );
+
+    await withTempDir(async (dir) => {
+      const plan = await buildPlan({
+        templatesDir: src,
+        destDir: dir,
+        tokens: testTokens(),
+      });
+      assertEquals(
+        plan.ops.map((op) => op.targetRel),
+        [".authored-hidden-seed"],
+      );
+
+      await applyPlan(plan);
+      assert(await targetExists(dir, ".authored-hidden-seed"));
+      for (const rel of hostMetadata) {
+        assert(!(await targetExists(dir, rel)), rel);
+      }
+    });
   });
 });
 
