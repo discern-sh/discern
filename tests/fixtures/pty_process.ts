@@ -8,6 +8,11 @@ const ESCAPE_BYTE = 0x1b;
 export interface PtyInputStep {
   readonly delayMs?: number;
   readonly bytes?: string | Uint8Array;
+  /** Run one test-owned side effect (for example, request a PTY resize) at
+   * this exact point in the readiness-gated input sequence. */
+  readonly effect?: (
+    context: { readonly transcript: string },
+  ) => void | Promise<void>;
   /** Allow an intentional lone Escape key press before later scripted input. */
   readonly allowLoneEscape?: boolean;
 }
@@ -15,6 +20,8 @@ export interface PtyInputStep {
 /** Input that cannot begin until the child has rendered a named marker. */
 export interface PtyInputPhase {
   readonly waitFor: string | readonly [string, ...string[]];
+  /** Bounded pause after readiness so a multi-write frame can settle. */
+  readonly settleMs?: number;
   /** Save the rendered transcript when this phase becomes ready. */
   readonly captureAs?: string;
   readonly steps: readonly [PtyInputStep, ...PtyInputStep[]];
@@ -45,6 +52,10 @@ export interface PtyProcessResult {
   readonly stdout: string;
   readonly stderr: string;
   readonly transcript: string;
+  /** Exact wrapper stream bytes, retained even when UTF-8 decoding substitutes. */
+  readonly stdoutBytes: Uint8Array;
+  readonly stderrBytes: Uint8Array;
+  readonly transcriptBytes: Uint8Array;
   readonly keyframes: Readonly<Record<string, string>>;
 }
 
@@ -121,6 +132,7 @@ export async function runPtyProcess(
   let observedStdout = "";
   let observedStderr = "";
   const keyframes: Record<string, string> = {};
+  let inputProgress = "no scripted input";
   let outputFinished = false;
   let outputWaiters: Array<() => void> = [];
   const notifyOutput = (): void => {
@@ -169,8 +181,14 @@ export async function runPtyProcess(
       const writer = process.stdin.getWriter();
       let cursor: OutputCursor = { stdout: 0, stderr: 0 };
       try {
-        for (const phase of inputPhases) {
+        for (const [phaseIndex, phase] of inputPhases.entries()) {
+          inputProgress =
+            `phase ${phaseIndex + 1}/${inputPhases.length} waiting for ` +
+            JSON.stringify(phase.waitFor);
           await waitForOutput(phase.waitFor, cursor);
+          inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} ready`;
+          const settleMs = phase.settleMs ?? 0;
+          if (settleMs > 0) await delay(settleMs);
           if (phase.captureAs !== undefined) {
             if (phase.captureAs.length === 0) {
               throw new TypeError("PTY keyframe name must not be empty");
@@ -186,15 +204,22 @@ export async function runPtyProcess(
             stdout: observedStdout.length,
             stderr: observedStderr.length,
           };
-          for (const step of phase.steps) {
+          for (const [stepIndex, step] of phase.steps.entries()) {
             const delayMs = step.delayMs ?? 0;
             if (delayMs > 0) await delay(delayMs);
+            inputProgress =
+              `phase ${phaseIndex + 1}/${inputPhases.length} step ` +
+              `${stepIndex + 1}/${phase.steps.length}`;
+            await step.effect?.({
+              transcript: observedStdout + observedStderr,
+            });
             const bytes = inputBytes(step);
             if (bytes !== undefined && bytes.length > 0) {
               await writer.write(bytes);
             }
           }
           cursor = nextCursor;
+          inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} complete`;
         }
       } finally {
         await writer.close().catch(() => undefined);
@@ -206,16 +231,14 @@ export async function runPtyProcess(
 
   let timedOut = false;
   const timeoutMs = options.timeoutMs ?? 5_000;
+  let timeoutCleanup: Promise<void> | undefined;
   const timer = setTimeout(() => {
     timedOut = true;
-    try {
-      process.kill("SIGTERM");
-    } catch {
-      // The child finished between the timer and signal delivery.
-    }
+    timeoutCleanup = terminateProcessTree(process);
   }, timeoutMs);
   const status = await process.status;
   clearTimeout(timer);
+  await timeoutCleanup;
   await heldWriter?.close().catch(() => undefined);
   await outputComplete;
   const [stdoutOutput, stderrOutput] = await Promise.all([
@@ -224,9 +247,11 @@ export async function runPtyProcess(
   ]);
   const stdout = DECODER.decode(stdoutOutput);
   const stderr = DECODER.decode(stderrOutput);
+  const transcriptBytes = concatenateBytes(stdoutOutput, stderrOutput);
   if (timedOut) {
     throw new Error(
-      `pseudo-terminal command exceeded ${timeoutMs}ms:\n${stdout}${stderr}`,
+      `pseudo-terminal command exceeded ${timeoutMs}ms ` +
+        `(${inputProgress}):\n${stdout}${stderr}`,
     );
   }
   const inputError = await input;
@@ -241,8 +266,82 @@ export async function runPtyProcess(
     stdout,
     stderr,
     transcript: stdout + stderr,
+    stdoutBytes: stdoutOutput,
+    stderrBytes: stderrOutput,
+    transcriptBytes,
     keyframes,
   };
+}
+
+/** Stop the PTY wrapper and every child still below it. A timeout must not
+ * leave the real command running after the test that owned it has failed. */
+async function terminateProcessTree(process: Deno.ChildProcess): Promise<void> {
+  const descendants = await descendantProcessIds(process.pid);
+  signalProcesses(descendants, "SIGTERM");
+  try {
+    process.kill("SIGTERM");
+  } catch {
+    // The wrapper finished between the timeout and signal delivery.
+  }
+  await delay(100);
+  signalProcesses(descendants, "SIGKILL");
+  try {
+    process.kill("SIGKILL");
+  } catch {
+    // SIGTERM already settled the wrapper.
+  }
+}
+
+/** Snapshot the descendant tree before terminating its PTY-owning parent. */
+async function descendantProcessIds(rootPid: number): Promise<number[]> {
+  const output = await new Deno.Command("ps", {
+    args: ["-axo", "pid=,ppid="],
+    stdout: "piped",
+    stderr: "null",
+  }).output().catch(() => undefined);
+  if (output === undefined || !output.success) return [];
+  const children = new Map<number, number[]>();
+  for (const line of DECODER.decode(output.stdout).split("\n")) {
+    const match = /^\s*(\d+)\s+(\d+)\s*$/u.exec(line);
+    if (match === null) continue;
+    const pid = Number(match[1]);
+    const parent = Number(match[2]);
+    const members = children.get(parent) ?? [];
+    members.push(pid);
+    children.set(parent, members);
+  }
+  const descendants: number[] = [];
+  const visit = (parent: number): void => {
+    for (const child of children.get(parent) ?? []) {
+      visit(child);
+      descendants.push(child);
+    }
+  };
+  visit(rootPid);
+  return descendants;
+}
+
+function signalProcesses(
+  processIds: readonly number[],
+  signal: Deno.Signal,
+): void {
+  for (const pid of processIds) {
+    try {
+      Deno.kill(pid, signal);
+    } catch {
+      // A descendant may settle while its sibling is being signalled.
+    }
+  }
+}
+
+function concatenateBytes(
+  first: Uint8Array,
+  second: Uint8Array,
+): Uint8Array {
+  const output = new Uint8Array(first.length + second.length);
+  output.set(first, 0);
+  output.set(second, first.length);
+  return output;
 }
 
 function validateInput(
@@ -251,6 +350,10 @@ function validateInput(
   if (phases === undefined) return;
   let pendingLoneEscape = false;
   for (const phase of phases) {
+    const settleMs = phase.settleMs ?? 0;
+    if (!Number.isSafeInteger(settleMs) || settleMs < 0 || settleMs > 1_000) {
+      throw new TypeError("PTY phase settle time must be between 0 and 1000ms");
+    }
     for (const step of phase.steps) {
       const bytes = inputBytes(step);
       if (bytes === undefined || bytes.length === 0) continue;
