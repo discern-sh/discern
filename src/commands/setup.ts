@@ -623,9 +623,9 @@ function scaffoldCategorySummary(scaffold: ScaffoldOutcome): string {
 }
 
 /**
- * Phase 1 — Scaffold discern's machinery into `destDir`. Resolves the config
- * non-interactively (flags + `--config` + defaults; never requests terminal input), assembles and
- * applies the seed plan, then compiles instructions / materializes skills / wires MCP.
+ * Phase 1 — Scaffold discern's machinery into `destDir`. Consumes the config
+ * resolved before write preflight, assembles and applies the seed plan, then
+ * compiles instructions / materializes skills / wires MCP.
  * Returns the outcome, or `undefined` when an error was already emitted (caller
  * returns exit 1) or when `--dry-run` short-circuited (the plan was printed).
  */
@@ -635,6 +635,7 @@ async function scaffoldHarness(
   log: Logger,
   freshInstall: boolean,
   detectedMainBranch: string | undefined,
+  input: ResolvedScaffoldInput,
 ): Promise<{ outcome?: ScaffoldOutcome; stop?: number }> {
   let templatesDir: string;
   try {
@@ -644,62 +645,10 @@ async function scaffoldHarness(
     return { stop: 1 };
   }
 
-  // Load the --config document (declarative, non-interactive) if given.
-  let fileAnswers: DiscernConfigDoc | undefined;
-  if (opts.config !== undefined) {
-    try {
-      fileAnswers = await loadConfigDoc(opts.config);
-    } catch (error) {
-      emitSetupError(log, opts, "invalid_config_file", errMsg(error));
-      return { stop: 1 };
-    }
-  }
-
-  // Setup is always non-interactive: resolve from flags + the --config file +
-  // defaults, without terminal interaction. The user makes no decisions at the CLI.
-  const effectiveFlags = mergeDocIntoFlags(opts, fileAnswers);
-  effectiveFlags.yes = true;
-
-  // Resolve the agent set when the user named none (no --agents, no --config agents),
-  // so the scaffold lays exactly the right per-agent seeds — never DEFAULT_AGENTS by
-  // accident:
-  //   • FRESH install → detect what is actually on PATH (else DEFAULT_AGENTS) and seed
-  //     [project].agents from it (persisted once here; resolveConfiguredAgents stays a
-  //     pure runtime reader that never re-detects).
-  //   • --force RE-SCAFFOLD over an existing install → re-derive from the PERSISTED
-  //     [project].agents via resolveConfiguredAgents, the one resolver every consumer
-  //     shares: an unset key means the legacy list or the default pair, and an explicit
-  //     `agents = []` means no agents (ADR 0125), round-tripping as the empty flag. The
-  //     config is write-once, so re-detecting would be inert for
-  //     the config — but the plan's per-agent seeds come from config.agents, so without
-  //     this a --force re-run lays DEFAULT_AGENTS' seed files (claude_code + codex) over a
-  //     project configured for a different set, the exact divergence from a clean run this
-  //     closes (B48). An unreadable config falls through to DEFAULT_AGENTS (the repair
-  //     path); an explicit --agents / --config still wins, since effectiveFlags.agents is
-  //     then already set.
-  if (effectiveFlags.agents === undefined) {
-    if (freshInstall) {
-      effectiveFlags.agents = (await resolveDefaultAgents()).join(",");
-    } else {
-      try {
-        effectiveFlags.agents = resolveConfiguredAgents(
-          await loadConfig(destDir),
-        ).join(",");
-      } catch {
-        // Unreadable config — leave undefined so resolveSetupConfig falls back to
-        // DEFAULT_AGENTS; doctor / the strict verbs diagnose the broken config.
-      }
-    }
-  }
-  let config: SetupConfig;
-  try {
-    config = await resolveSetupConfig(effectiveFlags, log);
-  } catch (error) {
-    // A bad explicit choice (e.g. an invalid --slug) — a clean diagnostic, not
-    // a stack trace.
-    emitSetupError(log, opts, "invalid_arguments", errMsg(error));
-    return { stop: 1 };
-  }
+  // The read-only config and provider selection were resolved before the write
+  // preflight. Apply consumes that exact object so authority and effects cannot
+  // diverge (and a stdin config is never read twice).
+  const { config, fileAnswers } = input;
 
   let plan: Plan;
   try {
@@ -1160,6 +1109,7 @@ function setupBeginRetryCommand(opts: SetupOptions): string {
     ["--slug", opts.slug],
     ["--branch-prefix", opts.branchPrefix],
     ["--source-globs", opts.sourceGlobs],
+    ["--brief", opts.brief],
     ["--agents", opts.agents],
     ["--map", opts.map],
     ["--config", opts.config],
@@ -1175,6 +1125,66 @@ function setupBeginRetryCommand(opts: SetupOptions): string {
   return parts.join(" ");
 }
 
+interface ResolvedScaffoldInput {
+  config: SetupConfig;
+  fileAnswers: DiscernConfigDoc | undefined;
+}
+
+/**
+ * Resolve every read-only scaffold input once, before setup asks for write
+ * authority. In particular, stdin-backed declarative config cannot be consumed
+ * twice, and the effect plan must use the same selected provider set as apply.
+ */
+async function resolveScaffoldInput(
+  destDir: string,
+  opts: SetupOptions,
+  log: Logger,
+  freshInstall: boolean,
+): Promise<{ input?: ResolvedScaffoldInput; stop?: number }> {
+  let fileAnswers: DiscernConfigDoc | undefined;
+  if (opts.config !== undefined) {
+    try {
+      fileAnswers = await loadConfigDoc(opts.config);
+    } catch (error) {
+      emitSetupError(log, opts, "invalid_config_file", errMsg(error));
+      return { stop: 1 };
+    }
+  }
+
+  // mergeDocIntoFlags deliberately returns its input when no document exists;
+  // clone before adding resolved defaults so caller-authored retry options stay
+  // an exact account of the invocation rather than inferred setup state.
+  const effectiveFlags = { ...mergeDocIntoFlags(opts, fileAnswers) };
+  effectiveFlags.yes = true;
+  if (effectiveFlags.agents === undefined) {
+    if (freshInstall) {
+      effectiveFlags.agents = (await resolveDefaultAgents()).join(",");
+    } else {
+      try {
+        effectiveFlags.agents = resolveConfiguredAgents(
+          await loadConfig(destDir),
+        ).join(",");
+      } catch {
+        // An unreadable existing config stays on the established repair path:
+        // resolveSetupConfig supplies the default provider set, while doctor
+        // diagnoses the persisted config separately.
+      }
+    }
+  }
+
+  try {
+    return {
+      input: {
+        config: await resolveSetupConfig(effectiveFlags, log),
+        fileAnswers,
+      },
+    };
+  } catch (error) {
+    emitSetupError(log, opts, "invalid_arguments", errMsg(error));
+    return { stop: 1 };
+  }
+}
+
 /** Turn a dynamic target array into one non-empty required setup effect. */
 function requiredEffect(
   kind: SetupRequiredEffectKind,
@@ -1188,36 +1198,31 @@ function requiredEffect(
 
 /**
  * Compute `setup begin`'s discern-owned effects before its first mutation. The
- * provider artifact population comes from the provider registry; Git targets
- * come from Git's own path resolver. Selected-agent uncertainty in a declarative
- * answers file conservatively enrolls the registry's complete provider set.
+ * provider artifact population comes from the provider registry and the exact
+ * resolved scaffold input; Git targets come from Git's own path resolver.
  */
 async function beginRequiredEffects(
   destDir: string,
   opts: SetupOptions,
   freshInstall: boolean,
+  scaffoldInput: ResolvedScaffoldInput | undefined,
 ): Promise<SetupRequiredEffect[]> {
-  let agents: readonly string[];
-  if (opts.agents !== undefined) {
-    agents = opts.agents.split(",").map((agent) => agent.trim()).filter(
-      (agent) => agent !== "",
-    );
-  } else if (!freshInstall) {
-    agents = await loadConfig(destDir).then(resolveConfiguredAgents).catch(
-      () => [...AGENT_NAMES],
-    );
-  } else if (opts.config !== undefined) {
-    agents = [...AGENT_NAMES];
-  } else {
-    agents = await resolveDefaultAgents();
-  }
+  const persistedConfig = scaffoldInput === undefined && !freshInstall
+    ? await loadConfig(destDir).catch(() => undefined)
+    : undefined;
+  const agents = scaffoldInput?.config.agents ??
+    (persistedConfig === undefined
+      ? [...AGENT_NAMES]
+      : resolveConfiguredAgents(persistedConfig));
+  const mapDir = scaffoldInput?.config.mapDir ?? persistedConfig?.map.dir ??
+    opts.map ?? SOURCE_PATHS.map.defaultPath;
 
   const scaffoldPaths = new Set<string>([
     destDir,
     join(destDir, CONFIG_REL),
     join(destDir, ".gitignore"),
     join(destDir, ".gitattributes"),
-    join(destDir, opts.map ?? SOURCE_PATHS.map.defaultPath),
+    join(destDir, mapDir),
     join(destDir, SOURCE_PATHS.todo.defaultPath),
     join(destDir, SOURCE_PATHS.instructions.defaultPath),
     ...writtenProviderArtifactPathsForAgents(agents).map((path) =>
@@ -1413,6 +1418,21 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     return emitAwaitingConsent(log, opts, destDir);
   }
 
+  // Declarative answers, explicit flags, detected providers, and other cheap
+  // read-only setup choices must settle before the write plan is derived. The
+  // same resolved value is later consumed by the scaffold executor.
+  let scaffoldInput: ResolvedScaffoldInput | undefined;
+  if (freshInstall || opts.force) {
+    const resolved = await resolveScaffoldInput(
+      destDir,
+      opts,
+      log,
+      freshInstall,
+    );
+    if (resolved.stop !== undefined) return resolved.stop;
+    scaffoldInput = resolved.input;
+  }
+
   // Detect the repo's real integration branch BEFORE the `discern-setup` checkout
   // below (the last detection probe reads the currently checked-out branch), so the
   // scaffold stamps `[repository].trunk` with the truth rather than assuming
@@ -1441,7 +1461,12 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // consent and cheap read-only discovery, before checkout or any scaffold
   // effect. Dry runs render only and never ask for write authority.
   if (!opts.dryRun) {
-    const effects = await beginRequiredEffects(destDir, opts, freshInstall);
+    const effects = await beginRequiredEffects(
+      destDir,
+      opts,
+      freshInstall,
+      scaffoldInput,
+    );
     const authority = await preflightSetupEffects(
       setupEffectPlan("begin", effects),
     );
@@ -1504,12 +1529,16 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // --- Phase 1: scaffold the machinery (fresh install, or --force refresh) ---
   let scaffold: ScaffoldOutcome | undefined;
   if (freshInstall || opts.force) {
+    if (scaffoldInput === undefined) {
+      throw new Error("resolved scaffold input missing after preconditions");
+    }
     const { outcome, stop } = await scaffoldHarness(
       destDir,
       opts,
       log,
       freshInstall,
       detectedMainBranch,
+      scaffoldInput,
     );
     if (stop !== undefined) {
       return stop; // error emitted, or --dry-run already printed the plan

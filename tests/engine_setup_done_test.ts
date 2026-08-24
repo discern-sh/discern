@@ -1493,6 +1493,8 @@ Deno.test("setup begin refuses denied Git branch authority before checkout or sc
         "setup",
         "begin",
         "--confirmed",
+        "--brief",
+        "a project's exact brief",
         "--json",
       ]);
       assertEquals(denied.code, 1, denied.output);
@@ -1501,7 +1503,7 @@ Deno.test("setup begin refuses denied Git branch authority before checkout or sc
       assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
       assertEquals(
         envelope.diagnostics?.[0]?.reproduce_cmd,
-        "discern setup begin --confirmed",
+        `discern setup begin --brief 'a project'"'"'s exact brief' --confirmed`,
       );
       assertEquals(
         await gitOut(dir, "branch", "--show-current"),
