@@ -1,6 +1,6 @@
 /** The remote installer must fail closed and leave a directly usable command. */
 
-import { assertTerminalTextIncludes } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 
@@ -13,7 +13,6 @@ const DECODER = new TextDecoder();
 interface InstallRun {
   binDir: string;
   downloaderLog: string;
-  root: string;
   stderr: string;
   stdout: string;
   success: boolean;
@@ -66,42 +65,43 @@ async function linkTool(dir: string, command: string): Promise<void> {
   await Deno.symlink(await commandPath(command), join(dir, command));
 }
 
-/** Execute the installer against a local release fixture with controlled downloader, checksum, and PATH conditions. */
-async function runInstaller(
+/** Execute the installer inside one owned local release fixture. */
+async function withInstallerRun<T>(
   downloader: string,
+  fn: (run: InstallRun) => T | Promise<T>,
   options: { badChecksum?: boolean; binOnPath?: boolean } = {},
-): Promise<InstallRun> {
-  const root = await Deno.makeTempDir({ prefix: "discern-install-test-" });
-  const tools = join(root, "tools");
-  const binDir = join(root, "bin");
-  await Deno.mkdir(tools);
-  await Deno.mkdir(binDir);
+): Promise<T> {
+  return await withTempDir(async (root) => {
+    const tools = join(root, "tools");
+    const binDir = join(root, "bin");
+    await Deno.mkdir(tools);
+    await Deno.mkdir(binDir);
 
-  for (const tool of ["chmod", "mkdir", "mktemp", "mv", "rm", "uname"]) {
-    await linkTool(tools, tool);
-  }
-  const checksumTool = Deno.build.os === "darwin" ? "shasum" : "sha256sum";
-  await linkTool(tools, checksumTool);
+    for (const tool of ["chmod", "mkdir", "mktemp", "mv", "rm", "uname"]) {
+      await linkTool(tools, tool);
+    }
+    const checksumTool = Deno.build.os === "darwin" ? "shasum" : "sha256sum";
+    await linkTool(tools, checksumTool);
 
-  const fixtureBinary = join(root, "fixture-discern");
-  await Deno.writeTextFile(
-    fixtureBinary,
-    "#!/bin/sh\nprintf '%s\\n' 'discern test fixture'\n",
-  );
-  await Deno.chmod(fixtureBinary, 0o755);
-  const asset = releaseAsset();
-  const fixtureChecksum = join(root, "fixture.sha256");
-  const hash = options.badChecksum
-    ? "0".repeat(64)
-    : await sha256(fixtureBinary);
-  await Deno.writeTextFile(fixtureChecksum, `${hash}  ${asset}\n`);
+    const fixtureBinary = join(root, "fixture-discern");
+    await Deno.writeTextFile(
+      fixtureBinary,
+      "#!/bin/sh\nprintf '%s\\n' 'discern test fixture'\n",
+    );
+    await Deno.chmod(fixtureBinary, 0o755);
+    const asset = releaseAsset();
+    const fixtureChecksum = join(root, "fixture.sha256");
+    const hash = options.badChecksum
+      ? "0".repeat(64)
+      : await sha256(fixtureBinary);
+    await Deno.writeTextFile(fixtureChecksum, `${hash}  ${asset}\n`);
 
-  const downloaderLog = join(root, "downloads.log");
-  const copy = await commandPath("cp");
-  const fakeDownloader = join(tools, downloader);
-  await Deno.writeTextFile(
-    fakeDownloader,
-    `#!/bin/sh
+    const downloaderLog = join(root, "downloads.log");
+    const copy = await commandPath("cp");
+    const fakeDownloader = join(tools, downloader);
+    await Deno.writeTextFile(
+      fakeDownloader,
+      `#!/bin/sh
 set -eu
 out=""
 url=""
@@ -118,48 +118,47 @@ case "$url" in
     *) ${shellQuote(copy)} ${shellQuote(fixtureBinary)} "$out" ;;
 esac
 `,
-  );
-  await Deno.chmod(fakeDownloader, 0o755);
+    );
+    await Deno.chmod(fakeDownloader, 0o755);
 
-  const target = join(binDir, "discern");
-  if (options.badChecksum) {
-    await Deno.writeTextFile(target, "existing installation\n");
-    await Deno.chmod(target, 0o755);
-  }
+    const target = join(binDir, "discern");
+    if (options.badChecksum) {
+      await Deno.writeTextFile(target, "existing installation\n");
+      await Deno.chmod(target, 0o755);
+    }
 
-  const path = options.binOnPath ? `${binDir}:${tools}` : tools;
-  const result = await new Deno.Command("/bin/sh", {
-    args: [INSTALL],
-    clearEnv: true,
-    env: {
-      DISCERN_BIN_DIR: binDir,
-      DISCERN_REPO: "example/discern",
-      DISCERN_VERSION: "v1.2.3",
-      HOME: root,
-      NO_COLOR: "1",
-      PATH: path,
-    },
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
+    const path = options.binOnPath ? `${binDir}:${tools}` : tools;
+    const result = await new Deno.Command("/bin/sh", {
+      args: [INSTALL],
+      clearEnv: true,
+      env: {
+        DISCERN_BIN_DIR: binDir,
+        DISCERN_REPO: "example/discern",
+        DISCERN_VERSION: "v1.2.3",
+        HOME: root,
+        NO_COLOR: "1",
+        PATH: path,
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
 
-  return {
-    binDir,
-    downloaderLog: await Deno.readTextFile(downloaderLog).catch(() => ""),
-    root,
-    stderr: DECODER.decode(result.stderr),
-    stdout: DECODER.decode(result.stdout),
-    success: result.success,
-    target,
-  };
+    return await fn({
+      binDir,
+      downloaderLog: await Deno.readTextFile(downloaderLog).catch(() => ""),
+      stderr: DECODER.decode(result.stderr),
+      stdout: DECODER.decode(result.stdout),
+      success: result.success,
+      target,
+    });
+  }, { prefix: "discern-install-test-" });
 }
 
 Deno.test("every registered downloader gets both files with retry semantics", async () => {
   const downloaders = registeredDownloaders();
   assert(downloaders.length > 0, "at least one downloader is supported");
   for (const downloader of downloaders) {
-    const run = await runInstaller(downloader);
-    try {
+    await withInstallerRun(downloader, (run) => {
       assert(run.success, `${downloader} installer path failed: ${run.stderr}`);
       const downloads = run.downloaderLog.trim().split("\n");
       assertEquals(
@@ -175,9 +174,7 @@ Deno.test("every registered downloader gets both files with retry semantics", as
           `${downloader} stages on the destination filesystem`,
         );
       }
-    } finally {
-      await Deno.remove(run.root, { recursive: true });
-    }
+    });
   }
   assertStringIncludes(installSource, "--retry 3");
   assertStringIncludes(installSource, "--retry-all-errors");
@@ -187,37 +184,28 @@ Deno.test("every registered downloader gets both files with retry semantics", as
 Deno.test("a bad checksum preserves the existing installation", async () => {
   const downloader = registeredDownloaders()[0];
   assert(downloader !== undefined);
-  const run = await runInstaller(downloader, { badChecksum: true });
-  try {
+  await withInstallerRun(downloader, async (run) => {
     assert(!run.success, "a checksum mismatch must stop installation");
     assertTerminalTextIncludes(run.stderr, "checksum verification failed");
     assertEquals(
       await Deno.readTextFile(run.target),
       "existing installation\n",
     );
-  } finally {
-    await Deno.remove(run.root, { recursive: true });
-  }
+  }, { badChecksum: true });
 });
 
 Deno.test("next-step output appears only when discern resolves on PATH", async () => {
   const downloader = registeredDownloaders()[0];
   assert(downloader !== undefined);
-  const offPath = await runInstaller(downloader);
-  try {
+  await withInstallerRun(downloader, async (offPath) => {
     assert(offPath.success);
     assert(!offPath.stdout.includes("Next:"));
     assertTerminalTextIncludes(offPath.stderr, "shell profile");
-    const onPath = await runInstaller(downloader, { binOnPath: true });
-    try {
+    await withInstallerRun(downloader, (onPath) => {
       assert(onPath.success);
       assertStringIncludes(onPath.stdout, "Next:");
-    } finally {
-      await Deno.remove(onPath.root, { recursive: true });
-    }
-  } finally {
-    await Deno.remove(offPath.root, { recursive: true });
-  }
+    }, { binOnPath: true });
+  });
 });
 
 Deno.test("Darwin prefers a writable conventional PATH directory", () => {

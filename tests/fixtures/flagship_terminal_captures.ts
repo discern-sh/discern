@@ -15,6 +15,7 @@ import {
   type TerminalCommandCapture,
   TERMINAL_CAPTURE_GEOMETRIES,
 } from "./terminal_command_capture.ts";
+import { withTempDir } from "../temp_dir.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
 
@@ -201,27 +202,20 @@ async function createFixtureWorktree(main: string): Promise<string> {
  * capture geometry. */
 const FIXTURE_ROOT_WIDTH = 48;
 
-/** A unique fixture root whose canonical path is exactly the shared width. */
-async function lengthNormalizedRoot(): Promise<string> {
-  const temp = await Deno.makeTempDir({
-    dir: "/tmp",
-    prefix: "discern-terminal-fixture-",
-  });
-  const canonical = await Deno.realPath(temp);
+/** Compute the canonical-width replacement path for one created fixture root. */
+async function lengthNormalizedPath(created: string): Promise<string> {
+  const canonical = await Deno.realPath(created);
   const parent = canonical.slice(0, canonical.lastIndexOf("/"));
   const suffix = canonical.slice(canonical.lastIndexOf("-") + 1);
   const stem = `${parent}/discern-tcf-${suffix}`;
   if (stem.length > FIXTURE_ROOT_WIDTH) {
-    await Deno.remove(canonical, { recursive: true }).catch(() => undefined);
     throw new Error(
       `fixture root ${stem} is wider than the shared ` +
         `${FIXTURE_ROOT_WIDTH}-column budget; raise FIXTURE_ROOT_WIDTH and ` +
         `re-record the flagship captures on every platform`,
     );
   }
-  const padded = stem + "x".repeat(FIXTURE_ROOT_WIDTH - stem.length);
-  await Deno.rename(canonical, padded);
-  return padded;
+  return stem + "x".repeat(FIXTURE_ROOT_WIDTH - stem.length);
 }
 
 /** Refuse a capture that still carries the fixture path: a wrapped or
@@ -248,9 +242,7 @@ function assertNoResidualPath(
 export async function captureFlagshipTerminalScreens(
   executable: string,
 ): Promise<Readonly<Record<string, TerminalCommandCapture>>> {
-  const main = await lengthNormalizedRoot();
-  const worktreeRoot = `${main}.worktrees`;
-  try {
+  return await withTempDir(async (main) => {
     const worktree = await createFixtureWorktree(main);
     const captures: Record<string, TerminalCommandCapture> = {};
     for (const command of FLAGSHIP_COMMANDS) {
@@ -268,8 +260,9 @@ export async function captureFlagshipTerminalScreens(
       captures[command.name] = capture;
     }
     return captures;
-  } finally {
-    await Deno.remove(worktreeRoot, { recursive: true }).catch(() => undefined);
-    await Deno.remove(main, { recursive: true }).catch(() => undefined);
-  }
+  }, {
+    parent: "/tmp",
+    prefix: "discern-terminal-fixture-",
+    renamedPath: lengthNormalizedPath,
+  });
 }
