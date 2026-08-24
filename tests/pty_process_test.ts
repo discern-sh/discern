@@ -1,5 +1,11 @@
-import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
-import { fromFileUrl } from "@std/path";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
+import { fromFileUrl, join } from "@std/path";
+import { withTempDir } from "./helpers.ts";
 import { runPtyProcess } from "./fixtures/pty_process.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -32,6 +38,12 @@ try {
 } finally {
   Deno.stdin.setRaw(false);
 }
+`;
+
+const HANGING_CHILD = `
+await Deno.writeTextFile(Deno.args[0], String(Deno.pid));
+console.log("timeout child ready");
+setInterval(() => undefined, 60_000);
 `;
 
 Deno.test({
@@ -111,5 +123,49 @@ Deno.test({
 
     assertEquals(result.code, 0, result.transcript);
     assertStringIncludes(result.transcript, "31 97");
+    assert(result.transcriptBytes.length > 0);
+    assertEquals(
+      new TextDecoder().decode(result.transcriptBytes),
+      result.transcript,
+    );
+  },
+});
+
+Deno.test({
+  name: "PTY timeout kills the real descendant after observed readiness",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      const pidPath = join(dir, "child.pid");
+      const error = await assertRejects(
+        () =>
+          runPtyProcess({
+            command: Deno.execPath(),
+            args: ["eval", HANGING_CHILD, pidPath],
+            cwd: REPO_ROOT,
+            input: [{
+              waitFor: "timeout child ready",
+              steps: [{}],
+            }],
+            timeoutMs: 800,
+          }),
+        Error,
+        "exceeded 800ms",
+      );
+      assertStringIncludes(error.message, "phase 1/1 complete");
+      assertStringIncludes(error.message, "timeout child ready");
+
+      const pid = (await Deno.readTextFile(pidPath)).trim();
+      const probe = await new Deno.Command("ps", {
+        args: ["-p", pid, "-o", "pid="],
+        stdout: "piped",
+        stderr: "null",
+      }).output();
+      assertEquals(
+        probe.success && new TextDecoder().decode(probe.stdout).trim() !== "",
+        false,
+        `PTY timeout left child ${pid} running`,
+      );
+    });
   },
 });
