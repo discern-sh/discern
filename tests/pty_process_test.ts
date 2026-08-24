@@ -212,7 +212,7 @@ Deno.test({
 });
 
 Deno.test({
-  name: "PTY timeout kills the real descendant after observed readiness",
+  name: "PTY exit timeout kills the real descendant after observed readiness",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -227,7 +227,8 @@ Deno.test({
               waitFor: "timeout child ready",
               steps: [{}],
             }],
-            timeoutMs: 800,
+            timeoutMs: 2_000,
+            exitTimeoutMs: 800,
           }),
         Error,
         "exceeded 800ms",

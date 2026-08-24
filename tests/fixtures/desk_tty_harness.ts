@@ -636,6 +636,8 @@ export async function runDeskTty(
     readonly input: readonly DeskTtyInputPhase[];
     readonly env?: Readonly<Record<string, string>>;
     readonly timeoutMs?: number;
+    /** Override the deadline after the final scripted input completes. */
+    readonly exitTimeoutMs?: number;
   },
 ): Promise<DeskTtyRunResult> {
   assertGeometry(options.geometry);
@@ -743,6 +745,9 @@ export async function runDeskTty(
       geometry: options.geometry,
       input,
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      ...(options.exitTimeoutMs === undefined
+        ? {}
+        : { exitTimeoutMs: options.exitTimeoutMs }),
     });
     const terminal = JSON.parse(
       await Deno.readTextFile(resultPath),

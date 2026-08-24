@@ -43,8 +43,10 @@ export interface PtyProcessOptions {
   readonly input?: readonly PtyInputPhase[];
   /** Keep the PTY input side open until a non-interactive child exits. */
   readonly keepInputOpen?: boolean;
-  /** Maximum interval without scripted input progress or process exit. */
+  /** Maximum interval while starting or reaching scripted input progress. */
   readonly timeoutMs?: number;
+  /** Maximum interval from final scripted input completion to process exit. */
+  readonly exitTimeoutMs?: number;
 }
 
 /** Complete observable process result; product values travel elsewhere. */
@@ -132,15 +134,18 @@ export async function runPtyProcess(
 
   let timedOut = false;
   const timeoutMs = options.timeoutMs ?? 5_000;
+  const exitTimeoutMs = options.exitTimeoutMs ?? timeoutMs;
+  let expiredTimeoutMs = timeoutMs;
   let timeoutCleanup: Promise<void> | undefined;
   let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
-  const renewTimeout = (): void => {
+  const renewTimeout = (nextTimeoutMs = timeoutMs): void => {
     if (timedOut) return;
     if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
     timeoutTimer = setTimeout(() => {
       timedOut = true;
+      expiredTimeoutMs = nextTimeoutMs;
       timeoutCleanup = terminateProcessTree(process);
-    }, timeoutMs);
+    }, nextTimeoutMs);
   };
   renewTimeout();
 
@@ -252,6 +257,8 @@ export async function runPtyProcess(
           inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} complete`;
           renewTimeout();
         }
+        if (inputPhases.length === 0) inputProgress = "scripted input complete";
+        renewTimeout(exitTimeoutMs);
       } finally {
         await writer.close().catch(() => undefined);
       }
@@ -274,7 +281,7 @@ export async function runPtyProcess(
   const transcriptBytes = concatenateBytes(stdoutOutput, stderrOutput);
   if (timedOut) {
     throw new Error(
-      `pseudo-terminal command exceeded ${timeoutMs}ms ` +
+      `pseudo-terminal command exceeded ${expiredTimeoutMs}ms ` +
         `(${inputProgress}):\n${stdout}${stderr}`,
     );
   }
