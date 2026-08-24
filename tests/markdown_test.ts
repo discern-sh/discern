@@ -12,6 +12,7 @@ import {
   renderMarkdownCli,
   stripAnsi,
 } from "discern-design-system/cli";
+import { JSDOM } from "jsdom";
 import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
 import {
   inlineToPlain,
@@ -170,6 +171,27 @@ Deno.test("HTML nested lists keep every child list inside its parent item", () =
     "<ul>\n<li>alpha\n<ul>\n<li>fresh sibling</li>\n</ul>\n" +
       "<ol>\n<li>ordered sibling</li>\n</ol>\n</li>\n" +
       "<li>omega</li>\n</ul>",
+  );
+});
+
+Deno.test("HTML fenced code gives every Unicode grapheme a terminal cell", () => {
+  const source = "AB┌界🎨<&CD";
+  const rendered = renderMarkdownHtml(`\`\`\`text\n${source}\n\`\`\``);
+  const document = new JSDOM(rendered.html).window.document;
+  const code = document.querySelector("pre > code");
+
+  assertEquals(code?.textContent, source);
+  assertEquals(
+    [...document.querySelectorAll("[data-discern-terminal-cell]")].map(
+      (
+        cell,
+      ) => [cell.textContent, cell.getAttribute("data-discern-terminal-cell")],
+    ),
+    [
+      ["┌", "1"],
+      ["界", "2"],
+      ["🎨", "2"],
+    ],
   );
 });
 

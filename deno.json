@@ -42,7 +42,7 @@
     "terminal:capture-fixtures": "deno run --allow-read --allow-write --allow-env --allow-run scripts/terminal_capture_fixtures.ts",
     "terminal:review": "deno run --allow-read --allow-net=127.0.0.1 scripts/terminal_review.ts",
     "test:preflight": "deno run --allow-net=127.0.0.1 scripts/test_preflight.ts",
-    "test": "deno task test:preflight && discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
+    "test": "deno task test:preflight && discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --allow-sys --parallel",
     "fmt": "deno fmt",
     "lint": "deno lint",
     "lint-suppressions": "deno run --allow-read --allow-run=git scripts/lint_suppressions.ts",
@@ -96,12 +96,13 @@
     "mdast-util-from-markdown": "npm:mdast-util-from-markdown@2.0.3",
     "mdast-util-gfm": "npm:mdast-util-gfm@3.1.0",
     "micromark-extension-gfm": "npm:micromark-extension-gfm@3.0.0",
+    "playwright-core": "npm:playwright-core@1.61.1",
     "ajv-2020": "npm:ajv@^8.20.0/dist/2020.js",
     "react": "npm:react@18.3.1",
     "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
     "react-dom/client": "npm:react-dom@18.3.1/client",
     "react-dom/server": "npm:react-dom@18.3.1/server",
-    "discern-design-system": "jsr:@discern-sh/design-system@0.25.0"
+    "discern-design-system": "jsr:@discern-sh/design-system@0.26.1"
   },
   "fmt": {
     "proseWrap": "never",

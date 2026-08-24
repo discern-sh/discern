@@ -6,7 +6,7 @@
     "jsr:@cliffy/internal@1.2.1": "1.2.1",
     "jsr:@cliffy/table@1.2.1": "1.2.1",
     "jsr:@david/code-block-writer@13": "13.0.3",
-    "jsr:@discern-sh/design-system@0.25.0": "0.25.0",
+    "jsr:@discern-sh/design-system@0.26.1": "0.26.1",
     "jsr:@std/assert@^1.0.10": "1.0.19",
     "jsr:@std/collections@^1.1.3": "1.2.0",
     "jsr:@std/encoding@^1.0.7": "1.0.11",
@@ -42,6 +42,7 @@
     "npm:mdast-util-from-markdown@2.0.3": "2.0.3",
     "npm:mdast-util-gfm@3.1.0": "3.1.0",
     "npm:micromark-extension-gfm@3.0.0": "3.0.0",
+    "npm:playwright-core@1.61.1": "1.61.1",
     "npm:react-dom@18.3.1": "18.3.1_react@18.3.1",
     "npm:react@18.3.1": "18.3.1"
   },
@@ -76,8 +77,8 @@
     "@david/code-block-writer@13.0.3": {
       "integrity": "f98c77d320f5957899a61bfb7a9bead7c6d83ad1515daee92dbacc861e13bb7f"
     },
-    "@discern-sh/design-system@0.25.0": {
-      "integrity": "839d86f3a0c4cae37cd0aeba5d1147ca3b949102cd2d8df0bdc958a402358dd3",
+    "@discern-sh/design-system@0.26.1": {
+      "integrity": "4373dcfad0dd0756d80a7f9d37edd69ac17b378ba7c6fd26cb28a14a9273bd81",
       "dependencies": [
         "npm:@types/mdast",
         "npm:@types/react",
@@ -1099,6 +1100,10 @@
     "pkce-challenge@5.0.1": {
       "integrity": "sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ=="
     },
+    "playwright-core@1.61.1": {
+      "integrity": "sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==",
+      "bin": true
+    },
     "proxy-addr@2.0.7": {
       "integrity": "sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==",
       "dependencies": [
@@ -1382,7 +1387,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@cliffy/command@^1.0.0-rc.8",
-      "jsr:@discern-sh/design-system@0.25.0",
+      "jsr:@discern-sh/design-system@0.26.1",
       "jsr:@std/assert@^1.0.10",
       "jsr:@std/encoding@^1.0.7",
       "jsr:@std/fmt@^1.0.10",
@@ -1403,6 +1408,7 @@
       "npm:mdast-util-from-markdown@2.0.3",
       "npm:mdast-util-gfm@3.1.0",
       "npm:micromark-extension-gfm@3.0.0",
+      "npm:playwright-core@1.61.1",
       "npm:react-dom@18.3.1",
       "npm:react@18.3.1"
     ]

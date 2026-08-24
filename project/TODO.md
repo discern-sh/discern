@@ -18,10 +18,6 @@ The single source of truth for **outstanding work**: verified defects, deferred 
   do. Suggested order is most-urgent first.
 -->
 
-## 🔴 Performance & correctness
-
-- [ ] **Adopt the design system's Unicode cell projection after its next release.** Once `@discern-sh/design-system` publishes the release containing commit `b6aa98c3efac`, bump the dependency and render fenced Markdown code through its public `projectTerminalTextRuns()` authority instead of emitting escaped raw text. Add a real-browser regression proving equal-width box rows remain aligned under the bundled JetBrains Mono fallback path, with independently named CJK/emoji coverage and unchanged copied text. Evidence: `deno.json`; `src/lib/markdown.ts` (`renderMarkdownHtml`); `site/workflow.ts`; `site/pages/assets/docs.css`.
-
 ## 🟠 Cleanup — known dead or slow code
 
 - [ ] **Eliminate Deno lint suppression directives.** Replace each remaining `deno-lint-ignore` or `deno-lint-ignore-file` with code that satisfies the named rule. `[standards.lint_suppressions]` prevents the census from rising; pin every reduction. At zero, move the detector into an always-on test and retire the standard. Evidence: `scripts/lint_suppressions.ts`; `project/map/80-development/code-conventions.md`.

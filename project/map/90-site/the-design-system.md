@@ -15,10 +15,10 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.25.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.26.1"
 ```
 
-Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. `deno.lock` records the same release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
+Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. The docs site's fenced-code renderer uses the same projection export. `deno.lock` records the release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
 
 When a package defect affects discern, release the fix from the package repository and update this repository to the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
@@ -46,15 +46,17 @@ discern scripts site-design-system -- --build-only /absolute/path/to/design-syst
 
 The package's `./cli` graph owns Components, Tokens, layout, motifs, and separate repertoire, style, and cursor-control facts. Its `./cli/interactive` graph owns input, value requests, and safe repaint refusal. Its `./cli/projection` graph turns package-emitted styles into typed spans and self-contained review HTML. Process, safe-text, product, effect, stream, machine, raw-child, and artwork authority remain with discern through [`terminal.ts`](../../../src/lib/terminal.ts) and [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts).
 
-Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.25.0/` origin; an external npm root must be declared by that published package and resolve to an exact node in `deno.lock`. A local path, workspace override, source import, mixed version, unlocked parser, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
+Consumer conformance proves the package root and every CLI graph are React-free where required. Every package-owned module resolves from the immutable `https://jsr.io/@discern-sh/design-system/0.26.1/` origin; an external npm root must be declared by that published package and resolve to an exact node in `deno.lock`. A local path, workspace override, source import, mixed version, unlocked parser, or sibling checkout cannot satisfy the guard. Cliffy's Command package remains a separate parser boundary. No direct Cliffy presentation dependency or import remains in discern; Command's package-owned transitive Table node remains in the lock and notices only as part of the derived parser closure ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)).
 
 ## Release 0.23.0 declaration contract
 
 Release 0.23.0 adds the neutral Result-summary state `declared`. Its terminal label is `Declared`, with `·` as the Unicode marker and `.` as the ASCII marker. Checkpoint conclusions use this state to name agent evidence without presenting the declaration as machine success, failure, or change currency; an unmet conclusion carries owner attention and variance as separate product facts.
 
-## Releases 0.24.0 and 0.25.0 catalogue contracts
+## Releases 0.24.0 through 0.26.1 catalogue and projection contracts
 
-Release 0.24.0 adds reading-first Marketing Components and a Catalogue builder. Release 0.25.0 renames the browser Artwork `Ground` vocabulary to `Backdrop` and adds Tiling, Compression, and Harmonic Backdrops. The site selects package Groups and receives the revised browser catalogue through the existing runtime emitter. The CLI graphs, terminal process boundary, and interaction choke point retain their contracts.
+Release 0.24.0 adds reading-first Marketing Components and a Catalogue builder. Release 0.25.0 renames the browser Artwork `Ground` vocabulary to `Backdrop` and adds Tiling, Compression, and Harmonic Backdrops. Release 0.26.0 adds the Editorial `Diagram` Component and the public `./diagram` API for flow, architecture, cycle, sequence, and timeline specifications. It also publishes `projectTerminalTextRuns()`, which assigns the package's terminal width to each non-ASCII grapheme while leaving the source text unchanged. Release 0.26.1 makes the package's browser alignment verification independent of font ink overhang.
+
+The docs site's React-free Markdown renderer passes fenced code through `projectTerminalTextRuns()`. It escapes each run into the existing `<code>` element and uses fixed-width inline boxes for measured graphemes. The bundled JetBrains Mono face can therefore fall back for CJK, emoji, and box-drawing glyphs without moving later terminal cells; `textContent`, `innerText`, and the copy control still expose the source text. The site selects package Groups and receives the expanded browser catalogue through the existing runtime emitter. The CLI graphs, terminal process boundary, and interaction choke point retain their contracts.
 
 ## Release 0.22.0 presentation contracts
 
@@ -80,7 +82,7 @@ Release 0.20.0 adds secondary descriptions to choices and group headings, search
 
 [`src/lib/markdown.ts`](../../../src/lib/markdown.ts) is the compatibility adapter for terminal readers. `discern map` and `discern docs` pass source plus their resolved measure through the process-bound presenter and carry no local terminal grammar. [`tests/markdown_test.ts`](../../../tests/markdown_test.ts) requires the adapter to remain byte-for-byte the public package renderer over the downstream dialect fixture and explicit colour, width, and repertoire cases. Raw, export, JSON, authored Markdown-result, and Model Context Protocol (MCP) surfaces do not enter this presentation path ([ADR 0287](../_adr/0287-terminal-markdown-delegates-to-the-design-system.md)).
 
-The request-time docs website keeps its React-free, product-specific HTML emitter. Workflow directives, glossary summaries, heading outlines, and link-integrity probes need hooks the generic package API does not expose; that boundary no longer claims to share the terminal parser. The package's browser Markdown Component is therefore not selected into the docs runtime bundle by this release.
+The request-time docs website keeps its React-free, product-specific HTML emitter. Workflow directives, glossary summaries, heading outlines, and link-integrity probes need hooks the generic package API does not expose; that boundary does not share the terminal parser. Fenced code delegates grapheme width to the package's plain-text projection without adopting the package's React Markdown Component.
 
 ## Release 0.18.1 semantic motif contracts
 
@@ -127,7 +129,7 @@ The docs shell loads its smaller bundle from `/assets/design-system/docs/`, incl
 
 [`scripts/site_component_coverage.ts`](../../../scripts/site_component_coverage.ts) rebuilds the site, renders every canonical HTML route, and compares each bundle's output with the package manifest. A selected component is witnessed when a live route in that bundle renders one of its manifest-owned classes. Explicit component roots, selected groups, and transitive dependencies all enter the census from their existing registries.
 
-[`[standards.site_component_gaps]`](../../../discern.toml) holds the raw number of selected components without output evidence as a falling ceiling. The deficit is held instead of a coverage percentage so adding components cannot dilute the measure. Rendering a selected component or narrowing a bundle that emits unused output closes a gap. The end state is zero: every component discern asks the package to emit has evidence in the routes that receive it.
+[`[standards.site_component_gaps]`](../../../discern.toml) holds the raw number of selected components without output evidence as a falling ceiling. The deficit is held instead of a coverage percentage so adding components cannot dilute the measure. A package release that expands a selected Group can raise the raw deficit; changing the ceiling remains an owner decision on `main` until the new Component is planned. Rendering a selected component or narrowing a bundle that emits unused output closes a gap. The end state is zero: every component discern asks the package to emit has evidence in the routes that receive it.
 
 [`tests/site_component_coverage_test.ts`](../../../tests/site_component_coverage_test.ts) separately requires every live route to render at least one component owned by its assigned bundle. The census does not score every Document Object Model (DOM) element: product copy, composition markup, and bespoke artwork remain site-owned. The consumer-style guard prevents those composition sheets from reaching into package-owned selectors.
 

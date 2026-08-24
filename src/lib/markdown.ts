@@ -8,6 +8,7 @@
  */
 
 import { renderMarkdownCli } from "discern-design-system/cli";
+import { projectTerminalTextRuns } from "discern-design-system/cli/projection";
 import {
   type TerminalContext,
   terminalContextWithColor,
@@ -358,6 +359,22 @@ export function escapeHtml(text: string): string {
     .replaceAll('"', "&quot;");
 }
 
+/** Project literal terminal text into escaped browser cell runs. */
+function terminalTextToHtml(text: string): string {
+  return projectTerminalTextRuns(text).map(({ text, columns }) => {
+    if (columns === undefined) return escapeHtml(text);
+    const style = [
+      "display:inline-block",
+      `width:${columns}ch`,
+      "text-align:center",
+      "vertical-align:baseline",
+    ].join(";");
+    return `<span data-discern-terminal-cell="${columns}" style="${style}">${
+      escapeHtml(text)
+    }</span>`;
+  }).join("");
+}
+
 /** GitHub-compatible heading slug: lowercase; drop punctuation (underscores
  * and hyphens survive); EVERY whitespace character becomes one dash, runs
  * uncollapsed — so "Files & dirs" is `files--dirs`, exactly the anchor GitHub
@@ -543,7 +560,9 @@ export function renderMarkdownHtml(
       }
       i++; // consume the closing fence
       const cls = lang ? ` class="language-${escapeHtml(lang)}"` : "";
-      out.push(`<pre><code${cls}>${escapeHtml(code.join("\n"))}</code></pre>`);
+      out.push(
+        `<pre><code${cls}>${terminalTextToHtml(code.join("\n"))}</code></pre>`,
+      );
       continue;
     }
 
