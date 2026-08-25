@@ -39,6 +39,7 @@
 import { dirname, join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { findRoot, notInitializedResult } from "../shared/env.ts";
+import { pathExists, readTextIfExists } from "../shared/fs_presence.ts";
 import {
   type DiscernConfig,
   loadConfig,
@@ -137,31 +138,6 @@ interface UninstallPlan {
 /** The one line that removes the binary itself (install-method agnostic). */
 const BINARY_HINT =
   "discern itself is a single binary outside your repo — remove it by deleting the file `which discern` reports.";
-
-/** Check for any filesystem entry, treating a missing path as false. */
-async function pathExists(abs: string): Promise<boolean> {
-  try {
-    await Deno.lstat(abs);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return false;
-    }
-    throw error;
-  }
-}
-
-/** Read a text file, mapping absence to `undefined` while preserving other errors. */
-async function readTextIfExists(abs: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(abs);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
-}
 
 /**
  * Remove discern's delimited `.gitignore` block, preserving every other rule.

@@ -2,9 +2,13 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import {
   bestEffortFsRead,
+  directoryExists,
   fileExists,
+  lstatIfExists,
   pathExists,
+  readBytesIfExists,
   readTextIfExists,
+  targetExists,
 } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -22,8 +26,20 @@ Deno.test("presence reads distinguish missing paths from present entries", async
     assertEquals(await fileExists(file), true);
     assertEquals(await fileExists(subdir), false);
     assertEquals(await fileExists(missing), false);
+    assertEquals(await directoryExists(file), false);
+    assertEquals(await directoryExists(subdir), true);
+    assertEquals(await directoryExists(missing), false);
+    assertEquals(await targetExists(file), true);
+    assertEquals(await targetExists(missing), false);
     assertEquals(await readTextIfExists(file), "present\n");
     assertEquals(await readTextIfExists(missing), undefined);
+    assertEquals(
+      await readBytesIfExists(file),
+      new TextEncoder().encode("present\n"),
+    );
+    assertEquals(await readBytesIfExists(missing), undefined);
+    assertEquals((await lstatIfExists(file))?.isFile, true);
+    assertEquals(await lstatIfExists(missing), undefined);
   });
 });
 
@@ -62,7 +78,11 @@ Deno.test("presence reads rethrow permission failures", async (t) => {
         const [name, read] of [
           ["pathExists", () => pathExists(file)],
           ["fileExists", () => fileExists(file)],
+          ["directoryExists", () => directoryExists(file)],
+          ["targetExists", () => targetExists(file)],
           ["readTextIfExists", () => readTextIfExists(file)],
+          ["readBytesIfExists", () => readBytesIfExists(file)],
+          ["lstatIfExists", () => lstatIfExists(file)],
         ] as const
       ) {
         await t.step(name, async () => {

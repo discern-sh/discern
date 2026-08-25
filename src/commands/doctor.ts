@@ -16,6 +16,7 @@ import {
 } from "../lib/paths.ts";
 import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
+import { fileExists } from "../shared/fs_presence.ts";
 import { Logger } from "../lib/log.ts";
 import {
   renderBannerCli,
@@ -299,15 +300,6 @@ async function logbookCheck(
       stream.months.length === 1 ? "" : "s"
     } under the git admin area`,
   };
-}
-
-/** Whether a regular file exists at `path`. */
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isFile;
-  } catch {
-    return false;
-  }
 }
 
 /** Git's file classes needed to verify a generated-artifact declaration without

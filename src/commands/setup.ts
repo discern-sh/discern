@@ -105,6 +105,7 @@ import {
   findRoot,
   NO_PROJECT_MESSAGE,
 } from "../shared/env.ts";
+import { pathExists } from "../shared/fs_presence.ts";
 import { AWAITING_CONSENT_SLUG } from "../shared/consent.ts";
 import { emitResult } from "../shared/emit.ts";
 import {
@@ -3525,16 +3526,6 @@ function displayNameFromSlug(slug: string): string {
     return "the project";
   }
   return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-}
-
-/** True when a path exists (any type, symlinks not followed). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** The `{{token}}` → value map the skeleton copies render against — the project

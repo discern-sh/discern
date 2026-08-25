@@ -38,6 +38,27 @@ export async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+/** True when `path` resolves to a directory, following only `NotFound` to false. */
+export async function directoryExists(path: string): Promise<boolean> {
+  try {
+    return (await Deno.stat(path)).isDirectory;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return false;
+    throw error;
+  }
+}
+
+/** True when `path` resolves to any target, following only `NotFound` to false. */
+export async function targetExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return false;
+    throw error;
+  }
+}
+
 /** Read UTF-8 text when present, mapping only `NotFound` to `undefined`. */
 export async function readTextIfExists(
   path: string,
@@ -45,6 +66,30 @@ export async function readTextIfExists(
 ): Promise<string | undefined> {
   try {
     return await readTextFile(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return undefined;
+    throw error;
+  }
+}
+
+/** Read bytes when present, mapping only `NotFound` to `undefined`. */
+export async function readBytesIfExists(
+  path: string,
+): Promise<Uint8Array | undefined> {
+  try {
+    return await Deno.readFile(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return undefined;
+    throw error;
+  }
+}
+
+/** Read entry metadata without following symlinks, mapping only `NotFound` to absence. */
+export async function lstatIfExists(
+  path: string,
+): Promise<Deno.FileInfo | undefined> {
+  try {
+    return await Deno.lstat(path);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) return undefined;
     throw error;

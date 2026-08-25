@@ -24,6 +24,7 @@
 import { dirname, fromFileUrl, join } from "@std/path";
 import { notInitializedResult } from "../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
+import { directoryExists } from "../shared/fs_presence.ts";
 import { Logger } from "../lib/log.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
@@ -87,12 +88,12 @@ async function resolvePresetsDir(): Promise<string | undefined> {
     DISCERN_ENVIRONMENT_VARIABLES.presetsDirectory,
   );
   if (override) {
-    return (await isDir(override)) ? override : undefined;
+    return (await directoryExists(override)) ? override : undefined;
   }
   let dir = dirname(fromFileUrl(import.meta.url));
   for (let depth = 0; depth < 8; depth++) {
     const candidate = join(dir, "presets");
-    if (await isDir(candidate)) {
+    if (await directoryExists(candidate)) {
       return candidate;
     }
     const parent = dirname(dir);
@@ -102,15 +103,6 @@ async function resolvePresetsDir(): Promise<string | undefined> {
     dir = parent;
   }
   return undefined;
-}
-
-/** True when `path` is an existing directory. */
-async function isDir(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isDirectory;
-  } catch {
-    return false;
-  }
 }
 
 /** List the available preset names (subdirectories of `presets/`). */
@@ -160,7 +152,7 @@ export async function runPreset(
   const available = await listPresets(presetsDir);
   const presetDir = presetsDir ? join(presetsDir, name) : undefined;
 
-  if (presetDir === undefined || !(await isDir(presetDir))) {
+  if (presetDir === undefined || !(await directoryExists(presetDir))) {
     const message = available.length > 0
       ? `unknown preset "${name}". Available: ${available.join(", ")}.`
       : `unknown preset "${name}". This build ships no presets yet.`;
