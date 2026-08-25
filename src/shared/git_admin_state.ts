@@ -2,9 +2,9 @@
  * Subprocess-bound façade for Discern-owned Git administration state.
  *
  * The registry and path computation live in the dependency-free
- * `git_admin_paths.ts` leaf. Ordinary callers retain the historical
- * `gitAdminStatePath(cwd, key)` API here; low-level subprocess consumers inject
- * the runner directly into the leaf and never circle back through this façade.
+ * `git_admin_paths.ts` leaf. Ordinary callers use
+ * `gitAdminStatePath(cwd, key)` here; low-level subprocess consumers inject the
+ * runner directly into the leaf and never circle back through this façade.
  */
 
 import { join } from "@std/path";
