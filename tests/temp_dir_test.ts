@@ -13,11 +13,11 @@ import {
 const TEMP_DIR_MODULE = new URL("./temp_dir.ts", import.meta.url).href;
 
 /** Build a child script that creates the process-owned suite directory. */
-function suiteTempChildScript(tail = ""): string {
+function suiteTempChildScript(keepAlive = false): string {
   return `import { suiteTempDir } from ${JSON.stringify(TEMP_DIR_MODULE)};\n` +
     `const dir = await suiteTempDir();\n` +
-    `await Deno.stdout.write(new TextEncoder().encode(dir + "\\n"));\n` +
-    tail;
+    (keepAlive ? `setInterval(() => {}, 60_000);\n` : "") +
+    `await Deno.stdout.write(new TextEncoder().encode(dir + "\\n"));\n`;
 }
 
 Deno.test("withTempDir returns the callback value and removes the directory", async () => {
@@ -126,7 +126,7 @@ Deno.test({
     const child = new Deno.Command(Deno.execPath(), {
       args: [
         "eval",
-        suiteTempChildScript("await new Promise(() => {});\n"),
+        suiteTempChildScript(true),
       ],
       stdout: "piped",
       stderr: "null",
