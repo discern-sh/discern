@@ -50,7 +50,7 @@ Only conflicts confined to [generated artifacts](../00-orientation/glossary.md#g
 
 On first setup, provisioned worktrees with a managed block install `merge.discern-generated.driver`. Raw merge keeps the marked side without conflict markers; `done` or `update` regenerates it. Plain clones, CI, and main lack the driver (never global), so conflicts remain; `update` still resolves generated paths ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)).
 
-Use `[repository].ensure` for checkout-safe commands and `[worktree.setup].ensure` for identity-dependent ones. Each `[worktree.setup].steps` command records `running` before invocation and `completed` after success. Re-entry skips completed identities even when a later setup phase did not finish. A running identity stops automatic replay and serves owner-confirmed mark-complete and retry commands. [Setup command boundaries](../70-reference/setup-command-boundaries.md) covers that recovery ([ADR 0332](../_adr/0332-worktree-setup-steps-preserve-interruption-ambiguity.md)).
+Use `[repository].ensure` for checkout-safe commands and `[worktree.setup].ensure` for identity-dependent ones. Each `[worktree.setup].steps` command records `running` before invocation and `completed` after success. Re-entry skips completed identities even when a later setup phase did not finish. A running identity stops automatic replay and serves owner-confirmed mark-complete and retry commands. [Recover an interrupted worktree setup step](../70-reference/worktree-setup-step-recovery.md) covers that recovery ([ADR 0332](../_adr/0332-worktree-setup-steps-preserve-interruption-ambiguity.md)).
 
 ## Land the reviewed commit
 

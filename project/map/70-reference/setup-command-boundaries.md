@@ -30,25 +30,7 @@ Before consent, setup recommends the strongest suitable model and records the ex
 
 A denial returns `write_access` with the path and retry while preserving the phase. Successful probes leave no temporary entry; later effects retain their ordinary recovery.
 
-## Worktree setup steps retain interruption evidence
-
-Top-level `setup begin`, `setup done`, and `setup accept` keep their `SetupEffectPlan` write targets and resumable phase state. Project-authored `[worktree.setup].steps` use a separate per-worktree journal because discern cannot prove the outcome of an interrupted arbitrary shell command.
-
-Each configured step has a stable identity and `not_started`, `running`, or `completed` state. `discern worktree setup` records `running` before invocation and `completed` after success. A completed identity remains complete when a later setup phase fails, so re-entry skips it without relying on the final worktree-ready sentinel.
-
-A running identity stops automatic replay before other setup effects. Observe the command's external state, then choose one recovery:
-
-```sh
-discern worktree setup --mark-step-complete <id> --confirmed
-```
-
-Use that command when observation establishes completion. To authorize another run:
-
-```sh
-discern worktree setup --retry-step <id> --confirmed
-```
-
-Each recovery is idempotent. A retry does not make the command transactional, and the journal promises at-most-once automatic replay rather than once-only external effects. discern validates and atomically replaces the journal in the worktree's Git administration area ([ADR 0332](../_adr/0332-worktree-setup-steps-preserve-interruption-ambiguity.md)).
+Project-authored `[worktree.setup].steps` use a separate per-worktree journal. [Recover an interrupted worktree setup step](worktree-setup-step-recovery.md) defines its states and owner-confirmed recovery commands.
 
 ## Prove, land, then verify activation
 

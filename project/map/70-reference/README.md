@@ -43,3 +43,4 @@ For setup and first-use steps, start in [Getting started](../10-getting-started/
 | [Checkpoint state & declarations](checkpoint-state.md)                    | Look up open-question states, declaration and variance flags, and the read surfaces.     |
 | [Checkpoint `when` protocol](checkpoint-when-protocol.md)                 | Consume the versioned command input, match output, and temporary-file lifecycle.         |
 | [Setup command boundaries](setup-command-boundaries.md)                   | Separate setup consent, write access, recovery, and provider activation.                 |
+| [Worktree setup-step recovery](worktree-setup-step-recovery.md)           | Resolve an interrupted one-shot setup command without automatic replay.                  |
