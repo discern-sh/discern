@@ -63,6 +63,7 @@ import {
   CONTINUATION_HANDLE_PATTERN,
 } from "./continuation_handle.ts";
 import { CONFIG_ISSUE_KINDS } from "./config_issues.ts";
+import { CONFIG_RECONCILE_OPERATION_KINDS } from "./config_reconcile.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -303,7 +304,24 @@ function dataSchemaWithConfigIssues<T extends z.ZodType>(
   return z.union([dataSchema, ConfigIssueDataSchema]);
 }
 
-/** Bind a verb literal to its optional typed data in a strict result envelope. */
+/** Bind a verb literal to one exact optional data schema. */
+function exactDataResultOutputSchema<T extends z.ZodType>(
+  verb: string,
+  dataSchema: T,
+): z.ZodObject<
+  typeof ENVELOPE_BASE_FIELDS_WITHOUT_VERB & {
+    verb: z.ZodLiteral<string>;
+    data: z.ZodOptional<T>;
+  }
+> {
+  return envelopeObjectSchema({
+    ...ENVELOPE_BASE_FIELDS_WITHOUT_VERB,
+    verb: z.literal(verb),
+    data: dataSchema.optional(),
+  });
+}
+
+/** Bind a verb literal to its normal data or shared config-issue data. */
 function resultOutputSchema<T extends z.ZodType>(
   verb: string,
   dataSchema: T,
@@ -313,11 +331,10 @@ function resultOutputSchema<T extends z.ZodType>(
     data: z.ZodOptional<z.ZodUnion<[T, typeof ConfigIssueDataSchema]>>;
   }
 > {
-  return envelopeObjectSchema({
-    ...ENVELOPE_BASE_FIELDS_WITHOUT_VERB,
-    verb: z.literal(verb),
-    data: dataSchemaWithConfigIssues(dataSchema).optional(),
-  });
+  return exactDataResultOutputSchema(
+    verb,
+    dataSchemaWithConfigIssues(dataSchema),
+  );
 }
 
 /** Bind a data-less verb while retaining the shared config-issue escape path. */
@@ -1769,6 +1786,10 @@ const StatusProjectionSchema = z.strictObject({
   omitted: z.record(z.string(), z.number().int().positive()).optional(),
 });
 
+const StatusConfigIssueDataSchema = ConfigIssueDataSchema.extend({
+  projection: StatusProjectionSchema,
+});
+
 /** Compact `status`: live state without nested Proof pages. */
 export const StatusWireDataSchema = StatusDataSchema.omit({
   gate_proof: true,
@@ -1796,6 +1817,13 @@ export const StatusWireDataSchema = StatusDataSchema.omit({
   projection: StatusProjectionSchema,
 });
 export type StatusWireData = z.infer<typeof StatusWireDataSchema>;
+
+/** Normal status data or a projected config-validation refusal. */
+export const StatusResultDataSchema = z.union([
+  StatusWireDataSchema,
+  StatusConfigIssueDataSchema,
+]);
+export type StatusResultData = z.infer<typeof StatusResultDataSchema>;
 
 // doctor ────────────────────────────────────────────────────────────────────
 
@@ -2682,7 +2710,7 @@ const migrationStepSchema = z.strictObject({
 });
 
 const configReconcileOperationSchema = z.strictObject({
-  kind: z.enum(["section", "key", "banner"]),
+  kind: z.enum(CONFIG_RECONCILE_OPERATION_KINDS),
   path: z.string(),
 });
 
@@ -2851,9 +2879,9 @@ export const RefreshOutputSchema = resultOutputSchema(
 export const TidyOutputSchema = datalessResultOutputSchema("tidy");
 
 /** `status` output: envelope + the situation `data`. */
-export const StatusOutputSchema = resultOutputSchema(
+export const StatusOutputSchema = exactDataResultOutputSchema(
   "status",
-  StatusWireDataSchema,
+  StatusResultDataSchema,
 );
 
 /** `doctor` output: envelope + the install-check `data`. */

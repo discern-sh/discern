@@ -27,6 +27,11 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import type { GateWireData } from "../src/shared/result_schemas.ts";
+import {
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 interface GeneratedGroupFixture {
   readonly name: string;
@@ -35,35 +40,12 @@ interface GeneratedGroupFixture {
   readonly timeout?: number;
 }
 
-interface GateJsonDiagnostic {
-  readonly tool: string;
-  readonly message: string;
-  readonly reproduce_cmd: string;
-  readonly output?: string;
-}
-
-interface GateJsonStep {
-  readonly label: string;
-  readonly kind: string;
-  readonly group?: string;
-  readonly outcome: string;
-  readonly duration_s?: number;
-}
-
-interface GateJson {
-  readonly ok: boolean;
-  readonly data: { readonly failed_stage: string | null };
-  readonly diagnostics?: readonly GateJsonDiagnostic[];
-  readonly hints?: readonly string[];
-  readonly steps?: readonly GateJsonStep[];
-  readonly plan?: {
-    readonly steps: readonly {
-      readonly label: string;
-      readonly disposition: string;
-      readonly group?: string;
-    }[];
-  };
-}
+type GateJsonDiagnostic = NonNullable<
+  CliResultForCommand<"done">["diagnostics"]
+>[number];
+type GateJson = Omit<CliResultForCommand<"done">, "data"> & {
+  data: GateWireData;
+};
 
 /** Render production-shaped generated groups, including optional per-group timeouts. */
 function generatedConfig(groups: readonly GeneratedGroupFixture[]): string {
@@ -116,7 +98,12 @@ async function trackedDiff(root: string): Promise<string> {
 
 /** Decode the done envelope used by generated-artifact gate assertions. */
 function parseGate(stdout: string): GateJson {
-  return JSON.parse(stdout.trim()) as GateJson;
+  const result = decodeCliResult(stdout, "done");
+  assert(
+    result.data !== undefined && "failed_stage" in result.data,
+    `done result must carry gate data: ${stdout}`,
+  );
+  return { ...result, data: result.data };
 }
 
 /** Combine a diagnostic's summary and captured output for end-to-end evidence checks. */
@@ -180,10 +167,7 @@ Deno.test("prepare regenerates a stale declared artifact and stays green", async
 
     const run = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(run.code, 0, run.output);
-    const result = JSON.parse(run.stdout.trim()) as {
-      ok: boolean;
-      steps?: readonly GateJsonStep[];
-    };
+    const result = decodeCliResult(run.stdout, "prepare");
     assert(result.ok, run.stdout);
     const step = result.steps?.find((candidate) =>
       candidate.label === "generated:reference"
@@ -236,10 +220,7 @@ Deno.test("prepare refreshes generated Map inputs before checks and is a second-
 
     const first = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(first.code, 0, first.output);
-    const firstResult = JSON.parse(first.stdout) as {
-      readonly ok: boolean;
-      readonly steps?: readonly GateJsonStep[];
-    };
+    const firstResult = decodeCliResult(first.stdout, "prepare");
     assertEquals(firstResult.ok, true);
     assertEquals(
       firstResult.steps?.some((step) =>
@@ -293,11 +274,7 @@ Deno.test("prepare stays red when one refresh surface cannot materialize", async
 
         const run = await runAgent(dir, ["prepare", "--json"]);
         assertEquals(run.code, 1, run.output);
-        const result = JSON.parse(run.stdout) as {
-          readonly ok: boolean;
-          readonly diagnostics?: readonly GateJsonDiagnostic[];
-          readonly steps?: readonly GateJsonStep[];
-        };
+        const result = decodeCliResult(run.stdout, "prepare");
         assertEquals(result.ok, false);
         const refresh = result.steps?.find((step) => step.kind === "refresh");
         assertEquals(refresh?.outcome, "failed", run.stdout);
@@ -552,9 +529,9 @@ Deno.test("generated gate: dry-run lists generators without running them; prepar
 
     const preview = await runAgent(dir, ["done", "--dry-run", "--json"]);
     assertEquals(preview.code, 0, preview.output);
-    const planned = parseGate(preview.stdout).plan?.steps.find((step) =>
-      step.label === "generated:reference"
-    );
+    const planned = decodeCliResult(preview.stdout, "done").plan?.steps.find((
+      step,
+    ) => step.label === "generated:reference");
     assertEquals(planned?.label, "generated:reference");
     assertEquals(planned?.disposition, "run");
     assertEquals(planned?.group, "Build");

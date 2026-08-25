@@ -40,12 +40,12 @@ import {
   parseConfig,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
+import type { ConfigReconcileOperationKind } from "../shared/config_reconcile.ts";
 
-export type ConfigReconcileOperation =
-  | { kind: "section"; path: string }
-  | { kind: "key"; path: string }
-  | { kind: "banner"; path: string }
-  | { kind: "marker"; path: string };
+export interface ConfigReconcileOperation {
+  kind: ConfigReconcileOperationKind;
+  path: string;
+}
 
 export interface ConfigReconcileResult {
   text: string;

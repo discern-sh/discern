@@ -46,6 +46,10 @@ import {
   type CliPredicateState,
   type RegisteredCliJsonPredicateContract,
 } from "../src/shared/result_contracts.ts";
+import {
+  type CliResultEnvelope,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 
@@ -60,21 +64,13 @@ function assertEnvelopeOnly(
   r: RunResult,
   verb: string,
   context = verb,
-): Record<string, unknown> {
+): CliResultEnvelope {
   const combined = r.output.trim();
   assert(
     combined.length > 0 && !combined.includes("\n"),
     `${context} --json must emit exactly one line (the envelope), nothing else on stdout OR stderr.\n--- got ---\n${r.output}\n-----------`,
   );
-  let obj: unknown;
-  try {
-    obj = JSON.parse(combined);
-  } catch {
-    throw new Error(
-      `${context} --json combined output is not valid JSON:\n${r.output}`,
-    );
-  }
-  assert(isRecord(obj), `${context}: envelope must be an object`);
+  const obj = decodeCliResult(combined, verb);
   assertEquals(
     typeof obj.ok,
     "boolean",
@@ -811,9 +807,8 @@ Deno.test("worktree lifecycle --json: start/update/accept/setup/teardown/drop/pr
     // envelope; its data names the worktree the rest of the sweep drives.
     const started = await runAgent(dir, [...START_CASE.args, "--json"]);
     assertEnvelopeOnly(started, START_CASE.envelopeVerb);
-    const envelope = JSON.parse(started.stdout.trim()) as {
-      data?: { id?: unknown; path?: unknown };
-    };
+    const envelope = decodeCliResult(started.stdout, "start");
+    assert(envelope.data !== undefined && "id" in envelope.data);
     const id = envelope.data?.id;
     const worktree = envelope.data?.path;
     assert(
@@ -853,7 +848,7 @@ Deno.test("done --json: a FAILING gate captures output INTO the envelope, never 
     assertEquals(r.code, 1, r.output);
     // Single envelope line, despite the failing command's multi-line output…
     assertEnvelopeOnly(r, "done");
-    const obj = JSON.parse(r.output.trim());
+    const obj = decodeCliResult(r.stdout, "done");
     assertEquals(obj.ok, false);
     // …and that output rode INTO the envelope as a diagnostic (newlines escaped),
     // which is exactly why it didn't leak as a real stream line.
@@ -874,7 +869,7 @@ Deno.test("bare discern --json is one controlled result before and after setup",
       const result = await runAgent(dir, ["--json"]);
       assertEquals(result.code, 1, `${phase}: ${result.output}`);
       assertEnvelopeOnly(result, "discern", phase);
-      const envelope = JSON.parse(result.stdout);
+      const envelope = decodeCliResult(result.stdout, "discern");
       assertEquals(envelope.error, "invalid_arguments", phase);
       assert(
         Array.isArray(envelope.hints) && envelope.hints.length > 0,
@@ -895,7 +890,7 @@ Deno.test("a pre-verb config error is still the uniform envelope (verb + single 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     assertEnvelopeOnly(r, "done"); // carries the attempted verb, single line
-    assertEquals(JSON.parse(r.output.trim()).error, "invalid_toml");
+    assertEquals(decodeCliResult(r.stdout, "done").error, "invalid_toml");
   });
 });
 

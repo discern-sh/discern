@@ -4375,7 +4375,8 @@
                         "enum": [
                           "section",
                           "key",
-                          "banner"
+                          "banner",
+                          "marker"
                         ]
                       },
                       "path": {
@@ -4526,7 +4527,8 @@
                         "enum": [
                           "section",
                           "key",
-                          "banner"
+                          "banner",
+                          "marker"
                         ]
                       },
                       "path": {
@@ -18188,10 +18190,37 @@
                       "message"
                     ]
                   }
+                },
+                "projection": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "orientation",
+                        "full"
+                      ]
+                    },
+                    "omitted": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
                 }
               },
               "required": [
-                "issues"
+                "issues",
+                "projection"
               ]
             }
           ]

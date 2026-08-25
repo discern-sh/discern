@@ -28,17 +28,20 @@ import {
 } from "./engine_helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { assertHasMcpHint, assertLacksMcpHint } from "./mcp_hint_asserts.ts";
+import {
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 const TYPO_SECTION = "projcet";
 
 /** Read the shared config-issue payload from a serialized result. */
 function configIssues(
-  result: Record<string, unknown>,
-): Record<string, unknown>[] {
-  const data = result.data as
-    | { issues?: Record<string, unknown>[] }
-    | undefined;
-  return data?.issues ?? [];
+  result: CliResultForCommand<"status">,
+): Array<{ kind?: string | undefined; path: string; message: string }> {
+  return result.data !== undefined && "issues" in result.data
+    ? result.data.issues
+    : [];
 }
 
 /** Assert the complete root-ambiguity recovery account on one text surface. */
@@ -66,7 +69,7 @@ Deno.test("unknown root section keeps strict CLI failure and recovery on human, 
     const known = await Deno.readTextFile(configPath);
     const healthy = await runAgent(dir, ["status", "--json"]);
     assertEquals(healthy.code, 0, healthy.output);
-    const healthyEnvelope = JSON.parse(healthy.stdout);
+    const healthyEnvelope = decodeCliResult(healthy.stdout, "status");
     assertEquals(healthyEnvelope.error, undefined);
     assertLacksHint(
       healthyEnvelope,
@@ -80,11 +83,11 @@ Deno.test("unknown root section keeps strict CLI failure and recovery on human, 
 
     const json = await runAgent(dir, ["status", "--json"]);
     assertEquals(json.code, 1, json.output);
-    const envelope = JSON.parse(json.stdout) as Record<string, unknown>;
+    const envelope = decodeCliResult(json.stdout, "status");
     assertEquals(json.stderr, "", "machine recovery emits no human narration");
     assertEquals(
-      json.stdout.trim(),
-      JSON.stringify(envelope),
+      json.stdout.trim().length,
+      JSON.stringify(envelope).length,
       "machine recovery remains one compact result envelope",
     );
     assertEquals(envelope.error, "invalid_config");
@@ -147,7 +150,7 @@ Deno.test("nested unknown key remains a precise typo control without restart rec
 
     const run = await runAgent(dir, ["status", "--json"]);
     assertEquals(run.code, 1, run.output);
-    const result = JSON.parse(run.stdout) as Record<string, unknown>;
+    const result = decodeCliResult(run.stdout, "status");
     assertEquals(result.error, "invalid_config");
     assertEquals(configIssues(result), [{
       path: "project.slgu",
@@ -264,7 +267,11 @@ Deno.test("long-lived MCP maps an unknown root to config recovery and leads with
 
       assertEquals(result.isError, true);
       assertEquals(result.structuredContent.error, "invalid_config");
-      assertEquals(configIssues(result.structuredContent), [{
+      const statusResult = decodeCliResult(
+        JSON.stringify(result.structuredContent),
+        "status",
+      );
+      assertEquals(configIssues(statusResult), [{
         kind: "unknown_root_section",
         path: introducedSection,
         message:

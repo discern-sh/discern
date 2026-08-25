@@ -1548,7 +1548,7 @@ export type DiscernUpgradeResult = DiscernResultState & {
       describe: string;
     }>;
     pending_reconciliation?: Array<{
-      kind: "section" | "key" | "banner";
+      kind: "section" | "key" | "banner" | "marker";
       path: string;
     }>;
     config_template_available?: boolean;
@@ -1579,7 +1579,7 @@ export type DiscernUpgradeResult = DiscernResultState & {
       describe: string;
     }>;
     config_reconciled?: Array<{
-      kind: "section" | "key" | "banner";
+      kind: "section" | "key" | "banner" | "marker";
       path: string;
     }>;
     gitignore_reconciled?: Array<{
@@ -5445,6 +5445,12 @@ export type DiscernStatusResult = DiscernResultState & {
       path: string;
       message: string;
     }>;
+    projection: {
+      mode: "orientation" | "full";
+      omitted?: {
+        [key: string]: number;
+      };
+    };
   };
 };
 
