@@ -49,6 +49,19 @@ import type { ThirdPartyComponent } from "../src/lib/third_party_types.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { thirdPartyLicenseBundleSchema } from "../src/shared/license_bundle_schemas.ts";
 import { decodeJson } from "../src/shared/runtime_decode.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const DENO_LOCK_NPM_SCHEMA = z.object({
+  npm: z.record(
+    z.string(),
+    z.object({ dependencies: z.array(z.string()).optional() }).passthrough(),
+  ).optional(),
+}).passthrough();
+
+const DENO_IMPORT_MAP_SCHEMA = z.object({
+  imports: z.record(z.string(), z.string()).optional(),
+}).passthrough();
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -274,9 +287,10 @@ function parseLockKey(key: string): { name: string; version: string } {
 }
 
 Deno.test("the credited npm set is closed under deno.lock dependency edges", async () => {
-  const lock = JSON.parse(
+  const lock = decodeWith(
+    DENO_LOCK_NPM_SCHEMA,
     await Deno.readTextFile(join(repoRoot, "deno.lock")),
-  ) as { npm?: Record<string, { dependencies?: string[] }> };
+  );
   const npmComponents = committedComponents()
     .filter((c) => c.registry === "npm");
   const credited = new Set(npmComponents.map((c) => `${c.name}@${c.version}`));
@@ -312,9 +326,10 @@ Deno.test("the credited npm set is closed under deno.lock dependency edges", asy
 });
 
 Deno.test("every jsr:/npm: package src/ imports through the import map is credited", async () => {
-  const denoJson = JSON.parse(
+  const denoJson = decodeWith(
+    DENO_IMPORT_MAP_SCHEMA,
     await Deno.readTextFile(join(repoRoot, "deno.json")),
-  ) as { imports?: Record<string, string> };
+  );
   const importMap = denoJson.imports ?? {};
 
   /** The registry package name of a jsr:/npm: specifier, or undefined. */

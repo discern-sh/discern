@@ -40,6 +40,7 @@ import {
 } from "../src/shared/setup_messages.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import {
   deriveSetupPrimarySubsystem,
@@ -599,7 +600,7 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
     );
     const done = await runAgent(dir, ["setup", "done", "--force", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const envelope = SetupDoneOutputSchema.parse(JSON.parse(done.stdout));
+    const envelope = decodeCliResult(done.stdout, "setup done");
     const data = SetupDoneDataSchema.parse(envelope.data);
     const inventory = data.inventory;
     assert(done.stdout.length <= SETUP_RESULT_MAX_CHARS);

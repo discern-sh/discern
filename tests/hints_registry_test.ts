@@ -25,6 +25,10 @@ import {
 } from "../src/shared/hints.ts";
 import { RETIRED_COMMAND_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const HINT_TEXTS_SCHEMA = z.array(z.string());
 
 const STATIC_HINT = defineHint({
   id: "test-static",
@@ -106,7 +110,7 @@ Deno.test("hint text projection carries local ids through composition without ch
     "A fixed guardrail sentence.",
     "unassociated advisory text",
   ]);
-  assertEquals(JSON.parse(JSON.stringify(merged)), merged);
+  assertEquals(decodeWith(HINT_TEXTS_SCHEMA, JSON.stringify(merged)), merged);
 });
 
 Deno.test("hint assertions render registry entries with supplied or example params", () => {

@@ -2,7 +2,15 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl } from "@std/path";
-import type { SiteSmokeResult } from "../scripts/site_smoke.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const SITE_SMOKE_RESULT_SCHEMA = z.object({
+  ok: z.boolean(),
+  base: z.string(),
+  observations: z.array(z.string()),
+  failures: z.array(z.string()),
+});
 
 Deno.test("production smoke crawls the real running artifact", async () => {
   const root = fromFileUrl(new URL("../", import.meta.url));
@@ -22,7 +30,7 @@ Deno.test("production smoke crawls the real running artifact", async () => {
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
   assert(output.success, `${stderr}\n${stdout}`);
-  const result = JSON.parse(stdout) as SiteSmokeResult;
+  const result = decodeWith(SITE_SMOKE_RESULT_SCHEMA, stdout);
   assertEquals(result.ok, true);
   assertEquals(result.failures, []);
   assertStringIncludes(

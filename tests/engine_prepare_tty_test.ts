@@ -9,6 +9,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const REPAINT = `${CSI}1G`;
@@ -227,10 +228,7 @@ Deno.test("prepare pipe and JSON surfaces keep their non-interactive contracts",
 
     const json = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const envelope = JSON.parse(json.stdout.trim()) as {
-      ok: boolean;
-      verb: string;
-    };
+    const envelope = decodeCliResult(json.stdout, "prepare");
     assertEquals(envelope.ok, true);
     assertEquals(envelope.verb, "prepare");
     assertEquals(json.stderr, "");

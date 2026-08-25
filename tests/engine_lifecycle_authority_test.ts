@@ -28,6 +28,11 @@ import {
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 const BASE_CONFIG = [
   "[project]",
@@ -58,9 +63,33 @@ const STANDING_CONFIG = [
   "",
 ].join("\n");
 
-/** Decode a lifecycle envelope while preserving its command-specific data type. */
-function parseResult<T>(stdout: string): DiscernResult<T> {
-  return JSON.parse(stdout.trim()) as DiscernResult<T>;
+type StartResult = CliResultForCommand<"start"> & { data: StartData };
+type DoneResult = CliResultForCommand<"done"> & { data: GateWireData };
+type StatusResult = CliResultForCommand<"status"> & { data: StatusWireData };
+
+/** Decode a lifecycle envelope and require its command-specific normal payload. */
+function parseResult(stdout: string, command: "start"): StartResult;
+/** Decode a done envelope and require its normal Gate payload. */
+function parseResult(stdout: string, command: "done"): DoneResult;
+/** Decode a status envelope and require its normal status payload. */
+function parseResult(stdout: string, command: "status"): StatusResult;
+function parseResult(
+  stdout: string,
+  command: "start" | "done" | "status",
+): StartResult | DoneResult | StatusResult {
+  if (command === "start") {
+    const result = decodeCliResult(stdout, "start");
+    assertResultDataKey(result, "path");
+    return result;
+  }
+  if (command === "done") {
+    const result = decodeCliResult(stdout, "done");
+    assertResultDataKey(result, "failed_stage");
+    return result;
+  }
+  const result = decodeCliResult(stdout, "status");
+  assertResultDataKey(result, "projection");
+  return result;
 }
 
 /** Create and commit one classified path on the acceptance branch. */
@@ -85,7 +114,7 @@ async function commitPath(
 
 /** Select a branch from status fleet data and fail with the missing branch name. */
 function fleetRow(
-  status: DiscernResult<StatusWireData>,
+  status: StatusResult,
   branch: string,
 ): NonNullable<StatusWireData["fleet"]>[number] {
   const row = status.data?.fleet?.find((entry) => entry.branch === branch);
@@ -106,8 +135,9 @@ Deno.test("start reports prospective standing authority while the unconfigured d
     await writeConfig(dir, BASE_CONFIG);
     await gitInit(dir);
 
-    const plain = parseResult<StartData>(
+    const plain = parseResult(
       (await runAgent(dir, ["start", "--name", "plain", "--json"])).stdout,
+      "start",
     );
     assertEquals(plain.data?.landing_authority, undefined);
     assertLacksHint(plain, HINTS["start-landing-authority"], {
@@ -122,8 +152,9 @@ Deno.test("start reports prospective standing authority while the unconfigured d
     await writeConfig(dir, STANDING_CONFIG);
     await gitInit(dir);
 
-    const started = parseResult<StartData>(
+    const started = parseResult(
       (await runAgent(dir, ["start", "--name", "docs", "--json"])).stdout,
+      "start",
     );
     assertEquals(started.data?.landing_authority, {
       kind: "conversation-required",
@@ -145,8 +176,9 @@ Deno.test("covered standing authority agrees across green done, local status, an
     const worktree = await addWorktree(dir, "covered");
     await commitPath(worktree, "docs/guide.md", "covered\n");
 
-    const done = parseResult<GateWireData>(
+    const done = parseResult(
       (await runAgent(worktree, ["done", "--json"])).stdout,
+      "done",
     );
     assertEquals(done.ok, true);
     assertEquals(done.data?.landing_authority, {
@@ -161,8 +193,9 @@ Deno.test("covered standing authority agrees across green done, local status, an
     });
     assertLacksHint(done, HINTS["gate-relay-proof"]);
 
-    const local = parseResult<StatusWireData>(
+    const local = parseResult(
       (await runAgent(worktree, ["status", "--json"])).stdout,
+      "status",
     );
     assertEquals(local.data?.landing_authority, done.data?.landing_authority);
     assertHasHint(local, HINTS["status-land-under-verified-authority"], {
@@ -174,8 +207,9 @@ Deno.test("covered standing authority agrees across green done, local status, an
       branch: "agent/covered",
     });
 
-    const fleet = parseResult<StatusWireData>(
+    const fleet = parseResult(
       (await runAgent(dir, ["status", "--json"])).stdout,
+      "status",
     );
     assertEquals(
       fleetRow(fleet, "agent/covered").landing_authority,
@@ -199,8 +233,9 @@ Deno.test("partial standing authority names the same uncovered path at done and 
     const worktree = await addWorktree(dir, "partial");
     await commitPath(worktree, "src/main.ts", "export {};\n");
 
-    const done = parseResult<GateWireData>(
+    const done = parseResult(
       (await runAgent(worktree, ["done", "--json"])).stdout,
+      "done",
     );
     assertEquals(done.data?.landing_authority, {
       kind: "conversation-required",
@@ -215,8 +250,9 @@ Deno.test("partial standing authority names the same uncovered path at done and 
       scopes: ["map"],
     });
 
-    const status = parseResult<StatusWireData>(
+    const status = parseResult(
       (await runAgent(worktree, ["status", "--json"])).stdout,
+      "status",
     );
     assertEquals(status.data?.landing_authority, done.data?.landing_authority);
     assertHasHint(status, HINTS["status-ready-uncovered-authority"], {
@@ -235,8 +271,9 @@ Deno.test("an effort grant is distinct and visible at done, local status, and th
     await commitPath(worktree, "src/main.ts", "export {};\n");
     await grantEffort(worktree, "agent/effort", "2026-07-28T01:00:00.000Z");
 
-    const done = parseResult<GateWireData>(
+    const done = parseResult(
       (await runAgent(worktree, ["done", "--json"])).stdout,
+      "done",
     );
     assertEquals(done.data?.landing_authority, {
       kind: "authorized",
@@ -247,8 +284,9 @@ Deno.test("an effort grant is distinct and visible at done, local status, and th
       scopes: [],
     });
 
-    const local = parseResult<StatusWireData>(
+    const local = parseResult(
       (await runAgent(worktree, ["status", "--json"])).stdout,
+      "status",
     );
     assertEquals(local.data?.landing_authority, done.data?.landing_authority);
     assertHasHint(local, HINTS["status-land-under-verified-authority"], {
@@ -256,8 +294,9 @@ Deno.test("an effort grant is distinct and visible at done, local status, and th
       scopes: [],
     });
 
-    const fleet = parseResult<StatusWireData>(
+    const fleet = parseResult(
       (await runAgent(dir, ["status", "--json"])).stdout,
+      "status",
     );
     assertEquals(
       fleetRow(fleet, "agent/effort").landing_authority,
@@ -274,14 +313,16 @@ Deno.test("no grant preserves the existing relay fork at done and status", async
     const worktree = await addWorktree(dir, "review");
     await commitPath(worktree, "src/main.ts", "export {};\n");
 
-    const done = parseResult<GateWireData>(
+    const done = parseResult(
       (await runAgent(worktree, ["done", "--json"])).stdout,
+      "done",
     );
     assertEquals(done.data?.landing_authority, undefined);
     assertHasHint(done, HINTS["gate-relay-proof"]);
 
-    const status = parseResult<StatusWireData>(
+    const status = parseResult(
       (await runAgent(worktree, ["status", "--json"])).stdout,
+      "status",
     );
     assertEquals(status.data?.landing_authority, undefined);
     assertHasHint(status, HINTS["status-ready-for-review"], {
@@ -297,9 +338,10 @@ Deno.test("MCP and CLI carry the same authority projection at every lifecycle mo
     await writeConfig(dir, STANDING_CONFIG);
     await gitInit(dir);
 
-    const cliStart = parseResult<StartData>(
+    const cliStart = parseResult(
       (await runAgent(dir, ["start", "--name", "cli-parity", "--json"]))
         .stdout,
+      "start",
     );
     const working = new WorkingRoot(dir);
     const mcpStart = await runTool(
@@ -329,8 +371,9 @@ Deno.test("MCP and CLI carry the same authority projection at every lifecycle mo
     // Let the gate's fix stage converge before comparing the two wire
     // projections. The parity assertion is about the clean, proof-bearing
     // finish moment, not a first pass that may have just rewritten an artifact.
-    const convergence = parseResult<GateWireData>(
+    const convergence = parseResult(
       (await runAgent(worktree, ["done", "--json"])).stdout,
+      "done",
     );
     assertEquals(convergence.ok, true, JSON.stringify(convergence));
     const mcpDone = await runTool(
@@ -343,16 +386,18 @@ Deno.test("MCP and CLI carry the same authority projection at every lifecycle mo
     const mcpDoneResult = mcpDone.structuredContent as unknown as DiscernResult<
       GateWireData
     >;
-    const cliDone = parseResult<GateWireData>(
+    const cliDone = parseResult(
       (await runAgent(worktree, ["done", "--json"])).stdout,
+      "done",
     );
     assertEquals(
       mcpDoneResult.data?.landing_authority,
       cliDone.data?.landing_authority,
     );
 
-    const cliStatus = parseResult<StatusWireData>(
+    const cliStatus = parseResult(
       (await runAgent(worktree, ["status", "--json"])).stdout,
+      "status",
     );
     const mcpStatus = await runTool(
       mcpTool("discern_status"),

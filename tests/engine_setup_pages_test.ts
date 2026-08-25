@@ -41,13 +41,13 @@ import {
 } from "../src/shared/setup_pages.ts";
 import { SETUP_COMPLETION_CHECKS } from "../src/shared/setup_checks.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
-import { SetupStepOutputSchema } from "../src/shared/result_schemas.ts";
 import {
   configSchema,
   type DiscernConfig,
 } from "../src/shared/config_schema.ts";
 import { normalizeMapDir } from "../src/shared/map_path.ts";
 import { DIAGNOSTIC_FORMATS } from "../src/engine/gate/diagnostics.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
 
@@ -124,8 +124,9 @@ Deno.test("setup step <n> --json carries the structured spine AND the prose inst
     const r = await runAgent(dir, ["setup", "step", "4", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const res = JSON.parse(r.stdout);
+    const res = decodeCliResult(r.stdout, "setup step");
     assertEquals(res.verb, "setup step");
+    assert(res.data !== undefined && "step" in res.data, r.stdout);
     const d = res.data;
     assertEquals(d.step, 4);
     assertEquals(typeof d.title, "string");
@@ -154,9 +155,6 @@ Deno.test("setup step <n> --json carries the structured spine AND the prose inst
     // The prose lane: the warm instructions the agent follows verbatim.
     assert(typeof d.instructions === "string" && d.instructions.length > 0);
     assertStringIncludes(d.instructions, "present tense"); // a Step 4 prose anchor
-
-    // Faithfulness (ADR 0041): the real serialized output validates against the schema.
-    SetupStepOutputSchema.parse(res);
   });
 });
 
@@ -166,7 +164,9 @@ Deno.test("setup step 2 renders every supported diagnostic format", async () => 
     const r = await runAgent(dir, ["setup", "step", "2", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const instructions = JSON.parse(r.stdout).data.instructions as string;
+    const result = decodeCliResult(r.stdout, "setup step");
+    assert(result.data !== undefined && "instructions" in result.data);
+    const instructions = result.data.instructions;
     assert(
       !instructions.includes("{{diagnostic_formats}}"),
       "setup must replace the diagnostic-format token",
@@ -202,7 +202,7 @@ Deno.test("setup step on a non-existent step is a structured no_such_step", asyn
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["setup", "step", "99", "--json"]);
     assertEquals(r.code, 1, r.output);
-    assertEquals(JSON.parse(r.stdout).error, "no_such_step");
+    assertEquals(decodeCliResult(r.stdout, "setup step").error, "no_such_step");
   });
 });
 
@@ -236,7 +236,11 @@ Deno.test("setup begin emits the operating contract + the first page only, never
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const d = JSON.parse(r.stdout).data;
+    const result = decodeCliResult(r.stdout, "setup begin");
+    assert(result.data !== undefined && "page" in result.data, r.stdout);
+    const d = result.data;
+    assert(typeof d.instructions === "string");
+    assert(d.page !== undefined && d.page !== null);
     assertStringIncludes(d.instructions, "# Set up discern");
     assert(
       !d.instructions.includes("## Step 2 —"),
@@ -324,12 +328,13 @@ Deno.test("setup done FAILS, naming the unmet check, when a step was skipped (an
 
     const blocked = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(blocked.code, 1, blocked.output);
-    const res = JSON.parse(blocked.stdout);
+    const res = decodeCliResult(blocked.stdout, "setup done");
     assertEquals(res.ok, false);
     assertEquals(res.error, "incomplete");
+    assert(res.data !== undefined && "unmet" in res.data, blocked.stdout);
 
     // The diagnostic NAMES the unmet check — and only it (instructions + capability pass).
-    const unmet = res.data.unmet as Array<{ name: string; step: number }>;
+    const unmet = res.data.unmet;
     assertEquals(
       unmet.map((u) => u.name),
       ["design_principles"],
@@ -380,7 +385,8 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);
     assert(done.stdout.length <= SETUP_RESULT_MAX_CHARS);
-    const res = JSON.parse(done.stdout);
+    const res = decodeCliResult(done.stdout, "setup done");
+    assert(res.data !== undefined && "bootstrapped" in res.data, done.stdout);
     assertEquals(res.data.bootstrapped, true);
     assertEquals(res.data.gate_proven, true);
     assertEquals(res.data.inventory.map_regions.count, 2);
@@ -388,6 +394,7 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
       "00-orientation",
       "10-runtime",
     ]);
+    assert(res.data.inventory.project_context.primary_subsystem !== null);
     assertEquals(
       res.data.inventory.project_context.primary_subsystem.title,
       "Runtime",
@@ -396,6 +403,7 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
     assertEquals(res.data.landing.on_target, false);
     assertEquals(res.data.reactivation, undefined);
     assertEquals(res.data.optional_improvement, undefined);
+    assert(res.hints !== undefined);
     assert(
       res.hints.some((hint: string) =>
         hint.includes("discern setup accept") &&

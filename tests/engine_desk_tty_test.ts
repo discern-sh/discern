@@ -26,6 +26,7 @@ import {
   runDeskTty,
   withDeskTtyProject,
 } from "./fixtures/desk_tty_harness.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9:;]*m`, "u");
@@ -434,29 +435,6 @@ Deno.test("Desk PTY normalisation exposes clears, overflow, and unknown controls
   assertEquals(unsupported.unexpectedControls[0]?.raw, "\x1b[999z");
 });
 
-interface StatusFleetWireEntry {
-  readonly branch: string;
-  readonly gate_proof?: { readonly status: string };
-  readonly running?: { readonly verb: string };
-  readonly last_action?: {
-    readonly verb: string;
-    readonly outcome: string;
-    readonly failed_stage?: string;
-  };
-  readonly landing_authority?: {
-    readonly kind: string;
-    readonly source?: string;
-  };
-}
-
-interface StatusWire {
-  readonly data: {
-    readonly fleet?: readonly StatusFleetWireEntry[];
-    readonly fleet_collisions?: readonly { readonly total: number }[];
-    readonly unlanded_branches?: readonly string[];
-  };
-}
-
 Deno.test("Desk PTY fleet builders materialise later-wave state through real authorities", async () => {
   const fixture = deskFleetFixture([
     deskFleetEntry("ready-task-a1b2c3", {
@@ -483,7 +461,8 @@ Deno.test("Desk PTY fleet builders materialise later-wave state through real aut
       env: { ...project.env },
     });
     assertEquals(status.code, 0, status.output);
-    const result = JSON.parse(status.stdout) as StatusWire;
+    const result = decodeCliResult(status.stdout, "status");
+    assert(result.data !== undefined && "fleet" in result.data);
     const ready = result.data.fleet?.find((entry) =>
       entry.branch === "agent/ready-task-a1b2c3"
     );

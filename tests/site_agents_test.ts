@@ -19,6 +19,19 @@ import {
   SUPPORTED_PROVIDER_NAMES_MARKER,
   TEXT_EDITION,
 } from "../site/serve.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const CLOSING_ENVELOPE_SCHEMA = z.object({
+  status: z.literal("ok"),
+  message: z.string(),
+  data: z.object({
+    model_required: z.null(),
+    api_key_required: z.null(),
+    prose_word_ceiling: z.number().int().positive(),
+    your_context: z.string(),
+  }),
+});
 
 const REQUIRED_MACHINE_ROUTES = [
   "/llms.txt",
@@ -95,9 +108,7 @@ Deno.test("the page's advertised word ceiling is the gated standard, and holds",
     "discern.toml and the page must advertise one ceiling",
   );
 
-  const envelope = JSON.parse(CLOSING_ENVELOPE) as {
-    data: { prose_word_ceiling: number; your_context: string };
-  };
+  const envelope = decodeWith(CLOSING_ENVELOPE_SCHEMA, CLOSING_ENVELOPE);
   assertEquals(envelope.data.prose_word_ceiling, AGENTS_PROSE_WORD_CEILING);
   assertStringIncludes(
     envelope.data.your_context,

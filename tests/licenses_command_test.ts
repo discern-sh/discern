@@ -7,6 +7,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { licensesResult, runLicenses } from "../src/commands/licenses.ts";
 import { FIRST_PARTY_LEGAL_DOCUMENTS } from "../src/shared/license_registry.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 /** Run `fn` with console.log captured, restoring it afterwards. */
 function capture(fn: () => number): { code: number; lines: string[] } {
@@ -54,7 +55,7 @@ Deno.test("runLicenses --json emits a single parseable DiscernResult and exits 0
   );
   assertEquals(code, 0);
   assertEquals(lines.length, 1, "JSON mode must print exactly one line");
-  const parsed = JSON.parse(lines[0] ?? "") as { ok: boolean; verb: string };
+  const parsed = decodeCliResult(lines[0] ?? "", "licenses");
   assertEquals(parsed.ok, true);
   assertEquals(parsed.verb, "licenses");
 });

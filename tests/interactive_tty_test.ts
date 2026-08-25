@@ -2,10 +2,10 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
+import { z } from "@zod/zod";
 import { detectTerminalCapabilities } from "discern-design-system/cli";
 import {
   INTERACTIVE_TTY_REQUEST_LABELS,
-  type InteractiveTtyResult,
   type InteractiveTtyScenario,
   POST_INTERACTION_DIAGNOSTIC,
 } from "./fixtures/interactive_tty_harness.ts";
@@ -15,6 +15,54 @@ import {
   runPtyProcess,
 } from "./fixtures/pty_process.ts";
 import { repoSourceRunArgs } from "./engine_helpers.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+);
+const InteractiveTtyScenarioSchema = z
+  .custom<InteractiveTtyScenario>((value) =>
+    typeof value === "string" && value in INTERACTIVE_TTY_REQUEST_LABELS
+  );
+const TerminalDimensionsSchema = z.object({
+  columns: z.number(),
+  rows: z.number(),
+});
+const InteractiveTtyResultSchema = z.object({
+  scenario: InteractiveTtyScenarioSchema,
+  outcome: z.enum(["value", "cancelled", "error"]),
+  value: JsonValueSchema.optional(),
+  error: z.object({ name: z.string(), message: z.string() }).optional(),
+  terminal: z.object({
+    before: z.string(),
+    after: z.string(),
+    beforeDescription: z.string(),
+    afterDescription: z.string(),
+    restored: z.boolean(),
+    exactStateRestored: z.boolean(),
+    initialSize: TerminalDimensionsSchema,
+    resizedSize: TerminalDimensionsSchema.optional(),
+    finalSize: TerminalDimensionsSchema,
+  }),
+});
+type DecodedInteractiveTtyResult = z.output<
+  typeof InteractiveTtyResultSchema
+>;
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const HARNESS = join(
@@ -33,7 +81,7 @@ const CSI_SEQUENCE = /^[0-?]*[ -/]*[@-~]/u;
 
 interface HarnessRun {
   readonly process: PtyProcessResult;
-  readonly result: InteractiveTtyResult;
+  readonly result: DecodedInteractiveTtyResult;
 }
 
 interface HarnessRunOptions {
@@ -97,7 +145,7 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
     assert(raw.trim() !== "", `child wrote no result:\n${process.transcript}`);
     return {
       process,
-      result: JSON.parse(raw) as InteractiveTtyResult,
+      result: decodeWith(InteractiveTtyResultSchema, raw),
     };
   } finally {
     await Deno.remove(resultPath).catch(() => undefined);

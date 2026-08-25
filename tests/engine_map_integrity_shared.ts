@@ -8,22 +8,18 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { defaultMapPath, runAgent } from "./engine_helpers.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
-export interface GateJsonDiagnostic {
-  tool: string;
-  message: string;
-  output?: string;
-}
-
-export interface GateJson {
-  ok: boolean;
-  diagnostics?: GateJsonDiagnostic[];
-  data: { failed_stage: string | null };
-}
+export type GateJson = CliResultForCommand<"done">;
+export type GateJsonDiagnostic = NonNullable<GateJson["diagnostics"]>[number];
 
 /** Decode a done envelope for shared map-integrity failure assertions. */
 export function parseJson(stdout: string): GateJson {
-  return JSON.parse(stdout.trim()) as GateJson;
+  return decodeCliResult(stdout, "done");
 }
 
 /** Select the diagnostic emitted by one map-integrity subtool from a gate envelope. */
@@ -55,6 +51,7 @@ export async function expectMapIntegrityFailure(dir: string): Promise<string> {
   assertEquals(r.code, 1, r.output);
   const obj = parseJson(r.stdout);
   assertEquals(obj.ok, false);
+  assertResultDataKey(obj, "failed_stage");
   assertEquals(obj.data.failed_stage, "map_integrity");
   const diag = diagFor(obj, "map-integrity");
   assert(

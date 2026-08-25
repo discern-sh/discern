@@ -5,6 +5,12 @@ import {
   terminalCaptureHandoff,
 } from "../scripts/terminal_capture.ts";
 import { terminalReviewResponse } from "../scripts/terminal_review.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const DENO_TASKS_SCHEMA = z.object({
+  tasks: z.record(z.string(), z.string()),
+}).passthrough();
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const HTML = "<!doctype html><title>Status</title><pre>Status</pre>";
@@ -62,9 +68,10 @@ Deno.test("terminal review refuses mutation and every non-root path", async () =
 });
 
 Deno.test("terminal review task grants only artifact read and loopback network access", async () => {
-  const config = JSON.parse(
+  const config = decodeWith(
+    DENO_TASKS_SCHEMA,
     await Deno.readTextFile(join(ROOT, "deno.json")),
-  ) as { readonly tasks: Readonly<Record<string, string>> };
+  );
   assertEquals(
     config.tasks["terminal:review"],
     "deno run --allow-read --allow-net=127.0.0.1 scripts/terminal_review.ts",

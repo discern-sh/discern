@@ -5,12 +5,13 @@ import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { addWorktree, git, gitInit } from "./engine_helpers.ts";
 import { classifyRepositoryProbeFailure } from "../src/engine/doctor/git_health.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 interface DoctorCheck {
   readonly name: string;
   readonly status: "ok" | "warn" | "fail";
   readonly detail: string;
-  readonly fix?: string;
+  readonly fix?: string | undefined;
 }
 
 interface DoctorPayload {
@@ -50,9 +51,11 @@ async function doctor(
   env: Record<string, string> = {},
 ): Promise<{ code: number; payload: DoctorPayload }> {
   const result = await runCli(["doctor", "--json"], dir, env);
+  const payload = decodeCliResult(result.stdout, "doctor");
+  assert(payload.data !== undefined && "checks" in payload.data);
   return {
     code: result.code,
-    payload: JSON.parse(result.stdout) as DoctorPayload,
+    payload: { ...payload, data: payload.data },
   };
 }
 

@@ -30,6 +30,12 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { firstPartyLicenseBundleSchema } from "../src/shared/license_bundle_schemas.ts";
 import { decodeJson } from "../src/shared/runtime_decode.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const DENO_LICENSE_SCHEMA = z.object({
+  license: z.string().optional(),
+}).passthrough();
 
 const repoRoot = REPO_ROOT;
 
@@ -120,9 +126,10 @@ Deno.test("the first-party bundle embeds every registered source byte-for-byte",
 });
 
 Deno.test("software metadata and the payload notice match the legal registry", async () => {
-  const denoJson = JSON.parse(
+  const denoJson = decodeWith(
+    DENO_LICENSE_SCHEMA,
     await Deno.readTextFile(join(repoRoot, "deno.json")),
-  ) as { license?: string };
+  );
   assertEquals(denoJson.license, DISCERN_SOFTWARE_LICENSE.identifier);
 
   const notice = await Deno.readTextFile(join(repoRoot, "NOTICE"));

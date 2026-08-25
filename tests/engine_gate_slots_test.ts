@@ -22,6 +22,7 @@
 
 import { assert, assertEquals, assertMatch } from "@std/assert";
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { bestEffortFs, readTextIfExists } from "../src/shared/fs_presence.ts";
 import {
@@ -42,28 +43,38 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import {
+  assertResultDataKey,
+  type CliResultEnvelope,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 
 const QUEUED_TEXT = "Tests queued";
 
-interface SlotEnvelope {
-  ok: boolean;
-  hints?: string[];
-  waited_ms?: number;
-  data?: { failed_stage?: string | null };
-}
+const LogbookEventProbeSchema = z.object({
+  kind: z.string().optional(),
+  verb: z.string().optional(),
+}).passthrough();
 
 /** Decode a slot-probe envelope and retain its command context in parse failures. */
-function parseEnvelope(stdout: string, context: string): SlotEnvelope {
+function parseEnvelope(
+  stdout: string,
+  command: string,
+  context = command,
+): CliResultEnvelope {
   try {
-    return JSON.parse(stdout) as SlotEnvelope;
-  } catch {
-    throw new Error(`unparseable ${context} envelope: ${stdout}`);
+    return decodeCliResult(stdout, command);
+  } catch (error) {
+    throw new Error(`unparseable ${context} envelope: ${stdout}`, {
+      cause: error,
+    });
   }
 }
 
 /** Whether a run narrated the queued notice — asserted ABSENT where a probe
  * must never wait; presence is only ever asserted at the unit level. */
-function hasQueuedHint(envelope: SlotEnvelope): boolean {
+function hasQueuedHint(envelope: CliResultEnvelope): boolean {
   return (envelope.hints ?? []).some((h) => h.includes(QUEUED_TEXT));
 }
 
@@ -103,7 +114,7 @@ async function beginEvents(mainDir: string, verb: string): Promise<number> {
       const text = await Deno.readTextFile(join(dir, entry.name));
       for (const line of text.split("\n")) {
         try {
-          const event = JSON.parse(line) as { kind?: string; verb?: string };
+          const event = decodeWith(LogbookEventProbeSchema, line);
           if (event.kind === "begin" && event.verb === verb) {
             count++;
           }
@@ -455,8 +466,8 @@ Deno.test("gate slots: cap=1 serializes two concurrent test runs and begins befo
         );
         release();
         const [a, b] = await Promise.all([runA, runB]);
-        const envelopeA = parseEnvelope(a.stdout, "run A");
-        const envelopeB = parseEnvelope(b.stdout, "run B");
+        const envelopeA = parseEnvelope(a.stdout, "test", "run A");
+        const envelopeB = parseEnvelope(b.stdout, "test", "run B");
         assertEquals(a.code, 0, a.output);
         assertEquals(b.code, 0, b.output);
         assertEquals(envelopeA.ok, true);
@@ -628,8 +639,8 @@ Deno.test("gate slots: cap=2 lets two test runs overlap", async () => {
         0,
         `run B failed — did cap=2 serialize?\n${b.output}`,
       );
-      assertEquals(parseEnvelope(a.stdout, "cap=2 run A").waited_ms, 0);
-      assertEquals(parseEnvelope(b.stdout, "cap=2 run B").waited_ms, 0);
+      assertEquals(parseEnvelope(a.stdout, "test", "cap=2 run A").waited_ms, 0);
+      assertEquals(parseEnvelope(b.stdout, "test", "cap=2 run B").waited_ms, 0);
     }, { prefix: "discern-slots-aux-" });
   });
 });
@@ -669,7 +680,8 @@ Deno.test("gate slots: a check failure fails fast without ever waiting for a slo
         assertEquals(envelope.ok, false);
         // Under a cap the plan splits check from test, so the red stage is the
         // check stage itself — the fail-fast happened before any slot wait.
-        assertEquals(envelope.data?.failed_stage, "check");
+        assertResultDataKey(envelope, "failed_stage");
+        assertEquals(envelope.data.failed_stage, "check");
         assertEquals(envelope.waited_ms, undefined);
         assertEquals(
           await logLines(logPath),
@@ -769,8 +781,8 @@ Deno.test("gate slots: standards' measurement pass enrols like a test run", asyn
         );
         release();
         const [a, b] = await Promise.all([runA, runB]);
-        const envelopeA = parseEnvelope(a.stdout, "standards A");
-        const envelopeB = parseEnvelope(b.stdout, "standards B");
+        const envelopeA = parseEnvelope(a.stdout, "standards", "standards A");
+        const envelopeB = parseEnvelope(b.stdout, "standards", "standards B");
         assertEquals(a.code, 0, a.output);
         assertEquals(b.code, 0, b.output);
         assertEquals(envelopeA.ok, true);
@@ -806,7 +818,10 @@ Deno.test("gate slots: the default (0, uncapped) leaves no slot files behind", a
     await gitInit(dir);
     const r = await runAgent(dir, ["test", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(parseEnvelope(r.stdout, "uncapped test").waited_ms, undefined);
+    assertEquals(
+      parseEnvelope(r.stdout, "test", "uncapped test").waited_ms,
+      undefined,
+    );
     let exists = true;
     try {
       await Deno.stat(slotDirOf(dir));

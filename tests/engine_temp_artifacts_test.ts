@@ -16,6 +16,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import {
   makeTempArtifact,
   makeTempArtifactDir,
@@ -360,9 +361,7 @@ Deno.test("engine suite: spawned-engine artifacts land in the suite temp home, n
     await gitInit(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const envelope = JSON.parse(r.stdout.trim()) as {
-      steps?: Array<{ label?: string; output_path?: string }>;
-    };
+    const envelope = decodeCliResult(r.stdout, "done");
     const outputPath = envelope.steps?.find((step) => step.label === "lint")
       ?.output_path;
     assert(typeof outputPath === "string", r.stdout);

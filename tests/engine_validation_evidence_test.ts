@@ -29,6 +29,7 @@ import {
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 /** Read completed verb events from the single current-month fixture log. */
 async function completedEvents(dir: string): Promise<VerbEvent[]> {
@@ -59,8 +60,11 @@ Deno.test("standalone test records pass/fail outcomes and concurrent execution w
       await gitInit(dir);
       const run = await runAgent(dir, ["test", "--json"]);
       assertEquals(run.code, fails ? 1 : 0, run.output);
-      const publicResult = JSON.parse(run.stdout) as Record<string, unknown>;
-      assertEquals(publicResult.validation, undefined);
+      const publicResult = decodeCliResult(run.stdout, "test");
+      assertEquals(
+        "validation" in publicResult ? publicResult.validation : undefined,
+        undefined,
+      );
 
       const events = (await completedEvents(dir)).filter((event) =>
         event.verb === "test"

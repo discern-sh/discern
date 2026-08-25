@@ -48,11 +48,9 @@ import {
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
 import { isNeutralPath } from "../src/engine/scopes/scopes.ts";
-import {
-  type CouplingData,
-  CouplingOutputSchema,
-} from "../src/shared/result_schemas.ts";
+import type { CouplingData } from "../src/shared/result_schemas.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 /** A bare set-up project (no capabilities; instructions/skills off so the gate is a clean
  * green no-op) — coupling needs zero config, so the only thing a test varies is `in_gate`. */
@@ -497,21 +495,16 @@ Deno.test("declared outputs are excluded before every coupling statistic while a
       "--json",
     ]);
     assertEquals(json.code, 0, json.output);
-    const parsed = CouplingOutputSchema.safeParse(JSON.parse(json.stdout));
-    assert(
-      parsed.success,
-      `coupling --json drifted from CouplingOutputSchema:\n${
-        JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
-      }\n${json.stdout}`,
-    );
-    assertEquals(parsed.data.data, {
+    const parsed = decodeCliResult(json.stdout, "coupling");
+    assert(parsed.data !== undefined && "mode" in parsed.data, json.stdout);
+    assertEquals(parsed.data, {
       mode: "query",
       target: cliArtifact.path,
       partners: [],
       excluded_generated: [cliArtifact],
     });
     assertHasHint(
-      parsed.data,
+      parsed,
       HINTS["coupling-generated-exclusion"],
       cliArtifact,
     );
@@ -851,7 +844,8 @@ Deno.test("coupling --json works black-box in both modes (query and diff-aware)"
 
     const q = await runAgent(dir, ["coupling", "a.ts", "--json"]);
     assertEquals(q.code, 0, q.output);
-    const qObj = JSON.parse(q.stdout.trim());
+    const qObj = decodeCliResult(q.stdout, "coupling");
+    assert(qObj.data !== undefined && "mode" in qObj.data, q.stdout);
     assertEquals(qObj.ok, true);
     assertEquals(qObj.verb, "coupling");
     assertEquals(qObj.data.mode, "query");
@@ -871,7 +865,8 @@ Deno.test("coupling --json works black-box in both modes (query and diff-aware)"
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
     const d = await runAgent(dir, ["coupling", "--json"]);
     assertEquals(d.code, 0, d.output);
-    const dObj = JSON.parse(d.stdout.trim());
+    const dObj = decodeCliResult(d.stdout, "coupling");
+    assert(dObj.data !== undefined && "mode" in dObj.data, d.stdout);
     assertEquals(dObj.data.mode, "diff");
     assert(
       dObj.data.partners.some((p: { path: string }) => p.path === "b.ts"),
@@ -1074,11 +1069,13 @@ Deno.test("coupling A B works black-box on the CLI (evidence mode, --json and hu
     // --json: the evidence payload reaches the wire intact.
     const j = await runAgent(dir, ["coupling", "a.ts", "b.ts", "--json"]);
     assertEquals(j.code, 0, j.output);
-    const obj = JSON.parse(j.stdout.trim());
+    const obj = decodeCliResult(j.stdout, "coupling");
+    assert(obj.data !== undefined && "mode" in obj.data, j.stdout);
     assertEquals(obj.data.mode, "evidence");
     assertEquals(obj.data.together, 2);
+    assert(obj.data.commits !== undefined, j.stdout);
     assertEquals(
-      (obj.data.commits as { subject: string }[]).map((c) => c.subject),
+      obj.data.commits.map((c) => c.subject),
       ["ab-again", "ab-decision"],
     );
     assertHasHint(obj, HINTS["coupling-evidence-summary"], {

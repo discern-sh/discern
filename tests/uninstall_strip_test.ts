@@ -6,7 +6,7 @@
  * environment shell that discern created versus one the app owns.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { removeGitignoreBlock } from "../src/commands/uninstall.ts";
 import { stripDiscernFromJsonSettings } from "../src/lib/settings_strip.ts";
@@ -14,6 +14,30 @@ import { stripDiscernFromCodexEnv } from "../src/lib/providers.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const STRIPPED_SETTINGS_SCHEMA = z.object({
+  permissions: z.object({ deny: z.array(z.string()) }).passthrough(),
+  hooks: z.record(
+    z.string(),
+    z.array(
+      z.object({
+        hooks: z.array(
+          z.object({
+            type: z.string().optional(),
+            command: z.string(),
+          }).passthrough(),
+        ),
+      }).passthrough(),
+    ),
+  ),
+  mcpServers: z.record(
+    z.string(),
+    z.object({ command: z.string() }).passthrough(),
+  ),
+  enabledMcpjsonServers: z.array(z.string()).optional(),
+}).passthrough();
 
 const UNINSTALL_SRC = join(
   dirname(fromFileUrl(import.meta.url)),
@@ -103,10 +127,16 @@ Deno.test("stripDiscernFromJsonSettings keeps user hooks and permissions, remove
     hooksTemplateText: template,
   });
   assert(out !== null);
-  const parsed = JSON.parse(out);
+  const parsed = decodeWith(STRIPPED_SETTINGS_SCHEMA, out);
   // The user's own hook group and deny rule survive.
-  assertEquals(parsed.hooks.SessionStart.length, 1);
-  assertEquals(parsed.hooks.SessionStart[0].hooks[0].command, "echo mine");
+  const sessionStart = parsed.hooks.SessionStart;
+  assertExists(sessionStart);
+  assertEquals(sessionStart.length, 1);
+  const ownGroup = sessionStart[0];
+  assertExists(ownGroup);
+  const ownHook = ownGroup.hooks[0];
+  assertExists(ownHook);
+  assertEquals(ownHook.command, "echo mine");
   assertEquals(parsed.permissions.deny, ["Read(secret)"]);
   // The user's own MCP server survives; discern's is gone.
   assertEquals(Object.keys(parsed.mcpServers), ["other"]);

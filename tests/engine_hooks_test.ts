@@ -29,15 +29,33 @@ import {
 } from "./engine_helpers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { portForId } from "../src/engine/worktree/identity.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
 
 const DECODER = new TextDecoder();
 
+const CLAUDE_HOOK_SETTINGS_SCHEMA = z.object({
+  hooks: z.record(
+    z.string(),
+    z.array(z.object({
+      hooks: z.array(z.object({
+        type: z.string(),
+        command: z.string(),
+      }).passthrough()),
+    }).passthrough()),
+  ),
+}).passthrough();
+
 /** The command string a settings.json hook event runs (first hook of the group). */
 async function hookCommand(dir: string, event: string): Promise<string> {
-  const settings = JSON.parse(
+  const settings = decodeWith(
+    CLAUDE_HOOK_SETTINGS_SCHEMA,
     await Deno.readTextFile(join(dir, ".claude/settings.json")),
   );
-  return settings.hooks[event][0].hooks[0].command as string;
+  const group = settings.hooks[event]?.[0];
+  const hook = group?.hooks[0];
+  assert(hook !== undefined, `expected a ${event} hook command`);
+  return hook.command;
 }
 
 /** Run a hook command as the harness does: `sh -c <command>`, JSON on stdin. */
@@ -108,11 +126,10 @@ Deno.test("hooks: every shipped hook is a bare discern dispatch", async () => {
     await scaffoldEngine(dir);
     // Parse the RENDERED settings and walk every event → group → hook, so a
     // hook added later auto-enrols instead of needing its own denylist line.
-    const settings = JSON.parse(
+    const settings = decodeWith(
+      CLAUDE_HOOK_SETTINGS_SCHEMA,
       await Deno.readTextFile(join(dir, ".claude/settings.json")),
-    ) as {
-      hooks: Record<string, { hooks: { type: string; command: string }[] }[]>;
-    };
+    );
     const violations: string[] = [];
     let total = 0;
     for (const [event, groups] of Object.entries(settings.hooks)) {

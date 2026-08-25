@@ -63,6 +63,8 @@ import {
   runPtyProcess,
   TEST_PROCESS_TIMEOUT_MS,
 } from "./pty_process.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "../decode_cli_result.ts";
 
 const HARNESS_PATH = fromFileUrl(import.meta.url);
 const DEFAULT_TIMEOUT_MS = TEST_PROCESS_TIMEOUT_MS;
@@ -70,6 +72,29 @@ const SAFE_SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
 const MARKER_OPEN = "\uE000";
 const MARKER_CLOSE = "\uE001";
 const SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+const PTY_GEOMETRY_SCHEMA = z.object({
+  columns: z.number().int().positive(),
+  rows: z.number().int().positive(),
+});
+
+const PARTIAL_PTY_GEOMETRY_SCHEMA = PTY_GEOMETRY_SCHEMA.partial();
+
+const CHILD_TERMINAL_EVIDENCE_SCHEMA = z.object({
+  code: z.number().int(),
+  before: z.string(),
+  after: z.string(),
+  beforeDescription: z.string(),
+  afterDescription: z.string(),
+  restored: z.boolean(),
+  exactStateRestored: z.boolean(),
+  initialSize: PTY_GEOMETRY_SCHEMA,
+  finalSize: PTY_GEOMETRY_SCHEMA,
+  resizes: z.array(PTY_GEOMETRY_SCHEMA),
+  childPid: z.number().int().positive(),
+  childExited: z.boolean(),
+  resizeError: z.string().optional(),
+});
 
 export interface DeskFixtureFile {
   readonly path: string;
@@ -547,7 +572,7 @@ export interface DeskTerminalEvidence {
   readonly childPid: number;
   readonly childExited: boolean;
   readonly noChild: boolean;
-  readonly resizeError?: string;
+  readonly resizeError?: string | undefined;
 }
 
 export interface DeskFrameSpan {
@@ -623,7 +648,7 @@ interface ChildTerminalEvidence {
   readonly resizes: PtyGeometry[];
   readonly childPid: number;
   readonly childExited: boolean;
-  readonly resizeError?: string;
+  readonly resizeError?: string | undefined;
 }
 
 /** Drive the real source CLI and return raw streams plus semantic screens. */
@@ -739,9 +764,10 @@ export async function runDeskTty(
       input,
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     });
-    const terminal = JSON.parse(
+    const terminal: ChildTerminalEvidence = decodeWith(
+      CHILD_TERMINAL_EVIDENCE_SCHEMA,
       await Deno.readTextFile(resultPath),
-    ) as ChildTerminalEvidence;
+    );
     const finalGeometry = resizeTimeline.at(-1) ?? options.geometry;
     const frames = Object.entries(process.keyframes).map(([name, transcript]) =>
       normaliseDeskTranscript(
@@ -1567,15 +1593,19 @@ async function applyResizeRequests(
   }
   for (const name of names.sort()) {
     if (seen.has(name)) continue;
-    const parsed = JSON.parse(
+    const parsed = decodeWith(
+      PARTIAL_PTY_GEOMETRY_SCHEMA,
       await Deno.readTextFile(join(resizeDir, name)),
-    ) as Partial<PtyGeometry>;
-    const geometry = { columns: parsed.columns, rows: parsed.rows };
-    if (geometry.columns === undefined || geometry.rows === undefined) {
+    );
+    if (parsed.columns === undefined || parsed.rows === undefined) {
       throw new TypeError(`invalid Desk resize request ${name}`);
     }
-    await resizeTerminal(child, geometry as PtyGeometry);
-    applied.push(geometry as PtyGeometry);
+    const geometry: PtyGeometry = {
+      columns: parsed.columns,
+      rows: parsed.rows,
+    };
+    await resizeTerminal(child, geometry);
+    applied.push(geometry);
     seen.add(name);
   }
 }

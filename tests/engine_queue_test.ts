@@ -23,6 +23,13 @@ import {
 } from "./engine_helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { bestEffortFs, pathExists } from "../src/shared/fs_presence.ts";
+import { logbookEventSchema } from "../src/engine/logbook/schema.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const DENO_TASKS_SCHEMA = z.object({
+  tasks: z.record(z.string(), z.string()).optional(),
+}).passthrough();
 
 const QUEUED_TEXT = "Tests queued";
 const UNAVAILABLE_TEXT = "The concurrent test-run cap is not enforced";
@@ -181,11 +188,11 @@ async function spawnAgent(
 
 interface QueueEvent {
   kind: "begin" | "verb";
-  invocation?: string;
-  target?: string;
-  outcome?: string;
-  duration_ms?: number;
-  waited_ms?: number;
+  invocation?: string | undefined;
+  target?: string | undefined;
+  outcome?: string | undefined;
+  duration_ms?: number | undefined;
+  waited_ms?: number | undefined;
 }
 
 /** Read every logbook event whose verb is `queue`. */
@@ -198,8 +205,13 @@ async function queueEvents(root: string): Promise<QueueEvent[]> {
       const text = await Deno.readTextFile(join(dir, entry.name));
       for (const line of text.split("\n")) {
         if (line === "") continue;
-        const event = JSON.parse(line) as QueueEvent & { verb?: string };
-        if (event.verb === "queue") events.push(event);
+        const event = decodeWith(logbookEventSchema, line);
+        if (
+          event.verb === "queue" &&
+          (event.kind === "begin" || event.kind === "verb")
+        ) {
+          events.push(event);
+        }
       }
     }
     return events;
@@ -593,9 +605,10 @@ Deno.test("a capped gate completes a slot-wrapped test job at cap 1", async () =
 });
 
 Deno.test("the repository's habitual and targeted test commands stay queue-wrapped", async () => {
-  const denoConfig = JSON.parse(
+  const denoConfig = decodeWith(
+    DENO_TASKS_SCHEMA,
     await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
-  ) as { tasks?: Record<string, string> };
+  );
   assertEquals(
     denoConfig.tasks?.["test:preflight"],
     "deno run --allow-net=127.0.0.1 scripts/test_preflight.ts",

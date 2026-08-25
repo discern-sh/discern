@@ -45,6 +45,7 @@ import {
   recordRetiredWorktreePath,
   scanReappearedWorktreePaths,
 } from "../src/engine/worktree/retired_paths.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
@@ -421,15 +422,12 @@ Deno.test("removed worktree paths stay observable and reclaimable when unrelated
 
       const status = await runAgent(dir, ["status", "--json"]);
       assertEquals(status.code, 0, status.output);
-      const statusResult = JSON.parse(status.stdout) as {
-        data?: {
-          reappeared_worktree_paths?: Array<{
-            path: string;
-            contents: string[];
-          }>;
-        };
-      };
-      const residue = statusResult.data?.reappeared_worktree_paths?.find(
+      const statusResult = decodeCliResult(status.stdout, "status");
+      assert(
+        statusResult.data !== undefined && "location" in statusResult.data,
+        status.stdout,
+      );
+      const residue = statusResult.data.reappeared_worktree_paths?.find(
         (entry) => entry.path === canonicalWt,
       );
       assert(residue !== undefined, status.output);
@@ -442,11 +440,8 @@ Deno.test("removed worktree paths stay observable and reclaimable when unrelated
         "--json",
       ]);
       assertEquals(dry.code, 0, dry.output);
-      const plan = JSON.parse(dry.stdout) as {
-        plan: {
-          steps: Array<{ label: string; group?: string; note?: string }>;
-        };
-      };
+      const plan = decodeCliResult(dry.stdout, "worktree prune");
+      assert(plan.plan !== undefined, dry.stdout);
       const candidate = plan.plan.steps.find((step) =>
         step.label === canonicalWt &&
         step.group === "Reappeared worktree paths"
@@ -654,9 +649,8 @@ Deno.test("worktree prune offers only positively identified discern work, never 
       "--json",
     ]);
     assertEquals(dry.code, 0, dry.output);
-    const dryPlan = JSON.parse(dry.stdout) as {
-      plan: { steps: Array<{ label: string; note?: string }> };
-    };
+    const dryPlan = decodeCliResult(dry.stdout, "worktree prune");
+    assert(dryPlan.plan !== undefined, dry.stdout);
     const destructiveText = dryPlan.plan.steps
       .map((step) => `${step.label} ${step.note ?? ""}`)
       .join("\n");
@@ -759,7 +753,8 @@ Deno.test("worktree prune --dry-run lists what the real run removes, and acts on
       "--dry-run",
       "--json",
     ]);
-    const plan = JSON.parse(dryJson.stdout.trim());
+    const plan = decodeCliResult(dryJson.stdout, "worktree prune");
+    assert(plan.plan !== undefined, dryJson.stdout);
     const labels: string[] = plan.plan.steps.map((s: { label: string }) =>
       s.label
     );
@@ -804,10 +799,11 @@ Deno.test("worktree prune --dry-run reports stale metadata and apply prunes that
       "--json",
     ]);
     assertEquals(dryJson.code, 0, dryJson.output);
-    const plan = JSON.parse(dryJson.stdout.trim());
-    const stalePlanSteps = plan.plan.steps.filter((
-      s: { group?: string },
-    ) => s.group === "Stale metadata");
+    const plan = decodeCliResult(dryJson.stdout, "worktree prune");
+    assert(plan.plan !== undefined, dryJson.stdout);
+    const stalePlanSteps = plan.plan.steps.filter((s) =>
+      s.group === "Stale metadata"
+    );
     assertEquals(
       stalePlanSteps.map((s: { label: string }) => s.label),
       [canonicalWt],
@@ -816,10 +812,11 @@ Deno.test("worktree prune --dry-run reports stale metadata and apply prunes that
 
     const real = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
     assertEquals(real.code, 0, real.output);
-    const result = JSON.parse(real.stdout.trim());
-    const staleResultSteps = result.steps.filter((
-      s: { group?: string },
-    ) => s.group === "Stale metadata");
+    const result = decodeCliResult(real.stdout, "worktree prune");
+    assert(result.steps !== undefined, real.stdout);
+    const staleResultSteps = result.steps.filter((s) =>
+      s.group === "Stale metadata"
+    );
     assertEquals(
       staleResultSteps.map((s: { label: string }) => s.label),
       [canonicalWt],

@@ -38,11 +38,19 @@ import {
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
+import {
+  type CliJsonResultCommand,
+  type CliResultEnvelope,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 /** Decode consent-gated lifecycle output for authority and no-effect assertions. */
-// deno-lint-ignore no-explicit-any
-function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
+function parseJson<Command extends CliJsonResultCommand>(
+  stdout: string,
+  command: Command,
+): CliResultForCommand<Command> {
+  return decodeCliResult(stdout, command);
 }
 
 /** A gate whose only check passes iff `taboo.txt` is absent — mirrors the proven
@@ -99,7 +107,7 @@ interface ConsentSurfaceObservation {
 }
 
 interface ConsentProbeResult {
-  readonly env: ReturnType<typeof parseJson>;
+  readonly env: CliResultEnvelope;
   readonly mutated: boolean;
   readonly meaning: Readonly<Record<ConsentMeaningDimension, string>>;
   readonly surfaces: Partial<
@@ -116,7 +124,11 @@ const PROBES = {
   "setup-begin": async (dir) => {
     await freshRepo(dir);
     const json = await runAgent(dir, ["setup", "begin", "--json"]);
-    const env = parseJson(json.stdout);
+    const env = parseJson(json.stdout, "setup begin");
+    assert(env.data !== undefined && "command" in env.data);
+    assert(typeof env.message === "string");
+    assert(typeof env.data.command === "string");
+    assert(typeof env.data.instructions === "string");
     const markdown = await runAgent(dir, ["setup", "begin", "--markdown"]);
     const terminal = await runAgent(dir, ["setup", "begin"]);
     // Mutated iff the fresh scaffold wrote its config.
@@ -150,7 +162,8 @@ const PROBES = {
   "accept": async (dir) => {
     const wt = await worktreeReadyToLand(dir);
     const json = await runAgent(wt, ["accept", "--json"]);
-    const env = parseJson(json.stdout);
+    const env = parseJson(json.stdout, "accept");
+    assert(typeof env.message === "string");
     const markdown = await runAgent(wt, ["accept", "--markdown"]);
     const terminal = await runAgent(wt, ["accept"]);
     const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
@@ -268,7 +281,8 @@ Deno.test("accept: refuses without --confirmed, re-serving the review moment (sl
 
     const r = await runAgent(wt, ["accept", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseJson(r.stdout, "accept");
+    assert(typeof env.message === "string");
     assertEquals(env.ok, false);
     assertEquals(env.verb, "accept");
     assertEquals(env.error, AWAITING_CONSENT_SLUG);
@@ -301,7 +315,9 @@ Deno.test("accept: --confirmed preserves the conversation-consent landing path",
 
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseJson(r.stdout, "accept");
+    assert(env.data !== undefined && !("issues" in env.data));
+    assert(typeof env.data.proof_line === "string");
     assertEquals(env.ok, true);
     assertEquals(env.verb, "accept");
     assertEquals(env.data.consent, { source: "conversation" });
@@ -319,7 +335,7 @@ Deno.test("accept: --confirmed preserves the conversation-consent landing path",
       await targetExists(join(dir, "feature.txt")),
       "branch work should be on the trunk",
     );
-    assertEquals(env.data.proof, undefined);
+    assert(!("proof" in env.data));
   });
 });
 
@@ -344,7 +360,7 @@ Deno.test("accept: --dry-run previews without the attestation (consent gates wri
 
     const r = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseJson(r.stdout, "accept");
     assertEquals(env.ok, true);
     assertEquals(env.dry_run, true);
     // A preview lands nothing — the worktree and trunk are untouched.

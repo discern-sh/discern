@@ -4,6 +4,8 @@ import { Logger } from "../src/lib/log.ts";
 import { runShellRouted } from "../src/engine/worktree/shell.ts";
 import { pinnedTerminal, withTempDir } from "./helpers.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
 
 const DRIVER = fromFileUrl(
   new URL("fixtures/owned_child_driver.ts", import.meta.url),
@@ -15,6 +17,13 @@ interface DriverResult {
   readonly signal: Deno.Signal | null;
   readonly success: boolean;
 }
+
+const DRIVER_RESULT_SCHEMA = z.object({
+  interruptedBy: z.enum(["SIGINT", "SIGTERM"]).nullable(),
+  code: z.number().int(),
+  signal: z.enum(["SIGINT", "SIGTERM", "SIGKILL"]).nullable(),
+  success: z.boolean(),
+});
 
 /** Exercise owned-child signal forwarding in a subprocess and decode its structured observations. */
 async function runDriver(
@@ -36,7 +45,10 @@ async function runDriver(
     output.success,
     new TextDecoder().decode(output.stderr),
   );
-  return JSON.parse(new TextDecoder().decode(output.stdout));
+  return decodeWith(
+    DRIVER_RESULT_SCHEMA,
+    new TextDecoder().decode(output.stdout),
+  );
 }
 
 Deno.test("an owning interactive surface resumes after its child is interrupted", async () => {

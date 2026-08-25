@@ -19,6 +19,10 @@ import { assert, assertEquals } from "@std/assert";
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import { withTempDir } from "./helpers.ts";
 import { runAgent } from "./engine_helpers.ts";
+import {
+  type CliResultEnvelope,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 /** One verb's expected outside-a-project `--json` behavior. */
 type OutsideSpec =
@@ -184,14 +188,9 @@ Deno.test("every verb answers `--json` outside a project with a structured envel
         cases.slice(i, i + CHUNK).map(async ({ name, spec }) => {
           const r = await runAgent(dir, [...spec.run, "--json"]);
           const label = `${name} (${spec.run.join(" ")}) outside a project`;
-          let result: {
-            ok?: boolean;
-            verb?: string;
-            error?: string;
-            data?: unknown;
-          };
+          let result: CliResultEnvelope;
           try {
-            result = JSON.parse(r.stdout);
+            result = decodeCliResult(r.stdout, spec.verb);
           } catch {
             throw new Error(
               `${label} printed no parseable --json envelope on stdout — an ` +

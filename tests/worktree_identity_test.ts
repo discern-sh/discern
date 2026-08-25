@@ -26,6 +26,8 @@ import {
 } from "../src/engine/worktree/identity.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
 
 interface CksumVector {
   input: string;
@@ -50,7 +52,27 @@ interface ParityFixture {
   };
 }
 
-const fixture: ParityFixture = JSON.parse(
+const PARITY_FIXTURE_SCHEMA = z.object({
+  cksum: z.array(z.object({
+    input: z.string(),
+    crc: z.number().int().nonnegative(),
+    octets: z.number().int().nonnegative(),
+  })),
+  identity: z.object({
+    slug: z.string(),
+    branch_prefix: z.string(),
+    cases: z.array(z.object({
+      id: z.string(),
+      port: z.number().int().positive(),
+      site: z.string(),
+      db: z.string(),
+      branch: z.string(),
+    })),
+  }),
+}).passthrough();
+
+const fixture: ParityFixture = decodeWith(
+  PARITY_FIXTURE_SCHEMA,
   await Deno.readTextFile(
     new URL(
       "./fixtures/parity/worktree-identity.json",

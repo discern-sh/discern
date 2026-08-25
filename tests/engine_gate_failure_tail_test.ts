@@ -29,6 +29,7 @@ import { renderFailureTail } from "../src/engine/gate/failure_tail.ts";
 import { makeOut } from "../src/engine/output.ts";
 import { terminalMultiline } from "../src/lib/terminal.ts";
 import type { Diagnostic } from "../src/shared/result.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 const EXIT_127_TITLE = "A gate command fails with exit 127 (command not found)";
 const MATCHED_TRAP_GATE_LAUNCH_BUDGET = 4;
@@ -45,15 +46,23 @@ const TEMPLATE_GOTCHAS = join(
 
 /** The reproduce commands the --json envelope reports — the machine SSOT a human tail
  * must mirror. */
-function reprosOf(stdout: string): string[] {
-  const obj = JSON.parse(stdout.trim());
-  // deno-lint-ignore no-explicit-any
-  return (obj.diagnostics ?? []).map((d: any) => d.reproduce_cmd as string);
+function reprosOf(stdout: string, command: string): string[] {
+  const obj = decodeCliResult(stdout, command);
+  const commands = (obj.diagnostics ?? []).map((diagnostic) =>
+    diagnostic.reproduce_cmd
+  );
+  assert(
+    commands.every((candidate) => candidate !== undefined),
+    `${command}: every diagnostic must carry a reproduce command`,
+  );
+  return commands.filter((candidate): candidate is string =>
+    candidate !== undefined
+  );
 }
 
 /** The matched gotchas hint, as carried by a failed result envelope. */
-function matchedGotchasHintOf(stdout: string): string {
-  const obj = JSON.parse(stdout.trim()) as { hints?: string[] };
+function matchedGotchasHintOf(stdout: string, command: string): string {
+  const obj = decodeCliResult(stdout, command);
   const hint = obj.hints?.find((text) =>
     text.includes(`This failure matches "${EXIT_127_TITLE}"`)
   );
@@ -62,8 +71,8 @@ function matchedGotchasHintOf(stdout: string): string {
 }
 
 /** A malformed-matcher warning carried beside the matched hint. */
-function matcherWarningOf(stdout: string): string {
-  const obj = JSON.parse(stdout.trim()) as { hints?: string[] };
+function matcherWarningOf(stdout: string, command: string): string {
+  const obj = decodeCliResult(stdout, command);
   const warning = obj.hints?.find((text) =>
     text.includes(
       'Fix the `gotcha-match` block in the gotchas entry "Broken matcher"',
@@ -132,7 +141,7 @@ async function assertActionableFailureTail(
   // --json is the machine SSOT for what failed and how to reproduce it.
   const j = await runAgent(dir, [...argv, "--json"]);
   assertEquals(j.code, 1, j.output);
-  const repros = reprosOf(j.stdout);
+  const repros = reprosOf(j.stdout, verb);
   assert(repros.length > 0, `${verb}: fixture must produce a diagnostic`);
 
   // The real time-interleaved stream an agent captures with `<verb> 2>&1 | …`.
@@ -325,20 +334,20 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
     const doneJson = await runGate(["done", "--json"]);
     assertEquals(doneJson.code, 1, doneJson.output);
     const expectedCommand = `discern map '${target}' --json`;
-    const envelopeHint = matchedGotchasHintOf(doneJson.stdout);
-    const envelopeWarning = matcherWarningOf(doneJson.stdout);
+    const envelopeHint = matchedGotchasHintOf(doneJson.stdout, "done");
+    const envelopeWarning = matcherWarningOf(doneJson.stdout, "done");
     assertStringIncludes(envelopeHint, "[repository].ensure");
     assertStringIncludes(envelopeHint, `\`${expectedCommand}\``);
     for (const verb of ["prepare", "test"]) {
       const result = await runGate([verb, "--json"]);
       assertEquals(result.code, 1, result.output);
       assertEquals(
-        matchedGotchasHintOf(result.stdout),
+        matchedGotchasHintOf(result.stdout, verb),
         envelopeHint,
         `${verb}'s matched trap must match done's`,
       );
       assertEquals(
-        matcherWarningOf(result.stdout),
+        matcherWarningOf(result.stdout, verb),
         envelopeWarning,
         `${verb}'s matcher warning must match done's`,
       );
@@ -370,8 +379,10 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
     // return the structured page, using the map verb's canonical target.
     const fetched = await runPrintedCommand(dir, printed.command);
     assertEquals(fetched.code, 0, fetched.stderr);
-    const result = JSON.parse(fetched.stdout);
+    const result = decodeCliResult(fetched.stdout, "map");
+    assert(result.data !== undefined && "doc" in result.data);
     assertEquals(result.ok, true);
+    assert(result.data.doc !== undefined);
     assertEquals(result.data.doc.path, doc);
     assertEquals(result.data.doc.content, body);
   });

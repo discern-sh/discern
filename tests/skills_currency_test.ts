@@ -20,6 +20,10 @@ import {
 import { skillsDirsForAgents } from "../src/lib/providers.ts";
 import { withTempDir } from "./helpers.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const MATERIALIZED_SKILLS_SCHEMA = z.array(z.string());
 
 /** Single-agent config so exactly one skills dir (.claude/skills) materializes. */
 function cfg(extra = ""): DiscernConfig {
@@ -139,9 +143,10 @@ Deno.test("a lingering managed entry (in the manifest, no longer effective) is `
     // manifest + drop a real dir. This is the orphan the prune pass would remove.
     const abs = join(root, SKILLS_REL);
     await Deno.mkdir(join(abs, "dropped-builtin"));
-    const manifest = JSON.parse(
+    const manifest = decodeWith(
+      MATERIALIZED_SKILLS_SCHEMA,
       await Deno.readTextFile(join(abs, MATERIALIZED_MANIFEST)),
-    ) as string[];
+    );
     await Deno.writeTextFile(
       join(abs, MATERIALIZED_MANIFEST),
       JSON.stringify([...manifest, "dropped-builtin"].sort(), null, 2),
@@ -211,9 +216,10 @@ Deno.test("check/write parity: every `stale` a refresh clears, every `foreign` i
       name: "dropped-builtin",
       place: async (_root, abs) => {
         await Deno.mkdir(join(abs, "dropped-builtin"));
-        const manifest = JSON.parse(
+        const manifest = decodeWith(
+          MATERIALIZED_SKILLS_SCHEMA,
           await Deno.readTextFile(join(abs, MATERIALIZED_MANIFEST)),
-        ) as string[];
+        );
         await Deno.writeTextFile(
           join(abs, MATERIALIZED_MANIFEST),
           JSON.stringify([...manifest, "dropped-builtin"].sort(), null, 2),
