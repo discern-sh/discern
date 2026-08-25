@@ -12,7 +12,7 @@ import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import type { z } from "@zod/zod";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -157,7 +157,7 @@ Deno.test("update rechecks ancestry inside every apply instead of trusting its p
         },
       });
       assertEquals(r.code, 1, r.output);
-      assertStringIncludes(r.output, "forced ancestry read failure");
+      assertTerminalTextIncludes(r.output, "forced ancestry read failure");
       assertEquals(await targetExists(mergeEffect), false);
       assertEquals(await gitOut(wt, "rev-parse", "HEAD"), before);
     });
