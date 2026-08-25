@@ -6,13 +6,13 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { dirname } from "@std/path";
+import { join } from "@std/path";
 import {
   OperationLockError,
   withOperationLock,
 } from "../src/engine/operation_lock.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
-import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { currentOperationLocks } from "../src/shared/operation_lock_context.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -112,9 +112,12 @@ Deno.test("conflicting writers in one checkout refuse instead of interleaving", 
 Deno.test("an orphaned lock path is not treated as ownership", async () => {
   await withTempDir(async (dir) => {
     await initializeRepo(dir);
-    const path = await gitAdminStatePath(dir, "operationCheckoutLock");
+    let path: string | undefined;
+    await withOperationLock(dir, { command: "refresh" }, () => {
+      path = [...(currentOperationLocks()?.leases.values() ?? [])][0]?.path;
+      return Promise.resolve();
+    });
     assert(path !== undefined);
-    await Deno.mkdir(dirname(path), { recursive: true });
     await Deno.writeTextFile(path, "stale contents are not authority\n");
 
     let ran = false;
@@ -123,21 +126,80 @@ Deno.test("an orphaned lock path is not treated as ownership", async () => {
       return Promise.resolve();
     });
     assertEquals(ran, true);
+    assertEquals(
+      await Deno.readTextFile(path),
+      "stale contents are not authority\n",
+      "the live lease token must not replace an inert standing record",
+    );
   });
 });
 
-Deno.test("pre-repository writers share a path-keyed exclusion", async () => {
+Deno.test("every pre-repository boundary falls back without masking the command body", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      "[project]\nslug = 'lock-boundary'\n",
+    );
     const entered = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const first = withOperationLock(dir, { command: "refresh" }, async () => {
+    const first = withOperationLock(dir, { command: "accept" }, async () => {
       entered.resolve();
       await release.promise;
     });
     await entered.promise;
 
     await assertRejects(
-      () => withOperationLock(dir, { command: "refresh" }, async () => {}),
+      () => withOperationLock(dir, { command: "accept" }, async () => {}),
+      OperationLockError,
+      "common repository boundary",
+    );
+
+    release.resolve();
+    await first;
+  });
+});
+
+Deno.test("setup writers serialize before a project root exists", async () => {
+  await withTempDir(async (dir) => {
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const first = withOperationLock(dir, { command: "setup" }, async () => {
+      entered.resolve();
+      await release.promise;
+    });
+    await entered.promise;
+
+    await assertRejects(
+      () => withOperationLock(dir, { command: "setup" }, async () => {}),
+      OperationLockError,
+      "common repository boundary",
+    );
+
+    release.resolve();
+    await first;
+  });
+});
+
+Deno.test("pre-repository exclusion keys nested callers to the discovered project root", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      "[project]\nslug = 'lock-root'\n",
+    );
+    const left = join(dir, "left");
+    const right = join(dir, "right");
+    await Deno.mkdir(left);
+    await Deno.mkdir(right);
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const first = withOperationLock(left, { command: "prepare" }, async () => {
+      entered.resolve();
+      await release.promise;
+    });
+    await entered.promise;
+
+    await assertRejects(
+      () => withOperationLock(right, { command: "prepare" }, async () => {}),
       OperationLockError,
       "checkout boundary",
     );

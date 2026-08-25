@@ -9,7 +9,6 @@ import { join } from "@std/path";
 import { KNOWN_VERBS } from "../src/main.ts";
 import { withTempDir } from "./helpers.ts";
 import {
-  mapPool,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -28,12 +27,12 @@ Deno.test("every built-in verb remains runnable as a namespaced project script",
       );
     }
 
-    // Each case only spawns its own echo script, so the sweep fans out
-    // against the shared scaffold.
-    await mapPool([...KNOWN_VERBS], 8, async (verb) => {
+    // Project Script execution holds the checkout boundary. This namespace
+    // sweep is about command-name reachability, so exercise one path at a time.
+    for (const verb of KNOWN_VERBS) {
       const r = await runAgent(dir, ["scripts", verb]);
       assertEquals(r.code, 0, `${verb}: ${r.output}`);
       assertStringIncludes(r.stdout, `SCRIPT-RAN-${verb}`);
-    });
+    }
   });
 });

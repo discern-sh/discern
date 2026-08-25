@@ -40,9 +40,9 @@ const NETWORK_TOKEN =
  * specifier PREFIX, checked as vetted-for-this-graph: path/filesystem/assert
  * std modules, the TOML parser and Zod (the config schema), the terminal
  * design-system CLI graph (pure rendering and capability types), and the
- * process and os shims the shared modules use (`os` supplies tmpdir for the
- * temp-artifact registry the self-shim mints in — platform constants, no
- * socket). None opens a socket.
+ * process, os, and async-context shims the shared modules use (`os` supplies
+ * tmpdir; `async_hooks` supplies in-process AsyncLocalStorage). None opens a
+ * socket.
  */
 const ALLOWED_EXTERNAL_PREFIXES = [
   "@std/path",
@@ -56,6 +56,7 @@ const ALLOWED_EXTERNAL_PREFIXES = [
   "process",
   "node:os",
   "os",
+  "async_hooks",
 ] as const;
 
 /** Every import/re-export specifier in a TypeScript source, static and dynamic.

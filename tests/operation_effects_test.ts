@@ -10,6 +10,7 @@ import {
   OPERATION_EFFECT_CLASSES,
   OPERATION_EFFECTS,
   type OperationEffectPolicy,
+  operationEffectPolicy,
 } from "../src/shared/operation_effects.ts";
 import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
 import { RECORDED_CLI_COMMAND_PATHS } from "../src/engine/logbook/cli.ts";
@@ -76,6 +77,11 @@ Deno.test("every declared effect class has a live classified operation", () => {
     OPERATION_EFFECT_CLASSES.filter((effect) => !used.has(effect)),
     [],
   );
+});
+
+Deno.test("queue keeps its own concurrency authority while declaring project effects", () => {
+  assertEquals(OPERATION_EFFECTS.queue.effects, ["project-command"]);
+  assertEquals(operationEffectPolicy("queue")?.lock, "none");
 });
 
 Deno.test("every MCP tool resolves to the same command-path policy", () => {

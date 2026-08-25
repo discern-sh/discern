@@ -16,6 +16,7 @@ import {
   type OperationLockBoundary,
 } from "../shared/operation_effects.ts";
 import { bestEffortFs, readTextIfExists } from "../shared/fs_presence.ts";
+import { findRoot } from "../shared/env.ts";
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import {
   currentOperationLocks,
@@ -52,6 +53,7 @@ interface LockSpec {
 
 interface AcquiredLock {
   readonly file?: Deno.FsFile;
+  readonly previousContents?: Uint8Array;
   readonly lease: OperationLockLease;
 }
 
@@ -95,49 +97,89 @@ async function resolveLockSpecs(
 ): Promise<LockSpec[] | undefined> {
   const specs: LockSpec[] = [];
   for (const concrete of concreteBoundaries(boundary)) {
-    const stateKey = concrete === "common"
-      ? "operationCommonLock"
-      : "operationCheckoutLock";
-    const path = await gitAdminStatePath(cwd, stateKey);
-    if (path === undefined) return undefined;
-    specs.push({ boundary: concrete, key: `${concrete}:${path}`, path });
+    const anchor = await gitAdminStatePath(
+      cwd,
+      concrete === "common" ? "resources" : "gateProof",
+    );
+    if (anchor === undefined) return undefined;
+    const adminDirectory = dirname(dirname(anchor));
+    specs.push(
+      await hostLockSpec(concrete, `git-admin:${adminDirectory}`),
+    );
   }
   return specs;
 }
 
+/** Place an OS lock under the host temp directory for one stable identity. */
+async function hostLockSpec(
+  boundary: OperationLockConcreteBoundary,
+  identity: string,
+): Promise<LockSpec> {
+  const lockId = await sha256Hex(`${boundary}\0${identity}`);
+  return {
+    boundary,
+    key: `${boundary}:${identity}`,
+    path: join(tmpdir(), "discern-operation-locks", `${lockId}.lock`),
+  };
+}
+
 /**
- * Stable exclusion for an operation that is intentionally valid before Git
- * exists. The path hash leaves no project footprint, while every process on
- * the host resolves the same checkout root to the same OS lock.
+ * Stable exclusion while Git administration paths are unavailable. Root
+ * discovery remains the command body's concern: the fallback only prevents the
+ * lock layer from replacing a command's own setup or not-initialized result.
  */
 async function resolvePreRepositoryLockSpecs(
-  cwd: string,
+  root: string,
   boundary: OperationLockBoundary,
 ): Promise<LockSpec[]> {
   let canonicalRoot: string;
   try {
-    canonicalRoot = await Deno.realPath(cwd);
+    canonicalRoot = await Deno.realPath(root);
   } catch {
-    canonicalRoot = resolve(cwd);
+    canonicalRoot = resolve(root);
   }
-  const rootId = await sha256Hex(canonicalRoot);
-  return concreteBoundaries(boundary).map((concrete) => ({
-    boundary: concrete,
-    key: `pre-repository:${concrete}:${rootId}`,
-    path: join(
-      tmpdir(),
-      "discern-operation-locks",
-      `${rootId}-${concrete}.lock`,
+  return await Promise.all(
+    concreteBoundaries(boundary).map((concrete) =>
+      hostLockSpec(concrete, `project-root:${canonicalRoot}`)
     ),
-  }));
+  );
 }
 
-/** Close every acquired handle in reverse order. */
-function releaseLocks(files: Deno.FsFile[]): void {
-  for (const file of files.reverse()) file.close();
+/** Replace the inert record bytes while retaining the open handle's OS lock. */
+async function replaceLockRecord(
+  file: Deno.FsFile,
+  contents: Uint8Array,
+): Promise<void> {
+  await file.truncate(0);
+  await file.seek(0, Deno.SeekMode.Start);
+  let offset = 0;
+  while (offset < contents.length) {
+    const written = await file.write(contents.subarray(offset));
+    if (written === 0) {
+      throw new Error("the lock record write made no progress");
+    }
+    offset += written;
+  }
+  await file.syncData();
 }
 
-/** Open and exclusively try-lock one inert Git-admin lock file. */
+/** Restore inert file bytes, then close owned handles in reverse order. */
+async function releaseLocks(locks: AcquiredLock[]): Promise<void> {
+  for (const lock of locks.reverse()) {
+    const file = lock.file;
+    if (file === undefined) continue;
+    try {
+      await replaceLockRecord(file, lock.previousContents ?? new Uint8Array());
+    } catch {
+      // The OS lock remains the sole ownership authority. A stale lease record
+      // after cleanup failure is inert once this handle closes.
+    } finally {
+      file.close();
+    }
+  }
+}
+
+/** Open and exclusively try-lock one inert host-temporary lock file. */
 async function acquireLock(
   command: string,
   cwd: string,
@@ -216,6 +258,19 @@ async function acquireLock(
         "This call made no change. Retry after that operation finishes.",
     );
   }
+  let previousContents: Uint8Array;
+  try {
+    previousContents = await Deno.readFile(spec.path);
+  } catch (error) {
+    file.close();
+    throw refusal(
+      command,
+      `Discern could not read the ${boundaryName(spec.boundary)} for ${cwd}. ` +
+        `This call made no change. Retry after the boundary is readable. ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+    );
+  }
   const lease: OperationLockLease = {
     boundary: spec.boundary,
     key: spec.key,
@@ -223,15 +278,18 @@ async function acquireLock(
     token: crypto.randomUUID(),
   };
   try {
-    await file.truncate(0);
-    await file.seek(0, Deno.SeekMode.Start);
-    await file.write(
+    await replaceLockRecord(
+      file,
       new TextEncoder().encode(
         `discern-operation-lock-v1 ${lease.token}\n`,
       ),
     );
-    await file.syncData();
   } catch (error) {
+    try {
+      await replaceLockRecord(file, previousContents);
+    } catch {
+      // The refusal still closes the OS authority; standing bytes never own it.
+    }
     file.close();
     throw refusal(
       command,
@@ -243,7 +301,7 @@ async function acquireLock(
         }`,
     );
   }
-  return { file, lease };
+  return { file, previousContents, lease };
 }
 
 /**
@@ -268,14 +326,14 @@ export async function withOperationLock<T>(
   if (policy.lock === "none") return await operation();
 
   let specs = await resolveLockSpecs(cwd, policy.lock);
-  if (specs === undefined && policy.allowWithoutRepository === true) {
-    specs = await resolvePreRepositoryLockSpecs(cwd, policy.lock);
-  }
   if (specs === undefined) {
-    throw refusal(
-      invocation.command,
-      `Git could not resolve Discern's ${policy.lock} operation boundary for ${cwd}. ` +
-        "This call made no change. Retry after running the command inside the intended repository checkout.",
+    const projectRoot = await findRoot(cwd);
+    if (projectRoot === undefined && policy.lockWithoutProject !== true) {
+      return await operation();
+    }
+    specs = await resolvePreRepositoryLockSpecs(
+      projectRoot ?? cwd,
+      policy.lock,
     );
   }
 
@@ -320,12 +378,12 @@ export async function withOperationLock<T>(
     );
   }
 
-  const files: Deno.FsFile[] = [];
+  const acquiredLocks: AcquiredLock[] = [];
   const acquiredLeases: OperationLockLease[] = [];
   try {
     for (const spec of missing) {
       const acquired = await acquireLock(invocation.command, cwd, spec);
-      if (acquired.file !== undefined) files.push(acquired.file);
+      acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);
     }
     const leases = new Map(held?.leases ?? []);
@@ -337,6 +395,6 @@ export async function withOperationLock<T>(
     const next: HeldOperationLocks = { leases, boundaries };
     return await runWithOperationLocks(next, operation);
   } finally {
-    releaseLocks(files);
+    await releaseLocks(acquiredLocks);
   }
 }

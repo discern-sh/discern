@@ -26,7 +26,7 @@ _A command path declares what it can affect before its command-line interface (C
 | Project-authored command execution | Runs a configured project command whose reachable effects belong to that command.             |
 | External setup or resource effects | Runs setup, provider, resource, or lifecycle work that may change state outside the checkout. |
 
-The same entry declares a lock boundary and a preview obligation. Mixed paths carry conditions for the flags or operands that activate their writer form. Dry runs acquire no writer lock. The registry does not treat a project-authored command as side-effect-free.
+The same entry declares a lock boundary and a preview obligation. Mixed paths carry conditions for the flags or operands that activate their writer form. Dry runs acquire no writer lock. The registry does not treat a project-authored command as side-effect-free. Classification and exclusion remain distinct: `queue` uses its own concurrency authority, while Project Script execution holds the checkout boundary.
 
 The preview field records whether a command has no preview obligation, must disclose effects, or requires a plan. Each command's current plan/apply implementation remains the source of its rendered dry-run behavior.
 
@@ -41,13 +41,13 @@ The preview field records whether a command has no preview obligation, must disc
 | Common repository   | Linked worktrees exclude operations that share refs, the main checkout, or common Git-admin state.  |
 | Common and checkout | The operation acquires the common boundary first, then the selected checkout boundary.              |
 
-[`withOperationLock`](../../../src/engine/operation_lock.ts) resolves Git-admin lock paths before acquisition and uses non-blocking operating-system file locks. A standing path becomes inert when its process releases the file lock. A conflict refuses before the command body, names the held boundary, states that the call made no change, and routes the caller to retry after the active operation finishes.
+[`withOperationLock`](../../../src/engine/operation_lock.ts) resolves common or checkout identity from Git administration, hashes that identity to a host-temporary path, and uses a non-blocking operating-system file lock there. Lock setup therefore does not consume the repository-write authority that Gate and setup write checks must prove independently. A standing path becomes inert when its process releases the file lock. A conflict refuses before the command body, names the held boundary, states that the call made no change, and routes the caller to retry after the active operation finishes.
 
-Acceptance uses the combined boundary before it inspects or recovers its transaction. `done`, `prepare`, `refresh`, and other checkout writers hold the checkout boundary while mutable state and evidence must stay coherent. Commands valid before Git exists use a host-temporary boundary keyed by their canonical checkout path ([ADR 0331](../_adr/0331-common-repository-locks-precede-checkout-locks.md)).
+Acceptance uses the combined boundary before it inspects or recovers its transaction. `done`, `prepare`, `refresh`, and other checkout writers hold the checkout boundary while mutable state and evidence must stay coherent. A discovered project without Git administration paths uses a host-temporary boundary keyed by its root. Explicit pre-project writers such as `setup` use the canonical current directory; other commands retain their ordinary not-initialized result ([ADR 0331](../_adr/0331-common-repository-locks-precede-checkout-locks.md)).
 
 ## Nested commands reuse authenticated leases
 
-Gate, setup, and lifecycle operations can invoke discern children. [`operation_lock_context.ts`](../../../src/shared/operation_lock_context.ts) carries held leases through async context and an internal child environment value. The lock file's random token authenticates that delegation only while another process holds the file's operating-system lock.
+Gate, setup, and lifecycle operations can invoke discern children. [`operation_lock_context.ts`](../../../src/shared/operation_lock_context.ts) carries held leases through async context and an internal child environment value. The lock file's random token authenticates that delegation only while another process holds the file's operating-system lock; release restores the prior inert bytes.
 
 A nested operation can reuse a lease its parent holds. It cannot acquire common after checkout, acquire a second checkout, or widen a child from a checkout-only parent. Those refusals preserve the common-before-checkout order and prevent nested deadlock. [`tests/operation_lock_test.ts`](../../../tests/operation_lock_test.ts) exercises the shared acceptance boundary, same-checkout refusal, orphan path, pre-Git boundary, acquisition order, MCP routing, and separate-worktree concurrency.
 
@@ -58,6 +58,6 @@ A nested operation can reuse a lease its parent holds. It cannot acquire common 
 | Effect policy           | [`operation_effects.ts`](../../../src/shared/operation_effects.ts)           |
 | Lock acquisition        | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)                 |
 | Nested and child leases | [`operation_lock_context.ts`](../../../src/shared/operation_lock_context.ts) |
-| Git-admin placement     | [`git_admin_state.ts`](../../../src/shared/git_admin_state.ts)               |
+| Git-admin identity      | [`git_admin_state.ts`](../../../src/shared/git_admin_state.ts)               |
 | CLI interception        | [`main.ts`](../../../src/main.ts)                                            |
 | MCP interception        | [`server.ts`](../../../src/engine/mcp/server.ts)                             |

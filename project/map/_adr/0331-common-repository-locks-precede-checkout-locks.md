@@ -14,13 +14,13 @@ Nested execution adds an order problem. Gate and setup paths can invoke discern 
 
 **discern-owned exclusion uses one operating-system lock capability, and a common-repository lock is always acquired before a checkout lock.**
 
-The common lock lives in the shared Git administration area, so linked worktrees in one repository contend on the same boundary. The checkout lock lives in that worktree's Git administration area. An operation classified for both acquires common first, then checkout. Acceptance holds that pair before inspecting or recovering an acceptance transaction and through the shared trunk and main-checkout transition.
+The common-lock identity derives from the shared Git administration directory, so linked worktrees in one repository contend on the same boundary. The checkout-lock identity derives from that worktree's Git administration directory. Host-temporary files carry the operating-system locks, avoiding a write to the repository merely to prove later repository-write authority. An operation classified for both acquires common first, then checkout. Acceptance holds that pair before inspecting or recovering an acceptance transaction and through the shared trunk and main-checkout transition.
 
 Lock acquisition is non-blocking. A held boundary produces a routed refusal before the operation body runs. The result names the common-repository or checkout boundary, states that the call made no change, and routes the caller to retry after the active operation finishes. Read-only operations and dry runs acquire no writer lock. Checkout writers in separate linked worktrees remain concurrent.
 
-The open file's operating-system lock is ownership. A standing lock path carries no ownership by itself and is reusable after a process exits. The file contains a random lease token only to authenticate a parent process's delegation to a child. In-process nesting uses async context. Child processes receive only the leases the parent holds. A nested call may reuse an authenticated lease, but it cannot widen from checkout to common, acquire another checkout, or reverse common-before-checkout order.
+The open file's operating-system lock is ownership. A standing lock path carries no ownership by itself and is reusable after a process exits. The file contains a random lease token only while a live owner authenticates delegation to a child; release restores the file's prior inert bytes. In-process nesting uses async context. Child processes receive only the leases the parent holds. A nested call may reuse an authenticated lease, but it cannot widen from checkout to common, acquire another checkout, or reverse common-before-checkout order.
 
-Commands that are valid before Git exists use a host-temporary lock keyed by the canonical checkout path. Once Git exists, the Git administration paths are authoritative.
+When Git administration paths are unavailable for a discovered discern project, the lock capability uses a host-temporary boundary keyed by that project root. A command explicitly classified as a pre-project writer uses the canonical current directory before the root exists. Other commands reach their ordinary not-initialized result without acquiring a writer boundary. Once Git paths resolve, they are authoritative.
 
 ## Consequences
 

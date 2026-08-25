@@ -17,7 +17,7 @@ Each entry declares:
 - one or more effect classes: observation, discern-owned checkout mutation, discern-owned common-repository or main-checkout mutation, project-authored command execution, and external setup or resource effects;
 - the required lock boundary: none, checkout, common repository, or common repository plus checkout;
 - a preview obligation of none, disclose, or required; and
-- optional invocation conditions for mixed command paths, plus whether the command may run before Git exists.
+- optional invocation conditions for mixed command paths, plus whether a writer is valid before a discern project exists.
 
 Invocation facts select the active lock without changing the declared effect set. A dry run takes no writer lock. A mixed command's observational form can remain concurrent while its writer form acquires its declared boundary.
 
@@ -29,6 +29,7 @@ Logbook enrollment remains a separate authority. Recording an operation start do
 
 - A new command path fails its forcing-function test until maintainers review its effects, lock boundary, and preview obligation.
 - The registry represents project-authored commands as potentially effectful. It makes no claim that their subprocesses are side-effect-free.
+- Classification does not imply one universal lock: `queue` retains its own concurrency authority, while Project Script execution holds its checkout boundary.
 - Mixed paths keep useful read concurrency without treating their write forms as observations.
 - One registry can enforce preview policy without recovering intent from help text or handler structure.
 - Registry maintenance is an added requirement for every command-path change. That cost keeps CLI and MCP execution policy aligned.

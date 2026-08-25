@@ -58,8 +58,8 @@ export interface OperationEffectPolicy {
   readonly lock: OperationLockBoundary;
   /** Mixed read/write paths acquire only for their effectful invocation form. */
   readonly lockWhen?: OperationLockCondition;
-  /** Installer/setup entry points use a path-keyed fallback before Git exists. */
-  readonly allowWithoutRepository?: boolean;
+  /** This command may write before a discern project root exists. */
+  readonly lockWithoutProject?: boolean;
   readonly preview: OperationPreviewObligation;
 }
 
@@ -70,7 +70,7 @@ function policy(
   preview: OperationPreviewObligation,
   options: Pick<
     OperationEffectPolicy,
-    "lockWhen" | "allowWithoutRepository"
+    "lockWhen" | "lockWithoutProject"
   > = {},
 ): OperationEffectPolicy {
   return { effects, lock, preview, ...options };
@@ -143,7 +143,10 @@ export const OPERATION_EFFECTS = {
     ["observation", "discern-checkout-mutation"],
     "checkout",
     "disclose",
-    { lockWhen: { anyFlags: ["output"] }, allowWithoutRepository: true },
+    {
+      lockWhen: { anyFlags: ["output"] },
+      lockWithoutProject: true,
+    },
   ),
   doctor: OBSERVATION,
   done: policy(
@@ -176,25 +179,22 @@ export const OPERATION_EFFECTS = {
     ["discern-checkout-mutation", "external-setup"],
     "checkout",
     "required",
-    { allowWithoutRepository: true },
   ),
   queue: policy(
     ["project-command"],
-    "checkout",
+    "none",
     "disclose",
-    { allowWithoutRepository: true },
   ),
   refresh: policy(
     ["discern-checkout-mutation", "external-setup"],
     "checkout",
     "required",
-    { allowWithoutRepository: true },
   ),
   scripts: policy(
     ["observation", "project-command"],
     "checkout",
     "disclose",
-    { lockWhen: { hasOperands: true }, allowWithoutRepository: true },
+    { lockWhen: { hasOperands: true } },
   ),
   setup: policy(
     [
@@ -205,26 +205,7 @@ export const OPERATION_EFFECTS = {
     ],
     "common-and-checkout",
     "required",
-    {
-      lockWhen: {
-        anyFlags: [
-          "agents",
-          "allow-dirty",
-          "branch-prefix",
-          "brief",
-          "config",
-          "confirmed",
-          "force",
-          "map",
-          "model",
-          "name",
-          "slug",
-          "source-globs",
-          "yes",
-        ],
-      },
-      allowWithoutRepository: true,
-    },
+    { lockWithoutProject: true },
   ),
   "setup accept": policy(
     [
@@ -243,7 +224,7 @@ export const OPERATION_EFFECTS = {
     ],
     "common-and-checkout",
     "required",
-    { allowWithoutRepository: true },
+    { lockWithoutProject: true },
   ),
   "setup done": policy(
     [
@@ -276,7 +257,6 @@ export const OPERATION_EFFECTS = {
     ["discern-checkout-mutation"],
     "checkout",
     "required",
-    { allowWithoutRepository: true },
   ),
   triangle: OBSERVATION,
   uninstall: policy(
@@ -287,7 +267,6 @@ export const OPERATION_EFFECTS = {
     ],
     "common-and-checkout",
     "required",
-    { allowWithoutRepository: true },
   ),
   update: policy(
     ["discern-checkout-mutation", "project-command", "external-setup"],
@@ -298,10 +277,7 @@ export const OPERATION_EFFECTS = {
     ["discern-checkout-mutation", "external-setup"],
     "checkout",
     "required",
-    {
-      lockWhen: { unlessFlags: ["check"] },
-      allowWithoutRepository: true,
-    },
+    { lockWhen: { unlessFlags: ["check"] } },
   ),
   worktree: OBSERVATION,
   "worktree drop": EXTERNAL_COMMON_REQUIRED,

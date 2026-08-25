@@ -30,7 +30,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 10      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 27      | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 25      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
@@ -766,7 +766,7 @@ The Desk's per-Worktree action vocabulary and menu order. The legality table exe
 Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 27
+- Members: 25
   - `resources`
   - `logbook`
   - `logbookArchives`
@@ -780,7 +780,6 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `continuations`
   - `retiredWorktreePaths`
   - `dropRecoveryLock`
-  - `operationCommonLock`
   - `gateProof`
   - `lastGateRun`
   - `standardMeasurements`
@@ -789,7 +788,6 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `effortGrant`
   - `effortGrantClaims`
   - `acceptanceTransaction`
-  - `operationCheckoutLock`
   - `setupMachineryCommitEvidence`
   - `worktreeSetupSteps`
   - `worktreeReady`

@@ -1222,8 +1222,13 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
       );
       assertStringIncludes(
         concurrentRefusal.message,
-        "Another acceptance is already running",
+        "common repository boundary",
       );
+      assertStringIncludes(
+        concurrentRefusal.message,
+        "This call made no change",
+      );
+      assertStringIncludes(concurrentRefusal.message, "Retry after");
       assertEquals(
         concurrentOperationRan,
         false,
