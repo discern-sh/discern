@@ -14,6 +14,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   makeTempArtifact,
@@ -53,16 +54,6 @@ async function fileAged(
   return path;
 }
 
-/** Treat an inaccessible fixture path as absent when checking whether the sweep reaped it. */
-async function exists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 Deno.test("temp artifacts: every registered family is reaped past the TTL — new kinds auto-enrol", async () => {
   await withTempDir(async (dir) => {
     // Driven off the registry itself: a kind added to TEMP_ARTIFACT_KINDS is
@@ -86,10 +77,10 @@ Deno.test("temp artifacts: every registered family is reaped past the TTL — ne
 
     assertEquals(removed, stale.length);
     for (const path of stale) {
-      assertEquals(await exists(path), false, `${path} must be reaped`);
+      assertEquals(await targetExists(path), false, `${path} must be reaped`);
     }
     for (const path of fresh) {
-      assertEquals(await exists(path), true, `${path} must survive`);
+      assertEquals(await targetExists(path), true, `${path} must survive`);
     }
   });
 });
@@ -126,10 +117,10 @@ Deno.test("temp artifacts: every directory family is reaped recursively past the
 
     assertEquals(removed, stale.length);
     for (const path of stale) {
-      assertEquals(await exists(path), false, `${path} must be reaped`);
+      assertEquals(await targetExists(path), false, `${path} must be reaped`);
     }
     for (const path of fresh) {
-      assertEquals(await exists(path), true, `${path} must survive`);
+      assertEquals(await targetExists(path), true, `${path} must survive`);
     }
   });
 });
@@ -169,9 +160,9 @@ Deno.test("temp artifacts: nothing outside the registry's prefix+suffix shape is
     const { removed } = await pruneStaleTempArtifacts({ dir });
 
     assertEquals(removed, 0);
-    assertEquals(await exists(foreign), true);
-    assertEquals(await exists(wrongSuffix), true);
-    assertEquals(await exists(dirTrap), true);
+    assertEquals(await targetExists(foreign), true);
+    assertEquals(await targetExists(wrongSuffix), true);
+    assertEquals(await targetExists(dirTrap), true);
   });
 });
 

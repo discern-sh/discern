@@ -31,6 +31,7 @@ import { assertHasHint } from "./hint_asserts.ts";
 import { readOpenQuestions } from "../src/engine/checkpoints/open_questions.ts";
 import { parseLogbookLine } from "../src/engine/logbook/schema.ts";
 import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
+import { readTextIfExists, targetExists } from "../src/shared/fs_presence.ts";
 
 /** The wire fields these black-box assertions read from a `done` envelope.
  * Presence claims are static; a field the engine omits fails its assertion
@@ -83,10 +84,7 @@ async function adminMarker(
 ): Promise<string | undefined> {
   const path = await gitAdminStatePath(wt, name);
   assert(path !== undefined, `${name} path must resolve`);
-  return await Deno.readTextFile(path).catch((error) => {
-    if (error instanceof Deno.errors.NotFound) return undefined;
-    throw error;
-  });
+  return await readTextIfExists(path);
 }
 
 /** Count Logbook completion events that claim checkpoint lifecycle effects. */
@@ -482,7 +480,7 @@ Deno.test("done: a fired stop checkpoint refuses before any job, serving the que
     ]);
     // No gate job ran: the check job's side effect never happened.
     assertEquals(
-      await Deno.readTextFile(join(dir, "gate-ran.log")).catch(() => ""),
+      (await readTextIfExists(join(dir, "gate-ran.log"))) ?? "",
       "",
       "the refusal must precede every gate job",
     );
@@ -611,7 +609,7 @@ Deno.test("done --dry-run --ci: previews report mode without running when or wri
     assertEquals(env.dry_run, true);
     assert(env.plan?.details?.includes("mode: report"));
     assertEquals(
-      await Deno.readTextFile(join(wt, "..", "probe-ran.log")).catch(() => ""),
+      (await readTextIfExists(join(wt, "..", "probe-ran.log"))) ?? "",
       "",
     );
     assertEquals(await adminMarker(wt, "checkpointOpenQuestions"), undefined);
@@ -650,7 +648,7 @@ Deno.test("done --ci: declaration flags refuse before every checkpoint and Gate 
     assertEquals(await adminMarker(wt, "gateProof"), undefined);
     assertEquals(await adminMarker(wt, "lastGateRun"), undefined);
     assertEquals(
-      await Deno.readTextFile(join(wt, "..", "gate-ran.log")).catch(() => ""),
+      (await readTextIfExists(join(wt, "..", "gate-ran.log"))) ?? "",
       "",
     );
     assertEquals(await checkpointObservationEvents(dir), 0);
@@ -1425,9 +1423,7 @@ question = "${QUESTION_API}"
     assertStringIncludes(ran, "wt-probe");
     assert(!ran.includes("trunk-probe"), ran);
     assertEquals(
-      await Deno.stat(join(wt, "hijack-ran.log")).then(() => true).catch(() =>
-        false
-      ),
+      await targetExists(join(wt, "hijack-ran.log")),
       false,
       "the branch's own `when` text must never run",
     );
@@ -1630,7 +1626,7 @@ question = "${QUESTION_API}"
     );
     assertEquals((drop as { checkpoint?: string }).checkpoint, "api-review");
     assertEquals(
-      await Deno.readTextFile(join(wt, "when-ran.log")).catch(() => ""),
+      (await readTextIfExists(join(wt, "when-ran.log"))) ?? "",
       "",
       "an unpreparable input must never run the command",
     );

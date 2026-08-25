@@ -22,6 +22,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { pathExists } from "../src/shared/fs_presence.ts";
 
 const QUEUED_TEXT = "Tests queued";
 const UNAVAILABLE_TEXT = "The concurrent test-run cap is not enforced";
@@ -68,16 +69,6 @@ async function writeCapConfig(dir: string, cap: number): Promise<void> {
 /** The shared slot directory for a repository whose `.git` is a directory. */
 function slotDirOf(root: string): string {
   return join(root, ".git", GIT_ADMIN_STATE.testSlots.path);
-}
-
-/** True when a path exists, regardless of its file type. */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** Count non-overlapping appearances of one diagnostic fragment. */

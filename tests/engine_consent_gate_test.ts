@@ -16,7 +16,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, dirname, join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -120,7 +120,7 @@ const PROBES = {
     const markdown = await runAgent(dir, ["setup", "begin", "--markdown"]);
     const terminal = await runAgent(dir, ["setup", "begin"]);
     // Mutated iff the fresh scaffold wrote its config.
-    const mutated = await exists(join(dir, "discern.toml"));
+    const mutated = await targetExists(join(dir, "discern.toml"));
     return {
       env,
       mutated,
@@ -168,8 +168,8 @@ const PROBES = {
     const mcpEnv = mcp.structuredContent;
     // Mutated iff the branch work fast-forwarded onto the trunk, or the worktree
     // was removed — either would mean the refusal touched the tree.
-    const mutated = (await exists(join(dir, "feature.txt"))) ||
-      !(await exists(wt));
+    const mutated = (await targetExists(join(dir, "feature.txt"))) ||
+      !(await targetExists(wt));
     return {
       env,
       mutated,
@@ -276,9 +276,9 @@ Deno.test("accept: refuses without --confirmed, re-serving the review moment (sl
     assertHasHint(env, HINTS["accept-review-via-status"]);
     assertStringIncludes(env.message, "--confirmed");
     // Read-only: the worktree survives and nothing reached the trunk.
-    assert(await exists(wt), `worktree must survive\n${r.output}`);
+    assert(await targetExists(wt), `worktree must survive\n${r.output}`);
     assertEquals(
-      await exists(join(dir, "feature.txt")),
+      await targetExists(join(dir, "feature.txt")),
       false,
       "no work may land without the attestation",
     );
@@ -289,7 +289,7 @@ Deno.test("accept: refuses without --confirmed, re-serving the review moment (sl
     assertEquals(terminal.code, 1, terminal.output);
     assertTerminalTextIncludes(terminal.output, env.message);
     assert(
-      await exists(wt),
+      await targetExists(wt),
       "the terminal refusal must not touch the worktree",
     );
   });
@@ -310,9 +310,13 @@ Deno.test("accept: --confirmed preserves the conversation-consent landing path",
       "landed with conversation consent",
     );
     // The landing happened: worktree gone, branch work on the trunk, proof line carried.
-    assertEquals(await exists(wt), false, `should have landed\n${r.output}`);
+    assertEquals(
+      await targetExists(wt),
+      false,
+      `should have landed\n${r.output}`,
+    );
     assert(
-      await exists(join(dir, "feature.txt")),
+      await targetExists(join(dir, "feature.txt")),
       "branch work should be on the trunk",
     );
     assertEquals(env.data.proof, undefined);
@@ -330,7 +334,7 @@ Deno.test("accept: terminal success reports the same conversation-consent eviden
       "landed with conversation consent",
       "the interactive completion must report the authority used",
     );
-    assertEquals(await exists(wt), false, landed.output);
+    assertEquals(await targetExists(wt), false, landed.output);
   });
 });
 
@@ -344,8 +348,8 @@ Deno.test("accept: --dry-run previews without the attestation (consent gates wri
     assertEquals(env.ok, true);
     assertEquals(env.dry_run, true);
     // A preview lands nothing — the worktree and trunk are untouched.
-    assert(await exists(wt), "a dry-run lands nothing");
-    assertEquals(await exists(join(dir, "feature.txt")), false);
+    assert(await targetExists(wt), "a dry-run lands nothing");
+    assertEquals(await targetExists(join(dir, "feature.txt")), false);
   });
 });
 

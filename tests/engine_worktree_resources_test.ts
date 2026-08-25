@@ -9,7 +9,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { writeDiscernToml } from "../src/lib/tidy_format.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -89,7 +89,7 @@ Deno.test("worktree setup creates a resource and records its handle for runtime 
 
     // …equals what create used (the marker is named by it)…
     assert(
-      await exists(join(markers, `${handle}.live`)),
+      await targetExists(join(markers, `${handle}.live`)),
       `create did not run for handle ${handle}\n${setup.output}`,
     );
     // …and what .env carries (DISCERN_RESOURCE_THING), the runtime-discovery channel.
@@ -149,7 +149,7 @@ Deno.test("accept destroys the worktree's resources before removing it", async (
       const grad = await runAgent(wt, ["accept", "--confirmed"]);
       assertEquals(grad.code, 0, grad.output);
       assert(
-        await exists(join(markers, `${handle}.gone`)),
+        await targetExists(join(markers, `${handle}.gone`)),
         `accept did not destroy the resource\n${grad.output}`,
       );
     });
@@ -175,7 +175,7 @@ Deno.test("worktree ensure runs a resource's ensure on an already-configured wor
       .stdout
       .trim();
     assert(
-      !(await exists(join(markers, `${handle}.ensured`))),
+      !(await targetExists(join(markers, `${handle}.ensured`))),
       "ensure ran during setup",
     );
 
@@ -183,7 +183,7 @@ Deno.test("worktree ensure runs a resource's ensure on an already-configured wor
     const ens = await runAgent(wt, ["worktree", "ensure"]);
     assertEquals(ens.code, 0, ens.output);
     assert(
-      await exists(join(markers, `${handle}.ensured`)),
+      await targetExists(join(markers, `${handle}.ensured`)),
       `ensure did not run\n${ens.output}`,
     );
   });
@@ -255,7 +255,7 @@ Deno.test("worktree prune reclaims a vanished worktree's resource (GC), and --dr
     const handle = (await runAgent(wt, ["identity", "--resource", "thing"]))
       .stdout.trim();
     assert(
-      await exists(join(markers, `${handle}.live`)),
+      await targetExists(join(markers, `${handle}.live`)),
       "setup did not create",
     );
 
@@ -269,7 +269,7 @@ Deno.test("worktree prune reclaims a vanished worktree's resource (GC), and --dr
     assertStringIncludes(dry.output, handle);
     assertTerminalTextIncludes(dry.output, "reclaim orphaned resource");
     assert(
-      !(await exists(join(markers, `${handle}.gone`))),
+      !(await targetExists(join(markers, `${handle}.gone`))),
       "dry-run ran the destroy",
     );
 
@@ -277,7 +277,7 @@ Deno.test("worktree prune reclaims a vanished worktree's resource (GC), and --dr
     const prune = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(prune.code, 0, prune.output);
     assert(
-      await exists(join(markers, `${handle}.gone`)),
+      await targetExists(join(markers, `${handle}.gone`)),
       `prune did not reclaim the orphan\n${prune.output}`,
     );
   });

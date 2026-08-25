@@ -21,6 +21,7 @@ import {
   resolveSkillsDir,
   resolveTodoPath,
 } from "../src/lib/paths.ts";
+import { fileExists } from "../src/shared/fs_presence.ts";
 
 export const REPO_ROOT: string = join(
   dirname(fromFileUrl(import.meta.url)),
@@ -103,8 +104,7 @@ export async function gitListedRepoFiles(
   for (const rel of listed) {
     // A file can stay in Git's index after deletion from the working tree;
     // guards read file contents, so enumerate only what exists on disk.
-    const info = await Deno.stat(join(root, rel)).catch(() => undefined);
-    if (info?.isFile) present.push(rel);
+    if (await fileExists(join(root, rel))) present.push(rel);
   }
   return present.sort();
 }

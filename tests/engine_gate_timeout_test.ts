@@ -18,7 +18,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { join } from "@std/path";
 import { runParallel } from "../src/engine/jobs/runner.ts";
 import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
@@ -66,7 +66,7 @@ async function waitForReadiness<T>(
   );
   const deadline = Date.now() + ENGINE_READINESS_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    if (await exists(path)) {
+    if (await targetExists(path)) {
       return;
     }
     if (settled !== undefined) {

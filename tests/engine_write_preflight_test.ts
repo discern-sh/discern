@@ -32,24 +32,12 @@ import {
   setupRequiredEffect,
 } from "../src/shared/setup_effects.ts";
 import { preflightPlannedWrites } from "../src/shared/write_preflight.ts";
+import { pathExists } from "../src/shared/fs_presence.ts";
 
 /** Decode a preflight refusal envelope before asserting that no later effect ran. */
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
-}
-
-/** Distinguish an absent preflight artifact from unexpected filesystem failures. */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return false;
-    }
-    throw error;
-  }
 }
 
 /** Read directory members in stable order when asserting a refusal left no debris. */

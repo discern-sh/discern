@@ -15,7 +15,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
@@ -369,12 +369,12 @@ Deno.test("accept: refuses an update that merges cleanly but breaks the gate (th
     assertTerminalTextIncludes(grad.output, "does not pass");
     // Non-destructive: the worktree survives and the branch's work never reached the trunk.
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       true,
       `worktree must survive\n${grad.output}`,
     );
     assertEquals(
-      await exists(join(dir, "feature.txt")),
+      await targetExists(join(dir, "feature.txt")),
       false,
       "the branch's work must not fast-forward onto the trunk unvalidated",
     );
@@ -401,9 +401,13 @@ Deno.test("accept: an update that still passes the gate lands normally", async (
       "Validating the branch against the full gate",
     );
     // …and, green, landed it: the worktree is gone and the branch's work is on the trunk.
-    assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
+    assertEquals(
+      await targetExists(wt),
+      false,
+      `should have landed\n${grad.output}`,
+    );
     assert(
-      await exists(join(dir, "feature.txt")),
+      await targetExists(join(dir, "feature.txt")),
       "branch work should be on the trunk",
     );
   });
@@ -477,7 +481,11 @@ Deno.test("accept: a fresh `done` lets accept skip the gate re-run (proof fast p
     // The landing record: both forms from the honored marker ride the envelope,
     // with the verbatim relay instruction beside them.
     assertLandingProofRelay(obj, "epsilon");
-    assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
+    assertEquals(
+      await targetExists(wt),
+      false,
+      `should have landed\n${grad.output}`,
+    );
   });
 });
 
@@ -505,7 +513,7 @@ Deno.test("accept: a legacy proof cannot bypass tracked refresh convergence", as
     assertEquals(preview.code, 1, preview.output);
     assertStringIncludes(preview.output, ".mcp.json");
     assertEquals(
-      await exists(join(dir, "feature.txt")),
+      await targetExists(join(dir, "feature.txt")),
       false,
       "the read-only plan refusal must not touch the trunk",
     );
@@ -515,9 +523,13 @@ Deno.test("accept: a legacy proof cannot bypass tracked refresh convergence", as
     assertEquals(accepted.code, 1, accepted.output);
     assertStringIncludes(accepted.output, ".mcp.json");
     assertTerminalTextIncludes(accepted.output, "discern refresh");
-    assertEquals(await exists(wt), true, "the refused worktree must survive");
     assertEquals(
-      await exists(join(dir, "feature.txt")),
+      await targetExists(wt),
+      true,
+      "the refused worktree must survive",
+    );
+    assertEquals(
+      await targetExists(join(dir, "feature.txt")),
       false,
       "the stale tree must not reach the trunk",
     );
@@ -539,7 +551,11 @@ Deno.test("accept: with no prior `done`, accept runs the gate itself before land
     // The slow path's fresh gate run rendered both proof forms — accept still
     // carries the same landing contract as the fast path.
     assertLandingProofRelay(obj, "zeta");
-    assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
+    assertEquals(
+      await targetExists(wt),
+      false,
+      `should have landed\n${grad.output}`,
+    );
   });
 });
 
@@ -576,17 +592,17 @@ Deno.test("accept: refuses to land a commit that appeared while its validation g
     assertTerminalTextIncludes(grad.output, "moved while this acceptance");
     // Non-destructive: the worktree survives and nothing reached the trunk.
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       true,
       `worktree must survive\n${grad.output}`,
     );
     assertEquals(
-      await exists(join(dir, "feature.txt")),
+      await targetExists(join(dir, "feature.txt")),
       false,
       "no commit may fast-forward onto the trunk unvalidated",
     );
     assertEquals(
-      await exists(join(dir, "sneaky.txt")),
+      await targetExists(join(dir, "sneaky.txt")),
       false,
       "the mid-gate commit must not land",
     );

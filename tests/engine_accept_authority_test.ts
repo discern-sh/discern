@@ -4,7 +4,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { basename, dirname, join } from "@std/path";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import { claimEffortGrant } from "../src/engine/worktree/effort_grant_cleanup.ts";
@@ -186,7 +186,7 @@ async function waitForPath<T>(
   const timeoutMs = ACCEPT_READINESS_TIMEOUT_MS;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (await exists(path)) {
+    if (await targetExists(path)) {
       return;
     }
     if (settled !== undefined) {
@@ -279,7 +279,7 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
     assertEquals(landed.code, 0, landed.output);
     const envelope = JSON.parse(landed.stdout);
     assertEquals(envelope.data.scopes_changed, ["map"]);
-    assertEquals(await exists(worktree), false);
+    assertEquals(await targetExists(worktree), false);
     assertEquals(
       await Deno.readTextFile(join(dir, "docs", "guide.md")),
       "covered\n",
@@ -352,8 +352,8 @@ Deno.test("landing compare-and-swap rejects an ancestor trunk advance", async ()
       { kind: "missing" },
       "a refused trunk CAS must not create half of the coupled marker update",
     );
-    assertEquals(await exists(join(dir, "docs", "guide.md")), false);
-    assert(await exists(worktree));
+    assertEquals(await targetExists(join(dir, "docs", "guide.md")), false);
+    assert(await targetExists(worktree));
   });
 });
 
@@ -442,8 +442,8 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
       await Deno.readTextFile(join(dir, "feature.txt")),
       "landed before checkout convergence\n",
     );
-    assertEquals(await exists(interrupted.journal), false);
-    assert(await exists(worktree));
+    assertEquals(await targetExists(interrupted.journal), false);
+    assert(await targetExists(worktree));
   });
 });
 
@@ -494,7 +494,7 @@ Deno.test("an unconfirmed retry leaves an unbound post-CAS transaction byte-for-
       checkoutBefore,
       "authority-free retry must not converge the main checkout",
     );
-    assertEquals(await exists(join(dir, "feature.txt")), false);
+    assertEquals(await targetExists(join(dir, "feature.txt")), false);
     assertEquals(
       await readAcceptanceTransactionMarker(worktree, interrupted.id),
       { kind: "present", target },
@@ -564,8 +564,8 @@ Deno.test("journal-bound consent recovers a post-CAS transaction flaglessly and 
       });
       assertEquals(envelope.data.root, dir);
       assertEquals(await gitOut(dir, "status", "--porcelain"), "");
-      assertEquals(await exists(interrupted.journal), false);
-      assert(await exists(worktree));
+      assertEquals(await targetExists(interrupted.journal), false);
+      assert(await targetExists(worktree));
 
       const event = (await acceptEvents(dir)).at(-1);
       assert(event?.kind === "verb");
@@ -614,9 +614,9 @@ Deno.test("journal-only pre-CAS consent may reconcile once but cannot authorize 
       branch_deleted: false,
     });
     assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
-    assertEquals(await exists(join(dir, "feature.txt")), false);
-    assertEquals(await exists(interrupted.journal), false);
-    assert(await exists(worktree));
+    assertEquals(await targetExists(join(dir, "feature.txt")), false);
+    assertEquals(await targetExists(interrupted.journal), false);
+    assert(await targetExists(worktree));
 
     const replay = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(replay.code, 1, replay.output);
@@ -667,9 +667,9 @@ Deno.test("an authorized pre-CAS recovery makes every later plan refusal partial
       branch_deleted: false,
     });
     assertStringIncludes(envelope.message, "uncommitted tracked changes");
-    assertEquals(await exists(interrupted.journal), false);
+    assertEquals(await targetExists(interrupted.journal), false);
     assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
-    assert(await exists(worktree));
+    assert(await targetExists(worktree));
 
     const event = (await acceptEvents(dir)).at(-1);
     assert(event?.kind === "verb");
@@ -745,10 +745,10 @@ Deno.test("post-recovery authority loss remains a partial acceptance", async () 
       branch_deleted: false,
     });
     assertStringIncludes(envelope.message, "needs their explicit acceptance");
-    assertEquals(await exists(interrupted.journal), false);
-    assertEquals(await exists(grant), false);
+    assertEquals(await targetExists(interrupted.journal), false);
+    assertEquals(await targetExists(grant), false);
     assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
-    assert(await exists(worktree));
+    assert(await targetExists(worktree));
 
     const event = (await acceptEvents(dir)).at(-1);
     assert(event?.kind === "verb");
@@ -812,8 +812,8 @@ Deno.test("a trunk CAS whose checkout and rollback both fail reports the irrever
       branch_deleted: false,
     });
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
-    assertEquals(await exists(join(dir, "feature.txt")), false);
-    assert(await exists(worktree));
+    assertEquals(await targetExists(join(dir, "feature.txt")), false);
+    assert(await targetExists(worktree));
 
     const event = (await acceptEvents(dir)).at(-1);
     assert(event?.kind === "verb");
@@ -883,7 +883,7 @@ Deno.test("a post-landing worktree-removal failure returns partial effect state 
       await Deno.readTextFile(join(dir, "feature.txt")),
       "landed before removal failed\n",
     );
-    assert(await exists(worktree));
+    assert(await targetExists(worktree));
 
     const event = (await acceptEvents(dir)).at(-1);
     assert(event?.kind === "verb");
@@ -941,13 +941,13 @@ Deno.test("accept recovery preserves tracked data changed after an interrupted t
       await Deno.readTextFile(join(dir, "discern.toml")),
       "operator edit after the process stopped\n",
     );
-    assertEquals(await exists(join(dir, "feature.txt")), false);
+    assertEquals(await targetExists(join(dir, "feature.txt")), false);
     assertEquals(
-      await exists(interrupted.journal),
+      await targetExists(interrupted.journal),
       true,
       "unresolved recovery evidence must survive until the local edit is handled",
     );
-    assert(await exists(worktree));
+    assert(await targetExists(worktree));
   });
 });
 
@@ -977,7 +977,7 @@ Deno.test("landing compare-and-swap preserves a colliding untracked file", async
     }
     assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
     assertEquals(await Deno.readTextFile(collision), "local scratch\n");
-    assert(await exists(worktree));
+    assert(await targetExists(worktree));
   });
 });
 
@@ -1115,9 +1115,9 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
     const landed = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
     const envelope = JSON.parse(landed.stdout);
-    assertEquals(await exists(marker), false);
+    assertEquals(await targetExists(marker), false);
     assertEquals(
-      await exists(transactionMarkers),
+      await targetExists(transactionMarkers),
       false,
       "worktree removal must reap its acceptance marker refs",
     );
@@ -1199,7 +1199,7 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
       assertEquals(transaction.effort_claim, true);
       claimPath = join(claims, transaction.id);
       claimBefore = await Deno.readTextFile(claimPath);
-      assertEquals(await exists(grant), false);
+      assertEquals(await targetExists(grant), false);
       assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
       assertEquals(
         await readAcceptanceTransactionMarker(worktree, transaction.id),
@@ -1232,7 +1232,7 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
 
       assertEquals(await Deno.readTextFile(journal), journalBefore);
       assertEquals(await Deno.readTextFile(claimPath), claimBefore);
-      assertEquals(await exists(grant), false);
+      assertEquals(await targetExists(grant), false);
       assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
       assertEquals(
         await readAcceptanceTransactionMarker(worktree, transaction.id),
@@ -1253,7 +1253,7 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
       await gitOut(dir, "show", "main:feature.txt"),
       "one acceptance owns the transition",
     );
-    assertEquals(await exists(worktree), false);
+    assertEquals(await targetExists(worktree), false);
   });
 });
 
@@ -1288,9 +1288,9 @@ Deno.test("accept retry restores and reuses an effort claim interrupted before t
       await Deno.readTextFile(join(dir, "feature.txt")),
       "claimed before CAS\n",
     );
-    assertEquals(await exists(claimed.claim.path), false);
-    assertEquals(await exists(interrupted.journal), false);
-    assertEquals(await exists(worktree), false);
+    assertEquals(await targetExists(claimed.claim.path), false);
+    assertEquals(await targetExists(interrupted.journal), false);
+    assertEquals(await targetExists(worktree), false);
   });
 });
 
@@ -1337,12 +1337,12 @@ Deno.test("accept retry consumes an effort claim interrupted after trunk CAS wit
       !message.includes("Re-authorize"),
       "a post-CAS retry must never make the spent grant replayable",
     );
-    assertEquals(await exists(marker), false);
-    assertEquals(await exists(claimed.claim.path), false);
-    assertEquals(await exists(interrupted.journal), false);
+    assertEquals(await targetExists(marker), false);
+    assertEquals(await targetExists(claimed.claim.path), false);
+    assertEquals(await targetExists(interrupted.journal), false);
     assertEquals(await gitOut(dir, "status", "--porcelain"), "");
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
-    assert(await exists(worktree));
+    assert(await targetExists(worktree));
   });
 });
 
@@ -1398,13 +1398,13 @@ Deno.test("accept retry does not replay an effort claim after a landed ref is re
     const message = JSON.parse(retried.stdout).message as string;
     assertStringIncludes(message, "was later reset");
     assertStringIncludes(message, "effort grant was consumed");
-    assertEquals(await exists(claimed.claim.path), false);
-    assertEquals(await exists(interrupted.journal), false);
+    assertEquals(await targetExists(claimed.claim.path), false);
+    assertEquals(await targetExists(interrupted.journal), false);
 
     const replay = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(replay.code, 1, replay.output);
     assertEquals(JSON.parse(replay.stdout).error, "awaiting_consent");
-    assert(await exists(worktree));
+    assert(await targetExists(worktree));
   });
 });
 
@@ -1460,9 +1460,9 @@ Deno.test("accept retry reuses an effort claim only after its tagged CAS rollbac
       await Deno.readTextFile(join(dir, "feature.txt")),
       "land after explicit rollback\n",
     );
-    assertEquals(await exists(claimed.claim.path), false);
-    assertEquals(await exists(interrupted.journal), false);
-    assertEquals(await exists(worktree), false);
+    assertEquals(await targetExists(claimed.claim.path), false);
+    assertEquals(await targetExists(interrupted.journal), false);
+    assertEquals(await targetExists(worktree), false);
   });
 });
 
@@ -1498,7 +1498,7 @@ Deno.test("accept refuses partial and unscoped standing coverage with the paths 
       for (const expected of fixture.expected) {
         assertStringIncludes(envelope.message, expected);
       }
-      assert(await exists(worktree));
+      assert(await targetExists(worktree));
     });
   }
 });
@@ -1518,7 +1518,7 @@ Deno.test("accept gives unknown trunk grants zero authority and reports them", a
     assertStringIncludes(envelope.message, "unknown scope");
     assertStringIncludes(envelope.message, "ghost");
     assertStringIncludes(envelope.message, "cover nothing");
-    assert(await exists(worktree));
+    assert(await targetExists(worktree));
   });
 });
 
@@ -1577,7 +1577,7 @@ Deno.test("conversation consent lands the branch that outgrew the trunk's commit
       envelope.data.proof_line,
       "landed with conversation consent",
     );
-    assertEquals(await exists(worktree), false);
+    assertEquals(await targetExists(worktree), false);
     const landedConfig = await Deno.readTextFile(join(dir, "discern.toml"));
     assert(
       !landedConfig.includes("retired_levers"),
@@ -1632,7 +1632,7 @@ Deno.test("accept falls back loudly when trunk authority is unreadable and recor
       "never-loosen check cannot verify",
       confirmed.stdout,
     );
-    assert(await exists(worktree));
+    assert(await targetExists(worktree));
   });
 });
 
@@ -1657,8 +1657,8 @@ Deno.test("accept dry-run reports standing authority without landing", async () 
         detail.includes("standing grant (map)")
       ),
     );
-    assert(await exists(worktree));
-    assertEquals(await exists(join(dir, "docs", "guide.md")), false);
+    assert(await targetExists(worktree));
+    assertEquals(await targetExists(join(dir, "docs", "guide.md")), false);
   });
 });
 

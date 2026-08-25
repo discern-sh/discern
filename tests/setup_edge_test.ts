@@ -10,6 +10,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 
 const ANSWERS = JSON.stringify({
   version: "2",
@@ -33,7 +34,7 @@ Deno.test("setup reports templates_not_found in JSON when the override dir is mi
     assertEquals(result.error, "templates_not_found");
     assertStringIncludes(result.message, "not a directory");
     // Nothing was scaffolded — the guard fires before any plan is built.
-    assert(!(await pathExists(join(dir, "discern.toml"))));
+    assert(!(await targetExists(join(dir, "discern.toml"))));
   });
 });
 
@@ -55,7 +56,7 @@ Deno.test("setup --json reports a partial refresh as top-level not-ok while keep
       result.data.instructions_errors.join("\n"),
       "malformed JSON",
     );
-    assert(await pathExists(join(dir, "discern.toml")));
+    assert(await targetExists(join(dir, "discern.toml")));
     assertEquals(await Deno.readTextFile(join(dir, ".mcp.json")), malformed);
   });
 });
@@ -110,7 +111,7 @@ Deno.test("setup reports invalid --config JSON to stderr without --json", async 
     assertStringIncludes(stderr, "not valid JSON");
     assertEquals(stdout.trim(), "");
     // The guard fired before planning — nothing scaffolded.
-    assert(!(await pathExists(join(dir, "discern.toml"))));
+    assert(!(await targetExists(join(dir, "discern.toml"))));
   });
 });
 
@@ -190,13 +191,3 @@ Deno.test("setup --force --config leaves an existing discern.toml untouched (fil
     assert(!after.includes('test = "vitest run"'));
   });
 });
-
-/** True when a path exists on disk. */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}

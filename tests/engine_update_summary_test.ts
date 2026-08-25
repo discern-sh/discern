@@ -9,7 +9,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import type { z } from "@zod/zod";
 import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
@@ -300,7 +300,7 @@ Deno.test("update --dry-run --json: predicts the same summary read-only — no `
 
     // …and the preview genuinely merged nothing.
     assertEquals(
-      await exists(join(wt, "upstream.txt")),
+      await targetExists(join(wt, "upstream.txt")),
       false,
       `--dry-run must not merge\n${r.stdout}`,
     );

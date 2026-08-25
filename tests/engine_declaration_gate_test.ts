@@ -12,7 +12,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -202,7 +202,8 @@ const PROBES = {
     const terminal = await runAgent(wt, ["accept"]);
     const mcp = await runMcp("discern_accept", wt, {});
     const env = parseJson(json.stdout);
-    const mutated = (await exists(join(dir, "api"))) || !(await exists(wt));
+    const mutated = (await targetExists(join(dir, "api"))) ||
+      !(await targetExists(wt));
     return {
       mutated,
       meaning: [
@@ -370,8 +371,8 @@ Deno.test("variance contract: every declared surface serves the same complete de
       }
     }
     // Every refusal above was read-only: worktree intact, trunk untouched.
-    assert(await exists(wt));
-    assertEquals(await exists(join(dir, "api", "surface.txt")), false);
+    assert(await targetExists(wt));
+    assertEquals(await targetExists(join(dir, "api", "surface.txt")), false);
   });
 });
 

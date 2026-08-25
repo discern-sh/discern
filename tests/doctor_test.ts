@@ -13,6 +13,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { measureText, stripAnsi } from "discern-design-system/cli";
 import {
   assertTerminalTextIncludes,
@@ -499,16 +500,6 @@ async function disableLogbook(dir: string): Promise<void> {
     path,
     text.replace("logbook = true", "logbook = false"),
   );
-}
-
-/** Treat any stat failure as absence when checking doctor's repair side effects. */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 Deno.test("doctor --json: a fresh install includes the seeded tidy format job", async () => {
@@ -1179,7 +1170,7 @@ Deno.test("doctor: generated run probes resolve each leading word without execut
     assertEquals(resolved.status, "ok");
     assertStringIncludes(resolved.detail, "leading word `sh` resolves");
     assertEquals(
-      await pathExists(join(dir, "generator-ran")),
+      await targetExists(join(dir, "generator-ran")),
       false,
       "doctor must probe the leading word without running the generator",
     );

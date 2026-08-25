@@ -7,7 +7,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { dirname, join, SEPARATOR } from "@std/path";
 import {
   BUNDLED_PUBLIC_DOC_DIRS,
@@ -346,8 +346,8 @@ Deno.test("the staged file set equals the public projection", async () => {
     assertEquals(copied, expected);
     assertEquals(actual, expected);
     assert(!actual.includes("00-orientation/withheld.md"));
-    assertEquals(await exists(join(stagedDir, DOCS_ADR_DOC_DIR)), false);
-    assertEquals(await exists(join(stagedDir, "_private")), false);
+    assertEquals(await targetExists(join(stagedDir, DOCS_ADR_DOC_DIR)), false);
+    assertEquals(await targetExists(join(stagedDir, "_private")), false);
   });
 });
 

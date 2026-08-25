@@ -7,6 +7,9 @@
  */
 
 import { assert } from "@std/assert";
+import { pathExists } from "../src/shared/fs_presence.ts";
+
+export { pathExists };
 
 /** A parsed `--json` envelope, deliberately loose: verb-specific data rides
  * in fields no shared type pins, and the assertions are the contract. */
@@ -58,19 +61,6 @@ export function assertFailedStepsHaveDiagnostics(obj: {
         JSON.stringify(obj.diagnostics)
       }`,
     );
-  }
-}
-
-/** Distinguish an absent path from other filesystem failures in gate side-effect assertions. */
-export async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return false;
-    }
-    throw error;
   }
 }
 

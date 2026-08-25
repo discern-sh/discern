@@ -6,7 +6,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
@@ -48,7 +48,9 @@ Deno.test("discern skills eject copies a built-in and the effective set then pre
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "Ejected");
     assert(
-      await exists(join(dir, "discern/skills/discern-write-adr/SKILL.md")),
+      await targetExists(
+        join(dir, "discern/skills/discern-write-adr/SKILL.md"),
+      ),
       "ejected copy must land in the default skills dir",
     );
     // The ejected copy now overrides the built-in in the listing.
@@ -95,7 +97,9 @@ Deno.test("discern skills eject --json emits an envelope and materializes the ov
     assertEquals(obj.data.materialized.errors, []);
     assertHasHint(obj, HINTS["skills-eject-edit-override"]);
     assert(
-      await exists(join(dir, "discern/skills/discern-write-adr/SKILL.md")),
+      await targetExists(
+        join(dir, "discern/skills/discern-write-adr/SKILL.md"),
+      ),
       "ejected copy must land in the default skills dir",
     );
     assert(
@@ -226,7 +230,7 @@ Deno.test("[skills].exclude drops a named skill end-to-end: list flags it, refre
     assertStringIncludes(refresh.output, "no-such-skill");
     const materialized = join(dir, ".claude/skills/discern-write-adr");
     assertEquals(
-      await Deno.lstat(materialized).then(() => true).catch(() => false),
+      await targetExists(materialized),
       false,
       "an excluded skill must not be materialized",
     );

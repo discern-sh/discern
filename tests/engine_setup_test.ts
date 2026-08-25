@@ -12,7 +12,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join, relative } from "@std/path";
-import { exists, walk } from "@std/fs";
+import { walk } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   defaultMapPath,
@@ -48,10 +49,10 @@ Deno.test("setup begin from a subdirectory in a fresh git repo scaffolds at the 
       { cwd: nested },
     );
     assertEquals(r.code, 0, r.output);
-    assert(await exists(join(dir, "discern.toml")));
-    assert(!(await exists(join(nested, "discern.toml"))));
-    assert(await exists(defaultMapPath(dir, "README.md")));
-    assert(!(await exists(join(nested, "discern"))));
+    assert(await targetExists(join(dir, "discern.toml")));
+    assert(!(await targetExists(join(nested, "discern.toml"))));
+    assert(await targetExists(defaultMapPath(dir, "README.md")));
+    assert(!(await targetExists(join(nested, "discern"))));
   });
 });
 
@@ -65,9 +66,9 @@ Deno.test("setup begin from a subdirectory in a mid-setup install reuses the ins
       cwd: nested,
     });
     assertEquals(r.code, 0, r.output);
-    assert(await exists(defaultMapPath(dir, "README.md")));
-    assert(!(await exists(join(nested, "discern.toml"))));
-    assert(!(await exists(join(nested, "discern"))));
+    assert(await targetExists(defaultMapPath(dir, "README.md")));
+    assert(!(await targetExists(join(nested, "discern.toml"))));
+    assert(!(await targetExists(join(nested, "discern"))));
   });
 });
 
@@ -97,7 +98,7 @@ Deno.test("setup begin refuses malformed existing settings JSON and names the fi
       await Deno.readTextFile(join(dir, ".claude/settings.json")),
       malformed,
     );
-    assert(!(await exists(join(dir, "discern.toml"))));
+    assert(!(await targetExists(join(dir, "discern.toml"))));
   });
 });
 
@@ -138,8 +139,8 @@ Deno.test("setup begin reports apply failures cleanly and reruns from the partia
       AGENT_NAMES.join(","),
     ]);
     assertEquals(recovered.code, 0, recovered.output);
-    assert(await exists(join(dir, "discern.toml")));
-    assert(await exists(defaultMapPath(dir, "README.md")));
+    assert(await targetExists(join(dir, "discern.toml")));
+    assert(await targetExists(defaultMapPath(dir, "README.md")));
     const settings = JSON.parse(await Deno.readTextFile(gemini));
     assertEquals(settings.mcpServers.other.command, "other");
     assertEquals(settings.mcpServers.discern.command, "discern");
@@ -213,11 +214,11 @@ Deno.test("real setup begin leaves no unresolved template tokens in seeded or sk
 Deno.test("discern setup lays the doc skeletons when absent and prints the instructions", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    assertEquals(await exists(defaultMapPath(dir)), false);
+    assertEquals(await targetExists(defaultMapPath(dir)), false);
     // The setup assets are binary-embedded, never seeded into the project (ADR
     // 0024/0036): a fresh install must carry neither a `setup/` nor `bootstrap/` tree.
-    assertEquals(await exists(join(dir, "setup")), false);
-    assertEquals(await exists(join(dir, "bootstrap")), false);
+    assertEquals(await targetExists(join(dir, "setup")), false);
+    assertEquals(await targetExists(join(dir, "bootstrap")), false);
 
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
@@ -229,7 +230,7 @@ Deno.test("discern setup lays the doc skeletons when absent and prints the instr
     );
     // The skeleton tree is laid, with `{{project_name}}` substituted from the slug.
     assert(
-      await exists(
+      await targetExists(
         defaultMapPath(dir, "00-orientation", "design-principles.md"),
       ),
     );
@@ -278,7 +279,7 @@ Deno.test("setup begin --map persists and scaffolds a separate map tree", async 
     );
     assertEquals(config.map.dir, "docs/discern/");
     assert(
-      await exists(
+      await targetExists(
         join(dir, "docs/discern/00-orientation/design-principles.md"),
       ),
     );
@@ -342,7 +343,7 @@ Deno.test("discern setup never overwrites an existing configured map tree (seaml
       "MY OWN DOCS\n",
     );
     assertEquals(
-      await exists(defaultMapPath(dir, "00-orientation")),
+      await targetExists(defaultMapPath(dir, "00-orientation")),
       false,
     );
   });
@@ -363,7 +364,7 @@ Deno.test("a project's own root docs/ no longer collides with the default skelet
       r.stdout,
       `Project skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
     );
-    assert(await exists(defaultMapPath(dir, "README.md")));
+    assert(await targetExists(defaultMapPath(dir, "README.md")));
     assertEquals(
       await Deno.readTextFile(join(dir, "docs/README.md")),
       "MY OWN DOCS\n",
@@ -386,7 +387,7 @@ Deno.test("a project's own root map/ does not collide with discern's default map
       r.stdout,
       `Project skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
     );
-    assert(await exists(defaultMapPath(dir, "README.md")));
+    assert(await targetExists(defaultMapPath(dir, "README.md")));
     assertEquals(
       await Deno.readTextFile(join(dir, "map/README.md")),
       "# Product geography\n",

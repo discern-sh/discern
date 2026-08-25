@@ -13,6 +13,7 @@
 import { isAbsolute } from "@std/path";
 import type { CheckpointWhenInput } from "../../src/shared/checkpoints.ts";
 import { resolveContainedProjectReadPath } from "../../src/shared/project_path.ts";
+import { lstatIfExists } from "../../src/shared/fs_presence.ts";
 import { type GitResult, runGit } from "../../src/shared/subprocess.ts";
 import { checkpointWhenInputFromEnvironment } from "./checkpoint_when_input.ts";
 
@@ -159,7 +160,7 @@ async function candidateRegistry(root: string): Promise<string> {
   if (absolute === undefined) {
     return fail("candidate registry does not resolve inside the worktree");
   }
-  const info = await Deno.lstat(absolute).catch(() => undefined);
+  const info = await lstatIfExists(absolute);
   if (info === undefined || !info.isFile) {
     return fail("candidate registry is not a regular file");
   }

@@ -16,6 +16,7 @@ import {
 } from "../src/shared/subprocess.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
+import { lstatIfExists } from "../src/shared/fs_presence.ts";
 
 Deno.test("the generic git runner refuses commit through aliases and wrappers", async () => {
   await withTempDir(async (cwd) => {
@@ -166,10 +167,7 @@ Deno.test({
       });
       assertEquals(commit.success, true, commit.stderr);
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
-      const late = await Deno.lstat(join(dir, "hook-late")).catch((error) => {
-        if (error instanceof Deno.errors.NotFound) return undefined;
-        throw error;
-      });
+      const late = await lstatIfExists(join(dir, "hook-late"));
       assertEquals(
         late,
         undefined,

@@ -10,7 +10,7 @@
 
 import { assert, assertEquals, assertExists } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { fakeEnv, pinnedTerminal, withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { Logger } from "../src/lib/log.ts";
@@ -269,7 +269,10 @@ Deno.test("createResources writes a ledger entry and runs create; teardown destr
 
     await createResources(ctx, identity, settings, common, key);
     const handle = resourceForId(settings.slug, identity.id, "thing");
-    assert(await exists(join(markers, `${handle}.live`)), "create did not run");
+    assert(
+      await targetExists(join(markers, `${handle}.live`)),
+      "create did not run",
+    );
     const entries = await listEntries(common);
     assertEquals(entries.length, 1);
     const first = entries[0];
@@ -278,11 +281,11 @@ Deno.test("createResources writes a ledger entry and runs create; teardown destr
 
     await destroyResources(ctx, await entriesForWorktree(common, key));
     assert(
-      await exists(join(markers, `${handle}.gone`)),
+      await targetExists(join(markers, `${handle}.gone`)),
       "destroy did not run",
     );
     assert(
-      !(await exists(join(markers, `${handle}.live`))),
+      !(await targetExists(join(markers, `${handle}.live`))),
       "destroy left the live marker",
     );
     assertEquals(
@@ -408,7 +411,7 @@ Deno.test("GC reclaims a vanished worktree's resource and clears the entry", asy
     });
     assertEquals(result.reclaimed, [handle]);
     assert(
-      await exists(join(markers, `${handle}.gone`)),
+      await targetExists(join(markers, `${handle}.gone`)),
       "GC did not run destroy",
     );
     assertEquals(
@@ -443,7 +446,7 @@ Deno.test("GC keeps a LIVE worktree's resource (never reclaims it)", async () =>
     assertEquals(result.reclaimed.length, 0);
     assertEquals(result.kept, 1);
     assert(
-      !(await exists(join(markers, `${handle}.gone`))),
+      !(await targetExists(join(markers, `${handle}.gone`))),
       "GC destroyed a live resource",
     );
     assertEquals(
@@ -479,7 +482,7 @@ Deno.test("GC re-checks liveness on disk and keeps a resource the snapshot wrong
     });
     assertEquals(result.reclaimed.length, 0);
     assert(
-      !(await exists(join(markers, `${handle}.gone`))),
+      !(await targetExists(join(markers, `${handle}.gone`))),
       "GC destroyed a live resource despite a stale snapshot",
     );
     assertEquals((await listEntries(common)).length, 1);
@@ -522,7 +525,7 @@ Deno.test("GC re-checks HANDLE liveness on disk and keeps an orphan whose handle
     );
     assert(result.kept >= 1);
     assert(
-      !(await exists(join(markers, `${handle}.gone`))),
+      !(await targetExists(join(markers, `${handle}.gone`))),
       "M1: GC ran destroy on a handle a live worktree now owns",
     );
     assertEquals(
@@ -567,11 +570,11 @@ Deno.test("GC reclaims ONLY the orphaned worktree's resource when a live one coe
     });
     assertEquals(result.reclaimed, [ha]); // A's only
     assert(
-      await exists(join(markers, `${ha}.gone`)),
+      await targetExists(join(markers, `${ha}.gone`)),
       "A's orphan not reclaimed",
     );
     assert(
-      !(await exists(join(markers, `${hb}.gone`))),
+      !(await targetExists(join(markers, `${hb}.gone`))),
       "B's LIVE resource was destroyed",
     );
     const remaining = await listEntries(common);
@@ -629,7 +632,7 @@ Deno.test("GC recycling guard: a handle a live worktree still owns is kept", asy
       log: quietLog(),
     });
     assertEquals(result.reclaimed.length, 0);
-    assert(!(await exists(join(markers, `${handle}.gone`))));
+    assert(!(await targetExists(join(markers, `${handle}.gone`))));
     assertEquals((await listEntries(common)).length, 1);
   });
 });
@@ -657,7 +660,7 @@ Deno.test("GC --dry-run reports the orphan but acts on nothing", async () => {
     });
     assertEquals(result.reclaimed, [handle]); // reported…
     assert(
-      !(await exists(join(markers, `${handle}.gone`))),
+      !(await targetExists(join(markers, `${handle}.gone`))),
       "dry-run ran destroy",
     );
     assertEquals(

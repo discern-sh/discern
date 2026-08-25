@@ -11,7 +11,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -51,7 +51,11 @@ Deno.test("inherit_env: a declared value arrives in a FRESH worktree with no env
     await Deno.writeTextFile(join(dir, ".env"), "APP_KEY=s3cret\n");
 
     const wt = await addWorktree(dir, "env-fresh");
-    assertEquals(await exists(join(wt, ".env")), false, "fresh = no env file");
+    assertEquals(
+      await targetExists(join(wt, ".env")),
+      false,
+      "fresh = no env file",
+    );
     const setup = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(setup.code, 0, setup.output);
 

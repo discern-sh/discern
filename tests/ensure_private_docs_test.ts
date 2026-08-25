@@ -14,6 +14,7 @@ import { assert, assertEquals } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { lstatIfExists } from "../src/shared/fs_presence.ts";
 
 const SCRIPT = join(REPO_ROOT, "project", "scripts", "ensure_private_docs.ts");
 
@@ -124,7 +125,7 @@ Deno.test("ensure_private_docs no-ops silently when there is no overlay to link"
 
     assertSilentSuccess(await runEnsure(worktree), "clean-clone run");
     assertEquals(
-      await Deno.lstat(join(worktree, OVERLAY_REL)).catch(() => undefined),
+      await lstatIfExists(join(worktree, OVERLAY_REL)),
       undefined,
       "nothing may be created when the main checkout has no overlay",
     );
@@ -152,7 +153,7 @@ Deno.test("ensure_private_docs no-ops silently outside any git repository", asyn
     await ensureDir(bare);
     assertSilentSuccess(await runEnsure(bare), "non-repo run");
     assertEquals(
-      await Deno.lstat(join(bare, OVERLAY_REL)).catch(() => undefined),
+      await lstatIfExists(join(bare, OVERLAY_REL)),
       undefined,
     );
   });

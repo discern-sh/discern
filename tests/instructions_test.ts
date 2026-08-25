@@ -7,6 +7,7 @@ import {
 } from "../src/engine/instructions.ts";
 import { bundledSkillNames } from "../src/lib/skills.ts";
 import { withTempDir } from "./helpers.ts";
+import { pathExists } from "../src/shared/fs_presence.ts";
 
 /** Scaffold a temp project with a discern.toml, a instruction source, and one
  * authored skill (under ./skills/). Built-in instructions + bundled skills come from
@@ -94,7 +95,7 @@ Deno.test("compileInstructions: built-in + sources (no banner); copies built-ins
     assertEquals(second.skillsLinked, 0);
     assertEquals(second.skillsPruned, 2);
     assertEquals(
-      await Deno.lstat(link).then(() => true).catch(() => false),
+      await pathExists(link),
       false,
       "expected the dangling skill link to be pruned",
     );

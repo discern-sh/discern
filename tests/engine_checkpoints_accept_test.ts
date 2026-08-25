@@ -11,7 +11,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { join } from "@std/path";
 import { decodeBase64 } from "@std/encoding/base64";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
@@ -199,8 +199,8 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
       ids: ["api-review"],
     });
     // No effects: worktree intact, nothing on the trunk.
-    assert(await exists(wt));
-    assertEquals(await exists(join(dir, "api", "surface.txt")), false);
+    assert(await targetExists(wt));
+    assertEquals(await targetExists(join(dir, "api", "surface.txt")), false);
 
     // --confirmed alone cannot land either: the decision must cover the
     // variance.
@@ -223,7 +223,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
     ]);
     assertEquals(varianceOnly.code, 1, varianceOnly.output);
     assertEquals(parseJson(varianceOnly.stdout).error, AWAITING_VARIANCE_SLUG);
-    assert(await exists(wt), "no refusal may touch the worktree");
+    assert(await targetExists(wt), "no refusal may touch the worktree");
   });
 });
 
@@ -248,7 +248,7 @@ Deno.test("accept: report-mode Proof is non-landable in preview and apply", asyn
     const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(apply.code, 1, apply.output);
     assertEquals(parseJson(apply.stdout).error, "report_only_proof");
-    assert(await exists(wt), "report-mode Proof must land nothing");
+    assert(await targetExists(wt), "report-mode Proof must land nothing");
   });
 });
 
@@ -380,8 +380,8 @@ Deno.test("accept: the owner's complete decision lands, binding the variance int
     assertStringIncludes(env.data.proof_line ?? "", "declared unmet");
 
     // The landing happened.
-    assertEquals(await exists(wt), false, r.output);
-    assert(await exists(join(dir, "api", "surface.txt")));
+    assertEquals(await targetExists(wt), false, r.output);
+    assert(await targetExists(join(dir, "api", "surface.txt")));
 
     // The landed Proof note's DSSE payload records the structured acceptance
     // evidence: conversation consent plus the exact variance binding.
@@ -442,7 +442,10 @@ Deno.test("accept: the variance-id set must be exact — extra, unknown, or decl
     const metEnv = parseJson(met.stdout);
     assertEquals(metEnv.error, "invalid_value");
     assertStringIncludes(metEnv.message, "declared met");
-    assert(await exists(wt), "an invalid-variance error must land nothing");
+    assert(
+      await targetExists(wt),
+      "an invalid-variance error must land nothing",
+    );
   });
 });
 
@@ -456,7 +459,7 @@ Deno.test("accept: standing grants land declared-met work but never authorize a 
     const granted = await runAgent(wt, ["accept", "--json"]);
     assertEquals(granted.code, 1, granted.output);
     assertEquals(parseJson(granted.stdout).error, AWAITING_VARIANCE_SLUG);
-    assert(await exists(wt));
+    assert(await targetExists(wt));
 
     // Control: replace the conclusion with declared met — the same grant now
     // lands without any conversation flag, proving the grant itself works and
@@ -470,7 +473,7 @@ Deno.test("accept: standing grants land declared-met work but never authorize a 
     const env = parseJson(landed.stdout);
     assertEquals(env.data.consent?.source, "standing-grant");
     assertEquals(env.data.variances, undefined);
-    assertEquals(await exists(wt), false);
+    assertEquals(await targetExists(wt), false);
   });
 });
 
@@ -505,7 +508,7 @@ Deno.test("accept: a stale conclusion routes back to done before any effect", as
     assertHasHint(env, HINTS["accept-declarations-stale"], {
       ids: ["api-review"],
     });
-    assert(await exists(wt), "a precondition refusal must land nothing");
+    assert(await targetExists(wt), "a precondition refusal must land nothing");
   });
 });
 

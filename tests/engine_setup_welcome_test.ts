@@ -11,7 +11,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { join } from "@std/path";
 import { measureText, stripAnsi } from "discern-design-system/cli";
 import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
@@ -242,7 +242,7 @@ Deno.test("the fresh welcome dual-addresses both readers and writes nothing", as
     assertTerminalTextIncludes(r.stdout, "discern setup verify");
     // Read-only: the welcome scaffolds nothing.
     assert(
-      !(await exists(join(dir, "discern.toml"))),
+      !(await targetExists(join(dir, "discern.toml"))),
       "the welcome must write nothing — scaffolding belongs to `begin`",
     );
   });
@@ -258,7 +258,7 @@ Deno.test("the fresh welcome --json carries phase=fresh and the verify funnel", 
     assertEquals(d.complete, false);
     assertStringIncludes(d.next_action, "verify");
     assert(
-      !(await exists(join(dir, "discern.toml"))),
+      !(await targetExists(join(dir, "discern.toml"))),
       "the welcome --json must also write nothing",
     );
   });
@@ -394,7 +394,7 @@ Deno.test("verify reports grounded findings and the consent conversation, writin
     assertStringIncludes(d.next_action, "--confirmed");
     // Read-only: verify scaffolds nothing.
     assert(
-      !(await exists(join(dir, "discern.toml"))),
+      !(await targetExists(join(dir, "discern.toml"))),
       "verify must write nothing (the verify|begin read-only boundary)",
     );
   });

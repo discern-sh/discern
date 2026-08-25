@@ -8,7 +8,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import {
   DROP_RECOVERY_REF_LIMIT,
   DROP_RECOVERY_REF_PREFIX,
@@ -62,7 +62,11 @@ Deno.test("worktree drop <id>: removes a clean, merged worktree and deletes its 
 
     const r = await runAgent(dir, ["worktree", "drop", "abandoned"]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(await exists(wt), false, `worktree removed\n${r.output}`);
+    assertEquals(
+      await targetExists(wt),
+      false,
+      `worktree removed\n${r.output}`,
+    );
     assertEquals(
       await branchExists(dir, "agent/abandoned"),
       false,
@@ -103,12 +107,12 @@ Deno.test("worktree drop removes an explicitly selected foreign checkout but ret
     ]);
     assertEquals(dry.code, 0, dry.output);
     assertTerminalTextIncludes(dry.output, "outside discern ownership");
-    assert(await exists(wt), "dry-run must keep the selected checkout");
+    assert(await targetExists(wt), "dry-run must keep the selected checkout");
     assert(await branchExists(dir, "main-pre-discern"));
 
     const applied = await runAgent(dir, ["worktree", "drop", "foreign"]);
     assertEquals(applied.code, 0, applied.output);
-    assertEquals(await exists(wt), false, applied.output);
+    assertEquals(await targetExists(wt), false, applied.output);
     assert(
       await branchExists(dir, "main-pre-discern"),
       `explicit checkout removal is not ownership proof for its ref\n${applied.output}`,
@@ -121,7 +125,7 @@ Deno.test("worktree drop <path>: resolves the target by path too", async () => {
     const wt = await mainWithWorktree(dir, "by-path");
     const r = await runAgent(dir, ["worktree", "drop", wt]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(await exists(wt), false, r.output);
+    assertEquals(await targetExists(wt), false, r.output);
   });
 });
 
@@ -154,8 +158,8 @@ Deno.test("worktree drop: refuses an ambiguous basename and requires a path", as
     assertTerminalTextIncludes(refused.output, firstPath);
     assertTerminalTextIncludes(refused.output, secondPath);
     assertTerminalTextIncludes(refused.output, "Pass one of these paths");
-    assert(await exists(first), "the first candidate must survive");
-    assert(await exists(second), "the second candidate must survive");
+    assert(await targetExists(first), "the first candidate must survive");
+    assert(await targetExists(second), "the second candidate must survive");
     assert(await branchExists(dir, "agent/dup"), refused.output);
     assert(await branchExists(dir, "agent/alt-dup"), refused.output);
 
@@ -167,8 +171,8 @@ Deno.test("worktree drop: refuses an ambiguous basename and requires a path", as
       secondPath,
     ]);
     assertEquals(selected.code, 0, selected.output);
-    assert(await exists(first), "the unselected candidate must survive");
-    assertEquals(await exists(second), false, selected.output);
+    assert(await targetExists(first), "the unselected candidate must survive");
+    assertEquals(await targetExists(second), false, selected.output);
   });
 });
 
@@ -205,8 +209,8 @@ Deno.test("worktree drop: refuses an id shared by different worktree paths", asy
     );
     assertTerminalTextIncludes(refused.output, firstPath);
     assertTerminalTextIncludes(refused.output, secondPath);
-    assert(await exists(first), "the first candidate must survive");
-    assert(await exists(second), "the second candidate must survive");
+    assert(await targetExists(first), "the first candidate must survive");
+    assert(await targetExists(second), "the second candidate must survive");
   });
 });
 
@@ -224,12 +228,12 @@ Deno.test("worktree drop: a DISCERN_WORKTREE_ID in the environment cannot redire
     });
     assertEquals(r.code, 0, r.output);
     assertEquals(
-      await exists(target),
+      await targetExists(target),
       false,
       `the named worktree is dropped\n${r.output}`,
     );
     assert(
-      await exists(bystander),
+      await targetExists(bystander),
       `the bystander must survive an env-override drop\n${r.output}`,
     );
     assert(await branchExists(dir, "agent/bar-bystander"), r.output);
@@ -250,7 +254,11 @@ Deno.test("worktree drop: a worktree holding the TRUNK loses its checkout, never
 
     const r = await runAgent(dir, ["worktree", "drop", "trunk-holder"]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(await exists(wt), false, `checkout removed\n${r.output}`);
+    assertEquals(
+      await targetExists(wt),
+      false,
+      `checkout removed\n${r.output}`,
+    );
     assert(
       await branchExists(dir, "main"),
       `the trunk must survive a drop\n${r.output}`,
@@ -267,7 +275,7 @@ Deno.test("worktree drop: a relative path resolves like the error text promises"
     const rel = `../${basename(`${dir}.worktrees`)}/rel-target`;
     const r = await runAgent(dir, ["worktree", "drop", rel]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(await exists(wt), false, r.output);
+    assertEquals(await targetExists(wt), false, r.output);
   });
 });
 
@@ -280,7 +288,11 @@ Deno.test("worktree drop: refuses uncommitted changes without --force, discards 
     assertEquals(refused.code, 1, refused.output);
     assertTerminalTextIncludes(refused.output, "uncommitted change");
     assertStringIncludes(refused.output, "--force");
-    assertEquals(await exists(wt), true, "a refusal must not remove anything");
+    assertEquals(
+      await targetExists(wt),
+      true,
+      "a refusal must not remove anything",
+    );
 
     const forced = await runAgent(dir, [
       "worktree",
@@ -289,7 +301,7 @@ Deno.test("worktree drop: refuses uncommitted changes without --force, discards 
       "--force",
     ]);
     assertEquals(forced.code, 0, forced.output);
-    assertEquals(await exists(wt), false, forced.output);
+    assertEquals(await targetExists(wt), false, forced.output);
   });
 });
 
@@ -304,7 +316,11 @@ Deno.test("worktree drop: refuses unmerged commits without --force, discards wit
     const refused = await runAgent(dir, ["worktree", "drop", "unmerged-drop"]);
     assertEquals(refused.code, 1, refused.output);
     assertTerminalTextIncludes(refused.output, "not on main");
-    assertEquals(await exists(wt), true, "a refusal must not remove anything");
+    assertEquals(
+      await targetExists(wt),
+      true,
+      "a refusal must not remove anything",
+    );
     assert(await branchExists(dir, "agent/unmerged-drop"));
 
     const forced = await runAgent(dir, [
@@ -314,7 +330,7 @@ Deno.test("worktree drop: refuses unmerged commits without --force, discards wit
       "--force",
     ]);
     assertEquals(forced.code, 0, forced.output);
-    assertEquals(await exists(wt), false, forced.output);
+    assertEquals(await targetExists(wt), false, forced.output);
     assertEquals(
       await branchExists(dir, "agent/unmerged-drop"),
       false,
@@ -432,7 +448,11 @@ Deno.test("worktree drop: an unreadable worktree is a blocker, never a silent cl
     assertEquals(refused.code, 1, refused.output);
     assertTerminalTextIncludes(refused.output, "could not be read");
     assertTerminalTextIncludes(refused.output, "not on main");
-    assertEquals(await exists(wt), true, "a refusal must not remove anything");
+    assertEquals(
+      await targetExists(wt),
+      true,
+      "a refusal must not remove anything",
+    );
     assert(
       await branchExists(dir, "agent/unreadable-drop"),
       `the unmerged branch must survive an unreadable-state drop\n${refused.output}`,
@@ -446,7 +466,7 @@ Deno.test("worktree drop: an unreadable worktree is a blocker, never a silent cl
       "--force",
     ]);
     assertEquals(forced.code, 0, forced.output);
-    assertEquals(await exists(wt), false, forced.output);
+    assertEquals(await targetExists(wt), false, forced.output);
     assertEquals(await branchExists(dir, "agent/unreadable-drop"), false);
   });
 });
@@ -474,7 +494,7 @@ Deno.test("worktree drop: a failed status read blocks even with no other blocker
     assertEquals(refused.code, 1, refused.output);
     assertTerminalTextIncludes(refused.output, "could not be read");
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       true,
       "unknown cleanliness must require --force before removal",
     );
@@ -534,7 +554,7 @@ Deno.test("worktree drop: honors git worktree lock — refused even with --force
       assertStringIncludes(r.output, "locked");
       assertTerminalTextIncludes(r.output, "git worktree unlock");
       assertEquals(
-        await exists(wt),
+        await targetExists(wt),
         true,
         `a locked worktree must survive\n${r.output}`,
       );
@@ -556,7 +576,7 @@ Deno.test("remove-worktree-safely: the shared removal core refuses a locked work
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "locked");
     assertTerminalTextIncludes(r.output, "git worktree unlock");
-    assertEquals(await exists(wt), true, r.output);
+    assertEquals(await targetExists(wt), true, r.output);
     assertStringIncludes(await gitOut(dir, "worktree", "list"), "locked-core");
   });
 });
@@ -587,7 +607,7 @@ Deno.test("worktree drop: tears down the worktree's recorded resources", async (
     ]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(dir, "destroyed.marker")),
+      await targetExists(join(dir, "destroyed.marker")),
       `the resource destroy must run\n${r.output}`,
     );
     const result = JSON.parse(r.stdout) as {
@@ -618,7 +638,7 @@ Deno.test("worktree drop: refuses from inside a worktree (main-checkout-only)", 
     const r = await runAgent(wt, ["worktree", "drop", "self-drop"]);
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.output, "main checkout");
-    assertEquals(await exists(wt), true);
+    assertEquals(await targetExists(wt), true);
   });
 });
 
@@ -636,7 +656,11 @@ Deno.test("worktree drop --dry-run: shows what a drop would discard and touches 
     assertEquals(r.code, 0, r.output);
     assertTerminalTextIncludes(r.output, "Drop plan");
     assertTerminalTextIncludes(r.output, "uncommitted change");
-    assertEquals(await exists(wt), true, "a dry-run must not remove anything");
+    assertEquals(
+      await targetExists(wt),
+      true,
+      "a dry-run must not remove anything",
+    );
     assert(await branchExists(dir, "agent/preview-drop"));
     assertEquals(await recoveryRefs(dir), [], "a dry-run must not create refs");
   });

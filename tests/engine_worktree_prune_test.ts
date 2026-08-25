@@ -18,7 +18,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join, resolve } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { parse as parseToml } from "@std/toml";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -117,7 +117,7 @@ Deno.test("remove-worktree-safely refuses to delete the main checkout", async ()
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.output, "main checkout");
     assert(
-      await exists(join(dir, "discern.toml")),
+      await targetExists(join(dir, "discern.toml")),
       `main checkout must be left intact\n${r.output}`,
     );
   });
@@ -138,7 +138,7 @@ Deno.test("remove-worktree-safely refuses a path that is not a worktree of this 
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.output, "not a worktree of this repository");
     assert(
-      await exists(join(bystander, "keep.txt")),
+      await targetExists(join(bystander, "keep.txt")),
       `a non-worktree directory must NOT be removed\n${r.output}`,
     );
   });
@@ -157,8 +157,8 @@ Deno.test("remove-worktree-safely refuses a target inside the repository's Git m
     assertEquals(result.code, 1, result.output);
     assertTerminalTextIncludes(result.output, "overlaps");
     assertTerminalTextIncludes(result.output, "Git metadata");
-    assert(await exists(adminDir), "the Git-admin entry must remain");
-    assert(await exists(wt), "the linked checkout must remain");
+    assert(await targetExists(adminDir), "the Git-admin entry must remain");
+    assert(await targetExists(wt), "the linked checkout must remain");
   });
 });
 
@@ -234,7 +234,7 @@ Deno.test("remove-worktree-safely detects a path recreated while retirement evid
     assertEquals(result.code, 1, result.output);
     assertTerminalTextIncludes(result.output, "retired path exists again");
     assert(
-      await exists(join(wt, "observer-state", "nested")),
+      await targetExists(join(wt, "observer-state", "nested")),
       `a replacement path must be preserved for inspection\n${result.output}`,
     );
   });
@@ -394,7 +394,7 @@ Deno.test("remove-worktree-safely cannot report success while Git still register
       canonicalWt,
     ]);
     assertEquals(retried.code, 0, retried.output);
-    assertEquals(await exists(canonicalWt), false, retried.output);
+    assertEquals(await targetExists(canonicalWt), false, retried.output);
     assert(
       !(await gitOut(dir, "worktree", "list", "--porcelain")).includes(
         canonicalWt,
@@ -414,7 +414,7 @@ Deno.test("removed worktree paths stay observable and reclaimable when unrelated
 
     const removed = await runAgent(dir, ["remove-worktree-safely", wt]);
     assertEquals(removed.code, 0, removed.output);
-    assertEquals(await exists(wt), false, removed.output);
+    assertEquals(await targetExists(wt), false, removed.output);
 
     const writers = [
       "observer-state/checkpoint.bin",
@@ -465,9 +465,9 @@ Deno.test("removed worktree paths stay observable and reclaimable when unrelated
 
       const prune = await runAgent(dir, ["worktree", "prune", "--yes"]);
       assertEquals(prune.code, 0, prune.output);
-      assertEquals(await exists(wt), false, prune.output);
+      assertEquals(await targetExists(wt), false, prune.output);
       assert(
-        await exists(join(bystander, "keep.txt")),
+        await targetExists(join(bystander, "keep.txt")),
         `an unrecorded neighboring directory must survive\n${prune.output}`,
       );
     }
@@ -541,7 +541,10 @@ for (const [caseName, mutate] of Object.entries(REAPPEARED_PATH_APPLY_RACES)) {
       assertEquals(result.removed, []);
       assertEquals(result.failed, false);
       assertEquals(result.skipped.length, 1);
-      assert(await exists(wt), "state created after the plan must survive");
+      assert(
+        await targetExists(wt),
+        "state created after the plan must survive",
+      );
     });
   });
 }
@@ -582,7 +585,7 @@ Deno.test("worktree prune keeps a removed path repurposed as a Git checkout", as
     const prune = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(prune.code, 0, prune.output);
     assert(
-      await exists(join(wt, ".git", "config")),
+      await targetExists(join(wt, ".git", "config")),
       `a path repurposed as a Git checkout must survive\n${prune.output}`,
     );
   });
@@ -682,7 +685,7 @@ Deno.test("worktree prune offers only positively identified discern work, never 
     assertEquals(r.code, 0, r.output);
 
     assertEquals(
-      await exists(mergedWt),
+      await targetExists(mergedWt),
       false,
       `the positively identified merged worktree should be removed\n${r.output}`,
     );
@@ -693,11 +696,11 @@ Deno.test("worktree prune offers only positively identified discern work, never 
       `the removed owned worktree's merged branch should be deleted\n${r.output}\n${after}`,
     );
     assert(
-      await exists(foreignWt),
+      await targetExists(foreignWt),
       `a self-asserted id cannot turn mismatched Git metadata into ownership\n${r.output}`,
     );
     assert(
-      await exists(unmarkedWt),
+      await targetExists(unmarkedWt),
       `an exact branch/admin-name match without discern's ready marker must stay\n${r.output}`,
     );
     assert(
@@ -750,7 +753,7 @@ Deno.test("worktree prune --dry-run lists what the real run removes, and acts on
       `dry-run wrongly reported an empty plan\n${dry.stdout}`,
     );
     assert(
-      await exists(mergedWt),
+      await targetExists(mergedWt),
       `dry-run must not remove the worktree\n${dry.output}`,
     );
 
@@ -774,7 +777,7 @@ Deno.test("worktree prune --dry-run lists what the real run removes, and acts on
     const real = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(real.code, 0, real.output);
     assertEquals(
-      await exists(mergedWt),
+      await targetExists(mergedWt),
       false,
       `the real run should remove the worktree the dry-run named\n${real.output}`,
     );
@@ -851,7 +854,7 @@ Deno.test("worktree prune refuses off-TTY without --yes and shows the candidates
     assertTerminalTextIncludes(r.output, "re-run with `--yes`");
     assertStringIncludes(r.output, "confirm");
     assert(
-      await exists(mergedWt),
+      await targetExists(mergedWt),
       `refusing for missing --yes must not remove the candidate\n${r.output}`,
     );
   });
@@ -886,7 +889,7 @@ Deno.test("worktree prune keeps a dirty orphaned dir at the configured worktree 
     const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(orphan),
+      await targetExists(orphan),
       `the dirty orphaned dir at the worktree root must be kept\n${r.output}`,
     );
     assertEquals(
@@ -918,7 +921,7 @@ Deno.test("worktree prune reclaims a clean fully-orphaned dir at the configured 
     const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
-      await exists(orphan),
+      await targetExists(orphan),
       false,
       `a clean orphaned dir at the worktree root should be reclaimed\n${r.output}`,
     );
@@ -958,7 +961,7 @@ Deno.test("worktree prune does not let an orphan env file assert destructive own
     const applied = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(applied.code, 0, applied.output);
     assert(
-      await exists(orphan),
+      await targetExists(orphan),
       `checkout-local identity must not authorize orphan removal\n${applied.output}`,
     );
     assert(
@@ -977,7 +980,10 @@ Deno.test("worktree prune refuses to run from inside a linked worktree", async (
     const r = await runAgent(wt, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.output, "main checkout");
-    assert(await exists(wt), `the worktree must be left intact\n${r.output}`);
+    assert(
+      await targetExists(wt),
+      `the worktree must be left intact\n${r.output}`,
+    );
   });
 });
 
@@ -1088,7 +1094,7 @@ for (const [caseName, mutate] of Object.entries(PRUNE_APPLY_RACES)) {
       if (mutate === undefined) {
         assertEquals(result.failed, false);
         assertEquals(
-          await exists(wt),
+          await targetExists(wt),
           false,
           "an unchanged candidate must still be removed",
         );
@@ -1102,7 +1108,7 @@ for (const [caseName, mutate] of Object.entries(PRUNE_APPLY_RACES)) {
           "a kept candidate is a skip, not a failure",
         );
         assert(
-          await exists(wt),
+          await targetExists(wt),
           "work created during the confirmation window must survive",
         );
         assert(
@@ -1199,18 +1205,18 @@ Deno.test("worktree teardown destroys the worktree's resources", async () => {
       .stdout
       .trim();
     assert(
-      await exists(join(markers, `${handle}.live`)),
+      await targetExists(join(markers, `${handle}.live`)),
       `setup did not create the resource\n${setup.output}`,
     );
 
     const r = await runAgent(wt, ["worktree", "teardown"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(markers, `${handle}.gone`)),
+      await targetExists(join(markers, `${handle}.gone`)),
       `teardown did not destroy the resource\n${r.output}`,
     );
     assert(
-      !(await exists(join(markers, `${handle}.live`))),
+      !(await targetExists(join(markers, `${handle}.live`))),
       "teardown left the live marker",
     );
   });
@@ -1266,7 +1272,7 @@ Deno.test("worktree teardown by cwd is the verb discern writes as Codex's enviro
     const r = await runAgent(wt, verbArgs);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(markers, `${handle}.gone`)),
+      await targetExists(join(markers, `${handle}.gone`)),
       `the [cleanup].script did not tear the worktree down by cwd\n${r.output}`,
     );
   });

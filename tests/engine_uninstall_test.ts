@@ -15,6 +15,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { ensureDir } from "@std/fs";
 import { join } from "@std/path";
+import { pathExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import { git, gitInit, runAgent } from "./engine_helpers.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
@@ -36,16 +37,6 @@ const USER_GITATTRIBUTES = "*.jpg binary\n";
 /** The two co-owned files seeded with user content BEFORE discern wires them —
  * so the round-trip asserts they return to these exact bytes. */
 const PRE_SEEDED = new Set([".claude/settings.json", ".mcp.json"]);
-
-/** Treat any inaccessible fixture path as absent when verifying uninstall cleanup. */
-async function exists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Every project-relative path discern CREATES from nothing (so uninstall must
@@ -123,7 +114,7 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
     // Discern wired what the registry declares (a precondition for the round-trip
     // to prove anything): the compiled Claude file and its co-owned .mcp.json.
     assert(
-      await exists(join(dir, "CLAUDE.md")),
+      await pathExists(join(dir, "CLAUDE.md")),
       "setup should compile CLAUDE.md",
     );
     assert(
@@ -134,7 +125,7 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
     // Runtime records exist under .git before the round-trip, so their
     // removal below proves something.
     assert(
-      await exists(join(dir, ".git", "discern")),
+      await pathExists(join(dir, ".git", "discern")),
       "setup and refresh should have recorded runtime state under .git/discern",
     );
 
@@ -146,7 +137,7 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
     // 1. Every registry-declared file discern created is gone.
     for (const rel of registryCreatedPaths()) {
       assertEquals(
-        await exists(join(dir, rel)),
+        await pathExists(join(dir, rel)),
         false,
         `uninstall left a discern-created path behind: ${rel}`,
       );
@@ -176,18 +167,18 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
 
     // 4. The user's content — the config and the whole discern/ namespace — stays.
     assert(
-      await exists(join(dir, "discern.toml")),
+      await pathExists(join(dir, "discern.toml")),
       "discern.toml must be kept",
     );
     assert(
-      await exists(join(dir, "discern/instructions.md")),
+      await pathExists(join(dir, "discern/instructions.md")),
       "the instruction source must be kept",
     );
 
     // 5. The runtime-state namespace under .git exits with the tool
     //    (exit honesty covers the registered admin entries, shim included).
     assertEquals(
-      await exists(join(dir, ".git", "discern")),
+      await pathExists(join(dir, ".git", "discern")),
       false,
       "uninstall must remove the discern/ namespace under .git",
     );
@@ -262,8 +253,8 @@ Deno.test("uninstall --dry-run reports the plan and changes nothing", async () =
     assert(envelope.data.removed.length > 0, "the plan should list removals");
 
     // Nothing was touched: the generated files and co-owned wiring are intact.
-    assert(await exists(join(dir, "CLAUDE.md")));
-    assert(await exists(join(dir, ".claude/skills")));
+    assert(await pathExists(join(dir, "CLAUDE.md")));
+    assert(await pathExists(join(dir, ".claude/skills")));
     assert(
       (await Deno.readTextFile(join(dir, ".mcp.json"))).includes("discern"),
       "the dry run must not strip anything",
@@ -304,7 +295,7 @@ Deno.test("uninstall refuses while the resource ledger records provisioned resou
     assertEquals(envelope.error, "provisioned_resources");
     assertEquals(envelope.data.resources.length, 1);
     assert(
-      await exists(join(dir, ".git", "discern")),
+      await pathExists(join(dir, ".git", "discern")),
       "a refused uninstall must leave the runtime state untouched",
     );
 
@@ -312,7 +303,7 @@ Deno.test("uninstall refuses while the resource ledger records provisioned resou
     await Deno.remove(entryPath);
     const applied = await runAgent(dir, ["uninstall", "--json"]);
     assertEquals(applied.code, 0, applied.output);
-    assertEquals(await exists(join(dir, ".git", "discern")), false);
+    assertEquals(await pathExists(join(dir, ".git", "discern")), false);
   });
 });
 
@@ -328,7 +319,7 @@ Deno.test("uninstall needs confirmation when only runtime state remains", async 
     const status = await runAgent(dir, ["status"]);
     assertEquals(status.code, 0, status.output);
     assert(
-      await exists(join(dir, ".git", "discern")),
+      await pathExists(join(dir, ".git", "discern")),
       "status should re-record runtime state under .git",
     );
 
@@ -342,11 +333,11 @@ Deno.test("uninstall needs confirmation when only runtime state remains", async 
       !unconfirmed.output.includes("nothing to remove"),
       unconfirmed.output,
     );
-    assert(await exists(join(dir, ".git", "discern")));
+    assert(await pathExists(join(dir, ".git", "discern")));
 
     const confirmed = await runAgent(dir, ["uninstall", "--yes"]);
     assertEquals(confirmed.code, 0, confirmed.output);
-    assertEquals(await exists(join(dir, ".git", "discern")), false);
+    assertEquals(await pathExists(join(dir, ".git", "discern")), false);
   });
 });
 
@@ -363,7 +354,7 @@ Deno.test("uninstall refuses while a linked worktree is still active", async () 
     assertEquals(envelope.error, "active_worktrees");
 
     // Nothing was removed — the refusal is total.
-    assert(await exists(join(dir, "CLAUDE.md")));
+    assert(await pathExists(join(dir, "CLAUDE.md")));
   });
 });
 
