@@ -38,6 +38,31 @@ export type CliResultForCommand<Command extends CliJsonResultCommand> =
 export type CliResultEnvelope<Contract = CliResultContract> = Contract extends
   CliResultContract ? z.output<Contract["schema"]> : never;
 
+/** Keep union members that declare one key, making that key present. */
+type UnionMemberWithKey<Union, Key extends PropertyKey> = Union extends unknown
+  ? Key extends keyof Union ? Union & Record<Key, Union[Key]> : never
+  : never;
+
+/**
+ * Prove that a decoded result carries the verb-specific data alternative named
+ * by one required key, excluding the shared config-issue payload at runtime.
+ */
+export function assertResultDataKey<
+  Result extends { data?: object | undefined },
+  Key extends PropertyKey,
+>(
+  result: Result,
+  key: Key,
+): asserts result is Result & {
+  data: UnionMemberWithKey<NonNullable<Result["data"]>, Key>;
+} {
+  if (result.data === undefined || !(key in result.data)) {
+    throw new Error(
+      `Decoded result data does not carry required key ${String(key)}`,
+    );
+  }
+}
+
 /** Keep failure diagnostics useful without copying arbitrarily large stdout. */
 function boundedExcerpt(text: string): string {
   if (text.length <= STDOUT_EXCERPT_MAX_CHARS) return text;

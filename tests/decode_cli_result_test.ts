@@ -7,7 +7,11 @@ import {
   assertThrows,
 } from "@std/assert";
 import { z } from "@zod/zod";
-import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 
 Deno.test("decodeCliResult returns the registered schema's inferred envelope", () => {
   const result = decodeCliResult(
@@ -15,10 +19,33 @@ Deno.test("decodeCliResult returns the registered schema's inferred envelope", (
     "skills list",
   );
 
-  assert(result.data !== undefined && "skills" in result.data);
+  assertResultDataKey(result, "skills");
   const skills: readonly unknown[] = result.data.skills;
   assertEquals(skills, []);
   assertEquals(result.ok, true);
+});
+
+Deno.test("assertResultDataKey rejects the shared config-issue alternative", () => {
+  const result = decodeCliResult(
+    '{"ok":false,"verb":"skills list","data":{"issues":[]}}',
+    "skills list",
+  );
+
+  assertThrows(
+    () => assertResultDataKey(result, "skills"),
+    Error,
+    "required key skills",
+  );
+});
+
+Deno.test("assertResultDataKey makes a declared optional key present", () => {
+  const result: {
+    data?: { mode?: string } | { issues: readonly unknown[] };
+  } = { data: { mode: "preview" } };
+
+  assertResultDataKey(result, "mode");
+  const mode: string | undefined = result.data.mode;
+  assertEquals(mode, "preview");
 });
 
 Deno.test("decodeCliResult names the command, Zod issues, and bounded stdout on failure", () => {
