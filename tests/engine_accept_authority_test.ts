@@ -1209,6 +1209,8 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
       let concurrentOperationRan = false;
       let concurrentRefusal: unknown;
       try {
+        // runAgent uses the suite temp home while this process retains its own
+        // TMPDIR. Both must still resolve the same Git-derived lock identity.
         await withAcceptanceTransactionLock(worktree, () => {
           concurrentOperationRan = true;
           return Promise.resolve();

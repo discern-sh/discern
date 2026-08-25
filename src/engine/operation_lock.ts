@@ -8,7 +8,6 @@
  * parallelism across linked worktrees.
  */
 
-import { tmpdir } from "os";
 import { dirname, join, resolve } from "@std/path";
 import {
   operationEffectPolicy,
@@ -56,6 +55,13 @@ interface AcquiredLock {
   readonly previousContents?: Uint8Array;
   readonly lease: OperationLockLease;
 }
+
+/**
+ * One host path independent of caller-controlled temp variables. discern ships
+ * for POSIX hosts (Windows runs the Linux binary under WSL), so `/tmp` is the
+ * common runtime boundary every process can resolve alike.
+ */
+const HOST_OPERATION_LOCK_ROOT = "/tmp";
 
 /** The ordered concrete boundaries represented by one policy value. */
 function concreteBoundaries(
@@ -119,7 +125,10 @@ async function hostLockSpec(
   return {
     boundary,
     key: `${boundary}:${identity}`,
-    path: join(tmpdir(), "discern-operation-locks", `${lockId}.lock`),
+    path: join(
+      HOST_OPERATION_LOCK_ROOT,
+      `discern-operation-lock-${lockId}.lock`,
+    ),
   };
 }
 
@@ -185,19 +194,6 @@ async function acquireLock(
   cwd: string,
   spec: LockSpec,
 ): Promise<AcquiredLock> {
-  try {
-    await Deno.mkdir(dirname(spec.path), { recursive: true });
-  } catch (error) {
-    throw refusal(
-      command,
-      `Discern could not prepare the ${
-        boundaryName(spec.boundary)
-      } for ${cwd}. ` +
-        `This call made no change. Retry after the boundary is writable. ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-    );
-  }
   let file: Deno.FsFile;
   try {
     file = await Deno.open(spec.path, {
