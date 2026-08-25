@@ -2,8 +2,8 @@
  * One replace-write policy for small durable files.
  *
  * Bytes are written completely to a create-new UUID sibling before one rename
- * replaces the target. A process interruption before the rename leaves the old
- * target intact (and may leave an orphan sibling); after a successful atomic
+ * replaces the target. A process interruption before the rename leaves the
+ * standing target intact (and may leave an orphan sibling); after a successful
  * rename, readers see the complete replacement. `sync: true` flushes the temp
  * file before the rename. The rename and its parent-directory entry are not
  * fsynced here, so survival across host or power failure still depends on the

@@ -3,6 +3,10 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  REGISTERED_RENAMES,
+  type RegisteredRename,
+} from "./atomic_write_renames.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
@@ -12,107 +16,7 @@ interface RenameSite {
   readonly operation: "rename" | "renameSync";
 }
 
-interface RenameRegistration {
-  readonly path: string;
-  readonly enclosingFunction: string;
-  readonly reason: string;
-}
-
 const ATOMIC_WRITE_MODULE = "src/shared/atomic_write.ts";
-
-/** Non-replacement renames whose move, claim, probe, or fixture semantics are intentional. */
-const REGISTERED_RENAMES = [
-  {
-    path: "scripts/cli_install.ts",
-    enclosingFunction: "writeExecutableSync",
-    reason:
-      "The signal handler must restore the executable synchronously before process exit.",
-  },
-  {
-    path: "src/engine/logbook/store.ts",
-    enclosingFunction: "detachLogbook",
-    reason:
-      "Reset and archive move the complete active directory into recovery before cleanup.",
-  },
-  {
-    path: "src/engine/worktree/effort_grant_cleanup.ts",
-    enclosingFunction: "claimEffortGrant",
-    reason:
-      "Acceptance claims exclusive grant ownership by moving the standing marker to its claim path.",
-  },
-  {
-    path: "src/lib/migrations.ts",
-    enclosingFunction: "rename",
-    reason:
-      "Installation migration relocates an existing path rather than replacing durable file bytes.",
-  },
-  {
-    path: "src/shared/self_shim.ts",
-    enclosingFunction: "writeShimAside",
-    reason:
-      "Content-addressed shim convergence tolerates a same-content rename race across processes.",
-  },
-  {
-    path: "src/shared/write_preflight.ts",
-    enclosingFunction: "probeDirectoryEntry",
-    reason:
-      "The preflight deliberately exercises rename authority with a disposable probe entry.",
-  },
-  {
-    path: "tests/engine_done_json_surfaces_test.ts",
-    enclosingFunction:
-      'Deno.test("done --json: two ADR records claiming one number fail the adr_numbers check; renumbering fixes it")',
-    reason:
-      "The fixture renumbers one ADR file to prove the duplicate-number diagnostic clears.",
-  },
-  {
-    path: "tests/engine_worktree_prune_test.ts",
-    enclosingFunction:
-      'Deno.test("orphan sweep apply keeps a dir that gained work after the scan")',
-    reason:
-      "The fixture moves a checkout to construct an orphan that changes after the scan.",
-  },
-  {
-    path: "tests/engine_worktree_prune_test.ts",
-    enclosingFunction:
-      'Deno.test("remove-worktree-safely refuses a symlink substituted for the registered path")',
-    reason:
-      "The fixture parks and restores a checkout around a symlink-substitution safety check.",
-  },
-  {
-    path: "tests/engine_worktree_prune_test.ts",
-    enclosingFunction:
-      'Deno.test("worktree prune does not let an orphan env file assert destructive ownership")',
-    reason:
-      "The fixture relocates a checkout whose environment file carries forged ownership evidence.",
-  },
-  {
-    path: "tests/engine_worktree_prune_test.ts",
-    enclosingFunction:
-      'Deno.test("worktree prune keeps a dirty orphaned dir at the configured worktree root")',
-    reason:
-      "The fixture relocates a dirty checkout to model an orphan that prune must preserve.",
-  },
-  {
-    path: "tests/engine_worktree_prune_test.ts",
-    enclosingFunction:
-      'Deno.test("worktree prune reclaims a clean fully-orphaned dir at the configured worktree root")',
-    reason:
-      "The fixture relocates a merged checkout to model an orphan that prune may reclaim.",
-  },
-  {
-    path: "tests/fixtures/desk_tty_harness.ts",
-    enclosingFunction: "effect",
-    reason:
-      "The executable fixture publishes a complete terminal-resize request to its child process.",
-  },
-  {
-    path: "tests/fixtures/flagship_terminal_captures.ts",
-    enclosingFunction: "lengthNormalizedRoot",
-    reason:
-      "The executable fixture relocates its temporary root to a platform-neutral path width.",
-  },
-] as const satisfies readonly RenameRegistration[];
 
 /** Parse one module without resolving its dependency graph. */
 function parseModule(path: string, source: string): SourceFile {
@@ -187,7 +91,7 @@ function renameSites(path: string, source: string): RenameSite[] {
 
 /** Join the stable path and function fields that enroll one intentional rename. */
 function registrationKey(
-  value: Pick<RenameRegistration, "path" | "enclosingFunction">,
+  value: Pick<RegisteredRename, "path" | "enclosingFunction">,
 ): string {
   return `${value.path}#${value.enclosingFunction}`;
 }
@@ -195,10 +99,10 @@ function registrationKey(
 /** Report unregistered calls plus malformed, duplicate, and stale registrations. */
 function enrolmentFindings(
   sites: readonly RenameSite[],
-  registrations: readonly RenameRegistration[],
+  registrations: readonly RegisteredRename[],
 ): string[] {
   const findings: string[] = [];
-  const registered = new Map<string, RenameRegistration>();
+  const registered = new Map<string, RegisteredRename>();
   for (const entry of registrations) {
     const key = registrationKey(entry);
     if (entry.reason.trim().length < 20 || /[\r\n]/u.test(entry.reason)) {
@@ -293,7 +197,7 @@ Deno.test("rename enrollment rejects an unrelated future sibling", () => {
 });
 
 Deno.test("rename enrollment rejects a stale reason", () => {
-  const stale: RenameRegistration = {
+  const stale: RegisteredRename = {
     path: "src/retired_writer.ts",
     enclosingFunction: "moveOldState",
     reason: "This obsolete move once served a different filesystem operation.",

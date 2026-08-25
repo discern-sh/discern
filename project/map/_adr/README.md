@@ -311,6 +311,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0323 — Standards hold normalized enforcement definitions](0323-standards-hold-normalized-enforcement-definitions.md)
 - [0324 — Structural guards declare Git-derived source universes](0324-structural-guards-declare-git-derived-source-universes.md)
 - [0325 — The canary job hears hot tests before the full suite](0325-the-canary-job-hears-hot-tests-before-the-full-suite.md)
+- [0326 — Durable replace-writes use one atomic writer](0326-durable-replace-writes-use-one-atomic-writer.md)
 
 <!-- END GENERATED: current ADR records -->
 

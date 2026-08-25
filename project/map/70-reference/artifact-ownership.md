@@ -132,6 +132,8 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/worktree-ready`                       | worktree   | Completed-setup marker.                                                                                               |
 | `discern/shim/`                                | worktree   | Per-identity self-shim ([ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).   |
 
+Durable state replacements share one interruption-safe policy; intentional moves and create-once publication remain separate ([ADR 0326](../_adr/0326-durable-replace-writes-use-one-atomic-writer.md)).
+
 Repository records use the common Git directory; worktree records disappear with that worktree ([ADR 0165](../_adr/0165-git-admin-state-namespaced-by-lifetime.md)). Await continuation records have a 7-day time limit and a 512-record repository cap ([ADR 0243](../_adr/0243-await-continuations-use-short-repository-local-handles.md)). Removed worktree path evidence has a 90-day limit and a 256-record cap; it authorizes only an explicit prune offer for the recorded path ([ADR 0265](../_adr/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup.md)). Guards enforce namespace, lifetime, and reset behavior.
 
 Git stores drop recovery through ordinary refs under `refs/discern/recovery/`. Git can therefore choose its files-based or `reftable` storage format. The newest 32 refs keep committed tips reachable after their worktree branches are deleted. They remain local unless a person configures transport. `discern uninstall` leaves them in place because a ref may be the only remaining name for user-authored commits. Review and delete them with `git update-ref -d <ref>` when that recovery history is no longer needed ([ADR 0271](../_adr/0271-destructive-drops-retain-bounded-recovery-refs.md)).
@@ -146,19 +148,21 @@ It keeps Project-owned files and `discern.toml`, and it names Shared settings th
 
 ## Where it lives in code
 
-| Concept                            | File                                                                              |
-| ---------------------------------- | --------------------------------------------------------------------------------- |
-| Ownership declarations             | [`src/lib/artifact_ownership.ts`](../../../src/lib/artifact_ownership.ts)         |
-| Provenance classes                 | [`src/shared/file_ownership.ts`](../../../src/shared/file_ownership.ts)           |
-| Source paths                       | [`src/shared/paths_registry.ts`](../../../src/shared/paths_registry.ts)           |
-| Provider paths                     | [`src/lib/providers.ts`](../../../src/lib/providers.ts)                           |
-| Git-admin state                    | [`src/shared/git_admin_state.ts`](../../../src/shared/git_admin_state.ts)         |
-| Ownership forcing function         | [`tests/artifact_ownership_test.ts`](../../../tests/artifact_ownership_test.ts)   |
-| Provenance guards                  | [`tests/artifact_provenance_test.ts`](../../../tests/artifact_provenance_test.ts) |
-| Write-surface guard                | [`tests/paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts) |
-| The managed `.gitignore` block     | [`src/lib/agent_gitignore.ts`](../../../src/lib/agent_gitignore.ts)               |
-| The managed `.gitattributes` block | [`src/lib/agent_gitattributes.ts`](../../../src/lib/agent_gitattributes.ts)       |
-| Uninstall                          | [`src/commands/uninstall.ts`](../../../src/commands/uninstall.ts)                 |
+| Concept                            | File                                                                                    |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| Ownership declarations             | [`src/lib/artifact_ownership.ts`](../../../src/lib/artifact_ownership.ts)               |
+| Provenance classes                 | [`src/shared/file_ownership.ts`](../../../src/shared/file_ownership.ts)                 |
+| Source paths                       | [`src/shared/paths_registry.ts`](../../../src/shared/paths_registry.ts)                 |
+| Provider paths                     | [`src/lib/providers.ts`](../../../src/lib/providers.ts)                                 |
+| Git-admin state                    | [`src/shared/git_admin_state.ts`](../../../src/shared/git_admin_state.ts)               |
+| Atomic state replacement           | [`src/shared/atomic_write.ts`](../../../src/shared/atomic_write.ts)                     |
+| Ownership forcing function         | [`tests/artifact_ownership_test.ts`](../../../tests/artifact_ownership_test.ts)         |
+| Rename enrollment guard            | [`tests/atomic_write_enrolment_test.ts`](../../../tests/atomic_write_enrolment_test.ts) |
+| Provenance guards                  | [`tests/artifact_provenance_test.ts`](../../../tests/artifact_provenance_test.ts)       |
+| Write-surface guard                | [`tests/paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts)       |
+| The managed `.gitignore` block     | [`src/lib/agent_gitignore.ts`](../../../src/lib/agent_gitignore.ts)                     |
+| The managed `.gitattributes` block | [`src/lib/agent_gitattributes.ts`](../../../src/lib/agent_gitattributes.ts)             |
+| Uninstall                          | [`src/commands/uninstall.ts`](../../../src/commands/uninstall.ts)                       |
 
 ## See also
 
