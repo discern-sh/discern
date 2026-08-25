@@ -18,6 +18,7 @@ import {
 } from "../shared/generated_artifacts.ts";
 import { generatedArtifactMarker } from "../shared/brand.ts";
 import type { EnvReader } from "../shared/env.ts";
+import { readTextIfExists } from "../shared/fs_presence.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import { splitNulRecords } from "../shared/git_paths.ts";
 import { runGit } from "../shared/subprocess.ts";
@@ -476,18 +477,6 @@ export function reconcileDiscernGitattributes(
     text,
     operations: [{ kind, path: GITATTRIBUTES_REL }],
   };
-}
-
-/** Read a text file when present and otherwise return undefined. */
-async function readTextIfExists(path: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
 }
 
 /** Return built-in candidates that are tracked or currently present. */

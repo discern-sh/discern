@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import {
-  bestEffortFsRead,
+  bestEffortFs,
   directoryExists,
   fileExists,
   lstatIfExists,
@@ -98,7 +98,7 @@ Deno.test("presence reads rethrow permission failures", async (t) => {
 Deno.test("best-effort reads require a reason and expose their fallback", async () => {
   await assertRejects(
     () =>
-      bestEffortFsRead(
+      bestEffortFs(
         () => Promise.reject(new Deno.errors.PermissionDenied("denied")),
         { onFailure: false, reason: "" },
       ),
@@ -106,7 +106,7 @@ Deno.test("best-effort reads require a reason and expose their fallback", async 
     "requires a reason",
   );
   assertEquals(
-    await bestEffortFsRead(
+    await bestEffortFs(
       () => Promise.reject(new Deno.errors.PermissionDenied("denied")),
       {
         onFailure: "unavailable",

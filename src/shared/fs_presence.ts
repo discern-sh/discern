@@ -2,7 +2,7 @@
  * Filesystem presence reads with explicit absence and suppression semantics.
  *
  * The ordinary helpers treat only `NotFound` as absence. Callers whose result is
- * genuinely advisory must opt into {@link bestEffortFsRead}, name why detail may
+ * genuinely advisory must opt into {@link bestEffortFs}, name why detail may
  * be lost, and state the value returned when any filesystem read fails.
  */
 
@@ -10,7 +10,7 @@
 export type TextFileReader = (path: string) => Promise<string>;
 
 /** The explicit policy required when a filesystem read may suppress any error. */
-export interface BestEffortFsReadPolicy<T> {
+export interface BestEffortFsPolicy<T> {
   /** Value returned when the read fails, making the consequence visible. */
   readonly onFailure: T;
   /** Why this observation is non-critical and may lose the failure detail. */
@@ -101,15 +101,15 @@ export async function lstatIfExists(
  * when it fails. The reason is required and validated so suppression is never an
  * invisible ambient default.
  */
-export async function bestEffortFsRead<T>(
-  read: () => Promise<T>,
-  policy: BestEffortFsReadPolicy<T>,
+export async function bestEffortFs<T>(
+  operation: () => Promise<T>,
+  policy: BestEffortFsPolicy<T>,
 ): Promise<T> {
   if (policy.reason.trim() === "") {
     throw new TypeError("a best-effort filesystem read requires a reason");
   }
   try {
-    return await read();
+    return await operation();
   } catch {
     return policy.onFailure;
   }

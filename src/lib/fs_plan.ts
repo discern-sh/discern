@@ -39,6 +39,7 @@ import {
   settingsSeeds,
 } from "./providers.ts";
 import { CONFIG_REL, type EnvReader } from "../shared/env.ts";
+import { readBytesIfExists } from "../shared/fs_presence.ts";
 import { isHostMetadataPath } from "../shared/host_metadata.ts";
 import { formatDiscernTomlBytes } from "./tidy_format.ts";
 
@@ -136,20 +137,6 @@ const NON_SEED_SUBTREES: readonly string[] = [
 function isNonSeed(templateRel: string): boolean {
   const p = templateRel.replaceAll("\\", "/");
   return NON_SEED_SUBTREES.some((prefix) => p.startsWith(prefix));
-}
-
-/** Read a file's bytes, or undefined if it does not exist. */
-async function readBytesIfExists(
-  path: string,
-): Promise<Uint8Array | undefined> {
-  try {
-    return await Deno.readFile(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
 }
 
 /**

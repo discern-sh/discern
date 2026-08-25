@@ -32,6 +32,7 @@ import type { SetupAssurance } from "./setup_assurance.ts";
 import type { SetupCompletionInventory } from "./setup_inventory.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
+import { pathExists } from "./fs_presence.ts";
 import { type CommandRef, discernCommand, flag } from "./command_reference.ts";
 import {
   assertSetupHumanSurfaceConsumption,
@@ -623,15 +624,4 @@ function inlineInventory(items: readonly string[]): string {
   return items.length === 0
     ? "none"
     : items.map((item) => `\`${item}\``).join(", ");
-}
-
-/** True when a path exists (any type, symlinks not followed) — the same probe `verify`
- * and `begin` use, kept local so this module has no upward dependency. */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
 }

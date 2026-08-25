@@ -15,7 +15,7 @@
 
 import { dirname, join, SEPARATOR } from "@std/path";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
-import { bestEffortFsRead, fileExists, pathExists } from "./fs_presence.ts";
+import { bestEffortFs, fileExists, pathExists } from "./fs_presence.ts";
 import type { DiscernResult } from "./result.ts";
 
 /**
@@ -105,7 +105,7 @@ export async function crossedRepoBoundaries(
   root: string,
 ): Promise<string[]> {
   const real = (p: string): Promise<string | undefined> =>
-    bestEffortFsRead(() => Deno.realPath(p), {
+    bestEffortFs(() => Deno.realPath(p), {
       onFailure: undefined,
       reason:
         "Nested-repository boundary reporting is advisory and must not block the primary command.",

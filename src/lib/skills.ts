@@ -47,6 +47,7 @@ import {
   type InstructionContext,
   renderInstructionTemplate,
 } from "../engine/instruction_template.ts";
+import { lstatIfExists, targetExists } from "../shared/fs_presence.ts";
 
 /** Where a skill in the effective set comes from. */
 export type SkillSource = "authored" | "bundled";
@@ -356,28 +357,6 @@ export interface MaterializeResult {
   errors: string[];
 }
 
-/** Stat without following symlinks; undefined when the path does not exist. */
-async function lstat(path: string): Promise<Deno.FileInfo | undefined> {
-  try {
-    return await Deno.lstat(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
-}
-
-/** True when `path` resolves (following symlinks) to something that exists. */
-async function targetExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Remove a file, symlink, or directory at `path`; a no-op if already gone. */
 async function removeAny(path: string, isDir: boolean): Promise<void> {
   try {
@@ -601,7 +580,7 @@ async function materializeSkillsDir(
     // every effective name was removed in the prune pass. But a real non-symlink
     // a user dropped under a managed name would have been removed above; that is
     // acceptable since the agent skills dir is discern-generated.
-    const existing = await lstat(target);
+    const existing = await lstatIfExists(target);
     if (existing !== undefined) {
       // Should be gone (prune handles managed names); guard defensively.
       await removeAny(target, existing.isDirectory && !existing.isSymlink);
@@ -653,7 +632,7 @@ export async function ejectSkill(
 ): Promise<EjectResult> {
   const bundledDir = await resolveBundledSkillsDir();
   const src = join(bundledDir, name);
-  if (!(await lstat(src))?.isDirectory) {
+  if (!(await lstatIfExists(src))?.isDirectory) {
     const available = (await bundledSkillNames()).join(", ");
     throw new Error(
       `no bundled skill named "${name}" (available: ${available || "none"})`,
@@ -662,7 +641,7 @@ export async function ejectSkill(
   const { rel: skillsRel, abs: skillsAbs } = resolveSkillsDir(root, config);
   const destAbs = join(skillsAbs, name);
   const destRel = join(skillsRel, name);
-  if (await lstat(destAbs) !== undefined) {
+  if (await lstatIfExists(destAbs) !== undefined) {
     throw new Error(
       `an authored skill already exists at ${destRel} — remove it first to re-eject`,
     );
@@ -848,7 +827,7 @@ async function checkSkillsDir(
   const managed = new Map(effective.map((e) => [e.name, e]));
 
   // Whole dir absent → missing (non-blocking), and only when something is expected.
-  if (await lstat(abs) === undefined) {
+  if (await lstatIfExists(abs) === undefined) {
     if (effective.length > 0) {
       drift.push({
         dir: rel,

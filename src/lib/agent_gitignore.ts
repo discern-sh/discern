@@ -20,6 +20,7 @@ import {
 } from "./providers.ts";
 import { resolveTemplatesDir } from "./paths.ts";
 import type { EnvReader } from "../shared/env.ts";
+import { readTextIfExists } from "../shared/fs_presence.ts";
 import { fire, type FiredHint, HINTS } from "../shared/hints.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { generatedArtifactMarker } from "../shared/brand.ts";
@@ -318,18 +319,6 @@ export function gitRmCachedCommand(paths: readonly string[]): string {
 /** Render a shell-safe command for inspecting selected paths in Git's index. */
 export function gitLsFilesCommand(paths: readonly string[]): string {
   return `git ls-files -- ${paths.map(shellQuote).join(" ")}`;
-}
-
-/** Read UTF-8 text, mapping a missing path to `undefined` while preserving other failures. */
-async function readTextIfExists(path: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
 }
 
 /** Convert CRLF and lone CR boundaries to LF for deterministic reconciliation. */

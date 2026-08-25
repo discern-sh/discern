@@ -22,6 +22,7 @@ import {
   type SetupAssurance,
 } from "./setup_assurance.ts";
 import { runGit } from "./subprocess.ts";
+import { pathExists } from "./fs_presence.ts";
 
 /** The branch a fresh `discern setup` isolates its work on, so its several
  * commits never land on — or pollute — the user's current branch (ADR 0065). */
@@ -165,16 +166,6 @@ export const SKELETON_MARKERS: readonly string[] = [
   "setup fills this",
   "(EXAMPLE — replace",
 ];
-
-/** True when a path exists (any type, symlinks not followed). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Walk the scaffolded surface for files that still carry a skeleton marker —
