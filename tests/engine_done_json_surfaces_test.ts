@@ -50,7 +50,7 @@ Deno.test("done --dry-run --json: emits a preview envelope (plan, no steps)", as
     const r = await runAgent(dir, ["done", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const obj = decodeGateResult(r.stdout);
+    const obj = decodeCliResult(r.stdout, "done");
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "done");
     assertEquals(obj.dry_run, true); // the uniform "is this a preview?" signal

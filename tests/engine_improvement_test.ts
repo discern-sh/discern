@@ -87,13 +87,22 @@ type RuleJson = CategoryJson["rules"][number];
 async function improvementJson(
   dir: string,
   args: string[] = [],
-): Promise<{ code: number; payload: ParsedImprovementPayload }> {
+): Promise<{ code: number; payload: ImprovementPayload }> {
   const { code, stdout } = await runAgent(dir, [
     "improvement",
     "--json",
     ...args,
   ]);
   const payload = decodeCliResult(stdout, "improvement");
+  return { code, payload };
+}
+
+/** Run `improvement <args>` and require the completed coaching report. */
+async function improvementReportJson(
+  dir: string,
+  args: string[] = [],
+): Promise<{ code: number; payload: ParsedImprovementPayload }> {
+  const { code, payload } = await improvementJson(dir, args);
   assertResultDataKey(payload, "categories");
   return { code, payload };
 }
@@ -168,7 +177,7 @@ async function writeStrongFiles(dir: string): Promise<void> {
 Deno.test("improvement --json: a fresh install scores low and leads with one fix", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    const { code, payload } = await improvementJson(dir);
+    const { code, payload } = await improvementReportJson(dir);
 
     assertEquals(
       code,
@@ -218,7 +227,7 @@ Deno.test("improvement --json: baseline 100 still leads with an open review", as
     // teaches, so the practice it checks is genuinely satisfied here.
     assertEquals((await runAgent(dir, ["refresh"])).code, 0);
 
-    const { code, payload } = await improvementJson(dir);
+    const { code, payload } = await improvementReportJson(dir);
     assertEquals(code, 0);
     assert(payload.data !== undefined);
     // Every deterministic rule is satisfied → a perfect score, no weak rules.
@@ -266,7 +275,7 @@ Deno.test({
       await writeStrongFiles(dir);
       assertEquals((await runAgent(dir, ["refresh"])).code, 0);
 
-      const json = await improvementJson(dir);
+      const json = await improvementReportJson(dir);
       const selected = json.payload.data?.next_action;
       assert(selected?.kind === "review", "fixture must select a review");
       assert(
@@ -316,7 +325,7 @@ Deno.test("improvement --json: a set-but-missing gotchas doc is partial", async 
       dir,
       `[project]\nslug = "x"\ngotchas_doc = "docs/nope.md"\n[meta]\nbootstrapped = true\n`,
     );
-    const { payload } = await improvementJson(dir);
+    const { payload } = await improvementReportJson(dir);
     const r = rule(cat(payload, "setup"), "setup.gotchas-doc");
     assertEquals(r.status, "partial");
     assertStringIncludes(r.detail, "missing");
@@ -329,7 +338,7 @@ Deno.test("improvement --json: reviews carry the cited material", async () => {
     await writeConfig(dir, STRONG_CONFIG);
     await writeStrongFiles(dir);
 
-    const { payload } = await improvementJson(dir);
+    const { payload } = await improvementReportJson(dir);
     assert(payload.data !== undefined);
     assert(payload.data.open_reviews > 0, "expected open review items");
 
@@ -387,7 +396,7 @@ question = "A changed interface is described before it lands."
     );
     await writeStrongFiles(dir);
 
-    const { payload } = await improvementJson(dir);
+    const { payload } = await improvementReportJson(dir);
     const checkpoints = cat(payload, "checkpoints");
     // The standing placement review teaches the ladder; the audited row carries
     // the checkpoint's identity — same id and prose the checkpoints verb reports.
@@ -485,7 +494,7 @@ question = "A changed interface is described before it lands."
       events.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
     );
 
-    const { payload } = await improvementJson(dir);
+    const { payload } = await improvementReportJson(dir);
     assert(payload.data !== undefined);
     const recommendations = payload.data.recommendations ?? [];
     assertEquals(recommendations.length, 1);
@@ -517,7 +526,7 @@ Deno.test("improvement --category: focuses one area; unknown is a clean error", 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
 
-    const focused = await improvementJson(dir, ["--category", "gate"]);
+    const focused = await improvementReportJson(dir, ["--category", "gate"]);
     assertEquals(focused.code, 0);
     assertEquals(focused.payload.data?.categories.length, 1);
     assertEquals(focused.payload.data?.categories[0]?.name, "gate");
@@ -534,12 +543,12 @@ Deno.test("improvement --min-score: gates the build below the floor", async () =
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // a weak install (0/100)
 
-    const below = await improvementJson(dir, ["--min-score", "50"]);
+    const below = await improvementReportJson(dir, ["--min-score", "50"]);
     assertEquals(below.code, 1, "a score under the floor exits non-zero");
     assertEquals(below.payload.ok, false);
     assertEquals(below.payload.error, "below_min_score");
 
-    const met = await improvementJson(dir, ["--min-score", "0"]);
+    const met = await improvementReportJson(dir, ["--min-score", "0"]);
     assertEquals(met.code, 0, "a score at/above the floor exits zero");
     assertEquals(met.payload.ok, true);
   });
@@ -552,7 +561,7 @@ Deno.test("improvement: every catalog category is always reviewed; an unknown on
 
     // The subsystems are all core (ADR 0101): the standards category is reviewed
     // even with no standard configured — the coaching is exactly "define one".
-    const all = await improvementJson(dir);
+    const all = await improvementReportJson(dir);
     assert(
       all.payload.data?.categories.some((c) => c.name === "standards"),
       "the standards category is always part of the catalog",
@@ -567,7 +576,7 @@ Deno.test("improvement: every catalog category is always reviewed; an unknown on
 Deno.test("improvement: every human report group has a visible section", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    const { payload } = await improvementJson(dir);
+    const { payload } = await improvementReportJson(dir);
     // Non-interactive (the subprocess has no TTY) → the full static report.
     const { code, stdout } = await runAgent(dir, [
       "improvement",

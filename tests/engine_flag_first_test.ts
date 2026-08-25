@@ -275,7 +275,7 @@ Deno.test("result output modes are mutually exclusive", async () => {
       const r = await runAgent(dir, ["status", ...flags]);
       assertEquals(r.code, 1, `${flags.join(" ")}: ${r.output}`);
       if (flags.includes("--json")) {
-        const result = decodeCliResult(r.stdout, "status");
+        const result = decodeCliResult(r.stdout, "discern");
         assertEquals(result.error, "invalid_arguments");
         assert(result.message !== undefined);
         assertStringIncludes(result.message, "cannot be combined");
