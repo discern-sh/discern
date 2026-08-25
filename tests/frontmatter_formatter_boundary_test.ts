@@ -17,6 +17,7 @@
  */
 
 import { assert } from "@std/assert";
+import { z } from "@zod/zod";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import {
@@ -25,14 +26,20 @@ import {
   resolveSkillsDir,
 } from "../src/lib/paths.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const DenoFmtConfigSchema = z.object({
+  fmt: z.object({ exclude: z.array(z.string()).optional() }).optional(),
+});
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 
 /** Read Deno's formatter exclusions that protect frontmatter-contracted source trees. */
 async function fmtExclude(): Promise<string[]> {
-  const denoJson = JSON.parse(
+  const denoJson = decodeWith(
+    DenoFmtConfigSchema,
     await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
-  ) as { fmt?: { exclude?: string[] } };
+  );
   return denoJson.fmt?.exclude ?? [];
 }
 

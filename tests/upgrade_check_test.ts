@@ -5,7 +5,7 @@
  * tests exercise that branch until the first public migration exists.
  */
 
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
   KIT_VERSION,
@@ -15,6 +15,7 @@ import {
 import { HINTS } from "../src/shared/hints.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /** Fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
@@ -41,7 +42,9 @@ Deno.test("upgrade --check passes on a fresh, in-sync install", async () => {
     await setup(dir);
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    const res = JSON.parse(r.stdout);
+    const res = decodeCliResult(r.stdout, "upgrade");
+    assertResultDataKey(res, "check");
+    assert(res.data.schema !== undefined);
     assertEquals(res.ok, true);
     assertEquals(res.verb, "upgrade");
     assertEquals(res.data.check, true);
@@ -82,7 +85,8 @@ Deno.test("upgrade detects and reconciles a stale generated-merge block", async 
 
     const check = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(check.code, 1, check.stderr);
-    const pending = JSON.parse(check.stdout);
+    const pending = decodeCliResult(check.stdout, "upgrade");
+    assertResultDataKey(pending, "pending_gitattributes_reconciliation");
     assertEquals(pending.ok, false);
     assertEquals(
       pending.data.pending_gitattributes_reconciliation,
@@ -106,9 +110,10 @@ Deno.test("upgrade --check refuses a config from a newer schema", async () => {
 
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 1, r.stderr);
-    const res = JSON.parse(r.stdout);
+    const res = decodeCliResult(r.stdout, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "schema_version_too_new");
+    assert(res.message !== undefined);
     assertStringIncludes(res.message, "this project needs a newer discern");
     assertStringIncludes(res.message, "re-run the installer");
     assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), before);
@@ -140,7 +145,8 @@ Deno.test("upgrade --check on a current install tells the truth: version, channe
     // JSON surface: the same facts ride the envelope.
     const json = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(json.code, 0, json.stderr);
-    const res = JSON.parse(json.stdout);
+    const res = decodeCliResult(json.stdout, "upgrade");
+    assertResultDataKey(res, "kit_version");
     assertEquals(res.data.kit_version, KIT_VERSION);
     const expected = assertHasHint(res, HINTS["upgrade-newer-discern"], {
       updateChannel: UPDATE_CHANNEL,

@@ -8,6 +8,7 @@
  */
 
 import { assertEquals } from "@std/assert";
+import { z } from "@zod/zod";
 import { fromFileUrl, join } from "@std/path";
 import { checkProviderHooksCurrent } from "../src/lib/provider_hooks.ts";
 import { providerFor } from "../src/lib/providers.ts";
@@ -15,8 +16,24 @@ import {
   loadConfig,
   resolveConfiguredAgents,
 } from "../src/shared/config_schema.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
+
+type JsonValue = string | number | boolean | null | JsonValue[] | {
+  [key: string]: JsonValue;
+};
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+);
+const ProviderJsonSchema = z.record(z.string(), JsonValueSchema);
 
 /** Narrow decoded provider configuration to a non-null, non-array record. */
 function isJsonObject(value: unknown): value is Record<string, unknown> {
@@ -50,8 +67,11 @@ function worktreeCommands(value: unknown): string[] {
 }
 
 /** Decode a dogfooded provider artifact relative to the repository root. */
-async function readJson(rel: string): Promise<unknown> {
-  return JSON.parse(await Deno.readTextFile(join(REPO, rel)));
+async function readJson(rel: string): Promise<Record<string, JsonValue>> {
+  return decodeWith(
+    ProviderJsonSchema,
+    await Deno.readTextFile(join(REPO, rel)),
+  );
 }
 
 /** Report hook events whose command groups are not represented as arrays. */

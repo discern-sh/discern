@@ -22,6 +22,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
@@ -60,14 +61,13 @@ Deno.test("update --from <branch>: that branch's commits arrive in the worktree"
       await targetExists(join(wt, "phase-one.txt")),
       `the named ref's commits must arrive\n${r.output}`,
     );
-    const result = JSON.parse(r.stdout) as {
-      data?: { range: { main: string } };
-      hints?: string[];
-    };
+    const result = decodeCliResult(r.stdout, "update");
+    assertResultDataKey(result, "range");
+    assert(result.data.range !== undefined);
     // The change summary is computed against the resolved ref: `range.main` is the
     // incoming tip — here, phase-one's tip, not the trunk's.
     assertEquals(
-      result.data?.range.main,
+      result.data.range.main,
       await gitOut(dir, "rev-parse", "phase-one"),
       `range.main must anchor the incoming ref's tip\n${r.stdout}`,
     );
@@ -114,7 +114,8 @@ Deno.test("update --from: a conflicting ref aborts to a clean tree and names the
 
     const r = await runAgent(wt, ["update", "--json", "--from", "clashing"]);
     assertEquals(r.code, 1, r.output);
-    const result = JSON.parse(r.stdout) as { message: string };
+    const result = decodeCliResult(r.stdout, "update");
+    assert(result.message !== undefined);
     assertStringIncludes(result.message, "clash.txt");
     // The recovery converges: re-run update (with the same --from), not finish.
     assertStringIncludes(
@@ -145,7 +146,8 @@ Deno.test("update --from: a non-conflict merge failure surfaces git's real reaso
 
     const r = await runAgent(wt, ["update", "--json", "--from", "island"]);
     assertEquals(r.code, 1, r.output);
-    const result = JSON.parse(r.stdout) as { error: string; message: string };
+    const result = decodeCliResult(r.stdout, "update");
+    assert(result.message !== undefined);
     assertEquals(result.error, "precondition_failed");
     // The message is the failure taxonomy's, carrying git's own reason — not the
     // conflict refusal (whose "merge was aborted" would be false here).
@@ -165,7 +167,8 @@ Deno.test("update --from refuses an unknown ref in plain language", async () => 
     const wt = await mainWithWorktree(dir, "unknown-pull");
     const r = await runAgent(wt, ["update", "--json", "--from", "nope"]);
     assertEquals(r.code, 1, r.output);
-    const result = JSON.parse(r.stdout) as { error: string; message: string };
+    const result = decodeCliResult(r.stdout, "update");
+    assert(result.message !== undefined);
     assertEquals(result.error, "precondition_failed");
     assertStringIncludes(result.message, "Unknown ref 'nope'");
   });
@@ -189,9 +192,8 @@ Deno.test("a no-op update still re-converges: refresh + ensure run with nothing 
       await targetExists(join(wt, "converged.marker")),
       `ensure must re-run on a no-op update\n${r.output}`,
     );
-    const result = JSON.parse(r.stdout) as {
-      steps: { label: string; outcome: string }[];
-    };
+    const result = decodeCliResult(r.stdout, "update");
+    assert(Array.isArray(result.steps));
     const merge = result.steps.find((s) => s.label === "merge");
     assertEquals(merge?.outcome, "skipped", r.stdout);
     const refresh = result.steps.find((s) =>

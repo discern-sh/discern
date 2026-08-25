@@ -7,15 +7,12 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
-import type { z } from "@zod/zod";
+import { z } from "@zod/zod";
 import { renderAgentFiles } from "../src/engine/instruction_render.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
-import {
-  type UpdateData,
-  UpdateOutputSchema,
-} from "../src/shared/result_schemas.ts";
+import type { UpdateData } from "../src/shared/result_schemas.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -26,26 +23,26 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 
-type UpdateJson = Omit<z.infer<typeof UpdateOutputSchema>, "data"> & {
-  data?: UpdateData;
-};
+const McpConfigSchema = z.object({
+  mcpServers: z.object({
+    discern: z.object({ command: z.string() }),
+  }),
+});
 
 const BUILTIN_REFRESH_GROUP = "discern:refresh";
 const GENERATED_PATH = "generated/bundle.txt";
 const GROUP_NAME = "bundle";
 
-/** Validate update output against its public schema before returning typed fixture data. */
-function parse(stdout: string): UpdateJson {
-  const raw = JSON.parse(stdout);
-  const parsed = UpdateOutputSchema.safeParse(raw);
-  assert(
-    parsed.success,
-    `update --json drifted from UpdateOutputSchema:\n${
-      JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
-    }\n${stdout}`,
-  );
-  return parsed.data as UpdateJson;
+/** Validate update output against its registered public result contract. */
+function parse(stdout: string): CliResultForCommand<"update"> {
+  return decodeCliResult(stdout, "update");
 }
 
 /** Create parent directories before materializing a generated-update fixture file. */
@@ -126,7 +123,7 @@ async function commitAll(root: string, message: string): Promise<void> {
 /** Make an already-adopted tracked MCP integration stale without removing it. */
 async function staleMcpCommand(root: string): Promise<void> {
   const path = join(root, ".mcp.json");
-  const doc = JSON.parse(await Deno.readTextFile(path));
+  const doc = decodeWith(McpConfigSchema, await Deno.readTextFile(path));
   doc.mcpServers.discern.command = "wrong-discern";
   await Deno.writeTextFile(path, `${JSON.stringify(doc, null, 2)}\n`);
 }
@@ -170,8 +167,8 @@ Deno.test("update regenerates a declared artifact instead of merging its conflic
     const result = await runAgent(wt, ["update", "--json"]);
     assertEquals(result.code, 0, result.output);
     const parsed = parse(result.stdout);
+    assertResultDataKey(parsed, "behind");
     const { data } = parsed;
-    assert(data !== undefined, result.stdout);
 
     assertEquals(data.auto_resolved, [GENERATED_PATH]);
     assertConfiguredGroupsRan(data, configured);
@@ -213,6 +210,7 @@ Deno.test("update regenerates a declared artifact after a clean merge and previe
     ]);
     assertEquals(previewRun.code, 0, previewRun.output);
     const preview = parse(previewRun.stdout);
+    assertResultDataKey(preview, "behind");
     assertEquals(preview.dry_run, true);
     assert(
       preview.plan?.steps.some((step) =>
@@ -238,8 +236,8 @@ Deno.test("update regenerates a declared artifact after a clean merge and previe
     const result = await runAgent(wt, ["update", "--json"]);
     assertEquals(result.code, 0, result.output);
     const parsed = parse(result.stdout);
+    assertResultDataKey(parsed, "behind");
     const { data } = parsed;
-    assert(data !== undefined, result.stdout);
     assertEquals(data.auto_resolved ?? [], []);
     assertConfiguredGroupsRan(data, configured);
     assertEquals(
@@ -321,7 +319,8 @@ Deno.test("update commits every tracked refresh output changed after a merge", a
       ),
       result.stdout,
     );
-    const mcp = JSON.parse(
+    const mcp = decodeWith(
+      McpConfigSchema,
       await Deno.readTextFile(join(wt, ".mcp.json")),
     );
     assertEquals(mcp.mcpServers.discern.command, "discern");
@@ -456,7 +455,7 @@ Deno.test("update records a failed declared generator without undoing the merge"
       "from main\n",
       "merge must be kept",
     );
-    assert(parsed.data !== undefined, result.stdout);
+    assertResultDataKey(parsed, "behind");
     assertConfiguredGroupsRan(parsed.data, configured);
     assert(
       parsed.steps?.some((step) =>
@@ -488,8 +487,8 @@ Deno.test("update resolves a refresh-owned agent-file conflict without generated
     const result = await runAgent(wt, ["update", "--json"]);
     assertEquals(result.code, 0, result.output);
     const parsed = parse(result.stdout);
+    assertResultDataKey(parsed, "behind");
     const { data } = parsed;
-    assert(data !== undefined, result.stdout);
     assertEquals(data.auto_resolved, [agentPath]);
     assert(data.regenerated?.includes(BUILTIN_REFRESH_GROUP));
     assertEquals(

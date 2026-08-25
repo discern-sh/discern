@@ -22,7 +22,12 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import { diagFor, parseJson, stepFor } from "./engine_done_json_shared.ts";
+import {
+  decodeGateResult,
+  diagFor,
+  stepFor,
+} from "./engine_done_json_shared.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 Deno.test("done --dry-run --json: emits a preview envelope (plan, no steps)", async () => {
   await withTempDir(async (dir) => {
@@ -45,10 +50,11 @@ Deno.test("done --dry-run --json: emits a preview envelope (plan, no steps)", as
     const r = await runAgent(dir, ["done", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "done");
     assertEquals(obj.dry_run, true); // the uniform "is this a preview?" signal
+    assert(obj.plan !== undefined);
     assertEquals(obj.plan.title, "Gate plan");
     assert(
       obj.plan.steps.some((s: { label: string }) => s.label === "test"),
@@ -118,7 +124,7 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
     // --json: the advice rides in the envelope (promoted off the human-only tail).
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
     assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
     assertHasHint(obj, HINTS["gate-update-docs"]);
@@ -158,7 +164,7 @@ Deno.test("done --json: a failing gate carries the gotchas-doc pointer as a hint
     await gitInit(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
     assertHasHint(obj, HINTS["gate-failure-gotchas"], {
@@ -176,7 +182,7 @@ Deno.test("done --json: human mode is unaffected (stdout still human, not JSON)"
     // Human stdout, not JSON.
     let parsed = true;
     try {
-      JSON.parse(r.stdout.trim());
+      decodeCliResult(r.stdout, "done");
     } catch {
       parsed = false;
     }
@@ -201,7 +207,7 @@ Deno.test("done --json: a STALE agent file fails the instruction check; refresh 
     );
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "instructions");
     const diag = diagFor(obj, "instructions");
@@ -209,6 +215,7 @@ Deno.test("done --json: a STALE agent file fails the instruction check; refresh 
       diag !== undefined,
       `expected an instruction diagnostic: ${r.stdout}`,
     );
+    assert(diag.output !== undefined);
     assertEquals(diag.reproduce_cmd, "discern refresh");
     assertStringIncludes(diag.output, "CLAUDE.md");
     assertStringIncludes(diag.output, "[instructions].sources"); // the redirect
@@ -267,7 +274,7 @@ Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatte
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "skill_frontmatter");
     const diag = diagFor(obj, "skill-frontmatter");
@@ -275,6 +282,7 @@ Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatte
       diag !== undefined,
       `expected a skill-frontmatter diagnostic: ${r.stdout}`,
     );
+    assert(diag.output !== undefined);
     assertStringIncludes(diag.message, "label-the-jars");
     assertTerminalTextIncludes(diag.output, "nested mapping"); // what YAML reads
     assertTerminalTextIncludes(diag.output, "must be quoted"); // the remedy
@@ -309,7 +317,7 @@ Deno.test("done --json: two ADR records claiming one number fail the adr_numbers
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "adr_numbers");
     const diag = diagFor(obj, "adr-numbers");
@@ -317,6 +325,7 @@ Deno.test("done --json: two ADR records claiming one number fail the adr_numbers
       diag !== undefined,
       `expected an adr-numbers diagnostic: ${r.stdout}`,
     );
+    assert(diag.output !== undefined);
     assertStringIncludes(diag.message, "0007");
     assertStringIncludes(diag.output, "0007-first.md");
     assertStringIncludes(diag.output, "0007-second.md");
@@ -359,8 +368,11 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
     await runAgent(dir, ["refresh"]); // materialize the agent files + skills (current)
 
     // Baseline: current artifacts → the currency checks pass and the capability runs.
-    const ok = parseJson((await runAgent(dir, ["done", "--json"])).stdout);
+    const ok = decodeGateResult(
+      (await runAgent(dir, ["done", "--json"])).stdout,
+    );
     assertEquals(ok.data.failed_stage, null);
+    assert(ok.steps !== undefined);
     assert(
       ok.steps.some((s: { kind: string; outcome: string }) =>
         s.kind === "job" && s.outcome === "ok"
@@ -378,8 +390,9 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
     );
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.data.failed_stage, "instructions");
+    assert(obj.steps !== undefined);
     // Fail-fast (ADR 0056): the expensive stage never ran — every planned step is
     // skipped, exactly as for the merge precondition (ADR 0050). Were the currency
     // check still last, the capability would have run first (its step would be `ok`).
@@ -406,7 +419,7 @@ Deno.test("done --json: a MISSING agent file does NOT block (absent copy tolerat
     // project that keeps the compiled files untracked would otherwise
     // red-light first-run CI on every fresh checkout.
     assertEquals(r.code, 0, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
     assertEquals(obj.data.failed_stage, null);
     assertEquals(diagFor(obj, "instructions"), undefined);
@@ -444,9 +457,10 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "tracked_artifacts");
+    assert(obj.steps !== undefined);
     assert(
       obj.steps.every((s: { outcome: string }) => s.outcome === "skipped"),
       `the test job must not run after the tracked-artifacts precondition fails: ${r.stdout}`,
@@ -456,6 +470,7 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
       diag !== undefined,
       `expected tracked-artifacts diagnostic: ${r.stdout}`,
     );
+    assert(diag.output !== undefined);
     assertStringIncludes(diag.reproduce_cmd, "git ls-files --");
     assertTerminalTextIncludes(
       diag.output,
@@ -479,7 +494,9 @@ Deno.test("done --json: a hand-edited materialized skill blocks (skills); a fore
       "\nHAND EDIT\n",
       { append: true },
     );
-    let obj = parseJson((await runAgent(dir, ["done", "--json"])).stdout);
+    let obj = decodeGateResult(
+      (await runAgent(dir, ["done", "--json"])).stdout,
+    );
     assertEquals(obj.data.failed_stage, "skills");
     const diag = diagFor(obj, "skills");
     assert(diag !== undefined, "a skills diagnostic should be attached");
@@ -493,7 +510,7 @@ Deno.test("done --json: a hand-edited materialized skill blocks (skills); a fore
       join(skillsDir, "user-dropin", "SKILL.md"),
       "# mine\n",
     );
-    obj = parseJson((await runAgent(dir, ["done", "--json"])).stdout);
+    obj = decodeGateResult((await runAgent(dir, ["done", "--json"])).stdout);
     assertEquals(
       obj.data.failed_stage,
       null,
@@ -528,7 +545,7 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
 
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
 
     // Compact data keeps the claim and omits the review-page rendering.
@@ -548,7 +565,7 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
       proof.line,
       "full proof: discern status --verbose",
     );
-    assertEquals(proof.markdown, undefined);
+    assertEquals("markdown" in proof, false);
 
     // The relay affordance rides the envelope's hints, led by the
     // prove-before-claiming guardrail that replaced the prove-it-works skill.
@@ -557,7 +574,9 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
 
     // The marker stores the line and the page beside the sha it vouches for, so
     // status and accept can surface the proof without re-running the gate.
+    assert(obj.data.gate_proof !== undefined);
     assertEquals(obj.data.gate_proof.status, "recorded");
+    assert(obj.data.gate_proof.path !== undefined);
     const marker = await Deno.readTextFile(obj.data.gate_proof.path);
     const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();
     assert(
@@ -568,7 +587,7 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
 
     // Deterministic: the same tree emits the same compact Proof. The unchanged
     // tree makes this a rerun, so it carries the required attestation.
-    const again = parseJson(
+    const again = decodeGateResult(
       (await runAgent(wt, ["done", "--confirmed", "--json"])).stdout,
     );
     assertEquals(again.data.proof, proof);
@@ -582,7 +601,7 @@ Deno.test("done --json: no proof on the trunk itself, or over a dirty tree", asy
     await gitInit(dir);
 
     // The trunk: nothing ahead of main to review — no proof, gate still records.
-    const onMain = parseJson(
+    const onMain = decodeGateResult(
       (await runAgent(dir, ["done", "--json"])).stdout,
     );
     assertEquals(onMain.ok, true);
@@ -595,9 +614,13 @@ Deno.test("done --json: no proof on the trunk itself, or over a dirty tree", asy
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
     await Deno.writeTextFile(join(wt, "wip.txt"), "wip\n");
-    const dirty = parseJson((await runAgent(wt, ["done", "--json"])).stdout);
+    const dirty = decodeGateResult(
+      (await runAgent(wt, ["done", "--json"])).stdout,
+    );
     assertEquals(dirty.ok, true);
     assertEquals(dirty.data.proof, undefined);
+    assert(dirty.data.gate_proof !== undefined);
+    assert(dirty.data.gate_proof.reason !== undefined);
     assertEquals(dirty.data.gate_proof.status, "skipped_dirty");
     // The refusal NAMES what blocks the proof — in the reason and the hint —
     // so the agent commits the right file instead of diagnosing a bare "dirty".

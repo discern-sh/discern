@@ -6,6 +6,7 @@
  */
 
 import { assert, assertEquals, assertExists, assertRejects } from "@std/assert";
+import { z } from "@zod/zod";
 import { join } from "@std/path";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import {
@@ -18,6 +19,13 @@ import {
 } from "../src/lib/migrations.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const MigratedSettingsSchema = z.object({
+  model: z.string().optional(),
+  theme: z.string().optional(),
+  permissions: z.object({ deny: z.array(z.string()).optional() }).optional(),
+});
 
 /** A synthetic step that records its source version when applied. */
 function recordingStep(from: number, log: number[]): Migration {
@@ -266,11 +274,7 @@ Deno.test("context deep-merges .claude/settings.json", async () => {
     await ctx.mergeSettings({ permissions: { deny: ["Read(./.env)"] } });
     const text = await ctx.readText(".claude/settings.json");
     assertExists(text);
-    const settings = JSON.parse(text) as {
-      model?: string;
-      theme?: string;
-      permissions?: { deny?: string[] };
-    };
+    const settings = decodeWith(MigratedSettingsSchema, text);
     assertEquals(settings.model, "opus");
     assertEquals(settings.theme, "dark");
     assertEquals(settings.permissions?.deny, ["Read(./.env)"]);

@@ -7,6 +7,7 @@
 import {
   assert,
   assertEquals,
+  assertExists,
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
@@ -33,6 +34,7 @@ import {
 } from "../src/lib/terminal.ts";
 import { DISCERN_TERMINAL_MOTIF, stripAnsi } from "discern-design-system/cli";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const REPAINT = `${CSI}1G`;
@@ -262,12 +264,10 @@ Deno.test("done human output leaves live activity facts and the compact TTY proo
     const jsonStart = json.stdout.indexOf("{");
     const jsonEnd = json.stdout.lastIndexOf("}");
     assertEquals(jsonStart >= 0 && jsonEnd >= jsonStart, true, json.output);
-    const envelope = JSON.parse(
+    const envelope = decodeCliResult(
       json.stdout.slice(jsonStart, jsonEnd + 1),
-    ) as {
-      ok: boolean;
-      verb: string;
-    };
+      "done",
+    );
     assertEquals(envelope.ok, true);
     assertEquals(envelope.verb, "done");
     assertEquals(json.output.includes("Running gate checks"), false);
@@ -429,40 +429,26 @@ Deno.test({
       const json = await runAgent(dir, ["done", "--confirmed", "--json"]);
       assertEquals(json.code, 1, json.output);
       assertEquals(json.stderr, "", json.output);
-      const envelope = JSON.parse(json.stdout) as {
-        ok: boolean;
-        verb: string;
-        data: { failed_stage: string | null };
-        steps: Array<{
-          label: string;
-          outcome: string;
-          output_lines?: number;
-          error_like_lines?: number;
-          output_path?: string;
-        }>;
-        diagnostics: Array<{
-          tool: string;
-          output?: string;
-          truncated?: boolean;
-          output_path?: string;
-        }>;
-      };
+      const envelope = decodeCliResult(json.stdout, "done");
       assertEquals(envelope.ok, false);
       assertEquals(envelope.verb, "done");
+      assertResultDataKey(envelope, "failed_stage");
       assertEquals(envelope.data.failed_stage, "fix");
+      assertExists(envelope.steps);
       const format = envelope.steps.find((step) => step.label === "format");
       assert(format !== undefined, json.stdout);
       assertEquals(format.outcome, "failed");
       assert((format.output_lines ?? 0) >= 6, JSON.stringify(format));
       assertEquals(format.error_like_lines, 0);
-      assertEquals(typeof format.output_path, "string");
-      const raw = await Deno.readFile(format.output_path as string);
+      assertExists(format.output_path);
+      const raw = await Deno.readFile(format.output_path);
       assert(raw.length > CAPTURE_CAP, `raw artifact was ${raw.length} bytes`);
       const rawText = new TextDecoder().decode(raw);
       assertStringIncludes(rawText, "\x1b[31mLIVE-EVIDENCE-START");
       assertStringIncludes(rawText, "partial-one\rpartial-two\r");
       assertStringIncludes(rawText, "TAIL-SIGNAL");
 
+      assertExists(envelope.diagnostics);
       const diagnostic = envelope.diagnostics.find((item) =>
         item.tool === "format"
       );

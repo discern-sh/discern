@@ -11,7 +11,12 @@
  * `improve_catalog_test.ts`.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { stripAnsi } from "discern-design-system/cli";
@@ -31,6 +36,11 @@ import {
   unexpectedTerminalControls,
   withTempDir,
 } from "./helpers.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 const PACKAGE_SECTION_TRIANGLES = new Set(
   Object.values(DISCERN_TRIANGLE_GLYPHS),
@@ -64,85 +74,34 @@ function triangleSectionAt(
   return -1;
 }
 
-/** One deterministic rule result in the `improvement --json` payload. */
-interface RuleJson {
-  id: string;
-  title: string;
-  status: "pass" | "partial" | "fail";
-  weight: number;
-  detail: string;
-  fix?: string;
-  teach: string;
-}
-
-/** One subjective review item in the payload. */
-interface ReviewJson {
-  id: string;
-  title: string;
-  ask: string;
-  teach: string;
-  against?: { source: string; excerpt: string };
-  boundary?: { checkpoint: string; mode: string }[];
-}
-
-/** One category in the payload. */
-interface CategoryJson {
-  name: string;
-  title: string;
-  score: number;
-  weight: number;
-  weak: number;
-  rules: RuleJson[];
-  reviews: ReviewJson[];
-}
-
-/** The `improvement --json` envelope shape we assert against. */
-interface ImprovementPayload {
-  ok: boolean;
-  verb: string;
-  error?: string;
-  message?: string;
-  data?: {
-    score: number;
-    weak: number;
-    open_reviews: number;
-    next_action: {
-      kind: "fix" | "review" | "decide";
-      category: string;
-      id: string;
-      title: string;
-      action: string;
-      why: string;
-      against?: { source: string; excerpt: string };
-    };
-    recommendations?: {
-      id: string;
-      subject: string;
-      title: string;
-      action: string;
-      why: string;
-      evidence: { source: string; excerpt: string };
-    }[];
-    categories: CategoryJson[];
-  };
-}
+type ImprovementPayload = CliResultForCommand<"improvement">;
+type ImprovementData = Exclude<
+  NonNullable<ImprovementPayload["data"]>,
+  { issues: unknown }
+>;
+type ParsedImprovementPayload = ImprovementPayload & { data: ImprovementData };
+type CategoryJson = ImprovementData["categories"][number];
+type RuleJson = CategoryJson["rules"][number];
 
 /** Run `improvement <args>` and parse its `--json` stdout. */
 async function improvementJson(
   dir: string,
   args: string[] = [],
-): Promise<{ code: number; payload: ImprovementPayload }> {
+): Promise<{ code: number; payload: ParsedImprovementPayload }> {
   const { code, stdout } = await runAgent(dir, [
     "improvement",
     "--json",
     ...args,
   ]);
-  return { code, payload: JSON.parse(stdout) as ImprovementPayload };
+  const payload = decodeCliResult(stdout, "improvement");
+  assertResultDataKey(payload, "categories");
+  return { code, payload };
 }
 
 /** Find a category by slug, asserting it is present. */
-function cat(payload: ImprovementPayload, name: string): CategoryJson {
-  const found = payload.data?.categories.find((c) => c.name === name);
+function cat(payload: ParsedImprovementPayload, name: string): CategoryJson {
+  assertExists(payload.data.categories);
+  const found = payload.data.categories.find((c) => c.name === name);
   assert(found !== undefined, `expected a '${name}' category`);
   return found;
 }

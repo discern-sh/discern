@@ -9,10 +9,27 @@
  */
 
 import { assertEquals, assertExists, assertNotStrictEquals } from "@std/assert";
+import { z } from "@zod/zod";
 import {
   mergeJsonSettingsDedupingGroups,
   mergeSettings,
 } from "../src/lib/settings_merge.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const FlatHookSettingsSchema = z.object({
+  hooks: z.object({
+    sessionStart: z.array(
+      z.object({
+        command: z.string().optional(),
+        type: z.string().optional(),
+        bash: z.string().optional(),
+        timeoutSec: z.number().optional(),
+      }).refine((entry) =>
+        entry.command !== undefined || entry.bash !== undefined
+      ),
+    ),
+  }),
+});
 
 /** The kit's incoming settings, shaped like the real template. */
 function incoming(): unknown {
@@ -186,7 +203,7 @@ Deno.test("mergeJsonSettingsDedupingGroups: flat group-level command/bash hooks 
   const twice = mergeJsonSettingsDedupingGroups(once, cursor);
   assertEquals(twice, once); // byte-stable across a re-seed
   assertEquals(
-    (JSON.parse(twice) as { hooks: { sessionStart: unknown[] } }).hooks
+    decodeWith(FlatHookSettingsSchema, twice).hooks
       .sessionStart
       .length,
     1,
@@ -207,7 +224,7 @@ Deno.test("mergeJsonSettingsDedupingGroups: flat group-level command/bash hooks 
   const c2 = mergeJsonSettingsDedupingGroups(c1, copilot);
   assertEquals(c2, c1);
   assertEquals(
-    (JSON.parse(c2) as { hooks: { sessionStart: unknown[] } }).hooks
+    decodeWith(FlatHookSettingsSchema, c2).hooks
       .sessionStart.length,
     1,
   );
@@ -221,9 +238,10 @@ Deno.test("mergeJsonSettingsDedupingGroups: a user's distinct hook group is pres
     version: 1,
     hooks: { sessionStart: [{ command: "discern worktree ensure" }] },
   });
-  const merged = JSON.parse(
+  const merged = decodeWith(
+    FlatHookSettingsSchema,
     mergeJsonSettingsDedupingGroups(existing, incoming),
-  ) as { hooks: { sessionStart: Array<{ command: string }> } };
+  );
   // Both kept — dedup only collapses an EXACT structural repeat, never a distinct group.
   assertEquals(merged.hooks.sessionStart.length, 2);
   assertEquals(merged.hooks.sessionStart[0]?.command, "my-own-hook");

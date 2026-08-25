@@ -11,23 +11,27 @@ import {
   assertMatch,
   assertStringIncludes,
 } from "@std/assert";
+import { z } from "@zod/zod";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { parseValeVersion, runVale } from "../scripts/vale_lib.ts";
 import { withTempDir } from "./helpers.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 
-interface ValeAlert {
-  Check?: unknown;
-  Severity?: unknown;
-}
+const ValeAlertSchema = z.object({
+  Check: z.string().optional(),
+  Severity: z.string().optional(),
+});
+const ValeOutputSchema = z.record(z.string(), z.array(ValeAlertSchema));
+type ValeAlert = z.infer<typeof ValeAlertSchema>;
 
 /** Alerts Vale returned for one fixture path, tolerant of `/tmp` symlinks. */
 function fixtureAlerts(
-  result: Record<string, unknown>,
+  result: z.infer<typeof ValeOutputSchema>,
   suffix: string,
 ): ValeAlert[] {
   const entry = Object.entries(result).find(([path]) => path.endsWith(suffix));
-  return Array.isArray(entry?.[1]) ? entry[1] as ValeAlert[] : [];
+  return entry?.[1] ?? [];
 }
 
 Deno.test("the Vale binary has one tracked version authority", async () => {
@@ -103,9 +107,10 @@ Deno.test("brand-path severity cannot downgrade house errors on other map pages"
       "--minAlertLevel=suggestion",
       dir,
     ]);
-    const parsed = JSON.parse(
+    const parsed = decodeWith(
+      ValeOutputSchema,
       new TextDecoder().decode(run.stdout),
-    ) as Record<string, unknown>;
+    );
     const expected = [
       "Discern.VendorSpeak",
       "Discern.Hype",

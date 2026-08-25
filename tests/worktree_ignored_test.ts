@@ -9,6 +9,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { z } from "@zod/zod";
 import { dirname, join } from "@std/path";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
@@ -17,6 +18,7 @@ import {
 } from "../src/engine/worktree/ignored.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 
 interface BaselineRoot {
   path: string;
@@ -31,6 +33,17 @@ interface BaselineFile {
   version: number;
   roots: BaselineRoot[];
 }
+const BaselineFileSchema: z.ZodType<BaselineFile> = z.object({
+  version: z.number().int().nonnegative(),
+  roots: z.array(z.object({
+    path: z.string(),
+    kind: z.enum(["file", "dir", "symlink", "other", "missing"]),
+    mode: z.enum(["content", "metadata"]),
+    digest: z.string(),
+    files: z.number().int().nonnegative(),
+    bytes: z.number().int().nonnegative(),
+  })),
+});
 
 /** Create ignored fixture data under one rule before initializing the repository. */
 async function initIgnoredRepo(
@@ -56,9 +69,10 @@ async function baselinePath(dir: string): Promise<string> {
 
 /** Decode the persisted ignored-root fingerprints written by setup-time capture. */
 async function readBaseline(dir: string): Promise<BaselineFile> {
-  return JSON.parse(
+  return decodeWith(
+    BaselineFileSchema,
     await Deno.readTextFile(await baselinePath(dir)),
-  ) as BaselineFile;
+  );
 }
 
 Deno.test("ignored drift inspects exact roots but collapses only changed labels", async () => {

@@ -36,6 +36,7 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 // Startup and behaviour are separate clocks. A loaded parallel suite may delay
 // a cold engine before it reaches its configured command; once that command
@@ -302,12 +303,11 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
     );
 
     assertEquals(r.code, 1, r.output);
-    // deno-lint-ignore no-explicit-any
-    const obj = JSON.parse(r.stdout.trim()) as any;
+    const obj = decodeCliResult(r.stdout, "done");
+    assertResultDataKey(obj, "failed_stage");
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "check/test");
-    // deno-lint-ignore no-explicit-any
-    const diag = (obj.diagnostics ?? []).find((d: any) => d.tool === "test");
+    const diag = (obj.diagnostics ?? []).find((d) => d.tool === "test");
     assert(diag !== undefined, `expected a diagnostic for test: ${r.stdout}`);
     // The message is bounded, plain, and names the likely cause + the way out.
     assertStringIncludes(diag.message, "timed out");
@@ -369,8 +369,7 @@ async function assertStageKindTimesOut(opts: {
     );
 
     assertEquals(r.code, 1, r.output);
-    // deno-lint-ignore no-explicit-any
-    const obj = JSON.parse(r.stdout.trim()) as any;
+    const obj = decodeCliResult(r.stdout, "done");
     // deno-lint-ignore no-explicit-any
     const diag = (obj.diagnostics ?? []).find((d: any) =>
       d.tool === opts.jobLabel
@@ -550,8 +549,7 @@ async function assertOverrideBoundsOwnJob(opts: {
     );
 
     assertEquals(r.code, 1, r.output);
-    // deno-lint-ignore no-explicit-any
-    const obj = JSON.parse(r.stdout.trim()) as any;
+    const obj = decodeCliResult(r.stdout, "done");
     // deno-lint-ignore no-explicit-any
     const diag = (obj.diagnostics ?? []).find((d: any) =>
       d.tool === opts.jobLabel
@@ -637,8 +635,7 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
     );
 
     assertEquals(r.code, 1, r.output);
-    // deno-lint-ignore no-explicit-any
-    const obj = JSON.parse(r.stdout.trim()) as any;
+    const obj = decodeCliResult(r.stdout, "done");
     // deno-lint-ignore no-explicit-any
     const diag = (obj.diagnostics ?? []).find((d: any) =>
       d.tool === "scope:widget"

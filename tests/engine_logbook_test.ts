@@ -29,6 +29,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import {
   type LogbookEvent,
   parseLogbookLine,
@@ -773,7 +774,7 @@ Deno.test("logbook: an unwritable logbook directory changes no verb's outcome", 
     try {
       const r = await runAgent(dir, ["status", "--json"]);
       assertEquals(r.code, 0, r.output);
-      const parsed = JSON.parse(r.stdout) as { ok: boolean };
+      const parsed = decodeCliResult(r.stdout, "status");
       assertEquals(parsed.ok, true);
     } finally {
       await Deno.chmod(logDir, 0o755);

@@ -15,8 +15,12 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
+import { z } from "@zod/zod";
 import { dirname, join, relative } from "@std/path";
 import { walk } from "@std/fs";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const MaterializedManifestSchema = z.array(z.string());
 import {
   type DiscernConfig,
   parseConfigOrThrow,
@@ -447,9 +451,10 @@ Deno.test("materializeSkills: prunes an excluded authored skill's live symlink a
     // Pruning removes the LINK only — the authored source stays untouched.
     assert(await targetExists(join(root, "skills/foo/SKILL.md")));
     // And the manifest no longer carries it (nothing left to own).
-    const owned = JSON.parse(
+    const owned = decodeWith(
+      MaterializedManifestSchema,
       await Deno.readTextFile(join(sk, MATERIALIZED_MANIFEST)),
-    ) as string[];
+    );
     assertEquals(owned.includes("foo"), false);
   });
 });
@@ -493,7 +498,10 @@ Deno.test("materializeSkills: prunes a real-dir copy of a bundled skill it no lo
       "stale bundled copy",
     );
     const manifestPath = join(sk, MATERIALIZED_MANIFEST);
-    const owned = JSON.parse(await Deno.readTextFile(manifestPath)) as string[];
+    const owned = decodeWith(
+      MaterializedManifestSchema,
+      await Deno.readTextFile(manifestPath),
+    );
     await Deno.writeTextFile(
       manifestPath,
       JSON.stringify([...owned, "gone-skill"], null, 2),

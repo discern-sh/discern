@@ -29,6 +29,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import { awaitResult } from "../src/engine/await/await.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
@@ -764,16 +765,12 @@ Deno.test("root, utility, read, and command-group CLI results are faithful", asy
 
     for (const testCase of cases) {
       const result = await runAgent(dir, [...testCase.args]);
-      let envelope: unknown;
-      try {
-        envelope = JSON.parse(result.stdout);
-      } catch {
-        throw new Error(
-          `${
-            testCase.args.join(" ")
-          } emitted no JSON envelope:\n${result.output}`,
-        );
-      }
+      const command = testCase.id === "discern"
+        ? "discern"
+        : testCase.id === "config"
+        ? `config ${testCase.args[1]}`
+        : testCase.id;
+      const envelope = decodeCliResult(result.stdout, command);
       expectSerializedFaithful(
         testCase.id,
         envelope,
@@ -790,7 +787,7 @@ Deno.test("root, utility, read, and command-group CLI results are faithful", asy
     assertEquals(identity.code, 0, identity.output);
     expectSerializedFaithful(
       "identity",
-      JSON.parse(identity.stdout),
+      decodeCliResult(identity.stdout, "identity"),
       "identity --port --json",
     );
   });

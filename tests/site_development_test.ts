@@ -7,6 +7,7 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
+import { z } from "@zod/zod";
 import { dirname, fromFileUrl, join, toFileUrl } from "@std/path";
 import { Project, SyntaxKind } from "ts-morph";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -31,11 +32,16 @@ import {
 } from "../site/build_inputs.ts";
 import { handler } from "../site/serve.ts";
 import { GENERATED_SITE_OUTPUTS } from "../site/build.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 
 interface DenoConfig {
-  readonly tasks?: Readonly<Record<string, string>>;
-  readonly workspace?: readonly string[];
+  readonly tasks?: Readonly<Record<string, string>> | undefined;
+  readonly workspace?: readonly string[] | undefined;
 }
+const DenoConfigSchema: z.ZodType<DenoConfig> = z.object({
+  tasks: z.record(z.string(), z.string()).optional(),
+  workspace: z.array(z.string()).optional(),
+});
 
 interface ConfigEntry {
   readonly path: string;
@@ -52,7 +58,7 @@ const REPO = dirname(ROOT);
 
 /** Decode one root or workspace Deno configuration for development-policy checks. */
 async function readConfig(path: string): Promise<DenoConfig> {
-  return JSON.parse(await Deno.readTextFile(path)) as DenoConfig;
+  return decodeWith(DenoConfigSchema, await Deno.readTextFile(path));
 }
 
 /** Load the root config and every declared workspace member as labeled entries. */

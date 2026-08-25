@@ -10,7 +10,13 @@
  * deep-merged — neither clobbers the other, and a user key survives both.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
+import { z } from "@zod/zod";
 import { basename, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { targetExists } from "../src/shared/fs_presence.ts";
@@ -25,6 +31,84 @@ import {
   MCP_STRICT_TOOL_CALLS_FLAG,
 } from "../src/shared/mcp_timeout_policy.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
+
+const CommandHookSchema = z.object({ command: z.string() });
+const GeminiSettingsSchema = z.object({
+  hooksConfig: z.object({ enabled: z.boolean() }),
+  hooks: z.object({
+    enabled: z.boolean().optional(),
+    SessionStart: z.array(z.object({
+      hooks: z.array(CommandHookSchema).nonempty(),
+    })).nonempty(),
+  }),
+  mcpServers: z.object({
+    discern: z.object({
+      command: z.string(),
+      args: z.array(z.string()),
+      timeout: z.number(),
+    }),
+  }).optional(),
+  telemetry: z.object({ enabled: z.boolean() }).optional(),
+});
+const CodexHooksSchema = z.object({
+  hooks: z.object({
+    SessionStart: z.array(z.object({
+      matcher: z.string(),
+      hooks: z.array(CommandHookSchema).nonempty(),
+    })).nonempty(),
+  }),
+});
+const ProviderSettingsSchema = z.object({
+  hooks: z.record(
+    z.string(),
+    z.array(z.union([
+      z.object({
+        matcher: z.string().optional(),
+        hooks: z.array(z.object({
+          type: z.string().optional(),
+          command: z.string().optional(),
+          bash: z.string().optional(),
+          timeout: z.number().optional(),
+          timeoutSec: z.number().optional(),
+        })),
+      }),
+      z.object({ command: z.string() }),
+      z.object({
+        type: z.string(),
+        bash: z.string(),
+        timeoutSec: z.number().optional(),
+      }),
+    ])),
+  ).optional(),
+  userPreserved: z.string().optional(),
+}).passthrough();
+const CursorHooksSchema = z.object({
+  hooks: z.object({
+    sessionStart: z.array(CommandHookSchema).nonempty(),
+  }),
+});
+const CopilotHooksSchema = z.object({
+  hooks: z.object({
+    sessionStart: z.array(z.object({ bash: z.string() })).nonempty(),
+  }),
+});
+const McpSettingsSchema = z.object({
+  mcpServers: z.object({
+    discern: z.object({
+      type: z.string().optional(),
+      command: z.string(),
+      args: z.array(z.string()),
+      timeout: z.number().optional(),
+      alwaysLoad: z.boolean().optional(),
+      deferTools: z.string().optional(),
+    }),
+  }),
+});
 
 Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP register() compose in one .gemini/settings.json", async () => {
   await withTempDir(async (dir) => {
@@ -34,13 +118,18 @@ Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP reg
     // The seed landed: hooksConfig.enabled (the hooks system's canonical toggle —
     // a SEPARATE section from the per-event arrays; Gemini rejects a boolean under
     // `hooks`) + the SessionStart → worktree ensure hook.
-    const seeded = JSON.parse(
+    const seeded = decodeWith(
+      GeminiSettingsSchema,
       await Deno.readTextFile(join(dir, ".gemini/settings.json")),
     );
     assertEquals(seeded.hooksConfig.enabled, true);
     assertEquals(seeded.hooks.enabled, undefined); // never a boolean under hooks
+    const seededSessionStart = seeded.hooks.SessionStart[0];
+    assertExists(seededSessionStart);
+    const seededHook = seededSessionStart.hooks[0];
+    assertExists(seededHook);
     assertEquals(
-      seeded.hooks.SessionStart[0].hooks[0].command,
+      seededHook.command,
       "discern worktree ensure",
     );
     assertEquals(seeded.mcpServers, undefined); // register() adds this, not the seed
@@ -55,19 +144,27 @@ Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP reg
     // refresh wires the MCP server INTO the same file (deep-merge, no clobber).
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = JSON.parse(r.stdout).data;
+    const refreshed = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(refreshed, "mcp_wired");
+    const data = refreshed.data;
     assert(
       data.mcp_wired.includes(".gemini/settings.json"),
       `expected .gemini/settings.json in mcp_wired: ${r.stdout}`,
     );
 
-    const merged = JSON.parse(
+    const merged = decodeWith(
+      GeminiSettingsSchema,
       await Deno.readTextFile(join(dir, ".gemini/settings.json")),
     );
+    assert(merged.mcpServers !== undefined);
     // All three coexist: the seeded hooks, the MCP server, and the user key.
     assertEquals(merged.hooksConfig.enabled, true);
+    const mergedSessionStart = merged.hooks.SessionStart[0];
+    assertExists(mergedSessionStart);
+    const mergedHook = mergedSessionStart.hooks[0];
+    assertExists(mergedHook);
     assertEquals(
-      merged.hooks.SessionStart[0].hooks[0].command,
+      mergedHook.command,
       "discern worktree ensure",
     );
     assertEquals(merged.mcpServers.discern, {
@@ -79,8 +176,10 @@ Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP reg
 
     // Idempotent: a second refresh re-wires nothing for Gemini.
     const r2 = await runAgent(dir, ["refresh", "--json"]);
+    const unchanged = decodeCliResult(r2.stdout, "refresh");
+    assertResultDataKey(unchanged, "mcp_wired");
     assertEquals(
-      JSON.parse(r2.stdout).data.mcp_wired.includes(".gemini/settings.json"),
+      unchanged.data.mcp_wired.includes(".gemini/settings.json"),
       false,
     );
   });
@@ -91,19 +190,26 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
 
     // The scaffold seeded the SessionStart hook into .codex/hooks.json.
-    const hooks = JSON.parse(
+    const hooks = decodeWith(
+      CodexHooksSchema,
       await Deno.readTextFile(join(dir, ".codex/hooks.json")),
     );
-    assertEquals(hooks.hooks.SessionStart[0].matcher, "startup|resume");
+    const sessionStart = hooks.hooks.SessionStart[0];
+    assertExists(sessionStart);
+    const sessionHook = sessionStart.hooks[0];
+    assertExists(sessionHook);
+    assertEquals(sessionStart.matcher, "startup|resume");
     assertEquals(
-      hooks.hooks.SessionStart[0].hooks[0].command,
+      sessionHook.command,
       "discern worktree ensure",
     );
 
     // refresh wires the MCP server (TOML) and the app worktree-lifecycle file.
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = JSON.parse(r.stdout).data;
+    const refreshed = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(refreshed, "mcp_wired");
+    const data = refreshed.data;
     assert(
       data.mcp_wired.includes(".codex/config.toml"),
       `expected .codex/config.toml in mcp_wired: ${r.stdout}`,
@@ -173,7 +279,9 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
 
     // Idempotent: a second refresh re-wires neither the MCP nor the env file.
     const r2 = await runAgent(dir, ["refresh", "--json"]);
-    const data2 = JSON.parse(r2.stdout).data;
+    const unchanged = decodeCliResult(r2.stdout, "refresh");
+    assertResultDataKey(unchanged, "mcp_wired");
+    const data2 = unchanged.data;
     assertEquals(data2.mcp_wired.includes(".codex/config.toml"), false);
     assertEquals(data2.worktree_app_wired, []);
     assertEquals(data2.project_rules_wired, []);
@@ -199,7 +307,9 @@ Deno.test("refresh re-seeds missing provider hook files for every configured hoo
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = JSON.parse(r.stdout).data as { hooks_wired: string[] };
+    const refreshed = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(refreshed, "hooks_wired");
+    const data = refreshed.data;
     assertEquals([...data.hooks_wired].sort(), hookFiles);
 
     for (const provider of hookProviders) {
@@ -211,7 +321,9 @@ Deno.test("refresh re-seeds missing provider hook files for every configured hoo
 
     const second = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(second.code, 0, second.output);
-    assertEquals(JSON.parse(second.stdout).data.hooks_wired, []);
+    const unchanged = decodeCliResult(second.stdout, "refresh");
+    assertResultDataKey(unchanged, "hooks_wired");
+    assertEquals(unchanged.data.hooks_wired, []);
   });
 });
 
@@ -232,10 +344,10 @@ Deno.test("refresh re-seeds provider hooks without clobbering user settings", as
       const hooks = provider.hooks;
       assert(hooks !== undefined);
       const path = join(dir, hooks.settingsFile);
-      const settings = JSON.parse(await Deno.readTextFile(path)) as Record<
-        string,
-        unknown
-      >;
+      const settings = decodeWith(
+        ProviderSettingsSchema,
+        await Deno.readTextFile(path),
+      );
       delete settings.hooks;
       settings.userPreserved = provider.name;
       await Deno.writeTextFile(path, `${JSON.stringify(settings, null, 2)}\n`);
@@ -243,14 +355,16 @@ Deno.test("refresh re-seeds provider hooks without clobbering user settings", as
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = JSON.parse(r.stdout).data as { hooks_wired: string[] };
+    const refreshed = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(refreshed, "hooks_wired");
+    const data = refreshed.data;
     assertEquals([...data.hooks_wired].sort(), hookFiles);
 
     for (const provider of hookProviders) {
       const hooks = provider.hooks;
       assert(hooks !== undefined);
       const body = await Deno.readTextFile(join(dir, hooks.settingsFile));
-      const settings = JSON.parse(body) as { userPreserved?: string };
+      const settings = decodeWith(ProviderSettingsSchema, body);
       assertEquals(settings.userPreserved, provider.name);
       assertStringIncludes(body, hooks.sessionHookNeedle);
     }
@@ -263,25 +377,33 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
 
     // The scaffold seeded each vendor's SessionStart hook in its own shape — Cursor's
     // flat `{ command }`, Copilot's `{ type, bash }` — both running worktree ensure.
-    const cursorHooks = JSON.parse(
+    const cursorHooks = decodeWith(
+      CursorHooksSchema,
       await Deno.readTextFile(join(dir, ".cursor/hooks.json")),
     );
+    const cursorSessionStart = cursorHooks.hooks.sessionStart[0];
+    assertExists(cursorSessionStart);
     assertEquals(
-      cursorHooks.hooks.sessionStart[0].command,
+      cursorSessionStart.command,
       "discern worktree ensure",
     );
-    const copilotHooks = JSON.parse(
+    const copilotHooks = decodeWith(
+      CopilotHooksSchema,
       await Deno.readTextFile(join(dir, ".github/hooks/discern.json")),
     );
+    const copilotSessionStart = copilotHooks.hooks.sessionStart[0];
+    assertExists(copilotSessionStart);
     assertEquals(
-      copilotHooks.hooks.sessionStart[0].bash,
+      copilotSessionStart.bash,
       "discern worktree ensure",
     );
 
     // refresh wires Cursor's own .cursor/mcp.json and Copilot's co-owned .mcp.json.
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = JSON.parse(r.stdout).data;
+    const refreshed = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(refreshed, "mcp_wired");
+    const data = refreshed.data;
     assert(
       data.mcp_wired.includes(".cursor/mcp.json"),
       `expected .cursor/mcp.json in mcp_wired: ${r.stdout}`,
@@ -292,7 +414,8 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
     );
 
     // Both carry the byte-identical stdio entry (Cursor requires the explicit type).
-    const cursorMcp = JSON.parse(
+    const cursorMcp = decodeWith(
+      McpSettingsSchema,
       await Deno.readTextFile(join(dir, ".cursor/mcp.json")),
     );
     assertEquals(cursorMcp.mcpServers.discern, {
@@ -300,7 +423,8 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
       command: "discern",
       args: ["mcp", MCP_STRICT_TOOL_CALLS_FLAG],
     });
-    const sharedMcp = JSON.parse(
+    const sharedMcp = decodeWith(
+      McpSettingsSchema,
       await Deno.readTextFile(join(dir, ".mcp.json")),
     );
     assertEquals(sharedMcp.mcpServers.discern, {
@@ -318,7 +442,9 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
 
     // Idempotent: a second refresh re-wires neither file.
     const r2 = await runAgent(dir, ["refresh", "--json"]);
-    const data2 = JSON.parse(r2.stdout).data;
+    const unchanged = decodeCliResult(r2.stdout, "refresh");
+    assertResultDataKey(unchanged, "mcp_wired");
+    const data2 = unchanged.data;
     assertEquals(data2.mcp_wired.includes(".cursor/mcp.json"), false);
     assertEquals(data2.mcp_wired.includes(".mcp.json"), false);
   });
@@ -330,7 +456,9 @@ Deno.test("Cursor-only refresh emits AGENTS.md with the compiled instruction bod
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = JSON.parse(r.stdout).data;
+    const refreshed = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(refreshed, "agents_written");
+    const data = refreshed.data;
     assertEquals(data.agents_written, ["AGENTS.md"]);
 
     const agents = await Deno.readTextFile(join(dir, "AGENTS.md"));
@@ -347,7 +475,10 @@ Deno.test("refresh projects the environment-only MCP preload experiment and remo
       env: { [variable]: "1" },
     });
     assertEquals(enabled.code, 0, enabled.output);
-    let mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    let mcp = decodeWith(
+      McpSettingsSchema,
+      await Deno.readTextFile(join(dir, ".mcp.json")),
+    );
     assertEquals(mcp.mcpServers.discern.alwaysLoad, true);
     assertEquals(mcp.mcpServers.discern.deferTools, "never");
 
@@ -355,7 +486,10 @@ Deno.test("refresh projects the environment-only MCP preload experiment and remo
       env: { [variable]: "" },
     });
     assertEquals(disabled.code, 0, disabled.output);
-    mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    mcp = decodeWith(
+      McpSettingsSchema,
+      await Deno.readTextFile(join(dir, ".mcp.json")),
+    );
     assertEquals(mcp.mcpServers.discern.alwaysLoad, undefined);
     assertEquals(mcp.mcpServers.discern.deferTools, undefined);
   });
@@ -367,7 +501,9 @@ Deno.test("Cursor + Claude refresh emits AGENTS.md and points CLAUDE.md at it", 
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = JSON.parse(r.stdout).data;
+    const refreshed = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(refreshed, "agents_written");
+    const data = refreshed.data;
     assertEquals(data.agents_written, ["AGENTS.md", "CLAUDE.md"]);
 
     const agents = await Deno.readTextFile(join(dir, "AGENTS.md"));
@@ -385,7 +521,9 @@ Deno.test("a default (Claude-only) refresh declares no worktree-app file — the
     await scaffoldEngine(dir); // agents = ["claude_code"]
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(JSON.parse(r.stdout).data.worktree_app_wired, []);
+    const refreshed = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(refreshed, "worktree_app_wired");
+    assertEquals(refreshed.data.worktree_app_wired, []);
     assert(
       !(await targetExists(join(dir, ".codex/environments/environment.toml"))),
       "no codex agent configured → no environment.toml co-managed",

@@ -11,6 +11,7 @@ import {
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 Deno.test("identity preserves bare output and publishes structured JSON values", async () => {
   await withTempDir(async (dir) => {
@@ -29,10 +30,11 @@ Deno.test("identity preserves bare output and publishes structured JSON values",
     ]);
     assertEquals(field.code, 0, field.output);
     assertEquals(field.stderr, "");
-    const fieldEnvelope = JSON.parse(field.stdout);
+    const fieldEnvelope = decodeCliResult(field.stdout, "identity");
+    assertResultDataKey(fieldEnvelope, "kind");
     assertEquals(fieldEnvelope.ok, true);
     assertEquals(fieldEnvelope.verb, "identity");
-    assertEquals(fieldEnvelope.data.kind, "field");
+    assert(fieldEnvelope.data.kind === "field");
     assertEquals(fieldEnvelope.data.field, "port");
     assert(
       typeof fieldEnvelope.data.value === "string" &&
@@ -46,8 +48,9 @@ Deno.test("identity preserves bare output and publishes structured JSON values",
       "--json",
     ]);
     assertEquals(resource.code, 0, resource.output);
-    const resourceEnvelope = JSON.parse(resource.stdout);
-    assertEquals(resourceEnvelope.data.kind, "resource");
+    const resourceEnvelope = decodeCliResult(resource.stdout, "identity");
+    assertResultDataKey(resourceEnvelope, "kind");
+    assert(resourceEnvelope.data.kind === "resource");
     assertEquals(resourceEnvelope.data.name, "cache");
     assertEquals(typeof resourceEnvelope.data.value, "string");
 
@@ -57,8 +60,9 @@ Deno.test("identity preserves bare output and publishes structured JSON values",
       "--json",
     ]);
     assertEquals(resources.code, 0, resources.output);
-    const resourcesEnvelope = JSON.parse(resources.stdout);
-    assertEquals(resourcesEnvelope.data.kind, "resources");
+    const resourcesEnvelope = decodeCliResult(resources.stdout, "identity");
+    assertResultDataKey(resourcesEnvelope, "kind");
+    assert(resourcesEnvelope.data.kind === "resources");
     assertEquals(resourcesEnvelope.data.resources, {});
   });
 });
@@ -79,7 +83,7 @@ Deno.test("identity JSON failures distinguish resolution from malformed argument
     const resolution = await runAgent(dir, ["identity", "--json"]);
     assert(resolution.code !== 0, resolution.output);
     assertEquals(resolution.stderr, "");
-    const resolutionEnvelope = JSON.parse(resolution.stdout);
+    const resolutionEnvelope = decodeCliResult(resolution.stdout, "identity");
     assertEquals(resolutionEnvelope.ok, false);
     assertEquals(resolutionEnvelope.verb, "identity");
     assertEquals(resolutionEnvelope.error, "identity_error");
@@ -108,7 +112,7 @@ Deno.test("identity JSON failures distinguish resolution from malformed argument
     ]);
     assertEquals(malformed.code, 1, malformed.output);
     assertEquals(malformed.stderr, "");
-    const malformedEnvelope = JSON.parse(malformed.stdout);
+    const malformedEnvelope = decodeCliResult(malformed.stdout, "identity");
     assertEquals(malformedEnvelope.ok, false);
     assertEquals(malformedEnvelope.verb, "identity");
     assertEquals(malformedEnvelope.error, "invalid_arguments");

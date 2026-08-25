@@ -1,7 +1,13 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { z } from "@zod/zod";
 import { fromFileUrl, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { testCommandArgs } from "../scripts/run_tests.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const DenoTasksSchema = z.object({
+  tasks: z.record(z.string(), z.string()).optional(),
+});
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -20,9 +26,10 @@ Deno.test("the repository admits parallel suites without partitioning Deno worke
     "the self-hosting suite must not serialize whole test runs",
   );
 
-  const deno = JSON.parse(
+  const deno = decodeWith(
+    DenoTasksSchema,
     await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
-  ) as { tasks?: Record<string, string> };
+  );
   const task = deno.tasks?.test ?? "";
   assertStringIncludes(task, "discern queue --");
   assertStringIncludes(task, "scripts/run_tests.ts");

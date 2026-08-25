@@ -9,16 +9,12 @@ import { join } from "@std/path";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import type { DiscernResult } from "../src/shared/result.ts";
 import {
-  type AcceptData,
-  type GateWireData,
   type Proof,
   ProofNotePayloadSchema,
   ProofNoteSchema,
   ProofSchema,
   ProofSummarySchema,
-  type RefreshData,
 } from "../src/shared/result_schemas.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "../src/shared/public_schemas.ts";
 import { runGit } from "../src/shared/subprocess.ts";
@@ -43,6 +39,12 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 
 /** Render a minimal project configured for local or fetched proof-note discovery. */
 function proofConfig(mode: "local" | "fetch"): string {
@@ -61,10 +63,19 @@ function proofConfig(mode: "local" | "fetch"): string {
   ].join("\n");
 }
 
+type AcceptWireData = Exclude<
+  NonNullable<CliResultForCommand<"accept">["data"]>,
+  { issues: unknown }
+>;
+
 interface Landing {
   readonly target: string;
   readonly proof: Proof;
-  readonly result: DiscernResult<AcceptData>;
+  readonly result: Omit<CliResultForCommand<"accept">, "data"> & {
+    readonly data: AcceptWireData & {
+      readonly proof_note: NonNullable<AcceptWireData["proof_note"]>;
+    };
+  };
 }
 
 /** Match the compact Proof carried by JSON/MCP while retaining the durable page elsewhere. */
@@ -99,8 +110,10 @@ async function land(
   const target = await gitOut(worktree, "rev-parse", "HEAD");
   const done = await runAgent(worktree, ["done", "--json"], { env });
   assertEquals(done.code, 0, done.output);
-  const doneResult = JSON.parse(done.stdout) as DiscernResult<GateWireData>;
-  const proofSummary = ProofSummarySchema.parse(doneResult.data?.proof);
+  const doneResult = decodeCliResult(done.stdout, "done");
+  assertResultDataKey(doneResult, "proof");
+  assert(doneResult.data.proof !== undefined);
+  const proofSummary = ProofSummarySchema.parse(doneResult.data.proof);
   const marker = await inspectGateProof(worktree);
   const proof = ProofSchema.parse(marker.proof_data);
   assertEquals(proofSummary, proofWireSummary(proof));
@@ -110,9 +123,18 @@ async function land(
     { env },
   );
   assertEquals(accepted.code, 0, accepted.output);
-  const result = JSON.parse(accepted.stdout) as DiscernResult<AcceptData>;
+  const result = decodeCliResult(accepted.stdout, "accept");
+  assertResultDataKey(result, "proof_note");
+  assert(result.data.proof_note !== undefined);
   assertEquals(result.ok, true, accepted.output);
-  return { target, proof: proof, result };
+  return {
+    target,
+    proof,
+    result: {
+      ...result,
+      data: { ...result.data, proof_note: result.data.proof_note },
+    },
+  };
 }
 
 /** Read one durable note and prove it is the strict current envelope, bound to
@@ -125,11 +147,11 @@ async function noteAt(root: string, commit: string): Promise<Proof> {
     "show",
     commit,
   );
-  const envelope = ProofNoteSchema.parse(JSON.parse(content));
+  const envelope = decodeWith(ProofNoteSchema, content);
   assertEquals(envelope.payloadType, PROOF_NOTE_PAYLOAD_TYPE);
   assertEquals(envelope.signatures, []);
   const payloadText = new TextDecoder().decode(decodeBase64(envelope.payload));
-  const payload = ProofNotePayloadSchema.parse(JSON.parse(payloadText));
+  const payload = decodeWith(ProofNotePayloadSchema, payloadText);
   const proof = ProofSchema.parse({
     ...payload.proof,
     ...payload.presentation,
@@ -195,10 +217,10 @@ Deno.test("accept records matching proof notes without a remote, status reads th
     await gitInit(dir);
 
     const first = await land(dir, "first");
-    assertEquals(first.result.data?.proof_note?.fetch.status, "no_remote");
-    assertEquals(first.result.data?.proof_note?.fetch.remotes, []);
-    assertEquals(first.result.data?.proof_note?.fetch.added, []);
-    assertEquals(first.result.data?.proof_note?.write.status, "recorded");
+    assertEquals(first.result.data.proof_note.fetch.status, "no_remote");
+    assertEquals(first.result.data.proof_note.fetch.remotes, []);
+    assertEquals(first.result.data.proof_note.fetch.added, []);
+    assertEquals(first.result.data.proof_note.write.status, "recorded");
     assertEquals(await noteAt(dir, first.target), first.proof);
     assertEquals(await notesIdentity(dir), [
       DISCERN_MACHINE.name,
@@ -229,14 +251,19 @@ Deno.test("accept records matching proof notes without a remote, status reads th
 
     const orientedStatus = await runAgent(dir, ["status", "--json"]);
     assertEquals(orientedStatus.code, 0, orientedStatus.output);
-    const orientedStatusResult = JSON.parse(orientedStatus.stdout);
+    const orientedStatusResult = decodeCliResult(
+      orientedStatus.stdout,
+      "status",
+    );
+    assertResultDataKey(orientedStatusResult, "projection");
     assertEquals(orientedStatusResult.data.projection.mode, "orientation");
     assertEquals(orientedStatusResult.data.landed_proof, undefined);
     assertEquals(orientedStatusResult.data.landed_proof_unsupported, undefined);
 
     const status = await runAgent(dir, ["status", "--verbose", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const statusResult = JSON.parse(status.stdout);
+    const statusResult = decodeCliResult(status.stdout, "status");
+    assertResultDataKey(statusResult, "projection");
     assertEquals(statusResult.data.projection.mode, "full");
     assertEquals(statusResult.data.landed_proof, {
       commit: second.target,
@@ -280,7 +307,8 @@ Deno.test("accept records matching proof notes without a remote, status reads th
       "--json",
     ]);
     assertEquals(unreadStatus.code, 0, unreadStatus.output);
-    const unreadResult = JSON.parse(unreadStatus.stdout);
+    const unreadResult = decodeCliResult(unreadStatus.stdout, "status");
+    assertResultDataKey(unreadResult, "projection");
     assertEquals(unreadResult.data.landed_proof, undefined);
     assertEquals(unreadResult.data.landed_proof_unsupported, {
       commit: newerCommit,
@@ -397,7 +425,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
 
     const fetchedLanding = await land(dir, "fetched");
     assertEquals(
-      fetchedLanding.result.data?.proof_note?.fetch.status,
+      fetchedLanding.result.data.proof_note.fetch.status,
       "unchanged",
     );
     assertHasHint(
@@ -405,7 +433,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
       HINTS["accept-publish-proof-note"],
     );
     assertEquals(
-      fetchedLanding.result.data?.proof_note?.write.status,
+      fetchedLanding.result.data.proof_note.write.status,
       "recorded",
     );
     assertEquals(
@@ -468,7 +496,9 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
       "--json",
     ]);
     assertEquals(fetchedStatus.code, 0, fetchedStatus.output);
-    const fetchedStatusResult = JSON.parse(fetchedStatus.stdout);
+    const fetchedStatusResult = decodeCliResult(fetchedStatus.stdout, "status");
+    assertResultDataKey(fetchedStatusResult, "landed_proof");
+    assert(fetchedStatusResult.data.landed_proof !== undefined);
     assertEquals(
       fetchedStatusResult.data.landed_proof.ref,
       trackingRef,
@@ -485,8 +515,13 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
       "--json",
     ]);
     assertEquals(siblingOnlyStatus.code, 0, siblingOnlyStatus.output);
+    const siblingOnlyResult = decodeCliResult(
+      siblingOnlyStatus.stdout,
+      "status",
+    );
+    assertResultDataKey(siblingOnlyResult, "projection");
     assertEquals(
-      JSON.parse(siblingOnlyStatus.stdout).data.landed_proof,
+      siblingOnlyResult.data.landed_proof,
       undefined,
       "proof refs that only share discern's reserved prefix must not be read as landing proofs",
     );
@@ -587,12 +622,12 @@ Deno.test("proof-note fetch reconciliation migrates managed exact mappings and e
 
     const migrated = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(migrated.code, 0, migrated.output);
-    const migratedResult = JSON.parse(
-      migrated.stdout,
-    ) as DiscernResult<RefreshData>;
+    const migratedResult = decodeCliResult(migrated.stdout, "refresh");
+    assertResultDataKey(migratedResult, "proof_notes_fetch_changed");
+    assert(migratedResult.data.proof_notes_fetch_changed !== undefined);
     assertEquals(migratedResult.ok, true);
     assert(
-      migratedResult.data?.proof_notes_fetch_changed?.includes(key),
+      migratedResult.data.proof_notes_fetch_changed.includes(key),
       migrated.output,
     );
     const migratedFetches = await localConfigValues(dir, key);
@@ -629,12 +664,12 @@ Deno.test("proof-note fetch reconciliation migrates managed exact mappings and e
 
     const collision = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(collision.code, 1, collision.output);
-    const collisionResult = JSON.parse(
-      collision.stdout,
-    ) as DiscernResult<RefreshData>;
+    const collisionResult = decodeCliResult(collision.stdout, "refresh");
+    assertResultDataKey(collisionResult, "errors");
+    assert(collisionResult.data.errors !== undefined);
     assertEquals(collisionResult.ok, false);
     assertEquals(collisionResult.error, "partial_refresh");
-    const error = collisionResult.data?.errors.find((message) =>
+    const error = collisionResult.data.errors.find((message) =>
       message.includes(key)
     );
     assert(error !== undefined, collision.output);
@@ -657,15 +692,15 @@ Deno.test("proof-note fetch reconciliation migrates managed exact mappings and e
     const landing = await land(dir, "unowned-exact");
     assertEquals(landing.result.ok, true);
     assertEquals(
-      landing.result.data?.proof_note?.fetch.status,
+      landing.result.data.proof_note.fetch.status,
       "failed",
     );
     assertEquals(
-      landing.result.data?.proof_note?.fetch.errors,
-      collisionResult.data?.errors,
+      landing.result.data.proof_note.fetch.errors,
+      collisionResult.data.errors,
     );
     assertEquals(
-      landing.result.data?.proof_note?.write.status,
+      landing.result.data.proof_note.write.status,
       "recorded",
     );
     assertLacksHint(
@@ -723,8 +758,9 @@ Deno.test("durable proof projection excludes live proof telemetry", () => {
     waited_ms: 70_000,
     orbit_delay: 42,
   } as Proof & { waited_ms: number; orbit_delay: number };
-  const payload = ProofNotePayloadSchema.parse(
-    JSON.parse(canonicalProofNotePayload(proof, commit)),
+  const payload = decodeWith(
+    ProofNotePayloadSchema,
+    canonicalProofNotePayload(proof, commit),
   );
 
   assertEquals(payload, {
@@ -880,9 +916,7 @@ Deno.test("proof-note lookup binds the branch to newly landed trunk ancestry", a
       ref: PROOF_NOTES_REF,
       proof: wantedProof,
     });
-    ProofNoteSchema.parse(
-      JSON.parse(canonicalProofNote(wantedProof, wantedCommit)),
-    );
+    decodeWith(ProofNoteSchema, canonicalProofNote(wantedProof, wantedCommit));
     assertEquals(
       await findLandedProofNoteForBranch(
         dir,
@@ -1348,13 +1382,16 @@ Deno.test("a post-landing note identity failure is carried without failing accep
       { env: noAttribution },
     );
     assertEquals(accepted.code, 0, accepted.output);
-    const result = JSON.parse(accepted.stdout) as DiscernResult<AcceptData>;
+    const result = decodeCliResult(accepted.stdout, "accept");
+    assertResultDataKey(result, "proof_note");
+    assert(result.data.proof_note !== undefined);
     assertEquals(result.ok, true);
     assertEquals(
-      result.data?.proof_note?.write.status,
+      result.data.proof_note.write.status,
       "record_failed",
     );
-    assert((result.data?.proof_note?.write.reason?.length ?? 0) > 0);
+    assert(result.data.proof_note.write.reason !== undefined);
+    assert(result.data.proof_note.write.reason.length > 0);
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
   });
 });

@@ -11,6 +11,7 @@ import {
   assertNotEquals,
   assertRejects,
 } from "@std/assert";
+import { z } from "@zod/zod";
 import { join } from "@std/path";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
@@ -25,27 +26,52 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import {
-  type CheckpointReportData,
-  type CheckpointsData,
-  CheckpointsOutputSchema,
-  FinishOutputSchema,
-  type GateWireData,
-  StatusOutputSchema,
+import type {
+  CheckpointReportData,
+  CheckpointsData,
+  GateWireData,
 } from "../src/shared/result_schemas.ts";
 import {
   TEMP_ARTIFACT_KINDS,
   TEMP_ARTIFACT_SUFFIX,
 } from "../src/shared/temp_artifacts.ts";
 import { sha256Hex } from "../src/shared/sha256.ts";
-import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
+import {
+  CHECKPOINT_CHANGE_KINDS,
+  CHECKPOINT_MODES,
+  CHECKPOINT_WHEN_INPUT_VERSION,
+} from "../src/shared/checkpoints.ts";
 import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
 import {
   declarationIsCurrent,
   readOpenQuestions,
 } from "../src/engine/checkpoints/open_questions.ts";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 
 const CHECK_OK = "#!/usr/bin/env sh\nexit 0\n";
+const CheckpointWhenInputSchema = z.object({
+  version: z.literal(CHECKPOINT_WHEN_INPUT_VERSION),
+  checkpoint: z.object({
+    id: z.string(),
+    mode: z.enum(CHECKPOINT_MODES),
+  }),
+  policy_commit: z.string(),
+  changed_files: z.array(z.object({
+    path: z.string(),
+    kind: z.enum(CHECKPOINT_CHANGE_KINDS),
+    insertions: z.number().int().nonnegative(),
+    deletions: z.number().int().nonnegative(),
+    binary: z.boolean(),
+  })),
+  history: z.object({
+    count: z.number().int().nonnegative(),
+    fingerprint: z.string(),
+  }).optional(),
+});
 
 /** Quote one absolute fixture path for a POSIX shell script. */
 function shellQuote(value: string): string {
@@ -74,11 +100,9 @@ async function optionalText(path: string): Promise<string | undefined> {
 
 /** Validate and narrow one black-box `checkpoints --json` envelope. */
 function parseCheckpoints(stdout: string): CheckpointsData {
-  const raw: unknown = JSON.parse(stdout);
-  CheckpointsOutputSchema.parse(raw);
-  const data = (raw as { data?: CheckpointsData }).data;
-  assert(data !== undefined, "checkpoints result must carry data");
-  return data;
+  const envelope = decodeCliResult(stdout, "checkpoints");
+  assertResultDataKey(envelope, "checkpoints");
+  return envelope.data;
 }
 
 /** Validate and narrow one black-box `done --json` envelope. */
@@ -86,10 +110,8 @@ function parseDone(stdout: string): {
   readonly error?: string;
   readonly data: GateWireData;
 } {
-  const raw: unknown = JSON.parse(stdout);
-  FinishOutputSchema.parse(raw);
-  const envelope = raw as { error?: string; data?: GateWireData };
-  assert(envelope.data !== undefined, "done result must carry gate data");
+  const envelope = decodeCliResult(stdout, "done");
+  assertResultDataKey(envelope, "scopes_changed");
   return {
     ...(envelope.error === undefined ? {} : { error: envelope.error }),
     data: envelope.data,
@@ -188,13 +210,13 @@ exit 0
 
     const checkpoints = await runAgent(wt, ["checkpoints", "--json"]);
     assertEquals(checkpoints.code, 0, checkpoints.output);
-    CheckpointsOutputSchema.parse(JSON.parse(checkpoints.stdout));
+    decodeCliResult(checkpoints.stdout, "checkpoints");
     const status = await runAgent(wt, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    StatusOutputSchema.parse(JSON.parse(status.stdout));
+    decodeCliResult(status.stdout, "status");
     const dryRun = await runAgent(wt, ["done", "--dry-run", "--json"]);
     assertEquals(dryRun.code, 0, dryRun.output);
-    FinishOutputSchema.parse(JSON.parse(dryRun.stdout));
+    decodeCliResult(dryRun.stdout, "done");
     assertEquals(await optionalText(invocations), undefined);
     assertEquals(await optionalText(capture), undefined);
     assertEquals(await optionalText(capturedPath), undefined);
@@ -202,7 +224,7 @@ exit 0
 
     const strict = await runAgent(wt, ["done", "--json"]);
     assertEquals(strict.code, 1, strict.output);
-    const strictEnvelope = FinishOutputSchema.parse(JSON.parse(strict.stdout));
+    const strictEnvelope = decodeCliResult(strict.stdout, "done");
     assertEquals(strictEnvelope.error, AWAITING_DECLARATION_SLUG);
     assertEquals(await optionalText(invocations), "invoked\n");
 
@@ -211,7 +233,7 @@ exit 0
       !capturedRaw.includes(secret),
       "structured input leaked raw changed-file content",
     );
-    const input = JSON.parse(capturedRaw) as CheckpointWhenInput;
+    const input = decodeWith(CheckpointWhenInputSchema, capturedRaw);
     assertEquals(input, {
       version: 1,
       checkpoint: { id: "composite", mode: "stop" },

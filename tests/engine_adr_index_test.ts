@@ -19,6 +19,8 @@ import {
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
+import type { RefreshData } from "../src/shared/result_schemas.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 const ADR_README_REL = "discern/map/_adr/README.md";
 
@@ -47,6 +49,13 @@ async function writeAdrDir(
   return adrDir;
 }
 
+/** Decode one successful refresh result and require its ADR-index report. */
+function decodeRefreshData(stdout: string): RefreshData {
+  const result = decodeCliResult(stdout, "refresh");
+  assertResultDataKey(result, "adr_index_written");
+  return result.data;
+}
+
 Deno.test("engine adr-index: refresh writes the index from the records, and a new record updates it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -57,7 +66,7 @@ Deno.test("engine adr-index: refresh writes the index from the records, and a ne
     const first = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(first.code, 0, first.output);
     assertEquals(
-      JSON.parse(first.stdout).data.adr_index_written,
+      decodeRefreshData(first.stdout).adr_index_written,
       [ADR_README_REL],
       first.stdout,
     );
@@ -70,7 +79,10 @@ Deno.test("engine adr-index: refresh writes the index from the records, and a ne
     // Idempotent: a second refresh over the current index writes nothing.
     const unchanged = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(unchanged.code, 0, unchanged.output);
-    assertEquals(JSON.parse(unchanged.stdout).data.adr_index_written, []);
+    assertEquals(
+      decodeRefreshData(unchanged.stdout).adr_index_written,
+      [],
+    );
 
     // A newly added record enrols on the next refresh — the directory is the
     // canonical set, never the list itself.
@@ -81,7 +93,7 @@ Deno.test("engine adr-index: refresh writes the index from the records, and a ne
     const second = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(second.code, 0, second.output);
     assertEquals(
-      JSON.parse(second.stdout).data.adr_index_written,
+      decodeRefreshData(second.stdout).adr_index_written,
       [ADR_README_REL],
     );
     assertStringIncludes(
@@ -102,7 +114,10 @@ Deno.test("engine adr-index: a README without markers is never touched — opt-i
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(JSON.parse(r.stdout).data.adr_index_written, []);
+    assertEquals(
+      decodeRefreshData(r.stdout).adr_index_written,
+      [],
+    );
     assertEquals(
       await Deno.readTextFile(join(adrDir, "README.md")),
       authored,
@@ -123,7 +138,8 @@ Deno.test("engine adr-index: a stale index surfaces in status and refuses the ga
     // status: advisory — the structured field plus the generated-drift hint.
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const statusObj = JSON.parse(status.stdout);
+    const statusObj = decodeCliResult(status.stdout, "status");
+    assertResultDataKey(statusObj, "stale_adr_index");
     assertEquals(statusObj.data.stale_adr_index, [ADR_README_REL]);
     assertHasHint(statusObj, HINTS["adr-index-stale"], {
       path: ADR_README_REL,
@@ -132,7 +148,8 @@ Deno.test("engine adr-index: a stale index surfaces in status and refuses the ga
     // done: the adr_index precondition blocks with the refresh remedy.
     const red = await runAgent(dir, ["done", "--json"]);
     assertEquals(red.code, 1, red.output);
-    const redObj = JSON.parse(red.stdout);
+    const redObj = decodeCliResult(red.stdout, "done");
+    assertResultDataKey(redObj, "failed_stage");
     assertEquals(redObj.data.failed_stage, "adr_index");
     const diag = (redObj.diagnostics ?? []).find(
       (d: { tool: string }) => d.tool === "adr-index",
@@ -149,7 +166,7 @@ Deno.test("engine adr-index: a stale index surfaces in status and refuses the ga
     const healed = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(healed.code, 0, healed.output);
     assertEquals(
-      JSON.parse(healed.stdout).data.adr_index_written,
+      decodeRefreshData(healed.stdout).adr_index_written,
       [ADR_README_REL],
     );
     const green = await runAgent(dir, ["done", "--json"]);
@@ -167,12 +184,14 @@ Deno.test("engine adr-index: a record the derivation cannot title fails the gate
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = JSON.parse(r.stdout);
+    const obj = decodeCliResult(r.stdout, "done");
+    assertResultDataKey(obj, "failed_stage");
     assertEquals(obj.data.failed_stage, "adr_index");
     const diag = (obj.diagnostics ?? []).find(
       (d: { tool: string }) => d.tool === "adr-index",
     );
     assert(diag !== undefined, `expected an adr-index diagnostic: ${r.stdout}`);
+    assert(diag.output !== undefined);
     assertStringIncludes(diag.output, "0001-first-choice.md");
     assertTerminalTextIncludes(diag.output, "first heading");
   });
@@ -192,12 +211,14 @@ Deno.test("engine adr-index: a marker pair missing its end marker points the rem
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = JSON.parse(r.stdout);
+    const obj = decodeCliResult(r.stdout, "done");
+    assertResultDataKey(obj, "failed_stage");
     assertEquals(obj.data.failed_stage, "adr_index");
     const diag = (obj.diagnostics ?? []).find(
       (d: { tool: string }) => d.tool === "adr-index",
     );
     assert(diag !== undefined, `expected an adr-index diagnostic: ${r.stdout}`);
+    assert(diag.output !== undefined);
     assertStringIncludes(diag.message, ADR_README_REL);
     assertTerminalTextIncludes(
       diag.output,
@@ -234,7 +255,10 @@ Deno.test("engine adr-index: the fresh setup skeleton yields a working index end
     // The scaffolded empty index is born current: refresh rewrites nothing.
     const current = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(current.code, 0, current.output);
-    assertEquals(JSON.parse(current.stdout).data.adr_index_written, []);
+    assertEquals(
+      decodeRefreshData(current.stdout).adr_index_written,
+      [],
+    );
     assertEquals(await Deno.readTextFile(readmePath), skeleton);
 
     // The first real record flows into the index on the next refresh.
@@ -245,7 +269,7 @@ Deno.test("engine adr-index: the fresh setup skeleton yields a working index end
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
-      JSON.parse(r.stdout).data.adr_index_written,
+      decodeRefreshData(r.stdout).adr_index_written,
       [ADR_README_REL],
     );
     assertStringIncludes(

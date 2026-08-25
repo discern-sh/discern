@@ -1,6 +1,7 @@
 /** Contracts for the development-only homepage artefact specimen sheet. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { z } from "@zod/zod";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 import { renderSpecimens } from "../site/page-src/specimens.tsx";
@@ -9,6 +10,11 @@ import {
   specimenHandler,
 } from "../site/specimens.ts";
 import { handler, PAGES } from "../site/serve.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const DenoTasksSchema = z.object({
+  tasks: z.record(z.string(), z.string()).optional(),
+});
 
 const SPECIMEN_CSS = new URL(
   "../site/page-src/specimens.css",
@@ -56,9 +62,10 @@ Deno.test("the specimen sheet remains outside the public route registry", async 
   assertEquals(publicResponse.status, 404);
   await publicResponse.body?.cancel();
 
-  const config = JSON.parse(
+  const config = decodeWith(
+    DenoTasksSchema,
     await Deno.readTextFile(new URL("../deno.json", import.meta.url)),
-  ) as { tasks?: Record<string, string> };
+  );
   assertEquals(
     config.tasks?.["site:specimens"],
     "deno run --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=NODE_ENV,PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/specimens.ts",

@@ -8,6 +8,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 const ANSWERS = JSON.stringify({
   "$schema": "../schema/discern-setup-config.schema.json",
@@ -37,7 +38,9 @@ Deno.test("setup --config scaffolds from a JSON answers file", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "setup");
+    assertResultDataKey(result, "project");
+    assert(result.data.project !== undefined);
     assertEquals(result.ok, true);
     assertEquals(result.verb, "setup");
     assertEquals(result.data.project.slug, "my-app");
@@ -70,7 +73,10 @@ Deno.test("setup --config - reads the answers file from stdin", async () => {
       ANSWERS,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).data.project.slug, "my-app");
+    const result = decodeCliResult(r.stdout, "setup");
+    assertResultDataKey(result, "project");
+    assert(result.data.project !== undefined);
+    assertEquals(result.data.project.slug, "my-app");
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       'test = "vitest run"',
@@ -86,7 +92,10 @@ Deno.test("setup --config: an explicit flag overrides the file value", async () 
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).data.project.slug, "flag-wins");
+    const result = decodeCliResult(r.stdout, "setup");
+    assertResultDataKey(result, "project");
+    assert(result.data.project !== undefined);
+    assertEquals(result.data.project.slug, "flag-wins");
   });
 });
 
@@ -98,7 +107,7 @@ Deno.test("setup --config --dry-run writes nothing", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).dry_run, true);
+    assertEquals(decodeCliResult(r.stdout, "setup").dry_run, true);
     // Only the answers file exists; nothing was scaffolded.
     let entries = 0;
     for await (const _ of Deno.readDir(dir)) {
@@ -113,7 +122,7 @@ Deno.test("setup --config rejects invalid JSON", async () => {
     await Deno.writeTextFile(join(dir, "bad.json"), "{ not json");
     const r = await runCli(["setup", "--config", "bad.json", "--json"], dir);
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "setup");
     assertEquals(result.ok, false);
     assertEquals(result.error, "invalid_config_file");
   });
@@ -130,8 +139,9 @@ Deno.test("setup --config rejects an unsupported document version", async () => 
       dir,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "setup");
     assertEquals(result.error, "invalid_config_file");
+    assert(result.message !== undefined);
     assertStringIncludes(result.message, "version");
   });
 });
@@ -150,8 +160,9 @@ Deno.test("setup --config rejects an invalid fill (bad check stage)", async () =
       dir,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "setup");
     assertEquals(result.error, "invalid_config_file");
+    assert(result.message !== undefined);
     assertStringIncludes(result.message, "stage");
     // Nothing was written (the error happened during planning).
     let entries = 0;

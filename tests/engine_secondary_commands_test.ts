@@ -14,13 +14,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-
-/** Parse stdout as a single JSON object — throws (failing the test) if it's
- * polluted with human text, which is the regression these `--json` tests guard. */
-// deno-lint-ignore no-explicit-any
-function pureJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
-}
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 // --- prepare / test (entry points, not only transitively via finish) ------
 
@@ -51,17 +45,18 @@ Deno.test("prepare/test/refresh --json: stdout is a pure DiscernResult, never hu
     // "Fixing code…"/"Checking…" headings (which would break JSON.parse).
     const prep = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(prep.code, 0, prep.output);
-    const prepObj = pureJson(prep.stdout);
+    const prepObj = decodeCliResult(prep.stdout, "prepare");
     assertEquals(prepObj.ok, true);
     assertEquals(prepObj.verb, "prepare");
 
     const test = await runAgent(dir, ["test", "--json"]);
     assertEquals(test.code, 0, test.output);
-    assertEquals(pureJson(test.stdout).verb, "test");
+    assertEquals(decodeCliResult(test.stdout, "test").verb, "test");
 
     const refresh = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(refresh.code, 0, refresh.output);
-    const refreshObj = pureJson(refresh.stdout);
+    const refreshObj = decodeCliResult(refresh.stdout, "refresh");
+    assertResultDataKey(refreshObj, "agents_written");
     assertEquals(refreshObj.ok, true);
     assertEquals(refreshObj.verb, "refresh");
     assert(Array.isArray(refreshObj.data.agents_written), refresh.stdout);
@@ -85,7 +80,7 @@ Deno.test("prepare --json: a failing check carries steps[] + diagnostics[] as th
     await gitInit(dir);
     const r = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = pureJson(r.stdout); // stdout is STILL pure JSON on failure
+    const obj = decodeCliResult(r.stdout, "prepare"); // stdout is STILL pure JSON on failure
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "prepare");
     // prepare now runs through the job runner, so a failure carries the same
@@ -97,6 +92,7 @@ Deno.test("prepare --json: a failing check carries steps[] + diagnostics[] as th
       d.tool === "lint"
     );
     assert(diag !== undefined, `expected a lint diagnostic; got: ${r.stdout}`);
+    assert(diag.output !== undefined);
     assertEquals(diag.reproduce_cmd, "echo boom-on-stderr >&2; exit 1");
     assertStringIncludes(diag.output, "boom-on-stderr");
     // --json is still quiet (ADR 0030): the failing command's output is captured
@@ -126,7 +122,7 @@ Deno.test("test --json: a failing test carries steps[] + diagnostics[] (and noth
     await gitInit(dir);
     const r = await runAgent(dir, ["test", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = pureJson(r.stdout);
+    const obj = decodeCliResult(r.stdout, "test");
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "test");
     // `discern test` runs through the same job runner as the gate, so a failing test
@@ -136,6 +132,7 @@ Deno.test("test --json: a failing test carries steps[] + diagnostics[] (and noth
       d.tool === "test"
     );
     assert(diag !== undefined, `expected a test diagnostic; got: ${r.stdout}`);
+    assert(diag.output !== undefined);
     assertStringIncludes(diag.output, "boom-in-tests");
     assert(
       !r.stderr.includes("boom-in-tests"),

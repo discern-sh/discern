@@ -16,6 +16,7 @@ import { HINTS } from "../src/shared/hints.ts";
 import { readTarget, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
@@ -172,9 +173,14 @@ Deno.test("upgrade check detects and upgrade restores a missing fixed banner wit
 
     const check = await upgradeCheckJsonIn(dir);
     assertEquals(check.code, 1);
-    assertEquals(JSON.parse(check.stdout).data.pending_reconciliation, [
-      { kind: "banner", path: "scripts" },
-    ]);
+    const checkResult = decodeCliResult(check.stdout, "upgrade");
+    assertResultDataKey(checkResult, "pending_reconciliation");
+    assertEquals(
+      checkResult.data.pending_reconciliation,
+      [
+        { kind: "banner", path: "scripts" },
+      ],
+    );
 
     assertEquals(await upgradeIn(dir), 0);
     const upgraded = await Deno.readTextFile(configPath);
@@ -198,7 +204,8 @@ Deno.test("upgrade check reports an injected next-schema migration without writi
 
     const check = await upgradeCheckJsonIn(dir, chain);
     assertEquals(check.code, 1);
-    const result = JSON.parse(check.stdout);
+    const result = decodeCliResult(check.stdout, "upgrade");
+    assertResultDataKey(result, "schema");
     assertEquals(result.data.schema, {
       recorded: SCHEMA_VERSION,
       current: SYNTHETIC_CURRENT_SCHEMA,
@@ -221,15 +228,19 @@ Deno.test("upgrade refuses a config from a newer schema and does not stamp down"
 
     const run = await upgradeJsonIn(dir);
     assertEquals(run.code, 1);
-    const res = JSON.parse(run.stdout);
+    const res = decodeCliResult(run.stdout, "upgrade");
     assertEquals(res.error, "schema_version_too_new");
+    assert(res.message !== undefined);
     assertStringIncludes(res.message, "this project needs a newer discern");
     assertStringIncludes(res.message, "re-run the installer");
     assertEquals(await readTarget(dir, "discern.toml"), before);
 
     const check = await upgradeCheckJsonIn(dir);
     assertEquals(check.code, 1);
-    assertEquals(JSON.parse(check.stdout).error, "schema_version_too_new");
+    assertEquals(
+      decodeCliResult(check.stdout, "upgrade").error,
+      "schema_version_too_new",
+    );
   });
 });
 
@@ -247,8 +258,9 @@ Deno.test("upgrade refuses to stamp when a migration leaves invalid TOML", async
 
     const run = await upgradeJsonIn(dir, chain);
     assertEquals(run.code, 1);
-    const res = JSON.parse(run.stdout);
+    const res = decodeCliResult(run.stdout, "upgrade");
     assertEquals(res.error, "invalid_migrated_config");
+    assert(res.message !== undefined);
     assertStringIncludes(res.message, "schema was not stamped");
     assertEquals(await readTarget(dir, "discern.toml"), before);
     assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
@@ -260,9 +272,13 @@ Deno.test("a current install has nothing pending and applies no migrations", asy
     await setup(dir); // a fresh install is stamped at the current schema
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).data.migrations_applied, []);
+    const upgraded = decodeCliResult(r.stdout, "upgrade");
+    assertResultDataKey(upgraded, "migrations_applied");
+    assertEquals(upgraded.data.migrations_applied, []);
     const c = await runCli(["upgrade", "--check", "--json"], dir);
-    assertEquals(JSON.parse(c.stdout).data.pending_migrations, []);
+    const checked = decodeCliResult(c.stdout, "upgrade");
+    assertResultDataKey(checked, "pending_migrations");
+    assertEquals(checked.data.pending_migrations, []);
   });
 });
 
@@ -277,7 +293,8 @@ Deno.test("upgrade dry-run previews an injected migration without applying it", 
 
     const run = await upgradeDryRunJsonIn(dir, chain);
     assertEquals(run.code, 0);
-    const result = JSON.parse(run.stdout);
+    const result = decodeCliResult(run.stdout, "upgrade");
+    assertResultDataKey(result, "pending_migrations");
     assertEquals(result.dry_run, true);
     assertEquals(result.data.pending_migrations, [{
       from: SCHEMA_VERSION,
@@ -294,7 +311,10 @@ Deno.test("upgrade (json) carries the restart-your-agents hint on the applied re
     await setup(dir); // a fresh install: nothing to migrate, but the apply still runs
     const run = await upgradeJsonIn(dir);
     assertEquals(run.code, 0, run.stdout);
-    assertHasHint(JSON.parse(run.stdout), HINTS["upgrade-restart-session"]);
+    assertHasHint(
+      decodeCliResult(run.stdout, "upgrade"),
+      HINTS["upgrade-restart-session"],
+    );
   });
 });
 

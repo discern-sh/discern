@@ -22,6 +22,7 @@ import {
   PREVIEWABLE_MARKER,
 } from "../src/engine/scopes/scopes.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /** Create a minimal project with one gated widget scope for impact classification. */
 async function scaffoldWithWidget(dir: string): Promise<void> {
@@ -50,9 +51,10 @@ Deno.test("impact --json: emits the DiscernResult envelope, not a bare array", a
     await scaffoldWithWidget(dir);
     const r = await runAgent(dir, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = JSON.parse(r.stdout.trim());
+    const obj = decodeCliResult(r.stdout, "impact");
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "impact");
+    assertResultDataKey(obj, "scopes");
     assert(Array.isArray(obj.data.scopes), r.stdout);
     assert(obj.data.scopes.includes("widget"), r.stdout);
   });
@@ -257,7 +259,8 @@ Deno.test("impact fails open when git cannot diff against the main branch", asyn
 
     const r = await runAgent(dir, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = JSON.parse(r.stdout.trim());
+    const obj = decodeCliResult(r.stdout, "impact");
+    assertResultDataKey(obj, "scopes");
     assertEquals(obj.data.scopes, [
       CODE_MARKER,
       PREVIEWABLE_MARKER,

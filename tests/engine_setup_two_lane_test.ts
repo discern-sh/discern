@@ -19,25 +19,24 @@ import { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { CLI_JSON_RESULT_CONTRACTS } from "../src/shared/result_contracts.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
-/** The `data` payload variants of one serialized-output schema: unwrap the
- * envelope's optional `data` union into its object options. Shape-based — no
- * schema names involved — so a future contract enrols however it is spelled. */
+/** Recursively flatten nested optional/union schemas into their object leaves. */
+function objectVariants(schema: unknown): z.ZodObject[] {
+  if (schema instanceof z.ZodOptional) {
+    return objectVariants(schema.unwrap());
+  }
+  if (schema instanceof z.ZodUnion) {
+    return schema.options.flatMap(objectVariants);
+  }
+  return schema instanceof z.ZodObject ? [schema] : [];
+}
+
+/** The object leaves beneath one serialized envelope's optional `data` field. */
 function dataVariants(outputSchema: z.ZodType): z.ZodObject[] {
-  if (!(outputSchema instanceof z.ZodObject)) {
-    return [];
-  }
-  let data: unknown = outputSchema.shape["data"];
-  if (data instanceof z.ZodOptional) {
-    data = data.unwrap();
-  }
-  if (data === undefined) {
-    return [];
-  }
-  const options: readonly unknown[] = data instanceof z.ZodUnion
-    ? data.options
-    : [data];
-  return options.filter((o): o is z.ZodObject => o instanceof z.ZodObject);
+  return outputSchema instanceof z.ZodObject
+    ? objectVariants(outputSchema.shape["data"])
+    : [];
 }
 
 /** True when any data variant of the contract's schema carries `instructions`. */
@@ -121,7 +120,12 @@ for (const [id, driver] of Object.entries(DRIVERS)) {
         await driver.fixture(dir);
         const json = await runAgent(dir, [...driver.argv, "--json"]);
         assertEquals(json.code, driver.code, json.output);
-        const instructions = JSON.parse(json.stdout).data?.instructions;
+        const result = decodeCliResult(
+          json.stdout,
+          driver.argv.slice(0, 2).join(" "),
+        );
+        assertResultDataKey(result, "instructions");
+        const instructions = result.data.instructions;
         assert(
           typeof instructions === "string" && instructions.length > 0,
           `the driver must produce a non-empty instructions: ${json.stdout}`,

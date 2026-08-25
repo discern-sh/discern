@@ -19,12 +19,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-
-/** Decode dry-run and apply envelopes before comparing their effect plans. */
-// deno-lint-ignore no-explicit-any
-function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
-}
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
@@ -78,10 +73,11 @@ Deno.test("done --dry-run --json emits the plan, not a run report", async () => 
 
     const r = await runAgent(dir, ["done", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeCliResult(r.stdout, "done");
     // A preview is a DiscernResult carrying only `plan` (no executed `steps`).
     assertEquals(obj.verb, "done");
     assertEquals(obj.steps, undefined);
+    assert(obj.plan !== undefined);
     assertEquals(obj.plan.title, "Gate plan");
     assert(
       obj.plan.steps.some((s: { label: string }) => s.label === "test"),
@@ -118,7 +114,9 @@ Deno.test("done classifies scopes AFTER the fix stage (a fixer's new file fires 
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeCliResult(r.stdout, "done");
+    assertResultDataKey(obj, "scopes_changed");
+    assert(obj.steps !== undefined);
     assert(
       obj.data.scopes_changed.includes("gen"),
       `the fixer's new file should make 'gen' a changed scope\n${r.stdout}`,
@@ -126,6 +124,7 @@ Deno.test("done classifies scopes AFTER the fix stage (a fixer's new file fires 
     const gen = obj.steps.find((s: { label: string }) =>
       s.label === "scope:gen"
     );
+    assert(gen !== undefined);
     assertEquals(
       gen.outcome,
       "ok",
@@ -162,10 +161,11 @@ Deno.test("standards --dry-run lists the standard without measuring it", async (
 
     const j = await runAgent(dir, ["standards", "--dry-run", "--json"]);
     assertEquals(j.code, 0, j.output);
-    const obj = parseJson(j.stdout);
+    const obj = decodeCliResult(j.stdout, "standards");
     // A preview envelope: verb + plan, no executed steps.
     assertEquals(obj.verb, "standards");
     assertEquals(obj.steps, undefined);
+    assert(obj.plan !== undefined);
     assert(
       obj.plan.steps.some((s: { label: string }) => s.label === "coverage"),
     );
@@ -192,11 +192,13 @@ Deno.test("standards --json serializes the held/failed results", async () => {
 
     const r = await runAgent(dir, ["standards", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeCliResult(r.stdout, "standards");
     assertEquals(obj.ok, true);
+    assert(obj.steps !== undefined);
     const cov = obj.steps.find((s: { label: string }) =>
       s.label === "coverage"
     );
+    assert(cov !== undefined);
     assertEquals(cov.outcome, "ok");
     assertEquals(cov.kind, "standard");
   });
@@ -216,8 +218,9 @@ Deno.test("worktree setup --dry-run shows the setup plan; --json reports the ste
 
     const json = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const obj = parseJson(json.stdout); // stdout must be ONLY the JSON object
+    const obj = decodeCliResult(json.stdout, "worktree setup"); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
+    assert(obj.steps !== undefined);
     assert(
       obj.steps.some((s: { label: string }) =>
         s.label === BUILT_IN_STEP_LABELS.completeRefresh
@@ -252,9 +255,11 @@ Deno.test("worktree teardown --dry-run and --json reflect the ledger", async () 
     // Real teardown with --json reports the destroyed resource.
     const json = await runAgent(wt, ["worktree", "teardown", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const obj = parseJson(json.stdout);
+    const obj = decodeCliResult(json.stdout, "worktree teardown");
     assertEquals(obj.ok, true);
+    assert(obj.steps !== undefined);
     const thing = obj.steps.find((s: { label: string }) => s.label === "thing");
+    assert(thing !== undefined);
     assertEquals(thing.outcome, "ok");
     assertEquals(thing.kind, "resource-destroy");
   });
@@ -268,7 +273,7 @@ Deno.test("worktree prune --json on a clean pool reports ok with no steps", asyn
     await gitInit(dir);
     const r = await runAgent(dir, ["worktree", "prune", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeCliResult(r.stdout, "worktree prune");
     assertEquals(obj.ok, true);
     assertEquals(obj.steps, []);
   });
@@ -305,8 +310,9 @@ Deno.test("accept --json performs the acceptance and serializes the steps", asyn
 
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseJson(r.stdout); // stdout must be ONLY the JSON object
+    const obj = decodeCliResult(r.stdout, "accept"); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
+    assert(obj.steps !== undefined);
     assert(
       obj.steps.some(
         (s: { label: string }) => s.label === "fast-forward-trunk",
@@ -345,11 +351,12 @@ Deno.test("accept --json reports a precondition failure as a JSON error", async 
 
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseJson(r.stdout); // the error is a JSON object, not a human line
+    const obj = decodeCliResult(r.stdout, "accept"); // the error is a JSON object, not a human line
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "accept");
     // error is a machine-stable slug; the human sentence rides in `message`.
     assertEquals(obj.error, "precondition_failed");
+    assert(obj.message !== undefined);
     assertStringIncludes(obj.message, "uncommitted tracked changes");
   });
 });

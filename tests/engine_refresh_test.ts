@@ -14,6 +14,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
+import { z } from "@zod/zod";
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { targetExists } from "../src/shared/fs_presence.ts";
@@ -35,6 +36,17 @@ import {
   scaffoldEngine,
   writeExecutable,
 } from "./engine_helpers.ts";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
+
+const McpConfigSchema = z.object({
+  mcpServers: z.object({
+    discern: z.object({ command: z.string() }),
+  }),
+});
 
 Deno.test("engine refresh: read-only plan and live apply share one tracked effect set", async () => {
   await withTempDir(async (dir) => {
@@ -224,7 +236,8 @@ Deno.test("engine refresh: a skills-dir failure is isolated — agent files and 
     const r = await runAgent(dir, ["refresh", "--json"]);
     // Partial success: a non-zero exit and a structured partial_refresh result...
     assertEquals(r.code, 1, r.output);
-    const res = JSON.parse(r.stdout);
+    const res = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(res, "errors");
     assertEquals(res.ok, false);
     assertEquals(res.error, "partial_refresh");
     assert(res.data.errors.length > 0, r.output);
@@ -293,14 +306,21 @@ Deno.test("engine refresh: backfills the discern MCP server for an install that 
     // First refresh backfills it and reports it under --json.
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const data = JSON.parse(r.stdout.trim()).data;
+    const refreshed = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(refreshed, "mcp_wired");
+    const data = refreshed.data;
     assert(data.mcp_wired.includes(".mcp.json"), r.stdout);
-    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    const mcp = decodeWith(
+      McpConfigSchema,
+      await Deno.readTextFile(join(dir, ".mcp.json")),
+    );
     assertEquals(mcp.mcpServers.discern.command, "discern");
 
     // Second refresh is a clean no-op for MCP (already present).
     const r2 = await runAgent(dir, ["refresh", "--json"]);
-    assertEquals(JSON.parse(r2.stdout.trim()).data.mcp_wired, []);
+    const unchanged = decodeCliResult(r2.stdout, "refresh");
+    assertResultDataKey(unchanged, "mcp_wired");
+    assertEquals(unchanged.data.mcp_wired, []);
   });
 });
 
@@ -312,7 +332,8 @@ Deno.test("engine refresh refuses malformed co-owned MCP JSON without clobbering
 
     const r = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const res = JSON.parse(r.stdout);
+    const res = decodeCliResult(r.stdout, "refresh");
+    assertResultDataKey(res, "errors");
     assertEquals(res.ok, false);
     assertEquals(res.error, "partial_refresh");
     assertStringIncludes(res.data.errors.join("\n"), ".mcp.json");
@@ -333,14 +354,14 @@ Deno.test("engine refresh: the FIRST MCP install surfaces a restart hint; a re-a
     const first = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(first.code, 0, first.output);
     assertHasHint(
-      JSON.parse(first.stdout.trim()),
+      decodeCliResult(first.stdout, "refresh"),
       HINTS["refresh-mcp-first-install"],
     );
 
     // Re-applying over the existing install must NOT repeat the restart hint.
     const second = await runAgent(dir, ["refresh", "--json"]);
     assertLacksHint(
-      JSON.parse(second.stdout.trim()),
+      decodeCliResult(second.stdout, "refresh"),
       HINTS["refresh-mcp-first-install"],
     );
   });
@@ -353,7 +374,7 @@ Deno.test("engine refresh: changed tracked artifacts advise committing the refre
     const first = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(first.code, 0, first.output);
     assertHasHint(
-      JSON.parse(first.stdout.trim()),
+      decodeCliResult(first.stdout, "refresh"),
       HINTS["refresh-commit-tracked-artifacts"],
     );
 
@@ -362,7 +383,7 @@ Deno.test("engine refresh: changed tracked artifacts advise committing the refre
     const unchanged = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(unchanged.code, 0, unchanged.output);
     assertLacksHint(
-      JSON.parse(unchanged.stdout.trim()),
+      decodeCliResult(unchanged.stdout, "refresh"),
       HINTS["refresh-commit-tracked-artifacts"],
     );
 
@@ -375,7 +396,7 @@ Deno.test("engine refresh: changed tracked artifacts advise committing the refre
     );
     const changed = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(changed.code, 0, changed.output);
-    const envelope = JSON.parse(changed.stdout.trim());
+    const envelope = decodeCliResult(changed.stdout, "refresh");
     assertHasHint(envelope, HINTS["refresh-commit-tracked-artifacts"]);
     assertLacksHint(envelope, HINTS["refresh-mcp-first-install"]);
   });

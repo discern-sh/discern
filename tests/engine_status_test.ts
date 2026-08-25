@@ -11,6 +11,7 @@
 import {
   assert,
   assertEquals,
+  assertExists,
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
@@ -43,8 +44,20 @@ import {
   type LogbookEvent,
 } from "../src/engine/logbook/schema.ts";
 import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 const STATUS_ESCAPE = String.fromCharCode(27);
+
+type StatusResult = CliResultForCommand<"status">;
+type StatusData = Exclude<
+  NonNullable<StatusResult["data"]>,
+  { issues: unknown }
+>;
+type ParsedStatusResult = StatusResult & { data: StatusData };
 
 /** A config with a project slug and one gated scope (so scopes/gate have
  * something to classify), written before gitInit so a worktree inherits it. */
@@ -91,10 +104,10 @@ function statusGateFactsConfig(
 }
 
 /** Parse a `status --json` run, asserting it succeeded and carries the verb. */
-// deno-lint-ignore no-explicit-any
-function parseStatus(stdout: string): any {
-  const obj = JSON.parse(stdout.trim());
+function parseStatus(stdout: string): ParsedStatusResult {
+  const obj = decodeCliResult(stdout, "status");
   assertEquals(obj.verb, "status");
+  assertResultDataKey(obj, "location");
   return obj;
 }
 
@@ -177,9 +190,11 @@ Deno.test("status: the fleet view surfaces cross-worktree file collisions", asyn
       Array.isArray(collisions) && collisions.length === 1,
       `expected exactly one collision pair: ${r.stdout}`,
     );
-    assertEquals(collisions[0].overlap, undefined);
-    assertEquals(collisions[0].total, 1);
-    const [first, second] = collisions[0].branches;
+    const collision = collisions[0];
+    assertExists(collision);
+    assertEquals("overlap" in collision, false);
+    assertEquals(collision.total, 1);
+    const [first, second] = collision.branches;
     assertHasHint(obj, HINTS["status-fleet-collisions"], {
       total: 1,
       pairs: [`${first} ↔ ${second}`],
@@ -223,9 +238,11 @@ Deno.test("status: in-flight branches claiming one ADR number are surfaced — e
       Array.isArray(collisions) && collisions.length === 1,
       `expected exactly one ADR collision: ${r.stdout}`,
     );
-    assertEquals(collisions[0].number, "0007");
-    assertEquals(collisions[0].branches, ["agent/alpha", "agent/beta"]);
-    assertEquals(collisions[0].paths, undefined);
+    const collision = collisions[0];
+    assertExists(collision);
+    assertEquals(collision.number, "0007");
+    assertEquals(collision.branches, ["agent/alpha", "agent/beta"]);
+    assertEquals("paths" in collision, false);
     assertHasHint(obj, HINTS["status-adr-number-collisions"], {
       total: 1,
       claims: ["0007 (agent/alpha ↔ agent/beta)"],
@@ -279,6 +296,7 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
     assertEquals(obj.data.project, "engine-test");
     assertEquals(obj.data.worktree, null);
     assert(Array.isArray(obj.data.fleet), `expected a fleet: ${r.stdout}`);
+    assertExists(obj.data.fleet);
     assertEquals(obj.data.fleet_total, 1);
     assertHasHint(obj, HINTS["status-full-structured-detail"]);
     // The main checkout is always a row, so nothing is hidden…
@@ -296,6 +314,8 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
     const alpha = obj.data.fleet.find(
       (e: { branch: string }) => e.branch === "agent/alpha",
     );
+    assertExists(alpha);
+    assertExists(alpha.gate_proof);
     assertEquals(alpha.gate_proof.status, "missing");
     // Every row carries a recent last_activity (an ISO timestamp).
     for (const e of obj.data.fleet) {
@@ -316,6 +336,7 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
     assertEquals(full.code, 0, full.output);
     const fullObj = parseStatus(full.stdout);
     assertEquals(fullObj.data.projection.mode, "full");
+    assertExists(fullObj.data.fleet);
     assertEquals(fullObj.data.fleet.length, 2);
     assertLacksHint(fullObj, HINTS["status-full-structured-detail"]);
     assertEquals(obj.data.scopes, undefined);
@@ -409,6 +430,7 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
     const run = await runAgent(dir, ["status", "--json"]);
     assertEquals(run.code, 0, run.output);
     const result = parseStatus(run.stdout);
+    assertExists(result.data.fleet);
     const alpha = result.data.fleet.find((row: { branch: string }) =>
       row.branch === "agent/alpha"
     );
@@ -416,6 +438,7 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
       row.branch === "agent/beta"
     );
     assert(alpha !== undefined && beta !== undefined, run.stdout);
+    assertExists(alpha.running);
     assertEquals(alpha.running.verb, "done");
     assertEquals(alpha.running.started, at(2 * 60_000 + 30_000));
     assert(
@@ -455,6 +478,7 @@ Deno.test("status fleet: logbook-off rows degrade to git activity and carry the 
     const run = await runAgent(dir, ["status", "--json"]);
     assertEquals(run.code, 0, run.output);
     const result = parseStatus(run.stdout);
+    assertExists(result.data.fleet);
     for (const row of result.data.fleet) {
       assertEquals(row.last_action, undefined);
       assertEquals(row.running, undefined);
@@ -625,6 +649,7 @@ Deno.test("status: main checkout on a non-trunk branch never claims 'you're on t
 
     const obj = parseStatus((await runAgent(dir, ["status", "--json"])).stdout);
     assertEquals(obj.data.location, "main");
+    assertExists(obj.data.git);
     assertEquals(obj.data.git.branch, "discern-setup");
     assertLacksHint(obj, HINTS["status-start-on-trunk"]);
     const expected = assertHasHint(obj, HINTS["status-start-off-trunk"], {
@@ -744,6 +769,8 @@ Deno.test("status JSON and terminal carry setup applicability and assurance coun
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
     const unfinished = json.data.setup_unfinished;
+    assertExists(unfinished);
+    assertExists(unfinished.assurance);
     assertEquals(unfinished.assurance.enforced, applicableTotal);
     assertEquals(unfinished.assurance.total, applicableTotal);
     assertEquals(
@@ -937,6 +964,7 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     // The local view carries the worktree identity + the heavy blocks.
     assert(obj.data.worktree, `expected a worktree block: ${r.stdout}`);
     assertEquals(obj.data.worktree.id, "alpha");
+    assertExists(obj.data.git);
     assertEquals(obj.data.git.branch, "agent/alpha");
     assert(obj.data.gate);
     assert(Array.isArray(obj.data.scopes));
@@ -1001,11 +1029,13 @@ Deno.test("status: gate facts report declared jobs and triggered scope gates", a
     const clean = parseStatus(
       (await runAgent(wt, ["status", "--json"])).stdout,
     );
+    assertExists(clean.data.gate);
     assertEquals(clean.data.gate.jobs, [...wiredKnownJobs, "custom"]);
     assertEquals(clean.data.gate.scope_gates, []);
 
     await writeExecutable(join(wt, "web/feature.txt"), "feature");
     const web = parseStatus((await runAgent(wt, ["status", "--json"])).stdout);
+    assertExists(web.data.gate);
     assertEquals(web.data.gate.jobs, [...wiredKnownJobs, "custom"]);
     assertEquals(web.data.gate.scope_gates, ["web"]);
   });
@@ -1018,7 +1048,7 @@ Deno.test("status: --all and --local together is a refusal", async () => {
 
     const r = await runAgent(dir, ["status", "--all", "--local", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = JSON.parse(r.stdout.trim());
+    const obj = decodeCliResult(r.stdout, "status");
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "status");
     assertEquals(obj.error, "invalid_arguments");
@@ -1034,10 +1064,11 @@ Deno.test("status: outside a discern project, the envelope is not_initialized", 
     // No scaffold — there is no discern.toml in this dir or any parent.
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = JSON.parse(r.stdout.trim());
+    const obj = decodeCliResult(r.stdout, "status");
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "status");
     assertEquals(obj.error, "not_initialized");
+    assertExists(obj.message);
     assertStringIncludes(obj.message, "no discern.toml");
     assertStringIncludes(obj.message, "discern setup");
     assertStringIncludes(obj.message, "move into an existing discern project");
@@ -1057,6 +1088,9 @@ Deno.test("status: a dirty worktree hints to prepare while iterating and finish 
     const r = await runAgent(wt, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
+    assertExists(obj.data.git);
+    assertExists(obj.data.scopes);
+    assertExists(obj.data.gate_proof);
     assertEquals(obj.data.git.clean, false);
     assert(
       obj.data.scopes.includes("web"),
@@ -1080,16 +1114,19 @@ Deno.test("status: an untracked project file makes local and fleet status dirty"
     const local = await runAgent(wt, ["status", "--json"]);
     assertEquals(local.code, 0, local.output);
     const localObj = parseStatus(local.stdout);
+    assertExists(localObj.data.git);
     assertEquals(localObj.data.git.clean, false);
     assertEquals(localObj.data.git.changed_files, 1);
 
     const fleet = await runAgent(dir, ["status", "--json"]);
     assertEquals(fleet.code, 0, fleet.output);
     const fleetObj = parseStatus(fleet.stdout);
+    assertExists(fleetObj.data.fleet);
     const row = fleetObj.data.fleet.find((e: { branch: string }) =>
       e.branch === "agent/scratch"
     );
     assert(row, `expected agent/scratch in fleet: ${fleet.stdout}`);
+    assertExists(row.gate_proof);
     assertEquals(row.clean, false);
     assertEquals(row.changed_files, 1);
 
@@ -1116,12 +1153,14 @@ Deno.test("status: ignored local scratch does not make a worktree read dirty", a
     const local = await runAgent(wt, ["status", "--json"]);
     assertEquals(local.code, 0, local.output);
     const localObj = parseStatus(local.stdout);
+    assertExists(localObj.data.git);
     assertEquals(localObj.data.git.clean, true);
     assertEquals(localObj.data.git.changed_files, 0);
 
     const fleet = await runAgent(dir, ["status", "--json"]);
     assertEquals(fleet.code, 0, fleet.output);
     const fleetObj = parseStatus(fleet.stdout);
+    assertExists(fleetObj.data.fleet);
     const row = fleetObj.data.fleet.find((e: { branch: string }) =>
       e.branch === "agent/scratch"
     );
@@ -1145,6 +1184,8 @@ Deno.test("status: a clean worktree ahead of main without a proof asks for final
     const r = await runAgent(wt, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
+    assertExists(obj.data.git);
+    assertExists(obj.data.gate_proof);
     assertEquals(obj.data.git.clean, true);
     assertEquals(obj.data.git.ahead_trunk, 1);
     assertEquals(obj.data.git.behind_trunk, 0);
@@ -1160,6 +1201,7 @@ Deno.test("status: a clean worktree ahead of main without a proof asks for final
     const fleet = parseStatus(
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
+    assertExists(fleet.data.fleet);
     assertLacksHint(fleet, HINTS["status-fleet-member-ready"], {
       total: 1,
       names: ["alpha"],
@@ -1168,6 +1210,8 @@ Deno.test("status: a clean worktree ahead of main without a proof asks for final
     const fleetRow = fleet.data.fleet.find(
       (entry: { branch: string }) => entry.branch === "agent/alpha",
     );
+    assertExists(fleetRow);
+    assertExists(fleetRow.gate_proof);
     assertEquals(fleetRow.gate_proof.status, "missing");
   });
 });
@@ -1187,10 +1231,13 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     const r = await runAgent(wt, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
+    assertExists(obj.data.git);
+    assertExists(obj.data.gate_proof);
     assertEquals(obj.data.git.clean, true);
     assertEquals(obj.data.git.ahead_trunk, 1);
     assertEquals(obj.data.git.behind_trunk, 0);
     assertEquals(obj.data.gate_proof.status, "honored");
+    assertExists(obj.data.gate_proof.proof);
     // The compact result carries Proof facts and the one-line form the
     // review-ready hint tells the agent to end its report with.
     assertStringIncludes(
@@ -1229,9 +1276,13 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
       HINTS["status-fleet-member-ready"],
       { total: 1, names: ["alpha"], trunk: "main" },
     );
+    assertExists(fleetObj.data.fleet);
     const row = fleetObj.data.fleet.find(
       (e: { branch: string }) => e.branch === "agent/alpha",
     );
+    assertExists(row);
+    assertExists(row.gate_proof);
+    assertExists(row.gate_proof.proof);
     assertEquals(row.gate_proof.status, "honored");
     assertStringIncludes(
       row.gate_proof.proof.line,
@@ -1253,11 +1304,14 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     const dirtyFleet = parseStatus(
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
+    assertExists(dirtyFleet.data.fleet);
     const dirtyRow = dirtyFleet.data.fleet.find(
       (entry: { branch: string }) => entry.branch === "agent/alpha",
     );
+    assertExists(dirtyRow);
+    assertExists(dirtyRow.gate_proof);
     assertEquals(dirtyRow.gate_proof.status, "dirty");
-    assertEquals(dirtyRow.proof_honored, undefined);
+    assertEquals("proof_honored" in dirtyRow, false);
   });
 });
 
@@ -1287,8 +1341,14 @@ Deno.test("status: a behind worktree with a valid proof is not ready for owner r
     const local = parseStatus(
       (await runAgent(wt, ["status", "--json"])).stdout,
     );
+    assertExists(local.data.gate_proof);
+    assertExists(local.data.git);
     assertEquals(local.data.gate_proof.status, "honored");
-    assert(local.data.git.behind_trunk > 0, JSON.stringify(local.data));
+    const behind = local.data.git.behind_trunk;
+    assert(
+      typeof behind === "number" && behind > 0,
+      JSON.stringify(local.data),
+    );
     assertLacksHint(local, HINTS["status-ready-for-review"], {
       trunk: "main",
       branch: "agent/alpha",
@@ -1297,6 +1357,7 @@ Deno.test("status: a behind worktree with a valid proof is not ready for owner r
     const fleet = parseStatus(
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
+    assertExists(fleet.data.fleet);
     assertLacksHint(fleet, HINTS["status-fleet-member-ready"], {
       total: 1,
       names: ["alpha"],
@@ -1305,6 +1366,8 @@ Deno.test("status: a behind worktree with a valid proof is not ready for owner r
     const fleetRow = fleet.data.fleet.find(
       (entry: { branch: string }) => entry.branch === "agent/alpha",
     );
+    assertExists(fleetRow);
+    assertExists(fleetRow.gate_proof);
     assertEquals(fleetRow.gate_proof.status, "honored");
   });
 });
@@ -1352,6 +1415,7 @@ Deno.test("status: an ahead worktree with untracked work is not ready for owner 
     const r = await runAgent(wt, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
+    assertExists(obj.data.git);
     assertEquals(obj.data.git.clean, false);
     assertEquals(obj.data.git.ahead_trunk, 1);
     assertEquals(obj.data.git.behind_trunk, 0);
@@ -1406,6 +1470,7 @@ Deno.test("status fleet: a freshly spawned worktree reads as recent, not as old 
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
+    assertExists(obj.data.fleet);
     const row = obj.data.fleet.find((e: { is_main: boolean }) => !e.is_main);
     assert(
       row?.last_activity,
@@ -1668,11 +1733,16 @@ Deno.test("status: when behind, incoming_overlap names the files you AND main bo
     await git(dir, "commit", "-q", "-m", "main edits shared", "--no-gpg-sign");
 
     const obj = parseStatus((await runAgent(wt, ["status", "--json"])).stdout);
-    assert(obj.data.git.behind_trunk >= 1, JSON.stringify(obj.data.git));
+    assertExists(obj.data.git);
+    const behind = obj.data.git.behind_trunk;
+    assert(
+      typeof behind === "number" && behind >= 1,
+      JSON.stringify(obj.data.git),
+    );
     // The hot zone is shared.txt; upstream.txt is incoming but not yours, so excluded.
     assertEquals(obj.data.git.incoming_overlap, ["shared.txt"]);
     assertHasHint(obj, HINTS["status-branch-behind"], {
-      behind: obj.data.git.behind_trunk,
+      behind,
       trunk: "main",
       overlap: { total: 1, paths: ["shared.txt"] },
     });
@@ -1693,7 +1763,12 @@ Deno.test("status: incoming_overlap is absent when behind but none of your files
     await git(dir, "commit", "-q", "-m", "main work", "--no-gpg-sign");
 
     const obj = parseStatus((await runAgent(wt, ["status", "--json"])).stdout);
-    assert(obj.data.git.behind_trunk >= 1, JSON.stringify(obj.data.git));
+    assertExists(obj.data.git);
+    const behind = obj.data.git.behind_trunk;
+    assert(
+      typeof behind === "number" && behind >= 1,
+      JSON.stringify(obj.data.git),
+    );
     // Behind, but the field is honestly absent (no intersection) — not an empty array.
     assertEquals(obj.data.git.incoming_overlap, undefined);
   });
@@ -1710,6 +1785,7 @@ Deno.test("status warns when the configured trunk is missing locally", async () 
     const json = await runAgent(wt, ["status", "--json"]);
     assertEquals(json.code, 0, json.output);
     const obj = parseStatus(json.stdout);
+    assertExists(obj.data.git);
     assertEquals(obj.data.git.behind_trunk, null);
     const expected = assertHasHint(
       obj,

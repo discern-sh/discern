@@ -11,6 +11,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
+import { z } from "@zod/zod";
 import { join } from "@std/path";
 import { tmpdir } from "os";
 import { withTempDir } from "./helpers.ts";
@@ -26,6 +27,24 @@ import {
   TEMP_ARTIFACT_KINDS,
   TEMP_ARTIFACT_SUFFIX,
 } from "../src/shared/temp_artifacts.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const CheckpointWhenInputSchema = z.object({
+  version: z.literal(1),
+  checkpoint: z.object({ id: z.string(), mode: z.enum(["stop", "advise"]) }),
+  policy_commit: z.string(),
+  changed_files: z.array(z.object({
+    path: z.string(),
+    kind: z.enum(["added", "modified", "deleted"]),
+    insertions: z.number().int().nonnegative(),
+    deletions: z.number().int().nonnegative(),
+    binary: z.boolean(),
+  })),
+  history: z.object({
+    count: z.number().int().nonnegative(),
+    fingerprint: z.string(),
+  }).optional(),
+});
 
 const INPUT: CheckpointWhenInput = {
   version: 1,
@@ -99,7 +118,13 @@ Deno.test("when: receives one versioned structured input and always removes it",
         matches: [],
       },
     );
-    assertEquals(JSON.parse(await Deno.readTextFile(captured)), INPUT);
+    assertEquals(
+      decodeWith(
+        CheckpointWhenInputSchema,
+        await Deno.readTextFile(captured),
+      ),
+      { ...INPUT, changed_files: [...INPUT.changed_files] },
+    );
     assertEquals((await Deno.readTextFile(modeRecord)).trim(), "600");
     const inputPath = await Deno.readTextFile(pathRecord);
     await assertRejects(() => Deno.stat(inputPath), Deno.errors.NotFound);

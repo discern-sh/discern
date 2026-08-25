@@ -4,6 +4,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { z } from "@zod/zod";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { basename, dirname, join } from "@std/path";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
@@ -40,6 +41,18 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
+
+const AcceptanceTransactionFixtureSchema = z.object({
+  id: z.string(),
+  worktree_branch: z.string(),
+  expected_trunk: z.string(),
+  effort_claim: z.boolean(),
+});
 
 const INTERRUPTION_FIXTURES = {
   "effort-claim": "pre-CAS claim and post-CAS consumption",
@@ -51,18 +64,23 @@ const SUCCESSFUL_LANDING_SOURCES_EXERCISED = new Set<LandingConsentSource>();
 
 /** Hold a successful envelope, Proof line, and Logbook event to one authority fact. */
 function assertSuccessfulLandingEvidence(
-  envelope: {
-    readonly data: {
-      readonly consent: LandingConsent;
-      readonly proof_line: string;
-    };
+  consent: {
+    readonly source: LandingConsentSource;
+    readonly scopes?: string[] | undefined;
   },
+  proofLine: string,
   event: LogbookEvent | undefined,
   expected: LandingConsent,
   proofPhrase: string,
 ): void {
-  assertEquals(envelope.data.consent, expected);
-  assertStringIncludes(envelope.data.proof_line, proofPhrase);
+  assertEquals(
+    {
+      source: consent.source,
+      ...(consent.scopes === undefined ? {} : { scopes: consent.scopes }),
+    },
+    expected,
+  );
+  assertStringIncludes(proofLine, proofPhrase);
   assert(event?.kind === "verb");
   assertEquals(event.consent, {
     source: expected.source,
@@ -277,7 +295,12 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
     );
     const landed = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
-    const envelope = JSON.parse(landed.stdout);
+    const envelope = decodeCliResult(landed.stdout, "accept");
+    assertResultDataKey(envelope, "scopes_changed");
+    assertResultDataKey(envelope, "consent");
+    assertResultDataKey(envelope, "proof_line");
+    assert(envelope.data.consent !== undefined);
+    assert(envelope.data.proof_line !== undefined);
     assertEquals(envelope.data.scopes_changed, ["map"]);
     assertEquals(await targetExists(worktree), false);
     assertEquals(
@@ -288,7 +311,8 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
     const events = await acceptEvents(dir);
     const event = events.at(-1);
     assertSuccessfulLandingEvidence(
-      envelope,
+      envelope.data.consent,
+      envelope.data.proof_line,
       event,
       { source: "standing-grant", scopes: ["map"] },
       "landed under standing grant: map",
@@ -430,7 +454,9 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
       "--json",
     ]);
     assertEquals(retried.code, 1, retried.output);
-    const message = JSON.parse(retried.stdout).message as string;
+    const retriedResult = decodeCliResult(retried.stdout, "accept");
+    assert(retriedResult.message !== undefined);
+    const message = retriedResult.message;
     assertStringIncludes(message, "reconciled the interrupted landing");
     assertStringIncludes(message, "discern worktree prune");
     assert(
@@ -482,7 +508,7 @@ Deno.test("an unconfirmed retry leaves an unbound post-CAS transaction byte-for-
 
     const refused = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const envelope = JSON.parse(refused.stdout);
+    const envelope = decodeCliResult(refused.stdout, "accept");
     assertEquals(envelope.error, "awaiting_consent");
     assertEquals(
       await Deno.readTextFile(interrupted.journal),
@@ -553,9 +579,17 @@ Deno.test("journal-bound consent recovers a post-CAS transaction flaglessly and 
 
       const recovered = await runAgent(worktree, ["accept", "--json"]);
       assertEquals(recovered.code, 1, recovered.output);
-      const envelope = JSON.parse(recovered.stdout);
+      const envelope = decodeCliResult(recovered.stdout, "accept");
+      assertResultDataKey(envelope, "consent");
+      assertResultDataKey(envelope, "landing");
+      assertResultDataKey(envelope, "root");
       assertEquals(envelope.error, "partial_acceptance");
-      assertEquals(envelope.data.consent, consent);
+      assertEquals(envelope.data.consent, {
+        source: consent.source,
+        ...(consent.scopes === undefined
+          ? {}
+          : { scopes: [...consent.scopes] }),
+      });
       assertEquals(envelope.data.landing, {
         recovery_performed: true,
         trunk_landed: true,
@@ -605,7 +639,8 @@ Deno.test("journal-only pre-CAS consent may reconcile once but cannot authorize 
 
     const recovered = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(recovered.code, 1, recovered.output);
-    const envelope = JSON.parse(recovered.stdout);
+    const envelope = decodeCliResult(recovered.stdout, "accept");
+    assertResultDataKey(envelope, "landing");
     assertEquals(envelope.error, "partial_acceptance");
     assertEquals(envelope.data.landing, {
       recovery_performed: true,
@@ -620,7 +655,10 @@ Deno.test("journal-only pre-CAS consent may reconcile once but cannot authorize 
 
     const replay = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(replay.code, 1, replay.output);
-    assertEquals(JSON.parse(replay.stdout).error, "awaiting_consent");
+    assertEquals(
+      decodeCliResult(replay.stdout, "accept").error,
+      "awaiting_consent",
+    );
 
     const events = await acceptEvents(dir);
     assertEquals(events.at(-2)?.outcome, "partial");
@@ -656,7 +694,11 @@ Deno.test("an authorized pre-CAS recovery makes every later plan refusal partial
       ["accept", "--confirmed", "--json"],
     );
     assertEquals(partial.code, 1, partial.output);
-    const envelope = JSON.parse(partial.stdout);
+    const envelope = decodeCliResult(partial.stdout, "accept");
+    assertResultDataKey(envelope, "root");
+    assertResultDataKey(envelope, "consent");
+    assertResultDataKey(envelope, "landing");
+    assert(envelope.message !== undefined);
     assertEquals(envelope.error, "partial_acceptance");
     assertEquals(envelope.data.root, dir);
     assertEquals(envelope.data.consent, { source: "conversation" });
@@ -734,7 +776,11 @@ Deno.test("post-recovery authority loss remains a partial acceptance", async () 
       },
     });
     assertEquals(partial.code, 1, partial.output);
-    const envelope = JSON.parse(partial.stdout);
+    const envelope = decodeCliResult(partial.stdout, "accept");
+    assertResultDataKey(envelope, "root");
+    assertResultDataKey(envelope, "consent");
+    assertResultDataKey(envelope, "landing");
+    assert(envelope.message !== undefined);
     assertEquals(envelope.error, "partial_acceptance");
     assertEquals(envelope.data.root, dir);
     assertEquals(envelope.data.consent, { source: "conversation" });
@@ -802,7 +848,9 @@ Deno.test("a trunk CAS whose checkout and rollback both fail reports the irrever
       },
     );
     assertEquals(partial.code, 1, partial.output);
-    const envelope = JSON.parse(partial.stdout);
+    const envelope = decodeCliResult(partial.stdout, "accept");
+    assertResultDataKey(envelope, "root");
+    assertResultDataKey(envelope, "landing");
     assertEquals(envelope.error, "partial_acceptance");
     assertEquals(envelope.data.root, await Deno.realPath(dir));
     assertEquals(envelope.data.landing, {
@@ -869,7 +917,9 @@ Deno.test("a post-landing worktree-removal failure returns partial effect state 
       },
     );
     assertEquals(partial.code, 1, partial.output);
-    const envelope = JSON.parse(partial.stdout);
+    const envelope = decodeCliResult(partial.stdout, "accept");
+    assertResultDataKey(envelope, "root");
+    assertResultDataKey(envelope, "landing");
     assertEquals(envelope.error, "partial_acceptance");
     assertEquals(envelope.data.root, await Deno.realPath(dir));
     assertEquals(envelope.data.landing, {
@@ -934,7 +984,9 @@ Deno.test("accept recovery preserves tracked data changed after an interrupted t
       "--json",
     ]);
     assertEquals(retried.code, 1, retried.output);
-    const message = JSON.parse(retried.stdout).message as string;
+    const retriedResult = decodeCliResult(retried.stdout, "accept");
+    assert(retriedResult.message !== undefined);
+    const message = retriedResult.message;
     assertStringIncludes(message, "preserved the trunk checkout");
     assertStringIncludes(message, "git diff");
     assertEquals(
@@ -1071,13 +1123,19 @@ Deno.test("accept records confirmed conversation consent in its proof and logboo
       "--json",
     ]);
     assertEquals(landed.code, 0, landed.output);
-    const envelope = JSON.parse(landed.stdout);
+    const envelope = decodeCliResult(landed.stdout, "accept");
+    assertResultDataKey(envelope, "scopes_changed");
+    assertResultDataKey(envelope, "consent");
+    assertResultDataKey(envelope, "proof_line");
+    assert(envelope.data.consent !== undefined);
+    assert(envelope.data.proof_line !== undefined);
     assertEquals(envelope.data.scopes_changed, ["map"]);
 
     const events = await acceptEvents(dir);
     const event = events.at(-1);
     assertSuccessfulLandingEvidence(
-      envelope,
+      envelope.data.consent,
+      envelope.data.proof_line,
       event,
       { source: "conversation" },
       "landed with conversation consent",
@@ -1114,7 +1172,11 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
 
     const landed = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
-    const envelope = JSON.parse(landed.stdout);
+    const envelope = decodeCliResult(landed.stdout, "accept");
+    assertResultDataKey(envelope, "consent");
+    assertResultDataKey(envelope, "proof_line");
+    assert(envelope.data.consent !== undefined);
+    assert(envelope.data.proof_line !== undefined);
     assertEquals(await targetExists(marker), false);
     assertEquals(
       await targetExists(transactionMarkers),
@@ -1125,7 +1187,8 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
     const events = await acceptEvents(dir);
     const event = events.at(-1);
     assertSuccessfulLandingEvidence(
-      envelope,
+      envelope.data.consent,
+      envelope.data.proof_line,
       event,
       { source: "effort-grant" },
       "landed under effort grant",
@@ -1193,7 +1256,10 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
     try {
       await waitForPath(paused, first);
       journalBefore = await Deno.readTextFile(journal);
-      const transaction = JSON.parse(journalBefore);
+      const transaction = decodeWith(
+        AcceptanceTransactionFixtureSchema,
+        journalBefore,
+      );
       assertEquals(transaction.worktree_branch, branch);
       assertEquals(transaction.expected_trunk, expected);
       assertEquals(transaction.effort_claim, true);
@@ -1288,7 +1354,8 @@ Deno.test("accept retry restores and reuses an effort claim interrupted before t
 
     const retried = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(retried.code, 0, retried.output);
-    const envelope = JSON.parse(retried.stdout);
+    const envelope = decodeCliResult(retried.stdout, "accept");
+    assertResultDataKey(envelope, "consent");
     assertEquals(envelope.data.consent, { source: "effort-grant" });
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
     assertEquals(
@@ -1337,7 +1404,9 @@ Deno.test("accept retry consumes an effort claim interrupted after trunk CAS wit
 
     const retried = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(retried.code, 1, retried.output);
-    const message = JSON.parse(retried.stdout).message as string;
+    const retriedResult = decodeCliResult(retried.stdout, "accept");
+    assert(retriedResult.message !== undefined);
+    const message = retriedResult.message;
     assertStringIncludes(message, "reconciled the interrupted landing");
     assertStringIncludes(message, "discern worktree prune");
     assert(
@@ -1402,7 +1471,9 @@ Deno.test("accept retry does not replay an effort claim after a landed ref is re
 
     const retried = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(retried.code, 1, retried.output);
-    const message = JSON.parse(retried.stdout).message as string;
+    const retriedResult = decodeCliResult(retried.stdout, "accept");
+    assert(retriedResult.message !== undefined);
+    const message = retriedResult.message;
     assertStringIncludes(message, "was later reset");
     assertStringIncludes(message, "effort grant was consumed");
     assertEquals(await targetExists(claimed.claim.path), false);
@@ -1410,7 +1481,10 @@ Deno.test("accept retry does not replay an effort claim after a landed ref is re
 
     const replay = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(replay.code, 1, replay.output);
-    assertEquals(JSON.parse(replay.stdout).error, "awaiting_consent");
+    assertEquals(
+      decodeCliResult(replay.stdout, "accept").error,
+      "awaiting_consent",
+    );
     assert(await targetExists(worktree));
   });
 });
@@ -1459,7 +1533,9 @@ Deno.test("accept retry reuses an effort claim only after its tagged CAS rollbac
     await Deno.remove(collision);
     const retried = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(retried.code, 0, retried.output);
-    assertEquals(JSON.parse(retried.stdout).data.consent, {
+    const envelope = decodeCliResult(retried.stdout, "accept");
+    assertResultDataKey(envelope, "consent");
+    assertEquals(envelope.data.consent, {
       source: "effort-grant",
     });
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
@@ -1500,8 +1576,9 @@ Deno.test("accept refuses partial and unscoped standing coverage with the paths 
       );
       const refused = await runAgent(worktree, ["accept", "--json"]);
       assertEquals(refused.code, 1, refused.output);
-      const envelope = JSON.parse(refused.stdout);
+      const envelope = decodeCliResult(refused.stdout, "accept");
       assertEquals(envelope.error, "awaiting_consent");
+      assert(envelope.message !== undefined);
       for (const expected of fixture.expected) {
         assertStringIncludes(envelope.message, expected);
       }
@@ -1521,7 +1598,8 @@ Deno.test("accept gives unknown trunk grants zero authority and reports them", a
 
     const refused = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const envelope = JSON.parse(refused.stdout);
+    const envelope = decodeCliResult(refused.stdout, "accept");
+    assert(envelope.message !== undefined);
     assertStringIncludes(envelope.message, "unknown scope");
     assertStringIncludes(envelope.message, "ghost");
     assertStringIncludes(envelope.message, "cover nothing");
@@ -1547,8 +1625,9 @@ Deno.test("conversation consent lands the branch that outgrew the trunk's commit
 
     const flagless = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(flagless.code, 1, flagless.output);
-    const refusal = JSON.parse(flagless.stdout);
+    const refusal = decodeCliResult(flagless.stdout, "accept");
     assertEquals(refusal.error, "awaiting_consent");
+    assert(refusal.message !== undefined);
     assertStringIncludes(refusal.message, "could not be checked");
     assertStringIncludes(
       refusal.message,
@@ -1572,7 +1651,11 @@ Deno.test("conversation consent lands the branch that outgrew the trunk's commit
       "--json",
     ]);
     assertEquals(confirmed.code, 0, confirmed.output);
-    const envelope = JSON.parse(confirmed.stdout);
+    const envelope = decodeCliResult(confirmed.stdout, "accept");
+    assertResultDataKey(envelope, "consent");
+    assertResultDataKey(envelope, "authority_warnings");
+    assertResultDataKey(envelope, "proof_line");
+    assert(envelope.data.proof_line !== undefined);
     assertEquals(envelope.data.consent, { source: "conversation" });
     assert(
       (envelope.data.authority_warnings ?? []).some((warning: string) =>
@@ -1605,8 +1688,10 @@ Deno.test("accept falls back loudly when trunk authority is unreadable and recor
 
     const flagless = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(flagless.code, 1, flagless.output);
+    const flaglessResult = decodeCliResult(flagless.stdout, "accept");
+    assert(flaglessResult.message !== undefined);
     assertTerminalTextIncludes(
-      JSON.parse(flagless.stdout).message,
+      flaglessResult.message,
       "could not be checked",
     );
 
@@ -1657,8 +1742,9 @@ Deno.test("accept dry-run reports standing authority without landing", async () 
       "--json",
     ]);
     assertEquals(preview.code, 0, preview.output);
-    const envelope = JSON.parse(preview.stdout);
+    const envelope = decodeCliResult(preview.stdout, "accept");
     assertEquals(envelope.dry_run, true);
+    assert(envelope.plan !== undefined);
     assert(
       envelope.plan.details.some((detail: string) =>
         detail.includes("standing grant (map)")

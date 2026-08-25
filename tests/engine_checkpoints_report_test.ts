@@ -9,7 +9,12 @@
  * `done --dry-run` also renders, so the three surfaces cannot disagree.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -23,7 +28,6 @@ import {
 } from "./engine_helpers.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import type { CheckpointsData } from "../src/shared/result_schemas.ts";
-import { CheckpointsOutputSchema } from "../src/shared/result_schemas.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
@@ -36,33 +40,34 @@ import {
   type CheckpointObligationState,
 } from "../src/shared/checkpoints.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
+import {
+  assertResultDataKey,
+  type CliJsonResultCommand,
+  type CliResultEnvelope,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
-/** The wire fields these assertions read from a `checkpoints` envelope. */
-interface CheckpointsEnvelope {
-  ok: boolean;
-  verb: string;
-  hints?: string[];
-  data: CheckpointsData;
-}
+type CheckpointsResult = CliResultForCommand<"checkpoints">;
+type CheckpointsEnvelope = CheckpointsResult & { data: CheckpointsData };
 
 /** Decode and schema-validate one `checkpoints --json` envelope: every
  * asserted fact below is a fact about the PUBLISHED result shape. */
 function parseCheckpoints(stdout: string): CheckpointsEnvelope {
-  const envelope = JSON.parse(stdout.trim());
-  CheckpointsOutputSchema.parse(envelope);
-  return envelope as CheckpointsEnvelope;
+  const result = decodeCliResult(stdout, "checkpoints");
+  assertResultDataKey(result, "checkpoints");
+  return result;
 }
 
 /** A generic envelope carrying only what the preview assertions read. */
-interface HintedEnvelope {
-  ok: boolean;
-  hints?: string[];
-  plan?: { details?: string[] };
-}
+type HintedEnvelope = CliResultEnvelope;
 
-/** Decode one JSON envelope down to its hint channel. */
-function parseHinted(stdout: string): HintedEnvelope {
-  return JSON.parse(stdout.trim()) as HintedEnvelope;
+/** Decode one JSON envelope while preserving its command-specific contract. */
+function parseHinted<Command extends CliJsonResultCommand>(
+  stdout: string,
+  command: Command,
+): CliResultForCommand<Command> {
+  return decodeCliResult(stdout, command);
 }
 
 /** Read one effort marker without creating it. */
@@ -466,11 +471,13 @@ Deno.test("previews: prepare, status, and done --dry-run project the one preview
 
     const prepare = parseHinted(
       (await runAgent(wt, ["prepare", "--json"])).stdout,
+      "prepare",
     );
     const served = assertHasHint(prepare, HINTS["checkpoint-preview"], params);
 
     const status = parseHinted(
       (await runAgent(wt, ["status", "--json"])).stdout,
+      "status",
     );
     const servedByStatus = assertHasHint(
       status,
@@ -485,6 +492,7 @@ Deno.test("previews: prepare, status, and done --dry-run project the one preview
 
     const dryRun = parseHinted(
       (await runAgent(wt, ["done", "--dry-run", "--json"])).stdout,
+      "done",
     );
     assert(
       dryRun.plan?.details?.includes(
@@ -522,19 +530,22 @@ Deno.test("checkpoint obligations: an opened question outranks an idle structura
     );
     const prepare = parseHinted(
       (await runAgent(wt, ["prepare", "--json"])).stdout,
+      "prepare",
     );
     const status = parseHinted(
       (await runAgent(wt, ["status", "--json"])).stdout,
+      "status",
     );
     const dryRun = parseHinted(
       (await runAgent(wt, ["done", "--dry-run", "--json"])).stdout,
+      "done",
     );
     const done = parseHinted(
       (await runAgent(wt, ["done", "--json"])).stdout,
-    ) as HintedEnvelope & {
-      error?: string;
-      data?: { checkpoints?: { outstanding?: { id: string }[] } };
-    };
+      "done",
+    );
+    assertResultDataKey(done, "checkpoints");
+    assertExists(done.data.checkpoints);
 
     const obligations = {
       checkpoints: checkpoints.data.checkpoints[0]?.open_question?.state ===
@@ -757,12 +768,15 @@ Deno.test("checkpoint obligations: the full state matrix projects through every 
       );
       const prepare = parseHinted(
         (await runAgent(wt, ["prepare", "--json"])).stdout,
+        "prepare",
       );
       const status = parseHinted(
         (await runAgent(wt, ["status", "--json"])).stdout,
+        "status",
       );
       const dryRun = parseHinted(
         (await runAgent(wt, ["done", "--dry-run", "--json"])).stdout,
+        "done",
       );
 
       assertEquals(
@@ -808,6 +822,7 @@ Deno.test("checkpoint obligations: the full state matrix projects through every 
 
       const done = parseHinted(
         (await runAgent(wt, ["done", "--json"])).stdout,
+        "done",
       ) as HintedEnvelope & { error?: string };
       const strictDecision: SurfaceDecision = done.error ===
           "awaiting_declaration"
@@ -829,10 +844,12 @@ Deno.test("previews: an advise checkpoint rides the advisory channel on prepare 
     };
     const prepare = parseHinted(
       (await runAgent(wt, ["prepare", "--json"])).stdout,
+      "prepare",
     );
     assertHasHint(prepare, HINTS["checkpoint-advise"], params);
     const status = parseHinted(
       (await runAgent(wt, ["status", "--json"])).stdout,
+      "status",
     );
     assertHasHint(status, HINTS["checkpoint-advise"], params);
   });
@@ -843,6 +860,7 @@ Deno.test("previews: a when-pending stop checkpoint is served as may-require", a
     const wt = await worktreeWithApiChange(dir, CONFIG_WHEN);
     const prepare = parseHinted(
       (await runAgent(wt, ["prepare", "--json"])).stdout,
+      "prepare",
     );
     const text = assertHasHint(prepare, HINTS["checkpoint-preview"], {
       id: "api-review",
@@ -864,8 +882,9 @@ Deno.test("previews: a when-pending stop checkpoint is served as may-require", a
 Deno.test("previews: a checkpoint-free effort adds no checkpoint hints to prepare or status", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_NO_CHECKPOINTS);
-    for (const argv of [["prepare", "--json"], ["status", "--json"]]) {
-      const env = parseHinted((await runAgent(wt, argv)).stdout);
+    for (const command of ["prepare", "status"] as const) {
+      const argv = [command, "--json"];
+      const env = parseHinted((await runAgent(wt, argv)).stdout, command);
       for (const hint of env.hints ?? []) {
         assert(
           !hint.startsWith("Checkpoint"),

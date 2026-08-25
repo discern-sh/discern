@@ -1,6 +1,7 @@
 /** Registry, routing, and static-rendering contracts for the internal art archive. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { z } from "@zod/zod";
 import { join } from "@std/path";
 import { createElement } from "react";
 // @ts-types="@types/jsdom"
@@ -23,6 +24,11 @@ import {
 import { handler, PAGES } from "../site/serve.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const DenoTasksSchema = z.object({
+  tasks: z.record(z.string(), z.string()).optional(),
+});
 
 const EXPECTED_BROWSER_ART = [
   ["alignment", "Alignment", "3006e8622db947c4417b4df2055e28820646ad2e"],
@@ -305,8 +311,9 @@ Deno.test("the loopback server owns /art/ while the public handler does not", as
   assertEquals(rejectedPage.headers.get("allow"), "GET, HEAD");
   await rejectedPage.body?.cancel();
 
-  const config = JSON.parse(
+  const config = decodeWith(
+    DenoTasksSchema,
     await Deno.readTextFile(new URL("../deno.json", import.meta.url)),
-  ) as { tasks?: Record<string, string> };
+  );
   assertEquals(config.tasks?.["site:art"], "deno task site:specimens");
 });

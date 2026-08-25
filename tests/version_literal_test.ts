@@ -13,6 +13,7 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { runCli, withTempDir } from "./helpers.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /** Every listed TypeScript source quoting `version` verbatim, minus `allowed`. */
 async function hardcodedVersionSites(
@@ -105,9 +106,11 @@ Deno.test("every version-reporting surface derives from KIT_VERSION", async () =
     assertEquals(setup.code, 0, "setup should scaffold a healthy install");
 
     const cliVersion = await runCli(["--version"], dir);
-    const doctorJson = JSON.parse(
+    const doctorJson = decodeCliResult(
       (await runCli(["doctor", "--json"], dir)).stdout,
+      "doctor",
     );
+    assertResultDataKey(doctorJson, "kit_version");
     const doctorHuman = await runCli(["doctor"], dir);
     const stampedConfig = await Deno.readTextFile(join(dir, "discern.toml"));
 

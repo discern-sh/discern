@@ -38,6 +38,7 @@ import {
   CLI_RESULT_FORMATS,
   CLI_RESULT_RENDER,
 } from "../src/shared/result_formats.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 /** Every global flag token, straight from the Cliffy registration. */
 const GLOBAL_FLAGS: readonly string[] = [
@@ -213,7 +214,7 @@ Deno.test("pre-setup: the redirect fires for every global flag before every gate
           assert(!r.stdout.trimStart().startsWith("{"), r.stdout);
           continue;
         }
-        const res = JSON.parse(r.stdout);
+        const res = decodeCliResult(r.stdout, verb);
         assertEquals(
           res.error,
           "not_set_up",
@@ -230,7 +231,7 @@ Deno.test("pre-setup: a flags-only JSON invocation returns the root refusal", as
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["--json"]);
     assertEquals(r.code, 1, r.output);
-    const res = JSON.parse(r.stdout);
+    const res = decodeCliResult(r.stdout, "discern");
     assertEquals(res.ok, false, r.output);
     assertEquals(res.verb, "discern", r.output);
     assertEquals(res.error, "invalid_arguments", r.output);
@@ -274,8 +275,9 @@ Deno.test("result output modes are mutually exclusive", async () => {
       const r = await runAgent(dir, ["status", ...flags]);
       assertEquals(r.code, 1, `${flags.join(" ")}: ${r.output}`);
       if (flags.includes("--json")) {
-        const result = JSON.parse(r.stdout);
+        const result = decodeCliResult(r.stdout, "status");
         assertEquals(result.error, "invalid_arguments");
+        assert(result.message !== undefined);
         assertStringIncludes(result.message, "cannot be combined");
       } else {
         assertTerminalTextIncludes(r.stdout, "cannot be combined");
@@ -362,8 +364,9 @@ Deno.test("an unsupported theme value uses the selected result-format refusal", 
       "--json",
     ]);
     assertEquals(result.code, 2, result.output);
-    const parsed = JSON.parse(result.stdout);
+    const parsed = decodeCliResult(result.stdout, "status");
     assertEquals(parsed.error, "invalid_arguments");
+    assert(parsed.message !== undefined);
     assertStringIncludes(parsed.message, "--theme accepts");
   });
 });

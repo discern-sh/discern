@@ -16,6 +16,7 @@ import { join } from "@std/path";
 import { readDirIfExists } from "../src/shared/fs_presence.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import {
   parseLogbookLine,
   type VerbEvent,
@@ -358,17 +359,12 @@ Deno.test("CLI crash in --json mode: stdout is one uniform internal_error envelo
     });
 
     assertEquals(run.code, CRASH_EXIT_CODE, run.output);
-    const envelope = JSON.parse(run.stdout) as {
-      ok: boolean;
-      verb: string;
-      error: string;
-      message: string;
-      data?: unknown;
-    };
+    const envelope = decodeCliResult(run.stdout, "status");
     assertEquals(envelope.ok, false);
     assertEquals(envelope.verb, "status");
     assertEquals(envelope.error, "internal_error");
     assertEquals(envelope.data, undefined);
+    assertExists(envelope.message);
     assertStringIncludes(envelope.message, "Synthetic crash requested");
     assertStringIncludes(envelope.message, ISSUES_URL);
     // The saved report is named in the message, and exists.

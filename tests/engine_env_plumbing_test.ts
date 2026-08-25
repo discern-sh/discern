@@ -10,6 +10,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { z } from "@zod/zod";
 import { basename, join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
@@ -36,6 +37,15 @@ import {
   stripQuotes,
 } from "../src/engine/worktree/env_file.ts";
 import { Logger } from "../src/lib/log.ts";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
+
+const SettingsWithoutPermissionsSchema = z.object({
+  permissions: z.never().optional(),
+});
 
 const INHERIT_CONFIG =
   '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
@@ -117,12 +127,10 @@ Deno.test("fleet rows derive id and port when the project has no env file", asyn
 
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as {
-      data: {
-        fleet?: Array<{ path: string; id?: string; port?: number }>;
-      };
-    };
-    const row = result.data.fleet?.find((e) => e.path.endsWith("no-env-here"));
+    const result = decodeCliResult(r.stdout, "status");
+    assertResultDataKey(result, "fleet");
+    assert(result.data.fleet !== undefined);
+    const row = result.data.fleet.find((e) => e.path.endsWith("no-env-here"));
     assert(row !== undefined, JSON.stringify(result.data.fleet));
     assertEquals(row.id, basename(wt), "id derives without any env file");
     assertEquals(
@@ -145,10 +153,10 @@ Deno.test("status keeps a stale fleet row instead of crashing on its missing roo
 
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as {
-      data: { fleet?: Array<{ path: string; broken?: boolean }> };
-    };
-    const row = result.data.fleet?.find((entry) =>
+    const result = decodeCliResult(r.stdout, "status");
+    assertResultDataKey(result, "fleet");
+    assert(result.data.fleet !== undefined);
+    const row = result.data.fleet.find((entry) =>
       entry.path.endsWith("stale-env-root")
     );
     assert(row !== undefined, JSON.stringify(result.data.fleet));
@@ -170,10 +178,10 @@ Deno.test("status reads a contained symlinked env file in a fleet member", async
 
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as {
-      data: { fleet?: Array<{ path: string; id?: string }> };
-    };
-    const row = result.data.fleet?.find((entry) =>
+    const result = decodeCliResult(r.stdout, "status");
+    assertResultDataKey(result, "fleet");
+    assert(result.data.fleet !== undefined);
+    const row = result.data.fleet.find((entry) =>
       entry.path.endsWith("linked-env-status")
     );
     assert(row !== undefined, JSON.stringify(result.data.fleet));
@@ -225,11 +233,7 @@ Deno.test("worktree setup reports a symlinked env write refusal as a result", as
 
     const setup = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(setup.code, 1, setup.output);
-    const result = JSON.parse(setup.stdout) as {
-      ok: boolean;
-      error?: string;
-      message?: string;
-    };
+    const result = decodeCliResult(setup.stdout, "worktree setup");
     assertEquals(result.ok, false);
     assertEquals(result.error, "precondition_failed");
     assertStringIncludes(result.message ?? "", "remove the symbolic link");
@@ -240,9 +244,10 @@ Deno.test("worktree setup reports a symlinked env write refusal as a result", as
 Deno.test("the shipped settings template carries no deny rule", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    const settings = JSON.parse(
+    const settings = decodeWith(
+      SettingsWithoutPermissionsSchema,
       await Deno.readTextFile(join(dir, ".claude/settings.json")),
-    ) as Record<string, unknown>;
+    );
     assertEquals(
       settings.permissions,
       undefined,

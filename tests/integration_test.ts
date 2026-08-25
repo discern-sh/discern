@@ -14,6 +14,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { z } from "@zod/zod";
 import { join } from "@std/path";
 import { assembleInitPlan } from "../src/commands/setup.ts";
 import {
@@ -33,6 +34,22 @@ import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const HookGroupSchema = z.object({
+  hooks: z.array(z.object({
+    type: z.string(),
+    command: z.string(),
+    timeout: z.number().optional(),
+  })),
+});
+const ClaudeSettingsSchema = z.object({
+  hooks: z.object({
+    SessionStart: z.array(HookGroupSchema),
+    WorktreeCreate: z.array(HookGroupSchema),
+    WorktreeRemove: z.array(HookGroupSchema),
+  }),
+});
 import { fakeEnv, REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
 /** A resolved config for a non-interactive integration scaffold. */
@@ -128,11 +145,12 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     // own dispatches (the create/remove hooks read their JSON payload natively —
     // no jq, no branch_prefix substitution; the branch prefix is asserted on the
     // rendered discern.toml above). See ADR 0039.
-    const settings = JSON.parse(
+    const settings = decodeWith(
+      ClaudeSettingsSchema,
       await Deno.readTextFile(join(dir, ".claude/settings.json")),
     );
     assert(typeof settings === "object" && settings !== null);
-    assert(Array.isArray(settings.hooks?.WorktreeCreate));
+    assert(Array.isArray(settings.hooks.WorktreeCreate));
     assertStringIncludes(
       JSON.stringify(settings.hooks.WorktreeCreate),
       "worktree hook create",

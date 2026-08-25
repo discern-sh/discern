@@ -1,6 +1,7 @@
 /** External-consumer contract for Discern's selected design-system CLI release. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { z } from "@zod/zod";
 import { fromFileUrl, join } from "@std/path";
 import { packageManifest } from "discern-design-system";
 import {
@@ -39,6 +40,7 @@ import {
   FakeTerminalIO,
 } from "discern-design-system/cli/interactive/testing";
 import { projectTerminalHtml } from "discern-design-system/cli/projection";
+import { decodeWith } from "./decode_cli_result.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SELECTED_VERSION = "0.26.1";
@@ -51,17 +53,18 @@ const ANSI_PATTERN = new RegExp(
   "gu",
 );
 
-interface DenoConfig {
-  readonly imports: Readonly<Record<string, string>>;
-}
-
-interface DenoLock {
-  readonly specifiers: Readonly<Record<string, string>>;
-  readonly jsr: Readonly<
-    Record<string, { readonly dependencies?: readonly string[] }>
-  >;
-  readonly npm: Readonly<Record<string, unknown>>;
-}
+const DenoConfigSchema = z.object({
+  imports: z.record(z.string(), z.string()),
+});
+const LockPackageSchema = z.object({
+  integrity: z.string(),
+  dependencies: z.array(z.string()).optional(),
+});
+const DenoLockSchema = z.object({
+  specifiers: z.record(z.string(), z.string()),
+  jsr: z.record(z.string(), LockPackageSchema),
+  npm: z.record(z.string(), LockPackageSchema),
+});
 
 interface DenoInfoResolution {
   readonly specifier: string;
@@ -69,22 +72,37 @@ interface DenoInfoResolution {
 
 interface DenoInfoDependency {
   readonly specifier: string;
-  readonly code?: DenoInfoResolution;
-  readonly type?: DenoInfoResolution;
+  readonly code?: DenoInfoResolution | undefined;
+  readonly type?: DenoInfoResolution | undefined;
 }
 
 interface DenoInfoModule {
-  readonly kind?: string;
-  readonly specifier?: string;
-  readonly npmPackage?: string;
-  readonly dependencies?: readonly DenoInfoDependency[];
+  readonly kind?: string | undefined;
+  readonly specifier?: string | undefined;
+  readonly npmPackage?: string | undefined;
+  readonly dependencies?: readonly DenoInfoDependency[] | undefined;
 }
 
 interface DenoInfo {
-  readonly roots?: readonly string[];
-  readonly redirects?: Readonly<Record<string, string>>;
-  readonly modules?: readonly DenoInfoModule[];
+  readonly roots?: readonly string[] | undefined;
+  readonly redirects?: Readonly<Record<string, string>> | undefined;
+  readonly modules?: readonly DenoInfoModule[] | undefined;
 }
+
+const DenoInfoSchema = z.object({
+  roots: z.array(z.string()).optional(),
+  redirects: z.record(z.string(), z.string()).optional(),
+  modules: z.array(z.object({
+    kind: z.string().optional(),
+    specifier: z.string().optional(),
+    npmPackage: z.string().optional(),
+    dependencies: z.array(z.object({
+      specifier: z.string(),
+      code: z.object({ specifier: z.string() }).optional(),
+      type: z.object({ specifier: z.string() }).optional(),
+    })).optional(),
+  })).optional(),
+});
 
 /** Select React runtime modules while ignoring configured type declarations. */
 function reactRuntimeModules(specifiers: readonly string[]): string[] {
@@ -153,7 +171,10 @@ async function moduleGraph(entrypoint: string): Promise<DenoInfo> {
   if (!output.success) {
     throw new Error(new TextDecoder().decode(output.stderr));
   }
-  return JSON.parse(new TextDecoder().decode(output.stdout)) as DenoInfo;
+  return decodeWith(
+    DenoInfoSchema,
+    new TextDecoder().decode(output.stdout),
+  );
 }
 
 /** Resolve a graph edge through Deno's package-export redirect table. */
@@ -162,12 +183,14 @@ function resolvedEdge(info: DenoInfo, specifier: string): string {
 }
 
 Deno.test("the selected release exposes the complete public reader contract", async () => {
-  const config = JSON.parse(
+  const config = decodeWith(
+    DenoConfigSchema,
     await Deno.readTextFile(join(ROOT, "deno.json")),
-  ) as DenoConfig;
-  const lock = JSON.parse(
+  );
+  const lock = decodeWith(
+    DenoLockSchema,
     await Deno.readTextFile(join(ROOT, "deno.lock")),
-  ) as DenoLock;
+  );
   assertEquals(config.imports["discern-design-system"], SELECTED_SPECIFIER);
   assertEquals(lock.specifiers[SELECTED_SPECIFIER], SELECTED_VERSION);
   assert(`@discern-sh/design-system@${SELECTED_VERSION}` in lock.jsr);
@@ -539,9 +562,10 @@ Deno.test("the selected release supplies Discern's revised static contracts", ()
 Deno.test("CLI design-system graphs stay published, lock-resolved, and React-free", async () => {
   const entrypoint = join(ROOT, "tests/fixtures/design_system_cli_graph.ts");
   const info = await moduleGraph(entrypoint);
-  const lock = JSON.parse(
+  const lock = decodeWith(
+    DenoLockSchema,
     await Deno.readTextFile(join(ROOT, "deno.lock")),
-  ) as DenoLock;
+  );
   const modules = (info.modules ?? []).flatMap((module) =>
     module.specifier === undefined ? [] : [module.specifier]
   );

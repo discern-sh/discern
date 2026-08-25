@@ -34,6 +34,7 @@ import {
 } from "./engine_helpers.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 import { readTextIfExists, targetExists } from "../src/shared/fs_presence.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 interface StandardSpec {
   name: string;
@@ -241,7 +242,10 @@ Deno.test("pin: an improvement smaller than the margin is left un-pinned", async
     const before = await gitOut(dir, "rev-parse", "HEAD");
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-slack"]);
+    assertHasHint(
+      decodeCliResult(r.stdout, "standards"),
+      HINTS["standards-pin-no-slack"],
+    );
     assertEquals(limitOf(await readConfig(dir), "size"), "1000");
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before, "no commit");
   });
@@ -263,7 +267,10 @@ Deno.test("pin: nothing to pin when the metric already sits at the limit", async
     const before = await gitOut(dir, "rev-parse", "HEAD");
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-slack"]);
+    assertHasHint(
+      decodeCliResult(r.stdout, "standards"),
+      HINTS["standards-pin-no-slack"],
+    );
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
   });
 });
@@ -408,7 +415,7 @@ Deno.test("pin: a failing standard blocks the whole pin", async () => {
     assertEquals(r.code, 1, r.output);
     // It names the failing standard and points at `discern standards` for the detail.
     assertHasHint(
-      JSON.parse(r.stdout),
+      decodeCliResult(r.stdout, "standards"),
       HINTS["standards-pin-blocked"],
       { failingNames: ["bundle"] },
     );
@@ -447,10 +454,7 @@ Deno.test("pin: a behind-trunk worktree succeeds with an update hint", async () 
     const r = await runAgent(wt, ["standards", "--pin", "--json"]);
 
     assertEquals(r.code, 0, r.output);
-    const obj = JSON.parse(r.stdout.trim()) as {
-      ok: boolean;
-      hints?: string[];
-    };
+    const obj = decodeCliResult(r.stdout, "standards");
     assertEquals(obj.ok, true);
     assertHasHint(obj, HINTS["standards-pin-behind"], {
       behind: 1,
@@ -636,10 +640,7 @@ Deno.test("a green check hints any pinnable slack, so check → pin needs no mea
     // silent about the one already at its limit.
     const r = await runAgent(dir, ["standards", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = JSON.parse(r.stdout.trim()) as {
-      ok: boolean;
-      hints?: string[];
-    };
+    const obj = decodeCliResult(r.stdout, "standards");
     assertEquals(obj.ok, true);
     assertHasHint(obj, HINTS["standards-pinnable-slack"], {
       standards: [{
@@ -675,7 +676,7 @@ Deno.test("pin: carries an honored gate proof onto the new commit", async () => 
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertHasHint(
-      JSON.parse(r.stdout),
+      decodeCliResult(r.stdout, "standards"),
       HINTS["standards-pin-carried-proof"],
     );
 
@@ -709,26 +710,19 @@ Deno.test("pin: the tightened pin commit still passes both standards gate halves
     const after = await runAgent(dir, ["done", "--json"]);
 
     assertEquals(after.code, 0, after.output);
-    const obj = JSON.parse(after.stdout.trim()) as {
-      ok: boolean;
-      data?: {
-        standards_limits?: { status: string };
-        standards?: Array<{
-          name: string;
-          limit: number;
-          value?: number;
-          verdict?: string;
-        }>;
-      };
-    };
+    const obj = decodeCliResult(after.stdout, "done");
+    assertResultDataKey(obj, "standards_limits");
+    assert(obj.data.standards_limits !== undefined);
+    assert(obj.data.standards !== undefined);
     assertEquals(obj.ok, true);
-    assertEquals(obj.data?.standards_limits?.status, "verified");
-    const coverage = obj.data?.standards?.find((standard) =>
+    assertEquals(obj.data.standards_limits.status, "verified");
+    const coverage = obj.data.standards.find((standard) =>
       standard.name === "coverage"
     );
-    assertEquals(coverage?.limit, 95);
-    assertEquals(coverage?.value, 95);
-    assertEquals(coverage?.verdict, "held");
+    assert(coverage !== undefined);
+    assertEquals(coverage.limit, 95);
+    assertEquals(coverage.value, 95);
+    assertEquals(coverage.verdict, "held");
   });
 });
 
@@ -748,7 +742,10 @@ Deno.test("pin: does NOT forge a proof when none was honored beforehand", async 
 
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-proof"]);
+    assertHasHint(
+      decodeCliResult(r.stdout, "standards"),
+      HINTS["standards-pin-no-proof"],
+    );
     // Fail-closed: no proof was written, so accept will re-run the gate.
     assertEquals(await readProof(dir), undefined);
   });
@@ -773,7 +770,10 @@ Deno.test("pin: a STALE prior proof is not carried (fail-closed)", async () => {
 
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-proof"]);
+    assertHasHint(
+      decodeCliResult(r.stdout, "standards"),
+      HINTS["standards-pin-no-proof"],
+    );
     // The stale marker is left untouched (still ≠ HEAD) — accept re-validates.
     const head = await gitOut(dir, "rev-parse", "HEAD");
     assertEquals(await readProof(dir), stale);
@@ -839,16 +839,15 @@ Deno.test("pin --json: reports pinned steps and ok", async () => {
     await gitInit(dir);
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = JSON.parse(r.stdout.trim()) as {
-      ok: boolean;
-      verb: string;
-      steps?: Array<{ label: string; outcome: string; note?: string }>;
-      hints?: string[];
-    };
+    const obj = decodeCliResult(r.stdout, "standards");
     assertEquals(obj.verb, "standards");
     assertEquals(obj.ok, true);
-    assertEquals(obj.steps?.[0]?.label, "coverage");
-    assertStringIncludes(obj.steps?.[0]?.note ?? "", "pinned floor 80 → 95");
+    assert(obj.steps !== undefined);
+    const step = obj.steps[0];
+    assert(step !== undefined);
+    assert(step.note !== undefined);
+    assertEquals(step.label, "coverage");
+    assertStringIncludes(step.note, "pinned floor 80 → 95");
   });
 });
 
@@ -960,7 +959,7 @@ Deno.test("proof: a pin after a green check reuses its measurements — one meas
     assertEquals(await measureCount(dir), 1, "the check measures once");
     // The green check's hint promises the reuse a pin on this commit performs.
     assertHasHint(
-      JSON.parse(check.stdout.trim()),
+      decodeCliResult(check.stdout, "standards"),
       HINTS["standards-pinnable-slack"],
       {
         standards: [{
@@ -976,11 +975,12 @@ Deno.test("proof: a pin after a green check reuses its measurements — one meas
 
     const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(pin.code, 0, pin.output);
-    const pinObj = JSON.parse(pin.stdout) as {
-      hints?: string[];
-      steps?: Array<{ note?: string }>;
-    };
-    assertStringIncludes(pinObj.steps?.[0]?.note ?? "", "pinned floor 80 → 95");
+    const pinObj = decodeCliResult(pin.stdout, "standards");
+    assert(pinObj.steps !== undefined);
+    const pinStep = pinObj.steps[0];
+    assert(pinStep !== undefined);
+    assert(pinStep.note !== undefined);
+    assertStringIncludes(pinStep.note, "pinned floor 80 → 95");
     assertHasHint(pinObj, HINTS["standards-pin-reused-measurements"]);
     assertEquals(
       await measureCount(dir),
@@ -1184,20 +1184,22 @@ Deno.test("proof: a reusing pin still re-checks never-loosen against LIVE main",
     const before = await gitOut(dir, "rev-parse", "HEAD");
     const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(pin.code, 1, pin.output);
-    const obj = JSON.parse(pin.stdout.trim()) as {
-      ok: boolean;
-      steps?: Array<{ note?: string }>;
-      diagnostics?: Array<{ message: string }>;
-      hints?: string[];
-    };
+    const obj = decodeCliResult(pin.stdout, "standards");
     assertEquals(obj.ok, false);
+    assert(obj.steps !== undefined);
+    assert(obj.diagnostics !== undefined);
+    const step = obj.steps[0];
+    const diagnostic = obj.diagnostics[0];
+    assert(step !== undefined);
+    assert(step.note !== undefined);
+    assert(diagnostic !== undefined);
     // The verdict came from the proof replay, and it carries the live reason.
     assertStringIncludes(
-      obj.steps?.[0]?.note ?? "",
+      step.note,
       "reused from the green check",
     );
     assertStringIncludes(
-      obj.diagnostics?.[0]?.message ?? "",
+      diagnostic.message,
       "the floor only rises",
     );
     assertHasHint(obj, HINTS["standards-pin-blocked"], {

@@ -35,15 +35,11 @@ import {
 import { PRE_CHECKPOINT_STAGES } from "../src/engine/gate/plan.ts";
 import { jobStage, STAGES } from "../src/shared/capabilities.ts";
 import { parsePorcelainZ } from "../src/shared/git_paths.ts";
-
-/** Decode a done envelope for tree-drift refusal and recovery assertions. */
-// deno-lint-ignore no-explicit-any
-function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
-}
-// deno-lint-ignore no-explicit-any
-const diagFor = (obj: any, tool: string) =>
-  (obj.diagnostics ?? []).find((d: { tool: string }) => d.tool === tool);
+import {
+  decodeGateResult,
+  diagFor,
+  stepFor,
+} from "./engine_done_json_shared.ts";
 
 /** A stand-in formatter: strip trailing spaces from doc.md (a real, input-dependent
  * transform, so it dirties a file that isn't already canonical). */
@@ -164,7 +160,7 @@ Deno.test("done: a fixer that reformats a COMMITTED-clean file fails with tree_d
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "tree_drift");
     const diag = diagFor(obj, "tree-drift");
@@ -253,7 +249,7 @@ for (const stage of MUTATING_STAGES) {
       const r = await runAgent(dir, ["done", "--json"]);
       assertEquals(r.code, 1, r.output);
 
-      const obj = parseJson(r.stdout);
+      const obj = decodeGateResult(r.stdout);
       assertEquals(obj.ok, false);
       assertEquals(obj.data.failed_stage, "tree_drift");
       const diag = diagFor(obj, "tree-drift");
@@ -305,7 +301,7 @@ Deno.test("done: a scope gate that dirties a COMMITTED-clean tracked file fails 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assert(obj.data.scopes_changed.includes("widget"), r.stdout);
     assertEquals(obj.data.failed_stage, "tree_drift");
@@ -332,7 +328,7 @@ Deno.test("done: a fixer reworking the agent's OWN uncommitted edit does NOT tri
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
     assertEquals(obj.data.failed_stage, null);
     // The fixer DID reformat the WIP file (so this isn't a vacuous pass) — it was
@@ -356,13 +352,6 @@ const SENTINEL = [
   'echo "ran" > check-ran.txt',
   "",
 ].join("\n");
-
-/** The serialized step for `label` from a parsed done envelope. */
-const stepFor = (
-  obj: { steps?: { label: string; disposition: string; outcome: string }[] },
-  label: string,
-): { label: string; disposition: string; outcome: string } | undefined =>
-  (obj.steps ?? []).find((s) => s.label === label);
 
 /**
  * Scaffold a committed-clean repo whose `mutatorJob` runs `mutatorScript` (default:
@@ -422,7 +411,7 @@ for (const mutator of PRE_CHECKPOINT_MUTATORS) {
       const r = await runAgent(dir, ["done", "--json"]);
       assertEquals(r.code, 1, r.output);
 
-      const obj = parseJson(r.stdout);
+      const obj = decodeGateResult(r.stdout);
       assertEquals(obj.ok, false);
       assertEquals(obj.data.failed_stage, "tree_drift");
       const diag = diagFor(obj, "tree-drift");
@@ -435,7 +424,7 @@ for (const mutator of PRE_CHECKPOINT_MUTATORS) {
       // One detection, one diagnostic: the checkpoint REPLACES the final pass
       // on this path rather than running beside it.
       assertEquals(
-        obj.diagnostics.filter((d: { tool: string }) => d.tool === "tree-drift")
+        (obj.diagnostics ?? []).filter((d) => d.tool === "tree-drift")
           .length,
         1,
       );
@@ -456,7 +445,7 @@ Deno.test("done: a tracked-dirty start skips the checkpoint — later jobs run, 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.data.failed_stage, "tree_drift");
     const diag = diagFor(obj, "tree-drift");
     assert(
@@ -482,9 +471,11 @@ Deno.test("done: an untracked-dirty start is not proof-eligible — the checkpoi
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.data.failed_stage, "tree_drift");
-    assertStringIncludes(diagFor(obj, "tree-drift").message, "data.txt");
+    const diag = diagFor(obj, "tree-drift");
+    assert(diag !== undefined);
+    assertStringIncludes(diag.message, "data.txt");
     // No early abort: the check job ran to completion first.
     assertEquals(stepFor(obj, "lint")?.outcome, "ok");
     assertEquals(await targetExists(join(dir, "check-ran.txt")), true);
@@ -526,7 +517,7 @@ Deno.test("done: a fixer edit the build stage restores does not trip the checkpo
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
     assertEquals(obj.data.failed_stage, null);
     // The fixer ran (so the file WAS dirty between the pre-groups), the build
@@ -554,7 +545,7 @@ Deno.test("done: a pre-group command failure outranks the checkpoint — failed_
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.data.failed_stage, "fix");
     assertEquals(diagFor(obj, "tree-drift"), undefined);
   });
@@ -588,7 +579,7 @@ Deno.test("done: generated drift outranks the checkpoint — the owning group is
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.data.failed_stage, "generated_drift");
     assertEquals(diagFor(obj, "tree-drift"), undefined);
   });
@@ -614,7 +605,7 @@ Deno.test("done: refresh planning fails closed when a fixer corrupts the index",
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "refresh_drift");
     assertEquals(diagFor(obj, "tree-drift"), undefined);
@@ -666,7 +657,7 @@ Deno.test("done: the checkpoint keeps post-pre-group scope classification — th
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.data.failed_stage, "tree_drift");
     // Classification still happened after the pre-groups ran…
     assert(obj.data.scopes_changed.includes("widget"), r.stdout);

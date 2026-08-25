@@ -16,6 +16,7 @@ import {
 } from "../src/engine/worktree/recovery_refs.ts";
 import { deleteAutomaticallyOwnedBranch } from "../src/engine/worktree/ownership.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import {
   addWorktree,
   git,
@@ -610,9 +611,8 @@ Deno.test("worktree drop: tears down the worktree's recorded resources", async (
       await targetExists(join(dir, "destroyed.marker")),
       `the resource destroy must run\n${r.output}`,
     );
-    const result = JSON.parse(r.stdout) as {
-      steps: { kind: string; label: string; outcome: string }[];
-    };
+    const result = decodeCliResult(r.stdout, "worktree drop");
+    assert(result.steps !== undefined);
     const destroy = result.steps.find((s) => s.kind === "resource-destroy");
     assertEquals(destroy?.label, "lifecycle-probe", r.stdout);
     assertEquals(destroy?.outcome, "ok", r.stdout);
