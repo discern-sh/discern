@@ -2076,6 +2076,6 @@ export async function reportUnknownOrSuggest(
     ? scriptsDirOf(root, cfg)
     : undefined;
   const suggestion = await suggestCommand(verb, scripts?.abs);
-  reportUnknownCommand(verb, suggestion, opts);
+  reportUnknownCommand(verb, suggestion, "discern", opts);
   return 1;
 }

@@ -199,7 +199,7 @@ export async function runProjectScriptAt(
     return 1;
   }
 
-  reportUnknownCommand(`scripts ${name}`, undefined, opts);
+  reportUnknownCommand(`scripts ${name}`, undefined, "scripts", opts);
   return 1;
 }
 

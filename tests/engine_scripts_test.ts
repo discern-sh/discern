@@ -13,6 +13,9 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { runProjectScriptAt } from "../src/engine/project_scripts.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 const SLUG_SCRIPT = `#!/usr/bin/env sh
 # desc: print the project slug
@@ -123,7 +126,8 @@ Deno.test("script (singular) folds silently to the scripts dispatch", async () =
     // canonical verb — folding rewrites the spelling before dispatch.
     const list = await runAgent(dir, ["script", "--json"]);
     assertEquals(list.code, 0, list.output);
-    const envelope = JSON.parse(list.stdout);
+    const envelope = decodeCliResult(list.stdout, "scripts");
+    assertResultDataKey(envelope, "scripts");
     assertEquals(envelope.verb, "scripts");
     assertEquals(envelope.data.scripts, [{
       name: "deploy",
@@ -142,7 +146,8 @@ Deno.test("scripts: --json lists project scripts as one structured result", asyn
     for (const args of [["--json", "scripts"], ["scripts", "--json"]]) {
       const r = await runAgent(dir, args);
       assertEquals(r.code, 0, r.output);
-      const result = JSON.parse(r.stdout);
+      const result = decodeCliResult(r.stdout, "scripts");
+      assertResultDataKey(result, "scripts");
       assertEquals(result.ok, true);
       assertEquals(result.verb, "scripts");
       assertEquals(result.data.scripts, [{
@@ -210,6 +215,19 @@ Deno.test("scripts: child flags cannot select discern global modes", async () =>
     assertEquals(result.code, 1, result.output);
     assertEquals(result.stdout, "");
     assertTerminalTextIncludes(result.stderr, "syntax error near line 1");
+  });
+});
+
+Deno.test("scripts: a missing project script keeps the scripts JSON contract", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const result = await runAgent(dir, ["--json", "scripts", "missing"]);
+    assertEquals(result.code, 1, result.output);
+    const envelope = decodeCliResult(result.stdout, "scripts");
+    assertEquals(envelope.verb, "scripts");
+    assertEquals(envelope.error, "unknown_command");
+    assertEquals(envelope.message, 'unknown command "scripts missing".');
+    assertHasHint(envelope, HINTS["unknown-command-help"]);
   });
 });
 

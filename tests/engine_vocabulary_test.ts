@@ -17,6 +17,7 @@ import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 /** Select a retired single-token command to prove root help hides redirects. */
 function firstTopLevelRedirect(): [string, string] {
@@ -45,9 +46,9 @@ Deno.test("retired command spellings hard-error with their canonical successor",
 
       const json = await runAgent(dir, [...retiredTokens, "--json"]);
       assertEquals(json.code, 1, json.output);
-      assertEquals(JSON.parse(json.stdout), {
+      assertEquals(decodeCliResult(json.stdout, "discern"), {
         ok: false,
-        verb: retired,
+        verb: "discern",
         error: "renamed_command",
         message: retiredCommandMessage(retired, successor),
         hints: [
@@ -116,9 +117,9 @@ Deno.test("every command synonym suggests its canonical verb on both surfaces", 
       const json = await runAgent(dir, [synonym, "--json"]);
       assertEquals(json.code, 1, json.output);
       assertEquals(json.stderr, "", "the --json stream must stay pure");
-      const res = JSON.parse(json.stdout);
+      const res = decodeCliResult(json.stdout, "discern");
       assertEquals(res.ok, false);
-      assertEquals(res.verb, synonym);
+      assertEquals(res.verb, "discern");
       assertEquals(res.error, "unknown_command");
       assertEquals(res.message, unknownCommandMessage(synonym));
       const suggestion = assertHasHint(
@@ -145,9 +146,9 @@ Deno.test("an unknown word with no suggestion still refuses with a hint under --
     const json = await runAgent(dir, [word, "--json"]);
     assertEquals(json.code, 1, json.output);
     assertEquals(json.stderr, "", "the --json stream must stay pure");
-    const res = JSON.parse(json.stdout);
+    const res = decodeCliResult(json.stdout, "discern");
     assertEquals(res.ok, false);
-    assertEquals(res.verb, word);
+    assertEquals(res.verb, "discern");
     assertEquals(res.error, "unknown_command");
     const pointer = assertHasHint(res, HINTS["unknown-command-help"]);
     assertEquals(res.hints, [pointer]);
@@ -163,7 +164,7 @@ Deno.test("the unknown-command lesson shows even outside a project", async () =>
     ) {
       const json = await runAgent(dir, [synonym, "--json"]);
       const suggestion = assertHasHint(
-        JSON.parse(json.stdout),
+        decodeCliResult(json.stdout, "discern"),
         HINTS["unknown-command-suggestion"],
         { command: canonical },
       );
@@ -172,6 +173,26 @@ Deno.test("the unknown-command lesson shows even outside a project", async () =>
       assertStringIncludes(r.stderr, unknownCommandMessage(synonym));
       assertStringIncludes(r.stderr, suggestion);
     }
+  });
+});
+
+Deno.test("a flag-first unknown command keeps the root discriminator with malformed config", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      `${dir}/discern.toml`,
+      'this is = not valid toml [[[\n"unterminated\n',
+    );
+    const result = await runAgent(dir, [
+      "--json",
+      "zzzz-nothing-like-a-verb",
+    ]);
+    assertEquals(result.code, 1, result.output);
+    const envelope = decodeCliResult(result.stdout, "discern");
+    assertEquals(envelope.verb, "discern");
+    assertEquals(envelope.error, "unknown_command");
+    assertExists(envelope.message);
+    assertStringIncludes(envelope.message, "zzzz-nothing-like-a-verb");
+    assert((envelope.hints?.length ?? 0) > 0, result.stdout);
   });
 });
 

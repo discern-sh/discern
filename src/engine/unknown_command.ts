@@ -12,10 +12,14 @@ import { unknownCommandMessage } from "../shared/vocabulary.ts";
 import { Logger } from "../lib/log.ts";
 import { reportFailure } from "../lib/narration.ts";
 
-/** Report an unknown top-level word with an optional canonical suggestion. */
+/**
+ * Report an unknown word with an optional canonical suggestion. Machine output
+ * keeps the registered command that owns the refusal as its discriminator.
+ */
 export function reportUnknownCommand(
   word: string,
   suggestion: string | undefined,
+  resultVerb: "discern" | "scripts",
   opts: { json?: boolean } = {},
 ): void {
   const hints: FiredHint[] = [
@@ -27,7 +31,7 @@ export function reportUnknownCommand(
   if (opts.json ?? false) {
     emitResult({
       ok: false,
-      verb: word,
+      verb: resultVerb,
       error: "unknown_command",
       message: unknownCommandMessage(word),
       hints: hintTexts(hints),

@@ -407,8 +407,7 @@ export function buildCli(
       const commandPath = fullPath === "discern"
         ? ""
         : fullPath.replace(/^discern\s+/, "");
-      const resultVerb = cliJsonResultVerb(commandPath) ??
-        (commandPath === "" ? "discern" : commandPath);
+      const resultVerb = cliJsonResultVerb(commandPath) ?? "discern";
       const startMessage = commandPath === "start"
         ? startValidationMessage(activeDiscernArgv, error.message)
         : undefined;
@@ -903,6 +902,7 @@ export function buildCli(
       reportUnknownCommand(
         command,
         commandSynonymSuggestion(command),
+        "discern",
         { json: false },
       );
       return 1;
@@ -1355,6 +1355,13 @@ export function resolveInvocation(
   };
 }
 
+/** Select the published result discriminator that owns one attempted verb. */
+function resultVerbForInvocation(verb: string | undefined): string {
+  if (verb === undefined) return "discern";
+  const canonicalVerb = normalizeVerbVariant(verb, KNOWN_VERBS);
+  return cliJsonResultVerb(canonicalVerb) ?? "discern";
+}
+
 /** Whether this invocation may pay the one bounded terminal-background query. */
 export function backgroundSensingRequested(
   argv: readonly string[],
@@ -1464,9 +1471,14 @@ export async function main(args: string[]): Promise<void> {
         : token
     );
   }
-  // The raw first token — helper dispatch below is deliberately positional,
-  // and it names the attempted verb in a pre-resolution config error.
-  let verb = argv[0];
+  // Resolve the attempted command before project-state loading so even an
+  // early config refusal carries a registered result discriminator. Internal
+  // helper dispatch below remains deliberately keyed on the raw first token.
+  let verb = resolveInvocation(
+    argv,
+    ROOT_GLOBAL_FLAG_TOKENS,
+    ROOT_GLOBAL_VALUE_FLAG_TOKENS,
+  ).verb;
 
   try {
     // One global interaction decision feeds every input-capable surface. This
@@ -1518,8 +1530,9 @@ export async function main(args: string[]): Promise<void> {
     // before Cliffy so a wrapped command's flags pass through raw. Keyed on the
     // FIRST token on purpose — helpers are internal plumbing always invoked
     // verb-first, and everything after the helper name must reach it untouched.
-    if (verb !== undefined) {
-      const helperCode = await dispatchHelper(verb, argv.slice(1));
+    const helperVerb = argv[0];
+    if (helperVerb !== undefined) {
+      const helperCode = await dispatchHelper(helperVerb, argv.slice(1));
       if (helperCode !== null) {
         Deno.exit(helperCode);
       }
@@ -1614,7 +1627,7 @@ export async function main(args: string[]): Promise<void> {
       if (quietResult) {
         emitResult({
           ok: false,
-          verb: retiredCommand,
+          verb: "discern",
           error: "renamed_command",
           message,
         });
@@ -1736,7 +1749,8 @@ export async function main(args: string[]): Promise<void> {
     // error reads `invalid_toml`; a schema violation reads `invalid_config` and
     // carries the per-issue list. Anything else is a crash — a bug in discern
     // reaching the surface — and exits through the crash frame (ADR 0248).
-    const configFailure = configFailureResult(verb ?? "discern", err);
+    const resultVerb = resultVerbForInvocation(verb);
+    const configFailure = configFailureResult(resultVerb, err);
     if (configFailure !== undefined) {
       if (quietResult) {
         // Route through the one envelope/chokepoint (ADR 0030) so even a
@@ -1752,7 +1766,7 @@ export async function main(args: string[]): Promise<void> {
       Deno.exit(1);
     }
     await exitWithCrashFrame(
-      verb,
+      resultVerb,
       err,
       quietResult,
     );
