@@ -2764,6 +2764,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .map((entry) => entry.file),
   },
   {
+    id: "test-temp-directory-ownership-modes",
+    title: "Test temp-directory ownership modes",
+    what:
+      "Every supported lifetime for a temporary directory created by tests or executable fixtures, with its cleanup boundary and reason.",
+    source: {
+      kind: "module",
+      module: "tests/temp_dir.ts",
+      exportName: "TEMP_DIR_OWNERSHIP_POLICIES",
+    },
+    guards: [
+      "tests/temp_dir_test.ts",
+      "tests/temp_dir_guard_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "these callback and module lifetimes are repository-local test infrastructure policy",
+      },
+      featureCanon: {
+        absent:
+          "test fixture cleanup is a repository development convention, not a shipped discern feature",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../tests/temp_dir.ts")).TEMP_DIR_OWNERSHIP_POLICIES,
+      ),
+  },
+  {
     id: "canonical-sets",
     title: "Canonical sets",
     what: "This meta-registry: the closed set of closed sets.",
