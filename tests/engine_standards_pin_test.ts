@@ -457,7 +457,7 @@ Deno.test("pin: a behind-trunk worktree succeeds with an update hint", async () 
     };
     assertEquals(obj.ok, true);
     assertHasHint(obj, HINTS["standards-pin-behind"], {
-      behind: "1",
+      behind: 1,
       trunk: "main",
     });
     assert(

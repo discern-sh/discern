@@ -35,6 +35,7 @@ import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { bestEffortFs, directoryExists } from "../../shared/fs_presence.ts";
+import { isKnownGitCount } from "../../shared/git_count.ts";
 import {
   type CheckpointDrop,
   checkpointDropAccounts,
@@ -1464,7 +1465,9 @@ async function buildDropPlan(
       );
     }
     if (trunkExists) {
-      if (match.snapshot.ahead > 0) {
+      if (!isKnownGitCount(match.snapshot.ahead)) {
+        blockers.push(`cannot read how many commits are not on ${trunk}`);
+      } else if (match.snapshot.ahead > 0) {
         blockers.push(
           `${match.snapshot.ahead} commit${
             match.snapshot.ahead === 1 ? "" : "s"
@@ -3859,7 +3862,7 @@ async function buildUpdatePlan(
     source: integrationBranch(ctx.config.repository.trunk),
     fromOverride: false,
     worktreeBranch,
-    behind: merged.kind === "behind" ? Number(merged.behind) || 0 : 0,
+    behind: merged.kind === "behind" ? merged.behind : 0,
     alreadyUpdated: merged.kind !== "behind",
     generatedGroups,
     refreshCompiledPaths,
@@ -4450,11 +4453,19 @@ async function executeUpdatePlan(
           }\`.`,
       );
     case "updated": {
+      const behindText = isKnownGitCount(outcome.behind)
+        ? `${outcome.behind} commit(s)`
+        : "an unknown number of commits";
+      const fastForwardText = isKnownGitCount(outcome.behind)
+        ? `+${outcome.behind} commit(s)`
+        : "commit count unavailable";
       ctx.log.heading(`Updating ${source}…`);
       ctx.log.ok(
-        outcome.fastForward
-          ? `Fast-forwarded to ${source} (+${outcome.behind} commit(s)).`
-          : `Merged ${source} (was behind by ${outcome.behind} commit(s)).`,
+        outcome.fastForward === true
+          ? `Fast-forwarded to ${source} (${fastForwardText}).`
+          : outcome.fastForward === false
+          ? `Merged ${source} (was behind by ${behindText}).`
+          : `Updated ${source} (${behindText}; merge mode unavailable).`,
       );
       const steps: StepResult[] = [
         {
@@ -4462,9 +4473,11 @@ async function executeUpdatePlan(
             kind: "git",
             label: BUILT_IN_STEP_LABELS.merge,
             disposition: "run",
-            note: outcome.fastForward
+            note: outcome.fastForward === true
               ? `fast-forwarded ${source}`
-              : `merged ${source}`,
+              : outcome.fastForward === false
+              ? `merged ${source}`
+              : `updated ${source}; merge mode unavailable`,
           },
           outcome: "ok",
         },

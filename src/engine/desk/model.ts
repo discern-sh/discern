@@ -30,6 +30,10 @@ import {
   relativeAge,
 } from "../status/tty.ts";
 import { taskLabel, type WorktreeTaskLabel } from "../worktree/task_label.ts";
+import {
+  isPositiveGitCount,
+  UNKNOWN_GIT_COUNT,
+} from "../../shared/git_count.ts";
 
 export { taskLabel } from "../worktree/task_label.ts";
 
@@ -437,16 +441,28 @@ function gitDetails(entry: StatusFleetEntry, trunk: string): DeskDetail[] {
         : plural(entry.changed_files, "uncommitted file"),
     });
   }
-  if ((entry.ahead ?? 0) > 0) {
+  if (entry.ahead === UNKNOWN_GIT_COUNT) {
     details.push({
       kind: "git",
-      text: `${plural(entry.ahead ?? 0, "commit")} ahead of ${trunk}`,
+      text: `Ahead count versus ${trunk} unavailable`,
+    });
+  } else if (entry.ahead !== undefined && isPositiveGitCount(entry.ahead)) {
+    details.push({
+      kind: "git",
+      text: `${plural(entry.ahead, "commit")} ahead of ${trunk}`,
     });
   }
-  if ((entry.behind ?? 0) > 0) {
+  if (entry.behind === UNKNOWN_GIT_COUNT) {
     details.push({
       kind: "git",
-      text: `${plural(entry.behind ?? 0, "commit")} behind ${trunk}`,
+      text: `Behind count versus ${trunk} unavailable`,
+    });
+  } else if (
+    entry.behind !== undefined && isPositiveGitCount(entry.behind)
+  ) {
+    details.push({
+      kind: "git",
+      text: `${plural(entry.behind, "commit")} behind ${trunk}`,
     });
   }
   return details;
@@ -599,15 +615,21 @@ function disabledReason(
   }
   switch (action) {
     case "accept":
-      if ((entry.behind ?? 0) > 0) {
-        return `${plural(entry.behind ?? 0, "commit")} behind ${facts.trunk}.`;
+      if (entry.behind === UNKNOWN_GIT_COUNT) {
+        return `Git divergence from ${facts.trunk} is unknown.`;
+      }
+      if (entry.behind !== undefined && isPositiveGitCount(entry.behind)) {
+        return `${plural(entry.behind, "commit")} behind ${facts.trunk}.`;
       }
       if (entry.clean !== true) {
         return entry.clean === false
           ? "The worktree has uncommitted changes."
           : "Worktree cleanliness is unknown.";
       }
-      return (entry.ahead ?? 0) > 0
+      if (entry.ahead === UNKNOWN_GIT_COUNT) {
+        return `Git divergence from ${facts.trunk} is unknown.`;
+      }
+      return entry.ahead !== undefined && isPositiveGitCount(entry.ahead)
         ? undefined
         : `No commits are ahead of ${facts.trunk}.`;
     case "grant":
@@ -619,7 +641,10 @@ function disabledReason(
         ? undefined
         : "No task landing pre-authorization is recorded.";
     case "update":
-      return (entry.behind ?? 0) > 0
+      if (entry.behind === UNKNOWN_GIT_COUNT) {
+        return `Git divergence from ${facts.trunk} is unknown.`;
+      }
+      return entry.behind !== undefined && isPositiveGitCount(entry.behind)
         ? undefined
         : `The branch is not behind ${facts.trunk}.`;
     case "reclaim":
@@ -771,7 +796,8 @@ export function buildDeskDecision(
   }
   details.push(...collisionDetails(collisions));
   details.push(...gitDetails(entry, options.trunk));
-  const proofRelevant = (entry.ahead ?? 0) > 0 ||
+  const proofRelevant = entry.ahead === UNKNOWN_GIT_COUNT ||
+    (entry.ahead !== undefined && isPositiveGitCount(entry.ahead)) ||
     presentation.kind === "ready" || presentation.kind.startsWith("proof-");
   if (proofRelevant) {
     details.push({
@@ -781,7 +807,8 @@ export function buildDeskDecision(
         : `${proof.summary}: ${proof.detail}`,
     });
   }
-  const authorityRelevant = (entry.ahead ?? 0) > 0 ||
+  const authorityRelevant = entry.ahead !== undefined &&
+      isPositiveGitCount(entry.ahead) ||
     authority.status !== "unknown";
   if (authorityRelevant) {
     details.push({ kind: "authority", text: authority.summary });

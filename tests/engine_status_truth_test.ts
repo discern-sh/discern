@@ -230,6 +230,54 @@ Deno.test("status reports ahead as null (not 0) when the trunk branch is missing
   });
 });
 
+Deno.test("failed or malformed Git count reads stay explicitly unknown", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "unknown-counts");
+    await Deno.writeTextFile(join(wt, "work.txt"), "work\n");
+    await git(wt, "add", "work.txt");
+    await git(wt, "commit", "-q", "-m", "work", "--no-gpg-sign");
+    await Deno.writeTextFile(join(dir, "trunk.txt"), "trunk\n");
+    await git(dir, "add", "trunk.txt");
+    await git(dir, "commit", "-q", "-m", "trunk", "--no-gpg-sign");
+
+    const gitWrapper = join(dir, "malformed-count-git");
+    await Deno.writeTextFile(
+      gitWrapper,
+      [
+        "#!/bin/sh",
+        'saw_rev_list=""',
+        'saw_count=""',
+        'for arg in "$@"; do',
+        '  if [ "$arg" = "rev-list" ]; then saw_rev_list=1; fi',
+        '  if [ "$arg" = "--count" ]; then saw_count=1; fi',
+        "done",
+        'if [ "$saw_rev_list" = 1 ] && [ "$saw_count" = 1 ]; then',
+        "  printf 'not-an-integer\\n'",
+        "  exit 0",
+        "fi",
+        'exec git "$@"',
+        "",
+      ].join("\n"),
+      { mode: 0o700 },
+    );
+
+    const env = { GIT_BIN: gitWrapper };
+    const result = await statusJson(wt, env);
+    assert(result.data.git !== null);
+    assertEquals(result.data.git.ahead_trunk, "unknown");
+    assertEquals(result.data.git.behind_trunk, "unknown");
+
+    const human = await runAgent(wt, ["status"], { env });
+    assert(
+      (human.output.includes("↑?") || human.output.includes("+?")) &&
+        (human.output.includes("↓?") || human.output.includes("-?")),
+      human.output,
+    );
+  });
+});
+
 Deno.test("status names a MISSING trunk instead of prescribing a switch onto it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
