@@ -32,6 +32,7 @@ import {
   type TerminalSpanStyle,
 } from "discern-design-system/cli/projection";
 import { loadConfig } from "../../src/shared/config_schema.ts";
+import { targetExists } from "../../src/shared/fs_presence.ts";
 import { SOURCE_PATHS } from "../../src/shared/paths_registry.ts";
 import type { Proof } from "../../src/shared/result_schemas.ts";
 import {
@@ -68,6 +69,10 @@ import { decodeWith } from "../decode_cli_result.ts";
 
 const HARNESS_PATH = fromFileUrl(import.meta.url);
 const DEFAULT_TIMEOUT_MS = TEST_PROCESS_TIMEOUT_MS;
+// The child watcher competes with the full coverage suite for CPU. This bounds
+// readiness without turning elapsed time into evidence that a resize applied.
+const RESIZE_ACK_TIMEOUT_MS = 60_000;
+const RESIZE_ACK_POLL_MS = 10;
 const SAFE_SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
 const MARKER_OPEN = "\uE000";
 const MARKER_CLOSE = "\uE001";
@@ -706,10 +711,9 @@ export async function runDeskTty(
                 transcriptOffset: context.transcript.length,
                 ...resized,
               });
-              const requestPath = join(
-                resizeDir,
-                `${String(resizeSequence).padStart(4, "0")}.json`,
-              );
+              const requestName =
+                `${String(resizeSequence).padStart(4, "0")}.json`;
+              const requestPath = join(resizeDir, requestName);
               const temporary = `${requestPath}.tmp`;
               await Deno.writeTextFile(
                 temporary,
@@ -717,6 +721,7 @@ export async function runDeskTty(
                 { createNew: true },
               );
               await Deno.rename(temporary, requestPath);
+              await waitForResizeAcknowledgement(resizeDir, requestName);
             },
           }),
       };
@@ -1581,6 +1586,56 @@ async function resizeTerminal(
   }
 }
 
+/** Resolve the child-to-parent completion marker for one resize request. */
+function resizeAcknowledgementPath(
+  resizeDir: string,
+  requestName: string,
+  outcome: "applied" | "error",
+): string {
+  return join(resizeDir, `${requestName.slice(0, -".json".length)}.${outcome}`);
+}
+
+/** Wait for the child to apply or reject a published terminal resize. */
+async function waitForResizeAcknowledgement(
+  resizeDir: string,
+  requestName: string,
+): Promise<void> {
+  const appliedPath = resizeAcknowledgementPath(
+    resizeDir,
+    requestName,
+    "applied",
+  );
+  const errorPath = resizeAcknowledgementPath(
+    resizeDir,
+    requestName,
+    "error",
+  );
+  const deadline = Date.now() + RESIZE_ACK_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (await targetExists(errorPath)) {
+      throw new Error(`Desk child rejected resize request ${requestName}`);
+    }
+    if (await targetExists(appliedPath)) return;
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, RESIZE_ACK_POLL_MS)
+    );
+  }
+  throw new Error(`Desk child did not apply resize request ${requestName}`);
+}
+
+/** Publish one child-side resize outcome after the kernel operation settles. */
+async function acknowledgeResize(
+  resizeDir: string,
+  requestName: string,
+  outcome: "applied" | "error",
+): Promise<void> {
+  await Deno.writeTextFile(
+    resizeAcknowledgementPath(resizeDir, requestName, outcome),
+    "",
+    { createNew: true },
+  );
+}
+
 async function applyResizeRequests(
   resizeDir: string,
   seen: Set<string>,
@@ -1593,20 +1648,26 @@ async function applyResizeRequests(
   }
   for (const name of names.sort()) {
     if (seen.has(name)) continue;
-    const parsed = decodeWith(
-      PARTIAL_PTY_GEOMETRY_SCHEMA,
-      await Deno.readTextFile(join(resizeDir, name)),
-    );
-    if (parsed.columns === undefined || parsed.rows === undefined) {
-      throw new TypeError(`invalid Desk resize request ${name}`);
+    try {
+      const parsed = decodeWith(
+        PARTIAL_PTY_GEOMETRY_SCHEMA,
+        await Deno.readTextFile(join(resizeDir, name)),
+      );
+      if (parsed.columns === undefined || parsed.rows === undefined) {
+        throw new TypeError(`invalid Desk resize request ${name}`);
+      }
+      const geometry: PtyGeometry = {
+        columns: parsed.columns,
+        rows: parsed.rows,
+      };
+      await resizeTerminal(child, geometry);
+      applied.push(geometry);
+      await acknowledgeResize(resizeDir, name, "applied");
+      seen.add(name);
+    } catch (error) {
+      await acknowledgeResize(resizeDir, name, "error");
+      throw error;
     }
-    const geometry: PtyGeometry = {
-      columns: parsed.columns,
-      rows: parsed.rows,
-    };
-    await resizeTerminal(child, geometry);
-    applied.push(geometry);
-    seen.add(name);
   }
 }
 

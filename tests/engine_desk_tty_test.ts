@@ -32,6 +32,10 @@ const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9:;]*m`, "u");
 const EMPTY_ROOT_READY = ["Choose a desk action", "Quit"] as const;
 const TASK_ROOT_READY = ["Choose a task or action", "Quit"] as const;
+const TASK_START_SELECTED = [
+  "Choose a task or action",
+  "› [●] Start a task",
+] as const;
 const TASK_ACTION_READY = ["Choose an action", "Back"] as const;
 
 /** Require one named semantic frame and keep failures transcript-oriented. */
@@ -380,11 +384,10 @@ Deno.test({
             waitFor: TASK_ROOT_READY,
             captureAs: "narrow",
             chunks: [{ resize: { columns: 120, rows: 32 } }, {
-              settleMs: 80,
               keys: ["down"],
             }],
           }, {
-            waitFor: TASK_ROOT_READY,
+            waitFor: TASK_START_SELECTED,
             captureAs: "wide",
             chunks: [{ keys: ["escape"], allowLoneEscape: true }],
           }],
