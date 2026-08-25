@@ -66,6 +66,21 @@ import {
 } from "./identity.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
+  bestEffortFs,
+  directoryExists,
+  fileExists,
+  pathExists,
+  readDirIfExists,
+  readTextIfExists,
+} from "../../shared/fs_presence.ts";
+import {
+  type GitCount,
+  gitCountFrom,
+  isKnownGitCount,
+  parseGitCount,
+  UNKNOWN_GIT_COUNT,
+} from "../../shared/git_count.ts";
+import {
   branchWithoutOwnershipReason,
   classifyAutomaticBranchOwnership,
   deleteAutomaticallyOwnedBranch,
@@ -73,8 +88,8 @@ import {
 
 /** A fatal worktree-git condition. */
 export class WorktreeGitError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "WorktreeGitError";
   }
 }
@@ -96,6 +111,7 @@ export async function writeWorktreeEnvVar(
     const reason = error instanceof Error ? error.message : String(error);
     throw new WorktreeGitError(
       `Discern couldn't update the configured worktree env file: ${reason}`,
+      { cause: error },
     );
   }
 }
@@ -140,6 +156,17 @@ function git(args: string[], cwd?: string): Promise<GitResult> {
   });
 }
 
+/** Build the typed failure for a Git read whose exit code is not a predicate. */
+function gitReadFailure(
+  operation: string,
+  result: GitResult,
+): WorktreeGitError {
+  const detail = result.stderr.trim();
+  return new WorktreeGitError(
+    `Git could not ${operation}${detail === "" ? "." : `: ${detail}`}`,
+  );
+}
+
 /** Whether the configured git binary is runnable at all. */
 export async function gitAvailable(): Promise<boolean> {
   return (await gitVersion()) !== undefined;
@@ -160,32 +187,21 @@ export async function gitVersion(): Promise<string | undefined> {
   return line === "" ? undefined : line;
 }
 
-/** Canonicalize a path; return it unchanged when it cannot be resolved. */
+/** Canonicalize a path, retaining an absent path for missing-target workflows. */
 async function realPathOr(path: string): Promise<string> {
   try {
     return await Deno.realPath(path);
-  } catch {
-    return path;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return path;
+    throw error;
   }
 }
 
-/** Whether `path` is an existing directory. */
-async function isDir(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isDirectory;
-  } catch {
-    return false;
-  }
-}
-
-/** Read the first line of a file, or undefined when it cannot be read. */
+/** Read the first line of a regular file, or undefined when absent or another kind. */
 async function firstLine(path: string): Promise<string | undefined> {
-  try {
-    const text = await Deno.readTextFile(path);
-    return text.split("\n")[0] ?? "";
-  } catch {
-    return undefined;
-  }
+  if (!(await fileExists(path))) return undefined;
+  const text = await readTextIfExists(path);
+  return text?.split("\n")[0] ?? (text === undefined ? undefined : "");
 }
 
 /** The first `worktree ` path printed by `git worktree list --porcelain`. */
@@ -212,7 +228,7 @@ export async function mainRepoPath(cwd?: string): Promise<string | undefined> {
   if (first === undefined || first === "") {
     return undefined;
   }
-  if (!(await isDir(first))) {
+  if (!(await directoryExists(first))) {
     return undefined;
   }
   return await realPathOr(first);
@@ -321,14 +337,15 @@ export type MainMergedResult =
   /** The branch already contains the latest main. */
   | { kind: "merged" }
   /** main has advanced: the branch is behind by `behind` commit(s) on `branch`. */
-  | { kind: "behind"; behind: string; branch: string };
+  | { kind: "behind"; behind: GitCount; branch: string };
 
 /**
  * Assert the current worktree's branch already contains the latest main. A
  * check, not a merge. No-op (`skipped`) outside a linked worktree. Mirrors
- * `assert-main-merged` — note it never throws: the caller turns `behind` into a
- * fatal message at the lifecycle layer and surfaces `missing` as a warning or
- * destructive-verb refusal.
+ * `assert-main-merged`: the caller turns `behind` into a fatal message at the
+ * lifecycle layer and surfaces `missing` as a warning or destructive-verb
+ * refusal. A Git read failure throws rather than pretending the integration
+ * branch is missing or current.
  */
 export async function assertMainMerged(
   cwd: string = Deno.cwd(),
@@ -348,8 +365,11 @@ export async function assertMainMerged(
     ["show-ref", "--verify", "--quiet", `refs/heads/${mainBranch}`],
     cwd,
   );
-  if (!hasMain.success) {
+  if (!hasMain.success && hasMain.code === 1) {
     return { kind: "missing", branch: mainBranch };
+  }
+  if (!hasMain.success) {
+    throw gitReadFailure(`inspect branch '${mainBranch}'`, hasMain);
   }
   const ancestor = await git(
     ["merge-base", "--is-ancestor", mainBranch, "HEAD"],
@@ -358,16 +378,22 @@ export async function assertMainMerged(
   if (ancestor.success) {
     return { kind: "merged" };
   }
+  if (ancestor.code !== 1) {
+    throw gitReadFailure(
+      `test whether HEAD contains '${mainBranch}'`,
+      ancestor,
+    );
+  }
   const behindRun = await git(
     ["rev-list", "--count", `HEAD..${mainBranch}`],
     cwd,
   );
-  const behind = behindRun.success ? behindRun.stdout.trim() : "?";
+  const behind = gitCountFrom(behindRun);
   const branchRun = await git(["branch", "--show-current"], cwd);
   const branch = branchRun.success && branchRun.stdout.trim() !== ""
     ? branchRun.stdout.trim()
     : "HEAD";
-  return { kind: "behind", behind: behind === "" ? "?" : behind, branch };
+  return { kind: "behind", behind, branch };
 }
 
 /** Result of atomically moving a checked-out branch from one exact commit to
@@ -790,22 +816,27 @@ export async function fastForwardCheckedOutBranch(
  * trunk-specific: local-branch existence, the missing-branch warning). The
  * caller has already resolved `ref` through {@link resolveCommitRef}, so this
  * only reads: whether HEAD already contains it, and how many commits it is
- * behind. Fails open to `{already: true, behind: 0}` on a git hiccup — the
- * mutating merge performs its own checks.
+ * behind. A count-only failure is explicit `unknown`; a failed ancestry read
+ * throws because it cannot truthfully choose already-versus-behind.
  */
 export async function refMergedState(
   cwd: string,
   ref: string,
-): Promise<{ already: boolean; behind: number }> {
-  const already =
-    (await git(["merge-base", "--is-ancestor", ref, "HEAD"], cwd)).success;
-  if (already) {
+): Promise<{ already: boolean; behind: GitCount }> {
+  const ancestry = await git(
+    ["merge-base", "--is-ancestor", ref, "HEAD"],
+    cwd,
+  );
+  if (ancestry.success) {
     return { already: true, behind: 0 };
+  }
+  if (ancestry.code !== 1) {
+    throw gitReadFailure(`test whether HEAD contains '${ref}'`, ancestry);
   }
   const behindRun = await git(["rev-list", "--count", `HEAD..${ref}`], cwd);
   return {
     already: false,
-    behind: behindRun.success ? Number(behindRun.stdout.trim()) || 0 : 0,
+    behind: gitCountFrom(behindRun),
   };
 }
 
@@ -827,8 +858,8 @@ export type UpdateOutcome =
    */
   | {
     kind: "updated";
-    behind: number;
-    fastForward: boolean;
+    behind: GitCount;
+    fastForward: boolean | typeof UNKNOWN_GIT_COUNT;
     base: string;
     before: string;
     main: string;
@@ -929,16 +960,23 @@ export async function updateMain(
       ["show-ref", "--verify", "--quiet", `refs/heads/${source}`],
       cwd,
     );
-    if (!hasMain.success) {
+    if (!hasMain.success && hasMain.code === 1) {
       return { kind: "skipped" }; // no local main branch to update
+    }
+    if (!hasMain.success) {
+      throw gitReadFailure(`inspect branch '${source}'`, hasMain);
     }
   }
   // Already contains the source? Then there is nothing to merge.
-  if (
-    (await git(["merge-base", "--is-ancestor", source, "HEAD"], cwd))
-      .success
-  ) {
+  const ancestry = await git(
+    ["merge-base", "--is-ancestor", source, "HEAD"],
+    cwd,
+  );
+  if (ancestry.success) {
     return { kind: "already" };
+  }
+  if (ancestry.code !== 1) {
+    throw gitReadFailure(`test whether HEAD contains '${source}'`, ancestry);
   }
   // Merge into a tracked-clean tree only — tracked edits are the caller's to resolve
   // first. Untracked local/session scratch files do not participate in a merge and
@@ -953,10 +991,16 @@ export async function updateMain(
     ["rev-list", "--count", `HEAD..${source}`],
     cwd,
   );
-  const behind = behindRun.success ? Number(behindRun.stdout.trim()) || 0 : 0;
-  const fastForward =
-    (await git(["merge-base", "--is-ancestor", "HEAD", source], cwd))
-      .success;
+  const behind = gitCountFrom(behindRun);
+  const fastForwardRun = await git(
+    ["merge-base", "--is-ancestor", "HEAD", source],
+    cwd,
+  );
+  const fastForward = fastForwardRun.success
+    ? true
+    : fastForwardRun.code === 1
+    ? false
+    : UNKNOWN_GIT_COUNT;
   // The integration's SHA anchors, read BEFORE the merge moves HEAD: `before` (the
   // branch tip / the agent's own work), `main` (the tip being merged), `base` (their
   // fork point). `after` is read post-merge below. They let the summary layer report
@@ -1205,9 +1249,11 @@ export interface IntegrationDelta {
  * `--no-renames`) merged with line counts — capped to `cap`, returned with the
  * pre-cap total, whole-range `insertions`/`deletions` sums (binary files count 0),
  * and the full ordered path set. The status list is authoritative for order and
- * membership; numstat only supplies the `+`/`-` counts. Fails open to an empty
- * result. Exported because the gate's proof reads its diffstat vs the trunk
- * through this same machinery — one definition of "what changed in a range".
+ * membership; numstat only supplies the `+`/`-` counts. A failed or malformed
+ * read throws so its consumer can explicitly omit a best-effort summary instead
+ * of reporting zeroes. Exported because the gate's proof reads its diffstat vs
+ * the trunk through this same machinery — one definition of "what changed in a
+ * range".
  */
 export async function diffFiles(
   cwd: string,
@@ -1231,24 +1277,36 @@ export async function diffFiles(
     ["diff", "--numstat", "-z", "--no-renames", range],
     cwd,
   );
-  if (numstat.success) {
-    for (const line of splitNulRecords(numstat.stdout)) {
-      const [a, r, ...rest] = line.split("\t");
-      const path = rest.join("\t");
-      if (path === "") {
-        continue;
-      }
-      counts.set(path, {
-        added: a === "-" ? null : Number(a) || 0,
-        removed: r === "-" ? null : Number(r) || 0,
-      });
+  if (!numstat.success) {
+    throw gitReadFailure(`read line counts for '${range}'`, numstat);
+  }
+  for (const line of splitNulRecords(numstat.stdout)) {
+    const [addedText, removedText, ...rest] = line.split("\t");
+    const path = rest.join("\t");
+    if (path === "") {
+      continue;
     }
+    const added = addedText === "-" ? null : parseGitCount(addedText ?? "");
+    const removed = removedText === "-"
+      ? null
+      : parseGitCount(removedText ?? "");
+    if (added === UNKNOWN_GIT_COUNT || removed === UNKNOWN_GIT_COUNT) {
+      throw new WorktreeGitError(
+        `Git returned malformed line counts for '${path}' in '${range}'.`,
+      );
+    }
+    counts.set(path, { added, removed });
   }
   let insertions = 0;
   let deletions = 0;
   for (const c of counts.values()) {
     insertions += c.added ?? 0;
     deletions += c.removed ?? 0;
+    if (!Number.isSafeInteger(insertions) || !Number.isSafeInteger(deletions)) {
+      throw new WorktreeGitError(
+        `Git returned line-count totals outside JavaScript's safe integer range for '${range}'.`,
+      );
+    }
   }
   // status letters: with -z, alternating "<X>" and "<path>" NUL fields — the
   // ordered, authoritative path list (`--no-renames` guarantees the pairing:
@@ -1259,19 +1317,20 @@ export async function diffFiles(
     ["diff", "--name-status", "-z", "--no-renames", range],
     cwd,
   );
-  if (nameStatus.success) {
-    const fields = nameStatus.stdout.split("\0");
-    for (let i = 0; i + 1 < fields.length; i += 2) {
-      const status = fields[i] ?? "";
-      const path = fields[i + 1] ?? "";
-      if (status === "" || path === "") {
-        continue;
-      }
-      theirsPaths.push(path);
-      if (files.length < cap) {
-        const c = counts.get(path) ?? { added: null, removed: null };
-        files.push({ path, status, added: c.added, removed: c.removed });
-      }
+  if (!nameStatus.success) {
+    throw gitReadFailure(`read changed paths for '${range}'`, nameStatus);
+  }
+  const fields = nameStatus.stdout.split("\0");
+  for (let i = 0; i + 1 < fields.length; i += 2) {
+    const status = fields[i] ?? "";
+    const path = fields[i + 1] ?? "";
+    if (status === "" || path === "") {
+      continue;
+    }
+    theirsPaths.push(path);
+    if (files.length < cap) {
+      const c = counts.get(path) ?? { added: null, removed: null };
+      files.push({ path, status, added: c.added, removed: c.removed });
     }
   }
   return {
@@ -1501,8 +1560,9 @@ export async function adrNumberCollisions(
  * file delta is the real post-merge tree change on an apply (`before..after`,
  * reflecting any conflict resolution) or the predicted incoming change on a
  * `--dry-run` (`before...main`, the three-dot diff from the fork point) — selected by
- * `opts.predicted`. Every git read fails open to an empty result and never throws:
- * on an apply the merge has already landed, so a summary hiccup must not raise.
+ * `opts.predicted`. A failed or malformed numeric read throws; the lifecycle's
+ * explicitly best-effort summary boundary then omits the summary without
+ * undoing an already-landed merge.
  */
 export async function integrationDelta(
   cwd: string,
@@ -1521,16 +1581,17 @@ export async function integrationDelta(
     ["log", "--pretty=format:%h%x09%s", `${before}..${main}`],
     cwd,
   );
-  if (logRun.success) {
-    const lines = logRun.stdout.split("\n").filter((l) => l !== "");
-    commitsTotal = lines.length;
-    for (const line of lines.slice(0, opts.commitCap)) {
-      const tab = line.indexOf("\t");
-      commits.push({
-        sha: tab >= 0 ? line.slice(0, tab) : line,
-        subject: tab >= 0 ? line.slice(tab + 1) : "",
-      });
-    }
+  if (!logRun.success) {
+    throw gitReadFailure("read integration commits", logRun);
+  }
+  const lines = logRun.stdout.split("\n").filter((l) => l !== "");
+  commitsTotal = lines.length;
+  for (const line of lines.slice(0, opts.commitCap)) {
+    const tab = line.indexOf("\t");
+    commits.push({
+      sha: tab >= 0 ? line.slice(0, tab) : line,
+      subject: tab >= 0 ? line.slice(tab + 1) : "",
+    });
   }
 
   const { files, filesTotal, theirsPaths } = await diffFiles(
@@ -1757,11 +1818,11 @@ export async function resolveCommitRef(
 
 /** Canonicalize a target that may already be gone (parent + basename fallback). */
 async function canonicalizeMaybeMissing(target: string): Promise<string> {
-  if (await isDir(target)) {
+  if (await directoryExists(target)) {
     return await realPathOr(target);
   }
   const parent = dirname(target);
-  if (await isDir(parent)) {
+  if (await directoryExists(parent)) {
     return join(await realPathOr(parent), basename(target));
   }
   return target;
@@ -1862,7 +1923,10 @@ export async function detectSilentDivergence(
     return undefined; // not a linked worktree — nothing to diverge from
   }
   const here = await gitSnapshot(cwd, mainBranchFallback);
-  if (here === undefined || !here.clean || here.ahead > 0) {
+  if (
+    here === undefined || !here.clean || !isKnownGitCount(here.ahead) ||
+    here.ahead > 0
+  ) {
     return undefined; // the worktree has real work — no divergence signature
   }
   const mainRepo = await mainRepoPath(cwd);
@@ -1899,11 +1963,7 @@ export async function worktreeSetupComplete(cwd: string): Promise<boolean> {
   if (marker === undefined) {
     return false;
   }
-  try {
-    return (await Deno.stat(marker)).isFile;
-  } catch {
-    return false;
-  }
+  return await fileExists(marker);
 }
 
 /**
@@ -1998,8 +2058,9 @@ export async function liveWorktreeGitKeys(
     for await (const e of Deno.readDir(worktreesDir)) {
       entries.push(e);
     }
-  } catch {
-    return keys; // no worktrees admin dir → no live linked worktrees
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return keys;
+    throw error;
   }
   for (const entry of entries) {
     if (entry.isDirectory && await gitKeyIsLive(commonGitDir, entry.name)) {
@@ -2022,12 +2083,6 @@ export async function gitKeyIsLive(
 ): Promise<boolean> {
   // `gitdir` holds the absolute path of the checkout's `.git` gitlink file. If
   // that file is gone the worktree was removed out-of-band — a dead key.
-  // NOTE: `pathExists` returns false on a transient stat error too, so this can
-  // vote "dead" for a live worktree — the fail-open-toward-destroy direction. It is
-  // safe only as DEFENSE IN DEPTH: an entry reaches this re-check only after the
-  // snapshot already classified it reclaimable (not live by path AND handle), and
-  // the handle is independently re-checked against disk before the destroy. Do not
-  // make this the sole guard.
   const target = (await firstLine(
     join(commonGitDir, "worktrees", gitKey, "gitdir"),
   ))?.trim();
@@ -2047,7 +2102,7 @@ export async function liveWorktreePaths(cwd?: string): Promise<Set<string>> {
     if (rec.prunable || rec.path === "") {
       continue;
     }
-    if (await isDir(rec.path)) {
+    if (await directoryExists(rec.path)) {
       paths.add(await realPathOr(rec.path));
     }
   }
@@ -2104,7 +2159,7 @@ export async function registeredWorktreeOwnershipEvidence(
   if (registration.kind !== "registered") return undefined;
   const commonGitDir = await commonGitDirFrom(cwd);
   if (commonGitDir === undefined) return undefined;
-  try {
+  return await bestEffortFs(async () => {
     const metadata = await staleMetadataForRecord(
       commonGitDir,
       registration.record,
@@ -2113,9 +2168,11 @@ export async function registeredWorktreeOwnershipEvidence(
       id: worktreeIdFromGitKey(basename(metadata.adminDir), settings),
       ready: await hasPlainReadyMarker(metadata.adminDir),
     };
-  } catch {
-    return undefined;
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "Automatic cleanup requires positive ownership evidence, so unreadable metadata disables cleanup.",
+  });
 }
 
 type WorktreeRegistrationObservation =
@@ -2307,6 +2364,7 @@ async function removeExactWorktreeRegistration(
         `'${metadata.adminDir}' could not be removed: ${
           error instanceof Error ? error.message : String(error)
         }. The branch was retained; fix the permissions, then retry.`,
+      { cause: error },
     );
   }
 }
@@ -2464,6 +2522,7 @@ export async function removeWorktreeSafely(
             error instanceof Error ? error.message : String(error)
           }. Git and the branch were retained where possible. Fix the path ` +
             "permissions or stop its writer, then re-run.",
+          { cause: error },
         );
       }
     }
@@ -2546,16 +2605,6 @@ export async function removeWorktreeSafely(
   };
 }
 
-/** Whether a path exists (file or directory). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Sleep for `ms` milliseconds. */
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -2626,9 +2675,9 @@ export interface GitSnapshot {
   /** Count of `git status --porcelain --untracked-files=normal` entries. */
   changedFiles: number;
   /** Commits on HEAD not yet in the integration branch. */
-  ahead: number;
+  ahead: GitCount;
   /** Commits on the integration branch not yet in HEAD. */
-  behind: number;
+  behind: GitCount;
   /** Unix-seconds timestamp of the most recent activity: the latest of the last
    * HEAD movement (the reflog — a commit, checkout/reset, OR the worktree's own
    * creation, so a freshly-spawned worktree reads as recent rather than as old as
@@ -2640,22 +2689,28 @@ export interface GitSnapshot {
 /**
  * Commits HEAD is ahead of / behind the integration branch, from one
  * `git rev-list --left-right --count <integration>...HEAD` (left = behind, right =
- * ahead). `{0, 0}` when the integration ref does not resolve (no local main, or a
- * detached/empty repo) — never throws.
+ * ahead). A failed or malformed command returns explicit unknown counts; a real
+ * pair of zeroes remains factual.
  */
 async function aheadBehind(
   cwd: string,
   integration: string,
-): Promise<{ ahead: number; behind: number }> {
+): Promise<{ ahead: GitCount; behind: GitCount }> {
   const run = await git(
     ["rev-list", "--left-right", "--count", `${integration}...HEAD`],
     cwd,
   );
   if (!run.success) {
-    return { ahead: 0, behind: 0 };
+    return { ahead: UNKNOWN_GIT_COUNT, behind: UNKNOWN_GIT_COUNT };
   }
-  const [left, right] = run.stdout.trim().split(/\s+/);
-  return { behind: Number(left) || 0, ahead: Number(right) || 0 };
+  const fields = run.stdout.trim().split(/\s+/);
+  if (fields.length !== 2) {
+    return { ahead: UNKNOWN_GIT_COUNT, behind: UNKNOWN_GIT_COUNT };
+  }
+  return {
+    behind: parseGitCount(fields[0] ?? ""),
+    ahead: parseGitCount(fields[1] ?? ""),
+  };
 }
 
 /**
@@ -2763,12 +2818,14 @@ async function lastActivityAt(
 
 /** A file's mtime in unix seconds, or undefined when it can't be stat'd (a deletion). */
 async function fileMtime(path: string): Promise<number | undefined> {
-  try {
+  return await bestEffortFs(async () => {
     const m = (await Deno.stat(path)).mtime;
     return m === null ? undefined : Math.floor(m.getTime() / 1000);
-  } catch {
-    return undefined;
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "Last-activity time is advisory and may omit a file that disappears or cannot be inspected.",
+  });
 }
 
 /** The unix-seconds time of the newest HEAD reflog entry (the last HEAD movement),
@@ -2780,7 +2837,11 @@ async function lastHeadMoveTime(cwd: string): Promise<number | undefined> {
     return undefined;
   }
   const m = run.stdout.match(/@\{(\d+)\}/);
-  return m === null ? undefined : Number(m[1]);
+  if (m === null) {
+    return undefined;
+  }
+  const count = parseGitCount(m[1] ?? "");
+  return isKnownGitCount(count) ? count : undefined;
 }
 
 /** The committer time (unix seconds) of HEAD, or undefined in a repo with no commits. */
@@ -2789,8 +2850,8 @@ async function headCommitTime(cwd: string): Promise<number | undefined> {
   if (!run.success) {
     return undefined;
   }
-  const t = run.stdout.trim();
-  return t === "" ? undefined : Number(t) || undefined;
+  const count = gitCountFrom(run);
+  return isKnownGitCount(count) ? count : undefined;
 }
 
 /** One registered worktree of this repo, with its cheap read-only snapshot. */
@@ -3075,8 +3136,12 @@ async function staleMetadataForRecord(
     for await (const entry of Deno.readDir(worktreesDir)) {
       entries.push(entry);
     }
-  } catch {
-    entries = [];
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      entries = [];
+    } else {
+      throw error;
+    }
   }
   for (const entry of entries) {
     if (!entry.isDirectory) {
@@ -3796,13 +3861,13 @@ export async function scanOrphanWorktreesForSweep(
   // `extraDirs`.
   const scanSet = new Set<string>();
   const addScan = async (dir: string): Promise<void> => {
-    if (!(await isDir(dir))) {
+    if (!(await directoryExists(dir))) {
       return;
     }
     scanSet.add(await realPathOr(dir));
   };
   for (const p of registeredRaw) {
-    if (!(await isDir(p))) {
+    if (!(await directoryExists(p))) {
       continue;
     }
     const cpath = await realPathOr(p);
@@ -3818,18 +3883,11 @@ export async function scanOrphanWorktreesForSweep(
   const orphans: string[] = [];
   const seen = new Set<string>();
   for (const scan of scanSet) {
-    let entries: Deno.DirEntry[];
-    try {
-      entries = [];
-      for await (const e of Deno.readDir(scan)) {
-        entries.push(e);
-      }
-    } catch {
-      continue;
-    }
+    const entries = await readDirIfExists(scan);
+    if (entries === undefined) continue;
     for (const entry of entries) {
       const sub = join(scan, entry.name);
-      if (!(await isDir(sub))) {
+      if (!(await directoryExists(sub))) {
         continue;
       }
       const canonical = await realPathOr(sub);
@@ -3978,15 +4036,6 @@ function readEnvValue(text: string, key: string): string {
   return "";
 }
 
-/** Read a file's text, or undefined when it cannot be read. */
-async function readFileMaybe(path: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(path);
-  } catch {
-    return undefined;
-  }
-}
-
 /** Options for {@link inheritMainEnvVars}. */
 export interface InheritEnvOptions {
   /** The worktree root (the env files being patched live here). */
@@ -4037,7 +4086,8 @@ export async function inheritMainEnvVars(
     );
     return;
   }
-  const exampleText = await readFileMaybe(join(mainRepo, ".env.example")) ?? "";
+  const exampleText = await readTextIfExists(join(mainRepo, ".env.example")) ??
+    "";
 
   for (const varName of opts.vars) {
     if (varName === "") {

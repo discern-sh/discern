@@ -39,7 +39,7 @@ export class RawConfig {
     try {
       this.data = parse(text) as Record<string, unknown>;
     } catch (err) {
-      throw new ConfigParseError(tomlSyntaxHint(err));
+      throw new ConfigParseError(tomlSyntaxHint(err), { cause: err });
     }
   }
 

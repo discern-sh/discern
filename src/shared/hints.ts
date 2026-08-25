@@ -32,6 +32,7 @@ import {
 import { productSentence } from "./product_sentence.ts";
 import { worktreeContinuityPolicy } from "./operating_policies.ts";
 import { RELATED_CHECKPOINT_KIND_LABELS } from "./checkpoints.ts";
+import type { GitCount } from "./git_count.ts";
 
 /**
  * Shared references for the commands hints cite most. Each is one token
@@ -803,7 +804,7 @@ export const HINTS = {
   }),
 
   "status-branch-behind": defineHint<{
-    behind: number;
+    behind: GitCount;
     trunk: string;
     overlap: { total: number; paths: readonly string[] } | undefined;
   }>({
@@ -2958,7 +2959,7 @@ export const HINTS = {
 
   /** Pinning a branch behind the trunk may capture limits that an update invalidates. */
   "standards-pin-behind": defineHint<{
-    behind: string;
+    behind: GitCount;
     trunk: string;
   }>({
     id: "standards-pin-behind",
@@ -2966,9 +2967,9 @@ export const HINTS = {
     audience: "all",
     when: "`standards --pin` runs on a branch behind the trunk.",
     family: "standards-pin",
-    example: { behind: "2", trunk: "main" },
+    example: { behind: 2, trunk: "main" },
     template: ({ behind, trunk }): string => {
-      const commits = behind === "1" ? "commit" : "commits";
+      const commits = behind === 1 ? "commit" : "commits";
       return `Run ${CMD.update} before pinning against the latest trunk. ` +
         `This worktree is ${behind} ${commits} behind ${trunk}, so its measured ` +
         "values may not survive the update.";

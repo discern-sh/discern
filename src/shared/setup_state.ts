@@ -22,6 +22,7 @@ import {
   type SetupAssurance,
 } from "./setup_assurance.ts";
 import { runGit } from "./subprocess.ts";
+import { bestEffortFs, pathExists, readTextIfExists } from "./fs_presence.ts";
 
 /** The branch a fresh `discern setup` isolates its work on, so its several
  * commits never land on — or pollute — the user's current branch (ADR 0065). */
@@ -166,16 +167,6 @@ export const SKELETON_MARKERS: readonly string[] = [
   "(EXAMPLE — replace",
 ];
 
-/** True when a path exists (any type, symlinks not followed). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Walk the scaffolded surface for files that still carry a skeleton marker —
  * every `.md` under the configured map tree, plus the instructions seed. Returns
@@ -210,27 +201,28 @@ export async function findSkeletonMarkers(
     for await (
       const entry of walk(docsDir, { includeDirs: false, exts: [".md"] })
     ) {
-      try {
-        const text = await Deno.readTextFile(entry.path);
-        if (SKELETON_MARKERS.some((m) => text.includes(m))) {
-          leftover.push(relative(root, entry.path));
-        }
-      } catch {
-        // unreadable — skip; it cannot be asserted as a leftover marker.
+      const text = await bestEffortFs(() => readTextIfExists(entry.path), {
+        onFailure: undefined,
+        reason:
+          "An unreadable setup document cannot be asserted as retaining a skeleton marker.",
+      });
+      if (
+        text !== undefined && SKELETON_MARKERS.some((m) => text.includes(m))
+      ) {
+        leftover.push(relative(root, entry.path));
       }
     }
   }
 
   const instructions = join(root, instructionRel);
   if (await pathExists(instructions)) {
-    try {
-      if (
-        (await Deno.readTextFile(instructions)).includes("setup fills this")
-      ) {
-        leftover.push(instructionRel);
-      }
-    } catch {
-      // unreadable — skip.
+    const text = await bestEffortFs(() => readTextIfExists(instructions), {
+      onFailure: undefined,
+      reason:
+        "An unreadable instruction source cannot be asserted as retaining its setup marker.",
+    });
+    if (text?.includes("setup fills this")) {
+      leftover.push(instructionRel);
     }
   }
 

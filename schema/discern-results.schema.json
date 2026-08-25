@@ -12590,9 +12590,17 @@
                       "type": "string"
                     },
                     "behind": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "string",
+                          "const": "unknown"
+                        }
+                      ]
                     },
                     "incoming_overlap": {
                       "type": "array",
@@ -16507,7 +16515,17 @@
                         "behind_trunk": {
                           "anyOf": [
                             {
-                              "type": "number"
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "unknown"
+                                }
+                              ]
                             },
                             {
                               "type": "null"
@@ -16517,7 +16535,17 @@
                         "ahead_trunk": {
                           "anyOf": [
                             {
-                              "type": "number"
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "unknown"
+                                }
+                              ]
                             },
                             {
                               "type": "null"
@@ -17114,10 +17142,30 @@
                         "type": "number"
                       },
                       "ahead": {
-                        "type": "number"
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "string",
+                            "const": "unknown"
+                          }
+                        ]
                       },
                       "behind": {
-                        "type": "number"
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "string",
+                            "const": "unknown"
+                          }
+                        ]
                       },
                       "last_activity": {
                         "type": "string"

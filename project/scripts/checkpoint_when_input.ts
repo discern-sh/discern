@@ -5,6 +5,7 @@
  */
 
 import { isAbsolute } from "@std/path";
+import { lstatIfExists } from "../../src/shared/fs_presence.ts";
 import {
   CHECKPOINT_CHANGE_KINDS,
   CHECKPOINT_MODES,
@@ -234,7 +235,7 @@ export async function checkpointWhenInputFromEnvironment(
   if (!isAbsolute(path)) {
     return fail("DISCERN_CHECKPOINT_INPUT must be an absolute path");
   }
-  const info = await Deno.lstat(path).catch(() => undefined);
+  const info = await lstatIfExists(path);
   if (info === undefined || !info.isFile || info.isSymlink) {
     return fail("DISCERN_CHECKPOINT_INPUT must name a regular file");
   }

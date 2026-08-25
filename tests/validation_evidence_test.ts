@@ -26,6 +26,7 @@ import { modeOf, withTempDir } from "./helpers.ts";
 import { parseLogbookLine } from "../src/engine/logbook/schema.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { pathExists } from "../src/shared/fs_presence.ts";
 import {
   validationKey,
   type ValidationKeyResult,
@@ -214,7 +215,7 @@ Deno.test("index visibility flags cannot hide job-visible checkout bytes", async
     await git(dir, "checkout", "--", "alpha.txt");
     await git(dir, "sparse-checkout", "init", "--no-cone");
     await git(dir, "sparse-checkout", "set", "--no-cone", "/alpha.txt");
-    assertEquals(await exists(join(dir, "delete.txt")), false);
+    assertEquals(await pathExists(join(dir, "delete.txt")), false);
     const sparse = await capture(dir);
     assert(sparse.state.complete);
     await git(dir, "sparse-checkout", "disable");
@@ -351,17 +352,6 @@ Deno.test("dirty submodules make validation identity incomplete", async () => {
     );
   });
 });
-
-/** Whether one fixture path exists without following a missing target. */
-async function exists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return false;
-    throw error;
-  }
-}
 
 /** Commit one new payload and return the source repository's HEAD. */
 async function commitPayload(source: string, payload: string): Promise<string> {

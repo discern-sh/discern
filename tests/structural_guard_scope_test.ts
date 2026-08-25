@@ -7,6 +7,7 @@ import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { fileExists } from "../src/shared/fs_presence.ts";
 
 interface ScopeFinding {
   readonly line: number;
@@ -506,8 +507,10 @@ Deno.test("every live structural guard obtains its scan set from a declaration",
       reason.length >= 40,
       `${rel} needs a specific classification reason`,
     );
-    const info = await Deno.stat(join(REPO_ROOT, rel)).catch(() => undefined);
-    assert(info?.isFile === true, `${rel} classification exclusion is stale`);
+    assert(
+      await fileExists(join(REPO_ROOT, rel)),
+      `${rel} classification exclusion is stale`,
+    );
   }
   for (const rel of files) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));

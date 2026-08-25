@@ -29,7 +29,7 @@ import {
   type AgentTargetBinding,
   missingAgentContractIssues,
 } from "./agent_contract.ts";
-import { blankFrontmatter } from "./prose_lib.ts";
+import { blankFrontmatter, decodeValeReport } from "./prose_lib.ts";
 import { runVale } from "./vale_lib.ts";
 
 export type OperationalAgentSurfaceKind = "skill" | "setup-brief";
@@ -833,11 +833,6 @@ export async function operationalMetadataFailures(
   );
 }
 
-/** Recognize Vale's decoded object rows. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 /** Run the generated DiscernAgent Vale style over the non-Map agent corpus. */
 export async function agentSurfaceLexicalIssues(
   repoRoot: string,
@@ -868,27 +863,24 @@ export async function agentSurfaceLexicalIssues(
     ]);
     const decoder = new TextDecoder();
     const stdout = decoder.decode(run.stdout);
-    let parsed: unknown;
+    let parsed: ReturnType<typeof decodeValeReport>;
     try {
-      parsed = JSON.parse(stdout);
+      parsed = decodeValeReport(
+        stdout,
+        "Vale output for the agent-copy corpus",
+      );
     } catch (error) {
       const stderr = decoder.decode(run.stderr).trim();
       throw new Error(
-        `Vale returned unreadable JSON for the agent-copy corpus${
+        `${error instanceof Error ? error.message : String(error)}${
           stderr === "" ? "" : `: ${stderr}`
         }`,
         { cause: error },
       );
     }
-    if (!isRecord(parsed)) {
-      throw new Error(
-        "Vale returned a non-object result for the agent-copy corpus",
-      );
-    }
 
     const issues: AgentSurfaceLexicalIssue[] = [];
     for (const [stagedPath, alerts] of Object.entries(parsed)) {
-      if (!Array.isArray(alerts)) continue;
       const source = stagedToSource.get(resolve(stagedPath));
       if (source === undefined) {
         throw new Error(
@@ -896,7 +888,6 @@ export async function agentSurfaceLexicalIssues(
         );
       }
       for (const alert of alerts) {
-        if (!isRecord(alert)) continue;
         const check = alert.Check;
         if (typeof check !== "string" || !check.startsWith("DiscernAgent.")) {
           continue;

@@ -19,7 +19,7 @@ import type { PickerSource } from "./fields.ts";
 export interface PickerOption {
   readonly value: string;
   readonly label: string;
-  readonly group?: string;
+  readonly group?: string | undefined;
 }
 
 /** One supported typed picker and its complete live option set. */

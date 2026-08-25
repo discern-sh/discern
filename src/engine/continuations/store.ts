@@ -8,6 +8,7 @@
  */
 
 import { join } from "@std/path";
+import { bestEffortFs } from "../../shared/fs_presence.ts";
 import {
   type ContinuationRandomBytes,
   createContinuationHandle,
@@ -216,15 +217,17 @@ async function pruneForCreate(
       continue;
     }
     const path = join(directory, entry.name);
-    try {
-      const mtime = (await Deno.stat(path)).mtime?.getTime() ?? now;
-      if (now - mtime >= ttlMs) {
-        await Deno.remove(path);
-      } else {
-        live.push({ path, mtime });
-      }
-    } catch {
-      // A raced or unreadable entry is absent from the live population.
+    const info = await bestEffortFs(() => Deno.stat(path), {
+      onFailure: undefined,
+      reason:
+        "Continuation pruning may omit a raced or unreadable advisory entry from its live population.",
+    });
+    if (info === undefined) continue;
+    const mtime = info.mtime?.getTime() ?? now;
+    if (now - mtime >= ttlMs) {
+      await Deno.remove(path);
+    } else {
+      live.push({ path, mtime });
     }
   }
   live.sort((a, b) => a.mtime - b.mtime || a.path.localeCompare(b.path));

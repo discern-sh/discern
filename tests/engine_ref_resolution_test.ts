@@ -18,7 +18,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -164,7 +164,7 @@ Deno.test("update --from an ambiguous name refuses — it must not merge the tag
     assertStringIncludes(result.message, "ambiguous");
     assertStringIncludes(result.message, "refs/heads/dual");
     // Nothing merged, nothing broken: the branch's file never arrived.
-    assertEquals(await exists(join(wt, "feature.txt")), false);
+    assertEquals(await targetExists(join(wt, "feature.txt")), false);
     assertEquals(await gitOut(wt, "status", "--porcelain"), "");
   });
 });

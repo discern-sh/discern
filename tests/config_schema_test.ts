@@ -404,7 +404,11 @@ Deno.test("toCommand joins a list with && and is empty when nothing real remains
 // ── parse / issues split ───────────────────────────────────────────────────────
 
 Deno.test("parseConfig throws ConfigParseError on a TOML syntax error", () => {
-  assertThrows(() => parseConfig("oops = [[["), ConfigParseError);
+  const error = assertThrows(
+    () => parseConfig("oops = [[["),
+    ConfigParseError,
+  );
+  assert(error.cause instanceof Error);
 });
 
 Deno.test("parseConfig rejects unknown-job shorthand with the custom table fix", () => {

@@ -17,6 +17,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { join } from "@std/path";
+import { directoryExists, fileExists } from "../src/shared/fs_presence.ts";
 import { CONCEPTS, TRANSLATIONS } from "../scripts/brand/bridge.ts";
 import { CLAIMS, DO_NOT_CLAIM } from "../scripts/brand/claims.ts";
 import { COPY_PATTERNS } from "../scripts/brand/patterns.ts";
@@ -199,14 +200,12 @@ Deno.test("every registered brand document exists on disk", async () => {
   // only checkable when the overlay itself is present — a conditional, so
   // the same commit passes identically on both kinds of machine.
   const overlay = join(REPO_AUTHORED_PATHS.map, BRAND_OVERLAY_DIR);
-  const overlayPresent =
-    (await Deno.stat(overlay).catch(() => undefined))?.isDirectory === true;
+  const overlayPresent = await directoryExists(overlay);
   for (const doc of BRAND_DOCUMENTS) {
     if (doc.mode.kind === "authored" && !overlayPresent) continue;
     const path = join(REPO_AUTHORED_PATHS.map, brandDocMapRel(doc));
-    const info = await Deno.stat(path).catch(() => undefined);
     assert(
-      info?.isFile === true,
+      await fileExists(path),
       `${doc.id}: ${brandDocMapRel(doc)} is registered but not on disk`,
     );
   }

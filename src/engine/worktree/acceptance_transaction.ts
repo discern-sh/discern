@@ -151,7 +151,7 @@ export async function withAcceptanceTransactionLock<T>(
     return await withOperationLock(cwd, { command: "accept" }, operation);
   } catch (error) {
     if (error instanceof OperationLockError) {
-      throw new WorktreeGitError(error.message);
+      throw new WorktreeGitError(error.message, { cause: error });
     }
     throw error;
   }
@@ -423,6 +423,7 @@ async function writeAcceptanceTransaction(
         `boundary. Nothing was claimed or landed. ${
           error instanceof Error ? error.message : String(error)
         }`,
+      { cause: error },
     );
   } finally {
     try {

@@ -15,6 +15,7 @@ import {
 } from "../scripts/brand/boundaries.ts";
 import { CLAIMS, type ClaimSlug } from "../scripts/brand/claims.ts";
 import { parseDiscernToml } from "../src/lib/toml_render.ts";
+import { fileExists } from "../src/shared/fs_presence.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 /** Assert one string set contains no duplicates. */
@@ -90,11 +91,9 @@ Deno.test("Boundary Canon records and projections form one valid closed set", as
     for (const evidence of boundary.evidence) {
       assertEquals(evidence.path, evidence.path.trim());
       assertEquals(evidence.summary, evidence.summary.trim());
-      const info = await Deno.stat(join(REPO_ROOT, evidence.path)).catch(
-        () => undefined,
-      );
+      const present = await fileExists(join(REPO_ROOT, evidence.path));
       assert(
-        info?.isFile === true,
+        present,
         `${boundary.id}: evidence path does not exist: ${evidence.path}`,
       );
     }

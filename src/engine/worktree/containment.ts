@@ -28,6 +28,11 @@
 
 import { runGit } from "../../shared/subprocess.ts";
 import {
+  type GitCount,
+  gitCountFrom,
+  isKnownGitCount,
+} from "../../shared/git_count.ts";
+import {
   type FleetWorktree,
   integrationBranch,
   listWorktreeFleet,
@@ -210,11 +215,16 @@ async function nearestContainer(
   );
   let nearest: { branch: string; tip: string; ahead: number } | undefined;
   for (const candidate of measured) {
+    const ahead = candidate.ahead;
+    if (!isKnownGitCount(ahead) || ahead < 1) {
+      continue;
+    }
+    const known = { ...candidate, ahead };
     if (
-      nearest === undefined || candidate.ahead < nearest.ahead ||
-      (candidate.ahead === nearest.ahead && candidate.branch < nearest.branch)
+      nearest === undefined || known.ahead < nearest.ahead ||
+      (known.ahead === nearest.ahead && known.branch < nearest.branch)
     ) {
-      nearest = candidate;
+      nearest = known;
     }
   }
   return nearest;
@@ -225,12 +235,11 @@ async function countAhead(
   repoRoot: string,
   from: string,
   to: string,
-): Promise<number> {
+): Promise<GitCount> {
   const run = await runGit(["rev-list", "--count", `${from}..${to}`], {
     cwd: repoRoot,
   });
-  const n = Number(run.stdout.trim());
-  return run.success && Number.isFinite(n) ? n : 0;
+  return gitCountFrom(run);
 }
 
 /** Options for {@link scanContainedWorktrees}. */

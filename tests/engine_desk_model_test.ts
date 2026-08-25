@@ -723,6 +723,29 @@ Deno.test("a clean branch behind main disables Accept and recommends Update", ()
   assertEquals(decision.recommendedAction, "update");
 });
 
+Deno.test("unknown divergence disables actions that require trustworthy counts", () => {
+  const decision = decide({
+    ahead: "unknown",
+    behind: "unknown",
+    gate_proof: { status: "honored" },
+  });
+  for (const action of ["accept", "update"] as const) {
+    const candidate = offer(decision, action);
+    assertEquals(candidate.availability, "disabled");
+    if (candidate.availability === "disabled") {
+      assertEquals(candidate.reason, "Git divergence from main is unknown.");
+    }
+  }
+  assertStringIncludes(
+    decisionSummary(decision),
+    "Ahead count versus main unavailable",
+  );
+  assertStringIncludes(
+    decisionSummary(decision),
+    "Behind count versus main unavailable",
+  );
+});
+
 // ── row construction, ordering, and factual copy ────────────────────────────
 
 Deno.test("buildDeskRows excludes main, carries collisions, and sorts by human decision", () => {

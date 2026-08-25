@@ -31,12 +31,12 @@ import {
   modeOf,
   readTarget,
   REAL_TEMPLATES,
-  targetExists,
   testTokens,
   withTempDir,
 } from "./helpers.ts";
 import { settingsSeeds } from "../src/lib/providers.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 
 /** Build and apply an init-style plan over the fixture tree into `dir` (the
  * binary's skills/ + instructions/ subtrees excluded, exactly as `setup` does). */
@@ -69,8 +69,8 @@ Deno.test("init resolves the {{project_slug}} path token and strips .tmpl", asyn
   await withTempDir(async (dir) => {
     await scaffold(dir);
     // Name carried the slug token; both the name token and .tmpl resolve.
-    assert(await targetExists(dir, "docs/demo-app-guide.md"));
-    assert(!(await targetExists(dir, "docs/{{project_slug}}-guide.md")));
+    assert(await targetExists(join(dir, "docs/demo-app-guide.md")));
+    assert(!(await targetExists(join(dir, "docs/{{project_slug}}-guide.md"))));
     const body = await readTarget(dir, "docs/demo-app-guide.md");
     assertStringIncludes(body, "# Demo App guide");
     assertStringIncludes(body, "Slug: demo-app");
@@ -80,8 +80,8 @@ Deno.test("init resolves the {{project_slug}} path token and strips .tmpl", asyn
 Deno.test("init strips .tmpl from the config file name", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    assert(await targetExists(dir, "discern.toml"));
-    assert(!(await targetExists(dir, "discern.toml.tmpl")));
+    assert(await targetExists(join(dir, "discern.toml")));
+    assert(!(await targetExists(join(dir, "discern.toml.tmpl"))));
   });
 });
 
@@ -157,9 +157,9 @@ Deno.test("template plans exclude host metadata without excluding authored hidde
       );
 
       await applyPlan(plan);
-      assert(await targetExists(dir, ".authored-hidden-seed"));
+      assert(await targetExists(join(dir, ".authored-hidden-seed")));
       for (const rel of hostMetadata) {
-        assert(!(await targetExists(dir, rel)), rel);
+        assert(!(await targetExists(join(dir, rel))), rel);
       }
     });
   });

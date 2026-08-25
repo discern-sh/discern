@@ -29,6 +29,7 @@ import { consentAgentSet } from "../lib/detect_agents.ts";
 import { allInstructionFilePaths } from "../lib/providers.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
+import { pathExists } from "../shared/fs_presence.ts";
 import type {
   SetupVerifyConflict,
   SetupVerifyData,
@@ -368,14 +369,4 @@ async function gitIdentityPresent(destDir: string): Promise<boolean> {
   const email = (await runGit(["config", "user.email"], { cwd: destDir }))
     .stdout.trim();
   return name !== "" && email !== "";
-}
-
-/** True when a path exists (any type, symlinks not followed). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
 }

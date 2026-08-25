@@ -23,6 +23,7 @@
 import { assert, assertEquals, assertMatch } from "@std/assert";
 import { join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
+import { bestEffortFs, readTextIfExists } from "../src/shared/fs_presence.ts";
 import {
   buildTestRunSlots,
   groupNeedsTestSlot,
@@ -86,18 +87,15 @@ async function pollUntil(
 
 /** The shared marker log the fake jobs append to (absent → no lines yet). */
 async function logLines(path: string): Promise<string[]> {
-  try {
-    return (await Deno.readTextFile(path)).split("\n").filter((l) => l !== "");
-  } catch {
-    return [];
-  }
+  const text = await readTextIfExists(path);
+  return text?.split("\n").filter((line) => line !== "") ?? [];
 }
 
 /** Count the logbook's begin events for one verb (0 when nothing recorded). */
 async function beginEvents(mainDir: string, verb: string): Promise<number> {
-  const dir = join(mainDir, ".git", GIT_ADMIN_STATE.logbook.path);
-  let count = 0;
-  try {
+  return await bestEffortFs(async () => {
+    const dir = join(mainDir, ".git", GIT_ADMIN_STATE.logbook.path);
+    let count = 0;
     for await (const entry of Deno.readDir(dir)) {
       if (!entry.isFile || !entry.name.endsWith(".jsonl")) {
         continue;
@@ -114,10 +112,12 @@ async function beginEvents(mainDir: string, verb: string): Promise<number> {
         }
       }
     }
-  } catch {
-    return 0;
-  }
-  return count;
+    return count;
+  }, {
+    onFailure: 0,
+    reason:
+      "This test helper treats an absent or unreadable logbook as no observed begin events.",
+  });
 }
 
 const slotDirOf = (mainDir: string): string =>

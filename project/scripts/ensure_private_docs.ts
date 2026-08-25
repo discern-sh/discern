@@ -17,6 +17,10 @@
  */
 
 import { dirname, join, resolve } from "@std/path";
+import {
+  directoryExists,
+  lstatIfExists,
+} from "../../src/shared/fs_presence.ts";
 
 /** The overlay's canonical repository-relative path. */
 const OVERLAY_REL = "project/map/_private";
@@ -45,18 +49,16 @@ const checkoutRoot = resolve(Deno.cwd(), topLevel);
 if (mainRoot === checkoutRoot) Deno.exit(0); // the main checkout itself
 
 const source = join(mainRoot, OVERLAY_REL);
-const sourceInfo = await Deno.stat(source).catch(() => undefined);
-if (sourceInfo?.isDirectory !== true) Deno.exit(0); // no overlay to link
+if (!(await directoryExists(source))) Deno.exit(0); // no overlay to link
 
 const target = join(checkoutRoot, OVERLAY_REL);
-const targetInfo = await Deno.lstat(target).catch(() => undefined);
+const targetInfo = await lstatIfExists(target);
 
 if (targetInfo !== undefined && !targetInfo.isSymlink) Deno.exit(0);
 
 if (targetInfo?.isSymlink === true) {
   const pointsAt = resolve(dirname(target), await Deno.readLink(target));
-  const resolves = await Deno.stat(target).catch(() => undefined);
-  if (pointsAt === source && resolves?.isDirectory === true) Deno.exit(0);
+  if (pointsAt === source && await directoryExists(target)) Deno.exit(0);
   await Deno.remove(target);
 }
 

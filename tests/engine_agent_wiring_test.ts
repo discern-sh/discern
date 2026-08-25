@@ -13,7 +13,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assembleInitPlan } from "../src/commands/setup.ts";
@@ -312,7 +312,7 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
     // Claude is not a configured agent here, so no Claude file is seeded at all — an
     // unconfigured agent leaves no inert dotfiles behind (the per-agent seed filter).
     assert(
-      !(await exists(join(dir, ".claude/settings.json"))),
+      !(await targetExists(join(dir, ".claude/settings.json"))),
       "an unconfigured agent (claude) must not get a seeded settings file",
     );
 
@@ -387,7 +387,7 @@ Deno.test("a default (Claude-only) refresh declares no worktree-app file — the
     assertEquals(r.code, 0, r.output);
     assertEquals(JSON.parse(r.stdout).data.worktree_app_wired, []);
     assert(
-      !(await exists(join(dir, ".codex/environments/environment.toml"))),
+      !(await targetExists(join(dir, ".codex/environments/environment.toml"))),
       "no codex agent configured → no environment.toml co-managed",
     );
   });

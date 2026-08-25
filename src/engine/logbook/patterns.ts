@@ -180,8 +180,9 @@ class ArchiveSelectionError extends Error {
   constructor(
     slug: "invalid_arguments" | "not_found" | "read_error",
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "ArchiveSelectionError";
     this.slug = slug;
   }
@@ -218,6 +219,7 @@ async function readSelectedArchive(
       `Could not inspect sealed Logbook archive ${filename}: ${
         error instanceof Error ? error.message : String(error)
       }`,
+      { cause: error },
     );
   }
   if (!info.isFile || info.isSymlink) {
@@ -234,6 +236,7 @@ async function readSelectedArchive(
       `Could not read sealed Logbook archive ${filename}: ${
         error instanceof Error ? error.message : String(error)
       }`,
+      { cause: error },
     );
   }
 }

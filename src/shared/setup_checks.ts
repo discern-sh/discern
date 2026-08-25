@@ -27,6 +27,7 @@ import type { DiscernConfig } from "./config_schema.ts";
 import { normalizeMapDir } from "./map_path.ts";
 import { instructionSeedRel } from "./paths_registry.ts";
 import { deriveSetupPrimarySubsystem } from "./setup_project_context.ts";
+import { bestEffortFs, readTextIfExists } from "./fs_presence.ts";
 
 /** What a completion predicate reads: the project root and its loaded config. */
 export interface SetupCheckContext {
@@ -60,11 +61,11 @@ async function readFileOr(
   root: string,
   rel: string,
 ): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(join(root, rel));
-  } catch {
-    return undefined;
-  }
+  return await bestEffortFs(() => readTextIfExists(join(root, rel)), {
+    onFailure: undefined,
+    reason:
+      "Setup completion treats an unreadable optional scaffold as unavailable evidence.",
+  });
 }
 
 /**

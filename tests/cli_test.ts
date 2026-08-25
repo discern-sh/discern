@@ -11,20 +11,11 @@ import { KIT_VERSION } from "../src/lib/version.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
-
-/** True when a path exists on disk. */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { targetExists } from "../src/shared/fs_presence.ts";
 
 /** Assert a path does NOT exist on disk. */
 async function assertNotExists(path: string): Promise<void> {
-  assert(!(await pathExists(path)), `expected ${path} not to exist`);
+  assert(!(await targetExists(path)), `expected ${path} not to exist`);
 }
 
 Deno.test("--version prints the kit version", async () => {

@@ -9,7 +9,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join, relative } from "@std/path";
-import { exists, walk } from "@std/fs";
+import { walk } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import {
   assertTerminalTextIncludes,
   REAL_TEMPLATES,
@@ -38,6 +39,7 @@ import { INSTRUCTIONS_H1 } from "./engine_setup_shared.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import { inspectGateProof } from "../src/engine/gate/proof.ts";
 import { SETUP_RESULT_MAX_CHARS } from "../src/shared/setup_pages.ts";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const HIDE_CURSOR = `${CSI}?25l`;
@@ -144,7 +146,7 @@ Deno.test("setup done refuses denied planned writes before refresh, commit, work
       assertStringIncludes(envelope.message, gitDir);
       assertEquals(await Deno.readTextFile(configPath), configBefore);
       assertEquals(await gitOut(dir, "rev-parse", "HEAD"), headBefore);
-      assertEquals(await exists(join(dir, "..", "done-gate-ran")), false);
+      assertEquals(await targetExists(join(dir, "..", "done-gate-ran")), false);
       assertEquals((await inspectGateProof(dir)).status, "missing");
     } finally {
       await Deno.chmod(gitDir, originalMode & 0o777);
@@ -594,7 +596,7 @@ Deno.test("setup done commits the completion marker when discern.toml is the onl
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
     );
-    assert(await exists(join(dir, ".codex", "session.local.toml")));
+    assert(await targetExists(join(dir, ".codex", "session.local.toml")));
   });
 });
 
@@ -759,8 +761,8 @@ Deno.test("discern setup migrates a pre-existing agent file into instructions.md
     // instructions.md into the canonical AGENTS.md, which CLAUDE.md then points at), so
     // reading the agent instructions still shows it — nothing was lost.
     const compiled = (await Promise.all(
-      ["AGENTS.md", "CLAUDE.md", "GEMINI.md"].map((f) =>
-        Deno.readTextFile(join(dir, f)).catch(() => "")
+      ["AGENTS.md", "CLAUDE.md", "GEMINI.md"].map(async (f) =>
+        (await readTextIfExists(join(dir, f))) ?? ""
       ),
     )).join("\n");
     assertStringIncludes(compiled, rule);
@@ -1080,7 +1082,7 @@ Deno.test("scaffolded docs contain no dead relative links — setup ships what i
         const resolved = target.startsWith("/")
           ? join(dir, target.slice(1))
           : join(dirname(entry.path), target);
-        if (!(await exists(resolved))) {
+        if (!(await targetExists(resolved))) {
           dead.push(`${relative(dir, entry.path)} → ${raw}`);
         }
       }
@@ -1111,7 +1113,7 @@ Deno.test("discern setup isolates a fresh install on the discern-setup branch (A
       "discern-setup",
     );
     assertEquals(JSON.parse(r.stdout).data.branch, "discern-setup");
-    assert(await exists(join(dir, "discern.toml")));
+    assert(await targetExists(join(dir, "discern.toml")));
   });
 });
 
@@ -1142,7 +1144,7 @@ Deno.test("discern setup begin refuses to start from a feature branch when the t
     assertEquals(JSON.parse(r.stdout).error, "not_on_trunk");
 
     // Nothing was scaffolded and no setup branch was created.
-    assert(!(await exists(join(dir, "discern.toml"))));
+    assert(!(await targetExists(join(dir, "discern.toml"))));
     assertEquals(await gitOut(dir, "branch", "--show-current"), "feature-x");
     const branches = await gitOut(dir, "branch", "--format=%(refname:short)");
     assert(!branches.includes("discern-setup"));
@@ -1412,7 +1414,7 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
     assertStringIncludes(res.data.command, "--confirmed");
     // Nothing was written — the read-only→destructive boundary held.
     assert(
-      !(await exists(join(dir, "discern.toml"))),
+      !(await targetExists(join(dir, "discern.toml"))),
       "awaiting_consent must write nothing",
     );
 
@@ -1445,7 +1447,7 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
     const human = await runAgent(dir, ["setup", "begin"]);
     assertEquals(human.code, 1, human.output);
     assertStringIncludes(human.stdout, res.data.instructions);
-    assert(!(await exists(join(dir, "discern.toml"))));
+    assert(!(await targetExists(join(dir, "discern.toml"))));
 
     // --dry-run is exempt: consent gates writes, and a dry run writes nothing —
     // a preview refusing without --confirmed made the consent gate look arbitrary.
@@ -1458,7 +1460,7 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
     assertEquals(preview.code, 0, preview.output);
     assertEquals(JSON.parse(preview.stdout).dry_run, true);
     assert(
-      !(await exists(join(dir, "discern.toml"))),
+      !(await targetExists(join(dir, "discern.toml"))),
       "a dry run must still write nothing",
     );
   });
@@ -1480,7 +1482,7 @@ Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty
     assertEquals(blocked.code, 1, blocked.output);
     assertEquals(JSON.parse(blocked.stdout).error, "dirty_worktree");
     assert(
-      !(await exists(join(dir, "discern.toml"))),
+      !(await targetExists(join(dir, "discern.toml"))),
       "nothing must be written when setup refuses a dirty tree",
     );
     // No branch was created — still on the original branch.
@@ -1496,7 +1498,7 @@ Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty
       await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
       "main",
     );
-    assert(await exists(join(dir, "discern.toml")));
+    assert(await targetExists(join(dir, "discern.toml")));
   });
 });
 
@@ -1533,7 +1535,7 @@ Deno.test("setup begin refuses denied Git branch authority before checkout or sc
       );
       assertEquals(await gitOut(dir, "rev-parse", "HEAD"), headBefore);
       assertEquals(await gitOut(dir, "status", "--porcelain=v1"), statusBefore);
-      assertEquals(await exists(join(dir, "discern.toml")), false);
+      assertEquals(await targetExists(join(dir, "discern.toml")), false);
       assertEquals(
         (await gitOut(dir, "branch", "--format=%(refname:short)"))
           .split("\n").includes(SETUP_BRANCH),
@@ -1599,7 +1601,7 @@ Deno.test("bare `discern` shows the fresh welcome inside a git work tree, writin
     assertEquals(bare.code, 0, bare.output);
     assertTerminalTextIncludes(bare.stdout, "isn't set up yet");
     assert(
-      !(await exists(join(dir, "discern.toml"))),
+      !(await targetExists(join(dir, "discern.toml"))),
       "the welcome is read-only — bare `discern` must not scaffold",
     );
   });

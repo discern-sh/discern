@@ -50,6 +50,11 @@ import type {
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
+import { bestEffortFs } from "../../shared/fs_presence.ts";
+import {
+  isPositiveGitCount,
+  UNKNOWN_GIT_COUNT,
+} from "../../shared/git_count.ts";
 import {
   findRoot,
   installedConfigRel,
@@ -253,7 +258,7 @@ export async function statusResult(
       ? null
       : merged.kind === "merged"
       ? 0
-      : Number(merged.behind) || 0;
+      : merged.behind;
     if (merged.kind === "missing") {
       mergeWarning = fire(HINTS["missing-trunk-branch"], {
         branch: merged.branch,
@@ -261,7 +266,7 @@ export async function statusResult(
     }
     // Compute the overlap only when behind in a worktree — the agent sees which of its
     // own work main is about to touch BEFORE updating. Read-only; never merges.
-    if (location === "worktree" && behind !== null && behind > 0) {
+    if (location === "worktree" && merged.kind === "behind") {
       const o = await incomingOverlap(root, mainBranch, STATUS_OVERLAP_CAP);
       if (o.total > 0) {
         overlapInfo = o;
@@ -465,7 +470,11 @@ export async function statusResult(
   if (includeFleet) {
     // Canonicalize the invocation root once so each row's is_current compares like
     // for like against row.path (also canonical).
-    const here = await Deno.realPath(root).catch(() => root);
+    const here = await bestEffortFs(() => Deno.realPath(root), {
+      onFailure: root,
+      reason:
+        "Fleet status can compare the lexical invocation root when canonicalization is unavailable.",
+    });
     const settings = await loadIdentitySettings(root).catch(() => undefined);
     let logbookActivity: FleetLogbookActivity | undefined;
     if (cfg.project.logbook) {
@@ -1115,7 +1124,10 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           : fire(HINTS["status-dirty-worktree"]),
       );
     }
-    if (g.behind_trunk !== null && g.behind_trunk > 0) {
+    if (
+      g.behind_trunk === UNKNOWN_GIT_COUNT ||
+      (g.behind_trunk !== null && isPositiveGitCount(g.behind_trunk))
+    ) {
       hints.push(
         fire(HINTS["status-branch-behind"], {
           behind: g.behind_trunk,
@@ -1289,7 +1301,8 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
         return (
           e.broken !== true && idleDays !== undefined &&
           idleDays >= STALE_WORKTREE_DAYS &&
-          (e.clean === false || (e.ahead ?? 0) > 0)
+          (e.clean === false ||
+            (e.ahead !== undefined && isPositiveGitCount(e.ahead)))
         );
       });
       if (stale.length > 0) {

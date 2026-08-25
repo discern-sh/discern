@@ -24,9 +24,9 @@ import {
   assertTerminalTextIncludes,
   readTarget,
   runCli,
-  targetExists,
   withTempDir,
 } from "./helpers.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 
 const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
@@ -358,7 +358,7 @@ Deno.test("upgrade (human) reports the migrations it applied", async () => {
     assertStringIncludes(err, "a synthetic smoke step");
     // The step's note was surfaced as a detail line.
     assertStringIncludes(err, "wrote the MIGRATED marker");
-    assertEquals(await targetExists(dir, "MIGRATED"), true);
+    assertEquals(await targetExists(join(dir, "MIGRATED")), true);
   });
 });
 

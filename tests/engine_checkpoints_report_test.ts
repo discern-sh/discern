@@ -35,6 +35,7 @@ import {
   CHECKPOINT_OBLIGATION_STATES,
   type CheckpointObligationState,
 } from "../src/shared/checkpoints.ts";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 
 /** The wire fields these assertions read from a `checkpoints` envelope. */
 interface CheckpointsEnvelope {
@@ -71,12 +72,7 @@ async function markerText(
 ): Promise<string | undefined> {
   const path = await gitAdminStatePath(wt, name);
   assert(path !== undefined);
-  return await Deno.readTextFile(path).catch((error) => {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  });
+  return await readTextIfExists(path);
 }
 
 /** Count Logbook verb events carrying checkpoint lifecycle observations. Read
@@ -379,7 +375,7 @@ Deno.test("checkpoints: a when condition is reported as undecided and never run"
     assertLacksHint(env, HINTS["checkpoints-declare"], { ids: ["api-review"] });
     // Read-only means the command NEVER ran.
     assertEquals(
-      await Deno.readTextFile(join(dir, "when-ran.log")).catch(() => ""),
+      (await readTextIfExists(join(dir, "when-ran.log"))) ?? "",
       "",
       "a read surface must not run a when command",
     );
@@ -805,7 +801,7 @@ Deno.test("checkpoint obligations: the full state matrix projects through every 
         `${testCase.name}: reads recorded a checkpoint lifecycle event`,
       );
       assertEquals(
-        await Deno.readTextFile(join(dir, "when-ran.log")).catch(() => ""),
+        (await readTextIfExists(join(dir, "when-ran.log"))) ?? "",
         "",
         `${testCase.name}: a read surface ran the when command`,
       );
@@ -858,7 +854,7 @@ Deno.test("previews: a when-pending stop checkpoint is served as may-require", a
     assertStringIncludes(text, "may require");
     // The preview must not have run the command.
     assertEquals(
-      await Deno.readTextFile(join(dir, "when-ran.log")).catch(() => ""),
+      (await readTextIfExists(join(dir, "when-ran.log"))) ?? "",
       "",
       "a preview must not run a when command",
     );

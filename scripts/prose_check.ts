@@ -26,6 +26,7 @@ import { dirname, fromFileUrl, join, relative, resolve } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
 import {
+  decodeValeReport,
   restoreStagePaths,
   selectProseGateAlerts,
   stageProseInput,
@@ -90,18 +91,18 @@ try {
     const decoder = new TextDecoder();
     const rawStdout = decoder.decode(run.stdout);
     let stdout = restoreStagePaths(rawStdout, stage.dir, docsDir);
-    let parsed: unknown;
-    let parsedOk = false;
+    let parsed: ReturnType<typeof decodeValeReport> | undefined;
     if (jsonOutput) {
       try {
-        parsed = JSON.parse(rawStdout);
-        parsedOk = true;
-      } catch {
+        parsed = decodeValeReport(rawStdout, "Vale output for the prose gate");
+      } catch (error) {
         // Unparseable Vale output (a crash, a version surprise): fall through
         // with the restored raw text, so the failure still shows its evidence.
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(message);
       }
     }
-    if (parsedOk) {
+    if (parsed !== undefined) {
       const gateAlerts = customZero ? selectProseGateAlerts(parsed) : parsed;
       if (sarif) {
         stdout = JSON.stringify(valeJsonToSarif(
@@ -116,9 +117,9 @@ try {
         );
       }
       if (customZero) {
-        const rawHasAlerts = Object.values(
-          parsed as Record<string, unknown>,
-        ).some((value) => Array.isArray(value) && value.length > 0);
+        const rawHasAlerts = Object.values(parsed).some((value) =>
+          value.length > 0
+        );
         if (run.code !== 0 && !rawHasAlerts) {
           code = run.code;
         } else {

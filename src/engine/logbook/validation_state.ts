@@ -8,6 +8,7 @@
  */
 
 import { isAbsolute, resolve } from "@std/path";
+import { bestEffortFs } from "../../shared/fs_presence.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
@@ -870,12 +871,16 @@ async function inspectSubmodule(
   );
   let intendedRepository = false;
   if (identity !== undefined) {
-    try {
-      intendedRepository = await Deno.realPath(identity.stdout.trim()) ===
-        await Deno.realPath(cwd);
-    } catch {
-      // Missing/deinitialized directories cannot establish their own identity.
-    }
+    intendedRepository = await bestEffortFs(
+      async () =>
+        await Deno.realPath(identity.stdout.trim()) ===
+          await Deno.realPath(cwd),
+      {
+        onFailure: false,
+        reason:
+          "A missing, deinitialized, or unreadable submodule cannot establish repository identity.",
+      },
+    );
   }
   if (!intendedRepository) {
     addIncomplete(incomplete, {

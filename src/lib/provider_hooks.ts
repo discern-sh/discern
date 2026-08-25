@@ -17,6 +17,7 @@ import {
 import { resolveTemplatesDir } from "./paths.ts";
 import { type Provider, providerFor } from "./providers.ts";
 import { mergeJsonSettingsText } from "./settings_merge.ts";
+import { readTextIfExists } from "../shared/fs_presence.ts";
 import {
   LIVE_REFRESH_FILE_OPS,
   type RefreshFileOps,
@@ -52,21 +53,6 @@ function hookProvidersForConfig(config: DiscernConfig): Provider[] {
     }
   }
   return providers;
-}
-
-/** Read a hook settings file, mapping absence to `undefined`. */
-async function readTextIfExists(
-  path: string,
-  files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
-): Promise<string | undefined> {
-  try {
-    return await files.readTextFile(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
 }
 
 /** Recursively sort object keys so JSON equality ignores property order. */
@@ -105,7 +91,10 @@ async function desiredHookText(
   }
   const rel = hooks.settingsFile;
   const template = await Deno.readTextFile(join(templatesDir, `${rel}.tmpl`));
-  const existing = await readTextIfExists(join(root, rel), files);
+  const existing = await readTextIfExists(
+    join(root, rel),
+    (path) => files.readTextFile(path),
+  );
   const merge = hooks.mergeSeed ?? mergeJsonSettingsText;
   return { rel, existing, desired: merge(existing, template) };
 }

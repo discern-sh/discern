@@ -1,25 +1,28 @@
 /** Measure the public marketing corpus for its Vale-density Standard. */
 
 import { dirname, fromFileUrl } from "@std/path";
+import { decodeValeReport } from "./prose_lib.ts";
 import { stageSiteProse } from "./site_prose_lib.ts";
 import { runVale } from "./vale_lib.ts";
-
-interface ValeAlert {
-  Severity: string;
-}
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const stage = await stageSiteProse(repoRoot);
 try {
   const run = await runVale(repoRoot, ["--output=JSON", stage.dir]);
   const stdout = new TextDecoder().decode(run.stdout);
-  let report: Record<string, ValeAlert[]>;
+  let report;
   try {
-    report = JSON.parse(stdout) as Record<string, ValeAlert[]>;
-  } catch {
+    report = decodeValeReport(
+      stdout,
+      "Vale output for the site prose standard",
+    );
+  } catch (error) {
     console.error(new TextDecoder().decode(run.stderr));
     throw new Error(
-      "vale did not emit parseable JSON — is it installed and has `vale sync` run?",
+      `vale did not emit valid JSON — is it installed and has \`vale sync\` run? ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error },
     );
   }
 

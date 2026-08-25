@@ -269,7 +269,11 @@ Deno.test("await --landed met from a sibling worktree previews what update would
     });
     assert(met.ok);
     assertEquals(met.data?.met, true);
-    assert((met.data?.observed.behind ?? 0) >= 1, "the branch is now behind");
+    const behind = met.data?.observed.behind;
+    assert(
+      typeof behind === "number" && behind >= 1,
+      "the branch is now behind",
+    );
     assert(
       met.data?.observed.incoming_overlap?.includes("shared.txt") === true,
       "the hot zone names the file both sides changed",
@@ -336,8 +340,9 @@ Deno.test("await --green reads the sibling's proof, and a landing satisfies it t
       ) === true,
       "a worktree-rooted green wait composes the immutable green tip",
     );
+    const greenBehind = greenFromWorktree.data?.observed.behind;
     assert(
-      (greenFromWorktree.data?.observed.behind ?? 0) >= 1,
+      typeof greenBehind === "number" && greenBehind >= 1,
       "the immutable green tip also drives the update preview",
     );
 

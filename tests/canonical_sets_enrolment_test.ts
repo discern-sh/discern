@@ -48,6 +48,7 @@ import {
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 
 const REGISTRY_MODULE = "scripts/canonical_sets.ts";
 
@@ -58,11 +59,7 @@ function isConventionalGuard(rel: string): boolean {
 
 /** Read an enrolled artifact when committed, leaving absence for the guard to diagnose. */
 async function fileText(rel: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(join(REPO_ROOT, rel));
-  } catch {
-    return undefined;
-  }
+  return await readTextIfExists(join(REPO_ROOT, rel));
 }
 
 /** All conventionally named guard tests on disk, as `tests/…` paths. */

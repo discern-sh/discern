@@ -19,9 +19,11 @@ import { isKnownJob, KNOWN_JOBS, STAGES } from "./config.ts";
 import {
   type CommandValue,
   CONFIG_DOC_VERSION,
+  configDocRuntimeSchema,
   type DiscernConfigDoc,
   toCommandList,
 } from "../shared/config_schema.ts";
+import { decodeJson } from "../shared/runtime_decode.ts";
 import {
   CHECKPOINT_MODES,
   isBuiltInCheckpoint,
@@ -33,9 +35,9 @@ import { TomlEditor } from "./toml_edit.ts";
 // The document's shape, its major version, and its editor JSON Schema all derive
 // from the one canonical schema (`config_schema.ts`, ADR 0026) — re-exported here
 // so the installer keeps importing them from this module. `applyConfigDoc` below
-// is the runtime translator that writes a (loosely-parsed, possibly-malformed)
-// document into a project's discern.toml, with author-friendly per-section
-// messages; the schema is the published contract a `preset.json` validates against.
+// is the runtime translator that writes a validated, forward-tolerant document
+// into a project's discern.toml, with author-friendly per-section messages; the
+// schema is the published contract a `preset.json` validates against.
 export { CONFIG_DOC_VERSION };
 export type { DiscernConfigDoc };
 
@@ -51,7 +53,7 @@ function majorOf(version: string | number): string {
 }
 
 /**
- * Load and shallow-validate a config document. `source` is a path, or `-` for
+ * Load and validate a config document. `source` is a path, or `-` for
  * stdin. Throws a clear error on a missing/invalid file or an unsupported
  * `version` major (the caller reports it). Unknown keys are ignored, so a newer
  * field within the same major never breaks an older reader.
@@ -70,18 +72,20 @@ export async function loadConfigDoc(
       throw new Error(`could not read --config file "${source}": ${message}`);
     }
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`--config file is not valid JSON: ${message}`);
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("--config file must be a JSON object");
-  }
-  assertSupportedVersion(parsed as DiscernConfigDoc);
-  return parsed as DiscernConfigDoc;
+  return decodeConfigDoc(
+    text,
+    source === "-" ? "--config stdin" : `--config file \"${source}\"`,
+  );
+}
+
+/** Decode the shared setup/preset document contract from one JSON source. */
+export function decodeConfigDoc(
+  text: string,
+  source: string,
+): DiscernConfigDoc {
+  const doc = decodeJson(configDocRuntimeSchema, text, source);
+  assertSupportedVersion(doc);
+  return doc;
 }
 
 /**

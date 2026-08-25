@@ -851,6 +851,31 @@ Deno.test("status dashboard: landing risks do not replace proof readiness and la
   assertLinesFit(output, 72);
 });
 
+Deno.test("status dashboard: unknown divergence is visible and never ready", () => {
+  const unknown = entry({
+    ahead: "unknown",
+    behind: "unknown",
+    gate_proof: { status: "honored" },
+    proof_honored: true,
+  });
+  const model = presentFleetRow(unknown, {
+    trunk: "main",
+    nowMs: NOW,
+  });
+  assertEquals(model.landingReady, false);
+  assertEquals(model.kind, "idle");
+
+  const output = render(
+    data([mainEntry(), unknown]),
+    104,
+    false,
+    undefined,
+    true,
+  );
+  assertStringIncludes(output, "↑?");
+  assertStringIncludes(output, "↓?");
+});
+
 Deno.test("status dashboard: main and worktree fleet contexts show main once and keep current beside identity", () => {
   const current = entry({ is_current: true });
   const main = data([mainEntry(), current]);

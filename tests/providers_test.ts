@@ -38,6 +38,7 @@ import { DISCERN_NO_ATTRIBUTION, type EnvReader } from "../src/shared/env.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import {
   CURSOR_CLI_TOOL_TIMEOUT_SECONDS,
   MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
@@ -1151,9 +1152,7 @@ async function wiredWriterViolations(
       violations.push(`${probe.name}: a re-wire must not report firstInstall`);
     }
     for (const [rel, text] of before) {
-      const after = await Deno.readTextFile(join(dir, rel)).catch(() =>
-        undefined
-      );
+      const after = await readTextIfExists(join(dir, rel));
       if (after !== text) {
         violations.push(
           `${probe.name}: re-wiring changed ${rel} — the writer must be byte-stable`,
@@ -1223,7 +1222,7 @@ Deno.test("the wired-writer detector rejects a non-idempotent future provider (u
       runs++;
       const path = join(root, rel);
       await Deno.mkdir(dirname(path), { recursive: true });
-      const existing = await Deno.readTextFile(path).catch(() => "{}");
+      const existing = (await readTextIfExists(path)) ?? "{}";
       const doc = JSON.parse(existing) as Record<string, unknown>;
       doc[`discern-run-${runs}`] = { command: "discern" };
       await Deno.writeTextFile(path, JSON.stringify(doc, null, 2));
@@ -1253,7 +1252,7 @@ Deno.test("the wired-writer detector rejects a clobbering future provider (unrel
     register: async (root) => {
       const path = join(root, rel);
       await Deno.mkdir(dirname(path), { recursive: true });
-      const existing = await Deno.readTextFile(path).catch(() => undefined);
+      const existing = await readTextIfExists(path);
       if (existing === desired) {
         return { written: [], firstInstall: false };
       }

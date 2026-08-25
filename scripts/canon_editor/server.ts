@@ -31,6 +31,7 @@ import {
   portForId,
   resolveIdentity,
 } from "../../src/engine/worktree/identity.ts";
+import { statIfExists } from "../../src/shared/fs_presence.ts";
 import { THEME_BOOTSTRAP } from "../../site/theme.ts";
 import { type PickerCatalogEntry, pickerFromCatalog } from "./pickers.ts";
 
@@ -85,13 +86,9 @@ export async function resolveCanonEditorPort(
   value: string | undefined,
 ): Promise<number> {
   if (value !== undefined) return parseCanonEditorPort(value);
-  try {
-    if ((await Deno.stat(join(REPO_ROOT, ".git"))).isFile) {
-      const identity = await resolveIdentity(REPO_ROOT, REPO_ROOT);
-      return portForId(`${identity.id}-canon-editor`);
-    }
-  } catch {
-    // Fall through to the main-checkout default.
+  if ((await statIfExists(join(REPO_ROOT, ".git")))?.isFile) {
+    const identity = await resolveIdentity(REPO_ROOT, REPO_ROOT);
+    return portForId(`${identity.id}-canon-editor`);
   }
   return DEFAULT_CANON_EDITOR_PORT;
 }

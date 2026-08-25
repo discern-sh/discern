@@ -24,12 +24,8 @@
 import { dirname, fromFileUrl } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
-import { stageProseInput } from "./prose_lib.ts";
+import { decodeValeReport, stageProseInput } from "./prose_lib.ts";
 import { runVale } from "./vale_lib.ts";
-
-interface Alert {
-  Severity: string;
-}
 
 // Vale exits non-zero when it finds error-severity alerts; that is not a failure
 // of the MEASUREMENT (the count is the point), so its JSON is read regardless of
@@ -49,13 +45,16 @@ const run = await (async (): Promise<Deno.CommandOutput> => {
 })();
 
 const stdout = new TextDecoder().decode(run.stdout);
-let report: Record<string, Alert[]>;
+let report;
 try {
-  report = JSON.parse(stdout) as Record<string, Alert[]>;
-} catch {
+  report = decodeValeReport(stdout, "Vale output for the prose standard");
+} catch (error) {
   console.error(new TextDecoder().decode(run.stderr));
   throw new Error(
-    "vale did not emit parseable JSON — is it installed and has `vale sync` run?",
+    `vale did not emit valid JSON — is it installed and has \`vale sync\` run? ${
+      error instanceof Error ? error.message : String(error)
+    }`,
+    { cause: error },
   );
 }
 

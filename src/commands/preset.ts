@@ -24,6 +24,7 @@
 import { dirname, fromFileUrl, join } from "@std/path";
 import { notInitializedResult } from "../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
+import { directoryExists, readTextIfExists } from "../shared/fs_presence.ts";
 import { Logger } from "../lib/log.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
@@ -37,8 +38,8 @@ import {
 import { TomlEditor } from "../lib/toml_edit.ts";
 import {
   applyConfigDoc,
-  assertSupportedVersion,
   type ConfigFillReport,
+  decodeConfigDoc,
   type DiscernConfigDoc,
   docHasFills,
 } from "../lib/config_doc.ts";
@@ -56,21 +57,13 @@ const PRESET_MANIFEST = "preset.json";
 async function loadPresetFills(
   presetDir: string,
 ): Promise<DiscernConfigDoc | undefined> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(join(presetDir, PRESET_MANIFEST));
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
-  const parsed: unknown = JSON.parse(text);
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`${PRESET_MANIFEST} must be a JSON object`);
-  }
-  assertSupportedVersion(parsed as DiscernConfigDoc);
-  return parsed as DiscernConfigDoc;
+  const path = join(presetDir, PRESET_MANIFEST);
+  const text = await readTextIfExists(path);
+  if (text === undefined) return undefined;
+  return decodeConfigDoc(
+    text,
+    `${PRESET_MANIFEST} at ${path}`,
+  );
 }
 
 /** Options accepted by `preset`. */
@@ -87,12 +80,12 @@ async function resolvePresetsDir(): Promise<string | undefined> {
     DISCERN_ENVIRONMENT_VARIABLES.presetsDirectory,
   );
   if (override) {
-    return (await isDir(override)) ? override : undefined;
+    return (await directoryExists(override)) ? override : undefined;
   }
   let dir = dirname(fromFileUrl(import.meta.url));
   for (let depth = 0; depth < 8; depth++) {
     const candidate = join(dir, "presets");
-    if (await isDir(candidate)) {
+    if (await directoryExists(candidate)) {
       return candidate;
     }
     const parent = dirname(dir);
@@ -102,15 +95,6 @@ async function resolvePresetsDir(): Promise<string | undefined> {
     dir = parent;
   }
   return undefined;
-}
-
-/** True when `path` is an existing directory. */
-async function isDir(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isDirectory;
-  } catch {
-    return false;
-  }
 }
 
 /** List the available preset names (subdirectories of `presets/`). */
@@ -160,7 +144,7 @@ export async function runPreset(
   const available = await listPresets(presetsDir);
   const presetDir = presetsDir ? join(presetsDir, name) : undefined;
 
-  if (presetDir === undefined || !(await isDir(presetDir))) {
+  if (presetDir === undefined || !(await directoryExists(presetDir))) {
     const message = available.length > 0
       ? `unknown preset "${name}". Available: ${available.join(", ")}.`
       : `unknown preset "${name}". This build ships no presets yet.`;

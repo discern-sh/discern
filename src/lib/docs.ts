@@ -49,6 +49,7 @@ import { RawConfig } from "../shared/config_read.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { resolveConfigPath } from "./paths.ts";
+import { bestEffortFs, directoryExists } from "../shared/fs_presence.ts";
 
 /** One indexed documentation file. */
 export interface DocEntry {
@@ -163,15 +164,6 @@ export type ResolveResult =
 export interface DocSuggestion {
   entry: DocEntry;
   score: number;
-}
-
-/** True when `path` is an existing directory. */
-async function isDir(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isDirectory;
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -696,14 +688,14 @@ async function resolveDocsDir(
 ): Promise<{ docsDir: string; root: string } | undefined> {
   if (dir) {
     const abs = isAbsolute(dir) ? dir : resolve(cwd, dir);
-    return (await isDir(abs))
+    return (await directoryExists(abs))
       ? { docsDir: abs, root: dirname(abs) }
       : undefined;
   }
   const root = await findProjectRoot(cwd);
   if (root === undefined) {
     const candidate = join(cwd, SOURCE_PATHS.map.defaultPath);
-    return (await isDir(candidate))
+    return (await directoryExists(candidate))
       ? { docsDir: candidate, root: dirname(candidate) }
       : undefined;
   }
@@ -712,7 +704,9 @@ async function resolveDocsDir(
     root,
     normalizeMapDir(raw.get("map.dir", SOURCE_PATHS.map.defaultPath)),
   );
-  return (await isDir(candidate)) ? { docsDir: candidate, root } : undefined;
+  return (await directoryExists(candidate))
+    ? { docsDir: candidate, root }
+    : undefined;
 }
 
 /** Whether a doc buried under one or more `_`-prefixed segments is admitted, given
@@ -781,7 +775,7 @@ export async function discoverDocs(opts: {
     let aliases: string[] = [];
     let redirectFrom: string[] = [];
     let citedAdrs: AdrCitation[] = [];
-    try {
+    await bestEffortFs(async () => {
       const { meta, body } = parseFrontmatter(await Deno.readTextFile(absPath));
       bodies.set(relToDocs, body);
       title = meta.title ?? extractTitle(body) ?? title;
@@ -791,9 +785,11 @@ export async function discoverDocs(opts: {
       aliases = meta.aliases ?? [];
       redirectFrom = meta.redirect_from ?? [];
       citedAdrs = collectAdrCitations(body);
-    } catch {
-      // An unreadable file keeps the humanised-slug fallback.
-    }
+    }, {
+      onFailure: undefined,
+      reason:
+        "Documentation discovery keeps an unreadable or malformed leaf under its humanized metadata fallback.",
+    });
 
     entries.push({
       path,

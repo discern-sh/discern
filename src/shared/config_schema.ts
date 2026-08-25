@@ -95,8 +95,8 @@ export function tomlSyntaxHint(err: unknown): string {
  * one-line message and a non-zero exit, in both human and `--json` modes.
  */
 export class ConfigParseError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "ConfigParseError";
   }
 }
@@ -858,16 +858,92 @@ export type ResourceConfig = z.infer<typeof resourceValue>;
  */
 export const CONFIG_DOC_VERSION = "2";
 
+interface UnrecognizedConfigDocKeys {
+  readonly path: readonly PropertyKey[];
+  readonly keys: readonly string[];
+}
+
+/** Clone JSON-like input so tolerant projection never mutates caller data. */
+function cloneRuntimeValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(cloneRuntimeValue);
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).map((
+      [key, child],
+    ) => [key, cloneRuntimeValue(child)]),
+  );
+}
+
+/** Collect strict-object unknown-key issues, including matching union arms. */
+function unrecognizedConfigDocKeys(
+  issues: readonly z.core.$ZodIssue[],
+): UnrecognizedConfigDocKeys[] {
+  const found: UnrecognizedConfigDocKeys[] = [];
+  for (const issue of issues) {
+    if (issue.code === "unrecognized_keys") {
+      found.push({ path: issue.path, keys: issue.keys });
+    } else if (issue.code === "invalid_union") {
+      for (const branch of issue.errors) {
+        found.push(...unrecognizedConfigDocKeys(branch));
+      }
+    }
+  }
+  return found;
+}
+
+/** Resolve the object at a Zod issue path within one JSON-like value. */
+function objectAtIssuePath(
+  value: unknown,
+  path: readonly PropertyKey[],
+): Record<string, unknown> | undefined {
+  let current = value;
+  for (const segment of path) {
+    if (Array.isArray(current) && typeof segment === "number") {
+      current = current[segment];
+    } else if (isRecord(current)) {
+      current = current[String(segment)];
+    } else {
+      return undefined;
+    }
+  }
+  return isRecord(current) ? current : undefined;
+}
+
+/**
+ * Remove only keys the canonical strict schema identifies as unknown. Re-run
+ * until no such issue remains, so nested strict objects and matching union arms
+ * stay forward-tolerant without copying their known-field lists.
+ */
+function projectKnownConfigDocFields(value: unknown): unknown {
+  const projected = cloneRuntimeValue(value);
+  while (true) {
+    const result = configDocSchema.safeParse(projected);
+    if (result.success) return result.data;
+    let removed = false;
+    for (const issue of unrecognizedConfigDocKeys(result.error.issues)) {
+      const owner = objectAtIssuePath(projected, issue.path);
+      if (owner === undefined) continue;
+      for (const key of issue.keys) {
+        if (Object.hasOwn(owner, key)) {
+          delete owner[key];
+          removed = true;
+        }
+      }
+    }
+    if (!removed) return projected;
+  }
+}
+
 /** The document's gate-config tables reuse the *same* building blocks as the live
  * config, so the document shape can never diverge from what the engine reads. The
  * base fields (name/slug/brief/source_globs/agents) are install inputs the
  * document layer maps onto the live sections.
  *
  * Strict here drives a STRICT generated editor JSON Schema (so a typo'd key is
- * flagged while authoring a preset / config doc). The *runtime* loader stays
- * lenient — `loadConfigDoc` parses + version-checks, and `applyConfigDoc` reads
- * only the fields it applies — so a newer field within the same major never
- * breaks an older reader (ADR 0005). */
+ * flagged while authoring a preset / config doc). The runtime schema below
+ * projects away only keys this schema identifies as unknown, so a newer field
+ * within the same major never breaks an older reader while every known field is
+ * still validated (ADR 0005). */
 export const configDocSchema = z.strictObject({
   $schema: z.string().optional().describe(
     "Editor-only pointer to this schema; ignored by discern.",
@@ -919,6 +995,12 @@ export const configDocSchema = z.strictObject({
   "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
 );
 
+/** Runtime config-document validation: canonical known fields, tolerant extras. */
+export const configDocRuntimeSchema = z.preprocess(
+  projectKnownConfigDocFields,
+  configDocSchema,
+);
+
 /** The config-document shape — the *input* view (what an author writes, before
  * defaults), so optional attributes such as a scope's `neutral` stay optional.
  * Internal alias of the inferred Zod type. */
@@ -926,7 +1008,7 @@ type InferredDiscernConfigDoc = z.input<typeof configDocSchema>;
 export type DiscernConfigDoc = Omit<InferredDiscernConfigDoc, "jobs"> & {
   /** The open document view: runtime validation applies the known-name/custom-
    * name positional rule that TypeScript index signatures cannot express. */
-  jobs?: Record<string, JobConfig>;
+  jobs?: Record<string, JobConfig> | undefined;
 };
 
 // ── parse / validate / load ────────────────────────────────────────────────────
@@ -1242,7 +1324,7 @@ export function parseConfig(
   try {
     parsed = parseToml(text);
   } catch (err) {
-    throw new ConfigParseError(tomlSyntaxHint(err));
+    throw new ConfigParseError(tomlSyntaxHint(err), { cause: err });
   }
   return validateConfigValue(parsed);
 }

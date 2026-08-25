@@ -25,6 +25,7 @@ import { DROP_RECOVERY_REF_LIMIT } from "./recovery_refs.ts";
 import type { GitWorktreePruneScan, OrphanWorktreeSweepScan } from "./git.ts";
 import type { ContainedWorktree } from "./containment.ts";
 import type { ReappearedWorktreePathScan } from "./retired_paths.ts";
+import type { GitCount } from "../../shared/git_count.ts";
 
 /** The shared note for the complete refresh reconciliation. */
 export const FULL_REFRESH_STEP_NOTE =
@@ -216,8 +217,8 @@ export interface UpdatePlan {
   fromOverride: boolean;
   /** The worktree's current branch (display only). */
   worktreeBranch: string;
-  /** Commits the branch is behind the source (0 when already up to date). */
-  behind: number;
+  /** Commits behind the source, or unknown when Git could not read the count. */
+  behind: GitCount;
   /** Whether the branch already contains the source (→ nothing to merge). */
   alreadyUpdated: boolean;
   /** Configured generated-artifact groups re-run during convergence. */

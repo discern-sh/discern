@@ -493,6 +493,7 @@ Deno.test("a save the gate's prose voice refuses rolls back", async () => {
     await Deno.writeTextFile(pagePath, pageBefore);
     const findings = JSON.stringify({
       [pageRel]: [{
+        Severity: "error",
         Line: 1,
         Check: "Discern.Exclamation",
         Message: "Exclamation marks are refused.",

@@ -18,6 +18,7 @@ import {
 } from "../shared/generated_artifacts.ts";
 import { generatedArtifactMarker } from "../shared/brand.ts";
 import type { EnvReader } from "../shared/env.ts";
+import { fileExists, readTextIfExists } from "../shared/fs_presence.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import { splitNulRecords } from "../shared/git_paths.ts";
 import { runGit } from "../shared/subprocess.ts";
@@ -478,18 +479,6 @@ export function reconcileDiscernGitattributes(
   };
 }
 
-/** Read a text file when present and otherwise return undefined. */
-async function readTextIfExists(path: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
-}
-
 /** Return built-in candidates that are tracked or currently present. */
 async function activeBuiltInPaths(
   root: string,
@@ -512,13 +501,8 @@ async function activeBuiltInPaths(
       active.push(path);
       continue;
     }
-    try {
-      if ((await Deno.stat(join(root, path))).isFile) {
-        active.push(path);
-      }
-    } catch {
-      // A configured path that is neither tracked nor present is not yet a
-      // compiled built-in candidate. Refresh may create it before replanning.
+    if (await fileExists(join(root, path))) {
+      active.push(path);
     }
   }
   return active;

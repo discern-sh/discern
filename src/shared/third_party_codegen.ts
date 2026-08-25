@@ -34,11 +34,18 @@ import { gunzipSync, gzipSync } from "zlib";
 import { createFromBuffer } from "@dprint/formatter";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
+import { z } from "@zod/zod";
+import {
+  bestEffortFs,
+  readDirIfExists,
+  readTextIfExists,
+} from "./fs_presence.ts";
 import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
 import {
   MARKDOWN_PLUGIN_VERSION,
   TOML_PLUGIN_VERSION,
 } from "../lib/tidy_format.ts";
+import { decodeJson } from "./runtime_decode.ts";
 
 /** A component resolved to its verbatim license text. */
 export interface ResolvedComponent extends ThirdPartyComponent {
@@ -100,23 +107,56 @@ export const VENDORED_WASM_COMPONENTS = [
 
 // ── the compile graph ─────────────────────────────────────────────────────────
 
-interface GraphModule {
-  readonly kind?: string;
-  readonly specifier?: string;
-  readonly npmPackage?: string;
-}
+const graphModuleSchema = z.looseObject({
+  kind: z.string().optional(),
+  specifier: z.string().optional(),
+  npmPackage: z.string().optional(),
+});
 
-interface GraphNpmPackage {
-  readonly name: string;
-  readonly version: string;
-  readonly dependencies: readonly string[];
+const graphNpmPackageSchema = z.looseObject({
+  name: z.string(),
+  version: z.string(),
+  dependencies: z.array(z.string()),
   /** The package's extracted directory when a local node_modules exists. */
-  readonly localPath?: string;
+  localPath: z.string().optional(),
+});
+
+/** The Deno compile graph fields consumed by third-party notice generation. */
+export const compileGraphSchema = z.looseObject({
+  modules: z.array(graphModuleSchema),
+  npmPackages: z.record(z.string(), graphNpmPackageSchema),
+});
+
+type CompileGraph = z.output<typeof compileGraphSchema>;
+
+const denoStorageInfoSchema = z.looseObject({
+  denoDir: z.string().optional(),
+  npmCache: z.string().optional(),
+});
+
+const npmPackageMetadataSchema = z.looseObject({
+  license: z.union([
+    z.string(),
+    z.looseObject({ type: z.string() }),
+  ]).optional(),
+});
+
+const jsrLicenseCacheSchema = z.record(z.string(), z.string());
+
+/** Decode the Deno graph contract with a source-qualified failure. */
+export function decodeCompileGraph(
+  text: string,
+  source: string,
+): CompileGraph {
+  return decodeJson(compileGraphSchema, text, source);
 }
 
-interface CompileGraph {
-  readonly modules: readonly GraphModule[];
-  readonly npmPackages: Readonly<Record<string, GraphNpmPackage>>;
+/** Decode the committed JSR license cache without trusting its value types. */
+export function decodeJsrLicenseCache(
+  text: string,
+  source: string,
+): Record<string, string> {
+  return decodeJson(jsrLicenseCacheSchema, text, source);
 }
 
 /** A package identity; JSR names keep their scope (`@std/fs`). */
@@ -126,10 +166,11 @@ export interface PackageRef {
 }
 
 /** Query Deno's resolver and decode its compile-graph JSON. */
-async function denoInfoJson(
+async function denoInfoJson<Schema extends z.ZodType>(
   repoRoot: string,
   extraArgs: readonly string[],
-): Promise<unknown> {
+  schema: Schema,
+): Promise<z.output<Schema>> {
   const out = await new Deno.Command("deno", {
     args: ["info", "--json", ...extraArgs],
     cwd: repoRoot,
@@ -143,7 +184,12 @@ async function denoInfoJson(
       }`,
     );
   }
-  return JSON.parse(new TextDecoder().decode(out.stdout));
+  const command = `deno info --json ${extraArgs.join(" ")}`.trimEnd();
+  return decodeJson(
+    schema,
+    new TextDecoder().decode(out.stdout),
+    `\`${command}\` output`,
+  );
 }
 
 /** The JSR packages in the graph, from their `https://jsr.io/…` specifiers. */
@@ -212,16 +258,9 @@ const LICENSE_FILE_RE = /^(licen[cs]e|copying)([._-].*)?$/i;
 
 /** Select the shortest deterministic LICENSE, LICENCE, or COPYING filename. */
 async function findLicenseFile(dir: string): Promise<string | undefined> {
-  const names: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isFile && LICENSE_FILE_RE.test(entry.name)) {
-        names.push(entry.name);
-      }
-    }
-  } catch {
-    return undefined;
-  }
+  const names = (await readDirIfExists(dir) ?? [])
+    .filter((entry) => entry.isFile && LICENSE_FILE_RE.test(entry.name))
+    .map((entry) => entry.name);
   // Prefer the bare LICENSE spelling over variants, deterministically.
   names.sort((a, b) => a.length - b.length || a.localeCompare(b));
   return names[0];
@@ -229,10 +268,15 @@ async function findLicenseFile(dir: string): Promise<string | undefined> {
 
 /** The `license` field of a package.json (string or legacy `{ type }`). */
 async function declaredNpmLicense(dir: string): Promise<string | undefined> {
-  try {
-    const pkg = JSON.parse(
-      await Deno.readTextFile(join(dir, "package.json")),
-    ) as { license?: unknown };
+  return await bestEffortFs(async () => {
+    const path = join(dir, "package.json");
+    const text = await readTextIfExists(path);
+    if (text === undefined) return undefined;
+    const pkg = decodeJson(
+      npmPackageMetadataSchema,
+      text,
+      path,
+    );
     if (typeof pkg.license === "string") return pkg.license;
     if (
       typeof pkg.license === "object" && pkg.license !== null &&
@@ -240,10 +284,12 @@ async function declaredNpmLicense(dir: string): Promise<string | undefined> {
     ) {
       return pkg.license.type;
     }
-  } catch {
-    // fall through — the caller decides how to handle an unknown license
-  }
-  return undefined;
+    return undefined;
+  }, {
+    onFailure: undefined,
+    reason:
+      "License resolution may fall back to a package's LICENSE file when package metadata is unavailable.",
+  });
 }
 
 /** Convert CRLF to LF and remove trailing whitespace without altering the body. */
@@ -272,10 +318,7 @@ export function classifyLicenseText(text: string): string | undefined {
 
 /** The global extracted-package store, for a package with no localPath. */
 async function globalNpmStoreDir(repoRoot: string): Promise<string> {
-  const info = await denoInfoJson(repoRoot, []) as {
-    denoDir?: string;
-    npmCache?: string;
-  };
+  const info = await denoInfoJson(repoRoot, [], denoStorageInfoSchema);
   const base = info.npmCache ??
     (info.denoDir === undefined ? undefined : join(info.denoDir, "npm"));
   if (base === undefined) {
@@ -512,22 +555,29 @@ export async function generateThirdPartyArtifacts(
   const graph = await denoInfoJson(
     options.repoRoot,
     ["src/main.ts"],
-  ) as CompileGraph;
-  if (!Array.isArray(graph.modules) || graph.npmPackages === undefined) {
-    throw new Error(
-      "`deno info --json src/main.ts` returned no module graph — cannot derive the third-party notices",
-    );
-  }
+    compileGraphSchema,
+  );
 
   let cache: Record<string, string> = {};
-  try {
-    cache = JSON.parse(
-      await Deno.readTextFile(
-        join(options.repoRoot, THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache),
-      ),
-    ) as Record<string, string>;
-  } catch {
-    // no cache yet — every JSR text resolves via fetch (or fails offline)
+  const cachePath = join(
+    options.repoRoot,
+    THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache,
+  );
+  const cacheText = await bestEffortFs(
+    () => readTextIfExists(cachePath),
+    {
+      onFailure: undefined,
+      reason:
+        "An unavailable JSR license cache falls back to resolving every text from its authoritative source.",
+    },
+  );
+  if (cacheText !== undefined) {
+    try {
+      cache = decodeJsrLicenseCache(cacheText, cachePath);
+    } catch (error) {
+      if (!options.allowFetch) throw error;
+      // Codegen may rebuild a malformed cache from the registry.
+    }
   }
 
   let store: Promise<string> | undefined;

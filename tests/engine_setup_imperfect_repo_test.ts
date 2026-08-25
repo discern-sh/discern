@@ -14,7 +14,7 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -158,7 +158,7 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
     assertEquals(land.code, 0, land.output);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
     assert(
-      await exists(join(dir, "discern.toml")),
+      await targetExists(join(dir, "discern.toml")),
       "discern landed on main",
     );
   });
@@ -248,7 +248,7 @@ Deno.test("bare `discern` in a non-git directory shows the welcome (leading with
     // …and it leads with the git-init step (there is no isolation without git).
     assertTerminalTextIncludes(r.stdout, "git init");
     // The welcome writes nothing, in a stray dir least of all.
-    assert(!(await exists(join(dir, "discern.toml"))));
+    assert(!(await targetExists(join(dir, "discern.toml"))));
   });
 });
 
@@ -313,8 +313,8 @@ Deno.test("begin rejects a verbatim --map placeholder instead of scaffolding a l
     assertStringIncludes(res.message, "placeholder");
     assertStringIncludes(res.message, "--map notes/map/");
     // Nothing was written — no literal `<their-docs-path>/` tree, no config.
-    assert(!(await exists(join(dir, "<their-docs-path>"))));
-    assert(!(await exists(join(dir, "discern.toml"))));
+    assert(!(await targetExists(join(dir, "<their-docs-path>"))));
+    assert(!(await targetExists(join(dir, "discern.toml"))));
   });
 });
 
@@ -443,7 +443,10 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
     // Abandon mid-setup: switch back to main. The config lives only in commits
     // on discern-setup; the agent files are gitignored and survive.
     await git(dir, "checkout", "-q", "main");
-    assert(!(await exists(join(dir, "discern.toml"))), "config is branch-only");
+    assert(
+      !(await targetExists(join(dir, "discern.toml"))),
+      "config is branch-only",
+    );
 
     // The welcome routes to the resume, not the FRESH funnel.
     const w = JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout)
@@ -529,7 +532,7 @@ Deno.test("re-begin never imports a surviving agent file that matches discern's 
     );
     await git(dir, "checkout", "-q", "main");
     await git(dir, "branch", "-D", "discern-setup");
-    assert(await exists(survivorPath), "the compiled file survives");
+    assert(await targetExists(survivorPath), "the compiled file survives");
 
     const re = await runAgent(dir, [
       "setup",
@@ -675,7 +678,7 @@ async function readConvergence(dir: string): Promise<ReentryConvergence> {
   const cfg = parseConfigOrThrow(toml);
   const scaffoldedAgents: string[] = [];
   for (const [agent, rel] of Object.entries(scaffoldProbes())) {
-    if (await exists(join(dir, rel))) {
+    if (await targetExists(join(dir, rel))) {
       scaffoldedAgents.push(agent);
     }
   }
@@ -1085,11 +1088,11 @@ Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' see
         `laid ${JSON.stringify(conv.scaffoldedAgents)}`,
     );
     assert(
-      !(await exists(join(dir, ".claude", "settings.json"))),
+      !(await targetExists(join(dir, ".claude", "settings.json"))),
       "no claude_code seed may be laid over a gemini-only project",
     );
     assert(
-      !(await exists(join(dir, ".codex", "hooks.json"))),
+      !(await targetExists(join(dir, ".codex", "hooks.json"))),
       "no codex seed may be laid over a gemini-only project",
     );
     // The persisted config is unchanged — the re-scaffold reads it, never rewrites it.
@@ -1175,7 +1178,7 @@ Deno.test("re-entry (B47): setup that starts on discern-setup stamps the real in
     // create this partial state itself.
     await git(dir, "checkout", "-b", "discern-setup");
     assert(
-      !(await exists(join(dir, "discern.toml"))),
+      !(await targetExists(join(dir, "discern.toml"))),
       "precondition: the interrupted branch has no setup output",
     );
 

@@ -16,7 +16,8 @@ import {
   MIGRATIONS,
   pendingMigrations,
 } from "../src/lib/migrations.ts";
-import { fakeEnv, targetExists, withTempDir } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 
 /** A synthetic step that records its source version when applied. */
 function recordingStep(from: number, log: number[]): Migration {
@@ -164,9 +165,9 @@ Deno.test("a failed chain aborts later steps and converges on retry", async () =
       Error,
       "transient failure",
     );
-    assertEquals(await targetExists(dir, "first.marker"), true);
-    assertEquals(await targetExists(dir, "second.marker"), false);
-    assertEquals(await targetExists(dir, "third.marker"), false);
+    assertEquals(await targetExists(join(dir, "first.marker")), true);
+    assertEquals(await targetExists(join(dir, "second.marker")), false);
+    assertEquals(await targetExists(join(dir, "third.marker")), false);
     assertEquals(calls, { first: 1, second: 1, third: 0 });
 
     const applied = await applyMigrations({
@@ -176,9 +177,9 @@ Deno.test("a failed chain aborts later steps and converges on retry", async () =
       registry,
     });
     assertEquals(applied.map((migration) => migration.from), [1, 2, 3]);
-    assertEquals(await targetExists(dir, "first.marker"), true);
-    assertEquals(await targetExists(dir, "second.marker"), true);
-    assertEquals(await targetExists(dir, "third.marker"), true);
+    assertEquals(await targetExists(join(dir, "first.marker")), true);
+    assertEquals(await targetExists(join(dir, "second.marker")), true);
+    assertEquals(await targetExists(join(dir, "third.marker")), true);
     assertEquals(calls, { first: 2, second: 2, third: 1 });
   });
 });
@@ -257,16 +258,35 @@ Deno.test("context reads and edits root discern.toml with comments intact", asyn
 Deno.test("context deep-merges .claude/settings.json", async () => {
   await withTempDir(async (dir) => {
     const ctx = createMigrationContext(dir);
+    await ctx.writeText(
+      ".claude/settings.json",
+      '{"theme":"dark","permissions":{"allow":["Read"]}}\n',
+    );
     await ctx.mergeSettings({ model: "opus" });
     await ctx.mergeSettings({ permissions: { deny: ["Read(./.env)"] } });
     const text = await ctx.readText(".claude/settings.json");
     assertExists(text);
     const settings = JSON.parse(text) as {
       model?: string;
+      theme?: string;
       permissions?: { deny?: string[] };
     };
     assertEquals(settings.model, "opus");
+    assertEquals(settings.theme, "dark");
     assertEquals(settings.permissions?.deny, ["Read(./.env)"]);
+  });
+});
+
+Deno.test("context rejects a non-object .claude/settings.json root", async () => {
+  await withTempDir(async (dir) => {
+    const ctx = createMigrationContext(dir);
+    await ctx.writeText(".claude/settings.json", "[]\n");
+    await assertRejects(
+      () => ctx.mergeSettings({ model: "opus" }),
+      TypeError,
+      "must contain a JSON object at the root",
+    );
+    assertEquals(await ctx.readText(".claude/settings.json"), "[]\n");
   });
 });
 
@@ -303,7 +323,7 @@ Deno.test("a rename migration is idempotent through the runner", async () => {
       to: 2,
       registry: [migration],
     });
-    assertEquals(await targetExists(dir, "a"), false);
-    assertEquals(await targetExists(dir, "b"), true);
+    assertEquals(await targetExists(join(dir, "a")), false);
+    assertEquals(await targetExists(join(dir, "b")), true);
   });
 });

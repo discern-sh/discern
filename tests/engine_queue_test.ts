@@ -22,6 +22,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { bestEffortFs, pathExists } from "../src/shared/fs_presence.ts";
 
 const QUEUED_TEXT = "Tests queued";
 const UNAVAILABLE_TEXT = "The concurrent test-run cap is not enforced";
@@ -68,16 +69,6 @@ async function writeCapConfig(dir: string, cap: number): Promise<void> {
 /** The shared slot directory for a repository whose `.git` is a directory. */
 function slotDirOf(root: string): string {
   return join(root, ".git", GIT_ADMIN_STATE.testSlots.path);
-}
-
-/** True when a path exists, regardless of its file type. */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** Count non-overlapping appearances of one diagnostic fragment. */
@@ -199,9 +190,9 @@ interface QueueEvent {
 
 /** Read every logbook event whose verb is `queue`. */
 async function queueEvents(root: string): Promise<QueueEvent[]> {
-  const events: QueueEvent[] = [];
-  const dir = join(root, ".git", GIT_ADMIN_STATE.logbook.path);
-  try {
+  return await bestEffortFs(async () => {
+    const events: QueueEvent[] = [];
+    const dir = join(root, ".git", GIT_ADMIN_STATE.logbook.path);
     for await (const entry of Deno.readDir(dir)) {
       if (!entry.isFile || !entry.name.endsWith(".jsonl")) continue;
       const text = await Deno.readTextFile(join(dir, entry.name));
@@ -211,10 +202,12 @@ async function queueEvents(root: string): Promise<QueueEvent[]> {
         if (event.verb === "queue") events.push(event);
       }
     }
-  } catch {
-    return [];
-  }
-  return events;
+    return events;
+  }, {
+    onFailure: [],
+    reason:
+      "This test helper treats an absent, malformed, or unreadable logbook as no queue events.",
+  });
 }
 
 Deno.test("queue serializes two wrapped commands at cap 1 and narrates only on stderr", async () => {

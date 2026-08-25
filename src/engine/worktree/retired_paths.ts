@@ -16,6 +16,13 @@ import {
 } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import {
+  bestEffortFs,
+  lstatIfExists,
+  readDirIfExists,
+  readTextIfExists,
+  statIfExists,
+} from "../../shared/fs_presence.ts";
 
 export const RETIRED_WORKTREE_PATH_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 export const RETIRED_WORKTREE_PATH_MAX_ENTRIES = 256;
@@ -149,15 +156,19 @@ function parseRecord(text: string): RetiredWorktreePathRecord | undefined {
 async function readRecord(
   path: string,
 ): Promise<RetiredWorktreePathRecord | undefined> {
-  try {
-    const stat = await Deno.stat(path);
+  return await bestEffortFs(async () => {
+    const stat = await statIfExists(path);
+    if (stat === undefined) return undefined;
     if (!stat.isFile || stat.size <= 0 || stat.size > RECORD_MAX_BYTES) {
       return undefined;
     }
-    return parseRecord(await Deno.readTextFile(path));
-  } catch {
-    return undefined;
-  }
+    const text = await readTextIfExists(path);
+    return text === undefined ? undefined : parseRecord(text);
+  }, {
+    onFailure: undefined,
+    reason:
+      "Retired-path recovery skips a missing, corrupt, raced, or unreadable evidence record.",
+  });
 }
 
 /** Resolve the repository-shared evidence directory. */
@@ -302,20 +313,20 @@ export async function readRetiredWorktreePathRecords(
   const now = opts.now ?? Date.now();
   const ttlMs = opts.ttlMs ?? RETIRED_WORKTREE_PATH_TTL_MS;
   const records: RetiredWorktreePathRecord[] = [];
-  try {
-    for await (const entry of Deno.readDir(directory)) {
-      if (!entry.isFile || !RECORD_NAME.test(entry.name)) {
-        continue;
-      }
-      const record = await readRecord(join(directory, entry.name));
-      if (
-        record !== undefined && now - Date.parse(record.removed_at) < ttlMs
-      ) {
-        records.push(record);
-      }
+  const entries = await bestEffortFs(() => readDirIfExists(directory), {
+    onFailure: undefined,
+    reason:
+      "Retired-path recovery may return no advisory records when its evidence directory is unreadable.",
+  });
+  if (entries === undefined) return [];
+  for (const entry of entries) {
+    if (!entry.isFile || !RECORD_NAME.test(entry.name)) {
+      continue;
     }
-  } catch {
-    return [];
+    const record = await readRecord(join(directory, entry.name));
+    if (record !== undefined && now - Date.parse(record.removed_at) < ttlMs) {
+      records.push(record);
+    }
   }
   records.sort((left, right) =>
     Date.parse(right.removed_at) - Date.parse(left.removed_at) ||
@@ -379,13 +390,10 @@ async function fingerprintEntry(
  * populations stay visible but cannot enter prune's removable set.
  */
 async function inspectPath(path: string): Promise<PathInspection | undefined> {
-  let rootStat: Deno.FileInfo;
+  let rootStat: Deno.FileInfo | undefined;
   try {
-    rootStat = await Deno.lstat(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
+    rootStat = await lstatIfExists(path);
+  } catch {
     return {
       kind: "other",
       contents: [],
@@ -395,6 +403,7 @@ async function inspectPath(path: string): Promise<PathInspection | undefined> {
       cleanup_blocked_reason: "the path could not be read",
     };
   }
+  if (rootStat === undefined) return undefined;
   const kind = pathKind(rootStat);
   const fingerprints: FingerprintEntry[] = [
     await fingerprintEntry(path, path, rootStat),

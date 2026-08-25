@@ -10,11 +10,13 @@
  */
 
 import { join } from "@std/path";
+import { decodeJson } from "../../src/shared/runtime_decode.ts";
 import { stripAnnotationMarkers } from "./annotation.ts";
 import { patchRegistrySource, type PatchRequest } from "./patch.ts";
 import { fieldSpecFor, PLAIN_TWIN } from "./fields.ts";
 import { type GuardRunReport, metricProbe, runGuardFiles } from "./guards.ts";
-import type { Snapshot } from "./snapshot.ts";
+import { type Snapshot, snapshotSchema } from "./snapshot.ts";
+import { decodeValeReport, type ValeReport } from "../prose_lib.ts";
 
 /** Where a refused save stopped. */
 export type SaveStage = "patch" | "format" | "render" | "prose" | "guards";
@@ -88,7 +90,11 @@ export async function spawnSnapshot(root: string): Promise<Snapshot> {
   if (!output.success) {
     throw new Error(new TextDecoder().decode(output.stderr).slice(-2000));
   }
-  return JSON.parse(new TextDecoder().decode(output.stdout)) as Snapshot;
+  return decodeJson(
+    snapshotSchema,
+    new TextDecoder().decode(output.stdout),
+    "Canon Editor snapshot subprocess output",
+  );
 }
 
 /** Format TypeScript text exactly as the repo's formatter would. */
@@ -147,19 +153,11 @@ async function restore(written: Map<string, HeldFile>): Promise<void> {
 }
 
 /** One Vale alert as the prose command's JSON output carries it. */
-interface ProseAlert {
-  readonly Line?: number;
-  readonly Check?: string;
-  readonly Message?: string;
-}
-
 /** Flatten the prose command's findings into panel-ready lines. */
-function proseIssueLines(findings: unknown): string[] {
-  if (findings === null || typeof findings !== "object") return [];
+function proseIssueLines(findings: ValeReport): string[] {
   const lines: string[] = [];
   for (const [file, alerts] of Object.entries(findings)) {
-    if (!Array.isArray(alerts)) continue;
-    for (const alert of alerts as ProseAlert[]) {
+    for (const alert of alerts) {
       lines.push(
         `${file}:${alert.Line ?? "?"} ${alert.Check ?? "?"} — ${
           alert.Message ?? "?"
@@ -202,14 +200,17 @@ async function proseGate(
   if (output.success) return { ok: true };
   const stdout = new TextDecoder().decode(output.stdout);
   let lines: string[] = [];
+  let decodeIssue: string | undefined;
   try {
-    lines = proseIssueLines(JSON.parse(stdout));
-  } catch {
+    lines = proseIssueLines(
+      decodeValeReport(stdout, "Canon Editor prose-gate output"),
+    );
+  } catch (error) {
     // Unparseable output still refuses; the raw tail is the evidence.
+    decodeIssue = error instanceof Error ? error.message : String(error);
   }
-  const detail = lines.length > 0
-    ? lines.join("\n")
-    : (stdout + new TextDecoder().decode(output.stderr)).trim().slice(-1200);
+  const detail = lines.length > 0 ? lines.join("\n") : decodeIssue ??
+    (stdout + new TextDecoder().decode(output.stderr)).trim().slice(-1200);
   return {
     ok: false,
     issue:

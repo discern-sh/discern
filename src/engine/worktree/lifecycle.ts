@@ -35,6 +35,15 @@ import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
+  bestEffortFs,
+  directoryExists,
+  fileExists,
+  pathExists,
+  readTextIfExists,
+  realPathIfExists,
+} from "../../shared/fs_presence.ts";
+import { isKnownGitCount } from "../../shared/git_count.ts";
+import {
   type CheckpointDrop,
   checkpointDropAccounts,
   uniqueCheckpointDrops,
@@ -810,10 +819,10 @@ async function discernSourceEntrypoint(
   if (Deno.build.standalone) {
     return undefined;
   }
-  try {
-    const manifest: unknown = JSON.parse(
-      await Deno.readTextFile(join(root, "deno.json")),
-    );
+  return await bestEffortFs(async () => {
+    const raw = await readTextIfExists(join(root, "deno.json"));
+    if (raw === undefined) return undefined;
+    const manifest: unknown = JSON.parse(raw);
     if (
       typeof manifest !== "object" ||
       manifest === null ||
@@ -827,12 +836,14 @@ async function discernSourceEntrypoint(
     }
     const entrypoint = resolve(root, manifest.exports);
     return relative(root, entrypoint).startsWith("..") ||
-        !(await pathPresent(entrypoint))
+        !(await pathExists(entrypoint))
       ? undefined
       : entrypoint;
-  } catch {
-    return undefined;
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "Source-entrypoint detection is optional outside a readable discern development checkout.",
+  });
 }
 
 interface LifecycleRefreshRun {
@@ -1227,7 +1238,7 @@ export async function createAndSetupWorktree(
   }
   // Idempotence marker: when `dir` is already a worktree this call created nothing,
   // so a later failure must not discard someone else's live worktree.
-  const preExisting = await pathPresent(join(dir, ".git"));
+  const preExisting = await pathExists(join(dir, ".git"));
   // A fresh create always mints a fresh `-b` branch. When the branch already
   // exists — typically unlanded work left by an earlier worktree of the same
   // name — refuse up front in plain language: `git worktree add` would fail
@@ -1492,8 +1503,9 @@ async function buildDropPlan(
   // Anything with a path separator is a path — relative ones resolve against the
   // caller's cwd (an id never contains a slash); a bare name stays id/basename.
   const wanted = target.trim().replace(/\/+$/, "");
+  const resolvedWanted = resolve(wanted);
   const wantedAbs = isAbsolute(wanted) || wanted.includes("/")
-    ? await Deno.realPath(resolve(wanted)).catch(() => resolve(wanted))
+    ? await realPathIfExists(resolvedWanted) ?? resolvedWanted
     : undefined;
   const settings = await loadIdentitySettings(ctx.root).catch(() => undefined);
   const matches: Array<(typeof fleet)[number]> = [];
@@ -1578,7 +1590,9 @@ async function buildDropPlan(
       );
     }
     if (trunkExists) {
-      if (match.snapshot.ahead > 0) {
+      if (!isKnownGitCount(match.snapshot.ahead)) {
+        blockers.push(`cannot read how many commits are not on ${trunk}`);
+      } else if (match.snapshot.ahead > 0) {
         blockers.push(
           `${match.snapshot.ahead} commit${
             match.snapshot.ahead === 1 ? "" : "s"
@@ -1694,6 +1708,7 @@ export async function worktreeDrop(
           `not preserve branch '${plan.branch}' under refs/discern/recovery/. ` +
           `Fix the Git error, then re-run \`discern worktree drop ${plan.id}\`. ` +
           `Git said: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
     preservedCommit = recovery.commit;
@@ -1764,6 +1779,7 @@ export async function worktreeDrop(
         e instanceof Error ? e.message : String(e)
       }\nRun \`git worktree list\` to inspect its state, fix the problem it shows, ` +
         `then re-run \`discern worktree drop ${plan.id}\`.`,
+      { cause: e },
     );
   }
   steps.push({
@@ -3235,6 +3251,7 @@ async function executeAcceptPlan(
           error instanceof Error ? error.message : String(error)
         } Run \`git worktree list\` to inspect its state, fix the named cause, ` +
         `then run \`discern worktree prune\` from the main checkout.`,
+      { cause: error },
     );
   }
   ctx.log.ok("Worktree directory removed.");
@@ -3704,34 +3721,29 @@ export function remapWorktreeLocalTemplatesDir(
   return undefined;
 }
 
-/** Treat missing, unreadable, and nondirectory paths as unavailable template roots. */
-async function directoryExists(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isDirectory;
-  } catch {
-    return false;
-  }
-}
-
 /** Remap worktree-local templates into the landed checkout when that directory exists. */
 async function postLandingLocalTemplatesDir(
   worktreePath: string,
   mainRepo: string,
 ): Promise<string | undefined> {
-  let templatesDir: string;
-  try {
-    templatesDir = await resolveTemplatesDir();
-  } catch {
-    return undefined;
-  }
+  const templatesDir = await bestEffortFs(() => resolveTemplatesDir(), {
+    onFailure: undefined,
+    reason:
+      "Post-landing local refresh is optional once tracked landing has completed.",
+  });
+  if (templatesDir === undefined) return undefined;
   const remapped = remapWorktreeLocalTemplatesDir(
     templatesDir,
     worktreePath,
     mainRepo,
   );
-  return remapped !== undefined && await directoryExists(remapped)
-    ? remapped
-    : undefined;
+  const available = remapped !== undefined &&
+    await bestEffortFs(() => directoryExists(remapped), {
+      onFailure: false,
+      reason:
+        "Post-landing local refresh is optional once tracked landing has completed.",
+    });
+  return available ? remapped : undefined;
 }
 
 /** Temporarily bind remapped templates while materializing the landed checkout. */
@@ -3978,7 +3990,7 @@ async function buildUpdatePlan(
     source: integrationBranch(ctx.config.repository.trunk),
     fromOverride: false,
     worktreeBranch,
-    behind: merged.kind === "behind" ? Number(merged.behind) || 0 : 0,
+    behind: merged.kind === "behind" ? merged.behind : 0,
     alreadyUpdated: merged.kind !== "behind",
     generatedGroups,
     refreshCompiledPaths,
@@ -4569,11 +4581,19 @@ async function executeUpdatePlan(
           }\`.`,
       );
     case "updated": {
+      const behindText = isKnownGitCount(outcome.behind)
+        ? `${outcome.behind} commit(s)`
+        : "an unknown number of commits";
+      const fastForwardText = isKnownGitCount(outcome.behind)
+        ? `+${outcome.behind} commit(s)`
+        : "commit count unavailable";
       ctx.log.heading(`Updating ${source}…`);
       ctx.log.ok(
-        outcome.fastForward
-          ? `Fast-forwarded to ${source} (+${outcome.behind} commit(s)).`
-          : `Merged ${source} (was behind by ${outcome.behind} commit(s)).`,
+        outcome.fastForward === true
+          ? `Fast-forwarded to ${source} (${fastForwardText}).`
+          : outcome.fastForward === false
+          ? `Merged ${source} (was behind by ${behindText}).`
+          : `Updated ${source} (${behindText}; merge mode unavailable).`,
       );
       const steps: StepResult[] = [
         {
@@ -4581,9 +4601,11 @@ async function executeUpdatePlan(
             kind: "git",
             label: BUILT_IN_STEP_LABELS.merge,
             disposition: "run",
-            note: outcome.fastForward
+            note: outcome.fastForward === true
               ? `fast-forwarded ${source}`
-              : `merged ${source}`,
+              : outcome.fastForward === false
+              ? `merged ${source}`
+              : `updated ${source}; merge mode unavailable`,
           },
           outcome: "ok",
         },
@@ -4718,17 +4740,6 @@ export async function updateResult(
 
 // ── start (create a fresh worktree to inhabit, from the main checkout) ──────────
 
-/** Whether a path exists on disk (any type) — the collision check `discern start`
- * uses so a minted id never lands on an existing directory. */
-async function pathPresent(p: string): Promise<boolean> {
-  try {
-    await Deno.lstat(p);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * The deterministic dev-server ports currently claimed by LIVE worktrees — each
  * derived from the worktree's own resolved id, so no registry or env file is
@@ -4807,7 +4818,7 @@ export async function mintFreeWorktree(
       const branchTaken = (await run(
         ["show-ref", "--verify", "--quiet", `refs/heads/${identity.branch}`],
       )).success;
-      if (!branchTaken && !(await pathPresent(dir))) {
+      if (!branchTaken && !(await pathExists(dir))) {
         // The note (if any) is deterministic from the name, so returning the winning
         // attempt's carries the same transparency the caller surfaces upward.
         return minted.note !== undefined
@@ -4887,7 +4898,7 @@ async function assertProjectRootIsRepoToplevel(
         `\`git init\` and make a first commit, then re-run.`,
     );
   }
-  const root = await Deno.realPath(ctx.root).catch(() => ctx.root);
+  const root = await Deno.realPath(ctx.root);
   if (root !== toplevel) {
     throw new WorktreeGitError(
       `discern.toml lives at ${root}, but the git repository's root is ` +
@@ -5048,11 +5059,7 @@ export async function startResult(
 
 /** True when the checkout at `dir` carries a tracked `.gitmodules`. */
 async function hasGitmodules(dir: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(join(dir, ".gitmodules"))).isFile;
-  } catch {
-    return false;
-  }
+  return await fileExists(join(dir, ".gitmodules"));
 }
 
 /**
@@ -5350,7 +5357,7 @@ async function pruneContainedScan(
       nowMs,
     )
     : undefined;
-  const currentPath = await Deno.realPath(ctx.root).catch(() => ctx.root);
+  const currentPath = await Deno.realPath(ctx.root);
   const scanned = await scanContainedWorktrees(ctx.root, {
     mainBranch: ctx.config.repository.trunk,
     currentPath,
@@ -5724,8 +5731,9 @@ export async function worktreeReclaimContained(
       "Reclaiming needs a target. Pass a worktree id or path, then re-run.",
     );
   }
+  const resolvedWanted = resolve(wanted);
   const wantedAbs = isAbsolute(wanted) || wanted.includes("/")
-    ? await Deno.realPath(resolve(wanted)).catch(() => resolve(wanted))
+    ? await realPathIfExists(resolvedWanted) ?? resolvedWanted
     : undefined;
   const facts = await pruneContainedScan(ctx);
   const match = facts.find((f) =>

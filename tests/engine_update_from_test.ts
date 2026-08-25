@@ -8,7 +8,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
 import { withTempDir } from "./helpers.ts";
@@ -57,7 +57,7 @@ Deno.test("update --from <branch>: that branch's commits arrive in the worktree"
     ]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(wt, "phase-one.txt")),
+      await targetExists(join(wt, "phase-one.txt")),
       `the named ref's commits must arrive\n${r.output}`,
     );
     const result = JSON.parse(r.stdout) as {
@@ -92,11 +92,11 @@ Deno.test("update (bare): still targets the trunk, not any other ref", async () 
     const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(wt, "trunk.txt")),
+      await targetExists(join(wt, "trunk.txt")),
       `the trunk's commits must arrive\n${r.output}`,
     );
     assertEquals(
-      await exists(join(wt, "decoy.txt")),
+      await targetExists(join(wt, "decoy.txt")),
       false,
       `a bare update must not pull any other ref\n${r.output}`,
     );
@@ -186,7 +186,7 @@ Deno.test("a no-op update still re-converges: refresh + ensure run with nothing 
     const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(wt, "converged.marker")),
+      await targetExists(join(wt, "converged.marker")),
       `ensure must re-run on a no-op update\n${r.output}`,
     );
     const result = JSON.parse(r.stdout) as {

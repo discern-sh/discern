@@ -15,6 +15,7 @@ import { ensureDir } from "@std/fs";
 import { dirname, join } from "@std/path";
 import type { EnvReader } from "../shared/env.ts";
 import { CONFIG_REL } from "../shared/env.ts";
+import { pathExists, readTextIfExists } from "../shared/fs_presence.ts";
 import { mergeSettings } from "./settings_merge.ts";
 import { writeDiscernToml } from "./tidy_format.ts";
 import { TomlEditor } from "./toml_edit.ts";
@@ -79,27 +80,12 @@ export function createMigrationContext(
 ): MigrationContext {
   const abs = (rel: string): string => join(destDir, rel);
 
-  /** Check a migration-relative path under the destination install, treating any inaccessible target as absent. */
-  async function exists(rel: string): Promise<boolean> {
-    try {
-      await Deno.stat(abs(rel));
-      return true;
-    } catch {
-      return false;
-    }
-  }
+  /** Check a migration-relative path under the destination install. */
+  const exists = (rel: string): Promise<boolean> => pathExists(abs(rel));
 
-  /** Read a migration-relative file, mapping absence to `undefined`. */
-  async function readText(rel: string): Promise<string | undefined> {
-    try {
-      return await Deno.readTextFile(abs(rel));
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        return undefined;
-      }
-      throw error;
-    }
-  }
+  /** Read one migration-relative text file when present. */
+  const readText = (rel: string): Promise<string | undefined> =>
+    readTextIfExists(abs(rel));
 
   /** Create parents and write text, using canonical TOML formatting for config. */
   async function writeText(rel: string, content: string): Promise<void> {
@@ -180,6 +166,11 @@ export function createMigrationContext(
     const rel = ".claude/settings.json";
     const existing = await readText(rel);
     const base: unknown = existing === undefined ? {} : JSON.parse(existing);
+    if (typeof base !== "object" || base === null || Array.isArray(base)) {
+      throw new TypeError(
+        `${rel} must contain a JSON object at the root before a migration can merge settings`,
+      );
+    }
     const merged = mergeSettings(base, incoming);
     await ensureDir(dirname(abs(rel)));
     await Deno.writeTextFile(abs(rel), `${JSON.stringify(merged, null, 2)}\n`);

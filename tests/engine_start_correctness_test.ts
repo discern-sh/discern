@@ -11,7 +11,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { readDirIfExists, targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
@@ -51,14 +51,9 @@ async function assertNoStartDebris(dir: string, output: string): Promise<void> {
   );
   // The worktree root (the `.worktrees` parent) may remain, but it must be empty —
   // no checkout directory left for a later session to stumble into.
-  const entries: string[] = [];
-  try {
-    for await (const e of Deno.readDir(`${dir}.worktrees`)) {
-      entries.push(e.name);
-    }
-  } catch {
-    // absent entirely — even better
-  }
+  const entries = (await readDirIfExists(`${dir}.worktrees`) ?? []).map((e) =>
+    e.name
+  );
   assertEquals(
     entries,
     [],
@@ -156,7 +151,7 @@ for (const state of BAD_STATES) {
       );
       await assertNoStartDebris(project, r.output);
       assertEquals(
-        await exists(`${project}.worktrees`),
+        await targetExists(`${project}.worktrees`),
         false,
         `a refused start must not create a worktree dir\n${r.output}`,
       );
@@ -198,7 +193,7 @@ Deno.test("start works from a main checkout parked on an ORPHAN branch — the t
     const result = JSON.parse(r.stdout) as { data: { path: string } };
     // The worktree carries the trunk's content (gitInit committed the scaffold).
     assert(
-      await exists(join(result.data.path, "discern.toml")),
+      await targetExists(join(result.data.path, "discern.toml")),
       `the worktree must fork from the trunk\n${r.output}`,
     );
 
@@ -246,7 +241,7 @@ Deno.test("start branches from the trunk even when the main checkout is parked e
     };
     assertEquals(result.data.from, "main");
     assertEquals(
-      await exists(join(result.data.path, "poison.txt")),
+      await targetExists(join(result.data.path, "poison.txt")),
       false,
       `the parked branch's commit must not reach the new worktree\n${r.output}`,
     );
@@ -283,7 +278,7 @@ Deno.test("start --from <branch> forks the worktree from that ref", async () => 
     };
     assertEquals(result.data.from, "experiment");
     assert(
-      await exists(join(result.data.path, "experiment.txt")),
+      await targetExists(join(result.data.path, "experiment.txt")),
       `the named ref's commits must reach the worktree\n${r.output}`,
     );
   });
@@ -337,7 +332,7 @@ Deno.test("start on a dirty main checkout says the changes stay behind", async (
       startPoint: "main",
     });
     assertEquals(
-      await exists(join(result.data.path, "wip.txt")),
+      await targetExists(join(result.data.path, "wip.txt")),
       false,
       "uncommitted main-checkout work must not follow the worktree",
     );
