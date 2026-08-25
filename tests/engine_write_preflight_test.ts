@@ -33,11 +33,19 @@ import {
 } from "../src/shared/setup_effects.ts";
 import { preflightPlannedWrites } from "../src/shared/write_preflight.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";
+import {
+  assertResultDataKey,
+  type CliJsonResultCommand,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 /** Decode a preflight refusal envelope before asserting that no later effect ran. */
-// deno-lint-ignore no-explicit-any
-function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
+function parseJson<Command extends CliJsonResultCommand>(
+  stdout: string,
+  command: Command,
+): CliResultForCommand<Command> {
+  return decodeCliResult(stdout, command);
 }
 
 /** Read directory members in stable order when asserting a refusal left no debris. */
@@ -119,7 +127,8 @@ Deno.test("done fails before any gate job when its later Git-admin write is unav
     await withUnwritableGitAdmin(dir, async () => {
       const r = await runAgent(dir, ["done", "--json"]);
       assertEquals(r.code, 1, r.output);
-      const obj = parseJson(r.stdout);
+      const obj = parseJson(r.stdout, "done");
+      assertResultDataKey(obj, "failed_stage");
       assertEquals(obj.data.failed_stage, "write_access");
       assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
       assertStringIncludes(obj.diagnostics?.[0]?.message ?? "", ".git");
@@ -145,7 +154,7 @@ for (
       await withUnwritableGitAdmin(dir, async () => {
         const r = await runAgent(dir, args);
         assertEquals(r.code, 1, r.output);
-        const obj = parseJson(r.stdout);
+        const obj = parseJson(r.stdout, "standards");
         assertEquals(obj.error, "write_access");
         assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
         assertStringIncludes(obj.message ?? "", ".git");
@@ -168,7 +177,7 @@ Deno.test("standards --pin fails before measuring when discern.toml cannot be re
     try {
       const r = await runAgent(dir, ["standards", "--pin", "--json"]);
       assertEquals(r.code, 1, r.output);
-      const obj = parseJson(r.stdout);
+      const obj = parseJson(r.stdout, "standards");
       assertEquals(obj.error, "write_access");
       assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
       assertStringIncludes(obj.message ?? "", "discern.toml");
@@ -194,7 +203,7 @@ Deno.test("standards --pin probes the common Git directory before measuring in a
     try {
       const r = await runAgent(wt, ["standards", "--pin", "--json"]);
       assertEquals(r.code, 1, r.output);
-      const obj = parseJson(r.stdout);
+      const obj = parseJson(r.stdout, "standards");
       assertEquals(obj.error, "write_access");
       assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
       assertEquals(

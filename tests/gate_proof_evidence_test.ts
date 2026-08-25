@@ -7,6 +7,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, gitOut } from "./engine_helpers.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
@@ -24,6 +25,15 @@ import {
 } from "../src/engine/checkpoints/open_questions.ts";
 import { declarationEvidenceIdentity } from "../src/engine/checkpoints/evidence.ts";
 import { ProofSchema } from "../src/shared/result_schemas.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const LastGateRunMarkerSchema = z.object({
+  head: z.string(),
+  tree: z.string().optional(),
+  passed: z.boolean(),
+  evidence: z.string().optional(),
+  mode: z.enum(["strict", "report"]).optional(),
+});
 
 const T0 = "2026-01-01T00:00:00.000Z";
 
@@ -172,7 +182,10 @@ Deno.test("last-run marker: the recorded evidence identity round-trips", async (
     // A marker without the field (an older writer) still parses.
     const path = await gitAdminStatePath(dir, "lastGateRun");
     assert(path !== undefined);
-    const raw = JSON.parse(await Deno.readTextFile(path));
+    const raw = decodeWith(
+      LastGateRunMarkerSchema,
+      await Deno.readTextFile(path),
+    );
     delete raw.evidence;
     await Deno.writeTextFile(path, `${JSON.stringify(raw)}\n`);
     const legacy = await inspectLastGateRun(dir);

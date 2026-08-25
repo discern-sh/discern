@@ -50,6 +50,7 @@ import { readySentinelPath } from "../src/engine/worktree/git.ts";
 import { awaitResult } from "../src/engine/await/await.ts";
 import { LOGBOOK_SCHEMA_VERSION } from "../src/engine/logbook/schema.ts";
 import { Logger } from "../src/lib/log.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 /** Commit one file in `dir` (add-all, no signing). */
 async function commitFile(
@@ -283,11 +284,8 @@ Deno.test("containment: an in-flight verb (a fresh unmatched begin) withholds th
     await appendLogbookLines(dir, [beginEvent("agent/a")]);
     const r = await runAgent(dir, ["worktree", "prune", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const plan = JSON.parse(r.stdout.trim()) as {
-      plan: {
-        steps: Array<{ label: string; group?: string; disposition: string }>;
-      };
-    };
+    const plan = decodeCliResult(r.stdout, "worktree prune");
+    assert(plan.plan !== undefined, r.stdout);
     const contained = plan.plan.steps.filter(
       (s) => s.group === "Contained worktrees",
     );
@@ -325,9 +323,8 @@ Deno.test("worktree prune leaves contained worktrees untouched by default and ke
 
     const json = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const result = JSON.parse(json.stdout.trim()) as {
-      steps: Array<{ label: string; group?: string; outcome: string }>;
-    };
+    const result = decodeCliResult(json.stdout, "worktree prune");
+    assert(result.steps !== undefined, json.stdout);
     const contained = result.steps.filter(
       (s) => s.group === "Contained worktrees",
     );
@@ -414,11 +411,8 @@ Deno.test("worktree prune --contained reclaims the checkout through the resource
       "--json",
     ]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout.trim()) as {
-      steps: Array<
-        { label: string; group?: string; note?: string; outcome: string }
-      >;
-    };
+    const result = decodeCliResult(r.stdout, "worktree prune");
+    assert(result.steps !== undefined, r.stdout);
     const reclaimed = result.steps.filter(
       (s) => s.group === "Contained worktrees" && s.outcome === "ok",
     );
@@ -707,13 +701,8 @@ Deno.test("a reclaimed stage's kept ref reports as contained, never as abandoned
     // live tip.
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const result = JSON.parse(status.stdout.trim()) as {
-      data: {
-        unlanded_branches?: string[];
-        contained_refs?: Array<{ branch: string; contained_in: string }>;
-      };
-      hints?: string[];
-    };
+    const result = decodeCliResult(status.stdout, "status");
+    assert(result.data !== undefined && "location" in result.data);
     const refs = new Map(
       (result.data.contained_refs ?? []).map((
         r,
@@ -744,12 +733,8 @@ Deno.test("a reclaimed stage's kept ref reports as contained, never as abandoned
     await commitFile(dir, "ghost.txt", "unlanded\n", "ghost work");
     await git(dir, "switch", "-q", "main");
     const again = await runAgent(dir, ["status", "--json"]);
-    const split = JSON.parse(again.stdout.trim()) as {
-      data: {
-        unlanded_branches?: string[];
-        contained_refs?: Array<{ branch: string }>;
-      };
-    };
+    const split = decodeCliResult(again.stdout, "status");
+    assert(split.data !== undefined && "location" in split.data);
     assertEquals(split.data.unlanded_branches, ["agent/ghost"]);
     assertEquals(
       (split.data.contained_refs ?? []).map((r) => r.branch).sort(),

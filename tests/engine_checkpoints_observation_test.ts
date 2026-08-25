@@ -26,6 +26,7 @@ import {
   parseLogbookLine,
   type VerbEvent,
 } from "../src/engine/logbook/schema.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 const QUESTION = "A changed surface is described in its docs before it lands.";
 
@@ -332,16 +333,9 @@ Deno.test("observation: advise servings record for economics without inventing o
     // bounded economics row, counts beside their denominators.
     const report = await runAgent(wt, ["checkpoints", "--json"]);
     assertEquals(report.code, 0, report.output);
-    const envelope = JSON.parse(report.stdout.trim()) as {
-      data?: {
-        economics?: {
-          efforts: number;
-          omitted: number;
-          rows: { id: string; fires: number; efforts_fired: number }[];
-        };
-      };
-    };
-    const economics = envelope.data?.economics;
+    const envelope = decodeCliResult(report.stdout, "checkpoints");
+    assert(envelope.data !== undefined && "checkpoints" in envelope.data);
+    const economics = envelope.data.economics;
     assert(economics !== undefined, "observed history must reach the verb");
     assertEquals(economics.efforts, 1);
     assertEquals(economics.omitted, 0);

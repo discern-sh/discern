@@ -16,61 +16,26 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import { CheckpointsOutputSchema } from "../src/shared/result_schemas.ts";
+import type {
+  CheckpointsData,
+  GateWireData,
+} from "../src/shared/result_schemas.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
+import {
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
-interface CheckpointsEnvelope {
-  data: {
-    checkpoints: {
-      id: string;
-      preview?: {
-        holds: boolean;
-        when_pending?: boolean;
-        matched?: string[];
-        related?: {
-          kind: "similar_existing";
-          for_path: string;
-          path: string;
-        }[];
-        vetoed_by?: string;
-      };
-      open_question?: {
-        state: string;
-        matched: string[];
-        related?: {
-          kind: "similar_existing";
-          for_path: string;
-          path: string;
-        }[];
-      };
-    }[];
-  };
-}
-
-interface DoneEnvelope {
-  error?: string;
-  data: {
-    checkpoints?: {
-      outstanding?: ServedCheckpoint[];
-      declared_met?: Conclusion[];
-    };
-  };
-}
-
-interface ServedCheckpoint {
-  id: string;
-  mode: "stop" | "advise";
-  question: string;
-  matched: string[];
-  related?: RelatedEvidence[];
-}
-
-interface Conclusion {
-  id: string;
-  matched?: string[];
-  related?: RelatedEvidence[];
-}
+type CheckpointsEnvelope =
+  & Omit<
+    CliResultForCommand<"checkpoints">,
+    "data"
+  >
+  & { data: CheckpointsData };
+type DoneEnvelope = Omit<CliResultForCommand<"done">, "data"> & {
+  data: GateWireData;
+};
 
 interface RelatedEvidence {
   kind: "similar_existing";
@@ -82,14 +47,16 @@ const CHECK_OK = "#!/usr/bin/env sh\nexit 0\n";
 
 /** Parse and validate one checkpoint-report envelope from CLI JSON. */
 function parseCheckpoints(stdout: string): CheckpointsEnvelope {
-  const envelope: unknown = JSON.parse(stdout.trim());
-  CheckpointsOutputSchema.parse(envelope);
-  return envelope as CheckpointsEnvelope;
+  const envelope = decodeCliResult(stdout, "checkpoints");
+  assert(envelope.data !== undefined && "checkpoints" in envelope.data);
+  return { ...envelope, data: envelope.data };
 }
 
 /** Parse one Gate completion envelope from CLI JSON. */
 function parseDone(stdout: string): DoneEnvelope {
-  return JSON.parse(stdout.trim()) as DoneEnvelope;
+  const envelope = decodeCliResult(stdout, "done");
+  assert(envelope.data !== undefined && "failed_stage" in envelope.data);
+  return { ...envelope, data: envelope.data };
 }
 
 /** Find one required checkpoint report row by id. */
@@ -420,9 +387,7 @@ question = "The parallel sibling is necessary."
     });
     const status = await runAgent(wt, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const statusHints =
-      (JSON.parse(status.stdout.trim()) as { hints?: string[] })
-        .hints ?? [];
+    const statusHints = decodeCliResult(status.stdout, "status").hints ?? [];
     assertStringIncludes(
       statusHints.join("\n"),
       "Related existing: ``api/weird`name.ts`` resembles ``api/weird`name2.ts``",

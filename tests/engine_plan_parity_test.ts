@@ -50,7 +50,11 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { Command } from "@cliffy/command";
 import { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
-import { decodeWith } from "./decode_cli_result.ts";
+import {
+  type CliResultEnvelope,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 import {
   addWorktree,
   git,
@@ -68,27 +72,24 @@ import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { resultContractForVerb } from "../src/shared/result_contracts.ts";
 import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
 
-// deno-lint-ignore no-explicit-any
-type Json = any;
-
 const DRY_RUN_LEAD = "**Dry run: nothing changed.**";
 
 /** Decode a lifecycle envelope before reducing its planned or applied steps. */
-function parse(stdout: string): Json {
-  return JSON.parse(stdout.trim());
+function parse(stdout: string, command: string): CliResultEnvelope {
+  return decodeCliResult(stdout, command);
 }
 
 /** Every step listed in a `--dry-run --json` plan, as a `kind:label` set. */
-function plannedSet(dryStdout: string): Set<string> {
-  const obj = parse(dryStdout);
-  const steps: Json[] = obj.plan?.steps ?? [];
+function plannedSet(dryStdout: string, command: string): Set<string> {
+  const obj = parse(dryStdout, command);
+  const steps = obj.plan?.steps ?? [];
   return new Set(steps.map((s) => `${s.kind}:${s.label}`));
 }
 
 /** Every step the apply `--json` actually executed (outcome ≠ skipped), as `kind:label`. */
-function appliedSet(applyStdout: string): Set<string> {
-  const obj = parse(applyStdout);
-  const steps: Json[] = obj.steps ?? [];
+function appliedSet(applyStdout: string, command: string): Set<string> {
+  const obj = parse(applyStdout, command);
+  const steps = obj.steps ?? [];
   return new Set(
     steps.filter((s) => s.outcome !== "skipped").map((s) =>
       `${s.kind}:${s.label}`
@@ -117,12 +118,12 @@ function assertAppliedStepSubset(
 function assertAppliedSubsetOfPlanned(
   dryStdout: string,
   applyStdout: string,
-  label: string,
+  command: string,
 ): void {
   assertAppliedStepSubset(
-    plannedSet(dryStdout),
-    appliedSet(applyStdout),
-    label,
+    plannedSet(dryStdout, command),
+    appliedSet(applyStdout, command),
+    command,
   );
 }
 
@@ -266,7 +267,7 @@ interface DryRunProbe {
   envelope: "engine-plan" | "data-preview";
   arrange: (dir: string) => Promise<Arranged>;
   /** Member-specific proof that the fixture exercises its promised effect set. */
-  assertPreview?: (envelope: Json) => void;
+  assertPreview?: (envelope: CliResultEnvelope) => void;
 }
 
 const FIXTURE_PRESETS = fromFileUrl(
@@ -374,7 +375,7 @@ const PROBES: Record<string, DryRunProbe> = {
       };
     },
     assertPreview: (envelope) => {
-      const steps: Json[] = envelope.plan?.steps ?? [];
+      const steps = envelope.plan?.steps ?? [];
       const byLabel = new Map(steps.map((step) => [step.label, step]));
       for (
         const label of [
@@ -755,7 +756,7 @@ Deno.test("preview-required class: every member previews faithfully (writes noth
           assertTreeUnchanged(before, after, verb);
 
           // 2. The envelope carries the uniform preview marker.
-          const envelope = parse(dry.stdout);
+          const envelope = parse(dry.stdout, verb);
           probe.assertPreview?.(envelope);
           assertEquals(
             envelope.dry_run,
@@ -799,7 +800,7 @@ Deno.test("preview-required class: every member previews faithfully (writes noth
               `${verb}: apply failed\n${apply.output}`,
             );
             assert(
-              appliedSet(apply.stdout).size > 0,
+              appliedSet(apply.stdout, verb).size > 0,
               `${verb}: fixture applied nothing\n${apply.output}`,
             );
             assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, verb);
@@ -809,7 +810,7 @@ Deno.test("preview-required class: every member previews faithfully (writes noth
                 `${verb}: Markdown plan uses applied grammar\n${dryMarkdown}`,
               );
             }
-            const appliedEnvelope = parse(apply.stdout);
+            const appliedEnvelope = parse(apply.stdout, verb);
             const appliedContract = resultContractForVerb(
               appliedEnvelope.verb,
             );

@@ -28,6 +28,7 @@ import {
   suiteTempDir,
   writeConfig,
 } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 /** A base PATH with sh and git but certainly no discern. */
 const SCRUBBED_BASE = "/usr/bin:/bin";
@@ -119,7 +120,7 @@ Deno.test("gate: a job invoking `discern` succeeds with no discern on PATH", asy
       })
     );
     assertEquals(r.code, 0, r.output);
-    const envelope = JSON.parse(r.stdout.trim());
+    const envelope = decodeCliResult(r.stdout, "prepare");
     assert(envelope.ok === true, r.output);
   });
 });

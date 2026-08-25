@@ -8,6 +8,7 @@
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { Ajv2020 } from "ajv-2020";
+import { z } from "@zod/zod";
 import {
   buildCurrentPublicSchema,
   type JsonObject,
@@ -29,6 +30,22 @@ import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+);
+const JsonObjectSchema: z.ZodType<JsonObject> = z.record(
+  z.string(),
+  JsonValueSchema,
+);
 
 /** Deep-copy a JSON Schema fixture so each mutation case remains isolated. */
 function clone(value: JsonObject): JsonObject {
@@ -1905,7 +1922,7 @@ Deno.test("generated public schemas carry their identities and, once released, r
       previousResult.success,
       `cannot read ${publication.artifactPath} from configured trunk ${trunk}: ${previousResult.stderr}`,
     );
-    const previous = JSON.parse(previousResult.stdout) as JsonObject;
+    const previous = decodeWith(JsonObjectSchema, previousResult.stdout);
     assertEquals(
       publicSchemaPublicationCompatibilityIssues(
         previous,

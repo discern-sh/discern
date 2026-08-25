@@ -13,6 +13,7 @@ import {
 } from "@std/assert";
 import { dirname, join, relative } from "@std/path";
 import { parse as parseYaml } from "@std/yaml";
+import { z } from "@zod/zod";
 import { extractDocLinks } from "../src/lib/docs_integrity.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
@@ -31,6 +32,15 @@ import {
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { fileExists, targetExists } from "../src/shared/fs_presence.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const ClaAssistantMetadataSchema = z.object({
+  agreement: z.object({
+    title: z.string(),
+    type: z.literal("boolean"),
+    required: z.boolean(),
+  }),
+});
 
 const CONTRIBUTING = join(REPO_ROOT, "CONTRIBUTING.md");
 const INDIVIDUAL_CLA = join(REPO_ROOT, "CLA.md");
@@ -208,7 +218,7 @@ Deno.test("the hosted assistant accepts the individual agreement without a repos
 
   const metadataText = await Deno.readTextFile(CLA_ASSISTANT_METADATA);
   assertEquals(metadataText, renderClaAssistantMetadata());
-  assertEquals(JSON.parse(metadataText), {
+  assertEquals(decodeWith(ClaAssistantMetadataSchema, metadataText), {
     agreement: {
       title: CONTRIBUTOR_AGREEMENT_ACCEPTANCE,
       type: "boolean",

@@ -10,7 +10,6 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
-import type { z } from "@zod/zod";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
@@ -23,26 +22,22 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import type { UpdateData } from "../src/shared/result_schemas.ts";
 import {
-  type UpdateData,
-  UpdateOutputSchema,
-} from "../src/shared/result_schemas.ts";
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
-type UpdateJson = Omit<z.infer<typeof UpdateOutputSchema>, "data"> & {
-  data?: UpdateData;
+type UpdateJson = Omit<CliResultForCommand<"update">, "data"> & {
+  data: UpdateData;
 };
 
 /** Parse an `update --json` run's stdout. */
 function parse(stdout: string): UpdateJson {
-  const raw = JSON.parse(stdout);
-  const parsed = UpdateOutputSchema.safeParse(raw);
-  assert(
-    parsed.success,
-    `update --json drifted from UpdateOutputSchema:\n${
-      JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
-    }\n${stdout}`,
-  );
-  return parsed.data as UpdateJson;
+  const result = decodeCliResult(stdout, "update");
+  assertResultDataKey(result, "commits");
+  return result;
 }
 
 /** Looks like an abbreviated-or-full git object id. */

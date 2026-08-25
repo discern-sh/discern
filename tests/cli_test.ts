@@ -5,13 +5,30 @@
  * directly.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
+import { z } from "@zod/zod";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
+
+const McpConfigSchema = z.object({
+  mcpServers: z.object({
+    discern: z.object({ command: z.string() }).passthrough(),
+  }).passthrough(),
+}).passthrough();
 
 /** Assert a path does NOT exist on disk. */
 async function assertNotExists(path: string): Promise<void> {
@@ -41,20 +58,26 @@ Deno.test("setup --json scaffolds and reports JSON", async () => {
       dir,
     );
     assertEquals(code, 0);
-    const result = JSON.parse(stdout);
+    const result = decodeCliResult(stdout, "setup");
     assertEquals(result.ok, true);
     assertEquals(result.verb, "setup");
+    assertResultDataKey(result, "project");
+    assertExists(result.data.project);
     assertEquals(result.data.project.slug, "cli-demo");
+    assertExists(result.data.written);
     assert(Array.isArray(result.data.written));
     // The whole machinery footprint is the single root config file (ADR 0020).
     assert(result.data.written.includes("discern.toml"));
     // setup compiles the agent files; `compiled` lists them.
+    assertExists(result.data.compiled);
     assert(Array.isArray(result.data.compiled));
     assert(result.data.compiled.includes("AGENTS.md"));
     assert(result.data.compiled.includes("CLAUDE.md"));
     // It also lays the doc skeletons; `skeletons` lists them, and it prints the
     // agent instructions inline.
+    assertExists(result.data.skeletons);
     assert(result.data.skeletons.includes(SOURCE_PATHS.map.defaultPath));
+    assertExists(result.data.instructions);
     assert(typeof result.data.instructions === "string");
     // The files really landed.
     await Deno.stat(join(dir, "discern.toml"));
@@ -64,12 +87,16 @@ Deno.test("setup --json scaffolds and reports JSON", async () => {
     await Deno.stat(join(dir, ".claude/skills"));
     // setup wires the discern MCP server for Claude Code (ADR 0031): `.mcp.json`
     // is written and reported under `mcp_wired`.
+    assertExists(result.data.mcp_wired);
     assert(Array.isArray(result.data.mcp_wired));
     assert(
       result.data.mcp_wired.includes(".mcp.json"),
       JSON.stringify(result.data.mcp_wired),
     );
-    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    const mcp = decodeWith(
+      McpConfigSchema,
+      await Deno.readTextFile(join(dir, ".mcp.json")),
+    );
     assertEquals(mcp.mcpServers.discern.command, "discern");
     // No committed shell engine: there is no root `agent` dispatcher.
     await assertNotExists(join(dir, "agent"));
@@ -83,8 +110,10 @@ Deno.test("setup --dry-run --json writes nothing", async () => {
       dir,
     );
     assertEquals(code, 0);
-    const result = JSON.parse(stdout);
+    const result = decodeCliResult(stdout, "setup");
     assertEquals(result.dry_run, true);
+    assertResultDataKey(result, "plan");
+    assertExists(result.data.plan);
     assert(Array.isArray(result.data.plan));
     // Nothing was written.
     let entries = 0;
@@ -104,8 +133,9 @@ Deno.test("setup re-run over a set-up install reports already_set_up (idempotent
     // than re-scaffolding (the welcome's `phase: done` is the parent's equivalent).
     const { code, stdout } = await runCli(["setup", "begin", "--json"], dir);
     assertEquals(code, 0);
-    const result = JSON.parse(stdout);
+    const result = decodeCliResult(stdout, "setup begin");
     assertEquals(result.ok, true);
+    assertResultDataKey(result, "already_set_up");
     assertEquals(result.data.already_set_up, true);
   });
 });
@@ -118,12 +148,15 @@ Deno.test("setup --force re-scaffolds an existing install without erroring", asy
       dir,
     );
     assertEquals(code, 0);
-    const result = JSON.parse(stdout);
+    const result = decodeCliResult(stdout, "setup");
     assertEquals(result.ok, true);
+    assertResultDataKey(result, "written");
+    assertExists(result.data.written);
     // The existing config seed is left as-is (a present seed is skipped), so it
     // is not in the written list.
     assert(!result.data.written.includes("discern.toml"));
     // The agent files are recompiled on every run, so `compiled` lists them.
+    assertExists(result.data.compiled);
     assert(result.data.compiled.includes("AGENTS.md"));
     assert(result.data.compiled.includes("CLAUDE.md"));
   });
@@ -165,11 +198,11 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(["doctor", "--json"], dir);
     assertEquals(code, 1);
-    const result = JSON.parse(stdout);
+    const result = decodeCliResult(stdout, "doctor");
     assertEquals(result.ok, false);
-    const toml = result.data.checks.find((c: { name: string }) =>
-      c.name === "discern.toml"
-    );
+    assertResultDataKey(result, "checks");
+    const toml = result.data.checks.find((c) => c.name === "discern.toml");
+    assertExists(toml);
     assertEquals(toml.ok, false);
     assert(typeof toml.fix === "string" && toml.fix.length > 0);
   });
@@ -182,10 +215,9 @@ Deno.test("doctor reports the schema version is current on a fresh install", asy
       0,
     );
     const { stdout } = await runCli(["doctor", "--json"], dir);
-    const result = JSON.parse(stdout);
-    const schema = result.data.checks.find((c: { name: string }) =>
-      c.name === "schema version"
-    );
+    const result = decodeCliResult(stdout, "doctor");
+    assertResultDataKey(result, "checks");
+    const schema = result.data.checks.find((c) => c.name === "schema version");
     assert(
       schema !== undefined && schema.ok === true,
       "schema should be current",
@@ -201,7 +233,7 @@ Deno.test("preset reports unknown preset with a friendly error", async () => {
       dir,
     );
     assertEquals(code, 1);
-    const result = JSON.parse(stdout);
+    const result = decodeCliResult(stdout, "preset");
     assertEquals(result.ok, false);
     assertEquals(result.error, "unknown_preset");
   });
@@ -225,7 +257,7 @@ Deno.test("a malformed discern.toml fails cleanly (no stack trace), in human and
     // JSON mode: a structured error on stdout (a CI/agent consumer parses it).
     const json = await runCli(["done", "--json"], dir);
     assertEquals(json.code, 1);
-    const result = JSON.parse(json.stdout);
+    const result = decodeCliResult(json.stdout, "done");
     assertEquals(result.ok, false);
     assertEquals(result.error, "invalid_toml");
   });

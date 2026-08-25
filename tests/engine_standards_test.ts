@@ -24,32 +24,22 @@ import {
 import type { PlannedStandard } from "../src/engine/gate/standard_plan.ts";
 import { type Extent, EXTENTS } from "../src/shared/config_schema.ts";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
+import { z } from "@zod/zod";
+import {
+  type CliResultForCommand,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 
-interface StandardsJson {
-  ok: boolean;
-  verb: string;
-  error?: string;
-  message?: string;
-  steps?: Array<{
-    kind: string;
-    label: string;
-    disposition: string;
-    outcome: string;
-    note?: string;
-    duration_s?: number;
-  }>;
-  diagnostics?: Array<{
-    tool: string;
-    severity: string;
-    message: string;
-    reproduce_cmd: string;
-    output?: string;
-  }>;
-}
+type StandardsJson = CliResultForCommand<"standards">;
+
+const StandardMeasurementsSchema = z.object({
+  durations: z.record(z.string(), z.number()).optional(),
+}).passthrough();
 
 /** Decode a standards envelope and assert the standalone verb produced it. */
 function parseStandardsJson(stdout: string): StandardsJson {
-  const obj = JSON.parse(stdout.trim()) as StandardsJson;
+  const obj = decodeCliResult(stdout, "standards");
   assertEquals(obj.verb, "standards");
   return obj;
 }
@@ -125,11 +115,12 @@ Deno.test("standards: coverage passes when the emitted metric meets the floor", 
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
     assertTerminalTextIncludes(r.stdout, "meets the floor");
-    const proof = JSON.parse(
+    const proof = decodeWith(
+      StandardMeasurementsSchema,
       await Deno.readTextFile(
         `${dir}/.git/${GIT_ADMIN_STATE.standardMeasurements.path}`,
       ),
-    ) as { durations?: Record<string, number> };
+    );
     assertEquals(proof.durations?.coverage, 0);
   });
 });

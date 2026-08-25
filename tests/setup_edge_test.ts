@@ -7,10 +7,16 @@
  * `runCli` so Cliffy parsing, exit codes, and both output channels are real.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 const ANSWERS = JSON.stringify({
   version: "2",
@@ -29,9 +35,10 @@ Deno.test("setup reports templates_not_found in JSON when the override dir is mi
       { DISCERN_TEMPLATES_DIR: join(dir, "does-not-exist") },
     );
     assertEquals(code, 1);
-    const result = JSON.parse(stdout);
+    const result = decodeCliResult(stdout, "setup");
     assertEquals(result.ok, false);
     assertEquals(result.error, "templates_not_found");
+    assertExists(result.message);
     assertStringIncludes(result.message, "not a directory");
     // Nothing was scaffolded — the guard fires before any plan is built.
     assert(!(await targetExists(join(dir, "discern.toml"))));
@@ -48,10 +55,12 @@ Deno.test("setup --json reports a partial refresh as top-level not-ok while keep
       dir,
     );
     assertEquals(code, 0);
-    const result = JSON.parse(stdout);
+    const result = decodeCliResult(stdout, "setup");
+    assertResultDataKey(result, "instructions_compiled");
     assertEquals(result.ok, false);
     assertEquals(result.error, "partial_refresh");
     assertEquals(result.data.instructions_compiled, false);
+    assertExists(result.data.instructions_errors);
     assertStringIncludes(
       result.data.instructions_errors.join("\n"),
       "malformed JSON",
@@ -182,7 +191,7 @@ Deno.test("setup --force --config leaves an existing discern.toml untouched (fil
       dir,
     );
     assertEquals(run.code, 0, run.stderr);
-    assertEquals(JSON.parse(run.stdout).ok, true);
+    assertEquals(decodeCliResult(run.stdout, "setup").ok, true);
 
     // The seed is byte-for-byte unchanged: the fills did not land.
     const after = await Deno.readTextFile(join(dir, "discern.toml"));

@@ -14,8 +14,9 @@
  * a registry entry produces).
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import { applyPlan, buildPlan } from "../src/lib/fs_plan.ts";
 import {
   type HooksIntegration,
@@ -28,6 +29,24 @@ import {
 } from "../src/lib/settings_merge.ts";
 import { COMMENT_INCAPABLE_ARTIFACT } from "../src/shared/file_ownership.ts";
 import { readTarget, testTokens, withTempDir } from "./helpers.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const SyntheticSettingsSchema = z.object({
+  model: z.string().optional(),
+  permissions: z.object({ deny: z.array(z.string()) }).passthrough(),
+  hooks: z.object({
+    SessionStart: z.array(
+      z.object({
+        hooks: z.array(
+          z.object({
+            type: z.string(),
+            command: z.string(),
+          }).passthrough(),
+        ),
+      }).passthrough(),
+    ),
+  }).passthrough(),
+}).passthrough();
 
 Deno.test("settingsSeeds(): the registry yields Claude's settings file with the default JSON strategy", () => {
   const seeds = settingsSeeds();
@@ -119,11 +138,16 @@ Deno.test("a synthetic SessionStart-only hooks provider seeds purely from its de
       assertEquals(op.kind, "merge-settings");
 
       await applyPlan(plan);
-      const settings = JSON.parse(
+      const settings = decodeWith(
+        SyntheticSettingsSchema,
         await readTarget(dest, ".acme/settings.json"),
       );
+      const sessionStart = settings.hooks.SessionStart[0];
+      assertExists(sessionStart);
+      const commandHook = sessionStart.hooks[0];
+      assertExists(commandHook);
       assertEquals(
-        settings.hooks.SessionStart[0].hooks[0].command,
+        commandHook.command,
         "discern worktree ensure",
       );
       assertEquals(settings.permissions.deny, ["Read(./.env)"]);
@@ -154,7 +178,8 @@ Deno.test("the synthetic provider's seed deep-merges into an existing settings f
         seeds: [ACME_SEED],
       });
       await applyPlan(plan);
-      const settings = JSON.parse(
+      const settings = decodeWith(
+        SyntheticSettingsSchema,
         await readTarget(dest, ".acme/settings.json"),
       );
       // User scalar preserved; deny unioned; SessionStart carries both hooks.

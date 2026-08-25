@@ -11,6 +11,7 @@
 import {
   assert,
   assertEquals,
+  assertExists,
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
@@ -42,6 +43,38 @@ import {
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { type PtyInputPhase, runPtyProcess } from "./fixtures/pty_process.ts";
 import { engineRunArgs } from "./engine_helpers.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
+
+type DocsResult = CliResultForCommand<"docs">;
+type DocsData = Exclude<NonNullable<DocsResult["data"]>, { issues: unknown }>;
+type PresentDocsDataKey<Key extends keyof DocsData> =
+  & DocsData
+  & {
+    [Property in Key]-?: NonNullable<DocsData[Property]>;
+  };
+
+/** Prove that one decoded docs payload field is present and non-nullish. */
+function assertDocsDataKey<Key extends keyof DocsData>(
+  result: DocsResult,
+  key: Key,
+): asserts result is DocsResult & { data: PresentDocsDataKey<Key> } {
+  assertResultDataKey(result, key);
+  assertExists(result.data[key]);
+}
+
+/** Decode docs stdout and require the payload field this assertion consumes. */
+function decodeDocsData<Key extends keyof DocsData>(
+  stdout: string,
+  key: Key,
+): PresentDocsDataKey<Key> {
+  const result = decodeCliResult(stdout, "docs");
+  assertDocsDataKey(result, key);
+  return result.data;
+}
 
 /** This repo's root — used by the dogfood test to resolve discern's real docs. */
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
@@ -882,8 +915,10 @@ Deno.test("pager refuses every static and machine projection with recovery", asy
       env,
     );
     assertEquals(json.code, 1);
+    const jsonResult = decodeCliResult(json.stdout, "docs");
+    assertExists(jsonResult.message);
     assertTerminalTextIncludes(
-      JSON.parse(json.stdout).message,
+      jsonResult.message,
       "--pager cannot be combined with --json",
     );
     assertEquals(json.stderr, "");
@@ -1009,7 +1044,7 @@ Deno.test("docs terminal facts are inert while machine Markdown stays exact", as
 
     const json = await runCli(["docs", target, "--json"], dir, env);
     assertEquals(json.code, 0);
-    assertEquals(JSON.parse(json.stdout).data.doc.content, source);
+    assertEquals(decodeDocsData(json.stdout, "doc").doc.content, source);
 
     const exported = await runCli(["docs", "--export", "public"], dir, env);
     assertEquals(exported.code, 0);
@@ -1026,9 +1061,11 @@ Deno.test("docs serves the bundled tree, never the project's own docs/", async (
       { DISCERN_DOCS_DIR: manualDir },
     );
     assertEquals(code, 0);
-    const res = JSON.parse(stdout);
+    const res = decodeCliResult(stdout, "docs");
     assertEquals(res.ok, true);
     assertEquals(res.verb, "docs");
+    assertDocsDataKey(res, "docs");
+    assertExists(res.data.count);
     assertEquals(res.data.map_dir, undefined);
     // Exactly the 4 PUBLISHED docs of the fixture — not the project's decoy,
     // and not the publish: false draft (docs honours isPublicDoc).
@@ -1052,7 +1089,9 @@ Deno.test("docs serves the bundled tree, never the project's own docs/", async (
 
     // Contrast: `map` (same cwd) DOES serve the project tree — they diverge.
     const map = await runCli(["map", "--json"], dir);
-    const dres = JSON.parse(map.stdout);
+    const dres = decodeCliResult(map.stdout, "map");
+    assertResultDataKey(dres, "docs");
+    assertExists(dres.data.docs);
     assert(
       dres.data.docs.some((d: { slug: string }) => d.slug === "decoy"),
       "map must serve the project's own docs/",
@@ -1076,9 +1115,11 @@ Deno.test("docs search returns public manual targets and supports region scope",
       env,
     );
     assertEquals(found.code, 0);
-    const foundData = JSON.parse(found.stdout).data;
-    assertEquals(foundData.results[0].target, "00-orientation/concepts");
-    assertEquals(foundData.results[0].match, "complete");
+    const foundData = decodeDocsData(found.stdout, "results");
+    const foundResult = foundData.results[0];
+    assertExists(foundResult);
+    assertEquals(foundResult.target, "00-orientation/concepts");
+    assertEquals(foundResult.match, "complete");
 
     const scoped = await runCli(
       [
@@ -1092,7 +1133,10 @@ Deno.test("docs search returns public manual targets and supports region scope",
       env,
     );
     assertEquals(scoped.code, 0);
-    assertEquals(JSON.parse(scoped.stdout).data.scope, "00-orientation");
+    assertEquals(
+      decodeDocsData(scoped.stdout, "scope").scope,
+      "00-orientation",
+    );
 
     const withheld = await runCli(
       [
@@ -1105,7 +1149,7 @@ Deno.test("docs search returns public manual targets and supports region scope",
       env,
     );
     assertEquals(withheld.code, 0);
-    assertEquals(JSON.parse(withheld.stdout).data.results, []);
+    assertEquals(decodeDocsData(withheld.stdout, "results").results, []);
   });
 });
 
@@ -1118,9 +1162,10 @@ Deno.test("docs <slug> --json strips inline citations, keeps them as fields", as
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 0);
-    const res = JSON.parse(stdout);
+    const res = decodeCliResult(stdout, "docs");
     assertEquals(res.ok, true);
     assertEquals(res.verb, "docs");
+    assertDocsDataKey(res, "doc");
     assertEquals(res.data.doc.slug, "concepts");
     assertEquals(res.data.doc.target, "00-orientation/concepts");
     // Human-facing product docs: the inline citation group is stripped from
@@ -1186,7 +1231,7 @@ Deno.test("a publish: false doc is unreachable through every docs surface", asyn
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(target.code, 1);
-    assertEquals(JSON.parse(target.stdout).error, "not_found");
+    assertEquals(decodeCliResult(target.stdout, "docs").error, "not_found");
 
     // ...absent from the TOC...
     const list = await runCli(
@@ -1224,7 +1269,11 @@ Deno.test("numbered contributor sections are unreachable through every docs surf
         { DISCERN_DOCS_DIR: docs },
       );
       assertEquals(result.code, 1, target);
-      assertEquals(JSON.parse(result.stdout).error, "not_found", target);
+      assertEquals(
+        decodeCliResult(result.stdout, "docs").error,
+        "not_found",
+        target,
+      );
     }
 
     const list = await runCli(
@@ -1270,10 +1319,11 @@ Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 1);
-    const res = JSON.parse(stdout);
+    const res = decodeCliResult(stdout, "docs");
     assertEquals(res.ok, false);
     assertEquals(res.verb, "docs");
     assertEquals(res.error, "not_found");
+    assertExists(res.message);
     assertStringIncludes(res.message, "nonesuch");
   });
 });
@@ -1287,14 +1337,18 @@ Deno.test("docs <near miss> --json suggests valid doc targets", async () => {
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 1);
-    const res = JSON.parse(stdout);
+    const res = decodeCliResult(stdout, "docs");
     assertEquals(res.ok, false);
     assertEquals(res.verb, "docs");
     assertEquals(res.error, "not_found");
+    assertExists(res.message);
     assertStringIncludes(res.message, "Closest match");
-    assertEquals(res.data.suggestions[0].slug, "concepts");
+    assertDocsDataKey(res, "suggestions");
+    const suggestion = res.data.suggestions[0];
+    assertExists(suggestion);
+    assertEquals(suggestion.slug, "concepts");
     assertEquals(
-      res.data.suggestions[0].path,
+      suggestion.path,
       "manual-fixture/00-orientation/concepts.md",
     );
   });
@@ -1310,8 +1364,9 @@ Deno.test("docs <ambiguous> --json reports ambiguous with candidates", async () 
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 1);
-    const res = JSON.parse(stdout);
+    const res = decodeCliResult(stdout, "docs");
     assertEquals(res.error, "ambiguous");
+    assertDocsDataKey(res, "candidates");
     assert(res.data.candidates.length >= 2);
   });
 });
@@ -1325,7 +1380,8 @@ Deno.test("docs excludes internal _adr/_internal/_private from every view", asyn
       dir,
       { DISCERN_DOCS_DIR: docs },
     );
-    const res = JSON.parse(index.stdout);
+    const res = decodeCliResult(index.stdout, "docs");
+    assertDocsDataKey(res, "docs");
     for (const buried of ["_adr", "_internal", "_private"]) {
       assert(
         res.data.docs.every((d: { path: string }) => !d.path.includes(buried)),
@@ -1339,7 +1395,10 @@ Deno.test("docs excludes internal _adr/_internal/_private from every view", asyn
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(positioning.code, 1);
-    assertEquals(JSON.parse(positioning.stdout).error, "not_found");
+    assertEquals(
+      decodeCliResult(positioning.stdout, "docs").error,
+      "not_found",
+    );
 
     const list = await runCli(
       ["docs", "--list"],
@@ -1366,7 +1425,8 @@ Deno.test("docs --adr surfaces ONLY the ADR tree, never _internal/_private", asy
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 0);
-    const res = JSON.parse(stdout);
+    const res = decodeCliResult(stdout, "docs");
+    assertDocsDataKey(res, "docs");
     assert(
       res.data.docs.some((d: { slug: string }) => d.slug === "0001-first"),
       "--adr surfaces the ADR docs",
@@ -1386,7 +1446,7 @@ Deno.test("docs --adr surfaces ONLY the ADR tree, never _internal/_private", asy
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(withAdr.code, 0);
-    assertEquals(JSON.parse(withAdr.stdout).data.doc.slug, "0001-first");
+    assertEquals(decodeDocsData(withAdr.stdout, "doc").doc.slug, "0001-first");
 
     const withoutAdr = await runCli(
       ["docs", "0001-first", "--json"],
@@ -1394,7 +1454,7 @@ Deno.test("docs --adr surfaces ONLY the ADR tree, never _internal/_private", asy
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(withoutAdr.code, 1);
-    assertEquals(JSON.parse(withoutAdr.stdout).error, "not_found");
+    assertEquals(decodeCliResult(withoutAdr.stdout, "docs").error, "not_found");
   });
 });
 
@@ -1411,7 +1471,10 @@ Deno.test("a target naming _adr/ is its own opt-in, on docs and map alike", asyn
       env,
     );
     assertEquals(explicit.code, 0, explicit.stdout);
-    assertEquals(JSON.parse(explicit.stdout).data.doc.slug, "0001-first");
+    assertEquals(
+      decodeDocsData(explicit.stdout, "doc").doc.slug,
+      "0001-first",
+    );
 
     // The map verb — which has no --adr flag at all — honours the same form
     // for the project's own decision records.
@@ -1422,7 +1485,10 @@ Deno.test("a target naming _adr/ is its own opt-in, on docs and map alike", asyn
     );
     const viaMap = await runCli(["map", "_adr/0007-example", "--json"], dir);
     assertEquals(viaMap.code, 0, viaMap.stdout);
-    assertEquals(JSON.parse(viaMap.stdout).data.doc.slug, "0007-example");
+    const mapResult = decodeCliResult(viaMap.stdout, "map");
+    assertResultDataKey(mapResult, "doc");
+    assertExists(mapResult.data.doc);
+    assertEquals(mapResult.data.doc.slug, "0007-example");
 
     // The audience boundary holds: naming _internal or _private widens nothing.
     for (
@@ -1434,7 +1500,7 @@ Deno.test("a target naming _adr/ is its own opt-in, on docs and map alike", asyn
     ) {
       const refused = await runCli([verb, target, "--json"], dir, env);
       assertEquals(refused.code, 1, `${verb} ${target} must refuse`);
-      assertEquals(JSON.parse(refused.stdout).error, "not_found");
+      assertEquals(decodeCliResult(refused.stdout, verb).error, "not_found");
     }
 
     // A near-miss suggestion prints the canonical target, so retrying the
@@ -1445,8 +1511,10 @@ Deno.test("a target naming _adr/ is its own opt-in, on docs and map alike", asyn
       env,
     );
     assertEquals(nearMiss.code, 1);
+    const nearMissResult = decodeCliResult(nearMiss.stdout, "docs");
+    assertExists(nearMissResult.message);
     assertStringIncludes(
-      JSON.parse(nearMiss.stdout).message,
+      nearMissResult.message,
       "_adr/0001-first",
     );
   });
@@ -1464,8 +1532,9 @@ Deno.test("installed docs with an explicit _adr target points to the public arch
       { DISCERN_DOCS_DIR: staged },
     );
     assertEquals(json.code, 0);
-    const result = JSON.parse(json.stdout);
+    const result = decodeCliResult(json.stdout, "docs");
     assertEquals(result.ok, true);
+    assertExists(result.message);
     assertStringIncludes(result.message, "https://discern.sh/docs/decisions");
   });
 });
@@ -1482,9 +1551,10 @@ Deno.test("installed docs --adr points to the public decision archive", async ()
       { DISCERN_DOCS_DIR: staged },
     );
     assertEquals(json.code, 0);
-    const result = JSON.parse(json.stdout);
+    const result = decodeCliResult(json.stdout, "docs");
     assertEquals(result.ok, true);
     assertEquals(result.verb, "docs");
+    assertExists(result.message);
     assertStringIncludes(result.message, "not bundled with installed binaries");
     assertStringIncludes(result.message, "https://discern.sh/docs/decisions");
     assert(!result.message.includes("0001-first"));
@@ -1576,7 +1646,7 @@ Deno.test("docs reports a build defect (no bundled tree) cleanly", async () => {
       { DISCERN_DOCS_DIR: join(dir, "does-not-exist") },
     );
     assertEquals(code, 1);
-    const res = JSON.parse(stdout);
+    const res = decodeCliResult(stdout, "docs");
     assertEquals(res.ok, false);
     assertEquals(res.verb, "docs");
     assertEquals(res.error, "no_docs");
@@ -1592,14 +1662,17 @@ Deno.test("dogfood: docs serves THIS repo's own docs (config reference)", async 
     REPO_ROOT,
   );
   assertEquals(single.code, 0);
-  const sres = JSON.parse(single.stdout);
+  const sres = decodeCliResult(single.stdout, "docs");
   assertEquals(sres.ok, true);
   assertEquals(sres.verb, "docs");
+  assertDocsDataKey(sres, "doc");
   assertEquals(sres.data.doc.slug, "config-reference");
   assertStringIncludes(sres.data.doc.content, "config reference");
 
   const index = await runCli(["docs", "--json"], REPO_ROOT);
-  const ires = JSON.parse(index.stdout);
+  const ires = decodeCliResult(index.stdout, "docs");
+  assertDocsDataKey(ires, "docs");
+  assertExists(ires.data.count);
   assertEquals(ires.data.map_dir, undefined);
   assert(ires.data.count > 0);
   assert(
@@ -1615,8 +1688,9 @@ Deno.test("dogfood: docs serves THIS repo's own docs (config reference)", async 
     REPO_ROOT,
   );
   assertEquals(decision.code, 0);
-  const dres = JSON.parse(decision.stdout);
+  const dres = decodeCliResult(decision.stdout, "docs");
   assertEquals(dres.ok, true);
+  assertDocsDataKey(dres, "doc");
   assertEquals(dres.data.doc.slug, "0141-adr-citations-strip-at-render");
 });
 
@@ -1629,7 +1703,7 @@ Deno.test("docs treats a command name as a manual target", async () => {
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(result.code, 1);
-    const envelope = JSON.parse(result.stdout);
+    const envelope = decodeCliResult(result.stdout, "docs");
     assertEquals(envelope.verb, "docs");
     assertEquals(envelope.error, "not_found");
   });

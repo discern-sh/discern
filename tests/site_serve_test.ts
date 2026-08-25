@@ -6,6 +6,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { z } from "@zod/zod";
 import {
   DISCERN_FAVICON_PATH,
   DISCERN_MARK,
@@ -14,6 +15,9 @@ import {
 } from "../site/brand.ts";
 import { handler, PAGES, TEXT_EDITION, wantsText } from "../site/serve.ts";
 import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const PublicSchemaIdentitySchema = z.object({ $id: z.string() }).passthrough();
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -164,9 +168,10 @@ Deno.test("every public schema route serves its root artifact byte for byte", as
     const expected = await Deno.readFile(
       new URL(`../${publication.artifactPath}`, import.meta.url),
     );
-    const schema = JSON.parse(new TextDecoder().decode(expected)) as {
-      $id?: unknown;
-    };
+    const schema = decodeWith(
+      PublicSchemaIdentitySchema,
+      new TextDecoder().decode(expected),
+    );
     assertEquals(
       schema.$id,
       publication.id,

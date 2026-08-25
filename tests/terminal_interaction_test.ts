@@ -10,6 +10,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import {
   measureText,
   stripAnsi,
@@ -24,6 +25,19 @@ import {
   encodeTerminalMouseEvent,
   FakeTerminalIO,
 } from "discern-design-system/cli/interactive/testing";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const InteractionTraceRecordSchema = z.object({
+  opened: z.object({ rows: z.number() }).passthrough(),
+  budget: z.object({
+    rows: z.number(),
+    reserved: z.number(),
+    derived: z.number(),
+  }).optional(),
+  sizeRows: z.array(z.number()),
+  writes: z.array(z.object({ lines: z.number() }).passthrough()),
+  outcome: z.string(),
+}).passthrough();
 import {
   canInteract,
   confirmationAllowed,
@@ -882,13 +896,7 @@ Deno.test("the interaction trace records sizing evidence only when enabled", asy
     );
     const lines = (await Deno.readTextFile(tracePath)).trim().split("\n");
     assertEquals(lines.length, 1);
-    const record = JSON.parse(lines[0] ?? "") as {
-      opened: { rows: number };
-      budget?: { rows: number; reserved: number; derived: number };
-      sizeRows: number[];
-      writes: { lines: number }[];
-      outcome: string;
-    };
+    const record = decodeWith(InteractionTraceRecordSchema, lines[0] ?? "");
     assertEquals(record.opened.rows, 40);
     assertEquals(record.budget, { rows: 40, reserved: 30, derived: 39 });
     assertEquals(record.sizeRows.length > 0, true);

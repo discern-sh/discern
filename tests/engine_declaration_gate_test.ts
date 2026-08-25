@@ -35,19 +35,14 @@ import {
 import { ERROR_SLUGS } from "../src/shared/result.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
-
-/** The wire fields these refusal probes read from an envelope. */
-interface RefusalEnvelope {
-  ok: boolean;
-  verb: string;
-  error?: string;
-  message?: string;
-  hints?: string[];
-}
+import {
+  type CliResultEnvelope,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 /** Decode a JSON result envelope. */
-function parseJson(stdout: string): RefusalEnvelope {
-  return JSON.parse(stdout.trim()) as RefusalEnvelope;
+function parseJson(stdout: string, command: string): CliResultEnvelope {
+  return decodeCliResult(stdout, command);
 }
 
 const QUESTION = "A changed surface is described in its docs before it lands.";
@@ -134,7 +129,7 @@ const PROBES = {
     const markdown = await runAgent(wt, ["done", "--markdown"]);
     const terminal = await runAgent(wt, ["done"]);
     const mcp = await runMcp("discern_done", wt, {});
-    const env = parseJson(json.stdout);
+    const env = parseJson(json.stdout, "done");
     // Mutated iff a gate job ran or the project tree changed; the open question
     // record and logbook line live inside .git and are the stated writes.
     const status = await new Deno.Command("git", {
@@ -201,7 +196,7 @@ const PROBES = {
     const markdown = await runAgent(wt, ["accept", "--markdown"]);
     const terminal = await runAgent(wt, ["accept"]);
     const mcp = await runMcp("discern_accept", wt, {});
-    const env = parseJson(json.stdout);
+    const env = parseJson(json.stdout, "accept");
     const mutated = (await targetExists(join(dir, "api"))) ||
       !(await targetExists(wt));
     return {
@@ -325,7 +320,7 @@ Deno.test("variance contract: every declared surface serves the same complete de
     const markdown = await runAgent(wt, ["accept", "--markdown"]);
     const terminal = await runAgent(wt, ["accept"]);
     const mcp = await runMcp("discern_accept", wt, {});
-    const env = parseJson(json.stdout);
+    const env = parseJson(json.stdout, "accept");
     const observations: Record<
       (typeof VARIANCE_GATED_ACCEPTANCE.surfaces)[number],
       SurfaceObservation

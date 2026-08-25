@@ -23,6 +23,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 /**
  * A config with a single observable `test` capability — its echoed marker is the
@@ -79,7 +80,7 @@ Deno.test("done fails fast on the merge precondition when behind main — the ca
     const json = await runAgent(wt, ["done", "--confirmed", "--json"]);
     assertEquals(json.code, 1, json.output);
     const expected = assertHasHint(
-      JSON.parse(json.stdout),
+      decodeCliResult(json.stdout, "done"),
       GATE_FAILURE_REMEDIES.merge,
     );
     assertTerminalTextIncludes(r.output, expected);
@@ -93,10 +94,12 @@ Deno.test("done --json behind main: failed_stage is merge and every step is skip
     const r = await runAgent(wt, ["done", "--json"]);
 
     assertEquals(r.code, 1, r.output);
-    const obj = JSON.parse(r.stdout);
+    const obj = decodeCliResult(r.stdout, "done");
     assertEquals(obj.ok, false);
+    assert(obj.data !== undefined && "failed_stage" in obj.data, r.stdout);
     assertEquals(obj.data.failed_stage, "merge");
     // Nothing downstream ran: the planned capability is serialized, but skipped.
+    assert(obj.steps !== undefined, r.stdout);
     assert(obj.steps.length >= 1, `expected planned steps\n${r.stdout}`);
     assert(
       obj.steps.every((s: { outcome: string }) => s.outcome === "skipped"),
@@ -141,7 +144,7 @@ Deno.test("done warns when the configured trunk is missing locally", async () =>
     // The tree is unchanged, so the deliberate rerun carries the attestation.
     const json = await runAgent(wt, ["done", "--confirmed", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const obj = JSON.parse(json.stdout);
+    const obj = decodeCliResult(json.stdout, "done");
     const expected = assertHasHint(
       obj,
       HINTS["missing-trunk-branch"],

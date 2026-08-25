@@ -24,6 +24,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
+import { z } from "@zod/zod";
 import { bestEffortFs } from "../src/shared/fs_presence.ts";
 import {
   INTERRUPT_SIGNALS,
@@ -41,6 +42,13 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const DeskDriverResultSchema = z.object({
+  resumed: z.boolean(),
+  code: z.number(),
+  childAlive: z.boolean(),
+});
 
 const DESK_DRIVER = fromFileUrl(
   new URL("fixtures/desk_interactive_driver.ts", import.meta.url),
@@ -469,11 +477,10 @@ async function assertDeskInterruptReapsAndResumes(
         DECODER.decode(output.stderr)
       }`,
     );
-    const result = JSON.parse(DECODER.decode(output.stdout)) as {
-      resumed: boolean;
-      code: number;
-      childAlive: boolean;
-    };
+    const result = decodeWith(
+      DeskDriverResultSchema,
+      DECODER.decode(output.stdout),
+    );
     assertEquals(result.resumed, true);
     assertEquals(
       result.childAlive,

@@ -17,16 +17,29 @@
 
 import { basename, dirname, join } from "@std/path";
 import { assert, assertEquals } from "@std/assert";
+import { z } from "@zod/zod";
 import { BANNED_MOVES, BANNED_WORDS } from "../scripts/brand/voice.ts";
 import { runVale } from "../scripts/vale_lib.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 
 interface ValeAlert {
-  Check?: unknown;
-  Severity?: unknown;
+  Check?: string | undefined;
+  Severity?: string | undefined;
 }
+
+const ValeOutputSchema = z.record(
+  z.string(),
+  z.array(
+    z.object({
+      Check: z.string().optional(),
+      Severity: z.string().optional(),
+    }).passthrough(),
+  ),
+);
+type ValeOutput = z.infer<typeof ValeOutputSchema>;
 
 interface MechanicalCase {
   bad: string;
@@ -231,11 +244,11 @@ function unquote(s: string): string {
 
 /** Alerts Vale returned for one fixture path, tolerant of `/tmp` symlinks. */
 function fixtureAlerts(
-  result: Record<string, unknown>,
+  result: ValeOutput,
   suffix: string,
 ): ValeAlert[] {
   const entry = Object.entries(result).find(([path]) => path.endsWith(suffix));
-  return Array.isArray(entry?.[1]) ? entry[1] as ValeAlert[] : [];
+  return entry?.[1] ?? [];
 }
 
 /** Whether a fixture produced one named Vale check. */
@@ -258,15 +271,16 @@ async function writeFixture(
 }
 
 /** Run the tracked Vale binary over a fixture tree and decode its JSON. */
-async function lintFixtures(root: string): Promise<Record<string, unknown>> {
+async function lintFixtures(root: string): Promise<ValeOutput> {
   const run = await runVale(REPO_ROOT, [
     "--output=JSON",
     "--minAlertLevel=suggestion",
     root,
   ]);
-  return JSON.parse(
+  return decodeWith(
+    ValeOutputSchema,
     new TextDecoder().decode(run.stdout),
-  ) as Record<string, unknown>;
+  );
 }
 
 /** Put a counter-example in the Markdown code-span escape Vale respects. */

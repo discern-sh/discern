@@ -4,8 +4,10 @@
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { dirname, join, normalize } from "@std/path";
+import { z } from "@zod/zod";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 
 const TERMINAL_AUTHORITY = "src/lib/terminal.ts";
 const TEXT_AUTHORITY = "src/lib/text.ts";
@@ -1404,18 +1406,34 @@ function copiedTriangleCycleFindings(rel: string, source: string): Finding[] {
 }
 
 interface DenoConfigShape {
-  readonly imports?: Readonly<Record<string, string>>;
+  readonly imports?: Readonly<Record<string, string>> | undefined;
 }
 
 interface DenoLockModule {
-  readonly dependencies?: readonly string[];
+  readonly dependencies?: readonly string[] | undefined;
 }
 
 interface DenoLockShape {
-  readonly specifiers?: Readonly<Record<string, string>>;
-  readonly jsr?: Readonly<Record<string, DenoLockModule>>;
-  readonly workspace?: { readonly dependencies?: readonly string[] };
+  readonly specifiers?: Readonly<Record<string, string>> | undefined;
+  readonly jsr?: Readonly<Record<string, DenoLockModule>> | undefined;
+  readonly workspace?: {
+    readonly dependencies?: readonly string[] | undefined;
+  } | undefined;
 }
+
+const DenoConfigSchema: z.ZodType<DenoConfigShape> = z.object({
+  imports: z.record(z.string(), z.string()).optional(),
+}).passthrough();
+
+const DenoLockSchema: z.ZodType<DenoLockShape> = z.object({
+  specifiers: z.record(z.string(), z.string()).optional(),
+  jsr: z.record(
+    z.string(),
+    z.object({ dependencies: z.array(z.string()).optional() }).passthrough(),
+  ).optional(),
+  workspace: z.object({ dependencies: z.array(z.string()).optional() })
+    .passthrough().optional(),
+}).passthrough();
 
 /** Return the package name from one JSR specifier, without its version/export. */
 function jsrPackageName(specifier: string): string | undefined {
@@ -2556,12 +2574,14 @@ Deno.test("authored terminal outlaw is zero and exceptions remain exact", async 
   }
   assertEquals(unappliedOutlawFindings(findings), []);
 
-  const config = JSON.parse(
+  const config = decodeWith(
+    DenoConfigSchema,
     await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
-  ) as DenoConfigShape;
-  const lock = JSON.parse(
+  );
+  const lock = decodeWith(
+    DenoLockSchema,
     await Deno.readTextFile(join(REPO_ROOT, "deno.lock")),
-  ) as DenoLockShape;
+  );
   assertEquals(cliffyGraphFindings(config, lock), []);
 
   const compiledHelper = await Deno.readTextFile(

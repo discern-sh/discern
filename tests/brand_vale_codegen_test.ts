@@ -21,6 +21,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { dirname, join } from "@std/path";
+import { z } from "@zod/zod";
 import { REGISTERS } from "../scripts/brand/model.ts";
 import { PROPOSED_MECHANICAL_CHECKS } from "../scripts/brand/docs/copy_review.ts";
 import {
@@ -43,6 +44,7 @@ import { runVale } from "../scripts/vale_lib.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 Deno.test("every committed style file matches its renderer (run `deno task codegen`)", async () => {
@@ -218,17 +220,27 @@ Deno.test("the voice enforcement coverage page matches its typed renderer", asyn
 });
 
 interface GeneratedValeAlert {
-  Check?: unknown;
-  Severity?: unknown;
+  Check?: string | undefined;
+  Severity?: string | undefined;
 }
+
+const ValeOutputSchema = z.record(
+  z.string(),
+  z.array(
+    z.object({
+      Check: z.string().optional(),
+      Severity: z.string().optional(),
+    }).passthrough(),
+  ),
+);
 
 /** Alerts for one generated-rule fixture, tolerant of temp-path symlinks. */
 function generatedFixtureAlerts(
-  output: Record<string, unknown>,
+  output: z.infer<typeof ValeOutputSchema>,
   suffix: string,
 ): GeneratedValeAlert[] {
   const entry = Object.entries(output).find(([path]) => path.endsWith(suffix));
-  return Array.isArray(entry?.[1]) ? entry[1] as GeneratedValeAlert[] : [];
+  return entry?.[1] ?? [];
 }
 
 /** Write one Markdown fixture in the path tier that scopes its register. */
@@ -261,9 +273,10 @@ Deno.test("every generated Vale rule fires on its bad case and ignores its safe 
       "--minAlertLevel=suggestion",
       dir,
     ]);
-    const output = JSON.parse(
+    const output = decodeWith(
+      ValeOutputSchema,
       new TextDecoder().decode(run.stdout),
-    ) as Record<string, unknown>;
+    );
     for (const rule of VALE_STYLE_RULES) {
       const base = rule.register === "brand"
         ? `_internal/brand/${rule.id}`

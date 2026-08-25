@@ -8,6 +8,27 @@
  */
 
 import { fromFileUrl, relative } from "@std/path";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+);
 
 /** The dependency fields consumed from `deno info --json`. */
 export interface DenoInfoDependency {
@@ -134,14 +155,12 @@ export function decodeDenoInfo(
 
 /** Parse command output to unknown before applying the bounded shape decoder. */
 export function parseDenoInfoJson(text: string, command: string): DenoInfo {
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
+    return decodeDenoInfo(decodeWith(JsonValueSchema, text), command);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throw malformedDenoInfo(command, detail);
   }
-  return decodeDenoInfo(parsed, command);
 }
 
 /** Map a file URL into the shipped repository graph while excluding external modules. */

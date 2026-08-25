@@ -6,11 +6,21 @@
  * fills to discern.toml.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 // `dirname` is used both for the fixtures path and by `stagePreset`'s mkdir.
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { runAgent } from "./engine_helpers.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 import {
   applyConfigDoc,
   type DiscernConfigDoc,
@@ -30,6 +40,26 @@ const FIXTURE_PRESETS = join(
 );
 const PRESET_ENV = { DISCERN_PRESETS_DIR: FIXTURE_PRESETS };
 
+type PresetResult = CliResultForCommand<"preset">;
+type PresetData = Exclude<
+  NonNullable<PresetResult["data"]>,
+  { issues: unknown }
+>;
+type PresentPresetDataKey<Key extends keyof PresetData> =
+  & PresetData
+  & {
+    [Property in Key]-?: NonNullable<PresetData[Property]>;
+  };
+
+/** Prove that one decoded preset payload field is present and non-nullish. */
+function assertPresetDataKey<Key extends keyof PresetData>(
+  result: PresetResult,
+  key: Key,
+): asserts result is PresetResult & { data: PresentPresetDataKey<Key> } {
+  assertResultDataKey(result, key);
+  assertExists(result.data[key]);
+}
+
 Deno.test("preset overlays the example preset's files and config fills", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
@@ -44,9 +74,10 @@ Deno.test("preset overlays the example preset's files and config fills", async (
       PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "preset");
     assertEquals(result.ok, true);
     assertEquals(result.verb, "preset");
+    assertPresetDataKey(result, "config_fills");
     assertEquals(result.data.config_fills, true);
 
     // Files overlaid: a project script, a instruction fragment, a managed skill.
@@ -93,7 +124,7 @@ Deno.test("preset --json without --yes emits exactly one envelope and applies (n
       line.length > 0 && !line.includes("\n"),
       `expected a single envelope line, got:\n${r.stdout}`,
     );
-    const result = JSON.parse(line);
+    const result = decodeCliResult(line, "preset");
     assertEquals(result.ok, true);
     assertEquals(result.verb, "preset");
     // The overlay applied despite no --yes, because json mode auto-proceeds.
@@ -121,7 +152,7 @@ Deno.test("preset --dry-run writes nothing (files or fills)", async () => {
       PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).dry_run, true);
+    assertEquals(decodeCliResult(r.stdout, "preset").dry_run, true);
     assert(!(await targetExists(join(dir, "discern/scripts/example-deploy"))));
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
@@ -157,8 +188,10 @@ Deno.test("preset config fills never overwrite a value the user already set", as
       PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "preset");
     assertEquals(result.ok, true);
+    assertPresetDataKey(result, "config_fills_applied");
+    assertExists(result.data.config_fills_skipped);
 
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assertStringIncludes(toml, 'test = "cargo test --workspace"');
@@ -185,8 +218,10 @@ Deno.test("preset --dry-run disclosures name each key filled and each kept", asy
       PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "preset");
     assertEquals(result.dry_run, true);
+    assertPresetDataKey(result, "config_fills_applied");
+    assertExists(result.data.config_fills_skipped);
     // Per-key disclosure: what would be written, and what the user keeps.
     assert(result.data.config_fills_applied.includes("standards.examplesize"));
     assert(result.data.config_fills_skipped.includes("jobs.test"));
@@ -223,7 +258,10 @@ Deno.test("re-applying a preset fills nothing and leaves discern.toml byte-ident
       PRESET_ENV,
     );
     assertEquals(second.code, 0, second.stderr);
-    const result = JSON.parse(second.stdout);
+    const result = decodeCliResult(second.stdout, "preset");
+    assertPresetDataKey(result, "config_fills_applied");
+    assertExists(result.data.config_fills);
+    assertExists(result.data.config_fills_skipped);
     // Every fill now exists, so the second pass writes no config at all.
     assertEquals(result.data.config_fills, false);
     assertEquals(result.data.config_fills_applied, []);
@@ -244,8 +282,9 @@ Deno.test("preset still reports unknown presets with the fixtures dir set", asyn
       PRESET_ENV,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "preset");
     assertEquals(result.error, "unknown_preset");
+    assertPresetDataKey(result, "available");
     // The available list now includes the example fixture.
     assert(result.data.available.includes("example"));
   });
@@ -279,9 +318,10 @@ Deno.test("preset reports not_initialized when there is no discern.toml (--json)
       PRESET_ENV,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "preset");
     assertEquals(result.ok, false);
     assertEquals(result.error, "not_initialized");
+    assertExists(result.message);
     assertStringIncludes(result.message, "discern setup");
   });
 });
@@ -330,8 +370,9 @@ Deno.test("preset human errors make hostile names inert while JSON stays exact",
       PRESET_ENV,
     );
     assertEquals(machine.code, 1);
-    const result = JSON.parse(machine.stdout) as { message?: string };
-    assertStringIncludes(result.message ?? "", name);
+    const result = decodeCliResult(machine.stdout, "preset");
+    assertExists(result.message);
+    assertStringIncludes(result.message, name);
   });
 });
 
@@ -342,8 +383,10 @@ Deno.test("preset with no presets dir reports 'ships no presets yet'", async () 
     // up, finds nothing, and the available list is empty.
     const r = await runCli(["preset", "example", "--json"], dir);
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "preset");
     assertEquals(result.error, "unknown_preset");
+    assertPresetDataKey(result, "available");
+    assertExists(result.message);
     assertEquals(result.data.available, []);
     assertStringIncludes(result.message, "ships no presets yet");
   });
@@ -391,8 +434,10 @@ Deno.test("preset overlays a preset that has no preset.json (files only, no fill
       env,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "preset");
     assertEquals(result.ok, true);
+    assertPresetDataKey(result, "written");
+    assertExists(result.data.config_fills);
     // No preset.json → no config fills, and discern.toml is untouched.
     assertEquals(result.data.config_fills, false);
     assert(result.data.written.includes("scripts/filesonly"));
@@ -419,9 +464,10 @@ Deno.test("preset rejects a preset.json that is not a JSON object", async () => 
       env,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "preset");
     assertEquals(result.ok, false);
     assertEquals(result.error, "invalid_preset");
+    assertExists(result.message);
     assertStringIncludes(result.message, "preset.json at");
     assertStringIncludes(result.message, "expected object");
     // Failed before writing anything (neither the file nor the toml changed).
@@ -471,8 +517,9 @@ Deno.test("preset rejects a preset.json with an unsupported version", async () =
       env,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "preset");
     assertEquals(result.error, "invalid_preset");
+    assertExists(result.message);
     assertStringIncludes(result.message, "unsupported config-document version");
   });
 });
@@ -495,7 +542,7 @@ Deno.test("preset falls back to default agents when discern.toml omits them", as
       PRESET_ENV,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).ok, true);
+    assertEquals(decodeCliResult(r.stdout, "preset").ok, true);
     // The overlay still applied normally despite the missing agents key.
     assert(await targetExists(join(dir, "discern/scripts/example-deploy")));
   });
@@ -610,10 +657,12 @@ Deno.test("a preset whose only fill is one field is never silently dropped", asy
         env,
       );
       assertEquals(r.code, 0, r.stderr);
-      const result = JSON.parse(r.stdout);
+      const result = decodeCliResult(r.stdout, "preset");
       assertEquals(result.ok, true, `${key}: preset must succeed`);
-      const applied = result.data.config_fills_applied as string[];
-      const skipped = result.data.config_fills_skipped as string[];
+      assertPresetDataKey(result, "config_fills_applied");
+      assertExists(result.data.config_fills_skipped);
+      const applied = result.data.config_fills_applied;
+      const skipped = result.data.config_fills_skipped;
       assert(
         [...applied, ...skipped].includes(disclosed),
         `${key}-only preset must disclose ${disclosed} (applied or kept), not drop it; applied=${
@@ -646,10 +695,12 @@ Deno.test("a docs-only preset actually writes map.dir when the project has not s
     });
     const r = await runCli(["preset", "docsonly", "--yes", "--json"], dir, env);
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "preset");
+    assertPresetDataKey(result, "config_fills_applied");
+    assertExists(result.data.config_fills);
     assertEquals(result.data.config_fills, true);
     assert(
-      (result.data.config_fills_applied as string[]).includes("map.dir"),
+      result.data.config_fills_applied.includes("map.dir"),
       "map.dir must be applied when not pre-set",
     );
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));

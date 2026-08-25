@@ -16,6 +16,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { Ajv2020 } from "ajv-2020";
+import { z } from "@zod/zod";
 import {
   configSectionNames,
   isJsonObject,
@@ -52,6 +53,27 @@ import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 import { generatedArtifactMarkerBody } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+);
+const JsonObjectSchema = z.record(z.string(), JsonValueSchema);
 
 /** Traverse a dotted config path through JSON Schema property nodes, asserting every segment exists. */
 function schemaNodeAt(
@@ -122,7 +144,7 @@ Deno.test("the generated config schemas fix the two historical staleness bugs", 
     },
   ];
   for (const { name, json, id } of artifacts) {
-    const schema = JSON.parse(json) as Record<string, unknown>;
+    const schema = decodeWith(JsonObjectSchema, json);
     // Bug 2: no reference to the abolished `.discern/config.toml` path anywhere.
     assert(
       !json.includes(".discern"),
@@ -147,7 +169,7 @@ Deno.test("the generated config schemas fix the two historical staleness bugs", 
 });
 
 Deno.test("the generated config schema publishes path and uniqueness rules", () => {
-  const live = JSON.parse(renderConfigSchemaJson()) as Record<string, unknown>;
+  const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
   for (const source of Object.values(SOURCE_PATHS)) {
     if (source.key === null) continue;
     const node = schemaNodeAt(live, source.key);
@@ -168,10 +190,7 @@ Deno.test("the generated config schema publishes path and uniqueness rules", () 
     "worktree.env_files items must publish their path pattern",
   );
 
-  const setup = JSON.parse(renderConfigDocSchemaJson()) as Record<
-    string,
-    unknown
-  >;
+  const setup = decodeWith(JsonObjectSchema, renderConfigDocSchemaJson());
   const setupMapDir = schemaNodeAt(setup, "map.dir");
   assert(
     typeof setupMapDir.pattern === "string" && setupMapDir.pattern !== "",
@@ -203,10 +222,9 @@ Deno.test("the generated config schema publishes path and uniqueness rules", () 
 });
 
 Deno.test("the generated jobs object exposes known names and the custom table arm", () => {
-  const schema = JSON.parse(renderConfigDocSchemaJson()) as {
-    properties: { jobs: { allOf: Record<string, unknown>[] } };
-  };
-  const jobs = schema.properties.jobs;
+  const schema = decodeWith(JsonObjectSchema, renderConfigDocSchemaJson());
+  const jobs = schemaNodeAt(schema, "jobs");
+  assert(Array.isArray(jobs.allOf), "jobs must publish allOf arms");
   const named = jobs.allOf.find((arm) => isJsonObject(arm.properties));
   assert(named !== undefined);
   const properties = named.properties as Record<string, unknown>;
@@ -228,12 +246,20 @@ Deno.test("the generated jobs object exposes known names and the custom table ar
 });
 
 Deno.test("the generated applicability list enrolls exactly the canonical known jobs", () => {
-  const live = JSON.parse(renderConfigSchemaJson()) as Record<string, unknown>;
+  const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
   const notApplicable = schemaNodeAt(live, "assurance.not_applicable");
   assertEquals(notApplicable.uniqueItems, true);
   assert(isJsonObject(notApplicable.items));
   assertEquals(
-    [...(notApplicable.items.enum as string[])].sort(),
+    (() => {
+      const values = notApplicable.items.enum;
+      assert(
+        Array.isArray(values) &&
+          values.every((value) => typeof value === "string"),
+        "assurance.not_applicable items must publish a string enum",
+      );
+      return [...values].sort();
+    })(),
     Object.keys(KNOWN_JOBS).sort(),
   );
 });
@@ -404,11 +430,12 @@ async function assertConfigValidatesAgainstNamedSchema(
     publication !== undefined,
     `${label} names ${url}, which is not a registered public schema id`,
   );
-  const artifact = JSON.parse(
+  const artifact = decodeWith(
+    JsonObjectSchema,
     await Deno.readTextFile(
       new URL(`../${publication.artifactPath}`, import.meta.url),
     ),
-  ) as Record<string, unknown>;
+  );
   const validate = new Ajv2020({
     allErrors: true,
     strict: false,

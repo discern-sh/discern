@@ -23,6 +23,7 @@ import {
 import type { TerminalAnimationEnvironment } from "../src/lib/terminal_animation.ts";
 import { runAgentPty } from "./engine_helpers.ts";
 import { fromFileUrl } from "@std/path";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const CSI = `${String.fromCharCode(27)}[`;
@@ -128,11 +129,8 @@ Deno.test("triangle --json emits one faithful result envelope and exits 0", asyn
     console.log = original;
   }
   assertEquals(code, 0);
-  const envelope = JSON.parse(lines.join("\n")) as {
-    ok: boolean;
-    verb: string;
-    data: { mark: string; art: string };
-  };
+  const envelope = decodeCliResult(lines.join("\n"), "triangle");
+  assertResultDataKey(envelope, "mark");
   assertEquals(envelope.ok, true);
   assertEquals(envelope.verb, "triangle");
   assertEquals(envelope.data.mark, DISCERN_MARK);

@@ -22,30 +22,19 @@ import {
   type VerbEvent,
 } from "../src/engine/logbook/schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import type { PatternsFinding } from "../src/shared/patterns_vocabulary.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
+import {
+  type CliJsonResultCommand,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 const BRANCH_SUMMARY =
   "This branch had repeated red Gates in one conversation.";
 const SESSION_SUMMARY = "The same command refusal recurred on this branch.";
 const SESSION_NEXT =
   "Read the refusal message and satisfy the precondition it names before retrying. If the same precondition keeps recurring, capture the lesson with the `discern-teach-the-project` skill.";
-
-interface ResultEnvelope {
-  ok: boolean;
-  verb: string;
-  error?: string;
-  hints?: string[];
-  data?: Record<string, unknown>;
-}
-
-interface HistoricalFinding {
-  detector: string;
-  observed: string;
-  evidence: Record<string, number>;
-  strength: number;
-  next_step: string;
-  scope: "branch" | "session" | "project";
-}
 
 /** A deterministic timestamp `n` minutes after the fixture epoch. */
 function at(n: number): string {
@@ -180,25 +169,29 @@ async function proofBranch(
 }
 
 /** Decode a command result whose historical-finding projection is compared across surfaces. */
-function parse(stdout: string): ResultEnvelope {
-  return JSON.parse(stdout) as ResultEnvelope;
+function parse<Command extends CliJsonResultCommand>(
+  stdout: string,
+  command: Command,
+): CliResultForCommand<Command> {
+  return decodeCliResult(stdout, command);
 }
 
 /** Extract historical findings from an envelope while treating an absent group as empty. */
-function history(result: ResultEnvelope): HistoricalFinding[] {
-  const group = result.data?.history as
-    | { findings?: HistoricalFinding[] }
-    | undefined;
-  return group?.findings ?? [];
+function history(
+  result: CliResultForCommand<"improvement">,
+): PatternsFinding[] {
+  return result.data !== undefined && "history" in result.data
+    ? result.data.history?.findings ?? []
+    : [];
 }
 
 /** Remove the history projection from a clone so unrelated envelope data can be compared. */
-function withoutHistory(data: Record<string, unknown> | undefined): unknown {
-  if (data === undefined) {
+function withoutHistory(data: unknown): unknown {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
     return undefined;
   }
   const copy = structuredClone(data);
-  delete copy.history;
+  Reflect.deleteProperty(copy, "history");
   return copy;
 }
 
@@ -210,13 +203,14 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
     // command records afterwards; the seed below replaces that month file.
     const baselineRun = await runAgent(worktree, ["improvement", "--json"]);
     assertEquals(baselineRun.code, 0, baselineRun.output);
-    const baseline = parse(baselineRun.stdout);
+    const baseline = parse(baselineRun.stdout, "improvement");
     await seedMixedLogbook(main);
 
     const doneRun = await runAgent(worktree, ["done", "--json"]);
     assertEquals(doneRun.code, 0, doneRun.output);
-    const done = parse(doneRun.stdout);
+    const done = parse(doneRun.stdout, "done");
     assertEquals(done.ok, true);
+    assert(done.data !== undefined && "failed_stage" in done.data);
     assertEquals(done.data?.failed_stage, null);
     assert(
       done.data?.proof !== undefined,
@@ -235,7 +229,7 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
 
     const statusRun = await runAgent(worktree, ["status", "--json"]);
     assertEquals(statusRun.code, 0, statusRun.output);
-    const status = parse(statusRun.stdout);
+    const status = parse(statusRun.stdout, "status");
     assertHasHint(status, HINTS["logbook-status-finding"], {
       summary: SESSION_SUMMARY,
       next: SESSION_NEXT,
@@ -246,7 +240,7 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
       "--json",
     ]);
     assertEquals(improvementRun.code, 0, improvementRun.output);
-    const improvement = parse(improvementRun.stdout);
+    const improvement = parse(improvementRun.stdout, "improvement");
     assertEquals(improvement.ok, baseline.ok);
     assertEquals(
       withoutHistory(improvement.data),
@@ -269,11 +263,9 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
 
     const patternsRun = await runAgent(worktree, ["patterns", "--json"]);
     assertEquals(patternsRun.code, 0, patternsRun.output);
-    const patterns = parse(patternsRun.stdout);
-    const patternData = patterns.data as
-      | { findings?: HistoricalFinding[] }
-      | undefined;
-    const ids = new Set((patternData?.findings ?? []).map((f) => f.detector));
+    const patterns = parse(patternsRun.stdout, "patterns");
+    assert(patterns.data !== undefined && "findings" in patterns.data);
+    const ids = new Set(patterns.data.findings.map((f) => f.detector));
     for (
       const id of [
         "done-thrash",
@@ -292,10 +284,11 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
       "--json",
     ]);
     assertEquals(acceptRun.code, 0, acceptRun.output);
-    const accepted = parse(acceptRun.stdout);
-    const gateValidation = accepted.data?.gate_validation as
-      | { mode?: string }
-      | undefined;
+    const accepted = parse(acceptRun.stdout, "accept");
+    assert(
+      accepted.data !== undefined && "gate_validation" in accepted.data,
+    );
+    const gateValidation = accepted.data.gate_validation;
     assertEquals(
       gateValidation?.mode,
       "proof",
@@ -321,7 +314,7 @@ Deno.test("done finding line is absent on red, while quiet, and with recording o
         await seedMixedLogbook(main);
       }
       const run = await runAgent(worktree, ["done", "--json"]);
-      const result = parse(run.stdout);
+      const result = parse(run.stdout, "done");
       assertEquals(result.ok, fixture.test === "true", fixture.name);
       assertLacksHint(result, HINTS["logbook-proof-finding"], {
         count: 2,
@@ -352,12 +345,13 @@ Deno.test("status suppresses session findings until setup is bootstrapped", asyn
 
     const run = await runAgent(dir, ["status", "--json"]);
     assertEquals(run.code, 0, run.output);
-    const result = parse(run.stdout);
+    const result = parse(run.stdout, "status");
     assertLacksHint(result, HINTS["logbook-status-finding"], {
       summary: SESSION_SUMMARY,
       next: SESSION_NEXT,
     });
-    assert(result.data?.setup_unfinished !== undefined);
+    assert(result.data !== undefined && "location" in result.data);
+    assert(result.data.setup_unfinished !== undefined);
   });
 });
 
@@ -388,7 +382,7 @@ Deno.test("status does not correct an owner for interactive refusal history", as
 
     const run = await runAgent(dir, ["status", "--json"]);
     assertEquals(run.code, 0, run.output);
-    const result = parse(run.stdout);
+    const result = parse(run.stdout, "status");
     assertLacksHint(result, HINTS["logbook-status-finding"], {
       summary: SESSION_SUMMARY,
       next: SESSION_NEXT,
@@ -405,7 +399,7 @@ Deno.test("improvement names its missing history while recording is off, and onl
     const offRun = await runAgent(dir, ["improvement", "--json"]);
     assertEquals(offRun.code, 0, offRun.output);
     const expected = assertHasHint(
-      parse(offRun.stdout),
+      parse(offRun.stdout, "improvement"),
       HINTS["improvement-logbook-off"],
     );
     const human = await runAgent(dir, ["improvement"]);
@@ -415,6 +409,9 @@ Deno.test("improvement names its missing history while recording is off, and onl
     await writeConfig(dir, gateConfig("true", true));
     const onRun = await runAgent(dir, ["improvement", "--json"]);
     assertEquals(onRun.code, 0, onRun.output);
-    assertLacksHint(parse(onRun.stdout), HINTS["improvement-logbook-off"]);
+    assertLacksHint(
+      parse(onRun.stdout, "improvement"),
+      HINTS["improvement-logbook-off"],
+    );
   });
 });

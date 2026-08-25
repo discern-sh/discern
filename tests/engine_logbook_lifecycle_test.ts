@@ -27,10 +27,6 @@ import {
   GIT_ADMIN_STATE_KEYS,
   gitAdminStatePath,
 } from "../src/shared/git_admin_state.ts";
-import {
-  PatternsArchivesOutputSchema,
-  PatternsOutputSchema,
-} from "../src/shared/result_schemas.ts";
 import type {
   PatternsArchivesData,
   PatternsData,
@@ -53,6 +49,27 @@ import { runPatternsLifecycle } from "../src/engine/logbook/patterns.ts";
 import { logbookLifecycleConfirmation } from "../src/engine/dispatch.ts";
 import { InteractionCancelled } from "../src/lib/terminal_interaction.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+
+/** Decode a patterns report whose successful payload is required by the test. */
+function patternsData(stdout: string): PatternsData {
+  const result = decodeCliResult(stdout, "patterns");
+  assert(
+    result.data !== undefined && "logbook" in result.data,
+    `patterns result must carry report data: ${stdout}`,
+  );
+  return result.data;
+}
+
+/** Decode an archive listing whose successful payload is required by the test. */
+function patternsArchivesData(stdout: string): PatternsArchivesData {
+  const result = decodeCliResult(stdout, "patterns archives");
+  assert(
+    result.data !== undefined && "archives" in result.data,
+    `patterns archives result must carry listing data: ${stdout}`,
+  );
+  return result.data;
+}
 
 /** One well-formed recorded completion line. */
 function verbLine(
@@ -191,7 +208,7 @@ Deno.test("Logbook lifecycle apply refuses machine mode without changing active 
         "--json",
       ]);
       assertEquals(result.code, 1, `${action}\n${result.output}`);
-      const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
+      const parsed = decodeCliResult(result.stdout, `patterns ${action}`);
       assertEquals(parsed.ok, false, `${action}\n${result.output}`);
       assertEquals(parsed.verb, `patterns ${action}`);
       assertEquals(parsed.error, "confirmation_required");
@@ -253,19 +270,18 @@ Deno.test({
           const label = `${action}: ${testCase.name}\n${result.output}`;
           assertEquals(result.code, 0, label);
           if (testCase.name === "JSON pipe") {
-            const parsed = JSON.parse(result.stdout) as {
-              dry_run?: boolean;
-              data?: { events?: number; bytes?: number; source_bytes?: number };
-            };
-            assertEquals(parsed.dry_run, true, label);
-            assertEquals(parsed.data?.events, 1, label);
-            assert(
-              (parsed.data?.bytes ?? parsed.data?.source_bytes ?? 0) > 0,
-              label,
+            const parsed = decodeCliResult(
+              result.stdout,
+              `patterns ${action}`,
             );
+            assertEquals(parsed.dry_run, true, label);
+            assertResultDataKey(parsed, "events");
+            assertEquals(parsed.data.events, 1, label);
             if (action === "reset") {
+              assertResultDataKey(parsed, "impacts");
+              assert(parsed.data.bytes > 0, label);
               assertEquals(
-                (parsed.data as { impacts?: unknown }).impacts,
+                parsed.data.impacts,
                 LOGBOOK_POWERED.map(({ key, phrase, surface }) => ({
                   key,
                   phrase,
@@ -273,6 +289,9 @@ Deno.test({
                 })),
                 "reset impact scope must derive from LOGBOOK_POWERED",
               );
+            } else {
+              assertResultDataKey(parsed, "source_bytes");
+              assert(parsed.data.source_bytes > 0, label);
             }
           } else {
             assertTerminalTextIncludes(result.output, "Events: 1", label);
@@ -417,7 +436,7 @@ Deno.test("Logbook lifecycle exposes no unattended confirmation bypass", async (
           "--json",
         ]);
         assertEquals(result.code, 2, result.output);
-        const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
+        const parsed = decodeCliResult(result.stdout, `patterns ${action}`);
         assertEquals(parsed.ok, false);
         assertEquals(parsed.error, "invalid_arguments");
         assertEquals(await Deno.readTextFile(active), before);
@@ -497,9 +516,7 @@ Deno.test({
         "--json",
       ]);
       assertEquals(listing.code, 0, listing.output);
-      const listingData = PatternsArchivesOutputSchema.parse(
-        JSON.parse(listing.stdout),
-      ).data as PatternsArchivesData;
+      const listingData = patternsArchivesData(listing.stdout);
       assertEquals(listingData.archives, [{
         filename,
         events: 3,
@@ -526,9 +543,7 @@ Deno.test({
         "--json",
       ]);
       assertEquals(historical.code, 0, historical.output);
-      const historicalData = PatternsOutputSchema.parse(
-        JSON.parse(historical.stdout),
-      ).data as PatternsData;
+      const historicalData = patternsData(historical.stdout);
       assertEquals(historicalData.logbook.source, {
         kind: "archive",
         filename,
@@ -544,8 +559,7 @@ Deno.test({
         "--json",
       ]);
       assertEquals(stats.code, 0, stats.output);
-      const statsData = PatternsOutputSchema.parse(JSON.parse(stats.stdout))
-        .data as PatternsData;
+      const statsData = patternsData(stats.stdout);
       assert(statsData.stats !== undefined, "historical stats must be present");
       assertEquals(statsData.logbook.source, {
         kind: "archive",
@@ -685,7 +699,7 @@ Deno.test("historical Logbook selection accepts only regular registered archive 
         "--json",
       ]);
       assertEquals(result.code, 1, `${selected}\n${result.output}`);
-      const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
+      const parsed = decodeCliResult(result.stdout, "patterns");
       assertEquals(parsed.ok, false);
       assertEquals(parsed.error, "invalid_arguments", selected);
       assertEquals(await Deno.readFile(archivePath), before);
@@ -699,7 +713,7 @@ Deno.test("historical Logbook selection accepts only regular registered archive 
     ]);
     assertEquals(missing.code, 1, missing.output);
     assertEquals(
-      (JSON.parse(missing.stdout) as Record<string, unknown>).error,
+      decodeCliResult(missing.stdout, "patterns").error,
       "not_found",
     );
     assertEquals(await Deno.readFile(archivePath), before);

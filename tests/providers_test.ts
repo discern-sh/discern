@@ -8,6 +8,7 @@
 import {
   assert,
   assertEquals,
+  assertExists,
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
@@ -30,6 +31,8 @@ import {
   wireProviderWorktreeApp as wireProviderWorktreeAppFromRegistry,
 } from "../src/lib/providers.ts";
 import { parse as parseToml } from "@std/toml";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
 import {
   type DiscernConfig,
   parseConfigOrThrow,
@@ -39,6 +42,56 @@ import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.t
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
+const McpServerSchema = z.object({
+  type: z.string().optional(),
+  command: z.string(),
+  args: z.array(z.string()).optional(),
+  timeout: z.number().optional(),
+  alwaysLoad: z.boolean().optional(),
+  deferTools: z.string().optional(),
+}).passthrough();
+
+const McpConfigSchema = z.object({
+  mcpServers: z.object({
+    discern: McpServerSchema,
+    other: McpServerSchema.optional(),
+  }).passthrough(),
+  someTopLevelKey: z.boolean().optional(),
+}).passthrough();
+
+const ClaudeSettingsSchema = z.object({
+  enabledMcpjsonServers: z.array(z.string()),
+  permissions: z.object({
+    deny: z.array(z.string()),
+  }).passthrough().optional(),
+}).passthrough();
+
+const CommandHookSchema = z.object({
+  type: z.literal("command"),
+  command: z.string(),
+}).passthrough();
+
+const HookRegistrationSchema = z.object({
+  matcher: z.string().optional(),
+  hooks: z.array(CommandHookSchema),
+}).passthrough();
+
+const GeminiSettingsSchema = z.object({
+  mcpServers: z.object({
+    discern: McpServerSchema,
+    other: McpServerSchema.optional(),
+  }).passthrough(),
+  hooksConfig: z.object({
+    enabled: z.boolean(),
+  }).passthrough().optional(),
+  hooks: z.record(z.string(), z.array(HookRegistrationSchema)).optional(),
+}).passthrough();
+
+const DynamicServerMapSchema = z.object({
+  mcpServers: z.record(z.string(), McpServerSchema).optional(),
+  zzPreExistingUserKey: z.string().optional(),
+}).catchall(McpServerSchema);
+
 import {
   CURSOR_CLI_TOOL_TIMEOUT_SECONDS,
   MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
@@ -305,14 +358,18 @@ Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempote
     );
     assert(first.firstInstall, "a fresh wire must report firstInstall");
 
-    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    const mcp = decodeWith(
+      McpConfigSchema,
+      await Deno.readTextFile(join(dir, ".mcp.json")),
+    );
     assertEquals(mcp.mcpServers.discern, {
       type: "stdio",
       command: "discern",
       args: ["mcp", MCP_LONG_TOOL_CALLS_FLAG],
       timeout: MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS * 1000,
     });
-    const settings = JSON.parse(
+    const settings = decodeWith(
+      ClaudeSettingsSchema,
       await Deno.readTextFile(join(dir, ".claude/settings.json")),
     );
     assertEquals(settings.enabledMcpjsonServers, ["discern"]);
@@ -370,7 +427,8 @@ Deno.test("the MCP preload experiment projects only configured providers' shared
         fakeEnv({ [variable]: "1" }),
       );
       assert(first.written.includes(testCase.file));
-      let entry = JSON.parse(
+      let entry = decodeWith(
+        McpConfigSchema,
         await Deno.readTextFile(join(dir, testCase.file)),
       ).mcpServers.discern;
       assertEquals(entry.alwaysLoad, testCase.alwaysLoad);
@@ -383,7 +441,8 @@ Deno.test("the MCP preload experiment projects only configured providers' shared
         parseConfigOrThrow(""),
         fakeEnv({ [variable]: "true" }),
       );
-      entry = JSON.parse(
+      entry = decodeWith(
+        McpConfigSchema,
         await Deno.readTextFile(join(dir, testCase.file)),
       ).mcpServers.discern;
       assertEquals(entry.alwaysLoad, undefined);
@@ -407,7 +466,10 @@ Deno.test("wireProviderMcp MERGES into an existing .mcp.json, preserving other s
     // Adding discern next to an existing server is NOT a no-op, but the discern
     // name was absent → still a first install.
     assert(r.firstInstall, "discern was absent → firstInstall");
-    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    const mcp = decodeWith(
+      McpConfigSchema,
+      await Deno.readTextFile(join(dir, ".mcp.json")),
+    );
     assertEquals(mcp.mcpServers.other, {
       type: "stdio",
       command: "other-tool",
@@ -463,9 +525,11 @@ Deno.test("wireProviderMcp preserves existing settings and unions the approval l
       ),
     );
     await wireProviderMcp(dir, ["claude_code"]);
-    const settings = JSON.parse(
+    const settings = decodeWith(
+      ClaudeSettingsSchema,
       await Deno.readTextFile(join(dir, ".claude/settings.json")),
     );
+    assertExists(settings.permissions);
     assertEquals(settings.permissions.deny, ["Read(./.env)"]); // preserved
     assertEquals(settings.enabledMcpjsonServers, ["other", "discern"]); // unioned
   });
@@ -477,7 +541,8 @@ Deno.test("wireProviderMcp wires Gemini: mcpServers.discern into .gemini/setting
     assertEquals(first.written, [".gemini/settings.json"]);
     assert(first.firstInstall, "a fresh Gemini wire must report firstInstall");
 
-    const settings = JSON.parse(
+    const settings = decodeWith(
+      GeminiSettingsSchema,
       await Deno.readTextFile(join(dir, ".gemini/settings.json")),
     );
     // Gemini infers stdio from `command` — no `type` field (unlike Claude's .mcp.json).
@@ -516,10 +581,14 @@ Deno.test("wireProviderMcp Gemini DEEP-MERGES, preserving the seeded hooks block
     );
     const r = await wireProviderMcp(dir, ["gemini"]);
     assert(r.firstInstall, "discern was absent → firstInstall");
-    const settings = JSON.parse(
+    const settings = decodeWith(
+      GeminiSettingsSchema,
       await Deno.readTextFile(join(dir, ".gemini/settings.json")),
     );
+    assertExists(settings.hooksConfig);
     assertEquals(settings.hooksConfig.enabled, true); // seeded hook preserved
+    assertExists(settings.hooks);
+    assertExists(settings.hooks.SessionStart);
     assertEquals(settings.hooks.SessionStart.length, 1);
     assertEquals(settings.mcpServers.other, { command: "other-tool" }); // preserved
     assertEquals(settings.mcpServers.discern.command, "discern"); // added
@@ -916,7 +985,8 @@ Deno.test("wireProviderMcp wires Cursor: type:stdio mcpServers.discern into .cur
     assertEquals(first.written, [".cursor/mcp.json"]);
     assert(first.firstInstall, "a fresh Cursor wire must report firstInstall");
 
-    const mcp = JSON.parse(
+    const mcp = decodeWith(
+      McpConfigSchema,
       await Deno.readTextFile(join(dir, ".cursor/mcp.json")),
     );
     // Cursor requires an explicit type: "stdio" (unlike Gemini, which infers it).
@@ -952,7 +1022,8 @@ Deno.test("wireProviderMcp Cursor MERGES into an existing .cursor/mcp.json, pres
     );
     const r = await wireProviderMcp(dir, ["cursor"]);
     assert(r.firstInstall, "discern was absent → firstInstall");
-    const mcp = JSON.parse(
+    const mcp = decodeWith(
+      McpConfigSchema,
       await Deno.readTextFile(join(dir, ".cursor/mcp.json")),
     );
     assertEquals(mcp.mcpServers.other, {
@@ -970,7 +1041,10 @@ Deno.test("wireProviderMcp wires Copilot: into .mcp.json with NO enabledMcpjsonS
     assertEquals(first.written, [".mcp.json"]);
     assert(first.firstInstall, "a fresh Copilot wire must report firstInstall");
 
-    const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    const mcp = decodeWith(
+      McpConfigSchema,
+      await Deno.readTextFile(join(dir, ".mcp.json")),
+    );
     assertEquals(mcp.mcpServers.discern, {
       type: "stdio",
       command: "discern",
@@ -1002,7 +1076,10 @@ Deno.test("Copilot co-owns Claude's .mcp.json: one byte-identical entry, order-i
       const r = await wireProviderMcp(dir, order);
       assert(r.firstInstall, "the server was newly added → firstInstall");
 
-      const mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+      const mcp = decodeWith(
+        McpConfigSchema,
+        await Deno.readTextFile(join(dir, ".mcp.json")),
+      );
       // Exactly one discern entry, byte-identical to the shared shape.
       assertEquals(Object.keys(mcp.mcpServers), ["discern"]);
       assertEquals(mcp.mcpServers.discern, {
@@ -1013,7 +1090,8 @@ Deno.test("Copilot co-owns Claude's .mcp.json: one byte-identical entry, order-i
       });
       // Claude (in either order) still pre-approves the server; Copilot adds no
       // second registration.
-      const settings = JSON.parse(
+      const settings = decodeWith(
+        ClaudeSettingsSchema,
         await Deno.readTextFile(join(dir, ".claude/settings.json")),
       );
       assertEquals(settings.enabledMcpjsonServers, ["discern"]);
@@ -1223,7 +1301,7 @@ Deno.test("the wired-writer detector rejects a non-idempotent future provider (u
       const path = join(root, rel);
       await Deno.mkdir(dirname(path), { recursive: true });
       const existing = (await readTextIfExists(path)) ?? "{}";
-      const doc = JSON.parse(existing) as Record<string, unknown>;
+      const doc = decodeWith(DynamicServerMapSchema, existing);
       doc[`discern-run-${runs}`] = { command: "discern" };
       await Deno.writeTextFile(path, JSON.stringify(doc, null, 2));
       return { written: [rel], firstInstall: runs === 1 };

@@ -29,32 +29,15 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
+import type { GateWireData } from "../src/shared/result_schemas.ts";
+import {
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
-interface JsonStep {
-  label: string;
-  outcome: string;
-  note?: string;
-}
-
-interface GateJson {
-  ok: boolean;
-  steps?: JsonStep[];
-  diagnostics?: Array<{ tool: string; message: string }>;
-  data?: {
-    failed_stage: string | null;
-    standards?: Array<{
-      name: string;
-      measurement: string;
-      value?: number;
-      verdict?: string;
-      replayed_from?: string;
-      margin?: number;
-      pin_eligible?: boolean;
-      pin_target?: number;
-    }>;
-    proof?: { markdown: string };
-  };
-}
+type GateJson = Omit<CliResultForCommand<"done">, "data"> & {
+  data: GateWireData;
+};
 
 /** A config whose one standard counts its own invocations into `runs.count`
  * (gitignored, so a measurement never dirties the tree) and declares `src/**`
@@ -117,7 +100,9 @@ async function commitDocsChange(dir: string): Promise<void> {
 
 /** Decode the done envelope used to inspect replay source and measurement facts. */
 function parseGate(stdout: string): GateJson {
-  return JSON.parse(stdout.trim()) as GateJson;
+  const result = decodeCliResult(stdout, "done");
+  assert(result.data !== undefined && "failed_stage" in result.data);
+  return { ...result, data: result.data };
 }
 
 Deno.test("replay: untouched inputs replay the recorded value — no re-measure, the source commit named in step and envelope", async () => {

@@ -25,6 +25,7 @@ import {
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 Deno.test("engine on non-default paths: refresh compiles instructions and renders skills to the configured layout", async () => {
   await withTempDir(async (dir) => {
@@ -102,7 +103,7 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
     // The full gate passes on the repointed layout exactly as on the default one.
     r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(JSON.parse(r.stdout).ok, true, r.output);
+    assertEquals(decodeCliResult(r.stdout, "done").ok, true, r.output);
 
     // Repoint the map tree AGAIN (a user moving a convention): the rendered
     // skills go stale, status reports it, and `done` refuses until refresh.
@@ -114,8 +115,9 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
 
     r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const stale: Array<{ name: string }> =
-      JSON.parse(r.stdout).data.stale_materialized ?? [];
+    const status = decodeCliResult(r.stdout, "status");
+    assert(status.data !== undefined && "location" in status.data, r.stdout);
+    const stale = status.data.stale_materialized ?? [];
     assert(
       stale.length > 0,
       `status must flag rendered skills stale after a repoint\n${r.stdout}`,

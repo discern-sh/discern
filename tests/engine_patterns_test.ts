@@ -29,14 +29,7 @@ import {
   GIT_ADMIN_STATE_KEYS,
   gitAdminStatePath,
 } from "../src/shared/git_admin_state.ts";
-import {
-  PatternsOutputSchema,
-  PatternsResetOutputSchema,
-} from "../src/shared/result_schemas.ts";
-import type {
-  PatternsData,
-  PatternsResetData,
-} from "../src/shared/result_schemas.ts";
+import type { PatternsData } from "../src/shared/result_schemas.ts";
 import {
   DETECTOR_FAMILIES,
   PATTERN_EVIDENCE_CONDITION_VALUES_MAX,
@@ -67,6 +60,7 @@ import {
 } from "../src/engine/logbook/detectors.ts";
 import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /** One synthetic format-selected CLI event on its own branch. */
 function seededEvent(
@@ -1097,9 +1091,10 @@ Deno.test("patterns: an empty logbook is a first-class state with a helpful mess
     await gitInit(dir);
     const r = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(r.stdout));
+    const parsed = decodeCliResult(r.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
     assertEquals(parsed.ok, true);
-    const data = parsed.data as PatternsData;
+    const data = parsed.data;
     assertEquals(data.logbook.events, 0);
     assertEquals(data.population, {
       analyzed: 0,
@@ -1125,9 +1120,10 @@ Deno.test("patterns: a seeded logbook yields two-layer findings that validate", 
     await seedLogbook(dir);
     const r = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(r.stdout));
+    const parsed = decodeCliResult(r.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
     assertEquals(parsed.ok, true);
-    const data = parsed.data as PatternsData;
+    const data = parsed.data;
     assert(data.logbook.events >= 5, "the seeded events must be read");
     assertEquals(
       data.logbook.unparsed,
@@ -1176,9 +1172,10 @@ Deno.test("patterns: the report keeps each detector's strongest findings and --a
 
     const capped = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(capped.code, 0, capped.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(capped.stdout));
+    const parsed = decodeCliResult(capped.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
     assertEquals(parsed.ok, true);
-    const data = parsed.data as PatternsData;
+    const data = parsed.data;
     const thrash = data.findings.filter((f) => f.detector === "done-thrash");
     assertEquals(
       thrash.length,
@@ -1191,8 +1188,9 @@ Deno.test("patterns: the report keeps each detector's strongest findings and --a
 
     const all = await runAgent(dir, ["patterns", "--json", "--all"]);
     assertEquals(all.code, 0, all.output);
-    const allParsed = PatternsOutputSchema.parse(JSON.parse(all.stdout));
-    const allData = allParsed.data as PatternsData;
+    const allParsed = decodeCliResult(all.stdout, "patterns");
+    assertResultDataKey(allParsed, "logbook");
+    const allData = allParsed.data;
     assertEquals(
       allData.findings.filter((f) => f.detector === "done-thrash").length,
       branches,
@@ -1280,9 +1278,10 @@ Deno.test("patterns: generator gate share names the heaviest generated groups on
 
     const result = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(result.stdout));
+    const parsed = decodeCliResult(result.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
     assertEquals(parsed.ok, true);
-    const data = parsed.data as PatternsData;
+    const data = parsed.data;
     const findings = data.findings.filter((finding) =>
       finding.detector === "generator-gate-share"
     );
@@ -1380,8 +1379,9 @@ Deno.test("patterns: Standard variance investigations retain raw findings across
 
     const json = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const active = PatternsOutputSchema.parse(JSON.parse(json.stdout))
-      .data as PatternsData;
+    const activeResult = decodeCliResult(json.stdout, "patterns");
+    assertResultDataKey(activeResult, "logbook");
+    const active = activeResult.data;
     const investigation = active.investigations[0];
     assertEquals(investigation?.id, "standard-variance/coverage");
     assertEquals(investigation?.finding_ids, ["standard-trajectory"]);
@@ -1443,8 +1443,9 @@ Deno.test("patterns: current catalogue knowledge reinterprets historical raw MCP
 
     const result = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(result.code, 0, result.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(result.stdout));
-    const data = parsed.data as PatternsData;
+    const parsed = decodeCliResult(result.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
+    const data = parsed.data;
     assertEquals(data.population.identities, [
       { agent: "cursor", label: "Cursor", runs: 5 },
     ]);
@@ -1477,15 +1478,17 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     // Without the flag, the payload stays lean: no stats key at all.
     const plain = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(plain.code, 0, plain.output);
-    const plainData = PatternsOutputSchema.parse(JSON.parse(plain.stdout))
-      .data as PatternsData;
+    const plainResult = decodeCliResult(plain.stdout, "patterns");
+    assertResultDataKey(plainResult, "logbook");
+    const plainData = plainResult.data;
     assert(!("stats" in plainData), "stats is computed only when asked for");
 
     const json = await runAgent(dir, ["patterns", "--stats", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    const parsed = decodeCliResult(json.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
     assertEquals(parsed.ok, true);
-    const stats = (parsed.data as PatternsData).stats;
+    const stats = parsed.data.stats;
     assert(stats !== undefined, "the flag must carry data.stats");
     assertEquals(stats.accepted, {
       count: 2,
@@ -1737,8 +1740,9 @@ Deno.test("patterns --stats: an empty logbook renders the empty state, and the w
 
     const json = await runAgent(dir, ["patterns", "--stats", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const stats = (PatternsOutputSchema.parse(JSON.parse(json.stdout))
-      .data as PatternsData).stats;
+    const result = decodeCliResult(json.stdout, "patterns");
+    assertResultDataKey(result, "logbook");
+    const stats = result.data.stats;
     assert(stats !== undefined);
     assertEquals(stats.accepted.count, 0);
     assertEquals(stats.gate.runs, 0);
@@ -1755,9 +1759,10 @@ Deno.test("patterns: seeded hint episodes report raw outcomes through JSON and t
 
     const json = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    const parsed = decodeCliResult(json.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
     assert(parsed.ok && parsed.data !== undefined);
-    const data = parsed.data as PatternsData;
+    const data = parsed.data;
     const findings = data.findings.filter((finding) =>
       finding.detector === "hint-follow-through"
     );
@@ -1813,9 +1818,10 @@ Deno.test("patterns: seeded tip episodes report cross-surface adoption and favor
 
     const json = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    const parsed = decodeCliResult(json.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
     assert(parsed.ok && parsed.data !== undefined);
-    const findings = (parsed.data as PatternsData).findings.filter((finding) =>
+    const findings = parsed.data.findings.filter((finding) =>
       finding.detector === "tip-adoption"
     );
     assertEquals(
@@ -2082,9 +2088,10 @@ Deno.test("patterns: validation relationships preserve structured evidence and c
 
     const json = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    const parsed = decodeCliResult(json.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
     assert(parsed.ok && parsed.data !== undefined);
-    const data = parsed.data as PatternsData;
+    const data = parsed.data;
     const strict = data.findings.find((finding) =>
       finding.detector === "same-tree-flake"
     );
@@ -2143,9 +2150,10 @@ Deno.test("patterns: high-cardinality validation contexts stay bounded and discl
 
     const json = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    const parsed = decodeCliResult(json.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
     assert(parsed.ok && parsed.data !== undefined);
-    const data = parsed.data as PatternsData;
+    const data = parsed.data;
     const finding = data.findings.find((candidate) =>
       candidate.detector === "execution-context-divergence"
     );
@@ -2214,9 +2222,10 @@ Deno.test("patterns: a 200-reading standard stays bounded on the wire and render
 
     const json = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    const parsed = decodeCliResult(json.stdout, "patterns");
+    assertResultDataKey(parsed, "logbook");
     assert(parsed.ok && parsed.data !== undefined);
-    const data = parsed.data as PatternsData;
+    const data = parsed.data;
     const trajectory = data.findings.find((finding) =>
       finding.detector === "standard-trajectory" &&
       finding.subject === "recovery"
@@ -2603,11 +2612,10 @@ Deno.test("patterns reset: preview is read-only and terminal apply removes exact
       "--json",
     ]);
     assertEquals(preview.code, 0, preview.output);
-    const previewParsed = PatternsResetOutputSchema.parse(
-      JSON.parse(preview.stdout),
-    );
+    const previewParsed = decodeCliResult(preview.stdout, "patterns reset");
+    assertResultDataKey(previewParsed, "removed");
     assertEquals(previewParsed.dry_run, true);
-    const previewData = previewParsed.data as PatternsResetData;
+    const previewData = previewParsed.data;
     assert(
       previewData.removed.some((f) => f.file === "2026-06.jsonl"),
       "the plan must list the month file",
@@ -2621,9 +2629,7 @@ Deno.test("patterns reset: preview is read-only and terminal apply removes exact
     const before = await Deno.readFile(join(logDir, "2026-06.jsonl"));
     const refused = await runAgent(dir, ["patterns", "reset", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const refusedParsed = PatternsResetOutputSchema.parse(
-      JSON.parse(refused.stdout),
-    );
+    const refusedParsed = decodeCliResult(refused.stdout, "patterns reset");
     assertEquals(refusedParsed.error, "confirmation_required");
     assertEquals(
       await Deno.readFile(join(logDir, "2026-06.jsonl")),
@@ -2662,8 +2668,9 @@ Deno.test("patterns reset: preview is read-only and terminal apply removes exact
     // Afterwards the verb reports a genuinely fresh active logbook.
     const after = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(after.code, 0, after.output);
-    const afterData = PatternsOutputSchema.parse(JSON.parse(after.stdout))
-      .data as PatternsData;
+    const afterResult = decodeCliResult(after.stdout, "patterns");
+    assertResultDataKey(afterResult, "logbook");
+    const afterData = afterResult.data;
     assert(
       afterData.logbook.events === 0,
       `the history must be gone, saw ${afterData.logbook.events} events`,
@@ -2678,10 +2685,11 @@ Deno.test("patterns reset: even an empty apply refuses outside a terminal", asyn
     await gitInit(dir);
     const r = await runAgent(dir, ["patterns", "reset", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const parsed = PatternsResetOutputSchema.parse(JSON.parse(r.stdout));
+    const parsed = decodeCliResult(r.stdout, "patterns reset");
+    assertResultDataKey(parsed, "removed");
     assertEquals(parsed.ok, false);
     assertEquals(parsed.error, "confirmation_required");
-    assertEquals((parsed.data as PatternsResetData).removed, []);
+    assertEquals(parsed.data.removed, []);
   });
 });
 

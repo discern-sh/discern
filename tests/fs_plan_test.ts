@@ -13,6 +13,7 @@
 import {
   assert,
   assertEquals,
+  assertExists,
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
@@ -37,6 +38,26 @@ import {
 import { settingsSeeds } from "../src/lib/providers.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const SettingsHookSchema = z.object({
+  hooks: z.array(
+    z.object({
+      type: z.string(),
+      command: z.string(),
+    }).passthrough(),
+  ),
+}).passthrough();
+
+const ClaudeSettingsSchema = z.object({
+  model: z.string().optional(),
+  permissions: z.object({ deny: z.array(z.string()) }).passthrough(),
+  hooks: z.object({
+    WorktreeCreate: z.array(SettingsHookSchema),
+    SessionStart: z.array(SettingsHookSchema),
+  }).passthrough(),
+}).passthrough();
 
 /** Build and apply an init-style plan over the fixture tree into `dir` (the
  * binary's skills/ + instructions/ subtrees excluded, exactly as `setup` does). */
@@ -192,11 +213,18 @@ Deno.test("excludeNonSeed skips the binary's skills/ and instructions/ subtrees"
 Deno.test("init creates .claude/settings.json from the template when absent", async () => {
   await withTempDir(async (dir) => {
     await scaffold(dir);
-    const settings = JSON.parse(await readTarget(dir, ".claude/settings.json"));
+    const settings = decodeWith(
+      ClaudeSettingsSchema,
+      await readTarget(dir, ".claude/settings.json"),
+    );
     assertEquals(settings.permissions.deny, ["Read(./.env)"]);
     // The branch_prefix token was substituted inside the hook command.
+    const worktreeCreate = settings.hooks.WorktreeCreate[0];
+    assertExists(worktreeCreate);
+    const commandHook = worktreeCreate.hooks[0];
+    assertExists(commandHook);
     assertStringIncludes(
-      settings.hooks.WorktreeCreate[0].hooks[0].command,
+      commandHook.command,
       "git worktree add -b agent/$name",
     );
   });
@@ -217,7 +245,10 @@ Deno.test("init deep-merges settings into an existing file without clobbering", 
       }),
     );
     await scaffold(dir);
-    const settings = JSON.parse(await readTarget(dir, ".claude/settings.json"));
+    const settings = decodeWith(
+      ClaudeSettingsSchema,
+      await readTarget(dir, ".claude/settings.json"),
+    );
     // User scalar preserved.
     assertEquals(settings.model, "opus");
     // deny unioned: user's first, ours appended.
@@ -258,7 +289,10 @@ Deno.test("settings merge is idempotent across a re-run (no dup hooks)", async (
   await withTempDir(async (dir) => {
     await scaffold(dir);
     await scaffold(dir);
-    const settings = JSON.parse(await readTarget(dir, ".claude/settings.json"));
+    const settings = decodeWith(
+      ClaudeSettingsSchema,
+      await readTarget(dir, ".claude/settings.json"),
+    );
     assertEquals(settings.hooks.SessionStart.length, 1);
     assertEquals(settings.permissions.deny, ["Read(./.env)"]);
   });
