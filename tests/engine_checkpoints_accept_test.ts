@@ -42,22 +42,72 @@ import {
   decodeWith,
 } from "./decode_cli_result.ts";
 
-type AcceptEnvelope = CliResultForCommand<"accept"> & {
-  data: Exclude<
-    NonNullable<CliResultForCommand<"accept">["data"]>,
-    { issues: unknown }
-  >;
-  message: string;
+type AcceptEnvelope = CliResultForCommand<"accept">;
+
+type AcceptWireData = Exclude<
+  NonNullable<AcceptEnvelope["data"]>,
+  { issues: unknown }
+>;
+
+type AcceptMessageEnvelope = AcceptEnvelope & { message: string };
+
+type CheckpointDropAcceptEnvelope = Omit<AcceptEnvelope, "data"> & {
+  data: AcceptWireData & {
+    checkpoint_drops: NonNullable<AcceptWireData["checkpoint_drops"]>;
+  };
+};
+
+type AppliedAcceptEnvelope = Omit<AcceptEnvelope, "data"> & {
+  data: AcceptWireData & {
+    root: string;
+    consent: NonNullable<AcceptWireData["consent"]>;
+  };
 };
 
 const DSSE_ENVELOPE_SCHEMA = z.object({ payload: z.string() }).passthrough();
 
-/** Decode a JSON result envelope. */
-function parseJson(stdout: string): AcceptEnvelope {
-  const result = decodeCliResult(stdout, "accept");
+/** Decode one accept envelope without requiring review or landing data. */
+function parseAcceptJson(stdout: string): AcceptEnvelope {
+  return decodeCliResult(stdout, "accept");
+}
+
+/** Decode an accept refusal whose assertions consume its authored message. */
+function parseAcceptMessageJson(stdout: string): AcceptMessageEnvelope {
+  const result = parseAcceptJson(stdout);
   assert(typeof result.message === "string");
-  assertResultDataKey(result, "landed");
-  return { ...result, data: result.data, message: result.message };
+  return { ...result, message: result.message };
+}
+
+/** Decode an accept review whose assertions consume checkpoint-drop evidence. */
+function parseCheckpointDropAcceptJson(
+  stdout: string,
+): CheckpointDropAcceptEnvelope {
+  const result = parseAcceptJson(stdout);
+  assertResultDataKey(result, "checkpoint_drops");
+  assert(result.data.checkpoint_drops !== undefined);
+  return {
+    ...result,
+    data: {
+      ...result.data,
+      checkpoint_drops: result.data.checkpoint_drops,
+    },
+  };
+}
+
+/** Decode an acceptance that crossed the landing boundary. */
+function parseAppliedAcceptJson(stdout: string): AppliedAcceptEnvelope {
+  const result = parseAcceptJson(stdout);
+  assertResultDataKey(result, "root");
+  assert(typeof result.data.root === "string");
+  assert(result.data.consent !== undefined);
+  return {
+    ...result,
+    data: {
+      ...result.data,
+      root: result.data.root,
+      consent: result.data.consent,
+    },
+  };
 }
 
 const QUESTION = "A changed surface is described in its docs before it lands.";
@@ -162,7 +212,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
     // bare consent refusal.
     const bare = await runAgent(wt, ["accept", "--json"]);
     assertEquals(bare.code, 1, bare.output);
-    const env = parseJson(bare.stdout);
+    const env = parseAcceptMessageJson(bare.stdout);
     assertEquals(env.ok, false);
     assertEquals(env.verb, "accept");
     assertEquals(env.error, AWAITING_VARIANCE_SLUG);
@@ -193,7 +243,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
       "--json",
     ]);
     assertEquals(confirmedOnly.code, 1, confirmedOnly.output);
-    const confirmedEnv = parseJson(confirmedOnly.stdout);
+    const confirmedEnv = parseAcceptMessageJson(confirmedOnly.stdout);
     assertEquals(confirmedEnv.error, AWAITING_VARIANCE_SLUG);
     assertStringIncludes(confirmedEnv.message, "missing: api-review");
 
@@ -205,7 +255,10 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
       "--json",
     ]);
     assertEquals(varianceOnly.code, 1, varianceOnly.output);
-    assertEquals(parseJson(varianceOnly.stdout).error, AWAITING_VARIANCE_SLUG);
+    assertEquals(
+      parseAcceptJson(varianceOnly.stdout).error,
+      AWAITING_VARIANCE_SLUG,
+    );
     assert(await targetExists(wt), "no refusal may touch the worktree");
   });
 });
@@ -222,15 +275,16 @@ Deno.test("accept: report-mode Proof is non-landable in preview and apply", asyn
 
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(preview.code, 1, preview.output);
-    assertEquals(parseJson(preview.stdout).error, "report_only_proof");
+    const previewResult = parseAcceptMessageJson(preview.stdout);
+    assertEquals(previewResult.error, "report_only_proof");
     assertTerminalTextIncludes(
-      parseJson(preview.stdout).message,
+      previewResult.message,
       "discern done",
     );
 
     const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(apply.code, 1, apply.output);
-    assertEquals(parseJson(apply.stdout).error, "report_only_proof");
+    assertEquals(parseAcceptJson(apply.stdout).error, "report_only_proof");
     assert(await targetExists(wt), "report-mode Proof must land nothing");
   });
 });
@@ -245,13 +299,14 @@ Deno.test("accept: fail-open drops survive preview, consent review, landing, and
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(preview.code, 0, preview.output);
     assertEquals(
-      parseJson(preview.stdout).data.checkpoint_drops?.[0]?.reason,
+      parseCheckpointDropAcceptJson(preview.stdout).data.checkpoint_drops[0]
+        ?.reason,
       "when_invalid_exit",
     );
 
     const review = await runAgent(wt, ["accept", "--json"]);
     assertEquals(review.code, 1, review.output);
-    const reviewEnv = parseJson(review.stdout);
+    const reviewEnv = parseCheckpointDropAcceptJson(review.stdout);
     assertEquals(reviewEnv.error, AWAITING_CONSENT_SLUG);
     assertEquals(
       reviewEnv.data.checkpoint_drops?.[0]?.reason,
@@ -261,7 +316,7 @@ Deno.test("accept: fail-open drops survive preview, consent review, landing, and
     const landedSha = await gitOut(wt, "rev-parse", "HEAD");
     const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(apply.code, 0, apply.output);
-    const applied = parseJson(apply.stdout);
+    const applied = parseAppliedAcceptJson(apply.stdout);
     assertEquals(applied.data.root, await Deno.realPath(dir));
     assertEquals(applied.data.consent, { source: "conversation" });
     assertEquals(
@@ -294,21 +349,21 @@ Deno.test("accept: a store drop first observed after Gate survives landing in th
     const store = await gitAdminStatePath(wt, "checkpointOpenQuestions");
     assert(store !== undefined);
     await Deno.writeTextFile(store, "not json\n");
-    const liveDrop = (envelope: AcceptEnvelope) =>
-      envelope.data.checkpoint_drops?.find((drop) =>
+    const liveDrop = (envelope: CheckpointDropAcceptEnvelope) =>
+      envelope.data.checkpoint_drops.find((drop) =>
         drop.reason === "open_question_store_corrupt"
       );
 
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(preview.code, 0, preview.output);
     assertEquals(
-      liveDrop(parseJson(preview.stdout))?.policy_commit,
+      liveDrop(parseCheckpointDropAcceptJson(preview.stdout))?.policy_commit,
       policyCommit,
     );
 
     const review = await runAgent(wt, ["accept", "--json"]);
     assertEquals(review.code, 1, review.output);
-    const reviewEnv = parseJson(review.stdout);
+    const reviewEnv = parseCheckpointDropAcceptJson(review.stdout);
     assertEquals(reviewEnv.error, AWAITING_CONSENT_SLUG);
     assertEquals(liveDrop(reviewEnv)?.policy_commit, policyCommit);
 
@@ -316,7 +371,7 @@ Deno.test("accept: a store drop first observed after Gate survives landing in th
     const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(apply.code, 0, apply.output);
     assertEquals(
-      liveDrop(parseJson(apply.stdout))?.policy_commit,
+      liveDrop(parseCheckpointDropAcceptJson(apply.stdout))?.policy_commit,
       policyCommit,
     );
 
@@ -342,7 +397,7 @@ Deno.test("accept: the owner's complete decision lands, binding the variance int
       "--json",
     ]);
     assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseAppliedAcceptJson(r.stdout);
     assertEquals(env.ok, true);
     assertEquals(env.data.consent, { source: "conversation" });
     // The authorized variance is distinct evidence in the result…
@@ -401,7 +456,7 @@ Deno.test("accept: the variance-id set must be exact — extra, unknown, or decl
       "--json",
     ]);
     assertEquals(unknown.code, 1, unknown.output);
-    const unknownEnv = parseJson(unknown.stdout);
+    const unknownEnv = parseAcceptMessageJson(unknown.stdout);
     assertEquals(unknownEnv.error, "invalid_value");
     assertStringIncludes(unknownEnv.message, "no-such-checkpoint");
     assertStringIncludes(unknownEnv.message, "api-review");
@@ -422,7 +477,7 @@ Deno.test("accept: the variance-id set must be exact — extra, unknown, or decl
       "--json",
     ]);
     assertEquals(met.code, 1, met.output);
-    const metEnv = parseJson(met.stdout);
+    const metEnv = parseAcceptMessageJson(met.stdout);
     assertEquals(metEnv.error, "invalid_value");
     assertStringIncludes(metEnv.message, "declared met");
     assert(
@@ -441,7 +496,10 @@ Deno.test("accept: standing grants land declared-met work but never authorize a 
     // conclusion still forces the owner's current-conversation decision.
     const granted = await runAgent(wt, ["accept", "--json"]);
     assertEquals(granted.code, 1, granted.output);
-    assertEquals(parseJson(granted.stdout).error, AWAITING_VARIANCE_SLUG);
+    assertEquals(
+      parseAcceptJson(granted.stdout).error,
+      AWAITING_VARIANCE_SLUG,
+    );
     assert(await targetExists(wt));
 
     // Control: replace the conclusion with declared met — the same grant now
@@ -453,7 +511,7 @@ Deno.test("accept: standing grants land declared-met work but never authorize a 
     );
     const landed = await runAgent(wt, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
-    const env = parseJson(landed.stdout);
+    const env = parseAppliedAcceptJson(landed.stdout);
     assertEquals(env.data.consent?.source, "standing-grant");
     assertEquals(env.data.variances, undefined);
     assertEquals(await targetExists(wt), false);
@@ -474,7 +532,9 @@ Deno.test("accept: a stale conclusion routes back to done before any effect", as
     // Reconcile the open question to the new subject (and get served again).
     const reserved = await runAgent(wt, ["done", "--json"]);
     assertEquals(reserved.code, 1, reserved.output);
-    assertEquals(parseJson(reserved.stdout).error, AWAITING_DECLARATION_SLUG);
+    const reservedResult = decodeCliResult(reserved.stdout, "done");
+    assertEquals(reservedResult.verb, "done");
+    assertEquals(reservedResult.error, AWAITING_DECLARATION_SLUG);
 
     const r = await runAgent(wt, [
       "accept",
@@ -484,7 +544,7 @@ Deno.test("accept: a stale conclusion routes back to done before any effect", as
       "--json",
     ]);
     assertEquals(r.code, 1, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseAcceptMessageJson(r.stdout);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
     assertStringIncludes(env.message, "api-review");
     assertStringIncludes(env.message, "discern done");
@@ -507,7 +567,7 @@ Deno.test("accept: declared-met work needs no variance and keeps the ordinary co
     // No variance in play: the ordinary awaiting-consent contract leads.
     const bare = await runAgent(wt, ["accept", "--json"]);
     assertEquals(bare.code, 1, bare.output);
-    assertEquals(parseJson(bare.stdout).error, AWAITING_CONSENT_SLUG);
+    assertEquals(parseAcceptJson(bare.stdout).error, AWAITING_CONSENT_SLUG);
 
     // A variance id with nothing to vary is an error, not a landing.
     const spurious = await runAgent(wt, [
@@ -518,12 +578,12 @@ Deno.test("accept: declared-met work needs no variance and keeps the ordinary co
       "--json",
     ]);
     assertEquals(spurious.code, 1, spurious.output);
-    assertEquals(parseJson(spurious.stdout).error, "invalid_value");
+    assertEquals(parseAcceptJson(spurious.stdout).error, "invalid_value");
 
     // The clean decision lands, with no variance evidence anywhere.
     const landed = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(landed.code, 0, landed.output);
-    const env = parseJson(landed.stdout);
+    const env = parseAppliedAcceptJson(landed.stdout);
     assertEquals(env.data.variances, undefined);
     const landedSha = await gitOut(dir, "rev-parse", "main");
     const payload = await landedNotePayload(dir, landedSha);

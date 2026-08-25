@@ -52,11 +52,16 @@ import {
   decodeWith,
 } from "./decode_cli_result.ts";
 
-type AcceptEnvelope = CliResultForCommand<"accept"> & {
-  data: Exclude<
-    NonNullable<CliResultForCommand<"accept">["data"]>,
-    { issues: unknown }
-  >;
+type AcceptWireData = Exclude<
+  NonNullable<CliResultForCommand<"accept">["data"]>,
+  { issues: unknown }
+>;
+
+type AppliedAcceptEnvelope = Omit<CliResultForCommand<"accept">, "data"> & {
+  data: AcceptWireData & {
+    root: string;
+    consent: NonNullable<AcceptWireData["consent"]>;
+  };
 };
 
 const MCP_SETTINGS_SCHEMA = z.object({
@@ -112,15 +117,27 @@ const CHECK_NO_TABOO = [
   "",
 ].join("\n");
 
-/** Decode acceptance or gate output for proof and refusal assertions. */
-function parseJson(stdout: string): AcceptEnvelope {
+/** Decode an acceptance that crossed the landing boundary. */
+function parseAppliedAcceptJson(stdout: string): AppliedAcceptEnvelope {
   const result = decodeCliResult(stdout, "accept");
-  assertResultDataKey(result, "landed");
-  return { ...result, data: result.data };
+  assertResultDataKey(result, "root");
+  assert(typeof result.data.root === "string");
+  assert(result.data.consent !== undefined);
+  return {
+    ...result,
+    data: {
+      ...result.data,
+      root: result.data.root,
+      consent: result.data.consent,
+    },
+  };
 }
 
 /** Every successful acceptance path carries the bounded line an agent relays. */
-function assertLandingProofRelay(obj: AcceptEnvelope, branch: string): void {
+function assertLandingProofRelay(
+  obj: AppliedAcceptEnvelope,
+  branch: string,
+): void {
   assertEquals("proof" in obj.data, false);
   assertEquals(typeof obj.data.proof_line, "string");
   assertExists(obj.data.proof_line);
@@ -497,7 +514,7 @@ Deno.test("accept: a fresh `done` lets accept skip the gate re-run (proof fast p
     // …so accept trusts it and does NOT re-run the gate (the no-double-run guarantee).
     const grad = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(grad.code, 0, grad.output);
-    const obj = parseJson(grad.stdout);
+    const obj = parseAppliedAcceptJson(grad.stdout);
     assertExists(obj.data.gate_validation);
     assertEquals(obj.data.gate_validation.mode, "proof");
     assertEquals(obj.data.gate_validation.proof.status, "honored");
@@ -577,7 +594,7 @@ Deno.test("accept: with no prior `done`, accept runs the gate itself before land
 
     const grad = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(grad.code, 0, grad.output);
-    const obj = parseJson(grad.stdout);
+    const obj = parseAppliedAcceptJson(grad.stdout);
     assertExists(obj.data.gate_validation);
     assertEquals(obj.data.gate_validation.mode, "rerun");
     assertEquals(obj.data.gate_validation.proof.status, "missing");
