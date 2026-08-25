@@ -30,11 +30,14 @@ import {
   assertEquals,
   assertNotEquals,
   assertStringIncludes,
+  assertThrows,
 } from "@std/assert";
 import { encodeBase64 } from "@std/encoding/base64";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { gzipSync } from "zlib";
 import {
+  decodeCompileGraph,
+  decodeJsrLicenseCache,
   generateThirdPartyArtifacts,
   sameThirdPartyBundlePayload,
   THIRD_PARTY_ARTIFACT_PATHS,
@@ -46,6 +49,61 @@ import type { ThirdPartyComponent } from "../src/lib/third_party_types.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+
+Deno.test("Deno compile-graph rows validate before notice generation", () => {
+  const malformedModule = assertThrows(
+    () =>
+      decodeCompileGraph(
+        JSON.stringify({
+          modules: [{ specifier: 7 }],
+          npmPackages: {},
+        }),
+        "malformed Deno graph fixture",
+      ),
+    Error,
+  );
+  assertStringIncludes(malformedModule.message, "malformed Deno graph fixture");
+  assertStringIncludes(malformedModule.message, "modules.0.specifier");
+
+  const malformedDependency = assertThrows(
+    () =>
+      decodeCompileGraph(
+        JSON.stringify({
+          modules: [],
+          npmPackages: {
+            "example@1": {
+              name: "example",
+              version: "1",
+              dependencies: [42],
+            },
+          },
+        }),
+        "Deno dependency snapshot fixture",
+      ),
+    Error,
+  );
+  assertStringIncludes(
+    malformedDependency.message,
+    "Deno dependency snapshot fixture",
+  );
+  assertStringIncludes(
+    malformedDependency.message,
+    "npmPackages.example@1.dependencies.0",
+  );
+});
+
+Deno.test("JSR license-cache values validate before license use", () => {
+  const error = assertThrows(
+    () =>
+      decodeJsrLicenseCache(
+        '{"@std/fs@1.0.0":false}',
+        "scripts/jsr_license_cache.json fixture",
+      ),
+    Error,
+  );
+  assertStringIncludes(error.message, "scripts/jsr_license_cache.json fixture");
+  assertStringIncludes(error.message, "@std/fs@1.0.0");
+});
 
 /** The component list the binary actually serves, via the embedded bundle. */
 function committedComponents(): readonly ThirdPartyComponent[] {
