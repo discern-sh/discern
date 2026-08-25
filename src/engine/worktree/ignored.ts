@@ -17,6 +17,13 @@ import { z } from "@zod/zod";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import {
+  bestEffortFs,
+  lstatIfExists,
+  readBytesIfExists,
+  readLinkIfExists,
+  readTextIfExists,
+} from "../../shared/fs_presence.ts";
 
 const BASELINE_VERSION = 2;
 const CHANGE_CAP = 20;
@@ -181,19 +188,17 @@ function unavailable(): IgnoredFileChangeSummary {
 async function readBaseline(
   path: string,
 ): Promise<IgnoredBaseline | undefined> {
-  let raw: string;
-  try {
-    raw = await Deno.readTextFile(path);
-  } catch {
-    return undefined;
-  }
-  try {
+  return await bestEffortFs(async () => {
+    const raw = await readTextIfExists(path);
+    if (raw === undefined) return undefined;
     const parsed: unknown = JSON.parse(raw);
     const result = ignoredBaselineSchema.safeParse(parsed);
     return result.success ? result.data : undefined;
-  } catch {
-    return undefined;
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "A missing, malformed, foreign, or unreadable ignored-file baseline disables comparison.",
+  });
 }
 
 /** Fingerprint Git's current ignored roots, promoting eligible roots to bounded content hashes. */
@@ -359,13 +364,18 @@ async function metadataFingerprintDirectory(
 
   /** Record a stable metadata entry for every descendant without reading contents. */
   async function walk(abs: string, rel: string): Promise<void> {
-    let entries: Deno.DirEntry[];
-    try {
-      entries = [];
+    const entries = await bestEffortFs(async () => {
+      const found: Deno.DirEntry[] = [];
       for await (const entry of Deno.readDir(abs)) {
-        entries.push(entry);
+        found.push(entry);
       }
-    } catch {
+      return found;
+    }, {
+      onFailure: undefined,
+      reason:
+        "Metadata fingerprints encode an unreadable ignored directory as an explicit marker.",
+    });
+    if (entries === undefined) {
       parts.push(`unreadable-dir\0${rel}`);
       return;
     }
@@ -373,22 +383,23 @@ async function metadataFingerprintDirectory(
     for (const entry of entries) {
       const childAbs = join(abs, entry.name);
       const childRel = `${rel}/${entry.name}`;
-      let stat: Deno.FileInfo;
-      try {
-        stat = await Deno.lstat(childAbs);
-      } catch {
+      const stat = await bestEffortFs(() => lstatIfExists(childAbs), {
+        onFailure: undefined,
+        reason:
+          "Metadata fingerprints encode a raced or unreadable ignored entry as missing.",
+      });
+      if (stat === undefined) {
         parts.push(`missing\0${childRel}`);
         continue;
       }
       if (stat.isDirectory) {
         await walk(childAbs, childRel);
       } else if (stat.isSymlink) {
-        let target = "";
-        try {
-          target = await Deno.readLink(childAbs);
-        } catch {
-          target = "<unreadable>";
-        }
+        const target = await bestEffortFs(() => readLinkIfExists(childAbs), {
+          onFailure: undefined,
+          reason:
+            "Metadata fingerprints retain an explicit marker for an unreadable ignored symlink.",
+        }) ?? "<unreadable>";
         files += 1;
         parts.push(`symlink\0${childRel}\0${target}`);
       } else if (stat.isFile) {
@@ -486,25 +497,28 @@ async function contentFingerprintDirectory(
 
   /** Read descendants within the reserved budget and abort on any unstable input. */
   async function walk(abs: string, rel: string): Promise<boolean> {
-    let entries: Deno.DirEntry[];
-    try {
-      entries = [];
+    const entries = await bestEffortFs(async () => {
+      const found: Deno.DirEntry[] = [];
       for await (const entry of Deno.readDir(abs)) {
-        entries.push(entry);
+        found.push(entry);
       }
-    } catch {
-      return false;
-    }
+      return found;
+    }, {
+      onFailure: undefined,
+      reason:
+        "Content fingerprinting aborts when an ignored directory is unstable or unreadable.",
+    });
+    if (entries === undefined) return false;
     entries.sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
       const childAbs = join(abs, entry.name);
       const childRel = `${rel}/${entry.name}`;
-      let stat: Deno.FileInfo;
-      try {
-        stat = await Deno.lstat(childAbs);
-      } catch {
-        return false;
-      }
+      const stat = await bestEffortFs(() => lstatIfExists(childAbs), {
+        onFailure: undefined,
+        reason:
+          "Content fingerprinting aborts when an ignored entry is unstable or unreadable.",
+      });
+      if (stat === undefined) return false;
       if (stat.isDirectory) {
         if (!(await walk(childAbs, childRel))) {
           return false;
@@ -513,24 +527,24 @@ async function contentFingerprintDirectory(
         if (files + 1 > fileBudget) {
           return false;
         }
-        let target: string;
-        try {
-          target = await Deno.readLink(childAbs);
-        } catch {
-          return false;
-        }
+        const target = await bestEffortFs(() => readLinkIfExists(childAbs), {
+          onFailure: undefined,
+          reason:
+            "Content fingerprinting aborts when an ignored symlink is unstable or unreadable.",
+        });
+        if (target === undefined) return false;
         files += 1;
         parts.push(`symlink\0${childRel}\0${target}`);
       } else if (stat.isFile) {
         if (files + 1 > fileBudget || bytes + stat.size > byteBudget) {
           return false;
         }
-        let data: Uint8Array;
-        try {
-          data = await Deno.readFile(childAbs);
-        } catch {
-          return false;
-        }
+        const data = await bestEffortFs(() => readBytesIfExists(childAbs), {
+          onFailure: undefined,
+          reason:
+            "Content fingerprinting aborts when an ignored file is unstable or unreadable.",
+        });
+        if (data === undefined) return false;
         files += 1;
         bytes += stat.size;
         parts.push(`file\0${childRel}\0${await sha256Hex(data)}`);

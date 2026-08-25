@@ -20,6 +20,7 @@ import {
 } from "../lib/refresh_file_ops.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import type { EnvReader } from "../shared/env.ts";
+import { readTextIfExists, statIfExists } from "../shared/fs_presence.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { agentFilePaths, renderAgentFiles } from "./instruction_render.ts";
 import { repoPathPrefix, stripRepoPathPrefix } from "./scopes/scopes.ts";
@@ -232,23 +233,19 @@ export async function planTrackedRefresh(
     renderedAgentPaths = [...rendered.keys()];
     const tracked = await trackedPaths(root, renderedAgentPaths, repoPrefix);
     for (const [path, expected] of rendered) {
-      let actual: string;
-      let mode: number | undefined;
-      try {
-        actual = await Deno.readTextFile(join(root, path));
-        mode = (await Deno.stat(join(root, path))).mode ?? undefined;
-      } catch (error) {
-        if (error instanceof Deno.errors.NotFound) {
-          if (tracked.has(path)) {
-            recordChange(changes, path, "agent_file", {
-              bytesChanged: true,
-              modeChanged: false,
-            });
-          }
-          continue;
+      const abs = join(root, path);
+      const actual = await readTextIfExists(abs);
+      const info = actual === undefined ? undefined : await statIfExists(abs);
+      if (actual === undefined || info === undefined) {
+        if (tracked.has(path)) {
+          recordChange(changes, path, "agent_file", {
+            bytesChanged: true,
+            modeChanged: false,
+          });
         }
-        throw error;
+        continue;
       }
+      const mode = info.mode ?? undefined;
       const bytesChanged = actual !== expected;
       const modeChanged = mode !== undefined && (mode & 0o111) !== 0;
       if (bytesChanged || modeChanged) {

@@ -70,6 +70,7 @@ import {
   directoryExists,
   fileExists,
   pathExists,
+  readDirIfExists,
   readTextIfExists,
 } from "../../shared/fs_presence.ts";
 import {
@@ -3880,16 +3881,8 @@ export async function scanOrphanWorktreesForSweep(
   const orphans: string[] = [];
   const seen = new Set<string>();
   for (const scan of scanSet) {
-    let entries: Deno.DirEntry[];
-    try {
-      entries = [];
-      for await (const e of Deno.readDir(scan)) {
-        entries.push(e);
-      }
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) continue;
-      throw error;
-    }
+    const entries = await readDirIfExists(scan);
+    if (entries === undefined) continue;
     for (const entry of entries) {
       const sub = join(scan, entry.name);
       if (!(await directoryExists(sub))) {

@@ -34,7 +34,14 @@ import {
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
-import { bestEffortFs, directoryExists } from "../../shared/fs_presence.ts";
+import {
+  bestEffortFs,
+  directoryExists,
+  fileExists,
+  pathExists,
+  readTextIfExists,
+  realPathIfExists,
+} from "../../shared/fs_presence.ts";
 import { isKnownGitCount } from "../../shared/git_count.ts";
 import {
   type CheckpointDrop,
@@ -760,10 +767,10 @@ async function discernSourceEntrypoint(
   if (Deno.build.standalone) {
     return undefined;
   }
-  try {
-    const manifest: unknown = JSON.parse(
-      await Deno.readTextFile(join(root, "deno.json")),
-    );
+  return await bestEffortFs(async () => {
+    const raw = await readTextIfExists(join(root, "deno.json"));
+    if (raw === undefined) return undefined;
+    const manifest: unknown = JSON.parse(raw);
     if (
       typeof manifest !== "object" ||
       manifest === null ||
@@ -777,12 +784,14 @@ async function discernSourceEntrypoint(
     }
     const entrypoint = resolve(root, manifest.exports);
     return relative(root, entrypoint).startsWith("..") ||
-        !(await pathPresent(entrypoint))
+        !(await pathExists(entrypoint))
       ? undefined
       : entrypoint;
-  } catch {
-    return undefined;
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "Source-entrypoint detection is optional outside a readable discern development checkout.",
+  });
 }
 
 interface LifecycleRefreshRun {
@@ -1114,7 +1123,7 @@ export async function createAndSetupWorktree(
   }
   // Idempotence marker: when `dir` is already a worktree this call created nothing,
   // so a later failure must not discard someone else's live worktree.
-  const preExisting = await pathPresent(join(dir, ".git"));
+  const preExisting = await pathExists(join(dir, ".git"));
   // A fresh create always mints a fresh `-b` branch. When the branch already
   // exists — typically unlanded work left by an earlier worktree of the same
   // name — refuse up front in plain language: `git worktree add` would fail
@@ -1379,8 +1388,9 @@ async function buildDropPlan(
   // Anything with a path separator is a path — relative ones resolve against the
   // caller's cwd (an id never contains a slash); a bare name stays id/basename.
   const wanted = target.trim().replace(/\/+$/, "");
+  const resolvedWanted = resolve(wanted);
   const wantedAbs = isAbsolute(wanted) || wanted.includes("/")
-    ? await Deno.realPath(resolve(wanted)).catch(() => resolve(wanted))
+    ? await realPathIfExists(resolvedWanted) ?? resolvedWanted
     : undefined;
   const settings = await loadIdentitySettings(ctx.root).catch(() => undefined);
   const matches: Array<(typeof fleet)[number]> = [];
@@ -4612,17 +4622,6 @@ export async function updateResult(
 
 // ── start (create a fresh worktree to inhabit, from the main checkout) ──────────
 
-/** Whether a path exists on disk (any type) — the collision check `discern start`
- * uses so a minted id never lands on an existing directory. */
-async function pathPresent(p: string): Promise<boolean> {
-  try {
-    await Deno.lstat(p);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * The deterministic dev-server ports currently claimed by LIVE worktrees — each
  * derived from the worktree's own resolved id, so no registry or env file is
@@ -4701,7 +4700,7 @@ export async function mintFreeWorktree(
       const branchTaken = (await run(
         ["show-ref", "--verify", "--quiet", `refs/heads/${identity.branch}`],
       )).success;
-      if (!branchTaken && !(await pathPresent(dir))) {
+      if (!branchTaken && !(await pathExists(dir))) {
         // The note (if any) is deterministic from the name, so returning the winning
         // attempt's carries the same transparency the caller surfaces upward.
         return minted.note !== undefined
@@ -4781,7 +4780,7 @@ async function assertProjectRootIsRepoToplevel(
         `\`git init\` and make a first commit, then re-run.`,
     );
   }
-  const root = await Deno.realPath(ctx.root).catch(() => ctx.root);
+  const root = await Deno.realPath(ctx.root);
   if (root !== toplevel) {
     throw new WorktreeGitError(
       `discern.toml lives at ${root}, but the git repository's root is ` +
@@ -4942,11 +4941,7 @@ export async function startResult(
 
 /** True when the checkout at `dir` carries a tracked `.gitmodules`. */
 async function hasGitmodules(dir: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(join(dir, ".gitmodules"))).isFile;
-  } catch {
-    return false;
-  }
+  return await fileExists(join(dir, ".gitmodules"));
 }
 
 /**
@@ -5244,7 +5239,7 @@ async function pruneContainedScan(
       nowMs,
     )
     : undefined;
-  const currentPath = await Deno.realPath(ctx.root).catch(() => ctx.root);
+  const currentPath = await Deno.realPath(ctx.root);
   const scanned = await scanContainedWorktrees(ctx.root, {
     mainBranch: ctx.config.repository.trunk,
     currentPath,
@@ -5618,8 +5613,9 @@ export async function worktreeReclaimContained(
       "Reclaiming needs a target. Pass a worktree id or path, then re-run.",
     );
   }
+  const resolvedWanted = resolve(wanted);
   const wantedAbs = isAbsolute(wanted) || wanted.includes("/")
-    ? await Deno.realPath(resolve(wanted)).catch(() => resolve(wanted))
+    ? await realPathIfExists(resolvedWanted) ?? resolvedWanted
     : undefined;
   const facts = await pruneContainedScan(ctx);
   const match = facts.find((f) =>

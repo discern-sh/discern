@@ -26,6 +26,7 @@
  */
 
 import { join } from "@std/path";
+import { lstatIfExists } from "../../shared/fs_presence.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
@@ -199,19 +200,17 @@ export async function computeSubject(
   const currentStates = new Map<string, PathStateSide>();
   const regular: string[] = [];
   for (const path of paths) {
-    let info: Deno.FileInfo;
+    let info: Deno.FileInfo | undefined;
     try {
-      info = await Deno.lstat(join(root, path));
+      info = await lstatIfExists(join(root, path));
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
-        continue; // absent on disk — the current side stays unset
-      }
       return {
         error: `could not read the working state of ${path}: ${
           error instanceof Error ? error.message : String(error)
         }`,
       };
     }
+    if (info === undefined) continue;
     if (info.isSymlink) {
       let target: string;
       try {

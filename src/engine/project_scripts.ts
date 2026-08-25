@@ -27,19 +27,20 @@ import { runOwnedChild } from "./owned_child.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { ScriptsData } from "../shared/result_schemas.ts";
-import { pathExists } from "../shared/fs_presence.ts";
+import {
+  pathExists,
+  readDirIfExists,
+  readTextIfExists,
+  statIfExists,
+} from "../shared/fs_presence.ts";
 
 /** One executable Project Script surfaced by discovery. */
 export type ProjectScript = ScriptsData["scripts"][number];
 
 /** Read a Project Script's first `# desc:` line, or undefined when absent. */
 async function firstDescLine(file: string): Promise<string | undefined> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(file);
-  } catch {
-    return undefined;
-  }
+  const text = await readTextIfExists(file);
+  if (text === undefined) return undefined;
   for (const line of text.split("\n")) {
     const match = line.match(/^# desc:\s?(.*)$/);
     if (match !== null) {
@@ -51,13 +52,8 @@ async function firstDescLine(file: string): Promise<string | undefined> {
 
 /** Whether a path is an executable regular file. */
 async function isExecutable(path: string): Promise<boolean> {
-  try {
-    const stat = await Deno.stat(path);
-    return stat.isFile && ((stat.mode ?? 0) & 0o111) !== 0;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return false;
-    throw error;
-  }
+  const stat = await statIfExists(path);
+  return stat !== undefined && stat.isFile && ((stat.mode ?? 0) & 0o111) !== 0;
 }
 
 /** Discover every executable file in one configured directory. */
@@ -65,23 +61,21 @@ export async function discoverProjectScripts(
   scriptsAbs: string,
 ): Promise<ProjectScript[]> {
   const scripts: ProjectScript[] = [];
-  try {
-    for await (const entry of Deno.readDir(scriptsAbs)) {
-      if (!entry.isFile) {
-        continue;
-      }
-      const file = join(scriptsAbs, entry.name);
-      if (!(await isExecutable(file))) {
-        continue;
-      }
-      const description = await firstDescLine(file);
-      scripts.push({
-        name: entry.name,
-        ...(description === undefined ? {} : { description }),
-      });
+  const entries = await readDirIfExists(scriptsAbs);
+  if (entries === undefined) return [];
+  for (const entry of entries) {
+    if (!entry.isFile) {
+      continue;
     }
-  } catch {
-    return [];
+    const file = join(scriptsAbs, entry.name);
+    if (!(await isExecutable(file))) {
+      continue;
+    }
+    const description = await firstDescLine(file);
+    scripts.push({
+      name: entry.name,
+      ...(description === undefined ? {} : { description }),
+    });
   }
   return scripts.sort((a, b) => a.name.localeCompare(b.name));
 }

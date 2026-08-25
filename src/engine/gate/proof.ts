@@ -543,12 +543,12 @@ export async function inspectLastGateRun(
   if (path === undefined) {
     return undefined;
   }
-  let raw: string;
-  try {
-    raw = await Deno.readTextFile(path);
-  } catch {
-    return undefined;
-  }
+  const raw = await bestEffortFs(() => readTextIfExists(path), {
+    onFailure: undefined,
+    reason:
+      "An unreadable last-run marker cannot safely trigger the optional rerun shortcut.",
+  });
+  if (raw === undefined) return undefined;
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);

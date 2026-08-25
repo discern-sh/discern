@@ -29,6 +29,7 @@ import {
   resolveContainedProjectReadPath,
   resolveContainedProjectWritePath,
 } from "../../shared/project_path.ts";
+import { bestEffortFs, readTextIfExists } from "../../shared/fs_presence.ts";
 
 /** The default `[worktree].env_files` when a caller has no config in hand. */
 export const DEFAULT_ENV_FILES: readonly string[] = [".env", ".env.local"];
@@ -94,11 +95,11 @@ export async function readEnvFileAt(
   if (path === undefined) {
     return undefined;
   }
-  try {
-    return await Deno.readTextFile(path);
-  } catch {
-    return undefined;
-  }
+  return await bestEffortFs(() => readTextIfExists(path), {
+    onFailure: undefined,
+    reason:
+      "Env inheritance may skip one stale or unreadable optional source file.",
+  });
 }
 
 /** Read the configured env files once, preserving their precedence order. */

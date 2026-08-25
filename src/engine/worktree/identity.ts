@@ -25,6 +25,7 @@ import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
+import { realPathIfExists, statIfExists } from "../../shared/fs_presence.ts";
 import {
   DEFAULT_ENV_FILES,
   readEnvValueAcross,
@@ -531,20 +532,16 @@ async function gitOut(
  * discern-allow-retrospective: runtime — the target path may be absent.
  */
 async function canonicalizeTarget(path: string): Promise<string> {
-  try {
-    if ((await Deno.stat(path)).isDirectory) {
-      return await Deno.realPath(path);
-    }
-  } catch {
-    // not a directory we can stat — fall through to the parent strategy
+  if ((await statIfExists(path))?.isDirectory) {
+    const canonical = await realPathIfExists(path);
+    if (canonical !== undefined) return canonical;
   }
   const parent = dirname(path);
-  try {
-    if ((await Deno.stat(parent)).isDirectory) {
-      return join(await Deno.realPath(parent), basename(path));
+  if ((await statIfExists(parent))?.isDirectory) {
+    const canonicalParent = await realPathIfExists(parent);
+    if (canonicalParent !== undefined) {
+      return join(canonicalParent, basename(path));
     }
-  } catch {
-    // parent missing too — return the path unchanged
   }
   return path;
 }

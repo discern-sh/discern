@@ -36,7 +36,12 @@ import { z } from "@zod/zod";
 import { KIT_VERSION } from "../../lib/version.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
-import { pathExists } from "../../shared/fs_presence.ts";
+import {
+  bestEffortFs,
+  pathExists,
+  readDirIfExists,
+  readTextIfExists,
+} from "../../shared/fs_presence.ts";
 import {
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
@@ -298,19 +303,17 @@ export function epochStatePath(commonGitDir: string): string {
 export async function readEpochState(
   commonGitDir: string,
 ): Promise<EpochState | undefined> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(epochStatePath(commonGitDir));
-  } catch {
-    return undefined;
-  }
-  try {
+  return await bestEffortFs(async () => {
+    const text = await readTextIfExists(epochStatePath(commonGitDir));
+    if (text === undefined) return undefined;
     const parsed: unknown = JSON.parse(text);
     const result = epochStateSchema.safeParse(parsed);
     return result.success ? result.data : undefined;
-  } catch {
-    return undefined;
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "A missing, corrupt, foreign, or unreadable epoch sidecar disables advisory reuse.",
+  });
 }
 
 /** Write the epoch sidecar atomically (temp-in-dir + rename). */
@@ -348,19 +351,14 @@ export async function listLogbookFiles(
 ): Promise<LogbookFile[]> {
   const dir = logbookDir(commonGitDir);
   const files: LogbookFile[] = [];
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (!entry.isFile) {
-        continue;
-      }
-      const info = await Deno.stat(join(dir, entry.name));
-      files.push({ file: entry.name, bytes: info.size });
+  const entries = await readDirIfExists(dir);
+  if (entries === undefined) return [];
+  for (const entry of entries) {
+    if (!entry.isFile) {
+      continue;
     }
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return [];
-    }
-    throw error;
+    const info = await Deno.stat(join(dir, entry.name));
+    files.push({ file: entry.name, bytes: info.size });
   }
   return files.sort((a, b) => a.file.localeCompare(b.file));
 }

@@ -53,7 +53,12 @@ import { buildStreamFacts } from "../logbook/detectors.ts";
 import { readLogbookStream } from "../logbook/read.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { estateReviews } from "./checkpoint_loop.ts";
-import { fileExists, pathExists } from "../../shared/fs_presence.ts";
+import {
+  fileExists,
+  pathExists,
+  readDirIfExists,
+  readTextIfExists,
+} from "../../shared/fs_presence.ts";
 
 // ── gathering the facts ─────────────────────────────────────────────────────
 
@@ -76,19 +81,17 @@ export async function countAdrs(
   let count = 0;
   /** Recursively count numbered ADR files, ignoring the template and treating an absent subtree as empty. */
   async function scan(dir: string): Promise<void> {
-    try {
-      for await (const entry of Deno.readDir(dir)) {
-        if (entry.isDirectory) {
-          await scan(join(dir, entry.name));
-        } else if (
-          entry.isFile && /^\d{4}-.*\.md$/.test(entry.name) &&
-          !entry.name.startsWith("0000-")
-        ) {
-          count++;
-        }
+    const entries = await readDirIfExists(dir);
+    if (entries === undefined) return;
+    for (const entry of entries) {
+      if (entry.isDirectory) {
+        await scan(join(dir, entry.name));
+      } else if (
+        entry.isFile && /^\d{4}-.*\.md$/.test(entry.name) &&
+        !entry.name.startsWith("0000-")
+      ) {
+        count++;
       }
-    } catch {
-      // directory absent — contributes zero
     }
   }
   await scan(join(root, normalizeMapDir(mapDir), "_adr"));
@@ -102,17 +105,8 @@ async function countAuthoredSkills(
   config: DiscernConfig,
 ): Promise<number> {
   const { abs } = resolveSkillsDir(root, config);
-  let count = 0;
-  try {
-    for await (const entry of Deno.readDir(abs)) {
-      if (entry.isDirectory) {
-        count++;
-      }
-    }
-  } catch {
-    // no skills directory — zero authored skills
-  }
-  return count;
+  return (await readDirIfExists(abs) ?? []).filter((entry) => entry.isDirectory)
+    .length;
 }
 
 /** Whether any agent file is present (the output of `discern refresh`).
@@ -177,12 +171,9 @@ export async function buildContext(
   const sources = await resolveInstructionSources(root, config);
   let instructionText = "";
   for (const src of sources) {
-    try {
-      instructionText += await Deno.readTextFile(src);
-      instructionText += "\n";
-    } catch {
-      // a source that vanished between glob and read contributes nothing
-    }
+    const text = await readTextIfExists(src);
+    if (text === undefined) continue;
+    instructionText += `${text}\n`;
   }
   const instructionChars = instructionText.replace(/\s+/g, "").length;
 
