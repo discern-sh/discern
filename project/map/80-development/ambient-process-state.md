@@ -12,7 +12,7 @@ _Where authored code may consult the host process, and how deeper code receives 
 
 Environment variables and the current working directory are runtime inputs. Resolve them at a composition root and pass the resulting string or setting into deeper code. A default parameter such as `cwd: string = Deno.cwd()` is also a visible injection seam: production callers retain host behavior while tests and embeddings can pass a value directly ([ADR 0336](../_adr/0336-ambient-process-state-resolves-at-boundaries.md)).
 
-Do not thread an environment-reader interface through several layers merely to move a read. If a module genuinely adapts the host — an executable entry point, command adapter, server, standalone script, or integration harness — register the module in [`AMBIENT_READ_BOUNDARIES`](../../../scripts/ambient_state_lint.ts) with a reason that names that role. Feature-toggle modules retain their host-facing contract through the same registry.
+Do not thread an environment-reader interface through several layers merely to move a read. If a module genuinely adapts the host (an executable entry point, command adapter, server, standalone script, or integration-test boundary), register the module in [`AMBIENT_READ_BOUNDARIES`](../../../scripts/ambient_state_lint.ts) with a reason that names that role. Feature-toggle modules retain their host-facing contract through the same registry.
 
 Process mutation is a separate and stricter boundary. `Deno.env.set` and `Deno.env.delete` require an exact entry in `AMBIENT_MUTATION_BOUNDARIES`, including the enclosing function and operation. Prefer an explicit value seam; the registry is empty while no unavoidable mutation exists. A default parameter never exempts mutation.
 

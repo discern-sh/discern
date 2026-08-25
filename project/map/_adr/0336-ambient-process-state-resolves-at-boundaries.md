@@ -6,7 +6,7 @@
 
 Functions deep in the Engine and installer still read `Deno.env` or `Deno.cwd()` directly. Their signatures hid inputs that changed behavior, so unit tests and embeddings sometimes had to reproduce host state instead of supplying ordinary values. The same configuration fact could also acquire several readers: `DISCERN_TRUNK` was resolved in eight modules even though `integrationBranch` already owned its precedence contract.
 
-Not every ambient read is misplaced. Executable entry points, command adapters, the Model Context Protocol server, standalone scripts, and integration-test harnesses genuinely compose the current host. Forcing every such read through several layers of reader interfaces would make ownership less legible. Default-parameter reads also provide an explicit, injectable seam without burdening ordinary callers.
+Not every ambient read is misplaced. Executable entry points, command adapters, the Model Context Protocol server, standalone scripts, and integration-test boundaries genuinely compose the current host. Forcing every such read through several layers of reader interfaces would make ownership less legible. Default-parameter reads also provide an explicit, injectable seam without burdening ordinary callers.
 
 The landing refresh path exposed the separate risk of mutation. It temporarily changed a process environment variable to redirect template lookup, called into refresh, and restored the value afterward. That round trip could leak across concurrent work even though the final process state was restored.
 
@@ -37,8 +37,8 @@ Default parameters may still consult the host when a caller omits the argument. 
 
 Passing an environment-reader interface through every call chain was rejected because it turns one hidden read into widespread host-shaped plumbing. Resolving a value at the composition root gives deeper code a smaller and clearer contract.
 
-Forbidding all direct reads outside one executable file was rejected because commands, standalone scripts, servers, and integration harnesses are independent host boundaries. Moving their reads into forwarding helpers would satisfy a textual rule while obscuring the real ownership.
+Forbidding all direct reads outside one executable file was rejected because commands, standalone scripts, servers, and integration-test adapters are independent host boundaries. Moving their reads into forwarding helpers would satisfy a textual rule while obscuring the real ownership.
 
-Keeping the landing refresh's save/set/restore sequence and registering it was rejected because restoration does not make process mutation safe under concurrency. The existing templates-directory seam carries the intended value without global state.
+Keeping the save/set/restore sequence in the landing refresh path and registering it was rejected because restoration does not make process mutation safe under concurrency. The existing templates-directory seam carries the intended value without global state.
 
 A textual repository scan was rejected in favor of a syntax-aware lint rule. The lint abstract syntax tree distinguishes default-parameter position, static property access, and exact mutations without false matches in comments or strings.
