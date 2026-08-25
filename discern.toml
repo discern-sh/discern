@@ -828,6 +828,34 @@
       "deno.json",
     ]
 
+  # Ambient-read boundary standard — direct Deno.env/Deno.cwd composition stays
+  # in the syntax-aware registry, while default-parameter reads remain ordinary
+  # injectable seams. The raw module count is an invariant: new host boundaries
+  # need an owner decision, and removing one permanently lowers the ceiling.
+  [standards.ambient_read_boundaries]
+    direction = "down"
+    limit = 38
+    run = "deno task ambient-boundaries"
+    inputs = [
+      "scripts/ambient_state_lint.ts",
+      "scripts/ambient_state_boundary_counts.ts",
+      "deno.json",
+    ]
+
+  # Process-environment mutation boundary standard — the explicit registry is
+  # empty after the landing-refresh migration. The zero ceiling prevents a
+  # future Deno.env.set/delete exception from being added on a feature branch;
+  # the lint rule separately rejects every unregistered call.
+  [standards.ambient_mutation_boundaries]
+    direction = "down"
+    limit = 0
+    run = "deno task ambient-boundaries"
+    inputs = [
+      "scripts/ambient_state_lint.ts",
+      "scripts/ambient_state_boundary_counts.ts",
+      "deno.json",
+    ]
+
   # Instruction-footprint standard — the bundled built-in instructions (templates/instructions/
   # *.md) compiles into every end-user agent's context in every session, so its total
   # word count is a context-window budget we spend on their behalf.
