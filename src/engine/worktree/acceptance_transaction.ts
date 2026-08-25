@@ -162,6 +162,7 @@ export async function withAcceptanceTransactionLock<T>(
         `Nothing was claimed or landed. ${
           error instanceof Error ? error.message : String(error)
         }`,
+      { cause: error },
     );
   }
 
@@ -178,6 +179,7 @@ export async function withAcceptanceTransactionLock<T>(
         `Nothing was claimed or landed. ${
           error instanceof Error ? error.message : String(error)
         }`,
+      { cause: error },
     );
   }
 
@@ -191,6 +193,7 @@ export async function withAcceptanceTransactionLock<T>(
         `Nothing was claimed or landed. ${
           error instanceof Error ? error.message : String(error)
         }`,
+      { cause: error },
     );
   }
   if (!acquired) {
@@ -477,6 +480,7 @@ async function writeAcceptanceTransaction(
         `boundary. Nothing was claimed or landed. ${
           error instanceof Error ? error.message : String(error)
         }`,
+      { cause: error },
     );
   } finally {
     try {

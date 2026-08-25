@@ -55,6 +55,7 @@ function resultEnvelope(
   } catch (error) {
     throw new Error(
       `${label} returned invalid JSON: ${String(error)}\n${stdout}`,
+      { cause: error },
     );
   }
   if (!isRecord(value) || value.ok !== true) {

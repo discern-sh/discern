@@ -92,8 +92,11 @@ function errorText(error: unknown): string {
 export class SettingsMergePlanError extends Error {
   readonly targetRel: string;
 
-  constructor(targetRel: string, cause: unknown) {
-    super(`could not merge ${targetRel}: ${errorText(cause)}`);
+  constructor(
+    targetRel: string,
+    options: ErrorOptions & { readonly cause: unknown },
+  ) {
+    super(`could not merge ${targetRel}: ${errorText(options.cause)}`, options);
     this.name = "SettingsMergePlanError";
     this.targetRel = targetRel;
   }
@@ -107,12 +110,13 @@ export class PlanApplyError extends Error {
   constructor(
     op: PlanOp,
     action: "ensure-dir" | "write" | "chmod" | "remove",
-    cause: unknown,
+    options: ErrorOptions & { readonly cause: unknown },
   ) {
     super(
       `could not ${action} for ${op.kind} ${op.disposition} op ${op.targetRel}: ${
-        errorText(cause)
+        errorText(options.cause)
       }`,
+      options,
     );
     this.name = "PlanApplyError";
     this.op = op;
@@ -341,7 +345,7 @@ async function planSettingsMerge(
   try {
     merged = merge(existingText, text);
   } catch (error) {
-    throw new SettingsMergePlanError(targetRel, error);
+    throw new SettingsMergePlanError(targetRel, { cause: error });
   }
   const bytes = TEXT_ENCODER.encode(merged);
 
@@ -488,7 +492,7 @@ export async function applyPlan(plan: Plan): Promise<PlanOp[]> {
       try {
         await Deno.remove(op.targetAbs);
       } catch (error) {
-        throw new PlanApplyError(op, "remove", error);
+        throw new PlanApplyError(op, "remove", { cause: error });
       }
       changed.push(op);
       continue;
@@ -496,7 +500,7 @@ export async function applyPlan(plan: Plan): Promise<PlanOp[]> {
     try {
       await ensureDir(dirname(op.targetAbs));
     } catch (error) {
-      throw new PlanApplyError(op, "ensure-dir", error);
+      throw new PlanApplyError(op, "ensure-dir", { cause: error });
     }
     try {
       const bytes = op.targetRel === CONFIG_REL
@@ -504,12 +508,12 @@ export async function applyPlan(plan: Plan): Promise<PlanOp[]> {
         : op.bytes;
       await Deno.writeFile(op.targetAbs, bytes);
     } catch (error) {
-      throw new PlanApplyError(op, "write", error);
+      throw new PlanApplyError(op, "write", { cause: error });
     }
     try {
       await Deno.chmod(op.targetAbs, op.mode);
     } catch (error) {
-      throw new PlanApplyError(op, "chmod", error);
+      throw new PlanApplyError(op, "chmod", { cause: error });
     }
     changed.push(op);
   }

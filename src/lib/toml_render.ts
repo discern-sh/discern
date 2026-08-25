@@ -68,7 +68,7 @@ export function parseDiscernToml(text: string): DiscernToml {
   try {
     parsed = parseToml(text);
   } catch (error) {
-    throw new Error(tomlSyntaxHint(error));
+    throw new Error(tomlSyntaxHint(error), { cause: error });
   }
   const raw = isRecord(parsed) ? parsed : {};
   const project = isRecord(raw.project) ? raw.project : {};

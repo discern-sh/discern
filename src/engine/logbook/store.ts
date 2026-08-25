@@ -373,8 +373,9 @@ export class LogbookLifecycleError extends Error {
     message: string,
     detachedPath?: string,
     archivePath?: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "LogbookLifecycleError";
     this.detachedPath = detachedPath;
     this.archivePath = archivePath;
@@ -451,6 +452,8 @@ export async function removeLogbook(commonGitDir: string): Promise<void> {
         error instanceof Error ? error.message : String(error)
       }`,
       detached,
+      undefined,
+      { cause: error },
     );
   }
 }
@@ -586,6 +589,7 @@ export async function archiveLogbook(
         }`,
         detached,
         finalPath,
+        { cause: error },
       );
     }
     return { file: filename, path: finalPath, bytes };
@@ -609,6 +613,7 @@ export async function archiveLogbook(
       }`,
       detached,
       published ? finalPath : undefined,
+      { cause: error },
     );
   }
 }

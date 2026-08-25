@@ -186,6 +186,7 @@ Deno.test("config set, over every schema leaf: success leaves a readable config,
             `${label} reported success but corrupted the file into unparseable TOML: ${
               err instanceof Error ? err.message : String(err)
             }\n${after}`,
+            { cause: err },
           );
         }
         // …and schema-valid, excusing only a key still MISSING inside an

@@ -95,8 +95,8 @@ export function tomlSyntaxHint(err: unknown): string {
  * one-line message and a non-zero exit, in both human and `--json` modes.
  */
 export class ConfigParseError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "ConfigParseError";
   }
 }
@@ -1242,7 +1242,7 @@ export function parseConfig(
   try {
     parsed = parseToml(text);
   } catch (err) {
-    throw new ConfigParseError(tomlSyntaxHint(err));
+    throw new ConfigParseError(tomlSyntaxHint(err), { cause: err });
   }
   return validateConfigValue(parsed);
 }

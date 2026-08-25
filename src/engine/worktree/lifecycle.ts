@@ -1593,6 +1593,7 @@ export async function worktreeDrop(
           `not preserve branch '${plan.branch}' under refs/discern/recovery/. ` +
           `Fix the Git error, then re-run \`discern worktree drop ${plan.id}\`. ` +
           `Git said: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
     preservedCommit = recovery.commit;
@@ -1663,6 +1664,7 @@ export async function worktreeDrop(
         e instanceof Error ? e.message : String(e)
       }\nRun \`git worktree list\` to inspect its state, fix the problem it shows, ` +
         `then re-run \`discern worktree drop ${plan.id}\`.`,
+      { cause: e },
     );
   }
   steps.push({
@@ -3134,6 +3136,7 @@ async function executeAcceptPlan(
           error instanceof Error ? error.message : String(error)
         } Run \`git worktree list\` to inspect its state, fix the named cause, ` +
         `then run \`discern worktree prune\` from the main checkout.`,
+      { cause: error },
     );
   }
   ctx.log.ok("Worktree directory removed.");

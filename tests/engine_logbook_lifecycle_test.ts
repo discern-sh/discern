@@ -762,15 +762,17 @@ Deno.test("archive sealing failure retains the detached source for recovery", as
     const raw = `${verbLine("2026-08-11T12:00:00.000Z")}\n`;
     await Deno.writeTextFile(join(active, "2026-08.jsonl"), raw);
     const filename = "logbook-20260811T143015Z.jsonl";
+    const sealFailure = new Error("injected seal failure");
     let error: unknown;
     try {
       await archiveLogbook(common, filename, {
-        seal: () => Promise.reject(new Error("injected seal failure")),
+        seal: () => Promise.reject(sealFailure),
       });
     } catch (caught) {
       error = caught;
     }
     assert(error instanceof LogbookLifecycleError);
+    assertEquals(error.cause, sealFailure);
     assertStringIncludes(error.message, "remains recoverable");
     assert(error.detachedPath !== undefined);
     assertEquals(

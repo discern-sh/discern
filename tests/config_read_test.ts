@@ -27,6 +27,7 @@ Deno.test("tomlSyntaxHint falls back to a plain message with no line number", ()
 Deno.test("a malformed config throws a catchable ConfigParseError with the hint", () => {
   const err = assertThrows(() => new RawConfig("oops = [[["), ConfigParseError);
   assert((err as Error).message.includes("syntax error near line 1"));
+  assert(err.cause instanceof Error);
 });
 
 const SAMPLE = `

@@ -2364,6 +2364,7 @@ async function removeExactWorktreeRegistration(
         `'${metadata.adminDir}' could not be removed: ${
           error instanceof Error ? error.message : String(error)
         }. The branch was retained; fix the permissions, then retry.`,
+      { cause: error },
     );
   }
 }
@@ -2521,6 +2522,7 @@ export async function removeWorktreeSafely(
             error instanceof Error ? error.message : String(error)
           }. Git and the branch were retained where possible. Fix the path ` +
             "permissions or stop its writer, then re-run.",
+          { cause: error },
         );
       }
     }
