@@ -74,6 +74,10 @@ interface RefreshEffectFields {
   readonly target: string;
   readonly disposition: "create" | "update" | "remove";
   readonly artifacts: readonly RefreshArtifactKind[];
+  /** Kinds admitted to status/Gate's tracked-convergence projection. This is
+   * deliberately narrower than apply's changed-file accounting: a first-install
+   * integration can be projection-exempt while update must still commit the
+   * concrete file change it applied. */
   readonly trackedKinds: readonly TrackedRefreshArtifactKind[];
   readonly boundary: string;
   /** One target classifies every descendant written beneath it. */
@@ -474,9 +478,6 @@ export async function planRefresh(
         const bytesChanged = actual !== expected;
         const modeChanged = info?.mode !== undefined && info.mode !== null &&
           (info.mode & 0o111) !== 0;
-        if (!bytesChanged && !modeChanged) {
-          continue;
-        }
         addFileEffect(
           effects,
           {
@@ -489,7 +490,7 @@ export async function planRefresh(
             modeChanged,
           },
           ["agent_file"],
-          ["agent_file"],
+          bytesChanged || modeChanged ? ["agent_file"] : [],
           `agent-file:${path}`,
         );
       } catch (error) {

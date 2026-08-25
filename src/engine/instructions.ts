@@ -159,7 +159,16 @@ function recordSuccessfulEffect(
   if (effect.artifacts.includes("adr_index")) {
     pushUnique(summary.adrIndexWritten, effect.target);
   }
-  if (effect.trackedKinds.length > 0) {
+  // Complete-plan membership, apply accounting, and tracked convergence answer
+  // different questions. An unchanged Agent file is still a real retained write
+  // (and belongs in agentsWritten), while a first-install integration is excluded
+  // from status/Gate drift yet must join update's generated commit when apply
+  // changes its bytes. Count concrete file changes here; trackedKinds remains the
+  // policy filter only for planTrackedRefresh.
+  if (
+    effect.type === "file" &&
+    (effect.operation.bytesChanged || effect.operation.modeChanged)
+  ) {
     pushUnique(summary.trackedArtifactsChanged, effect.target);
   }
   if (effect.type === "skill") {
