@@ -129,13 +129,12 @@ Deno.test("setup reports a missing --config file to stderr without --json", asyn
   });
 });
 
-// --- invalid fills from assembleSetupPlan, human branch ---
+// --- schema-invalid config document from loadConfigDoc, human branch ---
 
-Deno.test("setup reports invalid --config fills to stderr without --json", async () => {
+Deno.test("setup reports schema-invalid --config fields to stderr without --json", async () => {
   await withTempDir(async (dir) => {
-    // A document that parses and is the right version, but carries an invalid
-    // fill (bad check stage) — so loadConfigDoc succeeds and the error surfaces
-    // later, inside assembleSetupPlan via applyConfigDoc.
+    // A syntactically valid document with a bad known field fails at the shared
+    // config-document boundary before setup planning begins.
     await Deno.writeTextFile(
       join(dir, "answers.json"),
       JSON.stringify({
@@ -148,8 +147,8 @@ Deno.test("setup reports invalid --config fills to stderr without --json", async
       dir,
     );
     assertEquals(code, 1);
-    assertStringIncludes(stderr, "invalid --config fills");
-    assertStringIncludes(stderr, "stage");
+    assertStringIncludes(stderr, '--config file "answers.json" is invalid');
+    assertStringIncludes(stderr, "jobs.t.stage");
     assertEquals(stdout.trim(), "");
     // The failure happened during planning: nothing was written.
     let entries = 0;
