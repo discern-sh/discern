@@ -14,10 +14,11 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 35      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 3       | —                | —                           |
+| [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 62      | —                | —                           |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 22      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 18      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
-| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 41      | —                | —                           |
+| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 42      | —                | —                           |
 | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                        | `src/shared/checkpoints.ts#CHECKPOINT_FIELD_ROLES`                                | 21      | —                | node `checkpoints`          |
 | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)       | `src/shared/experimental.ts#EXPERIMENTAL_ENVIRONMENT_VARIABLES`                   | 2       | —                | —                           |
 | [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 11      | —                | —                           |
@@ -29,12 +30,12 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 10      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 25      | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 27      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
 | [`step-kinds`](#step-kinds--step-kinds)                                                                               | `src/shared/result.ts#STEP_KINDS`                                                 | 19      | —                | node `doctor`               |
-| [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 33      | —                | node `plan-apply`           |
+| [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 34      | —                | node `plan-apply`           |
 | [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 17      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 10      | "Skill"          | surface `skill`             |
@@ -101,9 +102,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 90      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 91      | —                | node `canonical-sets`       |
 
-90 sets · 146 guard tests · 58 committed artifacts.
+91 sets · 147 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -222,6 +223,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/logbook_powered_test.ts`                    | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/logbook_routing_test.ts`                    | [`logbook-events`](#logbook-events--logbook-events), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/logbook_test.ts`                            | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events), [`logbook-lifecycle-actions`](#logbook-lifecycle-actions--logbook-lifecycle-actions), [`error-slugs`](#error-slugs--result-error-slugs)                                                                                                                                                                                                                               |
+| `tests/operation_effects_test.ts`                  | [`operation-effects`](#operation-effects--operation-effects)                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/paths_literal_ban_test.ts`                  | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/paths_registry_test.ts`                     | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/paths_sentinel_render_test.ts`              | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -382,6 +384,78 @@ Every top-level verb kept out of the operator help listing carries a reason and 
 - Glossary: not enrolled — the hidden-verb registry documents help visibility, its reason, and its revival condition for each existing verb
 - Feature canon: not enrolled — the verbs set already enrolls every member; hiding changes only its help listing
 
+## `operation-effects` — Operation effects
+
+Every live CLI command path's effect classes, exclusion boundary, and preview obligation; the live-tree guard makes new nested and top-level commands enroll before they can run.
+
+- Source: `src/shared/operation_effects.ts` — `OPERATION_EFFECTS`
+- Members: 62
+  - `accept`
+  - `await`
+  - `checkpoints`
+  - `config`
+  - `config array`
+  - `config get`
+  - `config has`
+  - `config keys`
+  - `config set`
+  - `config set-job`
+  - `config set-scope`
+  - `config set-standard`
+  - `config subsections`
+  - `coupling`
+  - `desk`
+  - `docs`
+  - `doctor`
+  - `done`
+  - `help`
+  - `identity`
+  - `impact`
+  - `improvement`
+  - `licenses`
+  - `map`
+  - `mcp`
+  - `patterns`
+  - `patterns archive`
+  - `patterns archives`
+  - `patterns reset`
+  - `prepare`
+  - `preset`
+  - `queue`
+  - `refresh`
+  - `scripts`
+  - `setup`
+  - `setup accept`
+  - `setup begin`
+  - `setup done`
+  - `setup step`
+  - `setup verify`
+  - `skills`
+  - `skills eject`
+  - `skills list`
+  - `standards`
+  - `start`
+  - `status`
+  - `test`
+  - `tidy`
+  - `triangle`
+  - `uninstall`
+  - `update`
+  - `upgrade`
+  - `worktree`
+  - `worktree drop`
+  - `worktree ensure`
+  - `worktree hook`
+  - `worktree hook create`
+  - `worktree hook remove`
+  - `worktree prune`
+  - `worktree setup`
+  - `worktree teardown`
+  - `worktrees`
+- Guards: `tests/operation_effects_test.ts`
+- Glossary: not enrolled — the operation protocol documentation explains the shared policy as one concept rather than defining every command path as a term
+- Feature canon: not enrolled — the registry governs cross-cutting execution mechanics rather than a separately selectable product feature
+
 ## `dry-run-verbs` — Dry-run-capable verbs
 
 Every command path that registers `--dry-run`. These plan/apply verbs must produce a faithful preview: a dry run writes nothing, and apply performs only listed effects.
@@ -464,7 +538,7 @@ The lifecycle sequence that leads schema-deferred clients through status, Worktr
 Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.
 
 - Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`
-- Members: 41
+- Members: 42
   - `DISCERN_REPO`
   - `DISCERN_VERSION`
   - `DISCERN_BIN_DIR`
@@ -494,6 +568,7 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_DESK_SESSION`
   - `DISCERN_TEST_SLOT`
   - `DISCERN_SPAWNED_BY`
+  - `DISCERN_OPERATION_LOCK_DELEGATION`
   - `DISCERN_SETUP_DENO`
   - `DISCERN_SETUP_CONFIG`
   - `DISCERN_SETUP_MAIN`
@@ -691,7 +766,7 @@ The Desk's per-Worktree action vocabulary and menu order. The legality table exe
 Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 25
+- Members: 27
   - `resources`
   - `logbook`
   - `logbookArchives`
@@ -705,6 +780,7 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `continuations`
   - `retiredWorktreePaths`
   - `dropRecoveryLock`
+  - `operationCommonLock`
   - `gateProof`
   - `lastGateRun`
   - `standardMeasurements`
@@ -713,8 +789,9 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `effortGrant`
   - `effortGrantClaims`
   - `acceptanceTransaction`
-  - `acceptanceTransactionLock`
+  - `operationCheckoutLock`
   - `setupMachineryCommitEvidence`
+  - `worktreeSetupSteps`
   - `worktreeReady`
   - `selfShim`
 - Guards: `tests/git_admin_state_test.ts`, `tests/engine_patterns_test.ts`, `tests/engine_logbook_lifecycle_test.ts`, `tests/engine_write_preflight_test.ts`, `tests/engine_effort_grant_test.ts`
@@ -797,7 +874,7 @@ The result-step operation vocabulary: what a step does. The doctor's `STEP_KIND_
 The stable kebab-case operation labels discern authors in plans and applied results. Configured identifiers use the separate verbatim-label boundary.
 
 - Source: `src/shared/result.ts` — `BUILT_IN_STEP_LABELS`
-- Members: 33
+- Members: 34
   - `add-worktree`
   - `auto-resolve-generated-conflicts`
   - `check-trunk-checkout`
@@ -819,6 +896,7 @@ The stable kebab-case operation labels discern authors in plans and applied resu
   - `record-port`
   - `reclaim-orphan-dir`
   - `recover-interrupted-acceptance`
+  - `recover-setup-step`
   - `remove-worktree`
   - `root-discern-toml`
   - `setup`
@@ -3157,9 +3235,10 @@ Every supported lifetime for a temporary directory created by tests or executabl
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 90
+- Members: 91
   - `verbs`
   - `hidden-verbs`
+  - `operation-effects`
   - `dry-run-verbs`
   - `mcp-tools`
   - `mcp-core-lifecycle`

@@ -246,10 +246,13 @@ Set up or re-sync the current worktree.
 
 Usage: `discern worktree setup [options]`
 
-| Option      | Description                         |
-| ----------- | ----------------------------------- |
-| `--json`    | Emit one JSON result on stdout.     |
-| `--dry-run` | Show the setup plan; touch nothing. |
+| Option                      | Description                                                                                                                            |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`                    | Emit one JSON result on stdout.                                                                                                        |
+| `--dry-run`                 | Show the setup plan; touch nothing.                                                                                                    |
+| `--mark-step-complete <id>` | After observing an interrupted setup command's external state, mark its running journal entry complete without replaying it.           |
+| `--retry-step <id>`         | After observing an interrupted setup command's external state, reset its running journal entry and run it again.                       |
+| `--confirmed`               | Attest that the owner observed the interrupted command's external state and chose this recovery. Required with either recovery option. |
 
 #### `discern worktree ensure`
 
