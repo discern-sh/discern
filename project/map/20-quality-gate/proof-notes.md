@@ -37,6 +37,10 @@ The DSSE-compatible Base64 payload separates structured result facts from human 
 
 Readers accept additive fields and older bare or pre-correction notes; unknown payload types report unsupported. [Proof note format](../70-reference/proof-note-format.md) defines the contract and reading rules.
 
+## Replay keeps the first presentation
+
+The write identity is the annotated subject commit plus the stable machine-readable Proof claim. Repeating a note write with changed proof-line wording, Markdown, or runtime timing returns `already_present` and leaves the existing note bytes unchanged. Legacy bare notes use the commit they annotate as their subject. A different stable claim for the same commit remains a conflict and returns `record_failed` ([ADR 0333](../_adr/0333-proof-note-replay-uses-stable-claim-identity.md)).
+
 ## Authorship and failure
 
 The notes commit uses `discern <done@discern.sh>` as author and committer. With `DISCERN_NO_ATTRIBUTION` set, it uses the repository's Git identity instead. The Proof still records.
@@ -94,4 +98,4 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 - A normal fetch keeps a stale tracking note after the remote deletes it. Run `git fetch --prune <remote>` to remove refs the remote no longer carries.
 - Refresh migrates older exact mappings that carry discern's ownership marker. An unmarked exact mapping stays untouched; the refresh result gives the command that removes it.
 - An older marker may lack structured data. Acceptance honors its commit identity but reports `missing_proof`.
-- A conflicting note on the same commit fails open. Inspect the cause in `data.proof_note.write`.
+- A note with a different stable claim on the same commit fails open. Inspect the cause in `data.proof_note.write`.

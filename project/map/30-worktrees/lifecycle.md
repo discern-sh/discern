@@ -27,16 +27,16 @@ The default is `<repo>.worktrees/<id>` beside the repository; `[worktree].root` 
 
 Setup runs in this order:
 
-| Phase                | Result                                                                              |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| Branch               | Creates or confirms the worktree branch.                                            |
-| Environment          | Copies declared values from the main checkout.                                      |
-| Resources            | Creates each declared resource and records its handle.                              |
-| Identity             | Records the deterministic port when `[worktree].port` is on and an env file exists. |
-| One-time setup       | Runs `[worktree.setup].steps` only for a fresh worktree.                            |
-| Shared convergence   | Runs `[repository].ensure` for checkout-generic dependencies and generated state.   |
-| Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.       |
-| Refresh              | Uses the new checkout's engine for shared and checkout-local refresh work.          |
+| Phase                | Result                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| Branch               | Creates or confirms the worktree branch.                                                   |
+| Environment          | Copies declared values from the main checkout.                                             |
+| Resources            | Creates each declared resource and records its handle.                                     |
+| Identity             | Records the deterministic port when `[worktree].port` is on and an env file exists.        |
+| One-time setup       | Journals and runs incomplete `[worktree.setup].steps`; completed identities stay complete. |
+| Shared convergence   | Runs `[repository].ensure` for checkout-generic dependencies and generated state.          |
+| Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.              |
+| Refresh              | Uses the new checkout's engine for shared and checkout-local refresh work.                 |
 
 `start` refuses an unborn repository, a missing trunk, a nested `discern.toml`, an unknown or ambiguous `--from` ref, an occupied branch or directory, or a call from another worktree. `accept` applies the repository-root boundary too, so a nested project cannot land sibling changes. Main-checkout edits stay there. A failed creation retires only the checkout and branch that call minted; an incomplete discard is part of the reported failure rather than a successful rollback.
 
@@ -50,13 +50,13 @@ Only conflicts confined to [generated artifacts](../00-orientation/glossary.md#g
 
 On first setup, provisioned worktrees with a managed block install `merge.discern-generated.driver`. Raw merge keeps the marked side without conflict markers; `done` or `update` regenerates it. Plain clones, CI, and main lack the driver (never global), so conflicts remain; `update` still resolves generated paths ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)).
 
-Use `[repository].ensure` for checkout-safe commands and `[worktree.setup].ensure` for identity-dependent ones; `[worktree.setup].steps` remains one-shot.
+Use `[repository].ensure` for checkout-safe commands and `[worktree.setup].ensure` for identity-dependent ones. Each `[worktree.setup].steps` command records `running` before invocation and `completed` after success. Re-entry skips completed identities even when a later setup phase did not finish. A running identity stops automatic replay and serves owner-confirmed mark-complete and retry commands. [Setup command boundaries](../70-reference/setup-command-boundaries.md) covers that recovery ([ADR 0332](../_adr/0332-worktree-setup-steps-preserve-interruption-ambiguity.md)).
 
 ## Land the reviewed commit
 
 Commit the final tree and run `discern done`. Landing then needs [landing authority](landing-authority.md): conversation consent, a standing scope grant on the trunk, or a one-worktree effort grant from the Desk. `start`, `status`, and a green `done` report the current authority state. Uncovered work returns to Proof review with every checkout untouched ([ADR 0134](../_adr/0134-accept-attests-consent.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-Acceptance requires the latest trunk, a clean and unlocked worktree, a tracked-clean main checkout on the trunk, and an empty tracked-refresh plan. Ignored or untracked main-checkout data may stay unless landing would overwrite it. A valid `discern done` Proof skips duplicate Gate jobs; any later commit invalidates it. Acceptance checks the current plan again, so an older Proof cannot bypass a newer invariant. A failed check leaves the branch and worktree intact. `discern doctor --verbose` reports the landing-boundary check before the fast-forward, both `done` checkpoints, and `update`'s refresh tail ([ADR 0063](../_adr/0063-doctor-execution-model.md), [ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md), [ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md)).
+Acceptance requires the latest trunk, a clean and unlocked worktree, a tracked-clean main checkout on the trunk, and an empty tracked-refresh plan. Ignored or untracked main-checkout data may stay unless landing would overwrite it. Before transaction inspection, acceptance acquires the common-repository boundary and then its checkout boundary. Another conflicting operation receives a no-change refusal and retries after the active operation releases the boundary. A valid `discern done` Proof skips duplicate Gate jobs; any later commit invalidates it. Acceptance checks the current plan again, so an older Proof cannot bypass a newer invariant. A failed check leaves the branch and worktree intact. `discern doctor --verbose` reports the landing-boundary check before the fast-forward, both `done` checkpoints, and `update`'s refresh tail ([ADR 0063](../_adr/0063-doctor-execution-model.md), [ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md), [ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md), [ADR 0331](../_adr/0331-common-repository-locks-precede-checkout-locks.md)).
 
 On success, discern records `conversation`, `standing-grant` with scopes, or `effort-grant` in the result, Proof, and Logbook. It fast-forwards the trunk and records tracked cleanliness immediately. It writes the structured Proof note, materializes only local or ignored Agent artifacts, runs `[repository].ensure` and `smoke`, then checks cleanliness again. No tracked refresh writer runs after the fast-forward. discern then destroys resources and removes the worktree. Only a strict filesystem check and Git registry check can complete removal; the exact owned branch is deleted afterward ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md), [ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md), [ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md), [ADR 0315](../_adr/0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence.md)). A concurrent landing keeps this worktree for `update → done → accept`.
 
@@ -84,6 +84,8 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Lifecycle plans and execution | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                           |
 | Acceptance recovery journal   | [`src/engine/worktree/acceptance_transaction.ts`](../../../src/engine/worktree/acceptance_transaction.ts) |
+| Setup-step journal            | [`src/engine/worktree/setup_step_journal.ts`](../../../src/engine/worktree/setup_step_journal.ts)         |
+| Operation exclusion           | [`src/engine/operation_lock.ts`](../../../src/engine/operation_lock.ts)                                   |
 | Landing-authority resolution  | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)           |
 | Proof-note recording          | [`src/engine/gate/proof_notes.ts`](../../../src/engine/gate/proof_notes.ts)                               |
 | Git preconditions and removal | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                                       |

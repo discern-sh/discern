@@ -42,6 +42,8 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 
 `subject.commit` is the full commit. `proof` is the closed machine-readable claim; `presentation` holds the line and page. The optional `checkpoint_drops` array retains bounded structured accounts of checkpoint enforcement that failed open. The optional `mode` is absent for ordinary strict Proof and identifies report-only CI Proof in local markers; acceptance never writes report-only identity as landing evidence. The writer projects both blocks field by field, excluding `waited_ms` and other runtime telemetry. A future signature authenticates presentation, but policy treats it as non-authoritative. Optional issuer assertions and `brief` support later provenance work ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md), [ADR 0307](../_adr/0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)).
 
+Write replay identity consists of `subject.commit` and the canonical `proof` claim. `presentation` differences return `already_present` and do not replace the standing note. A different canonical claim for the same subject is a conflict. Legacy bare notes use their annotated commit as the implied subject ([ADR 0333](../_adr/0333-proof-note-replay-uses-stable-claim-identity.md)).
+
 ## Signature and identity boundary
 
 The future signature input follows [DSSE protocol v1.0.2](https://github.com/secure-systems-lab/dsse/blob/v1.0.2/protocol.md):

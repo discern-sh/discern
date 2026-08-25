@@ -16,7 +16,7 @@ Acceptance moves the trunk ref and then converges its checkout. A process can en
 
 ## What the transaction records
 
-One operating-system lock covers recovery through cleanup. A concurrent `discern accept` refuses immediately without reading an active journal as abandoned state.
+The common-repository lock and this checkout's lock cover recovery through cleanup. discern acquires common before checkout. A concurrent `discern accept` refuses immediately, states that the call made no change, and waits for the active operation to finish before retrying. It cannot read an active journal as abandoned state ([ADR 0331](../_adr/0331-common-repository-locks-precede-checkout-locks.md)).
 
 Before authority or refs move, a versioned Git-admin journal records the worktree branch, trunk, expected and target commits, receiving checkout, effort-claim participation, and any verified consent. That consent is bound to this exact transition. The trunk update and a per-worktree marker ref then move in one Git transaction; rollback restores the trunk and removes the marker together.
 

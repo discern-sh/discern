@@ -50,6 +50,8 @@ The Gate can still pass when a review Proof is withheld for one of those identit
 
 Write authority is different. Before any declared job or Standard measurement starts, discern performs a create, write, rename, and remove probe beside its Git administration marker files. If a sandbox or filesystem permission blocks that write, `done` fails immediately with `failed_stage = "write_access"` and a diagnostic naming the path. That early refusal prevents a green Gate result from being discarded because its Proof could not be saved. The probe observes only that invocation; provider authority may change later ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 
+The operation boundary also holds the checkout lock around effectful `done`, `prepare`, and `refresh` invocations. A second discern writer in that checkout refuses before its command body, states that the call made no change, and retries after the active operation finishes. Observations and dry runs remain concurrent. The lock keeps fixers, generated files, Gate inputs, and Proof evidence within one invocation's checkout state; the write probe still answers the separate question of filesystem authority ([ADR 0330](../_adr/0330-every-command-path-declares-its-operation-effects.md), [ADR 0331](../_adr/0331-common-repository-locks-precede-checkout-locks.md)).
+
 ## How later commands use it
 
 discern stores the validated commit, structured Proof, and both renderings in the worktree's Git administration directory. The marker is local to that worktree and disappears when the worktree is removed ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
@@ -85,6 +87,7 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 | ------------------------------ | -------------------------------------------------------------- |
 | Marker identity and validation | [`proof.ts`](../../../src/engine/gate/proof.ts)                |
 | Write-authority probe          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts) |
+| Operation exclusion            | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)   |
 | Proof facts and markdown       | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts)  |
 | Pure human presentation        | [`presentation.ts`](../../../src/engine/gate/presentation.ts)  |
 | Live TTY effects and viewport  | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)          |

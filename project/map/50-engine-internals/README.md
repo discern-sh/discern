@@ -75,6 +75,7 @@ discern omits this contributor-only tree from the bundled `discern docs` manual.
 - [the-logbook.md](the-logbook.md) — the local, metadata-only record of discern's own verb runs: schema, storage, config epochs, and the recording points.
 - [the-result-envelope.md](the-result-envelope.md) — the shared result vocabulary, strict Zod schemas, generated consumer contracts, and Model Context Protocol (MCP) adapters.
 - [the-templating-engine.md](the-templating-engine.md) — the strict config-only renderer for bundled instructions and bundled Skill Markdown.
+- [operation-effects-and-locks.md](operation-effects-and-locks.md) — the command-path effect registry, checkout and common-repository exclusion, acquisition order, and nested lease protocol.
 - [experimental-behaviors.md](experimental-behaviors.md) — environment-only trials, their registry, activation rule, and current provider projections.
 
 ## See also

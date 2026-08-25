@@ -315,6 +315,10 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0327 — The shipped runtime module graph is a DAG](0327-shipped-runtime-module-graph-is-a-dag.md)
 - [0328 — Absence and unknown observations stay distinct](0328-absence-and-unknown-observations-stay-distinct.md)
 - [0329 — Runtime data earns its types at validation boundaries](0329-runtime-data-earns-types-at-validation-boundaries.md)
+- [0330 — Every command path declares its operation effects](0330-every-command-path-declares-its-operation-effects.md)
+- [0331 — Common-repository locks precede checkout locks](0331-common-repository-locks-precede-checkout-locks.md)
+- [0332 — Worktree setup steps preserve interruption ambiguity](0332-worktree-setup-steps-preserve-interruption-ambiguity.md)
+- [0333 — Proof-note replay uses stable claim identity](0333-proof-note-replay-uses-stable-claim-identity.md)
 
 <!-- END GENERATED: current ADR records -->
 
