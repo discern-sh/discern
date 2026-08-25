@@ -392,6 +392,7 @@ export async function refreshResult(
     const summary = plannedSummary(plan);
     addRefreshHints(plan, summary);
     const engine = refreshPlanToEngine(plan);
+    logger.info("Dry run: nothing changed.");
     renderPlan(loggerSink(logger), engine);
     for (const error of summary.errors) logger.warn(error);
     const fields = {

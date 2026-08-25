@@ -559,6 +559,10 @@ export function attachEngineCommands(
       "--json",
       "Emit the result as a JSON DiscernResult on stdout (narration → stderr).",
     )
+    .option(
+      "--dry-run",
+      "List every refresh target and create/update/remove effect; change nothing.",
+    )
     .action(recordedExit("refresh", async (o) => {
       const json = o.json ?? false;
       const root = await requireRoot("refresh", json);
@@ -568,7 +572,9 @@ export function attachEngineCommands(
       const log = json
         ? new Logger({ json: true, noColor: false, humanStream: "stderr" })
         : new Logger({ json: false, noColor: false, humanStream: "stdout" });
-      const res = await refreshResult(root, log);
+      const res = await refreshResult(root, log, {
+        dryRun: o.dryRun ?? false,
+      });
       observeResult(res);
       if (json) {
         emitResult(res);

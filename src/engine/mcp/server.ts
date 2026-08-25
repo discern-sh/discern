@@ -447,9 +447,20 @@ export const TOOLS: McpTool[] = orderTools([
       "files on disk). It rewrites discern-generated or co-managed artifacts " +
       "only; edit instruction sources, skill sources, or explicit provider config for " +
       "durable changes. Idempotent: a second call with the same inputs writes nothing. " +
-      "Use discern_update for this branch; use `discern upgrade` for discern itself.",
-    inputSchema: { ...PATH_PARAM },
-    run: (root) => refreshResult(root),
+      "Set dry_run to preview every target and change nothing. Use discern_update " +
+      "for this branch; use `discern upgrade` for discern itself.",
+    inputSchema: {
+      dry_run: z.boolean().optional().describe(
+        "Preview every refresh create, update, and removal without changing project or Git state (default false).",
+      ),
+      ...PATH_PARAM,
+    },
+    run: (root, args) =>
+      refreshResult(
+        root,
+        new Logger({ json: true, noColor: true }),
+        { dryRun: args.dry_run === true },
+      ),
   }),
   defineTool({
     name: "discern_done",

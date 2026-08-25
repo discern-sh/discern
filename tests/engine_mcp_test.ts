@@ -748,6 +748,13 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const names = list.result.tools.map((t: { name: string }) => t.name);
     assert(names.includes("discern_done"), JSON.stringify(names));
     assert(names.includes("discern_refresh"), JSON.stringify(names));
+    const refreshTool = list.result.tools.find((tool: { name: string }) =>
+      tool.name === "discern_refresh"
+    );
+    assert(
+      refreshTool?.inputSchema?.properties?.dry_run !== undefined,
+      "refresh must expose its preview over MCP",
+    );
     assert(names.includes("discern_prepare"), JSON.stringify(names));
     assert(names.includes("discern_test"), JSON.stringify(names));
     assert(names.includes("discern_doctor"), JSON.stringify(names));
@@ -801,6 +808,38 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(
       !call.result.content[0].text.includes('"verb": "done"'),
       call.result.content[0].text,
+    );
+
+    const skillsTarget = join(dir, ".claude/skills");
+    assertEquals(await targetExists(skillsTarget), false);
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 31,
+      method: "tools/call",
+      params: { name: "discern_refresh", arguments: { dry_run: true } },
+    });
+    const refreshPreview = await mcp.recv();
+    assertEquals(refreshPreview.id, 31);
+    assertEquals(refreshPreview.result.isError, false);
+    assertEquals(refreshPreview.result.structuredContent.ok, true);
+    assertEquals(refreshPreview.result.structuredContent.verb, "refresh");
+    assertEquals(refreshPreview.result.structuredContent.dry_run, true);
+    assertEquals(
+      refreshPreview.result.structuredContent.plan.title,
+      "Refresh plan",
+    );
+    assertStringIncludes(
+      refreshPreview.result.content[0].text,
+      "**Dry run: nothing changed.**",
+    );
+    assertStringIncludes(
+      refreshPreview.result.content[0].text,
+      ".claude/skills/discern-write-adr",
+    );
+    assertEquals(
+      await targetExists(skillsTarget),
+      false,
+      "an MCP refresh preview must not materialize skills",
     );
 
     // tools/call discern_impact → its DiscernResult.

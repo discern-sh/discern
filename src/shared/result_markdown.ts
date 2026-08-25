@@ -1384,19 +1384,44 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
 const presentRefresh: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const skills = object(data.skills);
+  const plan = object(result.plan);
+  const targets = records(plan?.steps);
+  const preview = result.dry_run === true;
   return {
     state: defaultState(result),
     evidence: unique([
-      listFact("Agent files written", strings(data.agents_written)),
-      listFact("MCP integrations wired", strings(data.mcp_wired)),
-      listFact("Hooks wired", strings(data.hooks_wired)),
+      listFact(
+        preview ? "Agent-file targets" : "Agent files written",
+        strings(data.agents_written),
+      ),
+      listFact(
+        preview ? "MCP integration targets" : "MCP integrations wired",
+        strings(data.mcp_wired),
+      ),
+      listFact(
+        preview ? "Hook targets" : "Hooks wired",
+        strings(data.hooks_wired),
+      ),
       skills === undefined
         ? undefined
-        : `Skills: ${number(skills.copied) ?? 0} copied, ${
-          number(skills.linked) ?? 0
-        } linked, ${number(skills.pruned) ?? 0} pruned.`,
+        : `${preview ? "Planned skills" : "Skills"}: ${
+          number(skills.copied) ?? 0
+        } copied, ${number(skills.linked) ?? 0} linked, ${
+          number(skills.pruned) ?? 0
+        } pruned.`,
       listFact("Refresh errors", strings(data.errors)),
     ]),
+    supportingMarkdown: preview && targets.length > 0
+      ? [
+        `### Refresh targets\n\n${
+          targets.map((step) => {
+            const label = text(step.label) ?? "unnamed target";
+            const note = text(step.note);
+            return `- ${code(label)}${note === undefined ? "" : ` — ${note}`}`;
+          }).join("\n")
+        }`,
+      ]
+      : undefined,
   };
 };
 

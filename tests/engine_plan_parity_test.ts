@@ -246,6 +246,8 @@ interface DryRunProbe {
    */
   envelope: "engine-plan" | "data-preview";
   arrange: (dir: string) => Promise<Arranged>;
+  /** Member-specific proof that the fixture exercises its promised effect set. */
+  assertPreview?: (envelope: Json) => void;
 }
 
 const FIXTURE_PRESETS = fromFileUrl(
@@ -288,6 +290,92 @@ const CONFIG_WITH_STANDARD = [
  */
 const PROBES: Record<string, DryRunProbe> = {
   // ── engine-plan members: dry `plan.steps` ↔ apply `steps` ──
+  "refresh": {
+    envelope: "engine-plan",
+    arrange: async (dir) => {
+      await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
+      const initial = await runAgent(dir, ["refresh", "--json"]);
+      assertEquals(initial.code, 0, initial.output);
+      await gitInit(dir);
+
+      const configPath = join(dir, "discern.toml");
+      const config = await Deno.readTextFile(configPath);
+      await Deno.writeTextFile(
+        configPath,
+        config.replace('proof_notes = "local"', 'proof_notes = "fetch"'),
+      );
+      await git(
+        dir,
+        "remote",
+        "add",
+        "origin",
+        "https://example.invalid/discern-preview.git",
+      );
+
+      await Deno.writeTextFile(
+        join(dir, "AGENTS.md"),
+        `${await Deno.readTextFile(join(dir, "AGENTS.md"))}\ntracked drift\n`,
+      );
+      const mcpPath = join(dir, ".mcp.json");
+      await Deno.writeTextFile(
+        mcpPath,
+        (await Deno.readTextFile(mcpPath)).replace(
+          '"command": "discern"',
+          '"command": "wrong-discern"',
+        ),
+      );
+
+      const skillsDir = join(dir, ".claude/skills");
+      const skillPath = join(skillsDir, "discern-write-adr/SKILL.md");
+      await Deno.writeTextFile(
+        skillPath,
+        `${await Deno.readTextFile(skillPath)}\nmaterialized drift\n`,
+      );
+      const staleName = "retired-preview-skill";
+      await Deno.mkdir(join(skillsDir, staleName), { recursive: true });
+      await Deno.writeTextFile(
+        join(skillsDir, staleName, "SKILL.md"),
+        "stale\n",
+      );
+      const manifestPath = join(skillsDir, ".discern-materialized.json");
+      const manifest = JSON.parse(await Deno.readTextFile(manifestPath));
+      assert(Array.isArray(manifest));
+      manifest.push(staleName);
+      await Deno.writeTextFile(
+        manifestPath,
+        `${JSON.stringify(manifest, null, 2)}\n`,
+      );
+
+      return {
+        cwd: dir,
+        dry: ["refresh", "--dry-run", "--json"],
+        apply: ["refresh", "--json"],
+      };
+    },
+    assertPreview: (envelope) => {
+      const steps: Json[] = envelope.plan?.steps ?? [];
+      const byLabel = new Map(steps.map((step) => [step.label, step]));
+      for (
+        const label of [
+          "AGENTS.md",
+          ".mcp.json",
+          ".claude/skills/discern-write-adr",
+          ".claude/skills/retired-preview-skill",
+          "git config remote.origin.fetch",
+        ]
+      ) {
+        assert(byLabel.has(label), `refresh fixture did not plan ${label}`);
+      }
+      assertStringIncludes(
+        byLabel.get(".claude/skills/discern-write-adr")?.note ?? "",
+        "update skill tree",
+      );
+      assertStringIncludes(
+        byLabel.get(".claude/skills/retired-preview-skill")?.note ?? "",
+        "remove skill",
+      );
+    },
+  },
   "done": {
     envelope: "engine-plan",
     arrange: async (dir) => {
@@ -625,6 +713,7 @@ Deno.test("dry-run class: every capable verb previews faithfully (writes nothing
 
           // 2. The envelope carries the uniform preview marker.
           const envelope = parse(dry.stdout);
+          probe.assertPreview?.(envelope);
           assertEquals(
             envelope.dry_run,
             true,
