@@ -8,7 +8,7 @@
  */
 
 import { Command } from "@cliffy/command";
-import { join } from "@std/path";
+import { join, relative } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import { emitResult } from "../shared/emit.ts";
@@ -42,7 +42,7 @@ import type {
   IdentityData,
   SkillsEjectData,
 } from "../shared/result_schemas.ts";
-import { Logger } from "../lib/log.ts";
+import { Logger, loggerSink } from "../lib/log.ts";
 import { renderAlignedRows } from "../lib/text.ts";
 import { terminalLine } from "../lib/terminal.ts";
 import {
@@ -57,7 +57,19 @@ import { CATEGORY_NAMES } from "./improve/rules.ts";
 import type { LifecycleContext } from "./worktree/lifecycle.ts";
 import { colorEnabled } from "./output.ts";
 import { commandSynonymSuggestion } from "../shared/vocabulary.ts";
-import type { DiscernResult } from "../shared/result.ts";
+import {
+  type DiscernResult,
+  type EnginePlan,
+  type PlanStep,
+  renderPlan,
+  type StepResult,
+  verbatimStepLabel,
+} from "../shared/result.ts";
+import type {
+  EjectSkillPlan,
+  SkillMaterializationOperation,
+  SkillMaterializationPlan,
+} from "../lib/skills.ts";
 import type { CliModelProvider } from "../shared/cli_reference_codegen.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import { runOwnedChild } from "./owned_child.ts";
@@ -1390,12 +1402,19 @@ function attachSkillsCommand(root: Command): void {
           "--json",
           "Emit the eject result as a JSON DiscernResult on stdout.",
         )
+        .option(
+          "--dry-run",
+          "Preview every ejection and materialization target without changing it.",
+        )
         .arguments("<name:string>")
         .action(
           recordedExit(
             "skills eject",
             async (o, name: string) =>
-              await runSkillsEject(name, { json: o.json ?? false }),
+              await runSkillsEject(name, {
+                json: o.json ?? false,
+                dryRun: o.dryRun ?? false,
+              }),
           ),
         ),
     );
@@ -1437,72 +1456,293 @@ function thrownMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Plan and apply authored copies for selected bundled skills. */
-async function skillsEjectResult(
+/** One exact Discern-owned target in a bundled-skill ejection plan. */
+type SkillsEjectEffect =
+  | {
+    readonly type: "eject";
+    readonly target: string;
+    readonly disposition: "create";
+    readonly plan: EjectSkillPlan;
+  }
+  | {
+    readonly type: "config";
+    readonly target: string;
+    readonly disposition: "update";
+    readonly path: string;
+    readonly text: string;
+  }
+  | {
+    readonly type: "materialize";
+    readonly target: string;
+    readonly disposition: "create" | "update" | "remove";
+    readonly operation: SkillMaterializationOperation;
+  };
+
+/** Complete read-only plan consumed by both skills-eject surfaces and apply. */
+interface SkillsEjectPlan {
+  readonly ejection: EjectSkillPlan;
+  readonly materialization: SkillMaterializationPlan;
+  readonly effects: readonly SkillsEjectEffect[];
+}
+
+/** Project one ejection target onto the uniform engine-plan vocabulary. */
+function skillsEjectPlanStep(effect: SkillsEjectEffect): PlanStep {
+  const note = effect.type === "eject"
+    ? "create authored skill tree"
+    : effect.type === "config"
+    ? "persist the configured authored-skills directory"
+    : `${effect.disposition} ${effect.operation.kind} skill target`;
+  return {
+    kind: "refresh",
+    label: verbatimStepLabel(effect.target),
+    disposition: "run",
+    note,
+    group: effect.type === "materialize" ? "materialized skills" : "ejection",
+  };
+}
+
+/** Render the complete ejection plan in the common preview envelope. */
+function skillsEjectEnginePlan(plan: SkillsEjectPlan): EnginePlan {
+  return {
+    title: "Skills eject plan",
+    details: plan.materialization.errors.map((error) =>
+      `Planning error: ${error}`
+    ),
+    steps: plan.effects.map(skillsEjectPlanStep),
+  };
+}
+
+/** Count the materialization effects represented by one plan or apply. */
+function plannedSkillsMaterialization(
+  plan: SkillsEjectPlan,
+): SkillsEjectData["materialized"] {
+  const result = {
+    copied: 0,
+    linked: 0,
+    pruned: 0,
+    errors: [...plan.materialization.errors],
+  };
+  for (const effect of plan.effects) {
+    if (effect.type !== "materialize") continue;
+    if (effect.operation.kind === "bundled") result.copied++;
+    if (effect.operation.kind === "authored") result.linked++;
+    if (effect.operation.kind === "stale") result.pruned++;
+  }
+  return result;
+}
+
+/** Build the exact ejection, config, and provider-materialization effects. */
+async function planSkillsEject(
   root: string,
   name: string,
-): Promise<DiscernResult<SkillsEjectData>> {
+): Promise<SkillsEjectPlan> {
   const cfg = await loadConfig(root);
-  const { ejectSkill, materializeSkills } = await import("../lib/skills.ts");
+  const { planEjectSkill, planMaterializeSkills } = await import(
+    "../lib/skills.ts"
+  );
   const { skillsDirsForAgents } = await import("../lib/providers.ts");
   const { instructionAgents } = await import("./instruction_render.ts");
   const { TomlEditor } = await import("../lib/toml_edit.ts");
+  const { formatTomlText } = await import("../lib/tidy_format.ts");
+  const ejection = await planEjectSkill(root, cfg, name);
+  const effects: SkillsEjectEffect[] = [{
+    type: "eject",
+    target: ejection.destRel,
+    disposition: "create",
+    plan: ejection,
+  }];
+
+  // Persist [skills].dir when it was omitted. The typed value already carries
+  // the same default, so materialization can plan against `cfg`; only the exact
+  // canonical bytes written by apply need retaining here.
+  const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
+  const text = await Deno.readTextFile(path);
+  if (!new RawConfig(text).has("skills.dir")) {
+    const editor = new TomlEditor(text);
+    editor.setString("skills.dir", cfg.skills.dir);
+    effects.push({
+      type: "config",
+      target: relative(root, path),
+      disposition: "update",
+      path,
+      text: await formatTomlText(path, editor.toString()),
+    });
+  }
+
+  const materialization = await planMaterializeSkills(
+    root,
+    cfg,
+    skillsDirsForAgents(instructionAgents(cfg)),
+    {
+      prospectiveAuthoredSkill: {
+        name,
+        source: "authored",
+        srcAbs: ejection.destAbs,
+        overridesBundled: true,
+      },
+    },
+  );
+  for (const directory of materialization.directories) {
+    for (const operation of directory.operations) {
+      effects.push({
+        type: "materialize",
+        target: operation.targetRel,
+        disposition: operation.disposition,
+        operation,
+      });
+    }
+  }
+  return { ejection, materialization, effects };
+}
+
+/** Apply only operations retained by the ejection plan. */
+async function applySkillsEjectPlan(
+  plan: SkillsEjectPlan,
+): Promise<DiscernResult<SkillsEjectData>> {
+  const { applyEjectSkillPlan, applySkillMaterializationOperation } =
+    await import("../lib/skills.ts");
   const { writeDiscernToml } = await import("../lib/tidy_format.ts");
-  try {
-    const result = await ejectSkill(root, cfg, name);
-    // Persist [skills].dir when it wasn't explicitly set, so the override is
-    // found by the resolver on the next materialize. Presence is a raw question
-    // ("is the key written?"), not a typed one (the typed value always defaults).
-    const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
-    const text = await Deno.readTextFile(path);
-    let skillsDirPersisted = false;
-    if (!new RawConfig(text).has("skills.dir")) {
-      const editor = new TomlEditor(text);
-      editor.setString("skills.dir", cfg.skills.dir);
-      await writeDiscernToml(path, editor.toString());
-      skillsDirPersisted = true;
+  const steps: StepResult[] = [];
+  const materialized: SkillsEjectData["materialized"] = {
+    copied: 0,
+    linked: 0,
+    pruned: 0,
+    errors: [...plan.materialization.errors],
+  };
+  const blockedDirectories = new Set<string>();
+  let fatal: string | undefined;
+  let skillsDirPersisted = false;
+
+  for (const effect of plan.effects) {
+    const step = skillsEjectPlanStep(effect);
+    if (
+      fatal !== undefined ||
+      (effect.type === "materialize" &&
+        blockedDirectories.has(effect.operation.dirRel))
+    ) {
+      steps.push({ step, outcome: "cancelled" });
+      continue;
     }
-    // Re-materialize so each agent's skills dir reflects the ejected override now
-    // (reloaded, since [skills].dir may have just been written above).
-    const updated = await loadConfig(root);
-    const materialized = await materializeSkills(
-      root,
-      updated,
-      skillsDirsForAgents(instructionAgents(updated)),
-    );
-    const data: SkillsEjectData = {
-      name: result.name,
-      dest_abs: result.destAbs,
-      dest_rel: result.destRel,
-      skills_dir_persisted: skillsDirPersisted,
-      materialized,
-    };
-    if (materialized.errors.length > 0) {
-      return {
-        ok: false,
-        verb: "skills eject",
-        error: "partial_materialization",
-        message:
-          `ejected "${name}", but could not materialize every configured agent skill directory`,
-        data,
-        hints: hintTexts([
-          fire(HINTS["skills-eject-finish-materialization"]),
-        ]),
-      };
+    try {
+      if (effect.type === "eject") {
+        await applyEjectSkillPlan(effect.plan);
+      } else if (effect.type === "config") {
+        await writeDiscernToml(effect.path, effect.text);
+        skillsDirPersisted = true;
+      } else {
+        const result = await applySkillMaterializationOperation(
+          effect.operation,
+          plan.ejection.config,
+        );
+        materialized.copied += result.copied;
+        materialized.linked += result.linked;
+        materialized.pruned += result.pruned;
+      }
+      steps.push({ step, outcome: "ok" });
+    } catch (error) {
+      const message = thrownMessage(error);
+      steps.push({ step, outcome: "failed" });
+      if (effect.type === "materialize") {
+        blockedDirectories.add(effect.operation.dirRel);
+        materialized.errors.push(
+          `could not materialize skills into ${effect.operation.dirRel}: ${message}`,
+        );
+      } else {
+        fatal = message;
+      }
     }
-    return {
-      ok: true,
-      verb: "skills eject",
-      data,
-      hints: hintTexts([fire(HINTS["skills-eject-edit-override"])]),
-    };
-  } catch (error) {
+  }
+
+  const data: SkillsEjectData = {
+    name: plan.ejection.name,
+    dest_abs: plan.ejection.destAbs,
+    dest_rel: plan.ejection.destRel,
+    skills_dir_persisted: skillsDirPersisted,
+    materialized,
+  };
+  if (fatal !== undefined) {
     return {
       ok: false,
       verb: "skills eject",
       error: "skills_eject_failed",
-      message: thrownMessage(error),
+      message: fatal,
+      data,
+      steps,
     };
+  }
+  if (materialized.errors.length > 0) {
+    return {
+      ok: false,
+      verb: "skills eject",
+      error: "partial_materialization",
+      message:
+        `ejected "${plan.ejection.name}", but could not materialize every configured agent skill directory`,
+      data,
+      steps,
+      hints: hintTexts([
+        fire(HINTS["skills-eject-finish-materialization"]),
+      ]),
+    };
+  }
+  return {
+    ok: true,
+    verb: "skills eject",
+    data,
+    steps,
+    hints: hintTexts([fire(HINTS["skills-eject-edit-override"])]),
+  };
+}
+
+/** Plan and optionally apply authored copies for selected bundled skills. */
+async function skillsEjectResult(
+  root: string,
+  name: string,
+  options: { dryRun?: boolean } = {},
+): Promise<DiscernResult<SkillsEjectData>> {
+  try {
+    const plan = await planSkillsEject(root, name);
+    if (options.dryRun === true) {
+      const materialized = plannedSkillsMaterialization(plan);
+      const fields = {
+        verb: "skills eject",
+        dry_run: true as const,
+        plan: skillsEjectEnginePlan(plan),
+        data: {
+          name: plan.ejection.name,
+          dest_abs: plan.ejection.destAbs,
+          dest_rel: plan.ejection.destRel,
+          skills_dir_persisted: plan.effects.some((effect) =>
+            effect.type === "config"
+          ),
+          materialized,
+        },
+      };
+      return materialized.errors.length > 0
+        ? {
+          ok: false,
+          error: "partial_materialization",
+          message:
+            `${materialized.errors.length} skill materialization target(s) could not be planned.`,
+          ...fields,
+        }
+        : { ok: true, ...fields };
+    }
+    return await applySkillsEjectPlan(plan);
+  } catch (error) {
+    return options.dryRun === true
+      ? {
+        ok: false,
+        verb: "skills eject",
+        error: "skills_eject_failed",
+        message: thrownMessage(error),
+        dry_run: true,
+      }
+      : {
+        ok: false,
+        verb: "skills eject",
+        error: "skills_eject_failed",
+        message: thrownMessage(error),
+      };
   }
 }
 
@@ -1511,6 +1751,19 @@ function renderSkillsEjectResult(
   log: Logger,
   result: DiscernResult<SkillsEjectData>,
 ): void {
+  if (result.dry_run === true) {
+    log.info("Dry run: nothing changed.");
+    if (result.plan !== undefined) {
+      renderPlan(loggerSink(log), result.plan);
+    }
+    if (!result.ok) {
+      log.error(result.message ?? "skills eject preview failed");
+      for (const error of result.data?.materialized.errors ?? []) {
+        log.detail(error);
+      }
+    }
+    return;
+  }
   if (!result.ok) {
     log.error(result.message ?? "skills eject failed");
     for (const error of result.data?.materialized.errors ?? []) {
@@ -1536,10 +1789,12 @@ function renderSkillsEjectResult(
 /** `discern skills eject <name>` — copy a built-in into `[skills].dir` to edit. */
 async function runSkillsEject(
   name: string,
-  opts: { json?: boolean } = {},
+  opts: { json?: boolean; dryRun?: boolean } = {},
 ): Promise<number> {
   const root = await requireRoot("skills eject", opts.json ?? false);
-  const result = await skillsEjectResult(root, name);
+  const result = await skillsEjectResult(root, name, {
+    dryRun: opts.dryRun ?? false,
+  });
   if (opts.json ?? false) {
     emitResult(result);
   } else {

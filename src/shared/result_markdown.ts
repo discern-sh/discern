@@ -1810,6 +1810,7 @@ const presentSkillsList: ResultMarkdownPresenter = (result) => {
 const presentSkillsEject: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const materialized = object(data.materialized);
+  const preview = result.dry_run === true;
   return {
     state: defaultState(
       result,
@@ -1820,10 +1821,14 @@ const presentSkillsEject: ResultMarkdownPresenter = (result) => {
     evidence: unique([
       text(data.dest_abs) === undefined
         ? undefined
-        : `Destination: ${code(data.dest_abs)}.`,
+        : `${preview ? "Destination target" : "Destination"}: ${
+          code(data.dest_abs)
+        }.`,
       materialized === undefined
         ? undefined
-        : `Materialized skills: ${number(materialized.copied) ?? 0} copied, ${
+        : `${
+          preview ? "Planned materialized skills" : "Materialized skills"
+        }: ${number(materialized.copied) ?? 0} copied, ${
           number(materialized.linked) ?? 0
         } linked, ${number(materialized.pruned) ?? 0} pruned.`,
       listFact("Materialization errors", strings(materialized?.errors)),

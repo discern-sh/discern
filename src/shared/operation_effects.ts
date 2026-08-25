@@ -26,7 +26,7 @@ export type OperationLockBoundary =
   | "common"
   | "common-and-checkout";
 
-/** What a future preview guard must require from this command path. */
+/** What the preview guard requires from this command path. */
 export type OperationPreviewObligation =
   | "none"
   | "disclose"
@@ -294,6 +294,19 @@ export const OPERATION_EFFECTS = {
   "worktree teardown": EXTERNAL_CHECKOUT_REQUIRED,
   worktrees: OBSERVATION,
 } as const satisfies Readonly<Record<string, OperationEffectPolicy>>;
+
+/**
+ * Command paths whose canonical policy requires a faithful preview. The
+ * operation registry, not the current CLI flags, owns this membership.
+ */
+export function previewRequiredOperationPaths(
+  policies: Readonly<Record<string, OperationEffectPolicy>> = OPERATION_EFFECTS,
+): string[] {
+  return Object.entries(policies)
+    .filter(([, policy]) => policy.preview === "required")
+    .map(([path]) => path)
+    .sort();
+}
 
 /** True when every declared condition holds for one invocation. */
 function lockConditionMatches(

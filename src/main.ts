@@ -1169,11 +1169,9 @@ export function dryRunCapablePaths(tree: Command): string[] {
 }
 
 /**
- * The dry-run-capable verb class: every CLI command path whose registration
- * carries `--dry-run` — the effectful plan/apply verbs whose preview contract
- * (a dry run writes nothing; an apply performs nothing the plan never listed)
- * the class guard in `tests/engine_plan_parity_test.ts` holds per member. A
- * verb or command group that registers the flag enrols itself here.
+ * The measured CLI surface that currently registers `--dry-run`. Preview
+ * policy belongs to `OPERATION_EFFECTS`; the operation-effect parity guard
+ * holds this live surface equal to its `preview: "required"` members.
  */
 export function dryRunCapableVerbs(): readonly string[] {
   return dryRunCapablePaths(buildCli(false) as unknown as Command);

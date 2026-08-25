@@ -110,6 +110,63 @@ Deno.test("discern skills eject --json emits an envelope and materializes the ov
   });
 });
 
+Deno.test("discern skills eject --dry-run plans every owned target and writes nothing", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const configPath = join(dir, "discern.toml");
+    const beforeConfig = (await Deno.readTextFile(configPath)).replace(
+      'dir = "discern/skills"\n',
+      "",
+    );
+    await Deno.writeTextFile(configPath, beforeConfig);
+
+    const result = await runAgent(dir, [
+      "skills",
+      "eject",
+      "discern-write-adr",
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(result.code, 0, result.output);
+    const envelope = JSON.parse(result.stdout) as {
+      dry_run: boolean;
+      steps?: unknown[];
+      plan: { steps: Array<{ label: string }> };
+    };
+    assertEquals(envelope.dry_run, true);
+    assertEquals(envelope.steps, undefined);
+    const targets = envelope.plan.steps.map((step) => step.label);
+    for (
+      const target of [
+        "discern/skills/discern-write-adr",
+        "discern.toml",
+        ".claude/skills/discern-write-adr",
+      ]
+    ) {
+      assert(targets.includes(target), `preview omitted ${target}`);
+    }
+    const human = await runAgent(dir, [
+      "skills",
+      "eject",
+      "discern-write-adr",
+      "--dry-run",
+    ]);
+    assertEquals(human.code, 0, human.output);
+    assertTerminalTextIncludes(human.stdout, "Dry run: nothing changed.");
+    assertTerminalTextIncludes(
+      human.stdout,
+      "discern/skills/discern-write-adr",
+    );
+    assertEquals(await Deno.readTextFile(configPath), beforeConfig);
+    assert(
+      !(await targetExists(
+        join(dir, "discern/skills/discern-write-adr/SKILL.md"),
+      )),
+      "preview created the authored skill",
+    );
+  });
+});
+
 Deno.test("discern skills eject partial materialization carries the registered recovery", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

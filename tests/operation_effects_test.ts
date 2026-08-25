@@ -1,7 +1,7 @@
 /** Class guard for command effects and their CLI/MCP enrollment boundaries. */
 
 import { assertEquals } from "@std/assert";
-import { buildCli } from "../src/main.ts";
+import { buildCli, dryRunCapableVerbs } from "../src/main.ts";
 import {
   cliCommandModel,
   walkCliCommands,
@@ -11,6 +11,7 @@ import {
   OPERATION_EFFECTS,
   type OperationEffectPolicy,
   operationEffectPolicy,
+  previewRequiredOperationPaths,
 } from "../src/shared/operation_effects.ts";
 import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
 import { RECORDED_CLI_COMMAND_PATHS } from "../src/engine/logbook/cli.ts";
@@ -33,6 +34,26 @@ export function operationEffectParity(
   return {
     missing: live.filter((path) => !registered.includes(path)).sort(),
     stale: registered.filter((path) => !live.includes(path)).sort(),
+  };
+}
+
+/** Registry-required previews missing from or contradicted by the live CLI. */
+export function operationPreviewParity(
+  live: readonly string[],
+  dryRunCapable: readonly string[],
+  policies: Readonly<Record<string, OperationEffectPolicy>>,
+): { required_without_flag: string[]; flag_without_requirement: string[] } {
+  const liveSet = new Set(live);
+  const required = previewRequiredOperationPaths(policies).filter((path) =>
+    liveSet.has(path)
+  );
+  const requiredSet = new Set(required);
+  const dryRunSet = new Set(dryRunCapable);
+  return {
+    required_without_flag: required.filter((path) => !dryRunSet.has(path)),
+    flag_without_requirement: dryRunCapable.filter((path) =>
+      !requiredSet.has(path)
+    ).sort(),
   };
 }
 
@@ -67,6 +88,63 @@ Deno.test("an unrelated future command path auto-enrolls in effect policy", () =
     ).missing,
     ["future-container unrelated-action"],
   );
+});
+
+Deno.test("operation preview policy and the live --dry-run surface agree", () => {
+  assertEquals(
+    operationPreviewParity(
+      liveCommandPaths(),
+      dryRunCapableVerbs(),
+      OPERATION_EFFECTS,
+    ),
+    { required_without_flag: [], flag_without_requirement: [] },
+  );
+});
+
+Deno.test("a classified future writer without --dry-run fails preview parity", () => {
+  const path = "future-container unrelated-writer";
+  const policy: OperationEffectPolicy = {
+    effects: ["discern-checkout-mutation"],
+    lock: "checkout",
+    preview: "required",
+  };
+  assertEquals(operationEffectParity([path], { [path]: policy }), {
+    missing: [],
+    stale: [],
+  });
+  assertEquals(operationPreviewParity([path], [], { [path]: policy }), {
+    required_without_flag: [path],
+    flag_without_requirement: [],
+  });
+});
+
+Deno.test("a dry-run flag without required preview policy fails parity", () => {
+  const path = "future observation";
+  const policy: OperationEffectPolicy = {
+    effects: ["observation"],
+    lock: "none",
+    preview: "none",
+  };
+  assertEquals(operationPreviewParity([path], [path], { [path]: policy }), {
+    required_without_flag: [],
+    flag_without_requirement: [path],
+  });
+});
+
+Deno.test("preview exemptions stay bounded while mixed Gate work is required", () => {
+  for (const policy of Object.values(OPERATION_EFFECTS)) {
+    if (policy.preview === "none") {
+      assertEquals(policy.effects, ["observation"]);
+    }
+  }
+  assertEquals(OPERATION_EFFECTS.queue.preview, "disclose");
+  assertEquals(OPERATION_EFFECTS.test.preview, "disclose");
+  assertEquals(OPERATION_EFFECTS.scripts.preview, "disclose");
+  assertEquals(OPERATION_EFFECTS.done.preview, "required");
+  assertEquals(OPERATION_EFFECTS.done.effects, [
+    "discern-checkout-mutation",
+    "project-command",
+  ]);
 });
 
 Deno.test("every declared effect class has a live classified operation", () => {

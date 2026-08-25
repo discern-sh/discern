@@ -213,6 +213,27 @@ async function resolveSkillsByName(
   return byName;
 }
 
+/** Apply exclusions to one resolved skill authority in stable name order. */
+function effectiveSkillsFrom(
+  byName: ReadonlyMap<string, SkillEntry>,
+  config: DiscernConfig,
+): SkillEntry[] {
+  const excluded = new Set(config.skills.exclude);
+  return [...byName.values()]
+    .filter((entry) => !excluded.has(entry.name))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+/** Excluded names absent from one resolved skill authority. */
+function unknownExcludedSkillsFrom(
+  byName: ReadonlyMap<string, SkillEntry>,
+  config: DiscernConfig,
+): string[] {
+  return [...new Set(config.skills.exclude)]
+    .filter((name) => !byName.has(name))
+    .sort();
+}
+
 /**
  * Resolve the effective skill set: every bundled built-in plus every authored
  * skill under `[skills].dir`, with an authored skill overriding a bundled one of
@@ -222,11 +243,7 @@ export async function resolveEffectiveSkills(
   root: string,
   config: DiscernConfig,
 ): Promise<SkillEntry[]> {
-  const byName = await resolveSkillsByName(root, config);
-  const excluded = new Set(config.skills.exclude);
-  return [...byName.values()]
-    .filter((e) => !excluded.has(e.name))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  return effectiveSkillsFrom(await resolveSkillsByName(root, config), config);
 }
 
 /** The `[skills].exclude` names matching no bundled or authored skill — a likely
@@ -235,10 +252,10 @@ export async function unknownExcludedSkills(
   root: string,
   config: DiscernConfig,
 ): Promise<string[]> {
-  const known = await resolveSkillsByName(root, config);
-  return [...new Set(config.skills.exclude)]
-    .filter((name) => !known.has(name))
-    .sort();
+  return unknownExcludedSkillsFrom(
+    await resolveSkillsByName(root, config),
+    config,
+  );
 }
 
 /** A listing row for `discern skills list` — the schema-inferred wire type
@@ -385,6 +402,11 @@ export interface SkillMaterializationPlan {
   readonly directories: readonly SkillMaterializationDirectoryPlan[];
   readonly warnings: readonly string[];
   readonly errors: readonly string[];
+}
+
+/** Read-only overlay used when another plan will create an authored skill. */
+export interface PlanMaterializeSkillsOptions {
+  readonly prospectiveAuthoredSkill?: SkillEntry | undefined;
 }
 
 /** Remove a file, symlink, or directory at `path`; a no-op if already gone. */
@@ -588,9 +610,15 @@ export async function planMaterializeSkills(
   root: string,
   config: DiscernConfig,
   dirs: readonly string[],
+  options: PlanMaterializeSkillsOptions = {},
 ): Promise<SkillMaterializationPlan> {
-  const effective = await resolveEffectiveSkills(root, config);
-  const unknownExcluded = await unknownExcludedSkills(root, config);
+  const byName = await resolveSkillsByName(root, config);
+  const prospective = options.prospectiveAuthoredSkill;
+  if (prospective !== undefined) {
+    byName.set(prospective.name, prospective);
+  }
+  const effective = effectiveSkillsFrom(byName, config);
+  const unknownExcluded = unknownExcludedSkillsFrom(byName, config);
   const ctx = instructionContext(config);
   const directories: SkillMaterializationDirectoryPlan[] = [];
   const errors: string[] = [];
@@ -725,6 +753,77 @@ export interface EjectResult {
   destRel: string;
 }
 
+/** A validated read-only plan for one bundled-skill ejection. */
+export interface EjectSkillPlan extends EjectResult {
+  /** Bundled source retained for the plan-bound copy. */
+  srcAbs: string;
+  /** Resolved config retained for exact template rendering. */
+  config: DiscernConfig;
+}
+
+/** Prove every bundled entry can be read and every Markdown template renders. */
+async function validateRenderedSkillTree(
+  srcAbs: string,
+  ctx: InstructionContext,
+): Promise<void> {
+  for await (const entry of walk(srcAbs, { includeDirs: false })) {
+    if (entry.isSymlink) {
+      await Deno.readLink(entry.path);
+    } else if (entry.isFile) {
+      await renderedBundledFile(entry.path, ctx);
+    }
+  }
+}
+
+/** Compute and validate an ejection without changing the project. */
+export async function planEjectSkill(
+  root: string,
+  config: DiscernConfig,
+  name: string,
+): Promise<EjectSkillPlan> {
+  const bundledDir = await resolveBundledSkillsDir();
+  const srcAbs = join(bundledDir, name);
+  if (!(await lstatIfExists(srcAbs))?.isDirectory) {
+    const available = (await bundledSkillNames()).join(", ");
+    throw new Error(
+      `no bundled skill named "${name}" (available: ${available || "none"})`,
+    );
+  }
+  const { rel: skillsRel, abs: skillsAbs } = resolveSkillsDir(root, config);
+  const destAbs = join(skillsAbs, name);
+  const destRel = join(skillsRel, name);
+  if (await lstatIfExists(destAbs) !== undefined) {
+    throw new Error(
+      `an authored skill already exists at ${destRel} — remove it first to re-eject`,
+    );
+  }
+  await validateRenderedSkillTree(srcAbs, instructionContext(config));
+  return { name, srcAbs, destAbs, destRel, config };
+}
+
+/** Apply one validated ejection plan without rediscovering its source or target. */
+export async function applyEjectSkillPlan(
+  plan: EjectSkillPlan,
+): Promise<EjectResult> {
+  if (await lstatIfExists(plan.destAbs) !== undefined) {
+    throw new Error(
+      `an authored skill already exists at ${plan.destRel} — remove it first to re-eject`,
+    );
+  }
+  await ensureDir(dirname(plan.destAbs));
+  await copyRenderedSkillTree(
+    plan.srcAbs,
+    plan.destAbs,
+    instructionContext(plan.config),
+  );
+  await chmodWritable(plan.destAbs);
+  return {
+    name: plan.name,
+    destAbs: plan.destAbs,
+    destRel: plan.destRel,
+  };
+}
+
 /**
  * Copy a bundled built-in into `[skills].dir/<name>` so it can be edited. The
  * copy is RENDERED (markdown through the template engine, like materialization):
@@ -739,28 +838,7 @@ export async function ejectSkill(
   config: DiscernConfig,
   name: string,
 ): Promise<EjectResult> {
-  const bundledDir = await resolveBundledSkillsDir();
-  const src = join(bundledDir, name);
-  if (!(await lstatIfExists(src))?.isDirectory) {
-    const available = (await bundledSkillNames()).join(", ");
-    throw new Error(
-      `no bundled skill named "${name}" (available: ${available || "none"})`,
-    );
-  }
-  const { rel: skillsRel, abs: skillsAbs } = resolveSkillsDir(root, config);
-  const destAbs = join(skillsAbs, name);
-  const destRel = join(skillsRel, name);
-  if (await lstatIfExists(destAbs) !== undefined) {
-    throw new Error(
-      `an authored skill already exists at ${destRel} — remove it first to re-eject`,
-    );
-  }
-  await ensureDir(skillsAbs);
-  await copyRenderedSkillTree(src, destAbs, instructionContext(config));
-  // The embedded-templates filesystem reports files read-only; make the ejected
-  // copy writable so it can actually be edited.
-  await chmodWritable(destAbs);
-  return { name, destAbs, destRel };
+  return await applyEjectSkillPlan(await planEjectSkill(root, config, name));
 }
 
 /** Best-effort: ensure a freshly-copied tree is writable (recursively). */

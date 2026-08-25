@@ -1,13 +1,13 @@
 /**
- * The ARCHITECTURAL guard for the plan/apply class (ADR 0027): the dry-run-
- * capable effectful verbs, held to the preview contract AS A CLASS.
+ * The ARCHITECTURAL guard for the plan/apply class (ADR 0027): every command
+ * whose canonical operation-effect policy requires a preview, held to the
+ * preview contract AS A CLASS.
  *
- * The class is enumerated from the BUILT Cliffy command tree
- * (`dryRunCapableVerbs`, `src/main.ts`) — every command path that registers a
- * `--dry-run` option, hidden or not — never from a hand-kept list. A new verb
- * (or a new command group) that registers the flag enrols here the moment it is
- * registered: the fixture table below fails closed on any member it does not
- * cover, and on any entry whose member no longer exists.
+ * The class is enumerated from `OPERATION_EFFECTS.preview`, never inferred from
+ * the flag it must enforce and never copied into this test. The bidirectional
+ * operation-effect guard holds that policy equal to the `--dry-run` options in
+ * the built Cliffy command tree. A future writer therefore enrols before it
+ * has a flag, and the fixture table below fails closed until it has a probe.
  *
  * Two invariants, per member:
  *
@@ -40,7 +40,12 @@
  * stays in each verb's own suite; this file holds only the class contract.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { Command } from "@cliffy/command";
 import { withTempDir } from "./helpers.ts";
@@ -55,7 +60,8 @@ import {
   worktreePath,
   writeConfig,
 } from "./engine_helpers.ts";
-import { dryRunCapablePaths, dryRunCapableVerbs } from "../src/main.ts";
+import { dryRunCapablePaths } from "../src/main.ts";
+import { previewRequiredOperationPaths } from "../src/shared/operation_effects.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { resultContractForVerb } from "../src/shared/result_contracts.ts";
 import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
@@ -88,14 +94,12 @@ function appliedSet(applyStdout: string): Set<string> {
   );
 }
 
-/** Assert the apply executed nothing the dry-run plan did not list. */
-function assertAppliedSubsetOfPlanned(
-  dryStdout: string,
-  applyStdout: string,
+/** Assert one applied effect set is bounded by its preview. */
+function assertAppliedStepSubset(
+  planned: ReadonlySet<string>,
+  applied: ReadonlySet<string>,
   label: string,
 ): void {
-  const planned = plannedSet(dryStdout);
-  const applied = appliedSet(applyStdout);
   const escaped = [...applied].filter((s) => !planned.has(s));
   assertEquals(
     escaped,
@@ -104,6 +108,19 @@ function assertAppliedSubsetOfPlanned(
       `${JSON.stringify(escaped)}\nplanned=${
         JSON.stringify([...planned])
       }\napplied=${JSON.stringify([...applied])}`,
+  );
+}
+
+/** Assert the apply executed nothing the dry-run plan did not list. */
+function assertAppliedSubsetOfPlanned(
+  dryStdout: string,
+  applyStdout: string,
+  label: string,
+): void {
+  assertAppliedStepSubset(
+    plannedSet(dryStdout),
+    appliedSet(applyStdout),
+    label,
   );
 }
 
@@ -284,8 +301,8 @@ const CONFIG_WITH_STANDARD = [
 ].join("\n");
 
 /**
- * One probe per dry-run-capable verb, keyed by its command path. The class
- * test fails closed: an enumerated member with no probe, or a probe whose
+ * One probe per preview-required operation policy, keyed by command path. The
+ * class test fails closed: an enumerated member with no probe, or a probe whose
  * member vanished, is a gate failure — never a silent skip.
  */
 const PROBES: Record<string, DryRunProbe> = {
@@ -374,6 +391,28 @@ const PROBES: Record<string, DryRunProbe> = {
         byLabel.get(".claude/skills/retired-preview-skill")?.note ?? "",
         "remove skill",
       );
+    },
+  },
+  "skills eject": {
+    envelope: "engine-plan",
+    arrange: async (dir) => {
+      await scaffoldEngine(dir);
+      return {
+        cwd: dir,
+        dry: [
+          "skills",
+          "eject",
+          "discern-write-adr",
+          "--dry-run",
+          "--json",
+        ],
+        apply: [
+          "skills",
+          "eject",
+          "discern-write-adr",
+          "--json",
+        ],
+      };
     },
   },
   "done": {
@@ -675,15 +714,15 @@ const PROBES: Record<string, DryRunProbe> = {
 
 // ── the class contract ──────────────────────────────────────────────────────
 
-Deno.test("dry-run class: every capable verb previews faithfully (writes nothing; apply ⊆ plan)", async (t) => {
-  const verbs = dryRunCapableVerbs();
-  // Fail closed, both directions: a new dry-run-capable verb must wire a probe
-  // here before it can ship, and a probe whose member vanished must go.
+Deno.test("preview-required class: every member previews faithfully (writes nothing; apply ⊆ plan)", async (t) => {
+  const verbs = previewRequiredOperationPaths();
+  // Fail closed, both directions: a new preview-required policy must wire a
+  // probe here before it can ship, and a probe whose member vanished must go.
   assertEquals(
     Object.keys(PROBES).sort(),
     [...verbs],
-    "the dry-run fixture table has drifted from the registered --dry-run " +
-      "command paths — add a probe for the new member (or delete the stale one)",
+    "the dry-run fixture table has drifted from preview-required operation " +
+      "policy — add a probe for the new member (or delete the stale one)",
   );
 
   // Every probe drives its own scaffold, so the members fan out as
@@ -850,6 +889,19 @@ Deno.test("control: the enumeration catches a fresh-named verb in a fresh group"
   assertEquals(
     dryRunCapablePaths(fake as unknown as Command),
     ["frobnicate", "widgets zap"],
+  );
+});
+
+Deno.test("control: an applied effect absent from the plan fails the subset guard", () => {
+  assertThrows(
+    () =>
+      assertAppliedStepSubset(
+        new Set(["refresh:known-target"]),
+        new Set(["refresh:known-target", "refresh:future-unlisted-target"]),
+        "future writer",
+      ),
+    Error,
+    "apply executed steps the dry-run plan never listed",
   );
 });
 
