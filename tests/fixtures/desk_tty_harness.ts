@@ -56,6 +56,7 @@ import {
   repoSourceRunArgs,
   scaffoldEngine,
 } from "../engine_helpers.ts";
+import { withTempDir } from "../temp_dir.ts";
 import {
   type PtyGeometry,
   type PtyInputPhase,
@@ -267,14 +268,11 @@ export async function withDeskTtyProject<T>(
   fixture: DeskFleetFixture,
   run: (project: DeskTtyProject) => Promise<T>,
 ): Promise<T> {
-  const parent = await Deno.makeTempDir({ prefix: "discern-desk-tty-" });
-  const root = join(parent, "project");
-  try {
+  return await withTempDir(async (parent) => {
+    const root = join(parent, "project");
     const project = await materialiseDeskProject(parent, root, fixture);
     return await run(project);
-  } finally {
-    await Deno.remove(parent, { recursive: true }).catch(() => undefined);
-  }
+  }, { prefix: "discern-desk-tty-" });
 }
 
 async function materialiseDeskProject(
@@ -641,18 +639,15 @@ export async function runDeskTty(
 ): Promise<DeskTtyRunResult> {
   assertGeometry(options.geometry);
   const colorMode = options.colorMode ?? "color";
-  const runDir = await Deno.makeTempDir({
-    dir: project.parent,
-    prefix: "desk-session-",
-  });
-  const resultPath = join(runDir, "terminal.json");
-  const resizeDir = join(runDir, "resizes");
-  await Deno.mkdir(resizeDir);
-  const resizeTimeline: DeskTerminalResize[] = [];
-  const captureGeometry = new Map<string, PtyGeometry>();
-  let expectedGeometry = options.geometry;
-  let resizeSequence = 0;
-  const input: PtyInputPhase[] = options.input.map((phase) => {
+  return await withTempDir(async (runDir) => {
+    const resultPath = join(runDir, "terminal.json");
+    const resizeDir = join(runDir, "resizes");
+    await Deno.mkdir(resizeDir);
+    const resizeTimeline: DeskTerminalResize[] = [];
+    const captureGeometry = new Map<string, PtyGeometry>();
+    let expectedGeometry = options.geometry;
+    let resizeSequence = 0;
+    const input: PtyInputPhase[] = options.input.map((phase) => {
     const phaseSettleMs = phase.settleMs ?? 20;
     assertSettle(phaseSettleMs);
     if (phase.captureAs !== undefined) {
@@ -709,12 +704,12 @@ export async function runDeskTty(
     };
   });
 
-  const targetArgs = [
+    const targetArgs = [
     "desk",
     ...(colorMode === "color" ? ["--theme", "dark"] : []),
     ...(colorMode === "no-color-flag" ? ["--no-color"] : []),
   ];
-  const childArgs = [
+    const childArgs = [
     "--child",
     "--result",
     resultPath,
@@ -724,12 +719,11 @@ export async function runDeskTty(
     Deno.execPath(),
     ...engineRunArgs(targetArgs),
   ];
-  const colorEnv = colorMode === "color"
+    const colorEnv = colorMode === "color"
     ? { NO_COLOR: "", FORCE_COLOR: "1" }
     : colorMode === "no-color-env"
     ? { NO_COLOR: "1", FORCE_COLOR: "" }
     : { NO_COLOR: "", FORCE_COLOR: "" };
-  try {
     const process = await runPtyProcess({
       command: Deno.execPath(),
       args: repoSourceRunArgs(HARNESS_PATH, childArgs),
@@ -781,9 +775,7 @@ export async function runDeskTty(
         noChild: !(await processExists(terminal.childPid)),
       },
     };
-  } finally {
-    await Deno.remove(runDir, { recursive: true }).catch(() => undefined);
-  }
+  }, { parent: project.parent, prefix: "desk-session-" });
 }
 
 function assertGeometry(geometry: PtyGeometry): void {

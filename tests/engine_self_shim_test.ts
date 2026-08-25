@@ -39,14 +39,16 @@ const SCRUBBED_BASE = "/usr/bin:/bin";
  * developer's bin directory — which is exactly where a dev-wrapper `discern`
  * would live and quietly satisfy the test.
  */
-async function denoOnlyPath(): Promise<string> {
-  // Under the suite temp home so the symlink dir is cleaned with the run.
-  const dir = await Deno.makeTempDir({
-    dir: await suiteTempDir(),
+async function withDenoOnlyPath<T>(
+  fn: (path: string) => T | Promise<T>,
+): Promise<T> {
+  return await withTempDir(async (dir) => {
+    await Deno.symlink(Deno.execPath(), join(dir, "deno"));
+    return await fn(`${dir}:${SCRUBBED_BASE}`);
+  }, {
+    parent: await suiteTempDir(),
     prefix: "deno-only-",
   });
-  await Deno.symlink(Deno.execPath(), join(dir, "deno"));
-  return `${dir}:${SCRUBBED_BASE}`;
 }
 
 Deno.test("self-shim: `discern` runs from a PATH holding no discern", async () => {
@@ -111,9 +113,11 @@ Deno.test("gate: a job invoking `discern` succeeds with no discern on PATH", asy
       ].join("\n"),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["prepare", "--json"], {
-      env: { PATH: await denoOnlyPath() },
-    });
+    const r = await withDenoOnlyPath((path) =>
+      runAgent(dir, ["prepare", "--json"], {
+        env: { PATH: path },
+      })
+    );
     assertEquals(r.code, 0, r.output);
     const envelope = JSON.parse(r.stdout.trim());
     assert(envelope.ok === true, r.output);

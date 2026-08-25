@@ -7,12 +7,10 @@
 
 import { assert } from "@std/assert";
 import { REPO_ROOT } from "../scripts/canon_editor/root.ts";
+import { withTempDir } from "./helpers.ts";
 
 Deno.test("Canon Editor mutation suite cannot write into the checkout", async () => {
-  const sandbox = await Deno.makeTempDir({
-    prefix: "discern-canon-editor-isolation-",
-  });
-  try {
+  await withTempDir(async (sandbox) => {
     const output = await new Deno.Command(Deno.execPath(), {
       args: [
         "test",
@@ -35,7 +33,5 @@ Deno.test("Canon Editor mutation suite cannot write into the checkout", async ()
       output.success,
       `the mutation suite escaped its write sandbox or failed:\n${detail}`,
     );
-  } finally {
-    await Deno.remove(sandbox, { recursive: true });
-  }
+  }, { prefix: "discern-canon-editor-isolation-" });
 });

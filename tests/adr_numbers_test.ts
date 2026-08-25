@@ -8,6 +8,7 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { adrNumberOf, duplicateAdrNumbers } from "../src/lib/adr_numbers.ts";
+import { withTempDir } from "./helpers.ts";
 
 Deno.test("adrNumberOf: reads the number from a record basename, at any depth", () => {
   assertEquals(adrNumberOf("map/_adr/0184-proof-line.md"), "0184");
@@ -35,8 +36,7 @@ async function scaffoldAdrs(
 }
 
 Deno.test("duplicateAdrNumbers: groups records sharing a number, README ignored", async () => {
-  const dir = await Deno.makeTempDir();
-  try {
+  await withTempDir(async (dir) => {
     await scaffoldAdrs(dir, [
       "README.md",
       "0001-first.md",
@@ -52,14 +52,11 @@ Deno.test("duplicateAdrNumbers: groups records sharing a number, README ignored"
         ],
       },
     ]);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  });
 });
 
 Deno.test("duplicateAdrNumbers: a superseded record's number cannot be reused", async () => {
-  const dir = await Deno.makeTempDir();
-  try {
+  await withTempDir(async (dir) => {
     await scaffoldAdrs(dir, [
       "0009-newcomer.md",
       "_superseded/0009-retired.md",
@@ -73,18 +70,13 @@ Deno.test("duplicateAdrNumbers: a superseded record's number cannot be reused", 
         ],
       },
     ]);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  });
 });
 
 Deno.test("duplicateAdrNumbers: unique numbers and a missing record tree are both clean", async () => {
-  const dir = await Deno.makeTempDir();
-  try {
+  await withTempDir(async (dir) => {
     assertEquals(await duplicateAdrNumbers(dir, "map"), []);
     await scaffoldAdrs(dir, ["0001-first.md", "0002-second.md"]);
     assertEquals(await duplicateAdrNumbers(dir, "map"), []);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  });
 });

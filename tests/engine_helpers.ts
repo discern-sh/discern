@@ -44,6 +44,7 @@ import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { fakeEnv, quietDenoRunArgs, REAL_TEMPLATES } from "./helpers.ts";
+import { suiteTempDir } from "./temp_dir.ts";
 import {
   type PtyInputPhase,
   type PtyProcessResult,
@@ -147,34 +148,7 @@ export function defaultMapPath(root: string, ...parts: string[]): string {
   return join(root, SOURCE_PATHS.map.defaultPath, ...parts);
 }
 
-let suiteTempPromise: Promise<string> | undefined;
-
-/**
- * The suite-scoped temp home injected as every spawned engine's TMPDIR: job
- * and diagnostic artifacts, fallback shims — everything the engines mint in
- * "OS temp" — land here instead of the shared temp dir, so parallel suites
- * neither pollute the machine nor scan each other's litter, and a scaffolded
- * project's due retention sweep walks this small directory rather than the
- * machine-wide population (ADR 0249). One home per test module instance,
- * removed on process unload; a process killed too hard to unload leaves a
- * `discern-test-` entry the engine's own reaper collects by age — the prefix
- * is a registered temp-artifact directory family, so no scan of the shared
- * temp dir ever runs from the harness itself.
- */
-export function suiteTempDir(): Promise<string> {
-  suiteTempPromise ??= (async (): Promise<string> => {
-    const dir = await Deno.makeTempDir({ prefix: "discern-test-tmp-" });
-    globalThis.addEventListener("unload", () => {
-      try {
-        Deno.removeSync(dir, { recursive: true });
-      } catch {
-        // Best-effort: the artifact reaper collects what unload cannot.
-      }
-    });
-    return dir;
-  })();
-  return suiteTempPromise;
-}
+export { suiteTempDir };
 
 /**
  * Build the environment for an engine subprocess: colour off, git isolated,

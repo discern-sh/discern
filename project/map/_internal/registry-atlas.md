@@ -99,9 +99,10 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 88      | —                | node `canonical-sets`       |
+| [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 89      | —                | node `canonical-sets`       |
 
-88 sets · 143 guard tests · 58 committed artifacts.
+89 sets · 145 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -240,6 +241,8 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/source_path_references_test.ts`             | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/spoiler_guard_test.ts`                      | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/ssot_claim_guard_test.ts`                   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/temp_dir_guard_test.ts`                     | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/temp_dir_test.ts`                           | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/third_party_notices_test.ts`                | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/tip_canon_enrolment_test.ts`                | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/tip_closed_set_guard_test.ts`               | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -3107,12 +3110,24 @@ The recorded judgments behind the canary check job: extras promoted on recorded 
 - Glossary: not enrolled — the canary is one configured gate job; the registry records repository-local test-scheduling judgments
 - Feature canon: not enrolled — repository-local job wiring over the generic [jobs] table, not a shipped discern feature
 
+## `test-temp-directory-ownership-modes` — Test temp-directory ownership modes
+
+Every supported lifetime for a temporary directory created by tests or executable fixtures, with its cleanup boundary and reason.
+
+- Source: `tests/temp_dir.ts` — `TEMP_DIR_OWNERSHIP_POLICIES`
+- Members: 2
+  - `closure`
+  - `suite`
+- Guards: `tests/temp_dir_test.ts`, `tests/temp_dir_guard_test.ts`
+- Glossary: not enrolled — these callback and module lifetimes are repository-local test infrastructure policy
+- Feature canon: not enrolled — test fixture cleanup is a repository development convention, not a shipped discern feature
+
 ## `canonical-sets` — Canonical sets
 
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 88
+- Members: 89
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -3200,6 +3215,7 @@ This meta-registry: the closed set of closed sets.
   - `authored-ts-universe`
   - `artifact-validators`
   - `canary-tests`
+  - `test-temp-directory-ownership-modes`
   - `canonical-sets`
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`

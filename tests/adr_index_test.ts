@@ -24,6 +24,7 @@ import {
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { withTempDir } from "./helpers.ts";
 
 const ADR_DIR = join(REPO_AUTHORED_PATHS.map, "_adr");
 
@@ -64,8 +65,7 @@ Deno.test("ADR index: the live repo's maintained index is current through the sh
 
 Deno.test("ADR index derivation ignores stale generated-block order", async () => {
   const render = async (listed: readonly string[]): Promise<string> => {
-    const dir = await Deno.makeTempDir({ prefix: "discern-adr-order-" });
-    try {
+    return await withTempDir(async (dir) => {
       await Deno.writeTextFile(
         join(dir, "README.md"),
         [
@@ -93,9 +93,7 @@ Deno.test("ADR index derivation ignores stale generated-block order", async () =
         "# ADR 0002: Second\n",
       );
       return (await renderAdrIndexBlocks(await adrRecordsIn(dir))).current;
-    } finally {
-      await Deno.remove(dir, { recursive: true });
-    }
+    }, { prefix: "discern-adr-order-" });
   };
 
   assertEquals(
@@ -122,8 +120,7 @@ Deno.test("ADR index: the rendered index is a fixed point of the map formatter",
 });
 
 Deno.test("control: a record the index omits reports stale, and the expected text names it", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-adr-index-stale-" });
-  try {
+  await withTempDir(async (dir) => {
     const adrDir = join(dir, "docs", "_adr");
     await Deno.mkdir(adrDir, { recursive: true });
     await Deno.writeTextFile(
@@ -151,14 +148,11 @@ Deno.test("control: a record the index omits reports stale, and the expected tex
         ),
       "the expected index must name the unlisted record",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-adr-index-stale-" });
 });
 
 Deno.test("control: a README without markers is absent — the index is opt-in", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-adr-index-absent-" });
-  try {
+  await withTempDir(async (dir) => {
     const adrDir = join(dir, "docs", "_adr");
     await Deno.mkdir(adrDir, { recursive: true });
     await Deno.writeTextFile(
@@ -170,14 +164,11 @@ Deno.test("control: a README without markers is absent — the index is opt-in",
       "# ADR 0001: A first choice\n",
     );
     assertEquals((await adrIndexState(dir, "docs/")).kind, "absent");
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-adr-index-absent-" });
 });
 
 Deno.test("control: a record whose heading defeats the derivation reports invalid, naming it", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-adr-index-invalid-" });
-  try {
+  await withTempDir(async (dir) => {
     const adrDir = join(dir, "docs", "_adr");
     await Deno.mkdir(adrDir, { recursive: true });
     await Deno.writeTextFile(
@@ -202,14 +193,11 @@ Deno.test("control: a record whose heading defeats the derivation reports invali
       "0001-first-choice.md",
       "the issue must name the offending record file",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-adr-index-invalid-" });
 });
 
 Deno.test("control: a start marker missing its end marker reports the markers cause, not a record", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-adr-index-markers-" });
-  try {
+  await withTempDir(async (dir) => {
     const adrDir = join(dir, "docs", "_adr");
     await Deno.mkdir(adrDir, { recursive: true });
     // The BEGIN marker survives an edit; the END marker is gone. Every record
@@ -231,9 +219,7 @@ Deno.test("control: a start marker missing its end marker reports the markers ca
       "END GENERATED: current ADR records",
       "the issue must name the missing end marker",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-adr-index-markers-" });
 });
 
 Deno.test("the two shipped ADR skeletons are identical", async () => {
@@ -382,8 +368,7 @@ Deno.test("ADR numbers are never reused across the active and superseded sets", 
 });
 
 Deno.test("control: a duplicate active and superseded ADR number offends", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-adr-index-control-" });
-  try {
+  await withTempDir(async (dir) => {
     await Deno.mkdir(join(dir, "_superseded"));
     await Deno.writeTextFile(
       join(dir, "4242-new-direction.md"),
@@ -406,7 +391,5 @@ Deno.test("control: a duplicate active and superseded ADR number offends", async
         "_superseded/4242-retired-direction.md",
       ],
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-adr-index-control-" });
 });
