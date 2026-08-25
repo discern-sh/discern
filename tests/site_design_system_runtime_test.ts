@@ -7,7 +7,8 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
-import { packageManifest, type RuntimeManifest } from "discern-design-system";
+import { packageManifest } from "discern-design-system";
+import { z } from "@zod/zod";
 import {
   COPIED_PAGE_ASSETS,
   GENERATED_SITE_OUTPUTS,
@@ -25,6 +26,7 @@ import { renderMarketingPage } from "../site/page-src/renderers.ts";
 import { handler } from "../site/serve.ts";
 import { runtimeAssetReferences } from "./runtime_asset_references.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const DESIGN_SYSTEM_VERSION = "0.26.1";
@@ -37,13 +39,13 @@ const BROWSER = {
 };
 
 interface DenoConfig {
-  readonly links?: readonly string[];
-  readonly workspace?: readonly string[];
+  readonly links?: readonly string[] | undefined;
+  readonly workspace?: readonly string[] | undefined;
   readonly imports: Readonly<Record<string, string>>;
   readonly minimumDependencyAge?: {
     readonly age: string;
     readonly exclude: readonly string[];
-  };
+  } | undefined;
 }
 
 /** Report committed dependency containers that can replace registry packages locally. */
@@ -54,14 +56,68 @@ function committedLocalOverrideViolations(config: DenoConfig): string[] {
   ];
 }
 
-interface DenoLock {
-  readonly specifiers: Readonly<Record<string, string>>;
-  readonly jsr: Readonly<Record<string, unknown>>;
-}
+const DENO_CONFIG_SCHEMA = z.object({
+  links: z.array(z.string()).optional(),
+  workspace: z.array(z.string()).optional(),
+  imports: z.record(z.string(), z.string()),
+  minimumDependencyAge: z.object({
+    age: z.string(),
+    exclude: z.array(z.string()),
+  }).optional(),
+}).passthrough();
 
-interface DenoInfo {
-  readonly modules?: readonly { readonly specifier?: string }[];
-}
+const DENO_LOCK_SCHEMA = z.object({
+  specifiers: z.record(z.string(), z.string()),
+  jsr: z.record(z.string(), z.json()),
+}).passthrough();
+
+const DENO_INFO_SCHEMA = z.object({
+  modules: z.array(
+    z.object({
+      specifier: z.string().optional(),
+    }).passthrough(),
+  ).optional(),
+}).passthrough();
+
+const RUNTIME_MANIFEST_SCHEMA = z.object({
+  schemaVersion: z.number(),
+  package: z.string(),
+  selection: z.object({
+    all: z.boolean(),
+    requestedComponents: z.array(z.string()),
+    requestedGroups: z.array(z.string()),
+    resolvedComponents: z.array(z.string()),
+    assets: z.array(z.string()),
+    theme: z.string(),
+  }),
+  groups: z.array(z.object({
+    name: z.string(),
+    components: z.array(z.string()),
+  })),
+  components: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    group: z.string(),
+    dependencies: z.array(z.string()),
+    behaviors: z.array(z.string()),
+    ownedClasses: z.array(z.string()),
+    publicTokenNames: z.array(z.string()),
+  })),
+  publicTokenNames: z.array(z.string()),
+  outputs: z.object({
+    scripts: z.array(z.string()),
+    assets: z.array(z.string()),
+  }).passthrough(),
+  integrity: z.object({
+    files: z.array(
+      z.object({
+        path: z.string(),
+        mediaType: z.string(),
+        bytes: z.number(),
+      }).passthrough(),
+    ),
+  }).passthrough(),
+}).passthrough();
 
 /** Select runtime React dependencies while excluding type-only package declarations. */
 function reactRuntimeModules(specifiers: readonly string[]): string[] {
@@ -82,7 +138,10 @@ async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
   if (!output.success) {
     throw new Error(new TextDecoder().decode(output.stderr));
   }
-  const info = JSON.parse(new TextDecoder().decode(output.stdout)) as DenoInfo;
+  const info = decodeWith(
+    DENO_INFO_SCHEMA,
+    new TextDecoder().decode(output.stdout),
+  );
   return (info.modules ?? []).flatMap((module) =>
     module.specifier === undefined ? [] : [module.specifier]
   );
@@ -106,10 +165,11 @@ function bundleRoot(name: DesignSystemBundleName): string {
 /** Decode the runtime manifest emitted beside a selected design-system bundle. */
 async function bundleManifest(
   name: DesignSystemBundleName,
-): Promise<RuntimeManifest> {
-  return JSON.parse(
+): Promise<z.output<typeof RUNTIME_MANIFEST_SCHEMA>> {
+  return decodeWith(
+    RUNTIME_MANIFEST_SCHEMA,
     await Deno.readTextFile(join(bundleRoot(name), "manifest.json")),
-  ) as RuntimeManifest;
+  );
 }
 
 /** Expand configured component groups and transitive dependencies in canonical manifest order. */
@@ -170,9 +230,10 @@ Deno.test("the committed-override detector catches a freshly named linked packag
 });
 
 Deno.test("Discern pins one exact public design-system dependency", async () => {
-  const config = JSON.parse(
+  const config = decodeWith(
+    DENO_CONFIG_SCHEMA,
     await Deno.readTextFile(join(ROOT, "deno.json")),
-  ) as DenoConfig;
+  );
   assertEquals(committedLocalOverrideViolations(config), []);
   assertEquals(
     Object.entries(config.imports).filter(([key, value]) =>
@@ -185,9 +246,10 @@ Deno.test("Discern pins one exact public design-system dependency", async () => 
     exclude: ["jsr:@discern-sh/design-system"],
   });
 
-  const lock = JSON.parse(
+  const lock = decodeWith(
+    DENO_LOCK_SCHEMA,
     await Deno.readTextFile(join(ROOT, "deno.lock")),
-  ) as DenoLock;
+  );
   assertEquals(
     lock.specifiers[DESIGN_SYSTEM_SPECIFIER],
     DESIGN_SYSTEM_VERSION,
@@ -248,7 +310,13 @@ Deno.test("each emitted bundle is the dependency closure of the site selection",
     const runtime = await bundleManifest(name);
     const resolved = resolvedSelection(name);
     assertEquals(runtime.package, packageManifest.package);
-    assertEquals(runtime.groups, packageManifest.groups);
+    assertEquals(
+      runtime.groups,
+      packageManifest.groups.map((group) => ({
+        name: group.name,
+        components: [...group.components],
+      })),
+    );
     assertEquals(
       runtime.components,
       resolved.map((id) => {
@@ -259,15 +327,26 @@ Deno.test("each emitted bundle is the dependency closure of the site selection",
           component !== undefined,
           `${name} resolved unknown component ${id}`,
         );
-        return component;
+        return {
+          id: component.id,
+          name: component.name,
+          group: component.group,
+          dependencies: [...component.dependencies],
+          behaviors: [...component.behaviors],
+          ownedClasses: [...component.ownedClasses],
+          publicTokenNames: [...component.publicTokenNames],
+        };
       }),
     );
     assertEquals(runtime.publicTokenNames, packageManifest.publicTokenNames);
     assertEquals(runtime.selection.all, false);
-    assertEquals(runtime.selection.requestedComponents, expected.components);
-    assertEquals(runtime.selection.requestedGroups, expected.groups);
+    assertEquals(
+      runtime.selection.requestedComponents,
+      [...expected.components],
+    );
+    assertEquals(runtime.selection.requestedGroups, [...expected.groups]);
     assertEquals(runtime.selection.resolvedComponents, resolved);
-    assertEquals(runtime.selection.assets, expected.assets);
+    assertEquals(runtime.selection.assets, [...expected.assets]);
     assertEquals(runtime.selection.theme, expected.theme);
   }
 });

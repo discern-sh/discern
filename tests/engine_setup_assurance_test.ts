@@ -19,7 +19,12 @@
  *     for reactivation or improvement before landing.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import {
   parseConfig,
@@ -50,6 +55,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 // ── unit: classification + verdict, derived from [jobs] alone ───────────
 
@@ -344,15 +350,19 @@ Deno.test("setup done --json carries the per-capability assurance block + verdic
     await scaffoldEngine(dir, { bootstrapped: false });
     await writeConfig(dir, MIXED_CONFIG);
 
-    const res = JSON.parse(
+    const res = decodeCliResult(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      "setup done",
     );
     assertEquals(res.verb, "setup done");
+    assertResultDataKey(res, "assurance");
     const a = res.data.assurance;
     assertEquals(a.verdict, "partial");
     assertEquals(a.enforced, 2);
     assertEquals(a.total, 6);
-    const cap = (name: string): { state: string; reason?: string } => {
+    const cap = (
+      name: string,
+    ): { state: string; reason?: string | undefined } => {
       const c = a.known_jobs.find((x: { name: string }) => x.name === name);
       assert(c !== undefined, `assurance is missing capability "${name}"`);
       return c;
@@ -394,9 +404,12 @@ Deno.test("setup done terminal, JSON, and Markdown agree on the applicable denom
     assertTerminalTextIncludes(terminal.stdout, "build");
     assertTerminalTextIncludes(terminal.stdout, "does not apply");
 
-    const result = JSON.parse(
+    const result = decodeCliResult(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      "setup done",
     );
+    assertResultDataKey(result, "assurance");
+    assertExists(result.data.instructions);
     assertEquals(result.data.assurance.enforced, applicableTotal);
     assertEquals(result.data.assurance.total, applicableTotal);
     assertEquals(
@@ -431,9 +444,11 @@ Deno.test("forced setup done carries a mechanical inventory and unproved recover
     await gitInit(dir);
     await git(dir, "checkout", "-b", "discern-setup");
 
-    const res = JSON.parse(
+    const res = decodeCliResult(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      "setup done",
     );
+    assertResultDataKey(res, "assurance");
     assertEquals(res.data.landing.command, "discern setup accept");
     assertEquals(res.data.landing.in_repo, true);
     assertEquals(res.data.landing.branch, "discern-setup");
@@ -488,12 +503,15 @@ Deno.test("setup done reports an absent test capability honestly, not as a false
         'lint = "deno lint"',
       ].join("\n"),
     );
-    const res = JSON.parse(
+    const res = decodeCliResult(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      "setup done",
     );
+    assertResultDataKey(res, "assurance");
     const test = res.data.assurance.known_jobs.find(
       (c: { name: string }) => c.name === "test",
     );
+    assertExists(test);
     assertEquals(test.state, "absent");
     assertEquals(res.data.assurance.verdict, "partial");
   });
@@ -507,15 +525,19 @@ Deno.test("setup done on the seeded config alone is honest: minimal, with the no
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await writeConfig(dir, '[jobs]\nformat = "discern tidy"\n');
-    const res = JSON.parse(
+    const res = decodeCliResult(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      "setup done",
     );
+    assertResultDataKey(res, "assurance");
+    assertExists(res.data.instructions);
     const a = res.data.assurance;
     assertEquals(a.verdict, "minimal");
     assertEquals(a.enforced, 0);
     const format = a.known_jobs.find(
       (c: { name: string }) => c.name === "format",
     );
+    assertExists(format);
     assertEquals(format.state, "deferred");
     assertEquals(format.self_supplied, true);
     assertStringIncludes(

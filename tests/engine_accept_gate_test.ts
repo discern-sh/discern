@@ -13,7 +13,12 @@
  * the airtight SLOW PATH (no/stale proof → accept runs the gate itself).
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
@@ -39,6 +44,27 @@ import {
 } from "../src/engine/gate/proof.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import type { Proof } from "../src/shared/result_schemas.ts";
+import { z } from "@zod/zod";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
+
+type AcceptEnvelope = CliResultForCommand<"accept"> & {
+  data: Exclude<
+    NonNullable<CliResultForCommand<"accept">["data"]>,
+    { issues: unknown }
+  >;
+};
+
+const MCP_SETTINGS_SCHEMA = z.object({
+  mcpServers: z.record(
+    z.string(),
+    z.object({ command: z.string() }).passthrough(),
+  ),
+}).passthrough();
 
 /** Run the real admin-state preflight and expose its proven write capability to proof tests. */
 async function proofAuthority(
@@ -87,16 +113,17 @@ const CHECK_NO_TABOO = [
 ].join("\n");
 
 /** Decode acceptance or gate output for proof and refusal assertions. */
-// deno-lint-ignore no-explicit-any
-function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
+function parseJson(stdout: string): AcceptEnvelope {
+  const result = decodeCliResult(stdout, "accept");
+  assertResultDataKey(result, "landed");
+  return { ...result, data: result.data };
 }
 
 /** Every successful acceptance path carries the bounded line an agent relays. */
-// deno-lint-ignore no-explicit-any
-function assertLandingProofRelay(obj: any, branch: string): void {
-  assertEquals(obj.data.proof, undefined);
+function assertLandingProofRelay(obj: AcceptEnvelope, branch: string): void {
+  assertEquals("proof" in obj.data, false);
   assertEquals(typeof obj.data.proof_line, "string");
+  assertExists(obj.data.proof_line);
   assertStringIncludes(
     obj.data.proof_line,
     `Proof: gate passed on agent/${branch} @ `,
@@ -471,6 +498,7 @@ Deno.test("accept: a fresh `done` lets accept skip the gate re-run (proof fast p
     const grad = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(grad.code, 0, grad.output);
     const obj = parseJson(grad.stdout);
+    assertExists(obj.data.gate_validation);
     assertEquals(obj.data.gate_validation.mode, "proof");
     assertEquals(obj.data.gate_validation.proof.status, "honored");
     assertEquals(
@@ -498,8 +526,13 @@ Deno.test("accept: a legacy proof cannot bypass tracked refresh convergence", as
     assertEquals(refreshed.code, 0, refreshed.output);
     await commitCurrentWorktree(wt, "adopt tracked refresh artifacts");
     const mcpPath = join(wt, ".mcp.json");
-    const mcp = JSON.parse(await Deno.readTextFile(mcpPath));
-    mcp.mcpServers.discern.command = "wrong-discern";
+    const mcp = decodeWith(
+      MCP_SETTINGS_SCHEMA,
+      await Deno.readTextFile(mcpPath),
+    );
+    const discernServer = mcp.mcpServers.discern;
+    assert(discernServer !== undefined);
+    discernServer.command = "wrong-discern";
     await Deno.writeTextFile(mcpPath, `${JSON.stringify(mcp, null, 2)}\n`);
     await commitCurrentWorktree(wt, "make a tracked refresh artifact stale");
 
@@ -545,6 +578,7 @@ Deno.test("accept: with no prior `done`, accept runs the gate itself before land
     const grad = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(grad.code, 0, grad.output);
     const obj = parseJson(grad.stdout);
+    assertExists(obj.data.gate_validation);
     assertEquals(obj.data.gate_validation.mode, "rerun");
     assertEquals(obj.data.gate_validation.proof.status, "missing");
     assertEquals(grad.output.includes("JOB"), false);

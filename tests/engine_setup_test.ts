@@ -31,6 +31,15 @@ import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { INSTRUCTIONS_H1 } from "./engine_setup_shared.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
+import { z } from "@zod/zod";
+import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
+
+const GEMINI_SETTINGS_SCHEMA = z.object({
+  mcpServers: z.record(
+    z.string(),
+    z.object({ command: z.string() }).passthrough(),
+  ),
+}).passthrough();
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 /** The setup command's help description — present in `--help` only when shown. */
@@ -89,8 +98,9 @@ Deno.test("setup begin refuses malformed existing settings JSON and names the fi
       "claude_code",
     ]);
     assertEquals(r.code, 1, r.output);
-    const res = JSON.parse(r.stdout);
+    const res = decodeCliResult(r.stdout, "setup begin");
     assertEquals(res.ok, false);
+    assert(typeof res.message === "string");
     assertStringIncludes(res.message, ".claude/settings.json");
     assertStringIncludes(res.message, "malformed JSON");
     assert(!res.message.includes("--config"), res.message);
@@ -121,8 +131,9 @@ Deno.test("setup begin reports apply failures cleanly and reruns from the partia
       AGENT_NAMES.join(","),
     ]);
     assertEquals(blocked.code, 1, blocked.output);
-    const failure = JSON.parse(blocked.stdout);
+    const failure = decodeCliResult(blocked.stdout, "setup begin");
     assertEquals(failure.ok, false);
+    assert(typeof failure.message === "string");
     assertStringIncludes(failure.message, ".gemini/settings.json");
     assertStringIncludes(failure.message, "write");
     assert(!blocked.output.includes("Uncaught"), blocked.output);
@@ -141,9 +152,16 @@ Deno.test("setup begin reports apply failures cleanly and reruns from the partia
     assertEquals(recovered.code, 0, recovered.output);
     assert(await targetExists(join(dir, "discern.toml")));
     assert(await targetExists(defaultMapPath(dir, "README.md")));
-    const settings = JSON.parse(await Deno.readTextFile(gemini));
-    assertEquals(settings.mcpServers.other.command, "other");
-    assertEquals(settings.mcpServers.discern.command, "discern");
+    const settings = decodeWith(
+      GEMINI_SETTINGS_SCHEMA,
+      await Deno.readTextFile(gemini),
+    );
+    const other = settings.mcpServers.other;
+    const discern = settings.mcpServers.discern;
+    assert(other !== undefined);
+    assert(discern !== undefined);
+    assertEquals(other.command, "other");
+    assertEquals(discern.command, "discern");
   });
 });
 
@@ -178,7 +196,11 @@ Deno.test("real setup begin leaves no unresolved template tokens in seeded or sk
       AGENT_NAMES.join(","),
     ]);
     assertEquals(r.code, 0, r.output);
-    const data = JSON.parse(r.stdout).data;
+    const data = decodeCliResult(r.stdout, "setup begin").data;
+    assert(data !== undefined && "written" in data);
+    assert(data.written !== undefined);
+    assert(data.mcp_wired !== undefined);
+    assert(data.skeletons !== undefined);
     const rels = new Set<string>();
     for (
       const rel of [
@@ -190,7 +212,7 @@ Deno.test("real setup begin leaves no unresolved template tokens in seeded or sk
     ) {
       rels.add(rel);
     }
-    for (const rel of data.skeletons as string[]) {
+    for (const rel of data.skeletons) {
       for (const file of await setupTextFilesUnder(dir, rel)) {
         rels.add(file);
       }
@@ -454,7 +476,7 @@ for (const mode of DONE_MODES) {
       // refusal path (gate proof or the --force config-parse floor) it takes.
       const json = await runAgent(dir, [...mode.args, "--json"]);
       assertEquals(json.code, 1, json.output);
-      assertEquals(JSON.parse(json.stdout).ok, false);
+      assertEquals(decodeCliResult(json.stdout, "setup done").ok, false);
       assert(
         !(await broken()).includes("bootstrapped = true"),
         `setup done (${mode.label}) recorded completion over an unparseable config`,
@@ -485,10 +507,12 @@ Deno.test("setup done --force is refused by the config-parse floor it cannot ove
       await Deno.readTextFile(cfgPath) + "\nthis is = = not valid [[[\n",
     );
 
-    const res = JSON.parse(
+    const res = decodeCliResult(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      "setup done",
     );
     assertEquals(res.ok, false);
+    assert(typeof res.message === "string");
     assertEquals(
       res.error,
       "invalid_config",
@@ -597,7 +621,7 @@ Deno.test("map is gated pre-setup but docs and help are not", async () => {
     // There is no project map to browse until setup seeds and fills it.
     const map = await runAgent(dir, ["map", "--json"]);
     assertEquals(map.code, 1, map.output);
-    assertEquals(JSON.parse(map.stdout).error, "not_set_up");
+    assertEquals(decodeCliResult(map.stdout, "map").error, "not_set_up");
 
     // `docs` stays open because it serves discern's bundled manual, not the
     // project's map.
@@ -617,7 +641,7 @@ Deno.test("the map gate is a structured not_set_up result under --json", async (
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["map", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const res = JSON.parse(r.stdout);
+    const res = decodeCliResult(r.stdout, "map");
     assertEquals(res.ok, false);
     assertEquals(res.verb, "map");
     assertEquals(res.error, "not_set_up");
@@ -632,7 +656,7 @@ Deno.test("done/prepare/test/standards run before setup is recorded, carrying th
     // "setup unfinished" advisory so a green run can't be mistaken for done.
     for (const verb of ["done", "prepare", "test", "standards"]) {
       const r = await runAgent(dir, [verb, "--json"]);
-      const res = JSON.parse(r.stdout);
+      const res = decodeCliResult(r.stdout, verb);
       assertEquals(res.verb, verb, r.output);
       assert(
         res.error !== "not_set_up",

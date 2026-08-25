@@ -13,6 +13,7 @@ import { renderCommandRefsCli } from "../src/shared/command_reference.ts";
 import {
   assert,
   assertEquals,
+  assertExists,
   assertMatch,
   assertRejects,
   assertStringIncludes,
@@ -47,7 +48,11 @@ import {
 } from "../src/engine/worktree/side_restrictions.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 import {
   addWorktree,
   git,
@@ -58,6 +63,18 @@ import {
   worktreePath,
   writeConfig,
 } from "./engine_helpers.ts";
+
+type StartData = Exclude<
+  NonNullable<CliResultForCommand<"start">["data"]>,
+  { issues: unknown }
+>;
+
+/** Decode successful start data and exclude shared configuration refusals. */
+function decodeStartData(stdout: string): StartData {
+  const result = decodeCliResult(stdout, "start");
+  assertResultDataKey(result, "path");
+  return result.data;
+}
 
 const SOURCE_ROOT = dirname(fromFileUrl(import.meta.url));
 const REPO_ROOT = dirname(SOURCE_ROOT);
@@ -190,9 +207,8 @@ async function assertLandedInstructionCurrent(
   );
   const status = await runAgent(dir, ["status", "--json"]);
   assertEquals(status.code, 0, status.output);
-  const result = JSON.parse(status.stdout) as {
-    data: { stale_generated?: string[] };
-  };
+  const result = decodeCliResult(status.stdout, "status");
+  assertResultDataKey(result, "location");
   assertEquals(
     result.data.stale_generated ?? [],
     [],
@@ -239,9 +255,9 @@ Deno.test("worktree lands in a sibling dir (never nested), and status + identity
     // …and status from the main checkout surveys the sibling as a line of work.
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const fleet = JSON.parse(status.stdout).data.fleet as Array<
-      { branch: string }
-    >;
+    const statusResult = decodeCliResult(status.stdout, "status");
+    assertResultDataKey(statusResult, "location");
+    const fleet = statusResult.data.fleet ?? [];
     assert(
       fleet.some((row) => row.branch === "agent/theta"),
       `the sibling worktree should appear in the fleet: ${status.stdout}`,
@@ -348,11 +364,9 @@ Deno.test("accept: materializes only checkout-local artifacts after landing", as
 
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as {
-      ok: boolean;
-      steps: Array<{ label: string; outcome: string }>;
-    };
+    const result = decodeCliResult(r.stdout, "accept");
     assertEquals(result.ok, true);
+    assertExists(result.steps);
     assert(
       result.steps.some((s) =>
         s.label === BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts &&
@@ -449,12 +463,8 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
         `accept reruns smoke in the converged trunk checkout: ${smokeCwds}`,
       );
 
-      const result = JSON.parse(run.stdout) as {
-        ok: boolean;
-        steps: Array<{ kind: string; label: string; outcome: string }>;
-        diagnostics?: Array<{ tool: string; reproduce_cmd: string }>;
-        hints?: string[];
-      };
+      const result = decodeCliResult(run.stdout, "accept");
+      assertExists(result.steps);
       const repositorySteps = result.steps.filter((step) =>
         step.kind === "repository-ensure"
       );
@@ -514,13 +524,9 @@ Deno.test("accept: records a post-landing smoke failure without skipping cleanup
       "cleanup deletes the landed branch",
     );
 
-    const result = JSON.parse(run.stdout) as {
-      ok: boolean;
-      steps: Array<{ kind: string; label: string; outcome: string }>;
-      diagnostics?: Array<{ tool: string; reproduce_cmd: string }>;
-      hints?: string[];
-    };
+    const result = decodeCliResult(run.stdout, "accept");
     assertEquals(result.ok, false);
+    assertExists(result.steps);
     assert(
       result.steps.some((step) =>
         step.kind === "job" && step.label === "smoke" &&
@@ -864,7 +870,9 @@ Deno.test("accept reports ignored files changed since worktree setup at the top 
 
     const applied = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(applied.code, 0, applied.output);
-    const obj = JSON.parse(applied.stdout);
+    const obj = decodeCliResult(applied.stdout, "accept");
+    assertResultDataKey(obj, "ignored_file_changes");
+    assertExists(obj.data.ignored_file_changes);
     assertEquals(obj.data.ignored_file_changes.changed_roots, ["local-cache/"]);
     assertEquals(obj.data.ignored_file_changes.truncated, false);
   });
@@ -949,7 +957,7 @@ Deno.test("every CLI-reachable side-restricted op maps a wrong-side refusal to e
       const from = c.side === "worktree" ? dir : wt;
       const r = await runAgent(from, [...c.argv, "--json"]);
       assertEquals(r.code, 1, `${c.op} from the wrong side: ${r.output}`);
-      const result = JSON.parse(r.stdout);
+      const result = decodeCliResult(r.stdout, c.verb);
       assertEquals(result.ok, false, c.op);
       assertEquals(result.verb, c.verb, c.op);
       assertEquals(
@@ -1276,8 +1284,10 @@ Deno.test("status and worktree prune keep a fully-merged worktree with uncommitt
 
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const row = JSON.parse(status.stdout).data.fleet.find(
-      (e: { branch: string }) => e.branch === "agent/dirty-merged",
+    const statusResult = decodeCliResult(status.stdout, "status");
+    assertResultDataKey(statusResult, "location");
+    const row = statusResult.data.fleet?.find(
+      (e) => e.branch === "agent/dirty-merged",
     );
     assert(row, `expected agent/dirty-merged in fleet\n${status.stdout}`);
     assertEquals(row.clean, false);
@@ -1345,15 +1355,6 @@ Deno.test("worktree prune --yes keeps a clean detached worktree whose HEAD is no
   });
 });
 
-/** Parse a `discern start --json` apply result. */
-interface StartResult {
-  ok: boolean;
-  verb: string;
-  message: string;
-  data: { id: string; branch: string; path: string; name_note?: string };
-  hints: string[];
-}
-
 Deno.test("start: from the main checkout creates a set-up sibling worktree and returns its path", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -1361,9 +1362,10 @@ Deno.test("start: from the main checkout creates a set-up sibling worktree and r
 
     const r = await runAgent(dir, ["start", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as StartResult;
+    const result = decodeCliResult(r.stdout, "start");
     assertEquals(result.ok, true);
     assertEquals(result.verb, "start");
+    assertResultDataKey(result, "path");
 
     const { id, branch, path } = result.data;
     assertEquals(
@@ -1438,7 +1440,8 @@ Deno.test("start --from: branch-owned instructions are refreshed by the new work
       "--json",
     ]);
     assertEquals(started.code, 0, started.output);
-    const result = JSON.parse(started.stdout) as StartResult;
+    const result = decodeCliResult(started.stdout, "start");
+    assertResultDataKey(result, "path");
 
     assertStringIncludes(
       await Deno.readTextFile(join(result.data.path, "AGENTS.md")),
@@ -1467,8 +1470,10 @@ Deno.test("start --name: derives the branch from the name and reports the normal
       "--json",
     ]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as StartResult;
+    const result = decodeCliResult(r.stdout, "start");
     assertEquals(result.ok, true);
+    assertResultDataKey(result, "path");
+    assertExists(result.hints);
 
     const { id, branch, name_note, path } = result.data;
     // The id/branch carry the slugified name; the hex tail keeps them unique.
@@ -1492,7 +1497,7 @@ Deno.test("start: refuses from inside a worktree (main-checkout-only)", async ()
     const wt = await mainWithWorktree(dir, "alpha");
     const r = await runAgent(wt, ["start", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "start");
     assertEquals(result.ok, false);
     assertEquals(result.verb, "start");
     // Mapped to the same precondition slug accept/update use from the main checkout.
@@ -1511,10 +1516,12 @@ Deno.test("start: mints a fresh, unique id on each call (never re-mints a live w
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    const first = JSON.parse((await runAgent(dir, ["start", "--json"])).stdout)
-      .data as StartResult["data"];
-    const second = JSON.parse((await runAgent(dir, ["start", "--json"])).stdout)
-      .data as StartResult["data"];
+    const first = decodeStartData(
+      (await runAgent(dir, ["start", "--json"])).stdout,
+    );
+    const second = decodeStartData(
+      (await runAgent(dir, ["start", "--json"])).stdout,
+    );
 
     assert(first.id !== second.id, `ids must differ across calls: ${first.id}`);
     assert(first.path !== second.path, "each start lands in its own directory");
@@ -1555,8 +1562,9 @@ Deno.test("start --dry-run: previews creating a worktree and touches nothing", a
 
     const r = await runAgent(dir, ["start", "--json", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "start");
     assertEquals(result.dry_run, true);
+    assertExists(result.plan);
     assertEquals(result.plan.title, "Start plan");
     // A dry-run mints an id for the preview but creates no worktree at all.
     assertEquals(
@@ -1838,9 +1846,8 @@ Deno.test("worktree setup: shared repository convergence precedes worktree-only 
         (await Deno.readTextFile(order)).trim().split("\n"),
         ["repository", "worktree"],
       );
-      const result = JSON.parse(run.stdout) as {
-        steps: Array<{ kind: string; outcome: string }>;
-      };
+      const result = decodeCliResult(run.stdout, "worktree setup");
+      assertExists(result.steps);
       assert(
         result.steps.some((step) =>
           step.kind === "repository-ensure" && step.outcome === "ok"
@@ -1899,16 +1906,7 @@ Deno.test("worktree setup re-entry: a failed convergence command keeps recovery 
 
     const run = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(run.code, 0, run.output);
-    const result = JSON.parse(run.stdout) as {
-      ok: boolean;
-      diagnostics?: Array<{
-        tool: string;
-        severity: string;
-        message: string;
-        reproduce_cmd: string;
-      }>;
-      hints?: string[];
-    };
+    const result = decodeCliResult(run.stdout, "worktree setup");
     assertEquals(result.ok, false, run.stdout);
     assertEquals(
       result.diagnostics?.map((diagnostic) => ({
@@ -2060,11 +2058,9 @@ Deno.test("update: a successful no-op convergence remains successful", async () 
 
     const run = await runAgent(wt, ["update", "--json"]);
     assertEquals(run.code, 0, run.output);
-    const result = JSON.parse(run.stdout) as {
-      ok: boolean;
-      steps: Array<{ kind: string; label: string; outcome: string }>;
-    };
+    const result = decodeCliResult(run.stdout, "update");
     assertEquals(result.ok, true, run.stdout);
+    assertExists(result.steps);
     assertEquals(
       result.steps.find((step) => step.kind === "setup-ensure")?.outcome,
       "ok",
@@ -2084,17 +2080,9 @@ Deno.test("update: a failing no-op convergence serializes its command and recove
 
     const run = await runAgent(wt, ["update", "--json"]);
     assertEquals(run.code, 0, run.output);
-    const result = JSON.parse(run.stdout) as {
-      ok: boolean;
-      steps: Array<{ kind: string; label: string; outcome: string }>;
-      diagnostics?: Array<{
-        tool: string;
-        message: string;
-        reproduce_cmd: string;
-      }>;
-      hints?: string[];
-    };
+    const result = decodeCliResult(run.stdout, "update");
     assertEquals(result.ok, false, run.stdout);
+    assertExists(result.steps);
     assertEquals(
       result.steps.find((step) => step.label === "merge")?.outcome,
       "skipped",
@@ -2153,12 +2141,8 @@ Deno.test("update: a failing ensure is recorded but never undoes the merge", asy
       await targetExists(join(wt, "upstream.txt")),
       "the merge must be kept",
     );
-    const result = JSON.parse(r.stdout) as {
-      ok: boolean;
-      steps: Array<{ kind: string; label: string; outcome: string }>;
-      diagnostics?: Array<{ tool: string; reproduce_cmd: string }>;
-      hints?: string[];
-    };
+    const result = decodeCliResult(r.stdout, "update");
+    assertExists(result.steps);
     const mergeStep = result.steps.find((s) =>
       s.kind === "git" && s.label === "merge"
     );
@@ -2213,10 +2197,8 @@ Deno.test("update: a partial refresh is recorded but never undoes the merge", as
       await targetExists(join(wt, "upstream.txt")),
       "the merge must be kept",
     );
-    const result = JSON.parse(r.stdout) as {
-      ok: boolean;
-      steps: Array<{ kind: string; label: string; outcome: string }>;
-    };
+    const result = decodeCliResult(r.stdout, "update");
+    assertExists(result.steps);
     const mergeStep = result.steps.find((s) =>
       s.kind === "git" && s.label === "merge"
     );
@@ -2250,13 +2232,9 @@ Deno.test("update: a partial refresh serializes on the already-current path", as
 
     const run = await runAgent(wt, ["update", "--json"]);
     assertEquals(run.code, 0, run.output);
-    const result = JSON.parse(run.stdout) as {
-      ok: boolean;
-      steps: Array<{ kind: string; label: string; outcome: string }>;
-      diagnostics?: Array<{ tool: string; reproduce_cmd: string }>;
-      hints?: string[];
-    };
+    const result = decodeCliResult(run.stdout, "update");
     assertEquals(result.ok, false, run.stdout);
+    assertExists(result.steps);
     assertEquals(
       result.steps.find((step) => step.label === "merge")?.outcome,
       "skipped",
@@ -2297,7 +2275,7 @@ Deno.test("start: hints when the fresh worktree carries .gitmodules and nothing 
 
     const r = await runAgent(dir, ["start", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as StartResult;
+    const result = decodeCliResult(r.stdout, "start");
     assertHasHint(result, HINTS["start-submodules-empty"]);
   });
 });
@@ -2323,8 +2301,9 @@ Deno.test("start: no submodule hint once a configured command mentions submodule
 
     const r = await runAgent(dir, ["start", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as StartResult;
+    const result = decodeCliResult(r.stdout, "start");
     assert(result.ok, "start succeeds with the ensure command wired");
+    assertExists(result.hints);
     assert(
       result.hints.every((h) => !h.includes("submodule")),
       `no submodule hint expected: ${JSON.stringify(result.hints)}`,

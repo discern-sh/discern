@@ -11,6 +11,7 @@
 import {
   assert,
   assertEquals,
+  assertExists,
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
@@ -38,6 +39,56 @@ import { assertHasHint } from "./hint_asserts.ts";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { readSetupMachineryCommitEvidence } from "../src/shared/setup_machinery_evidence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
+
+type SetupData = Exclude<
+  NonNullable<CliResultForCommand<"setup">["data"]>,
+  { issues: unknown }
+>;
+type SetupBeginData = Exclude<
+  NonNullable<CliResultForCommand<"setup begin">["data"]>,
+  { issues: unknown }
+>;
+type SetupVerifyData = Exclude<
+  NonNullable<CliResultForCommand<"setup verify">["data"]>,
+  { issues: unknown }
+>;
+type StatusData = Exclude<
+  NonNullable<CliResultForCommand<"status">["data"]>,
+  { issues: unknown }
+>;
+
+/** Decode the normal status payload, excluding configuration refusals. */
+function decodeStatusData(stdout: string): StatusData {
+  const result = decodeCliResult(stdout, "status");
+  assertResultDataKey(result, "location");
+  return result.data;
+}
+
+/** Decode the normal setup welcome payload, excluding configuration refusals. */
+function decodeSetupData(stdout: string): SetupData {
+  const result = decodeCliResult(stdout, "setup");
+  assertResultDataKey(result, "phase");
+  return result.data;
+}
+
+/** Decode setup-begin effect accounting, excluding configuration refusals. */
+function decodeSetupBeginData(stdout: string): SetupBeginData {
+  const result = decodeCliResult(stdout, "setup begin");
+  assertResultDataKey(result, "complete");
+  return result.data;
+}
+
+/** Decode setup verification findings, excluding configuration refusals. */
+function decodeSetupVerifyData(stdout: string): SetupVerifyData {
+  const result = decodeCliResult(stdout, "setup verify");
+  assertResultDataKey(result, "phase");
+  return result.data;
+}
 
 /** A fresh git work tree with one commit — on the given branch, not `main`. */
 async function repoOnBranch(dir: string, branch: string): Promise<void> {
@@ -78,10 +129,11 @@ Deno.test("begin on a master repo stamps [repository].trunk = master and land wo
 
     // The merge check is armed against the stamped branch: status reports it as
     // the integration branch (and it exists locally, so nothing self-skips).
-    const status = JSON.parse(
+    const status = decodeStatusData(
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
-    assertEquals(status.data.git.trunk, "master");
+    assertExists(status.git);
+    assertEquals(status.git.trunk, "master");
   });
 });
 
@@ -141,8 +193,9 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
     // message rides the JSON surface an agent reads.
     const refused = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const res = JSON.parse(refused.stdout);
+    const res = decodeCliResult(refused.stdout, "setup accept");
     assertEquals(res.error, "no_target");
+    assertExists(res.message);
     assertStringIncludes(
       res.message,
       "git branch main && discern setup accept",
@@ -169,20 +222,22 @@ Deno.test("begin on an unborn-main repo stamps main, and land serves the creatio
 Deno.test("verify in a non-git directory serves git-init-first and promises no isolation it can't deliver", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
-    const res = JSON.parse(
+    const d = decodeSetupVerifyData(
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     );
-    const d = res.data;
+    assertExists(d.findings);
     assertEquals(d.findings.git.repo, false);
 
     // The served next action is to CREATE the repository, then re-run the
     // preflight — never straight to begin.
     assertStringIncludes(d.next_action, "git init");
+    assertExists(d.conflicts);
     const conflict = d.conflicts.find(
       (c: { kind: string }) => c.kind === "not_a_repo",
     );
     assert(conflict !== undefined, JSON.stringify(d.conflicts));
     assertStringIncludes(conflict.detail, "git init");
+    assertExists(d.instructions);
     assert(
       !conflict.detail.includes("Consider"),
       "git init is the path, not a soft suggestion",
@@ -218,9 +273,10 @@ Deno.test("verify from a repo subdirectory previews the ROOT's sibling worktree 
     const sub = join(dir, "packages", "app");
     await Deno.mkdir(sub, { recursive: true });
 
-    const d = JSON.parse(
+    const d = decodeSetupVerifyData(
       (await runAgent(dir, ["setup", "verify", "--json"], { cwd: sub })).stdout,
-    ).data;
+    );
+    assertExists(d.findings);
     // The preview must describe the tree `begin` will operate on — the repo
     // top-level and ITS sibling — not `<subdir>.worktrees` inside the repo.
     // (realPath: git reports the /private-canonicalized form of the temp dir.)
@@ -258,18 +314,20 @@ Deno.test("the fresh welcome carries the git-init note only in a non-git directo
     // Non-git: the note rides both surfaces.
     const nonGit = await runAgent(dir, ["setup"]);
     assertTerminalTextIncludes(nonGit.stdout, "isn't a git repository yet");
-    const nonGitJson = JSON.parse(
+    const nonGitJson = decodeSetupData(
       (await runAgent(dir, ["setup", "--json"])).stdout,
-    ).data;
+    );
+    assertExists(nonGitJson.human_framing);
     assertStringIncludes(nonGitJson.human_framing, "git init");
 
     // With git: no note on either surface.
     await gitInit(dir);
     const withGit = await runAgent(dir, ["setup"]);
     assert(!withGit.stdout.includes("isn't a git repository yet"));
-    const withGitJson = JSON.parse(
+    const withGitJson = decodeSetupData(
       (await runAgent(dir, ["setup", "--json"])).stdout,
-    ).data;
+    );
+    assertExists(withGitJson.human_framing);
     assert(!withGitJson.human_framing.includes("git init"));
   });
 });
@@ -308,8 +366,9 @@ Deno.test("begin rejects a verbatim --map placeholder instead of scaffolding a l
       "<their-docs-path>",
     ]);
     assertEquals(r.code, 1, r.output);
-    const res = JSON.parse(r.stdout);
+    const res = decodeCliResult(r.stdout, "setup begin");
     assertEquals(res.error, "invalid_arguments");
+    assertExists(res.message);
     assertStringIncludes(res.message, "placeholder");
     assertStringIncludes(res.message, "--map notes/map/");
     // Nothing was written — no literal `<their-docs-path>/` tree, no config.
@@ -348,10 +407,12 @@ Deno.test("verify names a missing git identity with the exact commands, and begi
     await repoWithoutIdentity(dir);
 
     // The preflight names the gap BEFORE the agent burns a session hitting it.
-    const v = JSON.parse(
+    const v = decodeSetupVerifyData(
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
-    ).data;
+    );
+    assertExists(v.findings);
     assertEquals(v.findings.git.identity, false);
+    assertExists(v.conflicts);
     const conflict = v.conflicts.find(
       (c: { kind: string }) => c.kind === "missing_git_identity",
     );
@@ -373,7 +434,7 @@ Deno.test("verify names a missing git identity with the exact commands, and begi
       "claude_code",
     ]);
     assertEquals(begin.code, 0, begin.output);
-    const d = JSON.parse(begin.stdout).data;
+    const d = decodeSetupBeginData(begin.stdout);
     assertEquals(d.machinery_committed, false);
     assert(
       typeof d.machinery_commit_error === "string" &&
@@ -413,9 +474,11 @@ Deno.test("a failed completion-marker commit explains itself instead of misattri
       `a failed commit must not be misattributed:\n${human.stdout}`,
     );
 
-    const res = JSON.parse(
+    const res = decodeCliResult(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      "setup done",
     );
+    assertResultDataKey(res, "marker_committed");
     assertEquals(res.data.marker_committed, false);
     assert(
       typeof res.data.marker_commit_error === "string" &&
@@ -449,9 +512,12 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
     );
 
     // The welcome routes to the resume, not the FRESH funnel.
-    const w = JSON.parse((await runAgent(dir, ["setup", "--json"])).stdout)
-      .data;
+    const w = decodeSetupData(
+      (await runAgent(dir, ["setup", "--json"])).stdout,
+    );
     assertEquals(w.phase, "in_progress");
+    assertExists(w.next_action);
+    assertExists(w.agent_instructions);
     assertStringIncludes(w.next_action, "discern setup begin --confirmed");
     assertStringIncludes(w.agent_instructions, "without replaying completed");
     const human = (await runAgent(dir, ["setup"])).stdout;
@@ -463,9 +529,9 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
     );
 
     // verify routes the same way.
-    const v = JSON.parse(
+    const v = decodeSetupVerifyData(
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
-    ).data;
+    );
     assertEquals(v.phase, "in_progress");
     assertStringIncludes(v.next_action, "discern setup begin --confirmed");
 
@@ -481,7 +547,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
       "claude_code",
     ]);
     assertEquals(re.code, 0, re.output);
-    const reData = JSON.parse(re.stdout).data;
+    const reData = decodeSetupBeginData(re.stdout);
     assertEquals(reData.written, [], "a resume must not re-scaffold");
     const instructions = await Deno.readTextFile(
       join(dir, SOURCE_PATHS.instructions.defaultPath),
@@ -552,7 +618,7 @@ Deno.test("re-begin never imports a surviving agent file that matches discern's 
     );
     // …and the skip is reported, not silent.
     assertHasHint(
-      JSON.parse(re.stdout),
+      decodeCliResult(re.stdout, "setup begin"),
       HINTS["setup-instructions-own-render-skipped"],
       {
         paths: ["CLAUDE.md"],
@@ -710,7 +776,7 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
     ]);
     assertEquals(first.code, 0, first.output);
     assertEquals(
-      JSON.parse(first.stdout).data.machinery_committed,
+      decodeSetupBeginData(first.stdout).machinery_committed,
       false,
       "precondition: the first commit must have failed",
     );
@@ -741,7 +807,7 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
 
     // Convergence: the re-run reports the wiring committed, and it truly is — the resume
     // re-attempted the commit it skipped before, rather than leaving it uncommitted forever.
-    const data = JSON.parse(re.stdout).data;
+    const data = decodeSetupBeginData(re.stdout);
     assertEquals(data.branch, "discern-setup");
     assertEquals(
       data.machinery_committed,
@@ -798,7 +864,7 @@ async function beginWithRejectedMachineryCommit(
   ]);
   assertEquals(first.code, 0, first.output);
   assertEquals(
-    JSON.parse(first.stdout).data.machinery_committed,
+    decodeSetupBeginData(first.stdout).machinery_committed,
     false,
     "precondition: the first machinery commit must fail",
   );
@@ -848,7 +914,7 @@ async function beginWithRejectedMachineryCommit(
 }
 
 /** Repeat setup through the JSON surface and return its effect-accounting data. */
-async function retrySetup(dir: string): Promise<Record<string, unknown>> {
+async function retrySetup(dir: string): Promise<SetupBeginData> {
   const retried = await runAgent(dir, [
     "setup",
     "begin",
@@ -858,13 +924,13 @@ async function retrySetup(dir: string): Promise<Record<string, unknown>> {
     AGENT_NAMES.join(","),
   ]);
   assertEquals(retried.code, 0, retried.output);
-  return JSON.parse(retried.stdout).data;
+  return decodeSetupBeginData(retried.stdout);
 }
 
 /** Prove a changed retry authored no commit and claimed no prior setup provenance. */
 async function assertRetryWasNotAttributed(
   dir: string,
-  data: Record<string, unknown>,
+  data: SetupBeginData,
   context: string,
   evidenceStatus: "found" | "invalid" | "missing" = "found",
 ): Promise<void> {

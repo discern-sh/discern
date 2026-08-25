@@ -25,11 +25,39 @@ import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
+import type { GateWireData } from "../src/shared/result_schemas.ts";
+import { z } from "@zod/zod";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 
-/** Decode successive done envelopes so rerun and proof effects can be compared. */
-// deno-lint-ignore no-explicit-any
-function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
+type DoneEnvelope = CliResultForCommand<"done">;
+
+type DoneDataEnvelope = DoneEnvelope & {
+  data: GateWireData;
+};
+
+const LAST_GATE_RUN_SCHEMA = z.object({
+  head: z.string(),
+  passed: z.boolean(),
+  tree: z.string().optional(),
+  evidence: z.string().optional(),
+  mode: z.string().optional(),
+});
+
+/** Decode one done envelope without requiring a gate payload on refusals or previews. */
+function parseJson(stdout: string): DoneEnvelope {
+  return decodeCliResult(stdout, "done");
+}
+
+/** Decode a done result whose assertions consume the gate-owned payload. */
+function parseGateJson(stdout: string): DoneDataEnvelope {
+  const result = parseJson(stdout);
+  assertResultDataKey(result, "failed_stage");
+  return result;
 }
 
 const GREEN_CONFIG = [
@@ -83,7 +111,7 @@ Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and
 
     const first = await runAgent(wt, ["done", "--json"]);
     assertEquals(first.code, 1, first.output);
-    const firstEnv = parseJson(first.stdout);
+    const firstEnv = parseGateJson(first.stdout);
     assertEquals(firstEnv.data.failed_stage, "check/test");
 
     // The bare rerun refuses: same exit code, but a refusal envelope — no
@@ -95,6 +123,7 @@ Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and
     assertEquals(env.ok, false);
     assertEquals(env.error, UNCHANGED_TREE_RERUN_SLUG);
     assertEquals(env.steps, undefined, "a refusal must run nothing");
+    assert(typeof env.message === "string");
     assertStringIncludes(env.message, "--rerun");
     assertHasHint(env, HINTS["done-unchanged-tree-red"]);
 
@@ -102,7 +131,7 @@ Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and
     // job's own diagnostics, not a refusal.
     const probed = await runAgent(wt, ["done", "--rerun", "--json"]);
     assertEquals(probed.code, 1, probed.output);
-    const probedEnv = parseJson(probed.stdout);
+    const probedEnv = parseGateJson(probed.stdout);
     assertEquals(probedEnv.error, undefined);
     assertEquals(probedEnv.data.failed_stage, "check/test");
   });
@@ -114,16 +143,17 @@ Deno.test("done: current green Proof is reused on JSON, Markdown, human, and in-
 
     const first = await runAgent(wt, ["done", "--json"]);
     assertEquals(first.code, 0, first.output);
-    const firstEnv = parseJson(first.stdout);
+    const firstEnv = parseGateJson(first.stdout);
     assertEquals(firstEnv.data.gate_ran, true);
 
     const rerun = await runAgent(wt, ["done", "--json"]);
     assertEquals(rerun.code, 0, rerun.output);
-    const env = parseJson(rerun.stdout);
+    const env = parseGateJson(rerun.stdout);
     assertEquals(env.ok, true);
     assertEquals(env.steps, undefined, "Proof reuse executes zero Gate steps");
     assertEquals(env.data.gate_ran, false);
     assertEquals(env.data.proof, firstEnv.data.proof);
+    assert(typeof env.message === "string");
     assertStringIncludes(env.message, "no Gate job ran");
 
     const markdown = await runAgent(wt, ["done", "--markdown"]);
@@ -195,7 +225,7 @@ Deno.test("done: Proof reuse executes zero configured fix, check, test, or Stand
 
     const reused = await runAgent(wt, ["done", "--json"]);
     assertEquals(reused.code, 0, reused.output);
-    assertEquals(parseJson(reused.stdout).data.gate_ran, false);
+    assertEquals(parseGateJson(reused.stdout).data.gate_ran, false);
     const after = await Promise.all(
       counts.map((name) => Deno.readTextFile(join(wt, "..", `${name}-count`))),
     );
@@ -240,7 +270,7 @@ Deno.test("done: --dry-run never refuses, and never counts as the previous run",
     // …and does not overwrite what the last REAL run judged: current Proof is
     // still reused afterward, rather than evidence being invented by preview.
     const rerun = await runAgent(wt, ["done", "--json"]);
-    assertEquals(parseJson(rerun.stdout).data.gate_ran, false);
+    assertEquals(parseGateJson(rerun.stdout).data.gate_ran, false);
   });
 });
 
@@ -281,7 +311,10 @@ Deno.test("done: the last-run marker lives in the worktree's git admin dir and a
 
     const markerPath = await gitAdminStatePath(wt, "lastGateRun");
     assert(markerPath !== undefined, "the marker path must resolve");
-    const marker = JSON.parse(await Deno.readTextFile(markerPath));
+    const marker = decodeWith(
+      LAST_GATE_RUN_SCHEMA,
+      await Deno.readTextFile(markerPath),
+    );
     assertEquals(marker.passed, true);
     assertEquals(marker.head, (await gitOut(wt, "rev-parse", "HEAD")).trim());
 
@@ -289,7 +322,7 @@ Deno.test("done: the last-run marker lives in the worktree's git admin dir and a
     await Deno.writeTextFile(markerPath, "not json\n");
     const rerun = await runAgent(wt, ["done", "--json"]);
     assertEquals(rerun.code, 0, rerun.output);
-    assertEquals(parseJson(rerun.stdout).data.gate_ran, false);
+    assertEquals(parseGateJson(rerun.stdout).data.gate_ran, false);
   });
 });
 
@@ -334,7 +367,12 @@ for (
       assertEquals(result.code, 1, result.output);
       const envelope = parseJson(result.stdout);
       assertEquals(envelope.error, UNCHANGED_TREE_RERUN_SLUG);
-      assertEquals(envelope.data?.gate_ran, undefined);
+      assertEquals(
+        envelope.data !== undefined && "gate_ran" in envelope.data
+          ? envelope.data.gate_ran
+          : undefined,
+        undefined,
+      );
     });
   });
 }

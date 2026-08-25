@@ -17,7 +17,12 @@
  *  5. the printed brief frames its close as stop-conditions, not a report.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import {
   assertTerminalTextIncludes,
@@ -36,6 +41,7 @@ import { SETUP_HUMAN_AUDIENCES } from "../src/commands/setup.ts";
 import { OFF_RAMP_PROMPT } from "../src/shared/setup_messages.ts";
 import { CLI_JSON_RESULT_CONTRACTS } from "../src/shared/result_contracts.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /** The H1 of the printed brief — the boundary the footer must come AFTER. */
 const INSTRUCTIONS_H1 = "# Set up discern";
@@ -94,8 +100,12 @@ Deno.test("setup --json carries an explicit incomplete signal", async () => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = JSON.parse(r.stdout);
+    const obj = decodeCliResult(r.stdout, "setup begin");
     assertEquals(obj.ok, true);
+    assertResultDataKey(obj, "complete");
+    assertExists(obj.data.next_action);
+    assertExists(obj.data.human_relay);
+    assertExists(obj.data.instructions);
     // ok:true / exit 0 means the SCAFFOLD succeeded — these say setup is not done.
     assertEquals(obj.data.complete, false);
     assertEquals(obj.data.bootstrapped, false);
@@ -124,7 +134,10 @@ Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes s
     assertTerminalTextIncludes(human.output, "discern setup done");
 
     // Machine view: the same qualifier rides the hints.
-    const j = JSON.parse((await runAgent(dir, ["doctor", "--json"])).stdout);
+    const j = decodeCliResult(
+      (await runAgent(dir, ["doctor", "--json"])).stdout,
+      "doctor",
+    );
     assertHasHint(j, HINTS["setup-unfinished-doctor"]);
   });
 
@@ -135,7 +148,10 @@ Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes s
       !human.output.includes("Setup is incomplete"),
       "a recorded setup must not re-raise the mid-setup banner",
     );
-    const j = JSON.parse((await runAgent(dir, ["doctor", "--json"])).stdout);
+    const j = decodeCliResult(
+      (await runAgent(dir, ["doctor", "--json"])).stdout,
+      "doctor",
+    );
     assertLacksHint(j, HINTS["setup-unfinished-doctor"]);
   });
 });
@@ -252,7 +268,13 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
     );
 
     // Machine view: structured evidence + a lead hint.
-    const j = JSON.parse((await runAgent(dir, ["status", "--json"])).stdout);
+    const j = decodeCliResult(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+      "status",
+    );
+    assertResultDataKey(j, "location");
+    assertExists(j.data.setup_unfinished);
+    assertExists(j.data.projection);
     assert(
       Array.isArray(j.data.setup_unfinished?.pending_markers) &&
         j.data.setup_unfinished.pending_markers.length > 0,
@@ -266,7 +288,11 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
 
     // Once setup is recorded, the signal is gone — and the marker walk is skipped.
     await runAgent(dir, ["setup", "done", "--force"]);
-    const done = JSON.parse((await runAgent(dir, ["status", "--json"])).stdout);
+    const done = decodeCliResult(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+      "status",
+    );
+    assertResultDataKey(done, "location");
     assertEquals(done.data.setup_unfinished, undefined);
     assertLacksHint(done, HINTS["setup-unfinished-status"], {
       pendingCount: 0,
@@ -283,7 +309,13 @@ Deno.test("status surfaces unfinished setup from a worktree too, not just the ma
     await gitInit(dir);
     const wt = await addWorktree(dir, "midsetup");
 
-    const j = JSON.parse((await runAgent(wt, ["status", "--json"])).stdout);
+    const j = decodeCliResult(
+      (await runAgent(wt, ["status", "--json"])).stdout,
+      "status",
+    );
+    assertResultDataKey(j, "location");
+    assertExists(j.data.setup_unfinished);
+    assertExists(j.data.projection);
     assertEquals(j.data.location, "worktree");
     assert(
       j.data.setup_unfinished !== undefined,

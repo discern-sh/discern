@@ -12,6 +12,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
+import { z } from "@zod/zod";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -23,7 +24,11 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
-import type { GateCheckpointsData } from "../src/shared/result_schemas.ts";
+import type {
+  CheckpointsData,
+  GateCheckpointsData,
+  GateWireData,
+} from "../src/shared/result_schemas.ts";
 import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
 import { UNCHANGED_TREE_RERUN_SLUG } from "../src/engine/gate/proof.ts";
 import { HINTS } from "../src/shared/hints.ts";
@@ -32,40 +37,73 @@ import { readOpenQuestions } from "../src/engine/checkpoints/open_questions.ts";
 import { parseLogbookLine } from "../src/engine/logbook/schema.ts";
 import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
 import { readTextIfExists, targetExists } from "../src/shared/fs_presence.ts";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 
-/** The wire fields these black-box assertions read from a `done` envelope.
- * Presence claims are static; a field the engine omits fails its assertion
- * at runtime with `undefined`, which is exactly the signal wanted. */
-interface DoneEnvelope {
-  ok: boolean;
-  verb: string;
-  dry_run?: boolean;
-  error?: string;
-  message: string;
-  hints?: string[];
-  plan?: { details?: string[] };
-  data: {
-    gate_ran?: boolean;
-    checkpoints: GateCheckpointsData & {
-      review?: {
-        enforcement: string;
-        unreviewed?: {
-          id: string;
-          question: string;
-          question_file?: string;
-          reference?: string;
-        }[];
-      };
-      drops?: { reason: string; checkpoint?: string }[];
-    };
-    proof?: { line: string };
-    gate_proof?: { status: string };
+type DoneEnvelope = CliResultForCommand<"done">;
+
+type GateDoneEnvelope = DoneEnvelope & {
+  data: GateWireData;
+};
+
+/** The wire fields payload-specific assertions read from a `done` envelope. */
+type CheckpointDoneEnvelope = GateDoneEnvelope & {
+  data: GateWireData & { checkpoints: GateCheckpointsData };
+};
+
+type CheckpointsEnvelope =
+  & Omit<
+    CliResultForCommand<"checkpoints">,
+    "data"
+  >
+  & { data: CheckpointsData };
+
+const ProofMarkerDataSchema = z.object({
+  checkpoints: z.object({
+    declared_met: z.array(z.object({ id: z.string() }).passthrough())
+      .optional(),
+    declared_unmet: z.array(z.object({ why: z.string() }).passthrough())
+      .optional(),
+  }).passthrough(),
+}).passthrough();
+
+/** Decode one done envelope without requiring a gate payload on refusals or previews. */
+function parseJson(stdout: string): DoneEnvelope {
+  return decodeCliResult(stdout, "done");
+}
+
+/** Decode a done result whose assertions consume gate data but no checkpoint state. */
+function parseGateJson(stdout: string): GateDoneEnvelope {
+  const result = parseJson(stdout);
+  assertResultDataKey(result, "failed_stage");
+  return result;
+}
+
+/** Decode a done result whose assertions consume checkpoint gate data. */
+function parseCheckpointGateJson(stdout: string): CheckpointDoneEnvelope {
+  const result = parseGateJson(stdout);
+  assert(
+    result.data.checkpoints !== undefined,
+    `done result must carry checkpoint data: ${stdout}`,
+  );
+  return {
+    ...result,
+    data: { ...result.data, checkpoints: result.data.checkpoints },
   };
 }
 
-/** Decode a JSON result envelope. */
-function parseJson(stdout: string): DoneEnvelope {
-  return JSON.parse(stdout.trim()) as DoneEnvelope;
+/** Decode a checkpoints read result with its command-owned data present. */
+function parseCheckpointsJson(stdout: string): CheckpointsEnvelope {
+  const result = decodeCliResult(stdout, "checkpoints");
+  assert(
+    result.data !== undefined && "checkpoints" in result.data,
+    `checkpoints result must carry report data: ${stdout}`,
+  );
+  return { ...result, data: result.data };
 }
 
 /** The recorded gate-proof marker's raw content — the full Proof page and its
@@ -280,15 +318,7 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
 
     const report = await runAgent(wt, ["checkpoints", "--json"]);
     assertEquals(report.code, 0, report.output);
-    const reportEnvelope = JSON.parse(report.stdout) as {
-      data: {
-        checkpoints: {
-          question: string;
-          question_file?: string;
-          reference?: string;
-        }[];
-      };
-    };
+    const reportEnvelope = parseCheckpointsJson(report.stdout);
     assertEquals(reportEnvelope.data.checkpoints[0]?.question, FILE_QUESTION);
     assertEquals(
       reportEnvelope.data.checkpoints[0]?.question_file,
@@ -317,6 +347,7 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
     const refusal = await runAgent(wt, ["done", "--json"]);
     assertEquals(refusal.code, 1, refusal.output);
     const refused = parseJson(refusal.stdout);
+    assert(typeof refused.message === "string");
     assertStringIncludes(refused.message, "## Governing review");
     assertStringIncludes(
       refused.message,
@@ -333,7 +364,8 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
 
     const ci = await runAgent(wt, ["done", "--ci", "--json"]);
     assertEquals(ci.code, 0, ci.output);
-    const ciQuestion = parseJson(ci.stdout).data.checkpoints.review
+    const ciQuestion = parseCheckpointGateJson(ci.stdout).data.checkpoints
+      .review
       ?.unreviewed?.[0];
     assertEquals(ciQuestion?.question, FILE_QUESTION);
     assertEquals(ciQuestion?.question_file, FILE_QUESTION_PATH);
@@ -362,7 +394,8 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
       "--json",
     ]);
     assertEquals(met.code, 0, met.output);
-    const conclusion = parseJson(met.stdout).data.checkpoints.declared_met?.[0];
+    const conclusion = parseCheckpointGateJson(met.stdout).data.checkpoints
+      .declared_met?.[0];
     assertEquals(conclusion?.question, FILE_QUESTION);
     assertEquals(conclusion?.question_file, FILE_QUESTION_PATH);
     assertEquals(conclusion?.reference, FILE_QUESTION_REFERENCE);
@@ -394,9 +427,8 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
     assertEquals(unmet.code, 0, unmet.output);
     const acceptance = await runAgent(wt, ["accept", "--json"]);
     assertEquals(acceptance.code, 1, acceptance.output);
-    const acceptanceEnvelope = JSON.parse(acceptance.stdout) as {
-      message: string;
-    };
+    const acceptanceEnvelope = decodeCliResult(acceptance.stdout, "accept");
+    assert(typeof acceptanceEnvelope.message === "string");
     assertStringIncludes(acceptanceEnvelope.message, "## Governing review");
     assertStringIncludes(
       acceptanceEnvelope.message,
@@ -434,7 +466,7 @@ Deno.test("a bad historical question source fails open into durable Proof eviden
 
     const done = await runAgent(wt, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const env = parseJson(done.stdout);
+    const env = parseCheckpointGateJson(done.stdout);
     const drop = env.data.checkpoints.drops?.find((entry) =>
       entry.checkpoint === "api-review"
     );
@@ -456,10 +488,11 @@ Deno.test("done: a fired stop checkpoint refuses before any job, serving the que
 
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseCheckpointGateJson(r.stdout);
     assertEquals(env.ok, false);
     assertEquals(env.verb, "done");
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
+    assert(typeof env.message === "string");
     // The serving: id, matched evidence, question, and both recoveries.
     assertStringIncludes(env.message, "api-review");
     assertStringIncludes(env.message, "api/surface.txt");
@@ -503,7 +536,7 @@ Deno.test("done --ci: a fresh checkout reports a fired stop and lets machine job
     const observationsBefore = await checkpointObservationEvents(dir);
     const r = await runAgent(wt, ["done", "--ci", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseCheckpointGateJson(r.stdout);
     assertEquals(env.ok, true);
     assertEquals(env.data.checkpoints.review?.enforcement, "reported");
     assertEquals(
@@ -545,7 +578,7 @@ Deno.test("done: a CI environment never selects report mode and only tailors the
       env: { CI: "true" },
     });
     assertEquals(ci.code, 1, ci.output);
-    const envelope = parseJson(ci.stdout);
+    const envelope = parseCheckpointGateJson(ci.stdout);
     assertEquals(envelope.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
       envelope.data.checkpoints.review,
@@ -582,7 +615,7 @@ Deno.test("done --ci: red jobs remain red; advise questions are reported without
     );
     const result = await runAgent(red, ["done", "--ci", "--json"]);
     assertEquals(result.code, 1, result.output);
-    const env = parseJson(result.stdout);
+    const env = parseCheckpointGateJson(result.stdout);
     assertEquals(env.ok, false);
     assertEquals(env.data.checkpoints.review?.enforcement, "reported");
     assertEquals(env.data.checkpoints.review?.unreviewed, undefined);
@@ -668,7 +701,7 @@ Deno.test("done: checkpoint fail-opens enroll in structured durable drop evidenc
 
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseCheckpointGateJson(r.stdout);
     assertEquals(env.data.checkpoints.drops?.[0]?.reason, "when_invalid_exit");
     assertEquals(env.data.checkpoints.drops?.[0]?.checkpoint, "api-review");
     assertStringIncludes(await proofMarker(wt), '"reason":"when_invalid_exit"');
@@ -685,7 +718,7 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
     // Declare met: the same invocation runs the gate to green.
     const r = await runAgent(wt, ["done", "--met", "api-review", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseCheckpointGateJson(r.stdout);
     assertEquals(env.ok, true);
     assertEquals(env.data.checkpoints.declared_met?.length, 1);
     assertEquals(env.data.checkpoints.declared_met?.[0]?.id, "api-review");
@@ -709,12 +742,16 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
     assertStringIncludes(marker, "declared met");
     assertStringIncludes(marker, "policy");
     assertStringIncludes(marker, "evidence: ");
-    const stored = JSON.parse(
+    const stored = decodeWith(
+      ProofMarkerDataSchema,
       marker.split("\n").find((line) => line.startsWith("data: "))
         ?.slice("data: ".length) ?? "{}",
     );
+    assert(stored.checkpoints.declared_met !== undefined);
     assertEquals(stored.checkpoints.declared_met.length, 1);
-    assertEquals(stored.checkpoints.declared_met[0].id, "api-review");
+    const declaredMet = stored.checkpoints.declared_met[0];
+    assert(declaredMet !== undefined);
+    assertEquals(declaredMet.id, "api-review");
   });
 });
 
@@ -730,7 +767,7 @@ Deno.test("done: declarations replace conclusions, while a true green rerun reus
     // A literal strict call on the unchanged tree reuses exact current Proof.
     const rerun = await runAgent(wt, ["done", "--json"]);
     assertEquals(rerun.code, 0, rerun.output);
-    assertEquals(parseJson(rerun.stdout).data.gate_ran, false);
+    assertEquals(parseGateJson(rerun.stdout).data.gate_ran, false);
 
     // Replacing the conclusion is NEW evidence: it proceeds through
     // reconciliation into a fresh gate run with no --confirmed, and the new
@@ -744,7 +781,7 @@ Deno.test("done: declarations replace conclusions, while a true green rerun reus
       "--json",
     ]);
     assertEquals(flipped.code, 0, flipped.output);
-    const env = parseJson(flipped.stdout);
+    const env = parseCheckpointGateJson(flipped.stdout);
     assertEquals(env.data.checkpoints.declared_unmet?.length, 1);
     assertStringIncludes(
       env.data.checkpoints.declared_unmet?.[0]?.why ?? "",
@@ -780,8 +817,9 @@ Deno.test("done: a batched refusal serves every awaiting checkpoint at once, and
 
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 1);
-    const env = parseJson(r.stdout);
+    const env = parseCheckpointGateJson(r.stdout);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
+    assert(typeof env.message === "string");
     assertEquals(
       env.data.checkpoints.outstanding?.map((c) => c.id).sort(),
       ["api-review", "risk-notes"],
@@ -797,7 +835,7 @@ Deno.test("done: a batched refusal serves every awaiting checkpoint at once, and
       "--json",
     ]);
     assertEquals(partial.code, 1, partial.output);
-    const remaining = parseJson(partial.stdout);
+    const remaining = parseCheckpointGateJson(partial.stdout);
     assertEquals(remaining.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
       remaining.data.checkpoints.outstanding?.map((c) => c.id),
@@ -806,7 +844,7 @@ Deno.test("done: a batched refusal serves every awaiting checkpoint at once, and
     // The already-recorded conclusion survives and the whole set completes.
     const done = await runAgent(wt, ["done", "--met", "risk-notes", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const final = parseJson(done.stdout);
+    const final = parseCheckpointGateJson(done.stdout);
     assertEquals(
       final.data.checkpoints.declared_met?.map((c) => c.id).sort(),
       ["api-review", "risk-notes"],
@@ -828,6 +866,7 @@ Deno.test("done: unknown or inactive declaration ids are errors naming the activ
     assertEquals(r.code, 1);
     const env = parseJson(r.stdout);
     assertEquals(env.error, "invalid_value");
+    assert(typeof env.message === "string");
     assertStringIncludes(env.message, "no-such-checkpoint");
     assertStringIncludes(env.message, "api-review");
     // Nothing recorded: the valid id in a LATER invocation still awaits.
@@ -909,7 +948,7 @@ Deno.test("done: a rationale of shell and Markdown metacharacters round-trips op
       "--json",
     ]);
     assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseCheckpointGateJson(r.stdout);
     // The exact bytes survive into the envelope (JSON escaping only)…
     assertEquals(env.data.checkpoints.declared_unmet?.[0]?.why, hostile);
     // …and the store holds them verbatim, uninterpreted — no interpolation
@@ -924,11 +963,15 @@ Deno.test("done: a rationale of shell and Markdown metacharacters round-trips op
     // round-trips the exact bytes.
     const marker = await proofMarker(wt);
     assertStringIncludes(marker, "rm -rf");
-    const stored = JSON.parse(
+    const stored = decodeWith(
+      ProofMarkerDataSchema,
       marker.split("\n").find((line) => line.startsWith("data: "))
         ?.slice("data: ".length) ?? "{}",
     );
-    assertEquals(stored.checkpoints.declared_unmet[0].why, hostile);
+    assert(stored.checkpoints.declared_unmet !== undefined);
+    const declaredUnmet = stored.checkpoints.declared_unmet[0];
+    assert(declaredUnmet !== undefined);
+    assertEquals(declaredUnmet.why, hostile);
   });
 });
 
@@ -938,7 +981,7 @@ Deno.test("done: advise mode serves the question through the advisory channel an
 
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout);
+    const env = parseCheckpointGateJson(r.stdout);
     assertEquals(env.ok, true);
     assertHasHint(env, HINTS["checkpoint-advise"], {
       id: "api-review",
@@ -1023,12 +1066,7 @@ Deno.test("checkpoints: a corrupt store remains visible with zero resolved defin
 
     const report = await runAgent(wt, ["checkpoints", "--json"]);
     assertEquals(report.code, 0, report.output);
-    const data = (JSON.parse(report.stdout.trim()) as {
-      data: {
-        checkpoints: unknown[];
-        drops?: { scope: string; reason: string; policy_commit?: string }[];
-      };
-    }).data;
+    const data = parseCheckpointsJson(report.stdout).data;
     assertEquals(data.checkpoints, []);
     assertEquals(data.drops?.[0]?.scope, "policy");
     assertEquals(data.drops?.[0]?.reason, "open_question_store_corrupt");
@@ -1036,9 +1074,12 @@ Deno.test("checkpoints: a corrupt store remains visible with zero resolved defin
 
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(preview.code, 0, preview.output);
-    const previewData = (JSON.parse(preview.stdout.trim()) as {
-      data?: { checkpoint_drops?: { reason: string }[] };
-    }).data;
+    const previewEnvelope = decodeCliResult(preview.stdout, "accept");
+    assert(
+      previewEnvelope.data !== undefined &&
+        "checkpoint_drops" in previewEnvelope.data,
+    );
+    const previewData = previewEnvelope.data;
     assertEquals(
       previewData?.checkpoint_drops?.[0]?.reason,
       "open_question_store_corrupt",
@@ -1067,7 +1108,7 @@ Deno.test("done: an opened stop question remains interlocked after its trigger b
 
     const stillAwaiting = await runAgent(wt, ["done", "--json"]);
     assertEquals(stillAwaiting.code, 1, stillAwaiting.output);
-    const awaiting = parseJson(stillAwaiting.stdout);
+    const awaiting = parseCheckpointGateJson(stillAwaiting.stdout);
     assertEquals(awaiting.error, AWAITING_DECLARATION_SLUG);
     assertEquals(awaiting.data.checkpoints.outstanding?.[0]?.id, "api-review");
     assertEquals(awaiting.data.checkpoints.outstanding?.[0]?.matched, [
@@ -1085,7 +1126,7 @@ Deno.test("done: an opened stop question remains interlocked after its trigger b
       "--json",
     ]);
     assertEquals(concluded.code, 0, concluded.output);
-    const env = parseJson(concluded.stdout);
+    const env = parseCheckpointGateJson(concluded.stdout);
     assertEquals(env.data.checkpoints.declared_unmet?.[0]?.id, "api-review");
     assertStringIncludes(env.data.proof?.line ?? "", "variance required");
   });
@@ -1119,7 +1160,7 @@ Deno.test("done: unavailable history never reopens or interlocks a declared min_
       env: { PATH: `${shim}:${Deno.env.get("PATH") ?? ""}` },
     });
     assertEquals(unavailable.code, 0, unavailable.output);
-    const envelope = parseJson(unavailable.stdout);
+    const envelope = parseCheckpointGateJson(unavailable.stdout);
     assertEquals(envelope.data.checkpoints.outstanding, undefined);
     assertEquals(
       envelope.data.checkpoints.drops?.[0]?.reason,
@@ -1201,7 +1242,7 @@ Deno.test("done: an unrelated trunk update preserves a conclusion; a matched-bas
     // still binds: no fresh declaration is demanded.
     const after = await runAgent(wt, ["done", "--json"]);
     assertEquals(after.code, 0, after.output);
-    const env = parseJson(after.stdout);
+    const env = parseCheckpointGateJson(after.stdout);
     assertEquals(env.data.checkpoints.declared_met?.[0]?.id, "api-review");
 
     // Matched-base trunk advance: main edits the far end of the SAME matched
@@ -1243,13 +1284,14 @@ Deno.test("done: a fresh install's shipped defaults govern out of the box", asyn
 
     const refused = await runAgent(dir, ["done", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const env = parseJson(refused.stdout);
+    const env = parseCheckpointGateJson(refused.stdout);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
     assertEquals(env.data.checkpoints.outstanding?.length, 1);
     assertEquals(
       env.data.checkpoints.outstanding?.[0]?.id,
       "instruction-economy",
     );
+    assert(typeof env.message === "string");
     assertStringIncludes(env.message, "always-loaded agent instructions");
 
     // Declaring met clears the interlock and the same invocation proceeds
@@ -1258,7 +1300,7 @@ Deno.test("done: a fresh install's shipped defaults govern out of the box", asyn
       dir,
       ["done", "--met", "instruction-economy", "--json"],
     );
-    const after = parseJson(declared.stdout);
+    const after = parseCheckpointGateJson(declared.stdout);
     assertEquals(after.data.checkpoints.declared_met?.length, 1);
     assertEquals(
       after.data.checkpoints.declared_met?.[0]?.id,
@@ -1268,27 +1310,14 @@ Deno.test("done: a fresh install's shipped defaults govern out of the box", asyn
   });
 });
 
-/** The `checkpoints` verb's wire fields these restart assertions read. */
-interface CheckpointsEnvelope {
-  ok: boolean;
-  data: {
-    checkpoints: {
-      id: string;
-      open_question?: {
-        state: string;
-        declaration?: { conclusion: string; current: boolean };
-      };
-    }[];
-  };
-}
-
 Deno.test("done: a trunk policy edit reaches the effort only through update, and arrives beside a tree change", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
     const met = await runAgent(wt, ["done", "--met", "api-review", "--json"]);
     assertEquals(met.code, 0, met.output);
-    const governed = parseJson(met.stdout).data.checkpoints.policy;
+    const governed = parseCheckpointGateJson(met.stdout).data.checkpoints
+      .policy;
 
     // The trunk lands a SECOND stop checkpoint on the same paths. The effort's
     // merge-base has not moved, so its governing policy has not either.
@@ -1315,7 +1344,7 @@ question = "${QUESTION_NOTES}"
     // names the old merge-base.
     const before = await runAgent(wt, ["done", "--json"]);
     assertEquals(before.code, 0, before.output);
-    assertEquals(parseJson(before.stdout).data.gate_ran, false);
+    assertEquals(parseGateJson(before.stdout).data.gate_ran, false);
     assert(!before.output.includes("risk-notes"), before.output);
     const preUpdate = await runAgent(wt, ["checkpoints", "--json"]);
     assertStringIncludes(preUpdate.stdout, `"policy":"${governed}"`);
@@ -1329,7 +1358,7 @@ question = "${QUESTION_NOTES}"
     assertEquals(updated.code, 0, updated.output);
     const after = await runAgent(wt, ["done", "--json"]);
     assertEquals(after.code, 1, after.output);
-    const afterEnv = parseJson(after.stdout);
+    const afterEnv = parseCheckpointGateJson(after.stdout);
     assertEquals(afterEnv.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
       afterEnv.data.checkpoints.outstanding?.map((entry) => entry.id),
@@ -1437,7 +1466,7 @@ question = "${QUESTION_API}"
     await git(wt, "commit", "-q", "-m", "probe fires", "--no-gpg-sign");
     const fired = await runAgent(wt, ["done", "--json"]);
     assertEquals(fired.code, 1, fired.output);
-    const env = parseJson(fired.stdout);
+    const env = parseCheckpointGateJson(fired.stdout);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
     assertEquals(env.data.checkpoints.outstanding?.[0]?.id, "spec-drift");
 
@@ -1451,7 +1480,7 @@ question = "${QUESTION_API}"
     await git(wt, "commit", "-q", "-m", "probe passes", "--no-gpg-sign");
     const inactive = await runAgent(wt, ["done", "--json"]);
     assertEquals(inactive.code, 1, inactive.output);
-    const inactiveEnv = parseJson(inactive.stdout);
+    const inactiveEnv = parseCheckpointGateJson(inactive.stdout);
     assertEquals(inactiveEnv.error, AWAITING_DECLARATION_SLUG);
     assertEquals(
       inactiveEnv.data.checkpoints.outstanding?.[0]?.id,
@@ -1497,7 +1526,7 @@ question = "${QUESTION_API}"
 
     const opened = await runAgent(wt, ["done", "--json"]);
     assertEquals(opened.code, 1, opened.output);
-    const openedEnv = parseJson(opened.stdout);
+    const openedEnv = parseCheckpointGateJson(opened.stdout);
     assertEquals(openedEnv.data.checkpoints.outstanding?.[0]?.matched, [
       "api/surface.txt",
     ]);
@@ -1527,7 +1556,7 @@ Deno.test("openQuestions: the effort's state survives session restarts — each 
 
     const read = await runAgent(wt, ["checkpoints", "--json"]);
     assertEquals(read.code, 0, read.output);
-    const awaiting = JSON.parse(read.stdout.trim()) as CheckpointsEnvelope;
+    const awaiting = parseCheckpointsJson(read.stdout);
     assertEquals(
       awaiting.data.checkpoints[0]?.open_question?.state,
       "awaiting_declaration",
@@ -1538,7 +1567,7 @@ Deno.test("openQuestions: the effort's state survives session restarts — each 
       0,
     );
     const settled = await runAgent(wt, ["checkpoints", "--json"]);
-    const met = JSON.parse(settled.stdout.trim()) as CheckpointsEnvelope;
+    const met = parseCheckpointsJson(settled.stdout);
     assertEquals(met.data.checkpoints[0]?.open_question?.state, "declared_met");
     assertEquals(
       met.data.checkpoints[0]?.open_question?.declaration?.current,
@@ -1616,7 +1645,7 @@ question = "${QUESTION_API}"
     const result = await runAgent(wt, ["done", "--json"], {
       env: { TMPDIR: absent, TMP: absent, TEMP: absent },
     });
-    const envelope = parseJson(result.stdout);
+    const envelope = parseCheckpointGateJson(result.stdout);
     const drop = envelope.data.checkpoints.drops?.find((entry) =>
       entry.reason === "when_input_failed"
     );

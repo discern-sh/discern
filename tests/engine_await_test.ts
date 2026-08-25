@@ -48,6 +48,7 @@ import {
 } from "../src/shared/mcp_timeout_policy.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { writeProofNote } from "../src/engine/gate/proof_notes.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { resolveCommonGitDir } from "../src/engine/worktree/git.ts";
 
 const AWAIT_READINESS_TIMEOUT_MS = 180_000;
@@ -719,10 +720,9 @@ Deno.test("await handles persist across CLI processes and sibling worktrees", as
       "--json",
     ]);
     assertEquals(first.code, AWAIT_TIMEOUT_EXIT_CODE, first.output);
-    const firstEnvelope = JSON.parse(first.stdout) as {
-      data?: { resume?: unknown };
-    };
-    const resume = firstEnvelope.data?.resume;
+    const firstEnvelope = decodeCliResult(first.stdout, "await");
+    assertResultDataKey(firstEnvelope, "resume");
+    const resume = firstEnvelope.data.resume;
     assert(typeof resume === "string" && AWAIT_HANDLE_PATTERN.test(resume));
 
     await git(
@@ -743,10 +743,9 @@ Deno.test("await handles persist across CLI processes and sibling worktrees", as
       "--json",
     ]);
     assertEquals(resumed.code, 0, resumed.output);
-    const resumedEnvelope = JSON.parse(resumed.stdout) as {
-      data?: { met?: unknown };
-    };
-    assertEquals(resumedEnvelope.data?.met, true);
+    const resumedEnvelope = decodeCliResult(resumed.stdout, "await");
+    assertResultDataKey(resumedEnvelope, "met");
+    assertEquals(resumedEnvelope.data.met, true);
   });
 });
 
@@ -1016,10 +1015,8 @@ Deno.test("the CLI exits 0 on met, 124 on not-yet, 1 on refusal", async () => {
       "--json",
     ]);
     assertEquals(notYet.code, AWAIT_TIMEOUT_EXIT_CODE);
-    const envelope = JSON.parse(notYet.stdout) as {
-      ok: boolean;
-      data: { met: boolean };
-    };
+    const envelope = decodeCliResult(notYet.stdout, "await");
+    assertResultDataKey(envelope, "met");
     assertEquals(
       envelope.ok,
       true,
@@ -1049,10 +1046,7 @@ Deno.test("the CLI exits 0 on met, 124 on not-yet, 1 on refusal", async () => {
       "--json",
     ]);
     assertEquals(refused.code, 1);
-    const refusal = JSON.parse(refused.stdout) as {
-      ok: boolean;
-      error: string;
-    };
+    const refusal = decodeCliResult(refused.stdout, "await");
     assertEquals(refusal.ok, false);
     assertEquals(refusal.error, "not_found");
   });
@@ -1088,7 +1082,7 @@ Deno.test("await human refusals make hostile branch facts inert while JSON stays
       "--json",
     ]);
     assertEquals(machine.code, 1, machine.output);
-    const result = JSON.parse(machine.stdout) as { message?: string };
+    const result = decodeCliResult(machine.stdout, "await");
     assertStringIncludes(result.message ?? "", branch);
   });
 });

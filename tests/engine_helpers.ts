@@ -52,6 +52,20 @@ import {
   runPtyProcess,
 } from "./fixtures/pty_process.ts";
 import type { TerminalResizeEvidence } from "./fixtures/terminal_resize_harness.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const TERMINAL_DIMENSIONS_SCHEMA = z.object({
+  columns: z.number().int().positive(),
+  rows: z.number().int().positive(),
+});
+
+const TERMINAL_RESIZE_EVIDENCE_SCHEMA = z.object({
+  childCode: z.number().int(),
+  initialSize: TERMINAL_DIMENSIONS_SCHEMA,
+  resizedSize: TERMINAL_DIMENSIONS_SCHEMA.optional(),
+  finalSize: TERMINAL_DIMENSIONS_SCHEMA,
+});
 
 /**
  * Map `items` through `fn` with at most `limit` in flight — the bounded
@@ -567,7 +581,22 @@ export async function runAgentPtyWithViewport(
       timeoutMs: options.timeoutMs ?? 8_000,
     });
     const raw = await Deno.readTextFile(resultPath);
-    const terminal = JSON.parse(raw) as TerminalResizeEvidence;
+    const decoded = decodeWith(
+      TERMINAL_RESIZE_EVIDENCE_SCHEMA,
+      raw,
+    );
+    const terminal: TerminalResizeEvidence = decoded.resizedSize === undefined
+      ? {
+        childCode: decoded.childCode,
+        initialSize: decoded.initialSize,
+        finalSize: decoded.finalSize,
+      }
+      : {
+        childCode: decoded.childCode,
+        initialSize: decoded.initialSize,
+        resizedSize: decoded.resizedSize,
+        finalSize: decoded.finalSize,
+      };
     return {
       code: process.code,
       stdout: process.stdout,

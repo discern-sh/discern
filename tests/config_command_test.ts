@@ -5,7 +5,12 @@
  * discern.toml (including that comments survive).
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { recordConfigPaths } from "../src/shared/config_codegen.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
@@ -18,6 +23,13 @@ import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+
+/** Require authored result text before testing its wording. */
+function resultMessage(result: { message?: string | undefined }): string {
+  assertExists(result.message);
+  return result.message;
+}
 
 /** Scaffold a fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
@@ -63,9 +75,10 @@ Deno.test("config set-job fills a known job and preserves comments", async () =>
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, true);
     assertEquals(result.verb, "config");
+    assertResultDataKey(result, "edits");
     assert(
       result.data.edits.some((e: { key: string }) => e.key === "jobs.test"),
     );
@@ -91,8 +104,9 @@ Deno.test("config set-job names an empty command as deferred, on both surfaces",
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, true);
+    assertResultDataKey(result, "edits");
     const expected = assertHasHint(
       result,
       HINTS["config-job-deferred"],
@@ -109,7 +123,7 @@ Deno.test("config set-job names an empty command as deferred, on both surfaces",
       dir,
     );
     assertLacksHint(
-      JSON.parse(wired.stdout),
+      decodeCliResult(wired.stdout, "config"),
       HINTS["config-job-deferred"],
       { name: "test" },
     );
@@ -129,15 +143,16 @@ Deno.test("config set-job round-trips the smoke known job (ADR 0090)", async () 
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, true);
+    assertResultDataKey(result, "edits");
     assert(
       result.data.edits.some((e: { key: string }) => e.key === "jobs.smoke"),
     );
     assertStringIncludes(await readToml(dir), 'smoke = "true"');
     // The install still loads cleanly with smoke wired.
     const doctor = await runCli(["doctor", "--json"], dir);
-    assertEquals(JSON.parse(doctor.stdout).ok, true);
+    assertEquals(decodeCliResult(doctor.stdout, "doctor").ok, true);
   });
 });
 
@@ -243,8 +258,9 @@ Deno.test("config set-job ordered dry-run reports one array edit and writes noth
       dir,
     );
     assertEquals(result.code, 0, result.stderr);
-    const envelope = JSON.parse(result.stdout);
+    const envelope = decodeCliResult(result.stdout, "config");
     assertEquals(envelope.dry_run, true);
+    assertResultDataKey(envelope, "edits");
     assertEquals(envelope.data.edits, [{
       key: "jobs.format",
       literal: '["prettier --write .", "discern tidy"]',
@@ -346,10 +362,10 @@ Deno.test("config set-job refuses ambiguous, empty, and serialized-list forms wi
         1,
         `${testCase.args.join(" ")}: ${result.stdout}${result.stderr}`,
       );
-      const envelope = JSON.parse(result.stdout);
-      assertStringIncludes(envelope.message, testCase.includes);
-      assertStringIncludes(envelope.message, "discern config set-job");
-      assertStringIncludes(envelope.message, "--run");
+      const envelope = decodeCliResult(result.stdout, "config");
+      assertStringIncludes(resultMessage(envelope), testCase.includes);
+      assertStringIncludes(resultMessage(envelope), "discern config set-job");
+      assertStringIncludes(resultMessage(envelope), "--run");
       assertEquals(await readToml(dir), before);
     }
   });
@@ -373,10 +389,10 @@ Deno.test("config set-job parser refusals preserve the file and serve the ordere
       const before = await readToml(dir);
       const result = await runCli(args, dir);
       assert(result.code !== 0, `${args.join(" ")} unexpectedly succeeded`);
-      const envelope = JSON.parse(result.stdout);
+      const envelope = decodeCliResult(result.stdout, "config");
       assertEquals(envelope.error, "invalid_arguments");
       assertStringIncludes(
-        envelope.message,
+        resultMessage(envelope),
         correction,
       );
       assertEquals(await readToml(dir), before);
@@ -403,7 +419,7 @@ Deno.test("config set-job removes known-job-only options without changing the re
       );
       assertEquals(result.code, 1);
       assertTerminalTextIncludes(
-        JSON.parse(result.stdout).message,
+        resultMessage(decodeCliResult(result.stdout, "config")),
         "discern config set-job build --not-applicable",
       );
       assertEquals(await readToml(dir), before);
@@ -490,7 +506,9 @@ Deno.test("config set-job refuses applicability contradictions and auto-unmarks 
       dir,
     );
     assertEquals(preview.code, 0, preview.stderr);
-    assertEquals(JSON.parse(preview.stdout).data.edits, [
+    const previewResult = decodeCliResult(preview.stdout, "config");
+    assertResultDataKey(previewResult, "edits");
+    assertEquals(previewResult.data.edits, [
       { key: "jobs.build", literal: '["deno task build"]' },
       { key: "assurance.not_applicable", literal: "[]" },
     ]);
@@ -512,7 +530,7 @@ Deno.test("config set-job refuses applicability contradictions and auto-unmarks 
     );
     assertEquals(contradiction.code, 1);
     assertStringIncludes(
-      JSON.parse(contradiction.stdout).message,
+      resultMessage(decodeCliResult(contradiction.stdout, "config")),
       "configured",
     );
     assertEquals(await readToml(dir), beforeConfiguredMark);
@@ -522,7 +540,10 @@ Deno.test("config set-job refuses applicability contradictions and auto-unmarks 
       dir,
     );
     assertEquals(custom.code, 1);
-    assertTerminalTextIncludes(JSON.parse(custom.stdout).message, "known job");
+    assertTerminalTextIncludes(
+      resultMessage(decodeCliResult(custom.stdout, "config")),
+      "known job",
+    );
     assertEquals(await readToml(dir), beforeConfiguredMark);
   });
 });
@@ -536,15 +557,15 @@ Deno.test("config set refuses an unknown key at write time (no bricked config)",
       dir,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, false);
     assertEquals(result.error, "unknown_key");
-    assertStringIncludes(result.message, "unknown config key");
+    assertStringIncludes(resultMessage(result), "unknown config key");
     // The config is untouched — the bad key was never written.
     assertEquals(await readToml(dir), before);
     // And the install still loads cleanly.
     const doctor = await runCli(["doctor", "--json"], dir);
-    assertEquals(JSON.parse(doctor.stdout).ok, true);
+    assertEquals(decodeCliResult(doctor.stdout, "doctor").ok, true);
   });
 });
 
@@ -559,9 +580,9 @@ Deno.test("config set redirects the retired standards key to its successor", asy
       dir,
     );
     assertEquals(result.code, 1);
-    const envelope = JSON.parse(result.stdout);
+    const envelope = decodeCliResult(result.stdout, "config");
     assertEquals(envelope.error, "renamed_config_key");
-    assertStringIncludes(envelope.message, "standards.coverage.limit");
+    assertStringIncludes(resultMessage(envelope), "standards.coverage.limit");
     assertEquals(await readToml(dir), before);
   });
 });
@@ -587,10 +608,10 @@ Deno.test("config set-job requires the table form for a custom name", async () =
       dir,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "table form");
-    assertStringIncludes(result.message, "--stage");
+    assertStringIncludes(resultMessage(result), "table form");
+    assertStringIncludes(resultMessage(result), "--stage");
   });
 });
 
@@ -613,8 +634,9 @@ Deno.test("config set-job writes a custom job table", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, true);
+    assertResultDataKey(result, "edits");
     assert(
       result.data.edits.some((e: { key: string }) =>
         e.key === "jobs.licenses.run"
@@ -656,9 +678,9 @@ Deno.test("config set-job rejects an unknown stage", async () => {
       dir,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "unknown stage");
+    assertStringIncludes(resultMessage(result), "unknown stage");
   });
 });
 
@@ -679,7 +701,10 @@ Deno.test("config set-job forbids --stage on a known name", async () => {
       dir,
     );
     assertEquals(r.code, 1);
-    assertTerminalTextIncludes(JSON.parse(r.stdout).message, "derives stage");
+    assertTerminalTextIncludes(
+      resultMessage(decodeCliResult(r.stdout, "config")),
+      "derives stage",
+    );
   });
 });
 
@@ -692,9 +717,10 @@ Deno.test("retired job-setting subcommands hard-error with set-job", async () =>
         dir,
       );
       assertEquals(r.code, 1, `${retired}: ${r.stdout}${r.stderr}`);
-      const result = JSON.parse(r.stdout);
+      const result = decodeCliResult(r.stdout, "discern");
+      assertEquals(result.verb, "discern");
       assertEquals(result.error, "renamed_command");
-      assertStringIncludes(result.message, "config set-job");
+      assertStringIncludes(resultMessage(result), "config set-job");
     }
   });
 });
@@ -887,7 +913,11 @@ Deno.test("config set renders the schema's type, not the value's spelling", asyn
 
     // The install still loads cleanly after every one of those writes.
     const doctor = await runCli(["doctor", "--json"], dir);
-    assertEquals(JSON.parse(doctor.stdout).ok, true, doctor.stdout);
+    assertEquals(
+      decodeCliResult(doctor.stdout, "doctor").ok,
+      true,
+      doctor.stdout,
+    );
   });
 });
 
@@ -931,9 +961,9 @@ Deno.test("config set refuses a value the next read would reject, leaving the fi
     for (const c of cases) {
       const r = await runCli([...c.args, "--json"], dir);
       assertEquals(r.code, 1, `${c.args.join(" ")}: ${r.stdout}${r.stderr}`);
-      const result = JSON.parse(r.stdout);
+      const result = decodeCliResult(r.stdout, "config");
       assertEquals(result.ok, false);
-      assertStringIncludes(result.message, c.includes);
+      assertStringIncludes(resultMessage(result), c.includes);
       if (c.error !== undefined) {
         assertEquals(result.error, c.error);
       }
@@ -992,7 +1022,7 @@ Deno.test("config --dry-run writes nothing", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).dry_run, true);
+    assertEquals(decodeCliResult(r.stdout, "config").dry_run, true);
     assertEquals(await readToml(dir), before); // unchanged
   });
 });
@@ -1004,7 +1034,7 @@ Deno.test("config errors cleanly when not initialized", async () => {
       dir,
     );
     assertEquals(r.code, 1);
-    assertEquals(JSON.parse(r.stdout).error, "not_initialized");
+    assertEquals(decodeCliResult(r.stdout, "config").error, "not_initialized");
   });
 });
 
@@ -1056,10 +1086,10 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
         dir,
       );
       assertEquals(r.code, 1, r.stderr);
-      const result = JSON.parse(r.stdout);
+      const result = decodeCliResult(r.stdout, "config");
       assertEquals(result.ok, false);
       assertEquals(result.error, "invalid_arguments");
-      assertStringIncludes(result.message, `${kind} name must be`);
+      assertStringIncludes(resultMessage(result), `${kind} name must be`);
     });
   }
 });
@@ -1094,9 +1124,12 @@ Deno.test("config set-standard rejects an invalid --direction", async () => {
       dir,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, false);
-    assertStringIncludes(result.message, '--direction must be "up" or "down"');
+    assertStringIncludes(
+      resultMessage(result),
+      '--direction must be "up" or "down"',
+    );
   });
 });
 
@@ -1119,9 +1152,9 @@ Deno.test("config set-standard rejects a non-numeric --limit", async () => {
       dir,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "--limit must be a number");
+    assertStringIncludes(resultMessage(result), "--limit must be a number");
   });
 });
 
@@ -1147,11 +1180,15 @@ Deno.test("config set-standard with a JS-only numeric --limit still writes parse
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).ok, true);
+    assertEquals(decodeCliResult(r.stdout, "config").ok, true);
     assertStringIncludes(await readToml(dir), "limit = 0.5");
     // The install still loads cleanly — the file cannot have been bricked.
     const doctor = await runCli(["doctor", "--json"], dir);
-    assertEquals(JSON.parse(doctor.stdout).ok, true, doctor.stdout);
+    assertEquals(
+      decodeCliResult(doctor.stdout, "doctor").ok,
+      true,
+      doctor.stdout,
+    );
   });
 });
 
@@ -1185,9 +1222,9 @@ Deno.test("config set rejects a key without a section", async () => {
     await setup(dir);
     const r = await runCli(["config", "set", "slug", "x", "--json"], dir);
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "key must be section.key");
+    assertStringIncludes(resultMessage(result), "key must be section.key");
   });
 });
 
@@ -1199,9 +1236,9 @@ Deno.test("config set rejects more than one type flag", async () => {
       dir,
     );
     assertEquals(r.code, 1);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "at most one of");
+    assertStringIncludes(resultMessage(result), "at most one of");
   });
 });
 
@@ -1222,9 +1259,9 @@ Deno.test("config set --bool forces a boolean and rejects a non-boolean", async 
       dir,
     );
     assertEquals(bad.code, 1);
-    const result = JSON.parse(bad.stdout);
+    const result = decodeCliResult(bad.stdout, "config");
     assertEquals(result.ok, false);
-    assertStringIncludes(result.message, "holds a boolean");
+    assertStringIncludes(resultMessage(result), "holds a boolean");
   });
 });
 
@@ -1252,7 +1289,7 @@ Deno.test("config set --number forces a numeric literal and rejects non-numbers"
       dir,
     );
     assertEquals(bad.code, 1);
-    assertEquals(JSON.parse(bad.stdout).ok, false);
+    assertEquals(decodeCliResult(bad.stdout, "config").ok, false);
   });
 });
 
@@ -1297,8 +1334,9 @@ Deno.test("config set --dry-run --json reports the edit and writes nothing", asy
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = JSON.parse(r.stdout);
+    const result = decodeCliResult(r.stdout, "config");
     assertEquals(result.dry_run, true);
+    assertResultDataKey(result, "edits");
     assertEquals(result.data.operation, "edit");
     assertEquals(result.data.file, "discern.toml");
     assert(
@@ -1330,34 +1368,44 @@ Deno.test("config reads keep bare shell output and use a discriminated envelope 
       {
         args: ["config", "get", "project.slug"],
         operation: "get",
-        check: (data: Record<string, unknown>) =>
-          assertEquals(data.value, "demo"),
+        check: (data: object) => {
+          assert("value" in data);
+          assertEquals(data.value, "demo");
+        },
       },
       {
         args: ["config", "array", "project.slug"],
         operation: "array",
-        check: (data: Record<string, unknown>) =>
-          assertEquals(data.values, ["demo"]),
+        check: (data: object) => {
+          assert("values" in data);
+          assertEquals(data.values, ["demo"]);
+        },
       },
       {
         args: ["config", "has", "missing.key"],
         operation: "has",
-        check: (data: Record<string, unknown>) =>
-          assertEquals(data.present, false),
+        check: (data: object) => {
+          assert("present" in data);
+          assertEquals(data.present, false);
+        },
       },
       {
         args: ["config", "subsections", "scopes"],
         operation: "subsections",
-        check: (data: Record<string, unknown>) =>
-          assert(Array.isArray(data.values)),
+        check: (data: object) => {
+          assert("values" in data);
+          assert(Array.isArray(data.values));
+        },
       },
       {
         args: ["config", "keys", "project"],
         operation: "keys",
-        check: (data: Record<string, unknown>) =>
+        check: (data: object) => {
+          assert("values" in data);
           assert(
             Array.isArray(data.values) && data.values.includes("slug"),
-          ),
+          );
+        },
       },
     ] as const;
 
@@ -1370,9 +1418,11 @@ Deno.test("config reads keep bare shell output and use a discriminated envelope 
       );
       assertEquals(result.stderr, "");
       assertEquals(result.stdout.trim().includes("\n"), false);
-      const envelope = JSON.parse(result.stdout);
+      const envelope = decodeCliResult(result.stdout, "config");
       assertEquals(envelope.ok, true);
       assertEquals(envelope.verb, "config");
+      assertResultDataKey(envelope, "operation");
+      assertResultDataKey(envelope, "key");
       assertEquals(envelope.data.operation, testCase.operation);
       assertEquals(envelope.data.key, testCase.args[2]);
       testCase.check(envelope.data);
@@ -1396,7 +1446,7 @@ Deno.test("bare config and malformed config reads are controlled JSON argument r
       );
       assertEquals(result.stderr, "");
       assertEquals(result.stdout.trim().includes("\n"), false);
-      const envelope = JSON.parse(result.stdout);
+      const envelope = decodeCliResult(result.stdout, "config");
       assertEquals(envelope.ok, false);
       assertEquals(envelope.verb, "config");
       assertEquals(envelope.error, "invalid_arguments");

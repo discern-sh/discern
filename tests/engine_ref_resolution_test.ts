@@ -14,6 +14,7 @@
 import {
   assert,
   assertEquals,
+  assertExists,
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
@@ -32,6 +33,7 @@ import {
   resolveCommitRef,
   WorktreeGitError,
 } from "../src/engine/worktree/git.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /** A scratch repo with: main (2 commits), branch `feature` (1 more commit),
  * lightweight tag `light` and annotated tag `annot` on main's first commit. */
@@ -159,8 +161,9 @@ Deno.test("update --from an ambiguous name refuses — it must not merge the tag
 
     const r = await runAgent(wt, ["update", "--json", "--from", "dual"]);
     assertEquals(r.code, 1, r.output);
-    const result = JSON.parse(r.stdout) as { error: string; message: string };
+    const result = decodeCliResult(r.stdout, "update");
     assertEquals(result.error, "precondition_failed");
+    assertExists(result.message);
     assertStringIncludes(result.message, "ambiguous");
     assertStringIncludes(result.message, "refs/heads/dual");
     // Nothing merged, nothing broken: the branch's file never arrived.
@@ -177,8 +180,9 @@ Deno.test("start --from an ambiguous name refuses cleanly — no worktree debris
 
     const r = await runAgent(dir, ["start", "--json", "--from", "dual"]);
     assertEquals(r.code, 1, r.output);
-    const result = JSON.parse(r.stdout) as { error: string; message: string };
+    const result = decodeCliResult(r.stdout, "start");
     assertEquals(result.error, "precondition_failed");
+    assertExists(result.message);
     assertStringIncludes(result.message, "ambiguous");
     // No debris: nothing registered, no stray agent branch beyond the zoo's.
     const worktrees = await gitOut(dir, "worktree", "list", "--porcelain");
@@ -203,11 +207,10 @@ Deno.test("update --from an annotated tag anchors range.main at the peeled commi
 
     const r = await runAgent(wt, ["update", "--json", "--from", "phase-1"]);
     assertEquals(r.code, 0, r.output);
-    const result = JSON.parse(r.stdout) as {
-      data?: { range: { main: string } };
-    };
+    const result = decodeCliResult(r.stdout, "update");
+    assertResultDataKey(result, "range");
     assertEquals(
-      result.data?.range.main,
+      result.data.range.main,
       await gitOut(dir, "rev-parse", "phase-1^{commit}"),
       `range.main must be the peeled commit, not the tag object\n${r.stdout}`,
     );

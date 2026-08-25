@@ -4,7 +4,12 @@
  * Git merges use it, and an ordinary clone retains Git's normal conflict path.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { dirname, join } from "@std/path";
 import { DISCERN_GENERATED_MERGE_DRIVER } from "../src/lib/agent_gitattributes.ts";
 import { withTempDir } from "./helpers.ts";
@@ -18,6 +23,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 const GENERATED_PATH = "generated/bundle.txt";
 const DRIVER_KEY = `merge.${DISCERN_GENERATED_MERGE_DRIVER}.driver`;
@@ -187,17 +193,21 @@ Deno.test("done refuses a tracked refresh artifact made stale by config", async 
 
     const status = await runAgent(dir, ["status", "--local", "--json"]);
     assertEquals(status.code, 0, status.output);
-    assertEquals(JSON.parse(status.stdout).data.pending_tracked_refresh, [
+    const statusResult = decodeCliResult(status.stdout, "status");
+    assertResultDataKey(statusResult, "pending_tracked_refresh");
+    assertEquals(statusResult.data.pending_tracked_refresh, [
       ".gitattributes",
     ]);
 
     const done = await runAgent(dir, ["done", "--json"]);
 
     assertEquals(done.code, 1, done.output);
-    const result = JSON.parse(done.stdout);
+    const result = decodeCliResult(done.stdout, "done");
+    assertResultDataKey(result, "failed_stage");
+    assertExists(result.diagnostics);
     assertEquals(result.data.failed_stage, "refresh_drift");
     assertEquals(
-      result.diagnostics.some((diagnostic: { output?: string }) =>
+      result.diagnostics.some((diagnostic) =>
         diagnostic.output?.includes(".gitattributes") === true
       ),
       true,
@@ -220,10 +230,12 @@ Deno.test("done refuses mode-only drift in a tracked refresh artifact", async ()
     const done = await runAgent(dir, ["done", "--json"]);
 
     assertEquals(done.code, 1, done.output);
-    const result = JSON.parse(done.stdout);
+    const result = decodeCliResult(done.stdout, "done");
+    assertResultDataKey(result, "failed_stage");
+    assertExists(result.diagnostics);
     assertEquals(result.data.failed_stage, "refresh_drift");
     assertEquals(
-      result.diagnostics.some((diagnostic: { output?: string }) =>
+      result.diagnostics.some((diagnostic) =>
         diagnostic.output?.includes("CLAUDE.md") === true
       ),
       true,
@@ -266,9 +278,9 @@ Deno.test("a provisioned worktree raw-merges generated conflicts and the gate re
     ]);
     assertEquals(replay.code, 0, replay.output);
     assertEquals(
-      JSON.parse(replay.stdout).plan.steps.some((step: { label: string }) =>
-        step.label === "configure-generated-merge-driver"
-      ),
+      decodeCliResult(replay.stdout, "worktree setup").plan?.steps.some((
+        step,
+      ) => step.label === "configure-generated-merge-driver"),
       false,
       "the ready sentinel keeps driver installation in first setup",
     );
@@ -299,7 +311,12 @@ Deno.test("a provisioned worktree raw-merges generated conflicts and the gate re
 
     const gate = await runAgent(worktree, ["done", "--json"]);
     assertEquals(gate.code, 1, gate.output);
-    assertEquals(JSON.parse(gate.stdout).data.failed_stage, "generated_drift");
+    const gateResult = decodeCliResult(gate.stdout, "done");
+    assertResultDataKey(gateResult, "failed_stage");
+    assertEquals(
+      gateResult.data.failed_stage,
+      "generated_drift",
+    );
     const converged = await Deno.readTextFile(join(worktree, GENERATED_PATH));
     assertEquals(converged, "left=worktree-left|right=main-right\n");
     assertEquals(converged.includes("<<<<<<<"), false);

@@ -6,9 +6,10 @@
  * apart from the other upgrade tests.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /** Run a git command in `dir`, throwing on failure. */
 async function git(dir: string, ...args: string[]): Promise<void> {
@@ -42,7 +43,7 @@ Deno.test("upgrade proceeds on a clean tree", async () => {
     await initCommittedRepo(dir);
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).ok, true);
+    assertEquals(decodeCliResult(r.stdout, "upgrade").ok, true);
   });
 });
 
@@ -58,9 +59,11 @@ Deno.test("upgrade refuses a tree with uncommitted tracked changes", async () =>
     );
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1);
-    const res = JSON.parse(r.stdout);
+    const res = decodeCliResult(r.stdout, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "dirty_worktree");
+    assertResultDataKey(res, "changes");
+    assertExists(res.data.changes);
     assert(
       res.data.changes.some((c: string) => c.includes("discern.toml")),
       "the dirty file should be listed",
@@ -79,7 +82,7 @@ Deno.test("upgrade --allow-dirty overrides the guard", async () => {
     );
     const r = await runCli(["upgrade", "--allow-dirty", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).ok, true);
+    assertEquals(decodeCliResult(r.stdout, "upgrade").ok, true);
   });
 });
 
@@ -90,7 +93,7 @@ Deno.test("upgrade ignores untracked files (they don't block recovery)", async (
     await Deno.writeTextFile(join(dir, "scratch.txt"), "notes\n");
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).ok, true);
+    assertEquals(decodeCliResult(r.stdout, "upgrade").ok, true);
   });
 });
 
@@ -106,6 +109,6 @@ Deno.test("upgrade --check is never blocked by a dirty tree", async () => {
     // --check writes nothing, so the guard does not apply: it reports sync state.
     const r = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(JSON.parse(r.stdout).ok, true);
+    assertEquals(decodeCliResult(r.stdout, "upgrade").ok, true);
   });
 });

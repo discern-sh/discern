@@ -41,49 +41,71 @@ import {
 } from "../src/commands/doctor.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
+import type { DoctorData } from "../src/shared/result_schemas.ts";
+import { z } from "@zod/zod";
+import {
+  type CliResultForCommand,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 
-/** One check in the `doctor --json` payload. */
-interface DoctorCheck {
-  name: string;
-  status: "ok" | "warn" | "fail";
-  ok: boolean;
-  detail: string;
-  fix?: string;
-  warn?: boolean;
-}
+const DOCTOR_DIAGNOSTIC_ROUND_TRIP_SCHEMA = z.object({
+  name: z.string(),
+  status: z.enum(["ok", "warn", "fail"]),
+  ok: z.boolean(),
+  warn: z.boolean().optional(),
+  detail: z.string(),
+  fix: z.string().optional(),
+});
 
-/** One annotated step in a verb's execution model. */
-interface ExecStep {
-  kind: string;
-  label: string;
-  actor: "project" | "discern";
-  note?: string;
-  hint?: string;
-  condition?: string;
-}
+const DOCTOR_ENVIRONMENT_ROUND_TRIP_SCHEMA = z.object({
+  discern: z.string(),
+  platform: z.string(),
+  git: z.string().optional(),
+});
 
-/** One verb's execution model. */
-interface ExecVerb {
-  verb: string;
-  when: string;
-  steps: ExecStep[];
-}
+const COMMAND_LIST_VALUE_SCHEMA = z.union([
+  z.string(),
+  z.array(z.string()),
+]);
 
-/** The `doctor --json` payload shape we assert against. */
-interface DoctorPayload {
-  ok: boolean;
-  verb: string;
-  data: {
-    kit_version: string;
-    environment: {
-      discern: string;
-      platform: string;
-      git?: string;
-      desk_session?: true;
-    };
-    checks: DoctorCheck[];
-    execution_model?: ExecVerb[];
-  };
+const CLAUDE_SETTINGS_SCHEMA = z.object({
+  hooks: z.record(
+    z.string(),
+    z.array(
+      z.object({
+        hooks: z.array(
+          z.object({
+            type: z.string(),
+            command: z.string(),
+          }).passthrough(),
+        ),
+      }).passthrough(),
+    ),
+  ).optional(),
+}).passthrough();
+
+/** One check in the validated `doctor --json` payload. */
+type DoctorCheck = DoctorData["checks"][number];
+
+/** One verb in the validated doctor execution model. */
+type ExecVerb = NonNullable<DoctorData["execution_model"]>[number];
+
+/** A validated doctor envelope narrowed to the command's normal data payload. */
+type DoctorPayload = Omit<CliResultForCommand<"doctor">, "data"> & {
+  data: DoctorData;
+};
+
+/** Decode doctor stdout and require the command's normal diagnostic payload. */
+function decodeDoctor(stdout: string): DoctorPayload {
+  const result = decodeCliResult(stdout, "doctor");
+  assert(
+    result.data !== undefined &&
+      "checks" in result.data &&
+      "environment" in result.data,
+    "doctor must return its diagnostic data payload",
+  );
+  return { ...result, data: result.data };
 }
 
 Deno.test("doctor terminal Components make dynamic facts inert without mutating result data", () => {
@@ -159,8 +181,20 @@ Deno.test("doctor terminal Components make dynamic facts inert without mutating 
   assertStringIncludes(combined, "next café");
   assertEquals(diagnostic, originalDiagnostic);
   assertEquals(environment, originalEnvironment);
-  assertEquals(JSON.parse(JSON.stringify(diagnostic)), originalDiagnostic);
-  assertEquals(JSON.parse(JSON.stringify(environment)), originalEnvironment);
+  assertEquals(
+    decodeWith(
+      DOCTOR_DIAGNOSTIC_ROUND_TRIP_SCHEMA,
+      JSON.stringify(diagnostic),
+    ),
+    originalDiagnostic,
+  );
+  assertEquals(
+    decodeWith(
+      DOCTOR_ENVIRONMENT_ROUND_TRIP_SCHEMA,
+      JSON.stringify(environment),
+    ),
+    originalEnvironment,
+  );
 });
 
 /** Scaffold a healthy install in `dir`; assert it succeeded. */
@@ -184,7 +218,7 @@ async function runDoctorJson(
     "--verbose",
     "--json",
   ], dir);
-  return { code, payload: JSON.parse(stdout) as DoctorPayload };
+  return { code, payload: decodeDoctor(stdout) };
 }
 
 Deno.test("doctor default JSON is a bounded orientation result and verbose opts into the execution model", async () => {
@@ -196,9 +230,7 @@ Deno.test("doctor default JSON is a bounded orientation result and verbose opts 
       routine.stdout.length <= DOCTOR_ORIENTATION_MAX_CHARS,
       `routine doctor used ${routine.stdout.length} characters`,
     );
-    const bounded = JSON.parse(routine.stdout) as DoctorPayload & {
-      hints?: string[];
-    };
+    const bounded = decodeDoctor(routine.stdout);
     assertEquals(bounded.data.execution_model, undefined);
     assert(
       bounded.hints?.some((hint) =>
@@ -550,7 +582,7 @@ Deno.test("doctor reports when it runs inside a desk-owned child session", async
 
     const json = await runCli(["doctor", "--json"], dir, env);
     assertEquals(json.code, 0);
-    const payload = JSON.parse(json.stdout) as DoctorPayload;
+    const payload = decodeDoctor(json.stdout);
     assertEquals(payload.data.environment.desk_session, true);
 
     const human = await runCli(["doctor"], dir, env);
@@ -605,7 +637,7 @@ Deno.test("doctor: the git check fails with a fix when git is unreachable", asyn
     const { code, stdout } = await runCli(["doctor", "--json"], dir, {
       GIT_BIN: "definitely-not-git-12345",
     });
-    const payload = JSON.parse(stdout) as DoctorPayload;
+    const payload = decodeDoctor(stdout);
     assertEquals(code, 1);
     const git = check(payload, "git");
     assertEquals(git.ok, false);
@@ -864,7 +896,7 @@ for (const { label, segments } of SUBDIR_DEPTHS) {
       // Run doctor with the cwd set to the subdirectory. It must find the real
       // discern.toml at the root, not report the install missing/broken.
       const { code, stdout } = await runCli(["doctor", "--json"], sub);
-      const payload = JSON.parse(stdout) as DoctorPayload;
+      const payload = decodeDoctor(stdout);
       assertEquals(
         code,
         0,
@@ -936,7 +968,7 @@ Deno.test("doctor: a NEWER-than-binary schema advises updating discern, never th
     const up = await runCli(["upgrade", "--json"], dir);
     assertEquals(up.code, 1);
     assertEquals(
-      (JSON.parse(up.stdout) as { error?: string }).error,
+      decodeCliResult(up.stdout, "upgrade").error,
       "schema_version_too_new",
       "upgrade must refuse a newer-than-binary schema — the state doctor's fix must route around",
     );
@@ -1060,7 +1092,7 @@ for (const { label, raw } of NOOP_CAPABILITY_VALUES) {
   Deno.test(`doctor: a capability set to ${label} is NOT counted as wired (agrees with toCommandList)`, async () => {
     // The SSOT: this value contributes no runnable command to the gate.
     assertEquals(
-      toCommandList(JSON.parse(raw) as string | string[]),
+      toCommandList(decodeWith(COMMAND_LIST_VALUE_SCHEMA, raw)),
       [],
       `${label} should be a toCommandList no-op — fix the fixture if this trips`,
     );
@@ -1437,8 +1469,10 @@ Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure
     // Inject another tool's worktree automation alongside the harness's own hooks
     // (which call `discern`); the harness's stay, this one is foreign.
     const p = join(dir, ".claude/settings.json");
-    // deno-lint-ignore no-explicit-any
-    const settings = JSON.parse(await Deno.readTextFile(p)) as any;
+    const settings = decodeWith(
+      CLAUDE_SETTINGS_SCHEMA,
+      await Deno.readTextFile(p),
+    );
     settings.hooks ??= {};
     (settings.hooks.WorktreeCreate ??= []).push({
       hooks: [{ type: "command", command: "other-tool worktree-setup" }],
@@ -1971,7 +2005,7 @@ Deno.test("doctor: warns when the working directory is a nested repository resol
     // project — the crossing is disclosed as advice, exit stays 0.
     const { code, stdout } = await runCli(["doctor", "--json"], child);
     assertEquals(code, 0);
-    const payload = JSON.parse(stdout) as DoctorPayload;
+    const payload = decodeDoctor(stdout);
     const boundary = check(payload, "root discovery");
     assertEquals(boundary.status, "warn");
     assertStringIncludes(boundary.detail, "childrepo");

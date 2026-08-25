@@ -29,40 +29,35 @@ import {
   AWAITING_DECLARATION_SLUG,
   AWAITING_VARIANCE_SLUG,
 } from "../src/shared/declarations.ts";
-import type {
-  AcceptanceEvidenceData,
-  AuthorizedVarianceData,
-} from "../src/shared/result_schemas.ts";
+import { ProofNotePayloadSchema } from "../src/shared/result_schemas.ts";
 import { AWAITING_CONSENT_SLUG } from "../src/shared/consent.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { z } from "@zod/zod";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
 
-/** The wire fields these black-box assertions read from an `accept`
- * envelope. Presence claims are static; a field the engine omits fails its
- * assertion at runtime with `undefined`, which is the signal wanted. */
-interface AcceptEnvelope {
-  ok: boolean;
-  verb: string;
-  error?: string;
+type AcceptEnvelope = CliResultForCommand<"accept"> & {
+  data: Exclude<
+    NonNullable<CliResultForCommand<"accept">["data"]>,
+    { issues: unknown }
+  >;
   message: string;
-  hints?: string[];
-  data: {
-    root?: string;
-    consent?: { source: string; scopes?: string[] };
-    variances?: AuthorizedVarianceData[];
-    proof_line?: string;
-    checkpoint_drops?: {
-      reason: string;
-      account: string;
-      policy_commit?: string;
-    }[];
-  };
-}
+};
+
+const DSSE_ENVELOPE_SCHEMA = z.object({ payload: z.string() }).passthrough();
 
 /** Decode a JSON result envelope. */
 function parseJson(stdout: string): AcceptEnvelope {
-  return JSON.parse(stdout.trim()) as AcceptEnvelope;
+  const result = decodeCliResult(stdout, "accept");
+  assert(typeof result.message === "string");
+  assertResultDataKey(result, "landed");
+  return { ...result, data: result.data, message: result.message };
 }
 
 const QUESTION = "A changed surface is described in its docs before it lands.";
@@ -139,24 +134,11 @@ async function greenWithUnmet(wt: string): Promise<void> {
   assertEquals(green.code, 0, green.output);
 }
 
-/** The payload fields the landed-note assertions read. */
-interface LandedNotePayload {
-  subject: { commit: string };
-  proof?: {
-    checkpoint_drops?: {
-      reason: string;
-      account: string;
-      policy_commit?: string;
-    }[];
-  };
-  acceptance?: AcceptanceEvidenceData;
-}
-
 /** Decode the landed Proof note's DSSE payload at `commit`. */
 async function landedNotePayload(
   dir: string,
   commit: string,
-): Promise<LandedNotePayload> {
+): Promise<z.output<typeof ProofNotePayloadSchema>> {
   const note = await gitOut(
     dir,
     "notes",
@@ -164,10 +146,11 @@ async function landedNotePayload(
     "show",
     commit,
   );
-  const envelope = JSON.parse(note) as { payload: string };
-  return JSON.parse(
+  const envelope = decodeWith(DSSE_ENVELOPE_SCHEMA, note);
+  return decodeWith(
+    ProofNotePayloadSchema,
     new TextDecoder().decode(decodeBase64(envelope.payload)),
-  ) as LandedNotePayload;
+  );
 }
 
 Deno.test("accept: a declared-unmet conclusion refuses with the complete owner decision, before any effect", async () => {

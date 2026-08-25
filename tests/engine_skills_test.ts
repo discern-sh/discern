@@ -4,7 +4,12 @@
  * so Cliffy parsing, the feature gate, and the JSON surface are exercised.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
@@ -12,7 +17,7 @@ import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 Deno.test("discern skills list shows the built-ins, and --json emits structured rows", async () => {
   await withTempDir(async (dir) => {
@@ -26,13 +31,10 @@ Deno.test("discern skills list shows the built-ins, and --json emits structured 
 
     const json = await runAgent(dir, ["skills", "list", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const obj = JSON.parse(json.stdout) as {
-      ok: boolean;
-      verb: string;
-      data: { skills: Array<{ name: string; source: string }> };
-    };
+    const obj = decodeCliResult(json.stdout, "skills list");
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "skills list");
+    assertResultDataKey(obj, "skills");
     assert(
       obj.data.skills.some((r) =>
         r.name === "discern-write-adr" && r.source === "bundled"
@@ -78,19 +80,10 @@ Deno.test("discern skills eject --json emits an envelope and materializes the ov
     ]);
     assertEquals(r.code, 0, r.output);
     assertEquals(r.stderr, "");
-    const obj = JSON.parse(r.stdout) as {
-      ok: boolean;
-      verb: string;
-      hints?: string[];
-      data: {
-        name: string;
-        dest_rel: string;
-        skills_dir_persisted: boolean;
-        materialized: { linked: number; errors: string[] };
-      };
-    };
+    const obj = decodeCliResult(r.stdout, "skills eject");
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "skills eject");
+    assertResultDataKey(obj, "materialized");
     assertEquals(obj.data.name, "discern-write-adr");
     assertEquals(obj.data.dest_rel, "discern/skills/discern-write-adr");
     assertEquals(obj.data.skills_dir_persisted, false);
@@ -180,8 +173,9 @@ Deno.test("discern skills eject partial materialization carries the registered r
       "discern-write-adr",
     ]);
     assertEquals(result.code, 1, result.output);
-    const envelope = JSON.parse(result.stdout);
+    const envelope = decodeCliResult(result.stdout, "skills eject");
     assertEquals(envelope.error, "partial_materialization");
+    assertResultDataKey(envelope, "materialized");
     assert(envelope.data.materialized.errors.length > 0, result.output);
     assertHasHint(envelope, HINTS["skills-eject-finish-materialization"]);
   });
@@ -204,9 +198,8 @@ Deno.test("skills eject persists an omitted skills.dir in tidy-canonical TOML", 
       "discern-write-adr",
     ]);
     assertEquals(result.code, 0, result.output);
-    const output = JSON.parse(result.stdout) as {
-      data: { skills_dir_persisted: boolean };
-    };
+    const output = decodeCliResult(result.stdout, "skills eject");
+    assertResultDataKey(output, "skills_dir_persisted");
     assertEquals(output.data.skills_dir_persisted, true);
     await assertDiscernTomlTidy(dir, "skills eject");
   });
@@ -235,15 +228,11 @@ Deno.test("discern skills eject --json reports errors in the envelope", async ()
     ]);
     assertEquals(r.code, 1, r.output);
     assertEquals(r.stderr, "");
-    const obj = JSON.parse(r.stdout) as {
-      ok: boolean;
-      verb: string;
-      error: string;
-      message: string;
-    };
+    const obj = decodeCliResult(r.stdout, "skills eject");
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "skills eject");
     assertEquals(obj.error, "skills_eject_failed");
+    assertExists(obj.message);
     assertStringIncludes(
       obj.message,
       'no bundled skill named "does-not-exist"',
@@ -269,9 +258,9 @@ Deno.test("[skills].exclude drops a named skill end-to-end: list flags it, refre
     // The listing shows the whole known set with the excluded row flagged.
     const list = await runAgent(dir, ["skills", "list", "--json"]);
     assertEquals(list.code, 0, list.output);
-    const rows = (JSON.parse(list.stdout) as {
-      data: { skills: { name: string; excluded: boolean }[] };
-    }).data.skills;
+    const listResult = decodeCliResult(list.stdout, "skills list");
+    assertResultDataKey(listResult, "skills");
+    const rows = listResult.data.skills;
     const excluded = rows.find((r) => r.name === "discern-write-adr");
     assertEquals(excluded?.excluded, true, JSON.stringify(rows));
     assert(

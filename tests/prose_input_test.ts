@@ -17,7 +17,6 @@ import {
   blankFrontmatter,
   decodeValeReport,
   restoreStagePaths,
-  type SarifLog,
   selectProseGateAlerts,
   stageProseInput,
   valeJsonToSarif,
@@ -32,6 +31,30 @@ import {
   BUNDLED_PUBLIC_DOC_DIRS,
   MANUAL_SECTION_REGISTRY,
 } from "../src/lib/paths.ts";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const SARIF_LOG_SCHEMA = z.object({
+  $schema: z.string(),
+  version: z.literal("2.1.0"),
+  runs: z.tuple([z.object({
+    tool: z.object({ driver: z.object({ name: z.string() }) }),
+    results: z.array(z.object({
+      ruleId: z.string(),
+      level: z.enum(["error", "warning", "note"]),
+      message: z.object({ text: z.string() }),
+      locations: z.tuple([z.object({
+        physicalLocation: z.object({
+          artifactLocation: z.object({ uri: z.string() }),
+          region: z.object({
+            startLine: z.number().int().positive().optional(),
+            startColumn: z.number().int().positive().optional(),
+          }),
+        }),
+      })]),
+    })),
+  })]),
+});
 
 /** A registered public section, so the density script admits the fixture. */
 const PUBLIC_SECTION = BUNDLED_PUBLIC_DOC_DIRS[0] ?? "00-orientation";
@@ -307,9 +330,10 @@ Deno.test("the prose command enforces custom zero across maintained Map tiers", 
       }).output();
 
     const raw = await run(["--min-level=suggestion", "--sarif"]);
-    const rawSarif = JSON.parse(
+    const rawSarif = decodeWith(
+      SARIF_LOG_SCHEMA,
       new TextDecoder().decode(raw.stdout),
-    ) as SarifLog;
+    );
     const rawResults = rawSarif.runs[0].results;
     const expectedRules = new Map<string, string[]>([
       [pages.public, ["Discern.Padding", "DiscernProduct.ProductName"]],
@@ -371,9 +395,10 @@ Deno.test("the prose command enforces custom zero across maintained Map tiers", 
 
     const blocked = await run(["--sarif", "--custom-zero"]);
     assertEquals(blocked.code, 1);
-    const blockedSarif = JSON.parse(
+    const blockedSarif = decodeWith(
+      SARIF_LOG_SCHEMA,
       new TextDecoder().decode(blocked.stdout),
-    ) as SarifLog;
+    );
     const blockedResults = blockedSarif.runs[0].results;
     assertEquals(
       [
@@ -412,9 +437,10 @@ Deno.test("the prose command enforces custom zero across maintained Map tiers", 
     }
     const clean = await run(["--sarif", "--custom-zero"]);
     assertEquals(clean.code, 0, new TextDecoder().decode(clean.stderr));
-    const cleanSarif = JSON.parse(
+    const cleanSarif = decodeWith(
+      SARIF_LOG_SCHEMA,
       new TextDecoder().decode(clean.stdout),
-    ) as SarifLog;
+    );
     assertEquals(cleanSarif.runs[0].results, []);
 
     const density = await new Deno.Command(Deno.execPath(), {

@@ -8,10 +8,16 @@
  * run, or agent harness can ever wander into the interactive surface".
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, runAgentPty, scaffoldEngine } from "./engine_helpers.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 const DESK_SESSION = { [DESK_SESSION_ENV]: "1" };
 
@@ -20,7 +26,7 @@ Deno.test("desk --json: refuses — the desk has no JSON form", async () => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["desk", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const envelope = JSON.parse(r.stdout);
+    const envelope = decodeCliResult(r.stdout, "desk");
     assertEquals(envelope.ok, false);
     assertEquals(envelope.verb, "desk");
     assertEquals(envelope.error, "invalid_arguments");
@@ -28,6 +34,7 @@ Deno.test("desk --json: refuses — the desk has no JSON form", async () => {
       Array.isArray(envelope.hints) && envelope.hints.length > 0,
       "the machine refusal should carry a registered next action",
     );
+    assertExists(envelope.message);
     assertStringIncludes(envelope.message, "status --json");
   });
 });
@@ -39,10 +46,11 @@ Deno.test("desk --json: a desk-owned child reports the active desk", async () =>
       env: DESK_SESSION,
     });
     assertEquals(r.code, 1, r.output);
-    const envelope = JSON.parse(r.stdout);
+    const envelope = decodeCliResult(r.stdout, "desk");
     assertEquals(envelope.ok, false);
     assertEquals(envelope.verb, "desk");
     assertEquals(envelope.error, "desk_already_active");
+    assertExists(envelope.message);
     assertStringIncludes(envelope.message, "exit");
   });
 });
@@ -96,7 +104,7 @@ Deno.test("desk pre-setup: the setup redirect fires before the surface", async (
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["desk", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const envelope = JSON.parse(r.stdout);
+    const envelope = decodeCliResult(r.stdout, "desk");
     assertEquals(envelope.error, "not_set_up");
   });
 });

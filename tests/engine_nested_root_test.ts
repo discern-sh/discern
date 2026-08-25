@@ -36,6 +36,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import { WORKTREE_LIFECYCLE_REPO_ROOT_VERBS } from "../src/engine/worktree/lifecycle.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import type { CouplingData } from "../src/shared/result_schemas.ts";
@@ -144,7 +145,9 @@ Deno.test("nested root: committed and pending changes classify into their scope"
 
     const r = await runAgent(app, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const scopes = JSON.parse(r.stdout.trim()).data.scopes as string[];
+    const data = decodeCliResult(r.stdout, "impact").data;
+    assert(data !== undefined && "scopes" in data);
+    const scopes = data.scopes;
     assert(scopes.includes("widget"), `widget must classify: ${r.stdout}`);
     assert(scopes.includes("code"), `code marker must fire: ${r.stdout}`);
   });
@@ -159,7 +162,9 @@ Deno.test("nested root: a sibling project's changes are not this project's code"
 
     const r = await runAgent(app, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const scopes = JSON.parse(r.stdout.trim()).data.scopes as string[];
+    const data = decodeCliResult(r.stdout, "impact").data;
+    assert(data !== undefined && "scopes" in data);
+    const scopes = data.scopes;
     assertEquals(scopes, [], `sibling dirt must not classify: ${r.stdout}`);
   });
 });
@@ -177,8 +182,10 @@ Deno.test("nested root: whitespace in the project prefix remains Git path data",
 
     const r = await runAgent(app, ["impact", "--json"]);
     assertEquals(r.code, 0, r.output);
+    const data = decodeCliResult(r.stdout, "impact").data;
+    assert(data !== undefined && "scopes" in data);
     assertEquals(
-      JSON.parse(r.stdout.trim()).data.scopes,
+      data.scopes,
       [],
       `a whitespace-distinct sibling must not classify: ${r.stdout}`,
     );
@@ -419,11 +426,8 @@ Deno.test("nested root: doctor's repository-shape check names the layout and the
     );
     const r = await runAgent(app, ["doctor", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const payload = JSON.parse(r.stdout.trim()) as {
-      data: {
-        checks: Array<{ name: string; ok: boolean; detail: string }>;
-      };
-    };
+    const payload = decodeCliResult(r.stdout, "doctor");
+    assert(payload.data !== undefined && "checks" in payload.data);
     const shape = payload.data.checks.find((c) =>
       c.name === "repository shape"
     );

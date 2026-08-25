@@ -14,15 +14,31 @@ import {
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { basename, dirname, join } from "@std/path";
 import {
+  AcceptOutputSchema,
+  AwaitOutputSchema,
+  CheckpointsOutputSchema,
   CouplingOutputSchema,
+  DocsDataSchema,
+  DocsOutputSchema,
   DoctorOutputSchema,
-  type PatternsData,
+  FinishOutputSchema,
+  ImpactOutputSchema,
+  ImprovementOutputSchema,
+  MapOutputSchema,
   PatternsOutputSchema,
+  PrepareOutputSchema,
   RefreshOutputSchema,
+  ScopesDataSchema,
   StandardsOutputSchema,
+  StartOutputSchema,
   StatusOutputSchema,
+  StatusWireDataSchema,
+  TestOutputSchema,
   UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
+import { configSchema } from "../src/shared/config_schema.ts";
+import { z } from "@zod/zod";
+import { assertResultDataKey, decodeWith } from "./decode_cli_result.ts";
 import {
   buildInstructions,
   MCP_CORE_LIFECYCLE,
@@ -77,6 +93,119 @@ import { assertHasMcpHint } from "./mcp_hint_asserts.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 
 const ENCODER = new TextEncoder();
+
+const MCP_STRUCTURED_CONTENT_SCHEMA = z.union([
+  AcceptOutputSchema,
+  AwaitOutputSchema,
+  CheckpointsOutputSchema,
+  CouplingOutputSchema,
+  DocsOutputSchema,
+  DoctorOutputSchema,
+  FinishOutputSchema,
+  ImpactOutputSchema,
+  ImprovementOutputSchema,
+  MapOutputSchema,
+  PatternsOutputSchema,
+  PrepareOutputSchema,
+  RefreshOutputSchema,
+  StandardsOutputSchema,
+  StartOutputSchema,
+  StatusOutputSchema,
+  TestOutputSchema,
+  UpdateOutputSchema,
+]);
+
+const MCP_JSON_SCHEMA_SCHEMA = z.object({
+  type: z.string().optional(),
+  properties: z.record(z.string(), z.json()).optional(),
+  required: z.array(z.string()).optional(),
+  additionalProperties: z.boolean().optional(),
+}).passthrough();
+
+const MCP_TOOL_SCHEMA = z.object({
+  name: z.string(),
+  title: z.string().optional(),
+  description: z.string(),
+  outputSchema: MCP_JSON_SCHEMA_SCHEMA.optional(),
+  inputSchema: MCP_JSON_SCHEMA_SCHEMA.optional(),
+  annotations: z.object({
+    readOnlyHint: z.boolean().optional(),
+    destructiveHint: z.boolean().optional(),
+    idempotentHint: z.boolean().optional(),
+    openWorldHint: z.boolean().optional(),
+  }).passthrough().optional(),
+}).passthrough();
+
+type ListedTool = z.output<typeof MCP_TOOL_SCHEMA>;
+
+const MCP_RESOURCE_SCHEMA = z.object({
+  uri: z.string(),
+  name: z.string(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  mimeType: z.string().optional(),
+}).passthrough();
+
+const MCP_RESOURCE_TEMPLATE_SCHEMA = z.object({
+  uriTemplate: z.string(),
+  name: z.string(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  mimeType: z.string().optional(),
+}).passthrough();
+
+const MCP_RESOURCE_CONTENT_SCHEMA = z.object({
+  uri: z.string(),
+  mimeType: z.string().optional(),
+  text: z.string().optional(),
+  blob: z.string().optional(),
+}).passthrough().refine(
+  (content) => content.text !== undefined || content.blob !== undefined,
+  "resource content must carry text or blob",
+);
+
+const MCP_RESULT_SCHEMA = z.object({
+  protocolVersion: z.string().optional(),
+  capabilities: z.object({
+    tools: z.object({
+      listChanged: z.boolean().optional(),
+    }).passthrough().optional(),
+    resources: z.object({
+      subscribe: z.boolean().optional(),
+      listChanged: z.boolean().optional(),
+    }).passthrough().optional(),
+  }).passthrough().optional(),
+  serverInfo: z.object({
+    name: z.string(),
+    version: z.string(),
+  }).passthrough().optional(),
+  instructions: z.string().optional(),
+  tools: z.array(MCP_TOOL_SCHEMA).optional(),
+  resources: z.array(MCP_RESOURCE_SCHEMA).optional(),
+  resourceTemplates: z.array(MCP_RESOURCE_TEMPLATE_SCHEMA).optional(),
+  contents: z.array(MCP_RESOURCE_CONTENT_SCHEMA).optional(),
+  isError: z.boolean().optional(),
+  structuredContent: MCP_STRUCTURED_CONTENT_SCHEMA.optional(),
+  content: z.array(
+    z.object({
+      type: z.literal("text"),
+      text: z.string(),
+    }).passthrough(),
+  ).optional(),
+}).passthrough();
+
+const JSON_RPC_RESPONSE_SCHEMA = z.object({
+  jsonrpc: z.literal("2.0"),
+  id: z.union([z.string(), z.number(), z.null()]),
+  result: MCP_RESULT_SCHEMA.optional(),
+  error: z.object({
+    code: z.number(),
+    message: z.string(),
+  }).passthrough().optional(),
+}).passthrough().refine(
+  (message) => message.result !== undefined || message.error !== undefined,
+  "a JSON-RPC response must carry result or error",
+);
 
 /** Infrastructure allowance for successful initialized-server responses. */
 const MCP_RECV_TIMEOUT_MS: number = (() => {
@@ -211,7 +340,7 @@ class McpClient {
         const line = this.buffer.slice(0, nl).trim();
         this.buffer = this.buffer.slice(nl + 1);
         if (line !== "") {
-          return JSON.parse(line);
+          return decodeWith(JSON_RPC_RESPONSE_SCHEMA, line);
         }
         continue;
       }
@@ -476,7 +605,8 @@ Deno.test("mcp: discern_patterns reads sealed historical Stats without modifying
     });
     assertEquals(result.isError, false, JSON.stringify(result));
     const parsed = PatternsOutputSchema.parse(result.structuredContent);
-    const data = parsed.data as PatternsData;
+    assertResultDataKey(parsed, "logbook");
+    const data = parsed.data;
     assertEquals(data.logbook.source, {
       kind: "archive",
       filename,
@@ -535,8 +665,9 @@ Deno.test("mcp: discern_patterns carries synthesized investigations beside raw f
     assert(tool !== undefined);
     const result = await runTool(tool, new WorkingRoot(dir), {});
     assertEquals(result.isError, false, JSON.stringify(result));
-    const data = PatternsOutputSchema.parse(result.structuredContent)
-      .data as PatternsData;
+    const parsed = PatternsOutputSchema.parse(result.structuredContent);
+    assertResultDataKey(parsed, "investigations");
+    const data = parsed.data;
     assertEquals(
       data.investigations.map(({ id }) => id),
       ["standard-variance/coverage"],
@@ -1675,9 +1806,10 @@ Deno.test("discern mcp: docs tool and resources serve exactly the staged public 
       params: { uri: "discern://docs" },
     });
     const resource = await mcp.recv();
-    const resourcePaths = JSON.parse(resource.result.contents[0].text).docs.map(
-      (doc: { path: string }) => doc.path,
-    );
+    const resourcePaths = decodeWith(
+      DocsDataSchema,
+      resource.result.contents[0].text,
+    ).docs?.map((doc) => doc.path) ?? [];
     assertEquals(resourcePaths, expectedPaths);
     assert(
       resourcePaths.every((path: string) =>
@@ -3151,27 +3283,6 @@ Deno.test("generic worktree instructions stays within agent-observable state", (
   }
 });
 
-/** The shape of one tool as `tools/list` advertises it (the fields this suite reads). */
-interface ListedTool {
-  name: string;
-  title?: string;
-  description: string;
-  outputSchema?: {
-    type?: string;
-    properties?: Record<string, unknown>;
-  };
-  inputSchema?: {
-    type?: string;
-    properties?: Record<string, unknown>;
-  };
-  annotations?: {
-    readOnlyHint?: boolean;
-    destructiveHint?: boolean;
-    idempotentHint?: boolean;
-    openWorldHint?: boolean;
-  };
-}
-
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
 Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest annotations", async () => {
@@ -3644,10 +3755,7 @@ Deno.test("discern mcp: status carries project identity and compact fleet proof 
     const result = await runTool(status, new WorkingRoot(dir), {});
     assertEquals(result.isError, false, JSON.stringify(result));
     const parsed = StatusOutputSchema.parse(result.structuredContent);
-    assert(
-      parsed.data !== undefined && "location" in parsed.data,
-      JSON.stringify(parsed),
-    );
+    assertResultDataKey(parsed, "location");
     assertEquals(parsed.data.project, "engine-test");
     assertEquals(parsed.data.projection.mode, "orientation");
     assertEquals(parsed.data.fleet_total, 1);
@@ -3669,10 +3777,7 @@ Deno.test("discern mcp: status carries project identity and compact fleet proof 
       verbose: true,
     });
     const fullParsed = StatusOutputSchema.parse(full.structuredContent);
-    assert(
-      fullParsed.data !== undefined && "projection" in fullParsed.data,
-      JSON.stringify(fullParsed),
-    );
+    assertResultDataKey(fullParsed, "location");
     assertEquals(fullParsed.data.projection.mode, "full");
     assertEquals(fullParsed.data.fleet?.length, 2);
     assert(
@@ -4041,7 +4146,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     const statusPart = status.result.contents[0];
     assertEquals(statusPart.mimeType, "application/json");
     assertEquals(statusPart.uri, "discern://status");
-    const statusData = JSON.parse(statusPart.text);
+    const statusData = decodeWith(StatusWireDataSchema, statusPart.text);
     assertEquals(statusData.location, "main");
     assert(
       Array.isArray(statusData.standards),
@@ -4056,7 +4161,11 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       params: { uri: "discern://impact" },
     });
     const cs = await mcp.recv();
-    assert(Array.isArray(JSON.parse(cs.result.contents[0].text).scopes));
+    assert(
+      Array.isArray(
+        decodeWith(ScopesDataSchema, cs.result.contents[0].text).scopes,
+      ),
+    );
 
     // read discern://config → the resolved DiscernConfig.
     await mcp.send({
@@ -4067,7 +4176,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     });
     const cfg = await mcp.recv();
     assert(
-      JSON.parse(cfg.result.contents[0].text).project,
+      decodeWith(configSchema, cfg.result.contents[0].text).project,
       "the config resource carries [project]",
     );
 
@@ -4080,9 +4189,9 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     });
     const docsIndex = await mcp.recv();
     assert(
-      JSON.parse(docsIndex.result.contents[0].text).docs.some((
-        d: { slug: string },
-      ) => d.slug === "config-reference"),
+      decodeWith(DocsDataSchema, docsIndex.result.contents[0].text).docs?.some(
+        (d) => d.slug === "config-reference",
+      ),
       "discern://docs indexes discern's own docs",
     );
     await mcp.send({
@@ -4103,7 +4212,13 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       params: { uri: "discern://map" },
     });
     const mapIndex = await mcp.recv();
-    const slug = JSON.parse(mapIndex.result.contents[0].text).docs[0].slug;
+    const mapData = decodeWith(
+      DocsDataSchema,
+      mapIndex.result.contents[0].text,
+    );
+    const firstMapDoc = mapData.docs?.[0];
+    assert(firstMapDoc !== undefined, "discern://map indexes a project doc");
+    const slug = firstMapDoc.slug;
     await mcp.send({
       jsonrpc: "2.0",
       id: 10,
@@ -4178,8 +4293,10 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
       // Read the index to discover a real doc with a non-empty section, so the
       // three target forms are computed from live data, not guessed.
       const index = await readResource(`discern://${scheme}`);
-      const docs = JSON.parse(index.result?.contents?.[0]?.text ?? "{}")
-        .docs as { path: string; section: string; slug: string }[];
+      const docs = decodeWith(
+        DocsDataSchema,
+        index.result?.contents?.[0]?.text ?? "{}",
+      ).docs ?? [];
       assert(
         Array.isArray(docs) && docs.length > 0,
         `${scheme}: index carried no docs`,
@@ -4273,7 +4390,7 @@ Deno.test("discern mcp: the resources follow the re-aimed working root after dis
     });
     const before = await mcp.recv();
     assertEquals(
-      JSON.parse(before.result.contents[0].text).location,
+      decodeWith(StatusWireDataSchema, before.result.contents[0].text).location,
       "main",
     );
 
@@ -4298,7 +4415,10 @@ Deno.test("discern mcp: the resources follow the re-aimed working root after dis
       params: { uri: "discern://status" },
     });
     const after = await mcp.recv();
-    const afterData = JSON.parse(after.result.contents[0].text);
+    const afterData = decodeWith(
+      StatusWireDataSchema,
+      after.result.contents[0].text,
+    );
     assertEquals(afterData.location, "worktree");
     assertEquals(afterData.root, wtPath);
 

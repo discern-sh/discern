@@ -34,54 +34,25 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
+import type { GateWireData } from "../src/shared/result_schemas.ts";
+import {
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
-interface JsonStep {
-  kind: string;
-  label: string;
-  disposition: string;
-  outcome: string;
-  note?: string;
-  group?: string;
-  duration_s?: number;
-}
-
-interface JsonDiagnostic {
-  tool: string;
-  message: string;
-  reproduce_cmd: string;
-}
-
-interface GateJson {
-  ok: boolean;
-  verb: string;
-  steps?: JsonStep[];
-  diagnostics?: JsonDiagnostic[];
-  hints?: string[];
-  data?: {
-    failed_stage: string | null;
-    standards?: Array<{
-      name: string;
-      direction: string;
-      limit: number;
-      margin?: number;
-      measurement: string;
-      value?: number;
-      verdict?: string;
-      duration_s?: number;
-      replayed_from?: string;
-      pin_eligible?: boolean;
-      pin_target?: number;
-    }>;
-    standards_limits?: { status: string; trunk: string; reason?: string };
-    proof?: { markdown: string };
-  };
-}
+type GateJson = Omit<CliResultForCommand<"done">, "data"> & {
+  data: GateWireData | undefined;
+};
 
 /** Decode a gate envelope and assert the fixture actually exercised the done verb. */
 function parseGateJson(stdout: string): GateJson {
-  const obj = JSON.parse(stdout.trim()) as GateJson;
+  const obj = decodeCliResult(stdout, "done");
   assertEquals(obj.verb, "done");
-  return obj;
+  assert(
+    obj.data === undefined || "failed_stage" in obj.data,
+    "done must return gate data rather than config-issue data",
+  );
+  return { ...obj, data: obj.data };
 }
 
 /** A minimal gate config with one standard, parameterized for each tier's
@@ -385,9 +356,7 @@ Deno.test("tier 2: the dry-run plan lists the standards inside the check/test gr
 
     const r = await runAgent(dir, ["done", "--dry-run", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = JSON.parse(r.stdout.trim()) as {
-      plan?: { steps: JsonStep[] };
-    };
+    const obj = decodeCliResult(r.stdout, "done");
     const cov = obj.plan?.steps.find((s) => s.label === "standard:cov");
     assertEquals(cov?.disposition, "run");
     assertEquals(cov?.group, "Check & test");
@@ -426,7 +395,7 @@ Deno.test("a green gate over a clean committed tree records the measurement proo
 
     const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(pin.code, 0, pin.output);
-    const pinObj = JSON.parse(pin.stdout.trim()) as { hints?: string[] };
+    const pinObj = decodeCliResult(pin.stdout, "standards");
     assertHasHint(pinObj, HINTS["standards-pin-reused-measurements"]);
     // No second measurement ran.
     const runsAfterPin =
@@ -506,7 +475,7 @@ Deno.test("prepare never measures a standard", async () => {
       false,
       "prepare must not run a standard's measurement",
     );
-    const obj = JSON.parse(r.stdout.trim()) as { steps?: JsonStep[] };
+    const obj = decodeCliResult(r.stdout, "prepare");
     const step = (obj.steps ?? []).find((s) => s.label.startsWith("standard:"));
     assertEquals(step, undefined, r.stdout);
   });

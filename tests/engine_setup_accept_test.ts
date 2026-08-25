@@ -10,7 +10,12 @@
  * state it leaves behind.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { fileExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
@@ -31,6 +36,17 @@ import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
+import { z } from "@zod/zod";
+import {
+  assertResultDataKey,
+  type CliResultForCommand,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
+
+const GATE_PROOF_EVENT_SCHEMA = z.object({
+  head: z.string(),
+}).passthrough();
 
 /** Scaffold a bootstrapped project, commit setup work, and record current Proof. */
 async function setupBranchRepo(
@@ -46,7 +62,9 @@ async function setupBranchRepo(
   await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
   const done = await runAgent(dir, ["done", "--json"]);
   assertEquals(done.code, 0, done.output);
-  const result = JSON.parse(done.stdout);
+  const result = decodeCliResult(done.stdout, "done");
+  assertResultDataKey(result, "proof");
+  assertExists(result.data.proof);
   const head = await gitOut(dir, "rev-parse", "HEAD");
   assertEquals(result.data.proof.head, head.slice(0, 12));
   return { head, proofLine: result.data.proof.line };
@@ -62,7 +80,7 @@ async function branchGone(dir: string, branch: string): Promise<boolean> {
 /** Run setup acceptance and prove a refusal changed no branch or ref. */
 async function readOnlySetupRefusal(
   dir: string,
-): Promise<Record<string, unknown>> {
+): Promise<CliResultForCommand<"setup accept">> {
   const mainBefore = await gitOut(dir, "rev-parse", "main");
   const setupBefore = await gitOut(dir, "rev-parse", "discern-setup");
   const accepted = await runAgent(dir, ["setup", "accept", "--json"]);
@@ -73,11 +91,7 @@ async function readOnlySetupRefusal(
     await gitOut(dir, "branch", "--show-current"),
     "discern-setup",
   );
-  const result: unknown = JSON.parse(accepted.stdout);
-  assert(
-    result !== null && typeof result === "object" && !Array.isArray(result),
-  );
-  const envelope = result as Record<string, unknown>;
+  const envelope = decodeCliResult(accepted.stdout, "setup accept");
   assert(typeof envelope.message === "string");
   assertStringIncludes(
     envelope.message,
@@ -99,8 +113,9 @@ Deno.test("setup accept fast-forwards the setup branch onto main and deletes it"
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 0, res.output);
-    const result = JSON.parse(res.stdout);
+    const result = decodeCliResult(res.stdout, "setup accept");
     assertEquals(result.message, "Setup landed onto main.");
+    assertResultDataKey(result, "landed");
     const data = result.data;
     assertEquals(data.landed, true);
     assertEquals(data.fast_forward, true);
@@ -109,22 +124,26 @@ Deno.test("setup accept fast-forwards the setup branch onto main and deletes it"
     assertEquals(data.branch_deleted, true);
     assertEquals(data.proof_line, proved.proofLine);
     assertEquals(data.validated_commit, proved.head);
+    assertExists(data.proof_note);
     assertEquals(data.proof_note.write.commit, proved.head);
     assert(
       ["recorded", "already_present"].includes(data.proof_note.write.status),
     );
     assertEquals(data.local_artifacts_converged, true);
+    assertExists(data.reactivation);
     assert(
       data.reactivation.per_agent.some((agent: { check: string }) =>
         agent.check === "mcp__discern__discern_status"
       ),
     );
+    assertExists(data.activation_context);
     assertStringIncludes(data.activation_context, "load MCP servers");
     assertStringIncludes(data.activation_context, "session start");
     assertEquals(data.optional_improvement, {
       command: "discern improvement --json",
       after: "activation_verified",
     });
+    assertExists(result.hints);
     assert(
       result.hints.some((hint: string) =>
         hint.includes("Only after every applicable activation check succeeds")
@@ -141,7 +160,9 @@ Deno.test("setup accept fast-forwards the setup branch onto main and deletes it"
 
     const status = await runAgent(dir, ["status", "--verbose", "--json"]);
     assertEquals(status.code, 0, status.output);
-    const statusData = JSON.parse(status.stdout).data;
+    const statusResult = decodeCliResult(status.stdout, "status");
+    assertResultDataKey(statusResult, "location");
+    const statusData = statusResult.data;
     assertEquals(statusData.stale_generated, undefined);
     assertEquals(statusData.stale_materialized, undefined);
     assertEquals(statusData.stale_integrations, undefined);
@@ -166,7 +187,9 @@ Deno.test("setup accept merges when the integration branch has advanced", async 
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 0, res.output);
-    const data = JSON.parse(res.stdout).data;
+    const result = decodeCliResult(res.stdout, "setup accept");
+    assertResultDataKey(result, "landed");
+    const data = result.data;
     assertEquals(data.landed, true);
     assertEquals(data.fast_forward, false);
     assertEquals(data.branch_deleted, true);
@@ -176,6 +199,7 @@ Deno.test("setup accept merges when the integration branch has advanced", async 
       await gitOut(dir, "rev-parse", "main"),
       data.validated_commit,
     );
+    assertExists(data.proof_note);
     assertEquals(data.proof_note.write.commit, data.validated_commit);
 
     // Both lines of work are on main now.
@@ -214,8 +238,9 @@ Deno.test("setup accept refuses denied planned writes before checkout, ref advan
     try {
       const denied = await runAgent(dir, ["setup", "accept", "--json"]);
       assertEquals(denied.code, 1, denied.output);
-      const envelope = JSON.parse(denied.stdout);
+      const envelope = decodeCliResult(denied.stdout, "setup accept");
       assertEquals(envelope.error, "write_access");
+      assertExists(envelope.message);
       assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
       assertEquals(
         envelope.diagnostics?.[0]?.reproduce_cmd,
@@ -245,7 +270,10 @@ Deno.test("setup accept refuses a tree with uncommitted tracked changes", async 
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 1, res.output);
-    assertEquals(JSON.parse(res.stdout).error, "dirty_worktree");
+    assertEquals(
+      decodeCliResult(res.stdout, "setup accept").error,
+      "dirty_worktree",
+    );
     // Untouched: still on the branch, nothing landed.
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
@@ -279,7 +307,11 @@ Deno.test("setup accept refuses every tracked mutation made after Proof", async 
     const accepted = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(accepted.code, 1, accepted.output);
     assertTerminalTextIncludes(
-      JSON.parse(accepted.stdout).message,
+      (() => {
+        const result = decodeCliResult(accepted.stdout, "setup accept");
+        assertExists(result.message);
+        return result.message;
+      })(),
       "run `discern setup done`, then retry",
     );
     assertEquals(await gitOut(dir, "rev-parse", "main"), mainBefore);
@@ -322,14 +354,13 @@ Deno.test("setup accept refuses missing, unreadable, mismatched, and declaration
       if (!line.startsWith("data: ")) {
         return line;
       }
-      const parsed: unknown = JSON.parse(line.slice("data: ".length));
-      assert(
-        parsed !== null && typeof parsed === "object" &&
-          !Array.isArray(parsed),
+      const parsed = decodeWith(
+        GATE_PROOF_EVENT_SCHEMA,
+        line.slice("data: ".length),
       );
       return `data: ${
         JSON.stringify({
-          ...(parsed as Record<string, unknown>),
+          ...parsed,
           head: mainHead.slice(0, 12),
         })
       }`;
@@ -380,7 +411,8 @@ Deno.test("setup accept refuses an unproved forced completion and a proved branc
       "--json",
     ]);
     assertEquals(forced.code, 0, forced.output);
-    const forcedResult = JSON.parse(forced.stdout);
+    const forcedResult = decodeCliResult(forced.stdout, "setup done");
+    assertResultDataKey(forcedResult, "gate_proven");
     assertEquals(forcedResult.data.gate_proven, false);
     assertEquals(forcedResult.data.proof, undefined);
     assertEquals(forcedResult.data.proof_line, undefined);
@@ -397,7 +429,9 @@ Deno.test("setup accept refuses an unproved forced completion and a proved branc
     await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
     const done = await runAgent(dir, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    assertEquals(JSON.parse(done.stdout).data.gate_proof.status, "recorded");
+    const doneResult = decodeCliResult(done.stdout, "done");
+    assertResultDataKey(doneResult, "gate_proof");
+    assertEquals(doneResult.data.gate_proof?.status, "recorded");
     const refused = await readOnlySetupRefusal(dir);
     assertEquals(refused.error, "precondition_failed");
     assertStringIncludes(
@@ -414,7 +448,10 @@ Deno.test("setup accept refuses untracked scratch because current Proof requires
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 1, res.output);
-    assertEquals(JSON.parse(res.stdout).error, "dirty_worktree");
+    assertEquals(
+      decodeCliResult(res.stdout, "setup accept").error,
+      "dirty_worktree",
+    );
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
       "discern-setup",
@@ -429,7 +466,7 @@ Deno.test("setup accept is a clean no-op when already on the integration branch"
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 0, res.output);
-    const obj = JSON.parse(res.stdout);
+    const obj = decodeCliResult(res.stdout, "setup accept");
     assertEquals(obj.ok, true);
     assert(obj.data === undefined, "a no-op carries no landing data");
   });
@@ -451,7 +488,10 @@ Deno.test("setup accept refuses to land a branch that is not the setup branch", 
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 1, res.output);
-    assertEquals(JSON.parse(res.stdout).error, "not_setup_branch");
+    assertEquals(
+      decodeCliResult(res.stdout, "setup accept").error,
+      "not_setup_branch",
+    );
 
     // main untouched, still on the feature branch, its commits intact.
     assertEquals(await gitOut(dir, "rev-parse", "main"), mainBefore);
@@ -522,7 +562,9 @@ Deno.test("setup done steers a non-setup branch to a manual merge, never `setup 
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const obj = JSON.parse(done.stdout);
+    const obj = decodeCliResult(done.stdout, "setup done");
+    assertResultDataKey(obj, "landing");
+    assertExists(obj.hints);
     assertEquals(obj.data.landing.branch, "feature-x");
     assertEquals(obj.data.landing.on_setup_branch, false);
     assertEquals(obj.data.reactivation, undefined);
@@ -571,7 +613,10 @@ Deno.test("setup accept refuses when the integration branch does not exist", asy
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 1, res.output);
-    assertEquals(JSON.parse(res.stdout).error, "no_target");
+    assertEquals(
+      decodeCliResult(res.stdout, "setup accept").error,
+      "no_target",
+    );
   });
 });
 
@@ -607,7 +652,7 @@ Deno.test("setup accept conflicting changes are refused and stepped aside, leavi
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 1, res.output);
-    assertEquals(JSON.parse(res.stdout).error, "conflict");
+    assertEquals(decodeCliResult(res.stdout, "setup accept").error, "conflict");
     // The conflict was aborted: back on the setup branch, branch intact, tree clean.
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
