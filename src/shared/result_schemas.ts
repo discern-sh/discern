@@ -143,13 +143,11 @@ export const PlanJsonSchema = z.strictObject({
 // ── ring 3: the envelope ─────────────────────────────────────────────────────
 
 /**
- * The envelope fields every {@link import("./result.ts").DiscernResult} serializes
- * to EXCEPT `data`, mirroring `serializeResult` exactly: `ok`/`verb` always present,
- * everything else optional (`serializeResult` drops undefined fields, so a refusal
- * envelope `{ok, verb, error, message}` validates too). `data` is added separately —
- * the data-bearing verbs narrow it (below), the data-less verbs FORBID it (so a
- * future payload can't slip in unmodelled). Composed into the output schemas below;
- * locked to `serializeResult` by the result-schema test.
+ * The flat field inventory every serialized envelope may carry. Structural
+ * relationships among `ok`, `error`, `dry_run`, `plan`, and `steps` live in
+ * {@link EnvelopeStateSchema}; keeping the inventory separate lets each
+ * per-verb schema remain a strict Zod object for the MCP SDK while applying the
+ * same discriminated contract as a refinement and JSON Schema constraint.
  */
 const ENVELOPE_BASE_FIELDS = {
   ok: z.boolean(),
@@ -176,9 +174,101 @@ const ENVELOPE_BASE_FIELDS_WITHOUT_VERB = {
   message: z.string().optional(),
 };
 
-/** The general "any envelope" schema, with `data` left open (`unknown`). Locked to
- * `serializeResult` by the result-schema test (a maximal result carries `data`). */
-export const EnvelopeSchema = z.strictObject({
+const SuccessStateSchema = z.looseObject({
+  ok: z.literal(true),
+  error: z.never().optional(),
+});
+
+const FailureStateSchema = z.looseObject({
+  ok: z.literal(false),
+  error: z.enum(ERROR_SLUGS).optional(),
+});
+
+/** Success/failure discriminator mirrored from `DiscernResult`. */
+const ResultOutcomeSchema = z.discriminatedUnion("ok", [
+  SuccessStateSchema,
+  FailureStateSchema,
+]);
+
+const PreviewStateSchema = z.looseObject({
+  dry_run: z.literal(true),
+  plan: PlanJsonSchema.optional(),
+  steps: z.never().optional(),
+});
+
+const ReviewPlanStateSchema = z.looseObject({
+  dry_run: z.literal(false).optional(),
+  plan: PlanJsonSchema,
+  steps: z.never().optional(),
+});
+
+const AppliedOrObservedStateSchema = z.looseObject({
+  dry_run: z.literal(false).optional(),
+  plan: z.never().optional(),
+  steps: z.array(StepResultJsonSchema).optional(),
+});
+
+/** Preview, review-plan, and applied/observed states mirror `DiscernResult`. */
+const ResultExecutionStateSchema = z.union([
+  PreviewStateSchema,
+  ReviewPlanStateSchema,
+  AppliedOrObservedStateSchema,
+]);
+
+/**
+ * The structural envelope contract: `ok` discriminates error presence, while
+ * the execution union forbids `plan`/`steps` coexistence and completed preview
+ * steps. State objects are deliberately loose because a strict per-verb object
+ * owns the complete field inventory around this constraint.
+ */
+export const EnvelopeStateSchema = z.intersection(
+  ResultOutcomeSchema,
+  ResultExecutionStateSchema,
+);
+
+/** Convert the canonical state schema into embeddable JSON Schema metadata. */
+function envelopeStateJsonSchema(): Record<string, unknown> {
+  const generated = z.toJSONSchema(EnvelopeStateSchema, {
+    io: "output",
+  }) as Record<string, unknown>;
+  const { $schema: _schema, ...fragment } = generated;
+  return fragment;
+}
+
+const ENVELOPE_STATE_JSON_SCHEMA = envelopeStateJsonSchema();
+
+/** Forward the canonical state validator through a strict per-verb object. */
+function validateEnvelopeState(
+  value: unknown,
+  ctx: z.RefinementCtx,
+): void {
+  const parsed = EnvelopeStateSchema.safeParse(value);
+  if (parsed.success) {
+    return;
+  }
+  for (const issue of parsed.error.issues) {
+    ctx.addIssue({
+      code: "custom",
+      path: issue.path,
+      message: issue.message,
+    });
+  }
+}
+
+/**
+ * Build a strict MCP-compatible object that validates and advertises the same
+ * structural state contract as {@link EnvelopeStateSchema}.
+ */
+function envelopeObjectSchema<T extends z.ZodRawShape>(
+  fields: T,
+): z.ZodObject<T> {
+  return z.strictObject(fields)
+    .superRefine(validateEnvelopeState)
+    .meta(ENVELOPE_STATE_JSON_SCHEMA);
+}
+
+/** The general "any envelope" schema, with `data` left open (`unknown`). */
+export const EnvelopeSchema = envelopeObjectSchema({
   ...ENVELOPE_BASE_FIELDS,
   data: z.unknown().optional(),
 });
@@ -192,7 +282,9 @@ export const EnvelopeSchema = z.strictObject({
  * set — it carries a {@link AcceptDataSchema} landing root on an apply; its dry-run
  * preview is still data-less.)
  */
-export const DatalessEnvelopeSchema = z.strictObject(ENVELOPE_BASE_FIELDS);
+export const DatalessEnvelopeSchema = envelopeObjectSchema(
+  ENVELOPE_BASE_FIELDS,
+);
 
 export const ConfigIssueSchema = z.strictObject({
   kind: z.enum(CONFIG_ISSUE_KINDS).optional(),
@@ -221,7 +313,7 @@ function resultOutputSchema<T extends z.ZodType>(
     data: z.ZodOptional<z.ZodUnion<[T, typeof ConfigIssueDataSchema]>>;
   }
 > {
-  return z.strictObject({
+  return envelopeObjectSchema({
     ...ENVELOPE_BASE_FIELDS_WITHOUT_VERB,
     verb: z.literal(verb),
     data: dataSchemaWithConfigIssues(dataSchema).optional(),
@@ -237,7 +329,7 @@ function datalessResultOutputSchema(
     data: z.ZodOptional<typeof ConfigIssueDataSchema>;
   }
 > {
-  return z.strictObject({
+  return envelopeObjectSchema({
     ...ENVELOPE_BASE_FIELDS_WITHOUT_VERB,
     verb: z.literal(verb),
     data: ConfigIssueDataSchema.optional(),

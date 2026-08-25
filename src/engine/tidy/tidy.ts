@@ -433,17 +433,16 @@ export async function applyTidyPlan(
       stopped = true;
     }
   }
-  return {
-    ok: diagnostics.length === 0,
+  const fields = {
     verb: "tidy",
     steps,
-    ...(diagnostics.length > 0
-      ? {
-        diagnostics,
-        error: "tidy_write_failed",
-        message: "Tidy stopped after a file could not be written.",
-      }
-      : {}),
+  };
+  return diagnostics.length === 0 ? { ok: true, ...fields } : {
+    ok: false,
+    diagnostics,
+    error: "tidy_write_failed",
+    message: "Tidy stopped after a file could not be written.",
+    ...fields,
   };
 }
 

@@ -362,19 +362,20 @@ export async function improvementResult(
   }
   const { report, historicalFindings } = built;
   const belowMin = opts.minScore !== undefined && report.score < opts.minScore;
-  const result: DiscernResult<ImprovementData> = {
-    ok: !belowMin,
+  const fields = {
     verb: "improvement",
     data: reportData(report, historicalFindings),
-    ...(belowMin
-      ? {
-        error: "below_min_score",
-        message:
-          `automated practice health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
-        hints: hintTexts([fire(HINTS["improvement-follow-next-action"])]),
-      }
-      : {}),
   };
+  const result: DiscernResult<ImprovementData> = belowMin
+    ? {
+      ok: false,
+      error: "below_min_score",
+      message:
+        `automated practice health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
+      hints: hintTexts([fire(HINTS["improvement-follow-next-action"])]),
+      ...fields,
+    }
+    : { ok: true, ...fields };
   const config = await loadConfig(root);
   if (!config.project.logbook) {
     addAdvisoryHints(result, [fire(HINTS["improvement-logbook-off"])]);

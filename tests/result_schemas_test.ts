@@ -158,24 +158,12 @@ function expectSerializedFaithful(
 }
 
 Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
-  // A maximal result — every envelope field populated — so its serialized keys are
-  // the full envelope key set. If serializeResult gains a field the schema doesn't
-  // model, the subset check below fails until the schema is updated.
-  const maximal: DiscernResult = {
+  // The maximal valid applied and preview variants collectively populate every
+  // envelope field. If serialization or the schema grows alone, the key-set
+  // equality below fails without constructing a contradictory state.
+  const maximalApplied: DiscernResult = {
     ok: false,
     verb: "demo",
-    dry_run: true,
-    plan: {
-      title: "Plan",
-      details: ["detail"],
-      steps: [{
-        kind: "job",
-        label: verbatimStepLabel("l"),
-        disposition: "run",
-        note: "n",
-        group: "g",
-      }],
-    },
     steps: [{
       step: {
         kind: "job",
@@ -210,12 +198,100 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
     error: "internal_error",
     message: "msg",
   };
-  const serialized = serializeResult(maximal);
-  expectValid(EnvelopeSchema, maximal, "maximal envelope");
+  const maximalPreview: DiscernResult = {
+    ok: true,
+    verb: "demo",
+    dry_run: true,
+    plan: {
+      title: "Plan",
+      details: ["detail"],
+      steps: [{
+        kind: "job",
+        label: verbatimStepLabel("l"),
+        disposition: "run",
+        note: "n",
+        group: "g",
+      }],
+    },
+  };
+  const serializedApplied = serializeResult(maximalApplied);
+  const serializedPreview = serializeResult(maximalPreview);
+  expectValid(EnvelopeSchema, maximalApplied, "maximal applied envelope");
+  expectValid(EnvelopeSchema, maximalPreview, "maximal preview envelope");
   // Every key serializeResult emits is one the envelope schema declares (and vice
   // versa) — so neither side can grow a field the other doesn't know about.
   const schemaKeys = Object.keys(EnvelopeSchema.shape).sort();
-  assertEquals(Object.keys(serialized).sort(), schemaKeys);
+  assertEquals(
+    Object.keys({ ...serializedApplied, ...serializedPreview }).sort(),
+    schemaKeys,
+  );
+});
+
+Deno.test("contradictory result states are compile-time and runtime errors", () => {
+  const plan = {
+    title: "Future plan",
+    details: [],
+    steps: [],
+  };
+  const steps = [{
+    step: {
+      kind: "job" as const,
+      label: verbatimStepLabel("future-step"),
+      disposition: "run" as const,
+    },
+    outcome: "ok" as const,
+  }];
+
+  const successWithError: DiscernResult = {
+    ok: true,
+    verb: "future-orbit",
+    // @ts-expect-error A successful result cannot carry a failure slug.
+    error: "internal_error",
+  };
+  // @ts-expect-error A result cannot carry both planned and completed steps.
+  const planWithSteps: DiscernResult = {
+    ok: false,
+    verb: "future-orbit",
+    plan,
+    steps,
+  };
+  // @ts-expect-error A preview cannot report completed steps.
+  const previewWithSteps: DiscernResult = {
+    ok: false,
+    verb: "future-orbit",
+    dry_run: true,
+    steps,
+  };
+  void successWithError;
+  void planWithSteps;
+  void previewWithSteps;
+
+  for (
+    const contradictory of [
+      {
+        ok: true,
+        verb: "future-orbit",
+        error: "internal_error",
+      },
+      { ok: false, verb: "future-orbit", plan, steps },
+      { ok: false, verb: "future-orbit", dry_run: true, steps },
+    ]
+  ) {
+    assert(
+      !EnvelopeSchema.safeParse(contradictory).success,
+      `EnvelopeSchema accepted ${JSON.stringify(contradictory)}`,
+    );
+  }
+
+  assert(
+    EnvelopeSchema.safeParse({ ok: false, verb: "future-orbit" }).success,
+    "an applied failure may omit an error slug",
+  );
+  assert(
+    EnvelopeSchema.safeParse({ ok: false, verb: "future-orbit", plan })
+      .success,
+    "a refusal may carry a review plan without claiming dry-run",
+  );
 });
 
 Deno.test("failed-result serialization requires a registered next-step hint", () => {

@@ -216,8 +216,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       currentGitignoreReconciliation.templateAvailable &&
       currentGitattributesReconciliation.operations.length === 0;
     if (options.json) {
-      log.result({
-        ok,
+      const resultFields = {
         verb: "upgrade",
         hints: hintTexts([
           ok ? newerDiscernHint() : pendingUpgradeHint(),
@@ -237,7 +236,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           untranslated_gitattributes_patterns:
             currentGitattributesReconciliation.refused,
         },
-      });
+      };
+      log.result(
+        ok ? { ok: true, ...resultFields } : { ok: false, ...resultFields },
+      );
     } else if (ok) {
       log.ok(
         `Install is up to date (discern ${KIT_VERSION}, schema ${currentSchema}).`,
@@ -577,14 +579,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   await stampSchema(newConfigPath, currentSchema);
 
   if (options.json) {
-    log.result({
-      ok: fullyCompiled,
+    const resultFields = {
       verb: "upgrade",
-      ...(fullyCompiled ? {} : {
-        error: "partial_refresh",
-        message:
-          `${instructionsErrors.length} artifact(s) failed to refresh; see data.instructions_errors.`,
-      }),
       hints: mergeHintTexts(
         instructions?.hints ?? [],
         hintTexts([newerDiscernHint(), restartAgentsHint()]),
@@ -623,7 +619,16 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         instructions_compiled: fullyCompiled,
         instructions_errors: instructionsErrors,
       },
-    });
+    };
+    log.result(
+      fullyCompiled ? { ok: true, ...resultFields } : {
+        ok: false,
+        error: "partial_refresh",
+        message:
+          `${instructionsErrors.length} artifact(s) failed to refresh; see data.instructions_errors.`,
+        ...resultFields,
+      },
+    );
     return 0;
   }
 
@@ -633,14 +638,18 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
     }
   }
-  observeResult({
-    ok: fullyCompiled,
+  const observedFields = {
     verb: "upgrade",
     hints: mergeHintTexts(
       instructions?.hints ?? [],
       hintTexts([newerDiscernHint(), restartAgentsHint()]),
     ),
-  });
+  };
+  observeResult(
+    fullyCompiled
+      ? { ok: true, ...observedFields }
+      : { ok: false, ...observedFields },
+  );
   renderUpgradeSummary(
     log,
     instructions,

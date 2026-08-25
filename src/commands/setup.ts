@@ -1707,14 +1707,8 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
 
   if (opts.json) {
     const setupOk = instructionsCompiled;
-    log.result({
-      ok: setupOk,
+    const resultFields = {
       verb: "setup",
-      ...(setupOk ? {} : {
-        error: "partial_refresh",
-        message:
-          `${instructionsErrors.length} artifact(s) failed to refresh; see data.instructions_errors.`,
-      }),
       hints: setupHints,
       data: {
         // The scaffold succeeded, but SETUP is not done — the agent must now act
@@ -1749,7 +1743,16 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         // The structured first page (ADR 0078); the rest are pulled via `setup step`.
         page: firstPage ?? null,
       },
-    });
+    };
+    log.result(
+      setupOk ? { ok: true, ...resultFields } : {
+        ok: false,
+        error: "partial_refresh",
+        message:
+          `${instructionsErrors.length} artifact(s) failed to refresh; see data.instructions_errors.`,
+        ...resultFields,
+      },
+    );
     return 0;
   }
 

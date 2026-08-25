@@ -199,7 +199,9 @@ Deno.test("long-lived MCP maps an unknown root to config recovery and leads with
       ));
       const staleStatus = {
         ...guardedStatus,
-        run: async (...args: Parameters<typeof status.run>) => {
+        run: async (
+          ...args: Parameters<typeof status.run>
+        ): Promise<DiscernResult> => {
           const root = args[0];
           const parsed = parseToml(
             await Deno.readTextFile(join(root, "discern.toml")),

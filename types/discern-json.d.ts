@@ -69,6 +69,121 @@ export type DiscernKnownErrorSlug =
   | "unknown_standard"
   | "write_access";
 
+export type DiscernResultState =
+  & ({
+    ok: true;
+    error?: never;
+    [key: string]: unknown;
+  } | {
+    ok: false;
+    error?: string;
+    [key: string]: unknown;
+  })
+  & ({
+    dry_run: true;
+    plan?: {
+      title: string;
+      details: Array<string>;
+      steps: Array<{
+        kind:
+          | "job"
+          | "scope-gate"
+          | "merge-check"
+          | "standards-limits-check"
+          | "tracked-artifacts-check"
+          | "instructions-check"
+          | "skills-check"
+          | "tracked-refresh-check"
+          | "resource-create"
+          | "resource-destroy"
+          | "git"
+          | "setup-step"
+          | "repository-ensure"
+          | "checkout-clean-check"
+          | "setup-ensure"
+          | "env"
+          | "refresh"
+          | "tidy"
+          | "standard";
+        label: string;
+        disposition: "run" | "skip" | "gate";
+        note?: string;
+        group?: string;
+      }>;
+    };
+    steps?: never;
+    [key: string]: unknown;
+  } | {
+    dry_run?: false;
+    plan: {
+      title: string;
+      details: Array<string>;
+      steps: Array<{
+        kind:
+          | "job"
+          | "scope-gate"
+          | "merge-check"
+          | "standards-limits-check"
+          | "tracked-artifacts-check"
+          | "instructions-check"
+          | "skills-check"
+          | "tracked-refresh-check"
+          | "resource-create"
+          | "resource-destroy"
+          | "git"
+          | "setup-step"
+          | "repository-ensure"
+          | "checkout-clean-check"
+          | "setup-ensure"
+          | "env"
+          | "refresh"
+          | "tidy"
+          | "standard";
+        label: string;
+        disposition: "run" | "skip" | "gate";
+        note?: string;
+        group?: string;
+      }>;
+    };
+    steps?: never;
+    [key: string]: unknown;
+  } | {
+    dry_run?: false;
+    plan?: never;
+    steps?: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "instructions-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+      outcome: "ok" | "failed" | "skipped" | "cancelled";
+      duration_s?: number;
+      output_path?: string;
+      output_lines?: number;
+      error_like_lines?: number;
+    }>;
+    [key: string]: unknown;
+  });
+
 export type DiscernProof = {
   branch: string;
   trunk: string;
@@ -289,7 +404,7 @@ export type DiscernAuthorizedVariance = {
   why: string;
 };
 
-export type DiscernDiscernResult = {
+export type DiscernDiscernResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -381,7 +496,7 @@ export type DiscernDiscernResult = {
   };
 };
 
-export type DiscernSetupResult = {
+export type DiscernSetupResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -592,7 +707,7 @@ export type DiscernSetupResult = {
   };
 };
 
-export type DiscernSetupVerifyResult = {
+export type DiscernSetupVerifyResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -722,7 +837,7 @@ export type DiscernSetupVerifyResult = {
   };
 };
 
-export type DiscernSetupStepResult = {
+export type DiscernSetupStepResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -874,7 +989,7 @@ export type DiscernSetupStepResult = {
   };
 };
 
-export type DiscernSetupDoneResult = {
+export type DiscernSetupDoneResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1109,7 +1224,7 @@ export type DiscernSetupDoneResult = {
   };
 };
 
-export type DiscernSetupAcceptResult = {
+export type DiscernSetupAcceptResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1317,7 +1432,7 @@ export type DiscernSetupAcceptResult = {
   };
 };
 
-export type DiscernUpgradeResult = {
+export type DiscernUpgradeResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1476,7 +1591,7 @@ export type DiscernUpgradeResult = {
   };
 };
 
-export type DiscernUninstallResult = {
+export type DiscernUninstallResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1576,7 +1691,7 @@ export type DiscernUninstallResult = {
   };
 };
 
-export type DiscernDoctorResult = {
+export type DiscernDoctorResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1715,7 +1830,7 @@ export type DiscernDoctorResult = {
   };
 };
 
-export type DiscernLicensesResult = {
+export type DiscernLicensesResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1822,7 +1937,7 @@ export type DiscernLicensesResult = {
   };
 };
 
-export type DiscernTriangleResult = {
+export type DiscernTriangleResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -1917,7 +2032,7 @@ export type DiscernTriangleResult = {
   };
 };
 
-export type DiscernPresetResult = {
+export type DiscernPresetResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2021,7 +2136,7 @@ export type DiscernPresetResult = {
   };
 };
 
-export type DiscernMapResult = {
+export type DiscernMapResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2175,7 +2290,7 @@ export type DiscernMapResult = {
   };
 };
 
-export type DiscernDocsResult = {
+export type DiscernDocsResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2329,7 +2444,7 @@ export type DiscernDocsResult = {
   };
 };
 
-export type DiscernConfigResult = {
+export type DiscernConfigResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2440,7 +2555,7 @@ export type DiscernConfigResult = {
   };
 };
 
-export type DiscernDoneResult = {
+export type DiscernDoneResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2729,7 +2844,7 @@ export type DiscernDoneResult = {
   };
 };
 
-export type DiscernPrepareResult = {
+export type DiscernPrepareResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2821,7 +2936,7 @@ export type DiscernPrepareResult = {
   };
 };
 
-export type DiscernTestResult = {
+export type DiscernTestResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -2913,7 +3028,7 @@ export type DiscernTestResult = {
   };
 };
 
-export type DiscernImprovementResult = {
+export type DiscernImprovementResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -3113,7 +3228,7 @@ export type DiscernImprovementResult = {
   };
 };
 
-export type DiscernCheckpointsResult = {
+export type DiscernCheckpointsResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -3364,7 +3479,7 @@ export type DiscernCheckpointsResult = {
   };
 };
 
-export type DiscernStandardsResult = {
+export type DiscernStandardsResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -3476,7 +3591,7 @@ export type DiscernStandardsResult = {
   };
 };
 
-export type DiscernRefreshResult = {
+export type DiscernRefreshResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -3582,7 +3697,7 @@ export type DiscernRefreshResult = {
   };
 };
 
-export type DiscernTidyResult = {
+export type DiscernTidyResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -3674,7 +3789,7 @@ export type DiscernTidyResult = {
   };
 };
 
-export type DiscernImpactResult = {
+export type DiscernImpactResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -3772,7 +3887,7 @@ export type DiscernImpactResult = {
   };
 };
 
-export type DiscernCouplingResult = {
+export type DiscernCouplingResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -3890,7 +4005,7 @@ export type DiscernCouplingResult = {
   };
 };
 
-export type DiscernAwaitResult = {
+export type DiscernAwaitResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -4025,7 +4140,7 @@ export type DiscernAwaitResult = {
   };
 };
 
-export type DiscernPatternsResult = {
+export type DiscernPatternsResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -4425,7 +4540,7 @@ export type DiscernPatternsResult = {
   };
 };
 
-export type DiscernPatternsResetResult = {
+export type DiscernPatternsResetResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -4534,7 +4649,7 @@ export type DiscernPatternsResetResult = {
   };
 };
 
-export type DiscernPatternsArchiveResult = {
+export type DiscernPatternsArchiveResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -4642,7 +4757,7 @@ export type DiscernPatternsArchiveResult = {
   };
 };
 
-export type DiscernPatternsArchivesResult = {
+export type DiscernPatternsArchivesResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -4744,7 +4859,7 @@ export type DiscernPatternsArchivesResult = {
   };
 };
 
-export type DiscernDeskResult = {
+export type DiscernDeskResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -4836,7 +4951,7 @@ export type DiscernDeskResult = {
   };
 };
 
-export type DiscernWorktreesResult = {
+export type DiscernWorktreesResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -4928,7 +5043,7 @@ export type DiscernWorktreesResult = {
   };
 };
 
-export type DiscernStatusResult = {
+export type DiscernStatusResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -5308,7 +5423,7 @@ export type DiscernStatusResult = {
   };
 };
 
-export type DiscernStartResult = {
+export type DiscernStartResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -5421,7 +5536,7 @@ export type DiscernStartResult = {
   };
 };
 
-export type DiscernAcceptResult = {
+export type DiscernAcceptResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -5672,7 +5787,7 @@ export type DiscernAcceptResult = {
   };
 };
 
-export type DiscernUpdateResult = {
+export type DiscernUpdateResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -5792,7 +5907,7 @@ export type DiscernUpdateResult = {
   };
 };
 
-export type DiscernIdentityResult = {
+export type DiscernIdentityResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -5897,7 +6012,7 @@ export type DiscernIdentityResult = {
   };
 };
 
-export type DiscernScriptsResult = {
+export type DiscernScriptsResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -5995,7 +6110,7 @@ export type DiscernScriptsResult = {
   };
 };
 
-export type DiscernWorktreeResult = {
+export type DiscernWorktreeResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -6087,7 +6202,7 @@ export type DiscernWorktreeResult = {
   };
 };
 
-export type DiscernWorktreeSetupResult = {
+export type DiscernWorktreeSetupResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -6179,7 +6294,7 @@ export type DiscernWorktreeSetupResult = {
   };
 };
 
-export type DiscernWorktreeTeardownResult = {
+export type DiscernWorktreeTeardownResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -6271,7 +6386,7 @@ export type DiscernWorktreeTeardownResult = {
   };
 };
 
-export type DiscernWorktreeDropResult = {
+export type DiscernWorktreeDropResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -6363,7 +6478,7 @@ export type DiscernWorktreeDropResult = {
   };
 };
 
-export type DiscernWorktreePruneResult = {
+export type DiscernWorktreePruneResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -6455,7 +6570,7 @@ export type DiscernWorktreePruneResult = {
   };
 };
 
-export type DiscernSkillsResult = {
+export type DiscernSkillsResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -6547,7 +6662,7 @@ export type DiscernSkillsResult = {
   };
 };
 
-export type DiscernSkillsListResult = {
+export type DiscernSkillsListResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -6647,7 +6762,7 @@ export type DiscernSkillsListResult = {
   };
 };
 
-export type DiscernSkillsEjectResult = {
+export type DiscernSkillsEjectResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {

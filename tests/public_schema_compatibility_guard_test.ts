@@ -462,6 +462,51 @@ Deno.test("result compatibility permits optional fields, new CLI and MCP contrac
   );
 });
 
+Deno.test("adding a discriminated state constraint is a same-major result break", () => {
+  const current = clone(RESULT_OUTPUT_FIXTURE);
+  const defs = current.$defs as JsonObject;
+  defs.VoyageResultState = {
+    oneOf: [
+      {
+        type: "object",
+        properties: {
+          ok: { const: true },
+          fault: { not: {} },
+        },
+        required: ["ok"],
+      },
+      {
+        type: "object",
+        properties: {
+          ok: { const: false },
+          fault: { type: "string" },
+        },
+        required: ["ok"],
+      },
+    ],
+  };
+  const launch = defs.VoyageLaunchResult as JsonObject;
+  launch.allOf = [{ $ref: "#/$defs/VoyageResultState" }];
+
+  const contradiction = {
+    verb: "launch",
+    ok: true,
+    fault: "future-orbit",
+  } satisfies JsonObject;
+  assert(accepts(RESULT_OUTPUT_FIXTURE, contradiction));
+  assertEquals(accepts(current, contradiction), false);
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      RESULT_OUTPUT_FIXTURE,
+      current,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [
+      '$.$defs.VoyageLaunchResult.allOf: changed from undefined to [{"$ref":"#/$defs/VoyageResultState"}]',
+    ],
+  );
+});
+
 Deno.test("a discriminator on a role aggregate stays transparent and admits mappings only for new contracts", () => {
   // Trunk: the CLI aggregate carries an OpenAPI-style discriminator over its
   // oneOf — the shape the real generated artifact ships.

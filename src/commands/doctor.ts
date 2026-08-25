@@ -1233,8 +1233,7 @@ export async function doctorResult(
       ? [fire(HINTS["doctor-execution-model-verbose"])]
       : []),
   ];
-  return {
-    ok,
+  const fields = {
     verb: "doctor",
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
     data: {
@@ -1246,6 +1245,7 @@ export async function doctorResult(
         : {}),
     } satisfies DoctorData,
   };
+  return ok ? { ok: true, ...fields } : { ok: false, ...fields };
 }
 
 /** True while the one-time setup is unfinished: a config exists but

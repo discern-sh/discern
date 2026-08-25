@@ -202,19 +202,20 @@ export async function refreshResult(
       result.hints,
     )
     : result.hints;
-  return {
-    ok: !failed,
+  const fields = {
     verb: "refresh",
-    ...(failed
-      ? {
-        error: "partial_refresh",
-        message:
-          `${errors.length} artifact(s) failed to refresh; see data.errors.`,
-      }
-      : {}),
     hints,
     data: refreshData(result),
   };
+  return failed
+    ? {
+      ok: false,
+      error: "partial_refresh",
+      message:
+        `${errors.length} artifact(s) failed to refresh; see data.errors.`,
+      ...fields,
+    }
+    : { ok: true, ...fields };
 }
 
 /** Normalise an unknown thrown value into a message string. */

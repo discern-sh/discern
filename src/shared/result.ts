@@ -18,7 +18,7 @@
  *  2. the **diagnostic** — a normalized failure ({@link Diagnostic}): the
  *     structured "why" an agent reads to fix without re-running and scraping;
  *  3. the **envelope** — {@link DiscernResult}: the uniform `{ok, verb, …}` shell
- *     every verb returns, carrying a plan and/or steps, diagnostics, and a
+ *     every verb returns, carrying a plan or completed steps, diagnostics, and a
  *     verb-specific `data` payload.
  */
 
@@ -411,39 +411,20 @@ export const ERROR_SLUGS = [
 export type ErrorSlug = (typeof ERROR_SLUGS)[number];
 
 /**
- * The uniform result every `discern` verb returns. Every consumer can rely on
- * `ok`, `verb`, `error`, and `diagnostics` being present on EVERY verb; the structural
- * `plan`/`steps` carry the verbs that have steps (finish, worktree, standards,
- * accept), and `data` carries each verb's own payload (doctor's checks, schema migration data
- * schema versions, init's written-files list).
+ * The fields shared by every `discern` result. {@link DiscernResult} combines
+ * these with an `ok`-discriminated outcome and mutually exclusive preview,
+ * review-plan, and apply states.
  *
  * `result_serialization.ts` prepares its compact data; terminal, JSON,
  * Markdown, and MCP presentations read the same envelope, so they cannot
  * disagree on what happened while each can suit its form of consumption.
  *
- * Generic over its `data` payload (`TData`, default `unknown`): a verb core narrows
- * it to its own schema-backed type (`DiscernResult<StatusData>`, `<GateData>`, …) so
- * a core that builds the wrong `data` shape is a COMPILE error and a consumer reads
- * `result.data` already typed — no `as` cast back from `unknown`. The dataless verbs
- * and the generic renderers keep the `unknown` default; serialization and the
- * other sinks accept any specialization (every `DiscernResult<T>` widens to
- * `DiscernResult<unknown>`).
+ * Generic over its `data` payload (`TData`): a verb core narrows it to its own
+ * schema-backed type so a core that builds the wrong payload is a compile error.
  */
-export interface DiscernResult<TData = unknown> {
-  /** Did the verb succeed? The one field every consumer can rely on. */
-  ok: boolean;
+interface DiscernResultFields<TData> {
   /** The verb that produced this result ("done", "accept", "doctor", …). */
   verb: string;
-  /**
-   * True when this is a preview (`--dry-run`): nothing was applied. The ONE
-   * uniform "is this a preview?" signal across every verb — the engine plan rides
-   * in `plan`, an installer's fs-plan in `data`, but `dry_run` marks both.
-   */
-  dry_run?: boolean | undefined;
-  /** Dry-run / preview: the plan that WOULD run (mutually exclusive with `steps`). */
-  plan?: EnginePlan | undefined;
-  /** Apply: the steps that ran and how each turned out. */
-  steps?: StepResult[] | undefined;
   /** Milliseconds spent waiting for a configured test-run slot. */
   waitedMs?: number | undefined;
   /** Normalized failures — the structured "why" for an agent's act→fix loop. */
@@ -464,11 +445,59 @@ export interface DiscernResult<TData = unknown> {
    * / `diagnostics`).
    */
   hints?: string[] | undefined;
-  /** A machine-stable error slug when the verb refused/aborted (e.g. "dirty_worktree"). */
-  error?: ErrorSlug | undefined;
   /** A human sentence accompanying `error`. */
   message?: string | undefined;
 }
+
+/** A successful result cannot carry a failure slug. */
+interface DiscernSuccess {
+  ok: true;
+  error?: never;
+}
+
+/** A failed gate may have only diagnostics and steps; refusal slugs stay optional. */
+interface DiscernFailure {
+  ok: false;
+  error?: ErrorSlug | undefined;
+}
+
+/** A requested preview performed no completed steps. Its plan may live in `data`. */
+interface DiscernPreview {
+  dry_run: true;
+  plan?: EnginePlan | undefined;
+  steps?: never;
+}
+
+/** A refusal may carry a plan for review without claiming to be a dry run. */
+interface DiscernReviewPlan {
+  dry_run?: false | undefined;
+  plan: EnginePlan;
+  steps?: never;
+}
+
+/** An applied or observational result has no plan beside its completed steps. */
+interface DiscernAppliedOrObserved {
+  dry_run?: false | undefined;
+  plan?: never;
+  steps?: StepResult[] | undefined;
+}
+
+/**
+ * The uniform result every `discern` verb returns. `ok` discriminates success
+ * from failure, so successful results cannot carry `error` while failed gate
+ * runs may still omit it. Preview/review-plan/apply states make `plan` and
+ * `steps` mutually exclusive, and a `dry_run: true` result cannot report
+ * completed steps.
+ *
+ * Generic over its `data` payload (`TData`, default `unknown`): a verb core
+ * narrows it to its own schema-backed type (`DiscernResult<StatusData>`,
+ * `<GateData>`, …), while generic renderers keep the `unknown` default. Every
+ * specialization remains assignable to `DiscernResult<unknown>`.
+ */
+export type DiscernResult<TData = unknown> =
+  & DiscernResultFields<TData>
+  & (DiscernSuccess | DiscernFailure)
+  & (DiscernPreview | DiscernReviewPlan | DiscernAppliedOrObserved);
 
 // ── captured-output capping (the Tier-0 diagnostic budget) ──────────────────
 
@@ -1002,12 +1031,14 @@ export function appliedResult(
   results: StepResult[],
   diagnostics?: Diagnostic[],
 ): DiscernResult<never> {
-  return {
-    ok: results.every((r) => r.outcome !== "failed"),
+  const fields = {
     verb,
     steps: results,
     diagnostics: diagnostics !== undefined && diagnostics.length > 0
       ? diagnostics
       : undefined,
   };
+  return results.every((r) => r.outcome !== "failed")
+    ? { ok: true, ...fields }
+    : { ok: false, ...fields };
 }

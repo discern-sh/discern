@@ -13,6 +13,318 @@
     }
   ],
   "$defs": {
+    "DiscernResultState": {
+      "title": "DiscernResultState",
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "error": {
+                  "not": {}
+                }
+              },
+              "required": [
+                "ok"
+              ],
+              "additionalProperties": {}
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "ok"
+              ],
+              "additionalProperties": {}
+            }
+          ]
+        },
+        {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "dry_run": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "plan": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "job",
+                              "scope-gate",
+                              "merge-check",
+                              "standards-limits-check",
+                              "tracked-artifacts-check",
+                              "instructions-check",
+                              "skills-check",
+                              "tracked-refresh-check",
+                              "resource-create",
+                              "resource-destroy",
+                              "git",
+                              "setup-step",
+                              "repository-ensure",
+                              "checkout-clean-check",
+                              "setup-ensure",
+                              "env",
+                              "refresh",
+                              "tidy",
+                              "standard"
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "disposition": {
+                            "type": "string",
+                            "enum": [
+                              "run",
+                              "skip",
+                              "gate"
+                            ]
+                          },
+                          "note": {
+                            "type": "string"
+                          },
+                          "group": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "label",
+                          "disposition"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "details",
+                    "steps"
+                  ]
+                },
+                "steps": {
+                  "not": {}
+                }
+              },
+              "required": [
+                "dry_run"
+              ],
+              "additionalProperties": {}
+            },
+            {
+              "type": "object",
+              "properties": {
+                "dry_run": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "plan": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "job",
+                              "scope-gate",
+                              "merge-check",
+                              "standards-limits-check",
+                              "tracked-artifacts-check",
+                              "instructions-check",
+                              "skills-check",
+                              "tracked-refresh-check",
+                              "resource-create",
+                              "resource-destroy",
+                              "git",
+                              "setup-step",
+                              "repository-ensure",
+                              "checkout-clean-check",
+                              "setup-ensure",
+                              "env",
+                              "refresh",
+                              "tidy",
+                              "standard"
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "disposition": {
+                            "type": "string",
+                            "enum": [
+                              "run",
+                              "skip",
+                              "gate"
+                            ]
+                          },
+                          "note": {
+                            "type": "string"
+                          },
+                          "group": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "label",
+                          "disposition"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "details",
+                    "steps"
+                  ]
+                },
+                "steps": {
+                  "not": {}
+                }
+              },
+              "required": [
+                "plan"
+              ],
+              "additionalProperties": {}
+            },
+            {
+              "type": "object",
+              "properties": {
+                "dry_run": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "plan": {
+                  "not": {}
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "job",
+                          "scope-gate",
+                          "merge-check",
+                          "standards-limits-check",
+                          "tracked-artifacts-check",
+                          "instructions-check",
+                          "skills-check",
+                          "tracked-refresh-check",
+                          "resource-create",
+                          "resource-destroy",
+                          "git",
+                          "setup-step",
+                          "repository-ensure",
+                          "checkout-clean-check",
+                          "setup-ensure",
+                          "env",
+                          "refresh",
+                          "tidy",
+                          "standard"
+                        ]
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "disposition": {
+                        "type": "string",
+                        "enum": [
+                          "run",
+                          "skip",
+                          "gate"
+                        ]
+                      },
+                      "note": {
+                        "type": "string"
+                      },
+                      "group": {
+                        "type": "string"
+                      },
+                      "outcome": {
+                        "type": "string",
+                        "enum": [
+                          "ok",
+                          "failed",
+                          "skipped",
+                          "cancelled"
+                        ]
+                      },
+                      "duration_s": {
+                        "type": "number"
+                      },
+                      "output_path": {
+                        "type": "string"
+                      },
+                      "output_lines": {
+                        "type": "number"
+                      },
+                      "error_like_lines": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "label",
+                      "disposition",
+                      "outcome"
+                    ]
+                  }
+                }
+              },
+              "additionalProperties": {}
+            }
+          ]
+        }
+      ]
+    },
     "DiscernDiscernResult": {
       "title": "DiscernDiscernResult",
       "type": "object",
@@ -282,6 +594,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernSetupResult": {
@@ -1142,6 +1459,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernSetupVerifyResult": {
@@ -1584,6 +1906,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernSetupStepResult": {
@@ -2164,6 +2491,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernSetupDoneResult": {
@@ -2977,6 +3309,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernSetupAcceptResult": {
@@ -3640,6 +3977,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernUpgradeResult": {
@@ -4246,6 +4588,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernUninstallResult": {
@@ -4565,6 +4912,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernDoctorResult": {
@@ -4987,6 +5339,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernLicensesResult": {
@@ -5335,6 +5692,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernTriangleResult": {
@@ -5625,6 +5987,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernPresetResult": {
@@ -5963,6 +6330,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernMapResult": {
@@ -6495,6 +6867,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernDocsResult": {
@@ -7027,6 +7404,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernConfigResult": {
@@ -7408,6 +7790,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernDoneResult": {
@@ -8414,6 +8801,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernPrepareResult": {
@@ -8685,6 +9077,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernTestResult": {
@@ -8956,6 +9353,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernImprovementResult": {
@@ -9768,6 +10170,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernCheckpointsResult": {
@@ -10578,6 +10985,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernStandardsResult": {
@@ -10947,6 +11359,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernRefreshResult": {
@@ -11304,6 +11721,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernTidyResult": {
@@ -11575,6 +11997,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernImpactResult": {
@@ -11879,6 +12306,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernCouplingResult": {
@@ -12279,6 +12711,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernAwaitResult": {
@@ -12686,6 +13123,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernPatternsResult": {
@@ -14622,6 +15064,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernPatternsResetResult": {
@@ -14979,6 +15426,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernPatternsArchiveResult": {
@@ -15331,6 +15783,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernPatternsArchivesResult": {
@@ -15656,6 +16113,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernDeskResult": {
@@ -15927,6 +16389,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernWorktreesResult": {
@@ -16198,6 +16665,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernStatusResult": {
@@ -17606,6 +18078,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernStartResult": {
@@ -17988,6 +18465,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernAcceptResult": {
@@ -18740,6 +19222,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernUpdateResult": {
@@ -19159,6 +19646,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernIdentityResult": {
@@ -19500,6 +19992,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernScriptsResult": {
@@ -19804,6 +20301,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernWorktreeResult": {
@@ -20075,6 +20577,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernWorktreeSetupResult": {
@@ -20346,6 +20853,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernWorktreeTeardownResult": {
@@ -20617,6 +21129,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernWorktreeDropResult": {
@@ -20888,6 +21405,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernWorktreePruneResult": {
@@ -21159,6 +21681,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernSkillsResult": {
@@ -21430,6 +21957,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernSkillsListResult": {
@@ -21747,6 +22279,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernSkillsEjectResult": {
@@ -22072,6 +22609,11 @@
       "required": [
         "ok",
         "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
       ]
     },
     "DiscernProof": {

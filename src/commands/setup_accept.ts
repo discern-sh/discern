@@ -226,27 +226,35 @@ function setupAcceptData(
 function emitAccept(
   opts: SetupAcceptOptions,
   log: Logger,
-  result: {
-    ok: boolean;
-    error?: ErrorSlug;
-    message: string;
-    detail?: string[];
-    diagnostics?: Diagnostic[];
-    data?: SetupAcceptData;
-    code: number;
-  },
+  result:
+    & {
+      message: string;
+      detail?: string[];
+      diagnostics?: Diagnostic[];
+      data?: SetupAcceptData;
+      code: number;
+    }
+    & (
+      | { ok: true; error?: never }
+      | { ok: false; error?: ErrorSlug }
+    ),
 ): number {
   if (opts.json) {
-    emitResult({
-      ok: result.ok,
+    const fields = {
       verb: "setup accept",
-      ...(result.error !== undefined ? { error: result.error } : {}),
       message: result.message,
       ...(result.diagnostics === undefined
         ? {}
         : { diagnostics: result.diagnostics }),
       ...(result.data === undefined ? {} : { data: result.data }),
-    });
+    };
+    emitResult(
+      result.ok ? { ok: true, ...fields } : {
+        ok: false,
+        ...(result.error === undefined ? {} : { error: result.error }),
+        ...fields,
+      },
+    );
   } else {
     if (result.ok) {
       log.ok(result.message);

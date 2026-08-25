@@ -239,8 +239,8 @@ const missingCliModel: CliModelProvider = () => {
 };
 
 /** A tool: its advertised schema + metadata plus the handler that runs the verb.
- * The SDK converts {@link inputSchema}/{@link outputSchema} (Zod raw shapes, the
- * former registered closed via {@link strictInput}, the latter the per-verb schema
+ * The SDK converts {@link inputSchema} (a raw shape registered closed via
+ * {@link strictInput}) and {@link outputSchema} (the complete per-verb schema
  * from result_schemas.ts) to the JSON Schemas it advertises in `tools/list`, and
  * validates a call's `structuredContent` against the output schema. Generic over its input shape (`TShape`) so {@link defineTool} types
  * each handler's `args` from that tool's own `inputSchema` — the SDK has already
@@ -258,10 +258,10 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
    * genuinely argument-less verb declares an empty shape and faces that trade-off
    * explicitly. */
   inputSchema: TShape;
-  /** The result shape this tool advertises (a Zod raw shape — a per-verb output
-   * schema's `.shape`). The SDK validates every call's `structuredContent` against
-   * it, so it MUST match what the verb actually returns (ADR 0041). */
-  outputSchema?: z.ZodRawShape;
+  /** The complete result schema this tool advertises. The SDK validates every
+   * call's `structuredContent` against it, including the envelope's structural
+   * state contract, so it MUST match what the verb actually returns (ADR 0041). */
+  outputSchema?: z.ZodType;
   /** Honest behavioural hints (read-only / destructive / …). */
   annotations?: ToolAnnotations;
   /** This verb's result does not depend on WHICH project it runs in — it serves the
@@ -399,7 +399,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_status",
     title: "Orient with discern_status",
-    outputSchema: StatusOutputSchema.shape,
+    outputSchema: StatusOutputSchema,
     annotations: READ_ONLY,
     description:
       "Start here: call discern_status. Read-only: reports the current project, Git, worktree, and fleet " +
@@ -439,7 +439,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_refresh",
     title: "Refresh generated artifacts",
-    outputSchema: RefreshOutputSchema.shape,
+    outputSchema: RefreshOutputSchema,
     annotations: REFRESH,
     description: "Refresh the agent files, materialized skills, provider " +
       "integration artifacts, and the maintained ADR index (the record lists " +
@@ -454,7 +454,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_done",
     title: "Verify the claim that the change is done",
-    outputSchema: FinishOutputSchema.shape,
+    outputSchema: FinishOutputSchema,
     annotations: MUTATING,
     description:
       "Claim this change is done: run finishing steps, including format, which may " +
@@ -522,7 +522,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_prepare",
     title: "Run the fast gate",
-    outputSchema: PrepareOutputSchema.shape,
+    outputSchema: PrepareOutputSchema,
     annotations: MUTATING,
     description:
       "Run the fast inner-loop gate — the project's quick quality check — with the " +
@@ -538,7 +538,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_test",
     title: "Run the tests",
-    outputSchema: TestOutputSchema.shape,
+    outputSchema: TestOutputSchema,
     annotations: MUTATING,
     description:
       "discern_test runs the project's complete test stage on demand, " +
@@ -553,7 +553,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_standards",
     title: "Check the standards",
-    outputSchema: StandardsOutputSchema.shape,
+    outputSchema: StandardsOutputSchema,
     annotations: MUTATING,
     description:
       "Check every configured quality standard — numbers that can never get worse. " +
@@ -609,7 +609,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_doctor",
     title: "Check the install",
-    outputSchema: DoctorOutputSchema.shape,
+    outputSchema: DoctorOutputSchema,
     annotations: READ_ONLY,
     description:
       "Verify the discern install and return each check as an actionable result: " +
@@ -633,7 +633,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_impact",
     title: "Show change impact",
-    outputSchema: ImpactOutputSchema.shape,
+    outputSchema: ImpactOutputSchema,
     annotations: READ_ONLY,
     description:
       "Show this change's impact: list which configured scopes — named regions of " +
@@ -646,7 +646,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_coupling",
     title: "Coupling",
-    outputSchema: CouplingOutputSchema.shape,
+    outputSchema: CouplingOutputSchema,
     annotations: READ_ONLY,
     description:
       "Surface the files that historically change TOGETHER as a read-only advisory " +
@@ -692,7 +692,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_await",
     title: "Await a fleet condition",
-    outputSchema: AwaitOutputSchema.shape,
+    outputSchema: AwaitOutputSchema,
     annotations: READ_ONLY,
     description:
       "Block until a fleet condition holds, then return the observed state and " +
@@ -763,7 +763,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_patterns",
     title: "Read the practice patterns",
-    outputSchema: PatternsOutputSchema.shape,
+    outputSchema: PatternsOutputSchema,
     annotations: READ_ONLY,
     description:
       "Read the project's local, metadata-only Logbook and return advisory " +
@@ -820,7 +820,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_improvement",
     title: "Find the next improvement",
-    outputSchema: ImprovementOutputSchema.shape,
+    outputSchema: ImprovementOutputSchema,
     annotations: READ_ONLY,
     description:
       "Return the ranked next action for improving the project, plus the full health " +
@@ -847,7 +847,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_checkpoints",
     title: "Read the checkpoint contract",
-    outputSchema: CheckpointsOutputSchema.shape,
+    outputSchema: CheckpointsOutputSchema,
     annotations: READ_ONLY,
     description: "Report the checkpoint contract for this effort, read-only. " +
       "data.checkpoints lists each governing checkpoint: its question (the " +
@@ -871,7 +871,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_map",
     title: "Read the project map",
-    outputSchema: MapOutputSchema.shape,
+    outputSchema: MapOutputSchema,
     annotations: READ_ONLY,
     description:
       "Read or search the project map, the agent-maintained source for documented " +
@@ -908,7 +908,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_docs",
     title: "Read discern's docs",
-    outputSchema: DocsOutputSchema.shape,
+    outputSchema: DocsOutputSchema,
     annotations: READ_ONLY,
     // discern's own bundled documentation is the same in every install and needs no
     // project — so docs stays reachable from a server spawned outside any discern
@@ -946,7 +946,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_accept",
     title: "Accept and land the worktree",
-    outputSchema: AcceptOutputSchema.shape,
+    outputSchema: AcceptOutputSchema,
     annotations: DESTRUCTIVE,
     description:
       "Use only when the user explicitly asks to hand off or land this branch. " +
@@ -1017,7 +1017,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_update",
     title: "Update this branch",
-    outputSchema: UpdateOutputSchema.shape,
+    outputSchema: UpdateOutputSchema,
     annotations: UPDATE,
     description:
       "Update this branch: merge the trunk's latest (`{{main_branch}}`) into THIS " +
@@ -1075,7 +1075,7 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_start",
     title: "Start a worktree",
-    outputSchema: StartOutputSchema.shape,
+    outputSchema: StartOutputSchema,
     annotations: MUTATING,
     description:
       `${

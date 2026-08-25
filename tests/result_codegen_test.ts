@@ -1,4 +1,5 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
+import { Ajv2020 } from "ajv-2020";
 import { Command } from "@cliffy/command";
 import { z } from "@zod/zod";
 import {
@@ -32,6 +33,7 @@ import {
 import { ERROR_SLUGS } from "../src/shared/result.ts";
 import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
+import type { DiscernTidyResult } from "../types/discern-json.d.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -193,6 +195,68 @@ Deno.test("the generated result schema carries its public identity and policy", 
     schema[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY],
     RESULT_SCHEMA_COMPATIBILITY_POLICY,
   );
+});
+
+Deno.test("the published result schema rejects contradictory envelopes", () => {
+  const validate = new Ajv2020({
+    allErrors: true,
+    strict: false,
+    validateSchema: true,
+  }).compile(buildResultJsonSchema());
+  const plan = { title: "Future plan", details: [], steps: [] };
+  const steps: unknown[] = [];
+
+  for (
+    const contradictory of [
+      { ok: true, verb: "tidy", error: "future_error" },
+      { ok: false, verb: "tidy", plan, steps },
+      { ok: false, verb: "tidy", dry_run: true, steps },
+    ]
+  ) {
+    assert(
+      !validate(contradictory),
+      `published schema accepted ${JSON.stringify(contradictory)}`,
+    );
+  }
+});
+
+Deno.test("generated result declarations preserve envelope narrowing", () => {
+  const failure = {
+    ok: false,
+    verb: "tidy",
+  } satisfies DiscernTidyResult;
+  const readError = (result: DiscernTidyResult): string | undefined => {
+    if (!result.ok) {
+      return result.error;
+    }
+    const absent: undefined = result.error;
+    return absent;
+  };
+  assertEquals(readError(failure), undefined);
+
+  // @ts-expect-error A generated success result cannot carry a failure slug.
+  const successWithError: DiscernTidyResult = {
+    ok: true,
+    verb: "tidy",
+    error: "future_error",
+  };
+  // @ts-expect-error Generated declarations forbid planned and completed steps.
+  const planWithSteps: DiscernTidyResult = {
+    ok: false,
+    verb: "tidy",
+    plan: { title: "Future plan", details: [], steps: [] },
+    steps: [],
+  };
+  // @ts-expect-error Generated previews cannot report completed steps.
+  const previewWithSteps: DiscernTidyResult = {
+    ok: false,
+    verb: "tidy",
+    dry_run: true,
+    steps: [],
+  };
+  void successWithError;
+  void planWithSteps;
+  void previewWithSteps;
 });
 
 Deno.test("result contract metadata uses only the canonical schema-reference fields", () => {
@@ -518,7 +582,7 @@ Deno.test("MCP tools use the same schemas as the public result registry", () => 
     );
     assertEquals(
       tool.outputSchema,
-      contract.schema.shape,
+      contract.schema,
       `${name} should advertise the same output schema the registry publishes`,
     );
   }
