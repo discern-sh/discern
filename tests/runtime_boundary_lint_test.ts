@@ -524,6 +524,8 @@ function boundaryFindings(
 }
 
 Deno.test("runtime-boundary lint rejects unrelated future trust assertions", () => {
+  // Keep the inert negative fixture outside the live-source raw-parse count.
+  const directParse = ["JSON", "parse"].join(".");
   const planted = boundarySites(
     "unrelated_tools/future_ingest.ts",
     `interface ImportedFact { value: number }
@@ -532,7 +534,7 @@ function hydrate(payload: string): ImportedFact {
   return interpret(payload) as unknown as ImportedFact;
 }
 function recover(payload: string): ImportedFact {
-  const candidate: unknown = JSON.parse(payload);
+  const candidate: unknown = ${directParse}(payload);
   return candidate;
 }
 `,
