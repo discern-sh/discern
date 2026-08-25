@@ -7,9 +7,15 @@
 
 import { dirname, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import {
   blankFrontmatter,
+  decodeValeReport,
   restoreStagePaths,
   type SarifLog,
   selectProseGateAlerts,
@@ -39,6 +45,25 @@ const FRONTMATTERED = "---\n" +
   "aliases:\n  - extra\n" +
   "---\n" +
   "# Doc\n\nSeven words of actual prose live here.\n";
+
+Deno.test("Vale alerts validate before prose consumers inspect them", () => {
+  const error = assertThrows(
+    () =>
+      decodeValeReport(
+        JSON.stringify({
+          "docs/page.md": [{
+            Severity: "error",
+            Check: "Discern.Example",
+            Message: 42,
+          }],
+        }),
+        "Vale output fixture for the prose gate",
+      ),
+    Error,
+  );
+  assertStringIncludes(error.message, "Vale output fixture for the prose gate");
+  assertStringIncludes(error.message, "docs/page.md.0.Message");
+});
 
 Deno.test("blankFrontmatter removes the block but keeps line numbers stable", () => {
   const blanked = blankFrontmatter(FRONTMATTERED);

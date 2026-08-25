@@ -12,6 +12,7 @@ import { dirname, join } from "@std/path";
 import type { LintPattern } from "./snapshot.ts";
 import type { ProseFieldRegister } from "./fields.ts";
 import { countProse, fleschKincaidGrade } from "../plain_reading_grade_lib.ts";
+import { decodeValeReport, type ValeReport } from "../prose_lib.ts";
 import { runVale } from "../vale_lib.ts";
 
 /** One live finding under the editor. */
@@ -105,14 +106,6 @@ export function valeProbePath(register: ProseFieldRegister): string {
     : join(".scratch", "canon-editor", "vale", "probe.md");
 }
 
-interface ValeAlert {
-  readonly Check?: string;
-  readonly Message?: string;
-  readonly Severity?: string;
-  readonly Span?: readonly [number, number];
-  readonly Line?: number;
-}
-
 /**
  * The on-pause tier: run Vale over the field text alone. The probe file's
  * path picks the section styles the field's committed page would get, and a
@@ -137,16 +130,16 @@ export async function valeFindings(
       severity: "suggestion",
     }];
   }
-  let parsed: Record<string, readonly ValeAlert[]>;
+  let parsed: ValeReport;
   try {
-    parsed = JSON.parse(new TextDecoder().decode(output.stdout)) as Record<
-      string,
-      readonly ValeAlert[]
-    >;
-  } catch {
+    parsed = decodeValeReport(
+      new TextDecoder().decode(output.stdout),
+      `Vale output for Canon Editor ${register} prose`,
+    );
+  } catch (error) {
     return [{
       rule: "vale",
-      message: "Vale did not emit parseable JSON — has `vale sync` run?",
+      message: error instanceof Error ? error.message : String(error),
       severity: "suggestion",
     }];
   }

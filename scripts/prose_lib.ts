@@ -18,7 +18,33 @@
 
 import { walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
+import { z } from "@zod/zod";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
+import { decodeJson } from "../src/shared/runtime_decode.ts";
+
+const valeCoordinate = z.number().int().positive();
+
+/** One Vale JSON alert, tolerant of fields no discern caller consumes. */
+export const valeAlertSchema = z.looseObject({
+  Severity: z.enum(["error", "warning", "suggestion"]),
+  Check: z.string().optional(),
+  Message: z.string().optional(),
+  Line: valeCoordinate.optional(),
+  Span: z.tuple([valeCoordinate, valeCoordinate]).optional(),
+});
+
+/** Vale's path-to-alert-list JSON report. */
+export const valeReportSchema = z.record(z.string(), z.array(valeAlertSchema));
+
+/** One validated Vale alert. */
+export type ValeAlert = z.output<typeof valeAlertSchema>;
+/** One validated Vale JSON report. */
+export type ValeReport = z.output<typeof valeReportSchema>;
+
+/** Decode Vale JSON before a metric, gate, or editor consumes its alerts. */
+export function decodeValeReport(text: string, source: string): ValeReport {
+  return decodeJson(valeReportSchema, text, source);
+}
 
 export interface StagedProseInput {
   dir: string;

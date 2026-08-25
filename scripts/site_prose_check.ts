@@ -2,6 +2,7 @@
 
 import { dirname, fromFileUrl } from "@std/path";
 import {
+  decodeValeReport,
   selectProseGateAlerts,
   valeAlertCount,
   valeJsonToSarif,
@@ -64,19 +65,18 @@ try {
   ]);
   const decoder = new TextDecoder();
   const raw = decoder.decode(run.stdout);
-  let parsed: unknown;
-  let parsedOk = false;
+  let parsed: ReturnType<typeof decodeValeReport> | undefined;
   try {
-    parsed = JSON.parse(raw);
-    parsedOk = true;
-  } catch {
+    parsed = decodeValeReport(raw, "Vale output for the site prose gate");
+  } catch (error) {
     if (raw !== "") console.log(raw.trimEnd());
     const stderr = decoder.decode(run.stderr);
     if (stderr !== "") console.error(stderr.trimEnd());
-    code = run.code;
+    console.error(error instanceof Error ? error.message : String(error));
+    code = run.code === 0 ? 1 : run.code;
   }
 
-  if (parsedOk) {
+  if (parsed !== undefined) {
     const selected = customZero
       ? selectProseGateAlerts(parsed)
       : selectValeErrors(parsed);
@@ -86,9 +86,9 @@ try {
     } else if (valeAlertCount(mapped) > 0) {
       console.log(JSON.stringify(mapped, null, 2));
     }
-    const rawHasAlerts = Object.values(
-      parsed as Record<string, unknown>,
-    ).some((value) => Array.isArray(value) && value.length > 0);
+    const rawHasAlerts = Object.values(parsed).some((value) =>
+      value.length > 0
+    );
     code = run.code !== 0 && !rawHasAlerts
       ? run.code
       : valeAlertCount(mapped) > 0
