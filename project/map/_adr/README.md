@@ -314,6 +314,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0326 — Durable replace-writes use one atomic writer](0326-durable-replace-writes-use-one-atomic-writer.md)
 - [0327 — The shipped runtime module graph is a DAG](0327-shipped-runtime-module-graph-is-a-dag.md)
 - [0328 — Absence and unknown observations stay distinct](0328-absence-and-unknown-observations-stay-distinct.md)
+- [0329 — Runtime data earns its types at validation boundaries](0329-runtime-data-earns-types-at-validation-boundaries.md)
 
 <!-- END GENERATED: current ADR records -->
 

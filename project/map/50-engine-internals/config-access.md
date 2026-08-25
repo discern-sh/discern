@@ -14,6 +14,12 @@ _How one schema, one paths registry, and one comment-preserving writer read, res
 
 The binary parses `discern.toml` with strict `@std/toml` and validates it against the Zod schema in [`config_schema.ts`](../../../src/shared/config_schema.ts) ([ADR 0026](../_adr/0026-typed-config-schema.md)). Everything that describes the config derives from that schema: the generated [config reference](../70-reference/config-reference.md), the editor JSON Schema, and the rules the Engine enforces. `deno task codegen` rewrites the satellites. The project's final quality check (the Gate) rejects drift.
 
+## Setup config documents
+
+The JSON document consumed by `setup --config` and a preset manifest named `preset.json` derives from the same schema building blocks. Its strict `configDocSchema` generates the published authoring schema; its `configDocRuntimeSchema` removes only fields the strict schema identifies as unknown, then validates every known field. An older same-major runtime can therefore ignore a newer optional field without accepting a wrong type for a field it understands. [`decodeConfigDoc`](../../../src/lib/config_doc.ts) is the shared setup and preset path, and one version check refuses an unsupported major.
+
+This tolerant runtime view does not carry a second field list and does not weaken the live `discern.toml` schema. [Runtime data boundaries](../80-development/runtime-data-boundaries.md) records the decoder, error, caller-policy, and structural-enforcement contract ([ADR 0329](../_adr/0329-runtime-data-earns-types-at-validation-boundaries.md)).
+
 ## The paths registry and its resolvers
 
 Every configurable source path has an entry in the [paths registry](../../../src/shared/paths_registry.ts): the instruction sources, map, authored skills, project scripts, ledger, and brief. Each entry records its config key, `discern/` default, file-or-directory kind, resolution mode, ownership, gate treatment, and description ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). The Zod schema's path defaults derive from the registry. Code reads path keys through the resolvers in [`lib/paths.ts`](../../../src/lib/paths.ts) (`resolveMapDir`, `resolveSkillsDir`, `resolveTodoPath`, …), which turn an absolute or relative configured value into a project-absolute location. A registry default written as a literal anywhere else in `src/**` fails [`tests/paths_literal_ban_test.ts`](../../../tests/paths_literal_ban_test.ts); a rendered artifact that leaks one fails the sentinel-render guard.
@@ -45,4 +51,5 @@ The value renderers apply the same read-after-write contract. `tomlNumber` probe
 ## See also
 
 - [config-reference.md](../70-reference/config-reference.md) — every section, key, type, and default (generated).
+- [runtime-data-boundaries.md](../80-development/runtime-data-boundaries.md) — how JSON and subprocess values validate before acquiring runtime types.
 - [the-templating-engine.md](the-templating-engine.md) — how rendered instructions and skills consume the same resolved config.

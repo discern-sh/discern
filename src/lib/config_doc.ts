@@ -35,9 +35,9 @@ import { TomlEditor } from "./toml_edit.ts";
 // The document's shape, its major version, and its editor JSON Schema all derive
 // from the one canonical schema (`config_schema.ts`, ADR 0026) — re-exported here
 // so the installer keeps importing them from this module. `applyConfigDoc` below
-// is the runtime translator that writes a (loosely-parsed, possibly-malformed)
-// document into a project's discern.toml, with author-friendly per-section
-// messages; the schema is the published contract a `preset.json` validates against.
+// is the runtime translator that writes a validated, forward-tolerant document
+// into a project's discern.toml, with author-friendly per-section messages; the
+// schema is the published contract a `preset.json` validates against.
 export { CONFIG_DOC_VERSION };
 export type { DiscernConfigDoc };
 

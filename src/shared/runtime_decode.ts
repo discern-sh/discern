@@ -1,6 +1,6 @@
 /** Contextual validation for JSON and other values entering runtime code. */
 
-import { z } from "@zod/zod";
+import type { z } from "@zod/zod";
 
 const MAX_ISSUES = 5;
 const MAX_FRAGMENT_LENGTH = 180;

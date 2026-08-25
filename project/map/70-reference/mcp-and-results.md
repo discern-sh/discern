@@ -202,4 +202,4 @@ A result-role aggregate may widen only when its definition contains `oneOf` and 
 
 The same rule permits a role's first aggregate when the trunk has no registry references for that role, every current role reference introduces a definition, 1 new aggregate contains only `oneOf` and annotation keywords with the full current reference set, and 1 pure top-level entrypoint is its sole route. The comparison rejects policy drift, arbitrary metadata that tries to authorize a union change, removals, and changes to existing types, required result fields, or validation ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
 
-The config schema is a closed snapshot. Refresh a cached copy before validating newer optional keys.
+The published config schemas are closed authoring snapshots. Refresh a cached copy before validating newer optional keys. At runtime, the live `discern.toml` remains strict; the setup config document instead ignores unknown same-major fields while validating every field that release knows, then refuses an unsupported declared major. See [Runtime data boundaries](../80-development/runtime-data-boundaries.md).
