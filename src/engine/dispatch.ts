@@ -1092,10 +1092,76 @@ export function attachEngineCommands(
       "Emit one JSON result on stdout.",
     )
     .option("--dry-run", "Show the setup plan; touch nothing.")
+    .option(
+      "--mark-step-complete <id:string>",
+      "After observing an interrupted setup command's external state, mark its running journal entry complete without replaying it.",
+    )
+    .option(
+      "--retry-step <id:string>",
+      "After observing an interrupted setup command's external state, reset its running journal entry and run it again.",
+    )
+    .option(
+      "--confirmed",
+      "Attest that the owner observed the interrupted command's external state and chose this recovery. Required with either recovery option.",
+    )
     .action(recordedExit("worktree setup", async (o) => {
       const json = o.json ?? false;
+      const invalid = (message: string): number => {
+        if (json) {
+          emitResult({
+            ok: false,
+            verb: "worktree setup",
+            error: "invalid_arguments",
+            message,
+          });
+        } else {
+          makeLogger().error(message);
+        }
+        return 1;
+      };
+      const markStepComplete = o.markStepComplete;
+      const retryStep = o.retryStep;
+      if (markStepComplete !== undefined && retryStep !== undefined) {
+        return invalid(
+          "Choose exactly one setup-step recovery: --mark-step-complete or --retry-step. Nothing changed.",
+        );
+      }
+      const stepId = markStepComplete ?? retryStep;
+      if (o.confirmed === true && stepId === undefined) {
+        return invalid(
+          "--confirmed is valid only with --mark-step-complete or --retry-step. Nothing changed.",
+        );
+      }
+      if ((o.dryRun ?? false) && stepId !== undefined) {
+        return invalid(
+          "Setup-step recovery cannot be combined with --dry-run. Nothing changed.",
+        );
+      }
+      if (stepId !== undefined) {
+        const { isSetupStepId } = await import(
+          "./worktree/setup_step_journal.ts"
+        );
+        if (!isSetupStepId(stepId)) {
+          return invalid(
+            `Invalid setup-step identity ${stepId}. Re-run ordinary \`discern worktree setup\` to see the current recovery identity. Nothing changed.`,
+          );
+        }
+      }
       return await runWorktreeOp(
-        (ctx, lc) => lc.worktreeSetup(ctx, { json, dryRun: o.dryRun ?? false }),
+        (ctx, lc) =>
+          lc.worktreeSetup(ctx, {
+            json,
+            dryRun: o.dryRun ?? false,
+            ...(stepId === undefined ? {} : {
+              recovery: {
+                stepId,
+                decision: markStepComplete === undefined
+                  ? "retry"
+                  : "mark-complete",
+                confirmed: o.confirmed ?? false,
+              },
+            }),
+          }),
         { json, verb: "worktree setup" },
       );
     }));

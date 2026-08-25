@@ -63,6 +63,15 @@ import {
 } from "./ignored.ts";
 import { runShellRouted } from "./shell.ts";
 import {
+  configuredSetupSteps,
+  preflightSetupStepJournal,
+  recoverSetupStep,
+  runJournaledSetupSteps,
+  SetupStepJournalError,
+  type SetupStepRecoveryDecision,
+  type SetupStepRecoveryResult,
+} from "./setup_step_journal.ts";
+import {
   type JobGroup,
   planStageJobs,
   serializeJobSteps,
@@ -320,6 +329,18 @@ export interface WorktreeOpOptions {
   json?: boolean;
   /** Render the human apply summary (internal protocol callers may reserve stdout). */
   humanApplySummary?: boolean;
+}
+
+/** One explicit owner decision that resolves an ambiguous setup-step journal. */
+export interface WorktreeSetupRecovery {
+  readonly stepId: string;
+  readonly decision: SetupStepRecoveryDecision;
+  readonly confirmed: boolean;
+}
+
+/** Setup's ordinary options plus its bounded interruption-recovery route. */
+export interface WorktreeSetupOptions extends WorktreeOpOptions {
+  readonly recovery?: WorktreeSetupRecovery;
 }
 
 /** `accept`'s flags: the worktree-verb set plus the landing consent attestation
@@ -591,12 +612,17 @@ function setupResults(
   plan: SetupPlan,
   failedResources: string[],
   refreshOk: boolean,
+  setupStepOutcomes: StepOutcome[],
   repositoryEnsureOutcomes: StepOutcome[],
   worktreeEnsureOutcomes: StepOutcome[],
 ): StepResult[] {
+  let setupStepIndex = 0;
   let repositoryEnsureIndex = 0;
   let worktreeEnsureIndex = 0;
   return plan.steps.map((s) => {
+    const setupStepOutcome = s.kind === "setup-step"
+      ? setupStepOutcomes[setupStepIndex++]
+      : undefined;
     const repositoryEnsureOutcome = s.kind === "repository-ensure"
       ? repositoryEnsureOutcomes[repositoryEnsureIndex++]
       : undefined;
@@ -608,11 +634,37 @@ function setupResults(
       repositoryEnsureOutcome === "failed" ||
       worktreeEnsureOutcome === "failed" ||
       (s.kind === "refresh" && !refreshOk);
+    const skipped = setupStepOutcome === "skipped";
     return {
-      step: { kind: s.kind, label: s.label, disposition: "run", note: s.note },
-      outcome: failed ? "failed" : "ok",
+      step: {
+        kind: s.kind,
+        label: s.label,
+        disposition: skipped ? "skip" : "run",
+        note: s.note,
+      },
+      outcome: failed ? "failed" : skipped ? "skipped" : "ok",
     };
   });
+}
+
+/** Project one explicit journal recovery onto durable result evidence. */
+function setupRecoveryResult(
+  recovery: WorktreeSetupRecovery,
+  outcome: SetupStepRecoveryResult,
+): StepResult {
+  const changed = outcome.kind === "changed";
+  const action = recovery.decision === "mark-complete"
+    ? "mark the observed command complete"
+    : "make the command eligible for one explicit retry";
+  return {
+    step: {
+      kind: "setup-step",
+      label: BUILT_IN_STEP_LABELS.recoverSetupStep,
+      disposition: changed ? "run" : "skip",
+      note: `${action}: ${recovery.stepId}`,
+    },
+    outcome: changed ? "ok" : "skipped",
+  };
 }
 
 /** One convergence bucket's ordered outcomes and serialized recovery evidence. */
@@ -892,7 +944,7 @@ async function refreshWorktreeArtifacts(
  */
 export async function worktreeSetup(
   ctx: LifecycleContext,
-  opts: WorktreeOpOptions = {},
+  opts: WorktreeSetupOptions = {},
 ): Promise<void> {
   // 1. must be inside a worktree
   await assertOpSide("worktree-setup", ctx.cwd);
@@ -900,6 +952,11 @@ export async function worktreeSetup(
   // Build the plan ONCE — the dry-run renders it and the apply records its
   // outcomes against it, so the preview and the `--json` report can't drift.
   const plan = await buildSetupPlan(ctx);
+  if ((opts.dryRun ?? false) && opts.recovery !== undefined) {
+    throw new WorktreeGitError(
+      "Setup-step recovery cannot be combined with --dry-run. Nothing changed. Re-run the recovery without --dry-run after the owner confirms the observed external state.",
+    );
+  }
   if (opts.dryRun ?? false) {
     emitDryRun(
       ctx,
@@ -908,6 +965,45 @@ export async function worktreeSetup(
       opts.json ?? false,
     );
     return;
+  }
+
+  // A ready sentinel predating the journal is migration evidence that every
+  // legacy one-shot step completed. The preflight materializes those identities
+  // as completed, so a later missing sentinel cannot make an upgrade replay them.
+  const configured = await worktreeSetupComplete(ctx.cwd);
+
+  let recoveryEvidence: StepResult | undefined;
+  let recoveryRetriesStep = false;
+  if (opts.recovery !== undefined) {
+    try {
+      const recovered = await recoverSetupStep(
+        ctx.cwd,
+        ctx.config.worktree.setup.steps,
+        opts.recovery.stepId,
+        opts.recovery.decision,
+        opts.recovery.confirmed,
+      );
+      recoveryEvidence = setupRecoveryResult(opts.recovery, recovered);
+      recoveryRetriesStep = opts.recovery.decision === "retry" &&
+        recovered.kind !== "already-completed";
+    } catch (error) {
+      if (error instanceof SetupStepJournalError) {
+        throw new WorktreeGitError(error.message);
+      }
+      throw error;
+    }
+  }
+  try {
+    await preflightSetupStepJournal(
+      ctx.cwd,
+      ctx.config.worktree.setup.steps,
+      configured,
+    );
+  } catch (error) {
+    if (error instanceof SetupStepJournalError) {
+      throw new WorktreeGitError(error.message);
+    }
+    throw error;
   }
 
   ctx.log.heading("Setting up this worktree…");
@@ -923,8 +1019,6 @@ export async function worktreeSetup(
   // `discern worktree setup` — reach here on an already-configured worktree, where the
   // non-idempotent phases (resource `create`, `[worktree.setup].steps`) must not
   // re-run. (`worktreeEnsure` gates the session-start path the same way.)
-  const configured = await worktreeSetupComplete(ctx.cwd);
-
   if (!configured && await generatedMergeDriverNeeded(ctx)) {
     await installGeneratedMergeDriver(ctx);
   }
@@ -972,11 +1066,13 @@ export async function worktreeSetup(
   // worktree ensure handles identity-dependent state. Both run on EVERY pass —
   // after `steps` at a fresh creation, alone on re-entry. A fresh failure is FATAL;
   // a re-entry failure is recorded and non-fatal.
+  let setupStepOutcomes: StepOutcome[] = [];
   let repositoryEnsure = emptyEnsureCommandRun();
   let worktreeEnsure = emptyEnsureCommandRun();
-  if (configured) {
+  if (configured && !recoveryRetriesStep) {
     if (ctx.config.worktree.setup.steps.length > 0) {
       ctx.log.info("Worktree already configured — skipping setup steps.");
+      setupStepOutcomes = ctx.config.worktree.setup.steps.map(() => "skipped");
     }
     repositoryEnsure = await runRepositoryEnsureSteps(ctx, {
       fatal: false,
@@ -985,15 +1081,29 @@ export async function worktreeSetup(
       fatal: false,
     });
   } else {
-    for (const step of ctx.config.worktree.setup.steps) {
-      ctx.log.info(`Setup step: ${step}`);
-      const code = await runShellRouted(step, { cwd: ctx.cwd, log: ctx.log });
-      if (code !== 0) {
-        throw new WorktreeGitError(
-          `The worktree setup step failed: ${step}. Fix that command or its ` +
-            `prerequisites, then re-run \`discern worktree setup\`.`,
-        );
+    try {
+      const commands = ctx.config.worktree.setup.steps;
+      const journaled = await runJournaledSetupSteps(
+        ctx.cwd,
+        commands,
+        async (step) => {
+          ctx.log.info(`Setup step: ${step.command}`);
+          return await runShellRouted(step.command, {
+            cwd: ctx.cwd,
+            log: ctx.log,
+          });
+        },
+      );
+      const identities = await configuredSetupSteps(commands);
+      const ran = new Set(journaled.ran);
+      setupStepOutcomes = identities.map((step) =>
+        ran.has(step.id) ? "ok" : "skipped"
+      );
+    } catch (error) {
+      if (error instanceof SetupStepJournalError) {
+        throw new WorktreeGitError(error.message);
       }
+      throw error;
     }
     // One-shot scaffolding may have rewritten the env file wholesale (the
     // canonical `cp .env.example .env`) — re-assert the env writers so the
@@ -1014,9 +1124,11 @@ export async function worktreeSetup(
       await recordPort(ctx, identity);
     }
     repositoryEnsure = await runRepositoryEnsureSteps(ctx, {
-      fatal: true,
+      fatal: !configured,
     });
-    worktreeEnsure = await runWorktreeEnsureSteps(ctx, { fatal: true });
+    worktreeEnsure = await runWorktreeEnsureSteps(ctx, {
+      fatal: !configured,
+    });
   }
 
   // 7. run the complete refresh reconciliation. This also materializes skills
@@ -1051,15 +1163,18 @@ export async function worktreeSetup(
 
   ctx.log.ok("Worktree setup complete.");
 
+  const settledSteps = setupResults(
+    plan,
+    createdFailed,
+    refresh.ok,
+    setupStepOutcomes,
+    repositoryEnsure.outcomes,
+    worktreeEnsure.outcomes,
+  );
+  if (recoveryEvidence !== undefined) settledSteps.unshift(recoveryEvidence);
   const result = appliedResult(
     "worktree setup",
-    setupResults(
-      plan,
-      createdFailed,
-      refresh.ok,
-      repositoryEnsure.outcomes,
-      worktreeEnsure.outcomes,
-    ),
+    settledSteps,
     [
       ...refresh.diagnostics,
       ...repositoryEnsure.diagnostics,

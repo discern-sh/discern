@@ -14,6 +14,7 @@ import {
   assert,
   assertEquals,
   assertMatch,
+  assertRejects,
   assertStringIncludes,
 } from "@std/assert";
 import { basename, dirname, fromFileUrl, join } from "@std/path";
@@ -25,6 +26,11 @@ import {
 } from "../src/lib/tidy_format.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
+import {
+  configuredSetupSteps,
+  readSetupStepJournal,
+  runJournaledSetupSteps,
+} from "../src/engine/worktree/setup_step_journal.ts";
 import {
   configSchema,
   type DiscernConfig,
@@ -40,6 +46,7 @@ import {
 } from "../src/engine/worktree/side_restrictions.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import {
   addWorktree,
   git,
@@ -1607,6 +1614,55 @@ async function markerCount(path: string): Promise<number> {
   }
 }
 
+/** Quote one literal path for the setup fixture's POSIX shell command. */
+function setupShellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+/**
+ * Leave one real worktree journal entry running at a deterministic seam.
+ * `after-command` proves the arbitrary command returned success before the
+ * completed record; `before-command` proves retry owns the first execution.
+ */
+async function interruptSetupStep(
+  worktree: string,
+  command: string,
+  seam: "before-command" | "after-command",
+): Promise<string> {
+  const [identity] = await configuredSetupSteps([command]);
+  assert(identity !== undefined);
+  await assertRejects(
+    () =>
+      runJournaledSetupSteps(
+        worktree,
+        [command],
+        async (step) =>
+          (await new Deno.Command("sh", {
+            args: ["-c", step.command],
+            cwd: worktree,
+            stdout: "null",
+            stderr: "null",
+          }).output()).code,
+        seam === "before-command"
+          ? {
+            afterRunning: () => {
+              throw new Error("interrupted before command");
+            },
+          }
+          : {
+            afterCommand: () => {
+              throw new Error("interrupted after command");
+            },
+          },
+      ),
+    Error,
+    seam === "before-command"
+      ? "interrupted before command"
+      : "interrupted after command",
+  );
+  return identity.id;
+}
+
 Deno.test("worktree setup: runs the one-shot steps then the convergent ensure", async () => {
   await withTempDir(async (dir) => {
     await withMarkers(async (markers) => {
@@ -1620,6 +1676,145 @@ Deno.test("worktree setup: runs the one-shot steps then the convergent ensure", 
       assertEquals(r.code, 0, r.output);
       assertEquals(await markerCount(steps), 1, `steps ran once\n${r.output}`);
       assertEquals(await markerCount(ensure), 1, `ensure ran\n${r.output}`);
+    });
+  });
+});
+
+Deno.test("worktree setup recovery marks an observed command complete without replay", async () => {
+  await withTempDir(async (dir) => {
+    await withMarkers(async (markers) => {
+      const marker = join(markers, "mark-complete");
+      const command = `echo x >> ${setupShellQuote(marker)}`;
+      const wt = await mainWithSetup(dir, "recover-complete", {
+        steps: [command],
+      });
+      const stepId = await interruptSetupStep(wt, command, "after-command");
+      assertEquals(await markerCount(marker), 1);
+
+      const automatic = await runAgent(wt, ["worktree", "setup", "--json"]);
+      assertEquals(automatic.code, 1, automatic.output);
+      const refusal = decodeCliResult(automatic.stdout, "worktree setup");
+      assertEquals(refusal.ok, false);
+      assertStringIncludes(refusal.message ?? "", "cannot prove");
+      assertStringIncludes(
+        refusal.message ?? "",
+        `--mark-step-complete ${stepId} --confirmed`,
+      );
+      assertStringIncludes(
+        refusal.message ?? "",
+        `--retry-step ${stepId} --confirmed`,
+      );
+      assertEquals(await markerCount(marker), 1);
+
+      const unconfirmed = await runAgent(wt, [
+        "worktree",
+        "setup",
+        "--json",
+        "--mark-step-complete",
+        stepId,
+      ]);
+      assertEquals(unconfirmed.code, 1, unconfirmed.output);
+      assertStringIncludes(
+        decodeCliResult(unconfirmed.stdout, "worktree setup").message ?? "",
+        "requires --confirmed",
+      );
+      const stillRunning = await readSetupStepJournal(wt);
+      assertEquals(stillRunning.status, "recorded");
+      if (stillRunning.status === "recorded") {
+        assertEquals(stillRunning.journal.steps[0]?.state, "running");
+      }
+
+      const recovered = await runAgent(wt, [
+        "worktree",
+        "setup",
+        "--json",
+        "--mark-step-complete",
+        stepId,
+        "--confirmed",
+      ]);
+      assertEquals(recovered.code, 0, recovered.output);
+      const result = decodeCliResult(recovered.stdout, "worktree setup");
+      assertEquals(
+        result.steps?.find((step) =>
+          step.label === BUILT_IN_STEP_LABELS.recoverSetupStep
+        )?.outcome,
+        "ok",
+      );
+      assertEquals(
+        result.steps?.find((step) => step.label === command)?.outcome,
+        "skipped",
+      );
+      assertEquals(await markerCount(marker), 1);
+
+      const replay = await runAgent(wt, [
+        "worktree",
+        "setup",
+        "--json",
+        "--mark-step-complete",
+        stepId,
+        "--confirmed",
+      ]);
+      assertEquals(replay.code, 0, replay.output);
+      assertEquals(
+        decodeCliResult(replay.stdout, "worktree setup").steps?.find((step) =>
+          step.label === BUILT_IN_STEP_LABELS.recoverSetupStep
+        )?.outcome,
+        "skipped",
+      );
+      assertEquals(await markerCount(marker), 1);
+    });
+  });
+});
+
+Deno.test("worktree setup recovery retries an ambiguous command exactly once", async () => {
+  await withTempDir(async (dir) => {
+    await withMarkers(async (markers) => {
+      const marker = join(markers, "retry");
+      const command = `echo x >> ${setupShellQuote(marker)}`;
+      const wt = await mainWithSetup(dir, "recover-retry", {
+        steps: [command],
+      });
+      const stepId = await interruptSetupStep(wt, command, "before-command");
+      assertEquals(await markerCount(marker), 0);
+
+      const recovered = await runAgent(wt, [
+        "worktree",
+        "setup",
+        "--json",
+        "--retry-step",
+        stepId,
+        "--confirmed",
+      ]);
+      assertEquals(recovered.code, 0, recovered.output);
+      const result = decodeCliResult(recovered.stdout, "worktree setup");
+      assertEquals(
+        result.steps?.find((step) =>
+          step.label === BUILT_IN_STEP_LABELS.recoverSetupStep
+        )?.outcome,
+        "ok",
+      );
+      assertEquals(
+        result.steps?.find((step) => step.label === command)?.outcome,
+        "ok",
+      );
+      assertEquals(await markerCount(marker), 1);
+
+      const replay = await runAgent(wt, [
+        "worktree",
+        "setup",
+        "--json",
+        "--retry-step",
+        stepId,
+        "--confirmed",
+      ]);
+      assertEquals(replay.code, 0, replay.output);
+      assertEquals(
+        decodeCliResult(replay.stdout, "worktree setup").steps?.find((step) =>
+          step.label === BUILT_IN_STEP_LABELS.recoverSetupStep
+        )?.outcome,
+        "skipped",
+      );
+      assertEquals(await markerCount(marker), 1);
     });
   });
 });

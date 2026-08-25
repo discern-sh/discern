@@ -164,6 +164,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  worktreeSetupSteps: {
+    path: "discern/worktree-setup-steps.json",
+    scope: "worktree",
+    kind: "file",
+    validation: false,
+  },
   worktreeReady: {
     path: "discern/worktree-ready",
     scope: "worktree",

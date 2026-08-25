@@ -100,6 +100,7 @@ export const BUILT_IN_STEP_LABELS = {
   recordPort: "record-port",
   reclaimOrphanDir: "reclaim-orphan-dir",
   recoverInterruptedAcceptance: "recover-interrupted-acceptance",
+  recoverSetupStep: "recover-setup-step",
   removeWorktree: "remove-worktree",
   rootDiscernToml: "root-discern-toml",
   setup: "setup",
