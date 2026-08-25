@@ -16,6 +16,7 @@ import {
   DISCERN_PROJECT_PAYLOAD_LICENSE,
   FIRST_PARTY_LEGAL_DOCUMENTS,
 } from "../src/shared/license_registry.ts";
+import { withTempDir } from "./helpers.ts";
 
 const RELEASE = new URL("../.github/workflows/release.yml", import.meta.url);
 const releaseSource = await Deno.readTextFile(RELEASE);
@@ -193,31 +194,24 @@ esac
 }
 
 Deno.test("release smoke proves version, licenses, bundled docs, and setup assets", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "release-smoke-test-" });
-  try {
+  await withTempDir(async (dir) => {
     await smokeReleaseBinary(await writeFakeDiscern(dir), "1.2.3");
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "release-smoke-test-" });
 });
 
 Deno.test("release smoke rejects an unrelated future binary with the wrong version", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "release-smoke-test-" });
-  try {
+  await withTempDir(async (dir) => {
     const binary = await writeFakeDiscern(dir, { version: "9.9.9" });
     await assertRejects(
       () => smokeReleaseBinary(binary, "1.2.3"),
       Error,
       "does not match discern 1.2.3",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "release-smoke-test-" });
 });
 
 Deno.test("release smoke rejects a binary missing licenses, docs, or templates", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "release-smoke-test-" });
-  try {
+  await withTempDir(async (dir) => {
     const noDocs = await writeFakeDiscern(dir, { docsRoot: false });
     await assertRejects(
       () => smokeReleaseBinary(noDocs, "1.2.3"),
@@ -258,7 +252,5 @@ Deno.test("release smoke rejects a binary missing licenses, docs, or templates",
       Error,
       "materialized legal file NOTICE",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "release-smoke-test-" });
 });

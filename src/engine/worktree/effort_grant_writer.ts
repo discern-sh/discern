@@ -7,6 +7,7 @@
  */
 
 import { dirname } from "@std/path";
+import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { type EffortGrant, readEffortGrant } from "./effort_grant.ts";
 
@@ -33,24 +34,10 @@ export async function grantEffort(
   }
   const grant: EffortGrant = { branch, granted_at: grantedAt };
   await Deno.mkdir(dirname(path), { recursive: true });
-  const temp = `${path}.tmp-${crypto.randomUUID()}`;
-  let cleanupError: unknown;
-  try {
-    await Deno.writeTextFile(temp, `${JSON.stringify(grant)}\n`, {
-      createNew: true,
-    });
-    await Deno.rename(temp, path);
-  } finally {
-    try {
-      await Deno.remove(temp);
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) {
-        cleanupError = error;
-      }
-    }
-  }
-  if (cleanupError !== undefined) {
-    throw cleanupError;
-  }
+  await atomicReplaceJson(path, grant, {
+    mode: 0o666,
+    sync: false,
+    trailingNewline: true,
+  });
   return { status: "granted", grant };
 }

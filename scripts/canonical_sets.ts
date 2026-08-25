@@ -1255,6 +1255,32 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .RESTRICTED_WRITER_MODULES.map((boundary) => boundary.id),
   },
   {
+    id: "intentional-deno-renames",
+    title: "Intentional Deno renames",
+    what:
+      "Every authored Deno rename outside the atomic replacement capability, identified by source path and enclosing function with the reason its move semantics are intentional.",
+    source: {
+      kind: "module",
+      module: "tests/atomic_write_renames.ts",
+      exportName: "REGISTERED_RENAMES",
+    },
+    guards: ["tests/atomic_write_enrolment_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the artifact-ownership reference owns this repository-internal filesystem policy",
+      },
+      featureCanon: {
+        absent:
+          "the registry constrains implementation mechanics across existing feature owners",
+      },
+    },
+    members: async () =>
+      (await import("../tests/atomic_write_renames.ts")).REGISTERED_RENAMES
+        .map((entry) => `${entry.path}#${entry.enclosingFunction}`),
+  },
+  {
     id: "setup-completion-checks",
     title: "Setup completion checks",
     what:
@@ -2762,6 +2788,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     members: async () =>
       (await import("./canary_registry.ts")).CANARY_EXTRA_TEST_FILES
         .map((entry) => entry.file),
+  },
+  {
+    id: "test-temp-directory-ownership-modes",
+    title: "Test temp-directory ownership modes",
+    what:
+      "Every supported lifetime for a temporary directory created by tests or executable fixtures, with its cleanup boundary and reason.",
+    source: {
+      kind: "module",
+      module: "tests/temp_dir.ts",
+      exportName: "TEMP_DIR_OWNERSHIP_POLICIES",
+    },
+    guards: [
+      "tests/temp_dir_test.ts",
+      "tests/temp_dir_guard_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "these callback and module lifetimes are repository-local test infrastructure policy",
+      },
+      featureCanon: {
+        absent:
+          "test fixture cleanup is a repository development convention, not a shipped discern feature",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../tests/temp_dir.ts")).TEMP_DIR_OWNERSHIP_POLICIES,
+      ),
   },
   {
     id: "canonical-sets",

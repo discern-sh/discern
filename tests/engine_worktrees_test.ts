@@ -308,47 +308,47 @@ Deno.test({
       await Deno.writeTextFile(join(nested, "marker.ts"), "export {};\n");
       await gitInit(dir);
 
-      const worktreeParent = await Deno.makeTempDir({
-        prefix: "discern-worktrees-picker-",
-      });
-      const target = join(worktreeParent, "other");
-      const observed = join(worktreeParent, "observed-cwd.txt");
-      const shell = join(dir, "record-worktree-cwd");
-      await writeExecutable(
-        shell,
-        [
-          "#!/bin/sh",
-          'pwd > "$WORKTREE_PICKER_TEST_CWD"',
-          "exit 0",
-          "",
-        ].join("\n"),
-      );
-      try {
-        await git(dir, "worktree", "add", "-q", "-b", "agent/other", target);
-        const result = await runAgentPtyJourney(nested, ["worktrees"], {
-          env: {
-            SHELL: shell,
-            WORKTREE_PICKER_TEST_CWD: observed,
-          },
-          input: [{
-            waitFor: "Choose a worktree to open at src/engine",
-            steps: [{ bytes: "\r" }],
-          }],
-        });
-        assertEquals(result.code, 0, result.transcript);
-        assertTerminalTextIncludes(
-          result.transcript,
-          "Choose a worktree to open at src/engine",
+      await withTempDir(async (worktreeParent) => {
+        const target = join(worktreeParent, "other");
+        const observed = join(worktreeParent, "observed-cwd.txt");
+        const shell = join(dir, "record-worktree-cwd");
+        await writeExecutable(
+          shell,
+          [
+            "#!/bin/sh",
+            'pwd > "$WORKTREE_PICKER_TEST_CWD"',
+            "exit 0",
+            "",
+          ].join("\n"),
         );
-        assertTerminalTextIncludes(result.transcript, "agent/other");
-        assertEquals(
-          (await Deno.readTextFile(observed)).trim(),
-          join(await Deno.realPath(target), "src", "engine"),
-        );
-      } finally {
-        await git(dir, "worktree", "remove", "--force", target).catch(() => {});
-        await Deno.remove(worktreeParent, { recursive: true }).catch(() => {});
-      }
+        try {
+          await git(dir, "worktree", "add", "-q", "-b", "agent/other", target);
+          const result = await runAgentPtyJourney(nested, ["worktrees"], {
+            env: {
+              SHELL: shell,
+              WORKTREE_PICKER_TEST_CWD: observed,
+            },
+            input: [{
+              waitFor: "Choose a worktree to open at src/engine",
+              steps: [{ bytes: "\r" }],
+            }],
+          });
+          assertEquals(result.code, 0, result.transcript);
+          assertTerminalTextIncludes(
+            result.transcript,
+            "Choose a worktree to open at src/engine",
+          );
+          assertTerminalTextIncludes(result.transcript, "agent/other");
+          assertEquals(
+            (await Deno.readTextFile(observed)).trim(),
+            join(await Deno.realPath(target), "src", "engine"),
+          );
+        } finally {
+          await git(dir, "worktree", "remove", "--force", target).catch(
+            () => {},
+          );
+        }
+      }, { prefix: "discern-worktrees-picker-" });
     });
   },
 });

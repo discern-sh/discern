@@ -25,6 +25,7 @@
  */
 
 import { dirname } from "@std/path";
+import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { isRelatedCheckpointKind } from "../../shared/checkpoints.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import type { RelatedCheckpointPath } from "./types.ts";
@@ -277,18 +278,6 @@ export async function readOpenQuestions(
     : { status: "ok", openQuestions };
 }
 
-/** Persist every byte, retrying partial writes and rejecting a zero-byte write. */
-async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
-  let offset = 0;
-  while (offset < bytes.length) {
-    const written = await file.write(bytes.subarray(offset));
-    if (written === 0) {
-      throw new Error("short write while recording checkpoint open questions");
-    }
-    offset += written;
-  }
-}
-
 /** Persist the whole store as one line of JSON — written to a same-directory
  * temp file, synced, then atomically renamed into place (the acceptance
  * journal's durability pattern), so an interrupted write can garble only the
@@ -298,30 +287,11 @@ async function writeOpenQuestions(
   openQuestions: Record<string, OpenQuestion>,
 ): Promise<void> {
   await Deno.mkdir(dirname(path), { recursive: true });
-  const temp = `${path}.tmp-${crypto.randomUUID()}`;
-  try {
-    const file = await Deno.open(temp, { createNew: true, write: true });
-    try {
-      await writeAll(
-        file,
-        new TextEncoder().encode(
-          `${
-            JSON.stringify({ version: QUESTIONS_STORE_VERSION, openQuestions })
-          }\n`,
-        ),
-      );
-      await file.sync();
-    } finally {
-      file.close();
-    }
-    await Deno.rename(temp, path);
-  } finally {
-    try {
-      await Deno.remove(temp);
-    } catch {
-      // Already renamed into place (the ordinary case) or never created.
-    }
-  }
+  await atomicReplaceJson(
+    path,
+    { version: QUESTIONS_STORE_VERSION, openQuestions },
+    { mode: 0o666, sync: true, trailingNewline: true },
+  );
 }
 
 /** Load the store for a write: current openQuestions, or a fresh table (with

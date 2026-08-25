@@ -30,6 +30,7 @@ import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { z } from "@zod/zod";
 import type { Logger } from "../../lib/log.ts";
+import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
@@ -205,9 +206,12 @@ export async function writeEntry(
   const dir = resourcesDir(commonGitDir);
   await ensureDir(dir);
   const path = entryPath(commonGitDir, entry.git_key, entry.resource_name);
-  const tmp = `${path}.${Deno.pid}.tmp`;
-  await Deno.writeTextFile(tmp, `${JSON.stringify(entry, null, 2)}\n`);
-  await Deno.rename(tmp, path);
+  await atomicReplaceJson(path, entry, {
+    mode: 0o666,
+    sync: false,
+    space: 2,
+    trailingNewline: true,
+  });
 }
 
 /** Read one entry, tolerating a missing/corrupt/unknown-schema/malformed file

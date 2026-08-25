@@ -6,12 +6,12 @@ import {
   instructionRefreshSucceeded,
 } from "../src/engine/instructions.ts";
 import { bundledSkillNames } from "../src/lib/skills.ts";
+import { withTempDir } from "./helpers.ts";
 
 /** Scaffold a temp project with a discern.toml, a instruction source, and one
  * authored skill (under ./skills/). Built-in instructions + bundled skills come from
  * the repo's own templates/ tree (resolved by the compiler). */
-async function scaffold(): Promise<string> {
-  const tmp = await Deno.makeTempDir({ prefix: "discern-instructions-test-" });
+async function scaffold(tmp: string): Promise<void> {
   await Deno.writeTextFile(
     join(tmp, "discern.toml"),
     [
@@ -30,12 +30,11 @@ async function scaffold(): Promise<string> {
   );
   await Deno.mkdir(join(tmp, "skills/demo"), { recursive: true });
   await Deno.writeTextFile(join(tmp, "skills/demo/SKILL.md"), "demo skill");
-  return tmp;
 }
 
 Deno.test("compileInstructions: built-in + sources (no banner); copies built-ins, symlinks authored, prunes", async () => {
-  const tmp = await scaffold();
-  try {
+  await withTempDir(async (tmp) => {
+    await scaffold(tmp);
     const first = await compileInstructions(tmp);
     // Provider files written in [project].agents order.
     assertEquals(first.agentsWritten, ["CLAUDE.md", "AGENTS.md"]);
@@ -99,9 +98,7 @@ Deno.test("compileInstructions: built-in + sources (no banner); copies built-ins
       false,
       "expected the dangling skill link to be pruned",
     );
-  } finally {
-    await Deno.remove(tmp, { recursive: true });
-  }
+  }, { prefix: "discern-instructions-test-" });
 });
 
 Deno.test("instruction refresh status ignores blank error entries", () => {
@@ -149,8 +146,7 @@ Deno.test("compileInstructions callers use the shared partial-refresh predicate"
 });
 
 Deno.test("compileInstructions honours [skills].exclude: an excluded bundled set materializes nothing, instructions still compile", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-skills-excluded-" });
-  try {
+  await withTempDir(async (dir) => {
     const bundled = await bundledSkillNames();
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
@@ -170,9 +166,7 @@ Deno.test("compileInstructions honours [skills].exclude: an excluded bundled set
       !claudeOnly.includes("@AGENTS.md"),
       "no import line when there is no canonical file to point at",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-skills-excluded-" });
 });
 
 /** Enumerate authored instructions fragments in stable compilation order. */

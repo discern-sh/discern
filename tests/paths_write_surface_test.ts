@@ -195,6 +195,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "src/shared/setup_machinery_evidence.ts",
     "setup machinery retry evidence — registry-resolved .git-internal state outside the project tree",
   ],
+  [
+    "src/shared/atomic_write.ts",
+    "the shared durable-state replacement capability — callers own the target bucket and its temp sibling",
+  ],
   // paths the user typed (explicit consent) or temp files (outside the tree)
   ["src/commands/docs.ts", "the user-typed docs-export --output path"],
   [

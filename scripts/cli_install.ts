@@ -8,6 +8,10 @@
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
+import {
+  atomicReplaceBytes,
+  atomicReplaceText,
+} from "../src/shared/atomic_write.ts";
 
 /** Run a command and capture its trimmed stdout/stderr plus exit code. */
 export async function capture(
@@ -113,10 +117,11 @@ export async function installExecutable(
   dest: string,
 ): Promise<void> {
   await Deno.mkdir(dirname(dest), { recursive: true });
-  const tmp = `${dest}.tmp-${Deno.pid}`;
-  await Deno.copyFile(src, tmp);
-  await Deno.chmod(tmp, 0o755);
-  await Deno.rename(tmp, dest);
+  await atomicReplaceBytes(dest, await Deno.readFile(src), {
+    mode: 0o755,
+    sync: false,
+    exactMode: true,
+  });
 }
 
 /**
@@ -130,10 +135,11 @@ export async function writeExecutable(
   dest: string,
 ): Promise<void> {
   await Deno.mkdir(dirname(dest), { recursive: true });
-  const tmp = `${dest}.tmp-${Deno.pid}`;
-  await Deno.writeTextFile(tmp, contents);
-  await Deno.chmod(tmp, 0o755);
-  await Deno.rename(tmp, dest);
+  await atomicReplaceText(dest, contents, {
+    mode: 0o755,
+    sync: false,
+    exactMode: true,
+  });
 }
 
 /**

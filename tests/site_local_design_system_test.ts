@@ -8,6 +8,7 @@ import {
   localDesignSystemConfig,
   parseLocalDesignSystemArgs,
 } from "../scripts/site_local_design_system.ts";
+import { withTempDir } from "./helpers.ts";
 
 Deno.test("the local design-system config overlays a link without mutating the consumer config", () => {
   const base = {
@@ -41,20 +42,17 @@ Deno.test("the local design-system config overlays a link without mutating the c
 });
 
 Deno.test("the temporary link resolves an unrelated local version without changing the consumer pin", async () => {
-  const temporaryRoot = await Deno.makeTempDir({
-    prefix: "discern-local-package-guard-",
-  });
-  const packageRoot = join(temporaryRoot, "future-layout-kit");
-  const sourceRoot = join(packageRoot, "source");
-  const configPath = join(temporaryRoot, "deno.json");
-  const consumer = {
-    imports: {
-      "discern-design-system": "jsr:@discern-sh/design-system@4.5.6",
-    },
-  };
-  const snapshot = structuredClone(consumer);
+  await withTempDir(async (temporaryRoot) => {
+    const packageRoot = join(temporaryRoot, "future-layout-kit");
+    const sourceRoot = join(packageRoot, "source");
+    const configPath = join(temporaryRoot, "deno.json");
+    const consumer = {
+      imports: {
+        "discern-design-system": "jsr:@discern-sh/design-system@4.5.6",
+      },
+    };
+    const snapshot = structuredClone(consumer);
 
-  try {
     await Deno.mkdir(sourceRoot, { recursive: true });
     await Deno.writeTextFile(
       join(packageRoot, "deno.json"),
@@ -116,9 +114,7 @@ Deno.test("the temporary link resolves an unrelated local version without changi
       "jsr:@discern-sh/design-system@91.2.3",
     );
     assertEquals(consumer, snapshot);
-  } finally {
-    await Deno.remove(temporaryRoot, { recursive: true });
-  }
+  }, { prefix: "discern-local-package-guard-" });
 });
 
 Deno.test("local design-system arguments accept an explicit checkout or the dedicated environment fallback", () => {

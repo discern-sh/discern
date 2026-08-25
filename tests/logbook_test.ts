@@ -925,10 +925,25 @@ Deno.test("store: the epoch sidecar round-trips and tolerates corruption", async
     };
     await writeEpochState(dir, state);
     assertEquals(await readEpochState(dir), state);
-    await Deno.writeTextFile(
-      join(logbookDir(dir), "epoch.json"),
-      "not json {",
-    );
-    assertEquals(await readEpochState(dir), undefined);
+    for (
+      const malformed of [
+        "not json {",
+        JSON.stringify({ schema: LOGBOOK_SCHEMA_VERSION, branches: [] }),
+        JSON.stringify({
+          schema: LOGBOOK_SCHEMA_VERSION,
+          branches: { main: { fingerprint: 42, sections: {} } },
+        }),
+        JSON.stringify({
+          schema: LOGBOOK_SCHEMA_VERSION,
+          branches: { main: { fingerprint: "deadbeef", sections: [] } },
+        }),
+      ]
+    ) {
+      await Deno.writeTextFile(
+        join(logbookDir(dir), "epoch.json"),
+        malformed,
+      );
+      assertEquals(await readEpochState(dir), undefined);
+    }
   });
 });

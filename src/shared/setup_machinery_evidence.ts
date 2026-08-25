@@ -9,6 +9,7 @@
  */
 
 import { dirname } from "@std/path";
+import { atomicReplaceJson } from "./atomic_write.ts";
 import { gitAdminStatePath } from "./git_admin_state.ts";
 import { splitNulRecords } from "./git_paths.ts";
 import { runGit } from "./subprocess.ts";
@@ -248,25 +249,11 @@ async function writeEvidence(
     throw new Error("Git could not resolve the setup machinery evidence path.");
   }
   await Deno.mkdir(dirname(path), { recursive: true });
-  const temp = `${path}.tmp-${crypto.randomUUID()}`;
-  let cleanupError: unknown;
-  try {
-    await Deno.writeTextFile(temp, `${JSON.stringify(evidence)}\n`, {
-      createNew: true,
-    });
-    await Deno.rename(temp, path);
-  } finally {
-    try {
-      await Deno.remove(temp);
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) {
-        cleanupError = error;
-      }
-    }
-  }
-  if (cleanupError !== undefined) {
-    throw cleanupError;
-  }
+  await atomicReplaceJson(path, evidence, {
+    mode: 0o666,
+    sync: false,
+    trailingNewline: true,
+  });
 }
 
 /**

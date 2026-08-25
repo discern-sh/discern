@@ -18,12 +18,13 @@ import {
 import { providerFor } from "../src/lib/providers.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
 import { defaultMapPath } from "./engine_helpers.ts";
+import { withTempDir } from "./helpers.ts";
 
 /** A temp project emitting both providers, with one user instruction source. */
 async function scaffold(
+  tmp: string,
   agents = '["claude_code", "codex"]',
-): Promise<string> {
-  const tmp = await Deno.makeTempDir({ prefix: "discern-render-test-" });
+): Promise<void> {
   await Deno.writeTextFile(
     join(tmp, "discern.toml"),
     [
@@ -35,12 +36,11 @@ async function scaffold(
     ].join("\n"),
   );
   await Deno.writeTextFile(join(tmp, "instructions.md"), "# Mine\nA rule.\n");
-  return tmp;
 }
 
 Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENTS.md pointer", async () => {
-  const dir = await scaffold();
-  try {
+  await withTempDir(async (dir) => {
+    await scaffold(dir);
     const files = await renderAgentFiles(dir);
     assertEquals([...files.keys()].sort(), ["AGENTS.md", "CLAUDE.md"]);
     const agents = files.get("AGENTS.md");
@@ -56,14 +56,11 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
     );
     assert(agents.includes("A rule."), "the user source is appended");
     assertEquals(files.get("CLAUDE.md"), "@AGENTS.md\n");
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-render-test-" });
 });
 
 Deno.test("renderAgentFiles: authored local Markdown destinations keep their project targets for every provider", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-link-base-test-" });
-  try {
+  await withTempDir(async (dir) => {
     await Deno.mkdir(join(dir, "discern"), { recursive: true });
     await Deno.mkdir(join(dir, "policy"), { recursive: true });
     const primary = [
@@ -157,23 +154,19 @@ Deno.test("renderAgentFiles: authored local Markdown destinations keep their pro
         );
       }
     }
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-link-base-test-" });
 });
 
 Deno.test("renderAgentFiles: every generated provider file has one canonical final newline", async () => {
-  const dir = await scaffold(JSON.stringify(AGENT_NAMES));
-  try {
+  await withTempDir(async (dir) => {
+    await scaffold(dir, JSON.stringify(AGENT_NAMES));
     for (const [path, body] of await renderAgentFiles(dir)) {
       assert(
         body.endsWith("\n") && !body.endsWith("\n\n"),
         `${path} must end in exactly one newline`,
       );
     }
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-render-test-" });
 });
 
 Deno.test("renderAgentFiles: discern's own authored links resolve from the compiled root", async () => {
@@ -197,8 +190,8 @@ Deno.test("renderAgentFiles: discern's own authored links resolve from the compi
 });
 
 Deno.test("renderAgentFiles: Cursor configuration does not change the generic worktree instructions", async () => {
-  const dir = await scaffold('["cursor"]');
-  try {
+  await withTempDir(async (dir) => {
+    await scaffold(dir, '["cursor"]');
     const files = await renderAgentFiles(dir);
     const agents = files.get("AGENTS.md");
     assert(agents !== undefined);
@@ -209,14 +202,12 @@ Deno.test("renderAgentFiles: Cursor configuration does not change the generic wo
       !/(external file protection|approval-gates external edits)/i.test(agents),
       "compiled instructions must not condition an agent on Cursor's human-visible approval state",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-render-test-" });
 });
 
 Deno.test("renderAgentFiles: the compiled file opens as the project's own — [project].name, else the slug", async () => {
-  const dir = await scaffold();
-  try {
+  await withTempDir(async (dir) => {
+    await scaffold(dir);
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       '[project]\nslug = "voyager-2"\nagents = ["codex"]\n[instructions]\nsources = ["instructions.md"]\n',
@@ -240,9 +231,7 @@ Deno.test("renderAgentFiles: the compiled file opens as the project's own — [p
       agents.startsWith("# Working in Voyager 2"),
       "[project].name wins over the slug in the H1",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-render-test-" });
 });
 
 Deno.test("renderAgentFiles: every reuse-canonical agent configured alone emits the canonical it reads", async () => {
@@ -255,8 +244,8 @@ Deno.test("renderAgentFiles: every reuse-canonical agent configured alone emits 
   );
 
   for (const name of reuseAgents) {
-    const dir = await scaffold(`["${name}"]`);
-    try {
+    await withTempDir(async (dir) => {
+      await scaffold(dir, `["${name}"]`);
       const provider = providerFor(name);
       assert(provider !== undefined);
       const gf = provider.instructionFile;
@@ -272,9 +261,7 @@ Deno.test("renderAgentFiles: every reuse-canonical agent configured alone emits 
         body.includes("A rule."),
         `${name} canonical instructions should carry the compiled body`,
       );
-    } finally {
-      await Deno.remove(dir, { recursive: true });
-    }
+    }, { prefix: "discern-render-test-" });
   }
 });
 
@@ -282,23 +269,21 @@ Deno.test("renderAgentFiles: internal map slots never reach provider output", as
   // The provider registry is the enrollment source: a new integration that emits
   // a full agent file joins this guard without adding its name here.
   for (const name of AGENT_NAMES) {
-    const dir = await scaffold(`["${name}"]`);
-    try {
+    await withTempDir(async (dir) => {
+      await scaffold(dir, `["${name}"]`);
       for (const [path, body] of await renderAgentFiles(dir)) {
         assert(
           !body.includes("discern:map-regions"),
           `${name} leaked the internal map slot through ${path}`,
         );
       }
-    } finally {
-      await Deno.remove(dir, { recursive: true });
-    }
+    }, { prefix: "discern-render-test-" });
   }
 });
 
 Deno.test("checkInstructionCurrent: clean after a compile; flags a hand-edit stale and a delete missing", async () => {
-  const dir = await scaffold();
-  try {
+  await withTempDir(async (dir) => {
+    await scaffold(dir);
     await compileInstructions(dir);
     // Freshly compiled → everything matches what refresh would write.
     assertEquals(await checkInstructionCurrent(dir), []);
@@ -324,9 +309,7 @@ Deno.test("checkInstructionCurrent: clean after a compile; flags a hand-edit sta
     const missing = afterDelete[0];
     assert(missing !== undefined);
     assertEquals([missing.path, missing.reason], ["CLAUDE.md", "missing"]);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-render-test-" });
 });
 
 Deno.test("compile converges when [instructions].sources globs the generated files' location", async () => {
@@ -336,8 +319,7 @@ Deno.test("compile converges when [instructions].sources globs the generated fil
   // compiled body (unbounded growth) and the currency check reads the freshly
   // written file as a new source, reporting `stale` forever — a blocked gate
   // whose prescribed remediation (`discern refresh`) can never clear it.
-  const dir = await Deno.makeTempDir({ prefix: "discern-render-test-" });
-  try {
+  await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       [
@@ -358,30 +340,26 @@ Deno.test("compile converges when [instructions].sources globs the generated fil
     await compileInstructions(dir);
     const second = await Deno.readTextFile(join(dir, "AGENTS.md"));
     assertEquals(second, first, "consecutive refreshes must be byte-identical");
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-render-test-" });
 });
 
 Deno.test("renderAgentFiles: two renders of the same committed inputs are byte-identical (deterministic)", async () => {
   // Built-in sections read committed config and the map's top-level structure,
   // so the compile output cannot vary between runs over the same tree.
-  const dir = await scaffold();
-  try {
+  await withTempDir(async (dir) => {
+    await scaffold(dir);
     const a = await renderAgentFiles(dir);
     const b = await renderAgentFiles(dir);
     assertEquals([...a.keys()].sort(), [...b.keys()].sort());
     for (const [path, body] of a) {
       assertEquals(b.get(path), body, `${path} must render identically twice`);
     }
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-render-test-" });
 });
 
 Deno.test("renderAgentFiles: map regions enroll automatically without leaf churn", async () => {
-  const dir = await scaffold('["codex"]');
-  try {
+  await withTempDir(async (dir) => {
+    await scaffold(dir, '["codex"]');
     await Deno.mkdir(defaultMapPath(dir, "20-quality-gate"), {
       recursive: true,
     });
@@ -440,278 +418,267 @@ Deno.test("renderAgentFiles: map regions enroll automatically without leaf churn
       ),
       "authored instructions outside the owned slot must remain significant",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-render-test-" });
 });
 
 Deno.test("renderAgentFiles: the built-in instructions reflect config (interpolation is real, not cosmetic)", async () => {
   // Bare = schema defaults (branch_prefix agent/, trunk main, no standards,
   // no resources). Rich = custom branch/main, a standard, and a resource declared.
-  const bare = await Deno.makeTempDir({ prefix: "discern-tmpl-bare-" });
-  const rich = await Deno.makeTempDir({ prefix: "discern-tmpl-rich-" });
-  try {
-    await Deno.writeTextFile(
-      join(bare, "discern.toml"),
-      '[project]\nagents = ["codex"]\n',
-    );
-    await Deno.writeTextFile(
-      join(rich, "discern.toml"),
-      [
-        "[repository]",
-        'branch_prefix = "wt/"',
-        'trunk = "trunk"',
-        "[project]",
-        'agents = ["codex"]',
-        "[standards.coverage]",
-        'direction = "up"',
-        "limit = 80",
-        'run = "echo DISCERN_METRIC coverage 80"',
-        "[worktree.resources.db]",
-        'create = "createdb x"',
-        'destroy = "dropdb x"',
-        "",
-      ].join("\n"),
-    );
-
-    const bareBody = (await renderAgentFiles(bare)).get("AGENTS.md");
-    const richBody = (await renderAgentFiles(rich)).get("AGENTS.md");
-    assert(bareBody !== undefined && richBody !== undefined);
-    assert(
-      bareBody !== richBody,
-      "config must change the rendered instructions",
-    );
-
-    // {{var}} interpolates the committed values.
-    assert(bareBody.includes("branch prefix `agent/`"), "bare branch prefix");
-    assert(richBody.includes("branch prefix `wt/`"), "rich branch prefix");
-    // The integration branch interpolates too (asserted on the backticked token,
-    // since prose line-wrapping may separate it from neighbouring words).
-    assert(bareBody.includes("`main`"), "bare integration branch");
-    assert(richBody.includes("`trunk`"), "rich integration branch");
-    assert(
-      !richBody.includes("`main`"),
-      "custom trunk replaces the default",
-    );
-
-    // {{#if has_standards}} selects configured instructions or the adoption seed.
-    assert(
-      bareBody.includes(
-        "No quality standards yet. When a number the user cares about comes up — coverage, bundle size, TODO count — offer `discern-set-the-standard`.",
-      ),
-      "an unconfigured project gets the standards adoption seed",
-    );
-    assert(
-      bareBody.includes("## Quality standards"),
-      "the standards adoption seed keeps its section heading",
-    );
-    assert(
-      !bareBody.includes("Standards are **numbers that can never get worse**"),
-      "an unconfigured project omits the configured standards instructions",
-    );
-    assert(
-      richBody.includes("Standards are **numbers that can never get worse**"),
-      "a configured project gets the standards instructions",
-    );
-    assert(
-      !richBody.includes("No quality standards yet."),
-      "a configured project omits the standards adoption seed",
-    );
-
-    // {{#if has_worktree_resources}} selects the lifecycle detail or its seed.
-    assert(
-      !bareBody.includes("per-worktree external"),
-      "no inert resource prose",
-    );
-    assert(
-      bareBody.includes(
-        "No per-worktree resources are configured. If parallel worktrees collide over shared state (a database, a port), the `[worktree.resources]` table isolates it per worktree.",
-      ),
-      "an unconfigured project gets the resources adoption seed",
-    );
-    assert(
-      richBody.includes("per-worktree external"),
-      "resource detail present",
-    );
-    assert(richBody.includes("--resource <name>"), "resource flag documented");
-    assert(
-      !richBody.includes("No per-worktree resources are configured."),
-      "a configured project omits the resources adoption seed",
-    );
-
-    assert(
-      bareBody.includes(
-        "explicit consent from this conversation or machine-verified authority",
-      ),
-      "acceptance requires conversation consent or checked recorded authority",
-    );
-    assert(
-      bareBody.includes("follow its authority-aware hint"),
-      "the runtime result, not static prose, chooses the landing route",
-    );
-    assert(
-      bareBody.includes(
-        "either report the one-line proof and stop, or land under the verified grant",
-      ),
-      "a green finish still needs one verified source of landing authority",
-    );
-    for (
-      const [meaning, needle] of [
-        [
-          "start is reserved for an effort with no worktree",
-          "only for an effort without a worktree",
-        ],
-        [
-          "start explains how to move the agent into the returned checkout",
-          "re-root into the returned path using your native worktree-entering tool when available",
-        ],
-        [
-          "later fixes and sessions keep the returned checkout",
-          "Continue in the worktree throughout the entire effort",
-        ],
-        [
-          "the no-re-root fallback applies to every shell command and discern tool",
-          "prefix every shell command with `cd <path> &&` and pass `path` to every discern tool",
-        ],
-        [
-          "update replaces pre-checks and hand merges",
-          "call it directly instead of pre-checking with git or hand-merging",
-        ],
-        [
-          "from accepts an arbitrary ref and composes below the trunk",
-          "`from` (any ref) — work composes below the trunk",
-        ],
-        [
-          "await instructions states what the call watches",
-          "watches a sibling or the trunk in one longest-safe call",
-        ],
-        [
-          "an active await call produces no progress updates",
-          "Do not surface progress updates until it returns",
-        ],
-        [
-          "an unmet await continuation produces no update",
-          "continue with `data.resume` without surfacing an update",
-        ],
-        [
-          "await continuations have no fixed retry count",
-          "Repeat without a fixed limit until the condition holds",
-        ],
-        [
-          "a refusal follows recovery instead of continuing",
-          "An `ok: false` refusal has no continuation. Do not resume it. Follow its recovery hint",
-        ],
-        [
-          "atomic history survives acceptance",
-          "commit each logical step. Acceptance lands your branch history as-is",
-        ],
-        [
-          "the gate proof belongs to the final clean commit",
-          "run `discern_done` once on the clean HEAD — acceptance reuses that proof",
-        ],
-        [
-          "another effort's clean worktree remains off limits",
-          "Never adopt another effort's worktree because it is idle or clean",
-        ],
-      ] as const
-    ) {
-      assertStringIncludes(
-        bareBody,
-        needle,
-        `worktree instructions lost this operational safeguard: ${meaning}`,
+  await withTempDir(async (bare) => {
+    await withTempDir(async (rich) => {
+      await Deno.writeTextFile(
+        join(bare, "discern.toml"),
+        '[project]\nagents = ["codex"]\n',
       );
-    }
-  } finally {
-    await Deno.remove(bare, { recursive: true });
-    await Deno.remove(rich, { recursive: true });
-  }
+      await Deno.writeTextFile(
+        join(rich, "discern.toml"),
+        [
+          "[repository]",
+          'branch_prefix = "wt/"',
+          'trunk = "trunk"',
+          "[project]",
+          'agents = ["codex"]',
+          "[standards.coverage]",
+          'direction = "up"',
+          "limit = 80",
+          'run = "echo DISCERN_METRIC coverage 80"',
+          "[worktree.resources.db]",
+          'create = "createdb x"',
+          'destroy = "dropdb x"',
+          "",
+        ].join("\n"),
+      );
+
+      const bareBody = (await renderAgentFiles(bare)).get("AGENTS.md");
+      const richBody = (await renderAgentFiles(rich)).get("AGENTS.md");
+      assert(bareBody !== undefined && richBody !== undefined);
+      assert(
+        bareBody !== richBody,
+        "config must change the rendered instructions",
+      );
+
+      // {{var}} interpolates the committed values.
+      assert(bareBody.includes("branch prefix `agent/`"), "bare branch prefix");
+      assert(richBody.includes("branch prefix `wt/`"), "rich branch prefix");
+      // The integration branch interpolates too (asserted on the backticked token,
+      // since prose line-wrapping may separate it from neighbouring words).
+      assert(bareBody.includes("`main`"), "bare integration branch");
+      assert(richBody.includes("`trunk`"), "rich integration branch");
+      assert(
+        !richBody.includes("`main`"),
+        "custom trunk replaces the default",
+      );
+
+      // {{#if has_standards}} selects configured instructions or the adoption seed.
+      assert(
+        bareBody.includes(
+          "No quality standards yet. When a number the user cares about comes up — coverage, bundle size, TODO count — offer `discern-set-the-standard`.",
+        ),
+        "an unconfigured project gets the standards adoption seed",
+      );
+      assert(
+        bareBody.includes("## Quality standards"),
+        "the standards adoption seed keeps its section heading",
+      );
+      assert(
+        !bareBody.includes(
+          "Standards are **numbers that can never get worse**",
+        ),
+        "an unconfigured project omits the configured standards instructions",
+      );
+      assert(
+        richBody.includes("Standards are **numbers that can never get worse**"),
+        "a configured project gets the standards instructions",
+      );
+      assert(
+        !richBody.includes("No quality standards yet."),
+        "a configured project omits the standards adoption seed",
+      );
+
+      // {{#if has_worktree_resources}} selects the lifecycle detail or its seed.
+      assert(
+        !bareBody.includes("per-worktree external"),
+        "no inert resource prose",
+      );
+      assert(
+        bareBody.includes(
+          "No per-worktree resources are configured. If parallel worktrees collide over shared state (a database, a port), the `[worktree.resources]` table isolates it per worktree.",
+        ),
+        "an unconfigured project gets the resources adoption seed",
+      );
+      assert(
+        richBody.includes("per-worktree external"),
+        "resource detail present",
+      );
+      assert(
+        richBody.includes("--resource <name>"),
+        "resource flag documented",
+      );
+      assert(
+        !richBody.includes("No per-worktree resources are configured."),
+        "a configured project omits the resources adoption seed",
+      );
+
+      assert(
+        bareBody.includes(
+          "explicit consent from this conversation or machine-verified authority",
+        ),
+        "acceptance requires conversation consent or checked recorded authority",
+      );
+      assert(
+        bareBody.includes("follow its authority-aware hint"),
+        "the runtime result, not static prose, chooses the landing route",
+      );
+      assert(
+        bareBody.includes(
+          "either report the one-line proof and stop, or land under the verified grant",
+        ),
+        "a green finish still needs one verified source of landing authority",
+      );
+      for (
+        const [meaning, needle] of [
+          [
+            "start is reserved for an effort with no worktree",
+            "only for an effort without a worktree",
+          ],
+          [
+            "start explains how to move the agent into the returned checkout",
+            "re-root into the returned path using your native worktree-entering tool when available",
+          ],
+          [
+            "later fixes and sessions keep the returned checkout",
+            "Continue in the worktree throughout the entire effort",
+          ],
+          [
+            "the no-re-root fallback applies to every shell command and discern tool",
+            "prefix every shell command with `cd <path> &&` and pass `path` to every discern tool",
+          ],
+          [
+            "update replaces pre-checks and hand merges",
+            "call it directly instead of pre-checking with git or hand-merging",
+          ],
+          [
+            "from accepts an arbitrary ref and composes below the trunk",
+            "`from` (any ref) — work composes below the trunk",
+          ],
+          [
+            "await instructions states what the call watches",
+            "watches a sibling or the trunk in one longest-safe call",
+          ],
+          [
+            "an active await call produces no progress updates",
+            "Do not surface progress updates until it returns",
+          ],
+          [
+            "an unmet await continuation produces no update",
+            "continue with `data.resume` without surfacing an update",
+          ],
+          [
+            "await continuations have no fixed retry count",
+            "Repeat without a fixed limit until the condition holds",
+          ],
+          [
+            "a refusal follows recovery instead of continuing",
+            "An `ok: false` refusal has no continuation. Do not resume it. Follow its recovery hint",
+          ],
+          [
+            "atomic history survives acceptance",
+            "commit each logical step. Acceptance lands your branch history as-is",
+          ],
+          [
+            "the gate proof belongs to the final clean commit",
+            "run `discern_done` once on the clean HEAD — acceptance reuses that proof",
+          ],
+          [
+            "another effort's clean worktree remains off limits",
+            "Never adopt another effort's worktree because it is idle or clean",
+          ],
+        ] as const
+      ) {
+        assertStringIncludes(
+          bareBody,
+          needle,
+          `worktree instructions lost this operational safeguard: ${meaning}`,
+        );
+      }
+    }, { prefix: "discern-tmpl-rich-" });
+  }, { prefix: "discern-tmpl-bare-" });
 });
 
 Deno.test("renderAgentFiles: excluding the teach skill removes its instructions reference", async () => {
-  const included = await Deno.makeTempDir({
-    prefix: "discern-teach-included-",
-  });
-  const excluded = await Deno.makeTempDir({
-    prefix: "discern-teach-excluded-",
-  });
-  try {
-    await Deno.writeTextFile(
-      join(included, "discern.toml"),
-      '[project]\nagents = ["codex"]\n',
-    );
-    await Deno.writeTextFile(
-      join(excluded, "discern.toml"),
-      [
-        "[project]",
-        'agents = ["codex"]',
-        "[skills]",
-        'exclude = ["discern-teach-the-project"]',
-        "",
-      ].join("\n"),
-    );
+  await withTempDir(async (included) => {
+    await withTempDir(async (excluded) => {
+      await Deno.writeTextFile(
+        join(included, "discern.toml"),
+        '[project]\nagents = ["codex"]\n',
+      );
+      await Deno.writeTextFile(
+        join(excluded, "discern.toml"),
+        [
+          "[project]",
+          'agents = ["codex"]',
+          "[skills]",
+          'exclude = ["discern-teach-the-project"]',
+          "",
+        ].join("\n"),
+      );
 
-    const includedBody = (await renderAgentFiles(included)).get("AGENTS.md");
-    const excludedBody = (await renderAgentFiles(excluded)).get("AGENTS.md");
-    assert(includedBody !== undefined && excludedBody !== undefined);
-    assertStringIncludes(includedBody, "discern-teach-the-project");
-    assert(
-      !excludedBody.includes("discern-teach-the-project"),
-      "compiled instructions must not name an excluded skill",
-    );
-  } finally {
-    await Deno.remove(included, { recursive: true });
-    await Deno.remove(excluded, { recursive: true });
-  }
+      const includedBody = (await renderAgentFiles(included)).get("AGENTS.md");
+      const excludedBody = (await renderAgentFiles(excluded)).get("AGENTS.md");
+      assert(includedBody !== undefined && excludedBody !== undefined);
+      assertStringIncludes(includedBody, "discern-teach-the-project");
+      assert(
+        !excludedBody.includes("discern-teach-the-project"),
+        "compiled instructions must not name an excluded skill",
+      );
+    }, { prefix: "discern-teach-excluded-" });
+  }, { prefix: "discern-teach-included-" });
 });
 
 Deno.test("renderAgentFiles: the never-edit sentence names the project's real generated files (config-derived)", async () => {
   // generated_agent_files / materialized_skills_dirs derive from [project].agents
   // through the SAME registry renderAgentFiles / materializeSkills write to, so the
   // names base.md prints can never drift from the files actually produced.
-  const solo = await Deno.makeTempDir({ prefix: "discern-genfiles-solo-" });
-  const multi = await Deno.makeTempDir({ prefix: "discern-genfiles-multi-" });
-  try {
-    await Deno.writeTextFile(
-      join(solo, "discern.toml"),
-      '[project]\nagents = ["codex"]\n',
-    );
-    await Deno.writeTextFile(
-      join(multi, "discern.toml"),
-      '[project]\nagents = ["claude_code", "codex", "gemini"]\n',
-    );
-    const soloBody = (await renderAgentFiles(solo)).get("AGENTS.md");
-    const multiBody = (await renderAgentFiles(multi)).get("AGENTS.md");
-    assert(soloBody !== undefined && multiBody !== undefined);
+  await withTempDir(async (solo) => {
+    await withTempDir(async (multi) => {
+      await Deno.writeTextFile(
+        join(solo, "discern.toml"),
+        '[project]\nagents = ["codex"]\n',
+      );
+      await Deno.writeTextFile(
+        join(multi, "discern.toml"),
+        '[project]\nagents = ["claude_code", "codex", "gemini"]\n',
+      );
+      const soloBody = (await renderAgentFiles(solo)).get("AGENTS.md");
+      const multiBody = (await renderAgentFiles(multi)).get("AGENTS.md");
+      assert(soloBody !== undefined && multiBody !== undefined);
 
-    // Solo: codex alone → only its file and skills dir are named. (Anchored on the
-    // parenthesised list, not the preceding prose, so a line-wrap can't break it.)
-    assert(soloBody.includes("(`AGENTS.md`"), soloBody);
-    assert(soloBody.includes("(`.agents/skills`)"), soloBody);
-    assert(!soloBody.includes("CLAUDE.md"), "no agent it doesn't generate");
+      // Solo: codex alone → only its file and skills dir are named. (Anchored on the
+      // parenthesised list, not the preceding prose, so a line-wrap can't break it.)
+      assert(soloBody.includes("(`AGENTS.md`"), soloBody);
+      assert(soloBody.includes("(`.agents/skills`)"), soloBody);
+      assert(!soloBody.includes("CLAUDE.md"), "no agent it doesn't generate");
 
-    // Multi: every configured agent's file is named, deduping the shared skills dir
-    // (codex + gemini both materialize into .agents/skills).
-    assert(
-      multiBody.includes("`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`"),
-      multiBody,
-    );
-    assert(
-      multiBody.includes("`.claude/skills`, `.agents/skills`"),
-      "codex + gemini share .agents/skills — deduped, not listed twice",
-    );
-    // Config-derived: a different agent set yields a different list.
-    assert(soloBody !== multiBody, "the file list tracks [project].agents");
-  } finally {
-    await Deno.remove(solo, { recursive: true });
-    await Deno.remove(multi, { recursive: true });
-  }
+      // Multi: every configured agent's file is named, deduping the shared skills dir
+      // (codex + gemini both materialize into .agents/skills).
+      assert(
+        multiBody.includes("`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`"),
+        multiBody,
+      );
+      assert(
+        multiBody.includes("`.claude/skills`, `.agents/skills`"),
+        "codex + gemini share .agents/skills — deduped, not listed twice",
+      );
+      // Config-derived: a different agent set yields a different list.
+      assert(soloBody !== multiBody, "the file list tracks [project].agents");
+    }, { prefix: "discern-genfiles-multi-" });
+  }, { prefix: "discern-genfiles-solo-" });
 });
 
 Deno.test("checkInstructionCurrent: a templated, non-default config compiles current (no drift)", async () => {
   // Proves the templated output a refresh writes is exactly what the currency
   // check recomputes — the ADR 0034 invariant, exercised with live interpolation.
-  const dir = await Deno.makeTempDir({ prefix: "discern-tmpl-currency-" });
-  try {
+  await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       [
@@ -731,14 +698,12 @@ Deno.test("checkInstructionCurrent: a templated, non-default config compiles cur
     );
     await compileInstructions(dir);
     assertEquals(await checkInstructionCurrent(dir), []);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-tmpl-currency-" });
 });
 
 Deno.test("renderAgentFiles: base instructions are MCP-first with a CLI fallback (no envelope dump or roster)", async () => {
-  const dir = await scaffold();
-  try {
+  await withTempDir(async (dir) => {
+    await scaffold(dir);
     const body = (await renderAgentFiles(dir)).get("AGENTS.md");
     assert(body !== undefined);
     // MCP-first stance + the unreachable-server fallback are present...
@@ -761,9 +726,7 @@ Deno.test("renderAgentFiles: base instructions are MCP-first with a CLI fallback
       !body.includes("discern_impact"),
       "the enumerated tool roster is cut",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-render-test-" });
 });
 
 Deno.test("renderAgentFiles: every instructions template input is config-driven — no hardcoded value can creep in", async () => {
@@ -869,23 +832,19 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
   };
 
   const renderBody = async (toml: string): Promise<string> => {
-    const dir = await Deno.makeTempDir({ prefix: "discern-var-case-" });
-    try {
+    return await withTempDir(async (dir) => {
       await Deno.writeTextFile(join(dir, "discern.toml"), toml);
       await Deno.writeTextFile(join(dir, "zz-rules.md"), "# sentinel source\n");
       const body = (await renderAgentFiles(dir)).get("AGENTS.md");
       assert(body !== undefined, `no AGENTS.md rendered for:\n${toml}`);
       return body;
-    } finally {
-      await Deno.remove(dir, { recursive: true });
-    }
+    }, { prefix: "discern-var-case-" });
   };
 
   // SSOT coverage: the cases must name EXACTLY the context's variables — a new var
   // can't ship without a guard, and a removed one can't leave a dead case behind.
   let baselinePreds: Record<string, boolean> = {};
-  const probe = await Deno.makeTempDir({ prefix: "discern-var-probe-" });
-  try {
+  await withTempDir(async (probe) => {
     await Deno.writeTextFile(
       join(probe, "discern.toml"),
       '[project]\nagents = ["codex"]\n',
@@ -902,17 +861,14 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
       Object.keys(ctx.preds).sort(),
       "every instructions {{#if}} needs a config-driven case here (and vice versa)",
     );
-  } finally {
-    await Deno.remove(probe, { recursive: true });
-  }
+  }, { prefix: "discern-var-probe-" });
 
   const baseline = await renderBody('[project]\nagents = ["codex"]\n');
   for (const [name, c] of Object.entries(cases)) {
     if (c.contextOnly === true) {
       // Not consumed by any built-in section: prove the context value itself
       // flows from config (the rendered-skill surface reads the same context).
-      const dir = await Deno.makeTempDir({ prefix: "discern-var-ctx-" });
-      try {
+      await withTempDir(async (dir) => {
         await Deno.writeTextFile(join(dir, "discern.toml"), c.toml);
         const ctx = instructionContext(await loadConfig(dir));
         assertEquals(
@@ -920,9 +876,7 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
           c.expect,
           `${name}: the configured value must flow into the instruction context`,
         );
-      } finally {
-        await Deno.remove(dir, { recursive: true });
-      }
+      }, { prefix: "discern-var-ctx-" });
       continue;
     }
     const body = await renderBody(c.toml);
@@ -938,8 +892,7 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
     }
   }
   for (const [name, c] of Object.entries(predicateCases)) {
-    const dir = await Deno.makeTempDir({ prefix: "discern-pred-case-" });
-    try {
+    await withTempDir(async (dir) => {
       await Deno.writeTextFile(join(dir, "discern.toml"), c.toml);
       const ctx = instructionContext(await loadConfig(dir));
       assertEquals(
@@ -947,9 +900,7 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
         c.expect,
         `${name}: the configured value must flow into the instruction context`,
       );
-    } finally {
-      await Deno.remove(dir, { recursive: true });
-    }
+    }, { prefix: "discern-pred-case-" });
     // A predicate guards conditional prose, so its case must flip the baseline
     // value and provably change the compiled body — a context-only check would
     // let a branch compile to nothing without any test noticing.

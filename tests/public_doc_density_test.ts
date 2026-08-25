@@ -19,6 +19,7 @@ import { join } from "@std/path";
 import { MANUAL_SECTION_REGISTRY } from "../src/lib/paths.ts";
 import { publicDocEntries } from "../scripts/public_doc_density_lib.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { withTempDir } from "./helpers.ts";
 
 /** Resolve the configured manual directory for one published audience tier. */
 function registrySection(audience: "public" | "contributor"): string {
@@ -34,8 +35,7 @@ function registrySection(audience: "public" | "contributor"): string {
 Deno.test("the density metric counts only public published pages, frontmatter excluded", async () => {
   const publicSection = registrySection("public");
   const contributorSection = registrySection("contributor");
-  const dir = await Deno.makeTempDir({ prefix: "discern-density-" });
-  try {
+  await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "README.md"),
       "# Index\n\nfour words of prose\n",
@@ -89,7 +89,5 @@ Deno.test("the density metric counts only public published pages, frontmatter ex
     // withheld page's 500 words, the contributor runbook's 400, and the
     // private tree's 300 never count.
     assertEquals(metric("public_doc_words"), 12);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-density-" });
 });
