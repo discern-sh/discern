@@ -74,6 +74,7 @@ import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { stripAdrCitations } from "../lib/adr_citations.ts";
 import { pathMatchesPattern } from "../engine/scopes/glob.ts";
 import { loadConfig } from "../shared/config_schema.ts";
+import { bestEffortFs, directoryExists } from "../shared/fs_presence.ts";
 import { expandSourcePathReferences } from "../shared/source_path_references.ts";
 import { observeVerbTarget } from "../shared/result_capture.ts";
 import {
@@ -492,12 +493,8 @@ function widenInternalForTarget(
 
 /** Whether the resolved source tree actually carries the checkout-only records. */
 async function hasDecisionRecords(dir: string | undefined): Promise<boolean> {
-  if (dir === undefined) return false;
-  try {
-    return (await Deno.stat(join(dir, DOCS_ADR_DOC_DIR))).isDirectory;
-  } catch {
-    return false;
-  }
+  return dir !== undefined &&
+    await directoryExists(join(dir, DOCS_ADR_DOC_DIR));
 }
 
 /**
@@ -739,14 +736,14 @@ async function searchData(
     tree.entries.map((entry) => [canonicalDocTarget(entry), entry]),
   );
   const pages = await Promise.all(tree.entries.map(async (entry) => {
-    let source = "";
-    try {
-      source = await Deno.readTextFile(entry.absPath);
-    } catch {
-      // Discovery keeps an unreadable leaf in the index with metadata fallbacks.
-      // Search preserves that contract: metadata can still find it, while its
-      // unavailable body contributes no full-text terms.
-    }
+    const source = await bestEffortFs(
+      () => Deno.readTextFile(entry.absPath),
+      {
+        onFailure: "",
+        reason:
+          "Search keeps an unreadable leaf discoverable by metadata while omitting its body terms.",
+      },
+    );
     const content = renderableBody(desc, source);
     return searchPageFromMarkdown({
       route: canonicalDocTarget(entry),

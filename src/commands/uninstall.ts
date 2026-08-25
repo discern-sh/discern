@@ -39,7 +39,11 @@
 import { dirname, join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { findRoot, notInitializedResult } from "../shared/env.ts";
-import { pathExists, readTextIfExists } from "../shared/fs_presence.ts";
+import {
+  pathExists,
+  readDirIfExists,
+  readTextIfExists,
+} from "../shared/fs_presence.ts";
 import {
   type DiscernConfig,
   loadConfig,
@@ -423,16 +427,9 @@ async function pruneEmptyDirs(
   for (let rel of deepestFirst) {
     while (rel !== "" && rel !== "." && !rel.startsWith("..")) {
       const dir = join(root, rel);
-      let empty: boolean;
-      try {
-        empty = true;
-        for await (const _entry of Deno.readDir(dir)) {
-          empty = false;
-          break;
-        }
-      } catch {
-        break; // absent or not a directory
-      }
+      const entries = await readDirIfExists(dir);
+      if (entries === undefined) break;
+      const empty = entries.length === 0;
       if (!empty) {
         break;
       }
@@ -575,7 +572,7 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
   // main checkout (do it from the trunk once the fleet is landed).
   const fleet = await listWorktreeFleet(root);
   const mainEntry = fleet.find((w) => w.isMain);
-  const rootReal = await Deno.realPath(root).catch(() => root);
+  const rootReal = await Deno.realPath(root);
   if (mainEntry !== undefined && mainEntry.path !== rootReal) {
     const message =
       `run uninstall from the main checkout, not a linked worktree — it is at ${mainEntry.path}.`;

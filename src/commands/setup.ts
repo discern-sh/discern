@@ -105,7 +105,7 @@ import {
   findRoot,
   NO_PROJECT_MESSAGE,
 } from "../shared/env.ts";
-import { pathExists } from "../shared/fs_presence.ts";
+import { pathExists, readTextIfExists } from "../shared/fs_presence.ts";
 import { AWAITING_CONSENT_SLUG } from "../shared/consent.ts";
 import { emitResult } from "../shared/emit.ts";
 import {
@@ -908,12 +908,9 @@ async function seedInstructions(
     }
     const seen = new Set<string>();
     for (const rel of allInstructionFilePaths()) {
-      let body: string;
-      try {
-        body = (await Deno.readTextFile(join(root, rel))).trim();
-      } catch {
-        continue; // absent — nothing to preserve
-      }
+      const existing = await readTextIfExists(join(root, rel));
+      if (existing === undefined) continue;
+      const body = existing.trim();
       if (body.length === 0) continue;
       if (
         ownRenderPatterns?.some((pattern) =>
@@ -988,12 +985,8 @@ async function recordProvenance(
   model: string | undefined,
 ): Promise<void> {
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
-  let raw: string;
-  try {
-    raw = await Deno.readTextFile(path);
-  } catch {
-    return; // no config to stamp (shouldn't happen post-scaffold)
-  }
+  const raw = await readTextIfExists(path);
+  if (raw === undefined) return;
   const existing = new RawConfig(raw);
   const editor = new TomlEditor(raw);
   let changed = false;

@@ -24,7 +24,7 @@
 import { dirname, fromFileUrl, join } from "@std/path";
 import { notInitializedResult } from "../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
-import { directoryExists } from "../shared/fs_presence.ts";
+import { directoryExists, readTextIfExists } from "../shared/fs_presence.ts";
 import { Logger } from "../lib/log.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
@@ -57,15 +57,8 @@ const PRESET_MANIFEST = "preset.json";
 async function loadPresetFills(
   presetDir: string,
 ): Promise<DiscernConfigDoc | undefined> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(join(presetDir, PRESET_MANIFEST));
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
+  const text = await readTextIfExists(join(presetDir, PRESET_MANIFEST));
+  if (text === undefined) return undefined;
   const parsed: unknown = JSON.parse(text);
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error(`${PRESET_MANIFEST} must be a JSON object`);
