@@ -321,6 +321,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0333 — Proof-note replay uses stable claim identity](0333-proof-note-replay-uses-stable-claim-identity.md)
 - [0334 — Result envelopes encode valid structural states](0334-result-envelopes-encode-valid-structural-states.md)
 - [0335 — Operation policy enrolls faithful previews](0335-operation-policy-enrolls-faithful-previews.md)
+- [0336 — Ambient process state resolves at host boundaries](0336-ambient-process-state-resolves-at-boundaries.md)
 
 <!-- END GENERATED: current ADR records -->
 

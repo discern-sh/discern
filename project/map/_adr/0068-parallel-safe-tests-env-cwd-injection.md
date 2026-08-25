@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** the current test pointer uses `standards` (formerly `ratchets`), and current pointers use known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
+> - **Production boundary completion ([ADR 0336](0336-ambient-process-state-resolves-at-boundaries.md)):** the injection rule now covers authored production and script code. Ambient reads remain only in injectable default parameters or registered host-boundary modules, while process-environment mutation has its own exact registry.
 
 **Status**: accepted. The test suite runs under `deno test --parallel`. To make that safe, every function that consults ambient process state — an env override or the working directory — takes an injectable seam (an `EnvReader` defaulting to `Deno.env`, or an explicit `cwd`/`env` argument), so a unit test supplies the value directly instead of mutating the process. A forcing-function guard (in the lineage of [ADR 0051](0051-canonical-set-parity.md)) fails the gate if any test reintroduces a process-global mutation.
 
