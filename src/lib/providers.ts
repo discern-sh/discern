@@ -20,7 +20,7 @@ import {
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
 import { runGit } from "../shared/subprocess.ts";
-import { resolveWorktreeRoot } from "./paths.ts";
+import { resolveWorktreeRoot } from "./worktree_root.ts";
 import {
   mergeJsonSettingsDedupingGroups,
   mergeJsonSettingsText,

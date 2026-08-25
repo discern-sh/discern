@@ -51,6 +51,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 17      | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 4       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
+| [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 14      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 4       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 189     | "Advisory"       | node `hints`                |
@@ -85,7 +86,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 315     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 317     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -100,9 +101,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 89      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 90      | —                | node `canonical-sets`       |
 
-89 sets · 145 guard tests · 58 committed artifacts.
+90 sets · 146 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -122,6 +123,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/art_browser_gallery_test.ts`                | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/art_gallery_test.ts`                        | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants), [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs), [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                                                                                                                                                                                                                                   |
 | `tests/artifact_ownership_test.ts`                 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `tests/atomic_write_enrolment_test.ts`             | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/boundary_canon_test.ts`                     | [`brand-boundaries`](#brand-boundaries--boundary-canon)                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/brand_animation_test.ts`                    | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/brand_art_test.ts`                          | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -1292,6 +1294,30 @@ The shipped capability modules whose importers are restricted: attributed commit
 - Guards: `tests/writer_boundary_enrolment_test.ts`
 - Glossary: not enrolled — the writer-boundary reference owns this internal authority vocabulary for existing workflows
 - Feature canon: not enrolled — the existing workflow nodes own the behavior this boundary enforces
+
+## `intentional-deno-renames` — Intentional Deno renames
+
+Every authored Deno rename outside the atomic replacement capability, identified by source path and enclosing function with the reason its move semantics are intentional.
+
+- Source: `tests/atomic_write_renames.ts` — `REGISTERED_RENAMES`
+- Members: 14
+  - `scripts/cli_install.ts#writeExecutableSync`
+  - `src/engine/logbook/store.ts#detachLogbook`
+  - `src/engine/worktree/effort_grant_cleanup.ts#claimEffortGrant`
+  - `src/lib/migrations.ts#rename`
+  - `src/shared/self_shim.ts#writeShimAside`
+  - `src/shared/write_preflight.ts#probeDirectoryEntry`
+  - `tests/engine_done_json_surfaces_test.ts#Deno.test("done --json: two ADR records claiming one number fail the adr_numbers check; renumbering fixes it")`
+  - `tests/engine_worktree_prune_test.ts#Deno.test("orphan sweep apply keeps a dir that gained work after the scan")`
+  - `tests/engine_worktree_prune_test.ts#Deno.test("remove-worktree-safely refuses a symlink substituted for the registered path")`
+  - `tests/engine_worktree_prune_test.ts#Deno.test("worktree prune does not let an orphan env file assert destructive ownership")`
+  - `tests/engine_worktree_prune_test.ts#Deno.test("worktree prune keeps a dirty orphaned dir at the configured worktree root")`
+  - `tests/engine_worktree_prune_test.ts#Deno.test("worktree prune reclaims a clean fully-orphaned dir at the configured worktree root")`
+  - `tests/fixtures/desk_tty_harness.ts#effect`
+  - `tests/temp_dir.ts#withTempDir`
+- Guards: `tests/atomic_write_enrolment_test.ts`
+- Glossary: not enrolled — the artifact-ownership reference owns this repository-internal filesystem policy
+- Feature canon: not enrolled — the registry constrains implementation mechanics across existing feature owners
 
 ## `setup-completion-checks` — Setup completion checks
 
@@ -2498,7 +2524,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 315
+- Members: 317
   - `0003`
   - `0005`
   - `0006`
@@ -2792,6 +2818,8 @@ The numbered decision records in the Map, including records later superseded.
   - `0323`
   - `0324`
   - `0325`
+  - `0326`
+  - `0327`
   - `0001`
   - `0002`
   - `0004`
@@ -3127,7 +3155,7 @@ Every supported lifetime for a temporary directory created by tests or executabl
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 89
+- Members: 90
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -3167,6 +3195,7 @@ This meta-registry: the closed set of closed sets.
   - `setup-human-moments`
   - `authored-commit-sites`
   - `restricted-writer-modules`
+  - `intentional-deno-renames`
   - `setup-completion-checks`
   - `worktree-tokens`
   - `hints`

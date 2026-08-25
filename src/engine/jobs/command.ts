@@ -14,8 +14,7 @@ import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variable
 import { activeInvocationId } from "../logbook/invocation_context.ts";
 import type { Job, JobOutputObserver, JobResult } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
-import { selfShimPath } from "../../shared/self_shim.ts";
-import { shellCommand } from "../../shared/subprocess.ts";
+import { selfShimPath, shellCommand } from "../../shared/subprocess.ts";
 import { terminalLine } from "../../lib/terminal.ts";
 import {
   KILL_GRACE_MS,

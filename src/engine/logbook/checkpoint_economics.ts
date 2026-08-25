@@ -19,8 +19,9 @@ import {
   type CheckpointEconomicsRow,
 } from "../../shared/patterns_vocabulary.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
-import { median, round1, type StreamFacts } from "./detectors.ts";
+import type { StreamFacts } from "./detectors.ts";
 import type { VerbEvent } from "./schema.ts";
+import { median, round1 } from "./summary_math.ts";
 
 /** Everything observed about one checkpoint id across the analyzed stream. */
 export interface CheckpointTally {

@@ -58,6 +58,7 @@ import type { LifecycleContext } from "./worktree/lifecycle.ts";
 import { colorEnabled } from "./output.ts";
 import { commandSynonymSuggestion } from "../shared/vocabulary.ts";
 import type { DiscernResult } from "../shared/result.ts";
+import type { CliModelProvider } from "../shared/cli_reference_codegen.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { recordedExit } from "./logbook/cli.ts";
@@ -253,6 +254,7 @@ async function remindIfSetupUnfinished(ctx: LifecycleContext): Promise<void> {
  * unconditionally (ADR 0101: the subsystems are all core). */
 export function attachEngineCommands(
   root: Command,
+  cliModel: CliModelProvider,
   mainBranch?: string,
 ): void {
   const trunkName = mainBranch === undefined ? "" : ` (\`${mainBranch}\`)`;
@@ -346,6 +348,7 @@ export function attachEngineCommands(
         const { runFinish } = await import("./gate/finish.ts");
         return await runFinish(await requireRoot("done", json), {
           json,
+          cliModel,
           dryRun: o.dryRun ?? false,
           ci: o.ci ?? false,
           rerun: o.rerun ?? false,
@@ -484,7 +487,7 @@ export function attachEngineCommands(
         : o.longToolCalls === true
         ? "long-client"
         : "unknown-client";
-      return await runMcpServer(profile);
+      return await runMcpServer(cliModel, profile);
     }));
 
   root
@@ -835,7 +838,7 @@ export function attachEngineCommands(
     .action(
       recordedExit("desk", async (o) => {
         const { runDesk } = await import("./desk/desk.ts");
-        return await runDesk({ json: o.json ?? false });
+        return await runDesk({ json: o.json ?? false, cliModel });
       }),
     );
 
@@ -931,6 +934,7 @@ export function attachEngineCommands(
             dryRun: o.dryRun ?? false,
             confirmed: o.confirmed ?? false,
             variance: o.variance ?? [],
+            cliModel,
           }),
         { json, verb: "accept" },
       );

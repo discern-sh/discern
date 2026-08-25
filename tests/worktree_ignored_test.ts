@@ -166,18 +166,25 @@ Deno.test({
   },
 });
 
-Deno.test("recording replaces an incompatible ignored baseline before reuse", async () => {
+Deno.test("recording replaces unreadable, malformed, and older ignored baselines", async () => {
   await withTempDir(async (dir) => {
     await initIgnoredRepo(dir, "cache/", { "cache/payload.bin": "value\n" });
     const path = await baselinePath(dir);
     await Deno.mkdir(dirname(path), { recursive: true });
-    await Deno.writeTextFile(path, '{"version":1,"roots":[]}\n');
+    for (
+      const raw of [
+        "not json\n",
+        '{"version":1,"roots":[]}\n',
+        '{"version":2,"roots":[{"path":"cache/","kind":"dir","mode":"metadata","digest":"x","files":"one","bytes":1}]}\n',
+      ]
+    ) {
+      await Deno.writeTextFile(path, raw);
+      await recordIgnoredFileBaseline(dir, true);
 
-    await recordIgnoredFileBaseline(dir, true);
-
-    const baseline = await readBaseline(dir);
-    assertEquals(baseline.version, 2);
-    assertEquals(baseline.roots.map((root) => root.path), ["cache/"]);
+      const baseline = await readBaseline(dir);
+      assertEquals(baseline.version, 2);
+      assertEquals(baseline.roots.map((root) => root.path), ["cache/"]);
+    }
   });
 });
 

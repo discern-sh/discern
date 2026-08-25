@@ -50,6 +50,7 @@ import { KIT_VERSION } from "../src/lib/version.ts";
 import { displayWidth, wrapText } from "../src/lib/text.ts";
 import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 const ROOT = "/project";
 const QUIT = "\x00quit";
@@ -1123,12 +1124,12 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   const updateChoices = [effort.path, "accept", "update", QUIT];
   const confirmations = [false, true];
   const confirmationOptions: ConfirmationRequestOptions[] = [];
-  const acceptCalls: Array<{ dryRun?: boolean }> = [];
+  const acceptCalls: Array<Parameters<DeskRuntime["accept"]>[1]> = [];
   const updateCalls: Array<{ dryRun?: boolean }> = [];
   let updatePauses = 0;
   assertEquals(
     await runDesk(
-      {},
+      { cliModel: TEST_CLI_MODEL },
       scriptedRuntime(updateOutput, {
         status: () => ({ ok: true, data }),
         select: () => updateChoices.shift() ?? QUIT,
@@ -1149,7 +1150,10 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     ),
     0,
   );
-  assertEquals(acceptCalls, [{ dryRun: true }]);
+  assertEquals(acceptCalls, [{
+    dryRun: true,
+    cliModel: TEST_CLI_MODEL,
+  }]);
   assertEquals(updateCalls, [{ dryRun: true }, {}]);
   assertEquals(updatePauses, 1);
   assertEquals(confirmationOptions, [
@@ -1159,11 +1163,11 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
 
   const acceptOutput = transcript();
   const acceptChoices = [effort.path, "accept", QUIT];
-  const appliedAccept: Array<{ dryRun?: boolean; confirmed?: boolean }> = [];
+  const appliedAccept: Array<Parameters<DeskRuntime["accept"]>[1]> = [];
   let acceptPauses = 0;
   assertEquals(
     await runDesk(
-      {},
+      { cliModel: TEST_CLI_MODEL },
       scriptedRuntime(acceptOutput, {
         status: () => ({ ok: true, data }),
         select: () => acceptChoices.shift() ?? QUIT,
@@ -1179,7 +1183,10 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   );
   // The desk's interactive confirm IS the acceptance, so the apply carries the
   // attestation (ADR 0134) — never a bare, consent-less landing.
-  assertEquals(appliedAccept, [{ dryRun: true }, { confirmed: true }]);
+  assertEquals(appliedAccept, [
+    { dryRun: true, cliModel: TEST_CLI_MODEL },
+    { confirmed: true, cliModel: TEST_CLI_MODEL },
+  ]);
   assertEquals(acceptPauses, 1);
 
   const dropOutput = transcript();

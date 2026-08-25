@@ -35,13 +35,14 @@ import { normalizeMapDir } from "../src/shared/map_path.ts";
 import { expandSourcePathReferences } from "../src/shared/source_path_references.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
-import { checkDocsIntegrity, liveCliModel } from "../src/lib/map_integrity.ts";
+import { checkDocsIntegrity } from "../src/lib/map_integrity.ts";
 import { measureVocabSignals } from "../scripts/vocab_signals_lib.ts";
 import { stageProseInput } from "../scripts/prose_lib.ts";
 import { measurePublicDocs } from "../scripts/public_doc_density_lib.ts";
 import type { GlossaryEntry } from "../scripts/glossary_registry.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 const MAP = SOURCE_PATHS.map.defaultPath.replace(/\/$/, "");
 
@@ -140,7 +141,7 @@ const integrityAdapter: OverlayAdapter = async (root) => {
   const findings = await checkDocsIntegrity(
     root,
     parseConfigOrThrow(""),
-    await liveCliModel(),
+    TEST_CLI_MODEL(),
   );
   return findings.map((f) => `${f.file}:${f.line} [${f.rule}] ${f.detail}`);
 };

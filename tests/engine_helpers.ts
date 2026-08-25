@@ -38,7 +38,7 @@ import {
   type SourcePathName,
 } from "../src/shared/paths_registry.ts";
 import type { AgentName } from "../src/lib/config.ts";
-import { selfShimDir } from "../src/shared/self_shim.ts";
+import { selfShimDir } from "../src/shared/subprocess.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";

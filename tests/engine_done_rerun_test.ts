@@ -24,6 +24,7 @@ import { finishResult } from "../src/engine/gate/finish.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 /** Decode successive done envelopes so rerun and proof effects can be compared. */
 // deno-lint-ignore no-explicit-any
@@ -136,6 +137,7 @@ Deno.test("done: current green Proof is reused on JSON, Markdown, human, and in-
 
     const inProcess = await finishResult(wt, {
       surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
     });
     assertEquals(inProcess.ok, true);
     assertEquals(inProcess.data?.gate_ran, false);
@@ -249,12 +251,14 @@ Deno.test("done: --rerun and the --confirmed compatibility alias both execute th
 
     const reused = await finishResult(wt, {
       surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
     });
     assertEquals(reused.ok, true);
     assertEquals(reused.data?.gate_ran, false);
 
     const rerun = await finishResult(wt, {
       surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
       rerun: true,
     });
     assertEquals(rerun.ok, true, JSON.stringify(rerun));
@@ -262,6 +266,7 @@ Deno.test("done: --rerun and the --confirmed compatibility alias both execute th
 
     const confirmed = await finishResult(wt, {
       surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
       confirmed: true,
     });
     assertEquals(confirmed.ok, true, JSON.stringify(confirmed));

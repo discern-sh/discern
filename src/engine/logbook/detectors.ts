@@ -58,6 +58,7 @@ import {
   PATTERNS_SERIES_MAX_POINTS,
 } from "../../shared/patterns_vocabulary.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
+import { median, round1 } from "./summary_math.ts";
 import { type HintFollowThroughRule, HINTS } from "../../shared/hints.ts";
 import { type RegisteredTip, TIPS } from "../../shared/tips.ts";
 import {
@@ -97,6 +98,8 @@ import {
   type ValidationFindingRelationship,
   type ValidationRepeatGroup,
 } from "./validation_findings.ts";
+
+export { median, round1 };
 
 /** Stable marker carried in standard observations when their series crosses
  * a configuration or release boundary. The human report recognizes the same
@@ -348,24 +351,6 @@ export function longestStreak<T>(xs: T[], pred: (x: T) => boolean): number {
     best = Math.max(best, run);
   }
   return best;
-}
-
-/** The median of a non-empty list (mean of the middle two when even). Shared
- * with the stats reader (`stats.ts`). */
-export function median(xs: number[]): number {
-  const sorted = [...xs].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  const hi = sorted[mid] ?? 0;
-  if (sorted.length % 2 === 1) {
-    return hi;
-  }
-  const lo = sorted[mid - 1] ?? hi;
-  return (lo + hi) / 2;
-}
-
-/** Round to one decimal place. Shared with the stats reader (`stats.ts`). */
-export function round1(n: number): number {
-  return Math.round(n * 10) / 10;
 }
 
 /** The calendar day of an ISO timestamp ("2026-07-20"). Shared with the stats

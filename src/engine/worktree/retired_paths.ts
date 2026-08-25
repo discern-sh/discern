@@ -10,6 +10,10 @@
 
 import { isAbsolute, join, relative, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
+import {
+  atomicReplaceText,
+  isAtomicReplaceTempName,
+} from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
@@ -194,25 +198,11 @@ async function replaceRecord(
   record: RetiredWorktreePathRecord,
 ): Promise<void> {
   const target = join(directory, await recordName(record.path));
-  const temp = join(
-    directory,
-    `${TEMP_PREFIX}${crypto.randomUUID()}${TEMP_SUFFIX}`,
-  );
   const text = `${JSON.stringify(record)}\n`;
   if (new TextEncoder().encode(text).byteLength > RECORD_MAX_BYTES) {
     throw new Error("retired worktree path record exceeds its byte limit");
   }
-  try {
-    await Deno.writeTextFile(temp, text, { createNew: true, mode: 0o600 });
-    await Deno.rename(temp, target);
-  } catch (error) {
-    try {
-      await Deno.remove(temp);
-    } catch {
-      // Preserve the original write failure.
-    }
-    throw error;
-  }
+  await atomicReplaceText(target, text, { mode: 0o600, sync: false });
 }
 
 /** Remove expired and excess owned records after a successful write. */
@@ -229,8 +219,10 @@ async function pruneStore(
   for await (const entry of Deno.readDir(directory)) {
     const path = join(directory, entry.name);
     if (
-      entry.isFile && entry.name.startsWith(TEMP_PREFIX) &&
-      entry.name.endsWith(TEMP_SUFFIX)
+      entry.isFile &&
+      ((entry.name.startsWith(TEMP_PREFIX) &&
+        entry.name.endsWith(TEMP_SUFFIX)) ||
+        isAtomicReplaceTempName(entry.name))
     ) {
       const modified = (await Deno.stat(path)).mtime?.getTime() ?? now;
       if (now - modified >= ttlMs) {

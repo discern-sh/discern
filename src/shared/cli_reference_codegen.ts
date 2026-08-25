@@ -55,6 +55,9 @@ export interface CliCommand {
   children: CliCommand[];
 }
 
+/** Entry-point-owned projection of the fully attached live command tree. */
+export type CliModelProvider = () => CliCommand;
+
 /** Flags Cliffy accepts on every command without declaring them as options. */
 export const IMPLICIT_COMMAND_FLAGS: readonly string[] = ["-h", "--help"];
 

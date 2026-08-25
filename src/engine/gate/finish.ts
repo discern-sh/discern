@@ -65,8 +65,8 @@ import {
   DOCS_INTEGRITY_REMEDIES,
   type DocsIntegrityFinding,
   type DocsIntegrityRule,
-  liveCliModel,
 } from "../../lib/map_integrity.ts";
+import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import { buildGateProof } from "./proof_render.ts";
 import { renderSlotWait } from "./slot_wait_render.ts";
@@ -473,14 +473,16 @@ async function trackedArtifactsDiagnostic(
 async function runGate(
   root: string,
   surface: GateOutputSurface,
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
   presentation: {
+    /** Live CLI model injected by the fully attached entry-point command tree. */
+    cliModel: CliModelProvider;
     validationCaptureOptions?: ValidationCaptureOptions;
     /** The already-settled checkpoint pre-flight (reconciliation ran before
      * the rerun guard); the gate carries its conclusions into the envelope,
      * the Proof, and the marker bindings. */
     checkpoints?: CheckpointPreflight;
-  } = {},
+  },
 ): Promise<
   {
     result: DiscernResult<GateData>;
@@ -735,11 +737,16 @@ async function runGate(
   //     skills outside the effective set. Blocking, beside the other artifact
   //     preflights: each finding is a defect a reader only discovers by
   //     following the reference and failing, and no later stage can clear it.
-  //     The CLI model comes from the live command registry via the core's lazy
-  //     loader, so the command tree stays off every other verb's load path.
+  //     The CLI model comes from the fully attached entry-point command tree
+  //     through an explicit provider, so this lower-level preflight never
+  //     imports the binary entry point that consumes it.
   let mapIntegrityDiag: Diagnostic | undefined;
   if (failedStage === null) {
-    const findings = await checkDocsIntegrity(root, cfg, await liveCliModel());
+    const findings = await checkDocsIntegrity(
+      root,
+      cfg,
+      presentation.cliModel(),
+    );
     if (findings.length > 0) {
       failedStage = "map_integrity";
       mapIntegrityDiag = await mapIntegrityDiagnostic(findings);
@@ -2021,6 +2028,8 @@ export type FinishResultSurface =
  * composite command from inheriting machine silence while a person waits. */
 export interface FinishResultOptions {
   surface: FinishResultSurface;
+  /** Fully attached live command tree, owned and injected by the entry point. */
+  cliModel: CliModelProvider;
   dryRun?: boolean;
   /** Deliberately execute the Gate even when exact current Proof is reusable. */
   rerun?: boolean;
@@ -2111,6 +2120,7 @@ export async function finishResult(
   }
   if (opts.surface.kind === "quiet") {
     return (await runGate(root, { kind: "quiet-result" }, opts.signal, {
+      cliModel: opts.cliModel,
       checkpoints: checkpointGate.preflight,
       ...(opts.validationCaptureOptions !== undefined
         ? { validationCaptureOptions: opts.validationCaptureOptions }
@@ -2126,6 +2136,7 @@ export async function finishResult(
     },
     opts.signal,
     {
+      cliModel: opts.cliModel,
       checkpoints: checkpointGate.preflight,
       ...(opts.validationCaptureOptions !== undefined
         ? { validationCaptureOptions: opts.validationCaptureOptions }
@@ -2166,6 +2177,8 @@ export async function runFinish(
   root: string,
   opts: {
     json: boolean;
+    /** Fully attached live command tree, owned and injected by the entry point. */
+    cliModel: CliModelProvider;
     dryRun?: boolean;
     rerun?: boolean;
     confirmed?: boolean;
@@ -2244,7 +2257,10 @@ export async function runFinish(
         ? { kind: "quiet-result", terminal }
         : { kind: "human", plain: opts.plain ?? false, terminal },
       undefined,
-      preflight === undefined ? {} : { checkpoints: preflight },
+      {
+        cliModel: opts.cliModel,
+        ...(preflight === undefined ? {} : { checkpoints: preflight }),
+      },
     );
   const gate = await gateRun();
   const {
