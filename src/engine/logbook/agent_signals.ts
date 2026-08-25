@@ -18,6 +18,7 @@ import {
   type AgentSignalSource,
 } from "../../shared/agent_catalogue.ts";
 import { classifyMcpClient } from "./agent_identity.ts";
+import { bestEffortFs, pathExists } from "../../shared/fs_presence.ts";
 
 /** Request metadata key used by the MCP 2026-07-28 protocol shape. */
 export const MCP_CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo";
@@ -159,16 +160,6 @@ function addSignal(
   signals[index] = { agent, source, markers: merged };
 }
 
-/** Default host check; absence, unreadability, and denied permission are no match. */
-async function defaultPathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Return every coding-agent identity signal visible to this invocation.
  * Catalogue order is deterministic but carries no priority: consumers must treat
@@ -178,7 +169,13 @@ export async function detectAgentSignals(
   options: AgentSignalOptions = {},
 ): Promise<AgentSignal[]> {
   const env = options.env ?? Deno.env;
-  const pathExists = options.pathExists ?? defaultPathExists;
+  const hasSignalPath = options.pathExists ??
+    ((path: string) =>
+      bestEffortFs(() => pathExists(path), {
+        onFailure: false,
+        reason:
+          "Coding-agent identity signals are advisory, so an unreadable marker contributes no signal.",
+      }));
   const signals: AgentSignal[] = [];
   const aiAgentValue = envValue(env, "AI_AGENT")?.trim();
   const aiAgent = aiAgentValue !== undefined && aiAgentValue !== ""
@@ -219,7 +216,7 @@ export async function detectAgentSignals(
 
     for (const path of identity.hostFiles ?? []) {
       try {
-        if (await pathExists(path)) {
+        if (await hasSignalPath(path)) {
           addSignal(signals, agent, "host-filesystem", [path]);
         }
       } catch {

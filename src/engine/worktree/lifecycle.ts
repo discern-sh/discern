@@ -34,6 +34,7 @@ import {
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
+import { bestEffortFs, directoryExists } from "../../shared/fs_presence.ts";
 import {
   type CheckpointDrop,
   checkpointDropAccounts,
@@ -3589,34 +3590,29 @@ export function remapWorktreeLocalTemplatesDir(
   return undefined;
 }
 
-/** Treat missing, unreadable, and nondirectory paths as unavailable template roots. */
-async function directoryExists(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isDirectory;
-  } catch {
-    return false;
-  }
-}
-
 /** Remap worktree-local templates into the landed checkout when that directory exists. */
 async function postLandingLocalTemplatesDir(
   worktreePath: string,
   mainRepo: string,
 ): Promise<string | undefined> {
-  let templatesDir: string;
-  try {
-    templatesDir = await resolveTemplatesDir();
-  } catch {
-    return undefined;
-  }
+  const templatesDir = await bestEffortFs(() => resolveTemplatesDir(), {
+    onFailure: undefined,
+    reason:
+      "Post-landing local refresh is optional once tracked landing has completed.",
+  });
+  if (templatesDir === undefined) return undefined;
   const remapped = remapWorktreeLocalTemplatesDir(
     templatesDir,
     worktreePath,
     mainRepo,
   );
-  return remapped !== undefined && await directoryExists(remapped)
-    ? remapped
-    : undefined;
+  const available = remapped !== undefined &&
+    await bestEffortFs(() => directoryExists(remapped), {
+      onFailure: false,
+      reason:
+        "Post-landing local refresh is optional once tracked landing has completed.",
+    });
+  return available ? remapped : undefined;
 }
 
 /** Temporarily bind remapped templates while materializing the landed checkout. */

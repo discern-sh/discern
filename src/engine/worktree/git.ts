@@ -66,6 +66,13 @@ import {
 } from "./identity.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
+  bestEffortFs,
+  directoryExists,
+  fileExists,
+  pathExists,
+  readTextIfExists,
+} from "../../shared/fs_presence.ts";
+import {
   branchWithoutOwnershipReason,
   classifyAutomaticBranchOwnership,
   deleteAutomaticallyOwnedBranch,
@@ -160,32 +167,21 @@ export async function gitVersion(): Promise<string | undefined> {
   return line === "" ? undefined : line;
 }
 
-/** Canonicalize a path; return it unchanged when it cannot be resolved. */
+/** Canonicalize a path, retaining an absent path for missing-target workflows. */
 async function realPathOr(path: string): Promise<string> {
   try {
     return await Deno.realPath(path);
-  } catch {
-    return path;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return path;
+    throw error;
   }
 }
 
-/** Whether `path` is an existing directory. */
-async function isDir(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isDirectory;
-  } catch {
-    return false;
-  }
-}
-
-/** Read the first line of a file, or undefined when it cannot be read. */
+/** Read the first line of a regular file, or undefined when absent or another kind. */
 async function firstLine(path: string): Promise<string | undefined> {
-  try {
-    const text = await Deno.readTextFile(path);
-    return text.split("\n")[0] ?? "";
-  } catch {
-    return undefined;
-  }
+  if (!(await fileExists(path))) return undefined;
+  const text = await readTextIfExists(path);
+  return text?.split("\n")[0] ?? (text === undefined ? undefined : "");
 }
 
 /** The first `worktree ` path printed by `git worktree list --porcelain`. */
@@ -212,7 +208,7 @@ export async function mainRepoPath(cwd?: string): Promise<string | undefined> {
   if (first === undefined || first === "") {
     return undefined;
   }
-  if (!(await isDir(first))) {
+  if (!(await directoryExists(first))) {
     return undefined;
   }
   return await realPathOr(first);
@@ -1757,11 +1753,11 @@ export async function resolveCommitRef(
 
 /** Canonicalize a target that may already be gone (parent + basename fallback). */
 async function canonicalizeMaybeMissing(target: string): Promise<string> {
-  if (await isDir(target)) {
+  if (await directoryExists(target)) {
     return await realPathOr(target);
   }
   const parent = dirname(target);
-  if (await isDir(parent)) {
+  if (await directoryExists(parent)) {
     return join(await realPathOr(parent), basename(target));
   }
   return target;
@@ -1899,11 +1895,7 @@ export async function worktreeSetupComplete(cwd: string): Promise<boolean> {
   if (marker === undefined) {
     return false;
   }
-  try {
-    return (await Deno.stat(marker)).isFile;
-  } catch {
-    return false;
-  }
+  return await fileExists(marker);
 }
 
 /**
@@ -1998,8 +1990,9 @@ export async function liveWorktreeGitKeys(
     for await (const e of Deno.readDir(worktreesDir)) {
       entries.push(e);
     }
-  } catch {
-    return keys; // no worktrees admin dir → no live linked worktrees
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return keys;
+    throw error;
   }
   for (const entry of entries) {
     if (entry.isDirectory && await gitKeyIsLive(commonGitDir, entry.name)) {
@@ -2022,12 +2015,6 @@ export async function gitKeyIsLive(
 ): Promise<boolean> {
   // `gitdir` holds the absolute path of the checkout's `.git` gitlink file. If
   // that file is gone the worktree was removed out-of-band — a dead key.
-  // NOTE: `pathExists` returns false on a transient stat error too, so this can
-  // vote "dead" for a live worktree — the fail-open-toward-destroy direction. It is
-  // safe only as DEFENSE IN DEPTH: an entry reaches this re-check only after the
-  // snapshot already classified it reclaimable (not live by path AND handle), and
-  // the handle is independently re-checked against disk before the destroy. Do not
-  // make this the sole guard.
   const target = (await firstLine(
     join(commonGitDir, "worktrees", gitKey, "gitdir"),
   ))?.trim();
@@ -2047,7 +2034,7 @@ export async function liveWorktreePaths(cwd?: string): Promise<Set<string>> {
     if (rec.prunable || rec.path === "") {
       continue;
     }
-    if (await isDir(rec.path)) {
+    if (await directoryExists(rec.path)) {
       paths.add(await realPathOr(rec.path));
     }
   }
@@ -2104,7 +2091,7 @@ export async function registeredWorktreeOwnershipEvidence(
   if (registration.kind !== "registered") return undefined;
   const commonGitDir = await commonGitDirFrom(cwd);
   if (commonGitDir === undefined) return undefined;
-  try {
+  return await bestEffortFs(async () => {
     const metadata = await staleMetadataForRecord(
       commonGitDir,
       registration.record,
@@ -2113,9 +2100,11 @@ export async function registeredWorktreeOwnershipEvidence(
       id: worktreeIdFromGitKey(basename(metadata.adminDir), settings),
       ready: await hasPlainReadyMarker(metadata.adminDir),
     };
-  } catch {
-    return undefined;
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "Automatic cleanup requires positive ownership evidence, so unreadable metadata disables cleanup.",
+  });
 }
 
 type WorktreeRegistrationObservation =
@@ -2546,16 +2535,6 @@ export async function removeWorktreeSafely(
   };
 }
 
-/** Whether a path exists (file or directory). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Sleep for `ms` milliseconds. */
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -2763,12 +2742,14 @@ async function lastActivityAt(
 
 /** A file's mtime in unix seconds, or undefined when it can't be stat'd (a deletion). */
 async function fileMtime(path: string): Promise<number | undefined> {
-  try {
+  return await bestEffortFs(async () => {
     const m = (await Deno.stat(path)).mtime;
     return m === null ? undefined : Math.floor(m.getTime() / 1000);
-  } catch {
-    return undefined;
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "Last-activity time is advisory and may omit a file that disappears or cannot be inspected.",
+  });
 }
 
 /** The unix-seconds time of the newest HEAD reflog entry (the last HEAD movement),
@@ -3075,8 +3056,12 @@ async function staleMetadataForRecord(
     for await (const entry of Deno.readDir(worktreesDir)) {
       entries.push(entry);
     }
-  } catch {
-    entries = [];
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      entries = [];
+    } else {
+      throw error;
+    }
   }
   for (const entry of entries) {
     if (!entry.isDirectory) {
@@ -3796,13 +3781,13 @@ export async function scanOrphanWorktreesForSweep(
   // `extraDirs`.
   const scanSet = new Set<string>();
   const addScan = async (dir: string): Promise<void> => {
-    if (!(await isDir(dir))) {
+    if (!(await directoryExists(dir))) {
       return;
     }
     scanSet.add(await realPathOr(dir));
   };
   for (const p of registeredRaw) {
-    if (!(await isDir(p))) {
+    if (!(await directoryExists(p))) {
       continue;
     }
     const cpath = await realPathOr(p);
@@ -3824,12 +3809,13 @@ export async function scanOrphanWorktreesForSweep(
       for await (const e of Deno.readDir(scan)) {
         entries.push(e);
       }
-    } catch {
-      continue;
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) continue;
+      throw error;
     }
     for (const entry of entries) {
       const sub = join(scan, entry.name);
-      if (!(await isDir(sub))) {
+      if (!(await directoryExists(sub))) {
         continue;
       }
       const canonical = await realPathOr(sub);
@@ -3978,15 +3964,6 @@ function readEnvValue(text: string, key: string): string {
   return "";
 }
 
-/** Read a file's text, or undefined when it cannot be read. */
-async function readFileMaybe(path: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(path);
-  } catch {
-    return undefined;
-  }
-}
-
 /** Options for {@link inheritMainEnvVars}. */
 export interface InheritEnvOptions {
   /** The worktree root (the env files being patched live here). */
@@ -4037,7 +4014,8 @@ export async function inheritMainEnvVars(
     );
     return;
   }
-  const exampleText = await readFileMaybe(join(mainRepo, ".env.example")) ?? "";
+  const exampleText = await readTextIfExists(join(mainRepo, ".env.example")) ??
+    "";
 
   for (const varName of opts.vars) {
     if (varName === "") {

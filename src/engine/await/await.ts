@@ -84,6 +84,7 @@ import {
 } from "../../shared/mcp_timeout_policy.ts";
 import { experimentalAwaitCallSeconds } from "../../shared/experimental.ts";
 import type { EnvReader } from "../../shared/env.ts";
+import { bestEffortFs, pathExists } from "../../shared/fs_presence.ts";
 
 import { AWAIT_POLL_INTERVAL_MS, AWAIT_TIMEOUT_EXIT_CODE } from "./defaults.ts";
 import {
@@ -382,11 +383,14 @@ async function waitForWakes(
 async function existingPaths(candidates: string[]): Promise<string[]> {
   const out: string[] = [];
   for (const path of candidates) {
-    try {
-      await Deno.lstat(path);
+    if (
+      await bestEffortFs(() => pathExists(path), {
+        onFailure: false,
+        reason:
+          "Await file watching is only a wake optimization; authoritative polling still evaluates the condition.",
+      })
+    ) {
       out.push(path);
-    } catch {
-      // Missing → not watchable; the polling fallback covers it.
     }
   }
   return out;

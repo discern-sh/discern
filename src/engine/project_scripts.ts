@@ -27,6 +27,7 @@ import { runOwnedChild } from "./owned_child.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { ScriptsData } from "../shared/result_schemas.ts";
+import { pathExists } from "../shared/fs_presence.ts";
 
 /** One executable Project Script surfaced by discovery. */
 export type ProjectScript = ScriptsData["scripts"][number];
@@ -53,18 +54,9 @@ async function isExecutable(path: string): Promise<boolean> {
   try {
     const stat = await Deno.stat(path);
     return stat.isFile && ((stat.mode ?? 0) & 0o111) !== 0;
-  } catch {
-    return false;
-  }
-}
-
-/** True when a path exists (any type). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return false;
+    throw error;
   }
 }
 

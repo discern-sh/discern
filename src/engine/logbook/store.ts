@@ -36,6 +36,7 @@ import { z } from "@zod/zod";
 import { KIT_VERSION } from "../../lib/version.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
+import { pathExists } from "../../shared/fs_presence.ts";
 import {
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
@@ -168,16 +169,6 @@ export async function appendEvent(
   await appendLine(path, eventLine(event));
   if (isNewMonth) {
     await rotate(dir, path, event.at);
-  }
-}
-
-/** True when `path` exists (any kind). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
   }
 }
 

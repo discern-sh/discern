@@ -53,6 +53,7 @@ import { buildStreamFacts } from "../logbook/detectors.ts";
 import { readLogbookStream } from "../logbook/read.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { estateReviews } from "./checkpoint_loop.ts";
+import { fileExists, pathExists } from "../../shared/fs_presence.ts";
 
 // ── gathering the facts ─────────────────────────────────────────────────────
 
@@ -63,25 +64,6 @@ const INSTRUCTION_PLACEHOLDER_MARK = "setup fills this";
 /** Substance threshold (non-whitespace chars) below which a instruction file reads as
  * a stub rather than real, project-specific instructions. */
 const INSTRUCTION_SUBSTANCE_MIN = 400;
-
-/** Whether a path exists (any type). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Whether a regular file exists at `path`. */
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isFile;
-  } catch {
-    return false;
-  }
-}
 
 /** Count real ADRs under the configured map root's `_adr`, recursing into
  * subdirectories so retired

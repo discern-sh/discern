@@ -53,6 +53,7 @@ import {
   type ValidationAdminStateKey,
 } from "../../shared/git_admin_state.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
+import { bestEffortFs, readTextIfExists } from "../../shared/fs_presence.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
   abbreviatedObjectIdMatches,
@@ -891,9 +892,9 @@ export async function recordStandardMeasurements(
   ) {
     return false;
   }
-  try {
+  return await bestEffortFs(async () => {
     const existing = parseMeasurements(
-      await Deno.readTextFile(path).catch(() => ""),
+      await readTextIfExists(path) ?? "",
     );
     const merged = existing !== undefined && existing.head === pin.head
       ? {
@@ -906,9 +907,11 @@ export async function recordStandardMeasurements(
       `${JSON.stringify({ head: pin.head, ...merged })}\n`,
     );
     return true;
-  } catch {
-    return false;
-  }
+  }, {
+    onFailure: false,
+    reason:
+      "Standard measurements are a replay cache; failing to record them cannot invalidate the completed gate run.",
+  });
 }
 
 /**
@@ -1061,7 +1064,11 @@ export async function measurementBaselines(
       continue; // the main checkout: its own admin file IS the common-dir file
     }
     seen.add(path);
-    const raw = await Deno.readTextFile(path).catch(() => undefined);
+    const raw = await bestEffortFs(() => readTextIfExists(path), {
+      onFailure: undefined,
+      reason:
+        "Unavailable measurement baselines disable replay and force a fresh measurement.",
+    });
     if (raw === undefined) {
       continue;
     }
