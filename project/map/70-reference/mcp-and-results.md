@@ -124,6 +124,8 @@ A green `done` result uses compact `data.proof`; `data.gate_ran` says whether Ga
 
 An unlanded successful `setup done` carries Proof, canonical completion inventory, qualitative `inventory.project_context`, and landing state. It carries no reactivation or improvement advice. Project context includes the derived primary-subsystem handoff, project principles, and instruction sources. After successful `setup accept`, registry-derived `data.reactivation` carries each provider's exact check, local recovery, and command-line fallback. `data.activation_context` explains why a fresh session is necessary. `data.optional_improvement` remains conditional on activation verification. An in-place completion already on the trunk projects the same ordered activation contract.
 
+A failed `setup done` result carries the data for its recovery class. Incomplete authoring names `leftover` files and `unmet` checks. Uncommitted work names `uncommitted` paths and may name the preparation `stage`. A failed completion transaction names its `stage` and `compensation` state. The result's `ok`, `error`, and `message` fields remain the failure discriminator and recovery explanation.
+
 A successful `accept` reports the permission it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. The terminal proof line and `data.proof_line` repeat that evidence.
 
 ### Plans and executed steps

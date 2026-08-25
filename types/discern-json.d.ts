@@ -1216,6 +1216,26 @@ export type DiscernSetupDoneResult = DiscernResultState & {
     };
     instructions: string;
   } | {
+    leftover: Array<string>;
+    unmet: Array<{
+      step: number;
+      name: string;
+      describe: string;
+      passed: boolean;
+    }>;
+  } | {
+    uncommitted: Array<string>;
+    stage?: "refresh" | "final_tree";
+  } | {
+    stage:
+      | "marker_commit"
+      | "refresh"
+      | "doctor"
+      | "worktree_probe"
+      | "done"
+      | "proof";
+    compensation: "not_needed" | "committed" | "working_tree" | "failed";
+  } | {
     issues: Array<{
       kind?: "unknown_root_section";
       path: string;
@@ -1682,6 +1702,11 @@ export type DiscernUninstallResult = DiscernResultState & {
     binary_hint?: string;
     worktrees?: Array<string>;
     resources?: Array<string>;
+    templates_available?: boolean;
+    incomplete_strips?: Array<{
+      rel: string;
+      reason: string;
+    }>;
   } | {
     issues: Array<{
       kind?: "unknown_root_section";

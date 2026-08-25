@@ -2734,302 +2734,339 @@
         "data": {
           "anyOf": [
             {
-              "type": "object",
-              "properties": {
-                "bootstrapped": {
-                  "type": "boolean",
-                  "const": true
-                },
-                "forced": {
-                  "type": "boolean"
-                },
-                "gate_proven": {
-                  "type": "boolean"
-                },
-                "worktree_proven": {
-                  "type": "boolean"
-                },
-                "marker_committed": {
-                  "type": "boolean"
-                },
-                "marker_commit_error": {
-                  "type": "string"
-                },
-                "proof": {
+              "anyOf": [
+                {
                   "type": "object",
                   "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "honored",
-                        "report_only",
-                        "missing",
-                        "stale",
-                        "dirty",
-                        "unavailable",
-                        "read_failed"
-                      ]
+                    "bootstrapped": {
+                      "type": "boolean",
+                      "const": true
                     },
-                    "path": {
-                      "type": "string"
+                    "forced": {
+                      "type": "boolean"
                     },
-                    "recorded": {
-                      "type": "string"
+                    "gate_proven": {
+                      "type": "boolean"
                     },
-                    "head": {
-                      "type": "string"
+                    "worktree_proven": {
+                      "type": "boolean"
                     },
-                    "reason": {
+                    "marker_committed": {
+                      "type": "boolean"
+                    },
+                    "marker_commit_error": {
                       "type": "string"
                     },
                     "proof": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "honored",
+                            "report_only",
+                            "missing",
+                            "stale",
+                            "dirty",
+                            "unavailable",
+                            "read_failed"
+                          ]
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "recorded": {
+                          "type": "string"
+                        },
+                        "head": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "proof": {
+                          "type": "string"
+                        },
+                        "proof_line": {
+                          "type": "string"
+                        },
+                        "proof_data": {
+                          "$ref": "#/$defs/DiscernProof"
+                        },
+                        "checkpoint_drops": {
+                          "type": "array",
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "scope": {
+                                    "type": "string",
+                                    "const": "policy"
+                                  },
+                                  "checkpoint": {
+                                    "type": "null"
+                                  },
+                                  "mode": {
+                                    "type": "null"
+                                  },
+                                  "policy_commit": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "merge_base_unresolved",
+                                      "governing_config_unreadable",
+                                      "governing_config_invalid",
+                                      "open_question_store_unreadable",
+                                      "open_question_store_corrupt",
+                                      "declaration_evidence_unavailable"
+                                    ]
+                                  },
+                                  "account": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                  }
+                                },
+                                "required": [
+                                  "scope",
+                                  "checkpoint",
+                                  "mode",
+                                  "reason",
+                                  "account"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "scope": {
+                                    "type": "string",
+                                    "const": "checkpoint"
+                                  },
+                                  "checkpoint": {
+                                    "type": "string"
+                                  },
+                                  "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "stop",
+                                      "advise"
+                                    ]
+                                  },
+                                  "policy_commit": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "checkpoint_missing_question",
+                                      "checkpoint_question_file_missing",
+                                      "checkpoint_question_file_invalid_path",
+                                      "checkpoint_question_file_not_regular",
+                                      "checkpoint_question_file_oversized",
+                                      "checkpoint_question_file_invalid_utf8",
+                                      "checkpoint_question_file_unreadable",
+                                      "checkpoint_question_source_conflict",
+                                      "checkpoint_selector_conflict",
+                                      "checkpoint_unknown_scope",
+                                      "effort_diff_unreadable",
+                                      "trigger_content_unavailable",
+                                      "trigger_history_unavailable",
+                                      "when_spawn_failed",
+                                      "when_timeout",
+                                      "when_invalid_exit",
+                                      "when_cancelled",
+                                      "when_input_failed",
+                                      "when_input_cleanup_failed",
+                                      "when_output_limit",
+                                      "open_question_store_rebuilt",
+                                      "subject_unavailable",
+                                      "open_question_store_write_failed"
+                                    ]
+                                  },
+                                  "account": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                  }
+                                },
+                                "required": [
+                                  "scope",
+                                  "checkpoint",
+                                  "mode",
+                                  "policy_commit",
+                                  "reason",
+                                  "account"
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ]
                     },
                     "proof_line": {
                       "type": "string"
                     },
-                    "proof_data": {
-                      "$ref": "#/$defs/DiscernProof"
-                    },
-                    "checkpoint_drops": {
+                    "leftover": {
                       "type": "array",
                       "items": {
-                        "oneOf": [
-                          {
-                            "type": "object",
-                            "properties": {
-                              "scope": {
-                                "type": "string",
-                                "const": "policy"
-                              },
-                              "checkpoint": {
-                                "type": "null"
-                              },
-                              "mode": {
-                                "type": "null"
-                              },
-                              "policy_commit": {
-                                "type": "string"
-                              },
-                              "reason": {
-                                "type": "string",
-                                "enum": [
-                                  "merge_base_unresolved",
-                                  "governing_config_unreadable",
-                                  "governing_config_invalid",
-                                  "open_question_store_unreadable",
-                                  "open_question_store_corrupt",
-                                  "declaration_evidence_unavailable"
-                                ]
-                              },
-                              "account": {
-                                "type": "string",
-                                "maxLength": 500
-                              }
-                            },
-                            "required": [
-                              "scope",
-                              "checkpoint",
-                              "mode",
-                              "reason",
-                              "account"
-                            ]
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "scope": {
-                                "type": "string",
-                                "const": "checkpoint"
-                              },
-                              "checkpoint": {
-                                "type": "string"
-                              },
-                              "mode": {
-                                "type": "string",
-                                "enum": [
-                                  "stop",
-                                  "advise"
-                                ]
-                              },
-                              "policy_commit": {
-                                "type": "string"
-                              },
-                              "reason": {
-                                "type": "string",
-                                "enum": [
-                                  "checkpoint_missing_question",
-                                  "checkpoint_question_file_missing",
-                                  "checkpoint_question_file_invalid_path",
-                                  "checkpoint_question_file_not_regular",
-                                  "checkpoint_question_file_oversized",
-                                  "checkpoint_question_file_invalid_utf8",
-                                  "checkpoint_question_file_unreadable",
-                                  "checkpoint_question_source_conflict",
-                                  "checkpoint_selector_conflict",
-                                  "checkpoint_unknown_scope",
-                                  "effort_diff_unreadable",
-                                  "trigger_content_unavailable",
-                                  "trigger_history_unavailable",
-                                  "when_spawn_failed",
-                                  "when_timeout",
-                                  "when_invalid_exit",
-                                  "when_cancelled",
-                                  "when_input_failed",
-                                  "when_input_cleanup_failed",
-                                  "when_output_limit",
-                                  "open_question_store_rebuilt",
-                                  "subject_unavailable",
-                                  "open_question_store_write_failed"
-                                ]
-                              },
-                              "account": {
-                                "type": "string",
-                                "maxLength": 500
-                              }
-                            },
-                            "required": [
-                              "scope",
-                              "checkpoint",
-                              "mode",
-                              "policy_commit",
-                              "reason",
-                              "account"
-                            ]
-                          }
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ]
-                },
-                "proof_line": {
-                  "type": "string"
-                },
-                "leftover": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "assurance": {
-                  "type": "object",
-                  "properties": {
-                    "known_jobs": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "name": {
-                            "type": "string"
-                          },
-                          "state": {
-                            "type": "string",
-                            "enum": [
-                              "enforced",
-                              "deferred",
-                              "absent"
-                            ]
-                          },
-                          "not_applicable": {
-                            "type": "boolean",
-                            "const": true
-                          },
-                          "reason": {
-                            "type": "string"
-                          },
-                          "self_supplied": {
-                            "type": "boolean",
-                            "const": true
-                          }
-                        },
-                        "required": [
-                          "name",
-                          "state"
-                        ]
+                        "type": "string"
                       }
                     },
-                    "enforced": {
-                      "type": "number"
-                    },
-                    "total": {
-                      "type": "number"
-                    },
-                    "known_total": {
-                      "type": "number"
-                    },
-                    "not_applicable": {
-                      "type": "number"
-                    },
-                    "verdict": {
-                      "type": "string",
-                      "enum": [
-                        "full",
-                        "partial",
-                        "minimal"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "known_jobs",
-                    "enforced",
-                    "total",
-                    "verdict"
-                  ]
-                },
-                "inventory": {
-                  "type": "object",
-                  "properties": {
-                    "project_context": {
+                    "assurance": {
                       "type": "object",
                       "properties": {
-                        "primary_subsystem": {
-                          "anyOf": [
-                            {
+                        "known_jobs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "enforced",
+                                  "deferred",
+                                  "absent"
+                                ]
+                              },
+                              "not_applicable": {
+                                "type": "boolean",
+                                "const": true
+                              },
+                              "reason": {
+                                "type": "string"
+                              },
+                              "self_supplied": {
+                                "type": "boolean",
+                                "const": true
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "state"
+                            ]
+                          }
+                        },
+                        "enforced": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        },
+                        "known_total": {
+                          "type": "number"
+                        },
+                        "not_applicable": {
+                          "type": "number"
+                        },
+                        "verdict": {
+                          "type": "string",
+                          "enum": [
+                            "full",
+                            "partial",
+                            "minimal"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "known_jobs",
+                        "enforced",
+                        "total",
+                        "verdict"
+                      ]
+                    },
+                    "inventory": {
+                      "type": "object",
+                      "properties": {
+                        "project_context": {
+                          "type": "object",
+                          "properties": {
+                            "primary_subsystem": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "region": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "page": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "title": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "start_here": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "boundary": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "non_obvious_invariant": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "region",
+                                    "page",
+                                    "title",
+                                    "start_here",
+                                    "boundary",
+                                    "non_obvious_invariant"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "principles": {
                               "type": "object",
                               "properties": {
-                                "region": {
-                                  "type": "string",
-                                  "minLength": 1
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 },
-                                "page": {
-                                  "type": "string",
-                                  "minLength": 1
-                                },
-                                "title": {
-                                  "type": "string",
-                                  "minLength": 1
-                                },
-                                "start_here": {
-                                  "type": "string",
-                                  "minLength": 1
-                                },
-                                "boundary": {
-                                  "type": "string",
-                                  "minLength": 1
-                                },
-                                "non_obvious_invariant": {
-                                  "type": "string",
-                                  "minLength": 1
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
                                 }
                               },
                               "required": [
-                                "region",
-                                "page",
-                                "title",
-                                "start_here",
-                                "boundary",
-                                "non_obvious_invariant"
+                                "count",
+                                "items"
                               ]
                             },
-                            {
-                              "type": "null"
+                            "instruction_sources": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
                             }
+                          },
+                          "required": [
+                            "primary_subsystem",
+                            "principles",
+                            "instruction_sources"
                           ]
                         },
-                        "principles": {
+                        "map_regions": {
                           "type": "object",
                           "properties": {
                             "count": {
@@ -3050,225 +3087,289 @@
                             "items"
                           ]
                         },
-                        "instruction_sources": {
-                          "type": "array",
-                          "items": {
-                            "type": "string",
-                            "minLength": 1
-                          }
+                        "ledger_items": {
+                          "type": "object",
+                          "properties": {
+                            "count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          },
+                          "required": [
+                            "count",
+                            "items"
+                          ]
+                        },
+                        "jobs": {
+                          "type": "object",
+                          "properties": {
+                            "enforced": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "deferred": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "absent": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "not_applicable": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "enforced",
+                            "deferred",
+                            "absent",
+                            "not_applicable"
+                          ]
                         }
                       },
                       "required": [
-                        "primary_subsystem",
-                        "principles",
-                        "instruction_sources"
+                        "project_context",
+                        "map_regions",
+                        "ledger_items",
+                        "jobs"
                       ]
                     },
-                    "map_regions": {
+                    "landing": {
                       "type": "object",
                       "properties": {
-                        "count": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
+                        "in_repo": {
+                          "type": "boolean"
                         },
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "type": "string",
-                            "minLength": 1
-                          }
+                        "branch": {
+                          "type": "string"
+                        },
+                        "target": {
+                          "type": "string"
+                        },
+                        "on_target": {
+                          "type": "boolean"
+                        },
+                        "on_setup_branch": {
+                          "type": "boolean"
+                        },
+                        "command": {
+                          "type": "string"
                         }
                       },
                       "required": [
-                        "count",
-                        "items"
+                        "in_repo",
+                        "branch",
+                        "target",
+                        "on_target",
+                        "on_setup_branch",
+                        "command"
                       ]
                     },
-                    "ledger_items": {
+                    "reactivation": {
                       "type": "object",
                       "properties": {
-                        "count": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
+                        "summary": {
+                          "type": "string"
                         },
-                        "items": {
+                        "per_agent": {
                           "type": "array",
                           "items": {
-                            "type": "string",
-                            "minLength": 1
-                          }
-                        }
-                      },
-                      "required": [
-                        "count",
-                        "items"
-                      ]
-                    },
-                    "jobs": {
-                      "type": "object",
-                      "properties": {
-                        "enforced": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "deferred": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "absent": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "not_applicable": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        }
-                      },
-                      "required": [
-                        "enforced",
-                        "deferred",
-                        "absent",
-                        "not_applicable"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "project_context",
-                    "map_regions",
-                    "ledger_items",
-                    "jobs"
-                  ]
-                },
-                "landing": {
-                  "type": "object",
-                  "properties": {
-                    "in_repo": {
-                      "type": "boolean"
-                    },
-                    "branch": {
-                      "type": "string"
-                    },
-                    "target": {
-                      "type": "string"
-                    },
-                    "on_target": {
-                      "type": "boolean"
-                    },
-                    "on_setup_branch": {
-                      "type": "boolean"
-                    },
-                    "command": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "in_repo",
-                    "branch",
-                    "target",
-                    "on_target",
-                    "on_setup_branch",
-                    "command"
-                  ]
-                },
-                "reactivation": {
-                  "type": "object",
-                  "properties": {
-                    "summary": {
-                      "type": "string"
-                    },
-                    "per_agent": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "agent": {
-                            "type": "string"
-                          },
-                          "label": {
-                            "type": "string"
-                          },
-                          "step": {
-                            "type": "string"
-                          },
-                          "check_kind": {
-                            "type": "string",
-                            "enum": [
-                              "mcp",
-                              "cli"
+                            "type": "object",
+                            "properties": {
+                              "agent": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "step": {
+                                "type": "string"
+                              },
+                              "check_kind": {
+                                "type": "string",
+                                "enum": [
+                                  "mcp",
+                                  "cli"
+                                ]
+                              },
+                              "check": {
+                                "type": "string"
+                              },
+                              "recovery": {
+                                "type": "string"
+                              },
+                              "cli_fallback": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "agent",
+                              "label",
+                              "step",
+                              "check_kind",
+                              "check",
+                              "recovery",
+                              "cli_fallback"
                             ]
-                          },
-                          "check": {
-                            "type": "string"
-                          },
-                          "recovery": {
-                            "type": "string"
-                          },
-                          "cli_fallback": {
+                          }
+                        }
+                      },
+                      "required": [
+                        "summary",
+                        "per_agent"
+                      ]
+                    },
+                    "optional_improvement": {
+                      "type": "object",
+                      "properties": {
+                        "verb": {
+                          "type": "string"
+                        },
+                        "command": {
+                          "type": "string"
+                        },
+                        "after": {
+                          "type": "string",
+                          "const": "activation_verified"
+                        }
+                      },
+                      "required": [
+                        "verb",
+                        "command",
+                        "after"
+                      ]
+                    },
+                    "instructions": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "bootstrapped",
+                    "forced",
+                    "gate_proven",
+                    "worktree_proven",
+                    "marker_committed",
+                    "leftover",
+                    "assurance",
+                    "inventory",
+                    "landing",
+                    "instructions"
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "leftover": {
+                          "type": "array",
+                          "items": {
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "agent",
-                          "label",
-                          "step",
-                          "check_kind",
-                          "check",
-                          "recovery",
-                          "cli_fallback"
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "summary",
-                    "per_agent"
-                  ]
-                },
-                "optional_improvement": {
-                  "type": "object",
-                  "properties": {
-                    "verb": {
-                      "type": "string"
+                        "unmet": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "step": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "describe": {
+                                "type": "string"
+                              },
+                              "passed": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "step",
+                              "name",
+                              "describe",
+                              "passed"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "leftover",
+                        "unmet"
+                      ]
                     },
-                    "command": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "uncommitted": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "stage": {
+                          "type": "string",
+                          "enum": [
+                            "refresh",
+                            "final_tree"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "uncommitted"
+                      ]
                     },
-                    "after": {
-                      "type": "string",
-                      "const": "activation_verified"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "stage": {
+                          "type": "string",
+                          "enum": [
+                            "marker_commit",
+                            "refresh",
+                            "doctor",
+                            "worktree_probe",
+                            "done",
+                            "proof"
+                          ]
+                        },
+                        "compensation": {
+                          "type": "string",
+                          "enum": [
+                            "not_needed",
+                            "committed",
+                            "working_tree",
+                            "failed"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "stage",
+                        "compensation"
+                      ]
                     }
-                  },
-                  "required": [
-                    "verb",
-                    "command",
-                    "after"
                   ]
-                },
-                "instructions": {
-                  "type": "string"
                 }
-              },
-              "required": [
-                "bootstrapped",
-                "forced",
-                "gate_proven",
-                "worktree_proven",
-                "marker_committed",
-                "leftover",
-                "assurance",
-                "inventory",
-                "landing",
-                "instructions"
               ]
             },
             {
@@ -4870,6 +4971,27 @@
                   "type": "array",
                   "items": {
                     "type": "string"
+                  }
+                },
+                "templates_available": {
+                  "type": "boolean"
+                },
+                "incomplete_strips": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "rel": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "rel",
+                      "reason"
+                    ]
                   }
                 }
               }

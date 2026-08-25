@@ -2384,6 +2384,60 @@ export const SetupDoneDataSchema = z.strictObject({
 });
 export type SetupDoneData = z.infer<typeof SetupDoneDataSchema>;
 
+/** Setup-completion transaction stages named by structured refusal payloads. */
+export const SETUP_DONE_COMPLETION_STAGES = [
+  "marker_commit",
+  "refresh",
+  "doctor",
+  "worktree_probe",
+  "done",
+  "proof",
+] as const;
+export type SetupDoneCompletionStage =
+  (typeof SETUP_DONE_COMPLETION_STAGES)[number];
+
+const SetupDoneIncompleteDataSchema = z.strictObject({
+  leftover: z.array(z.string()),
+  unmet: z.array(z.strictObject({
+    step: z.number().int(),
+    name: z.string(),
+    describe: z.string(),
+    passed: z.boolean(),
+  })),
+});
+
+const SetupDoneUncommittedDataSchema = z.strictObject({
+  uncommitted: z.array(z.string()),
+  stage: z.enum(["refresh", "final_tree"]).optional(),
+});
+
+const SetupDoneGateFailureDataSchema = z.strictObject({
+  stage: z.enum(SETUP_DONE_COMPLETION_STAGES),
+  compensation: z.enum([
+    "not_needed",
+    "committed",
+    "working_tree",
+    "failed",
+  ]),
+});
+
+/** Every structured refusal payload emitted by `setup done`. */
+export const SetupDoneFailureDataSchema = z.union([
+  SetupDoneIncompleteDataSchema,
+  SetupDoneUncommittedDataSchema,
+  SetupDoneGateFailureDataSchema,
+]);
+export type SetupDoneFailureData = z.infer<
+  typeof SetupDoneFailureDataSchema
+>;
+
+/** The complete success-and-refusal data contract for `setup done`. */
+export const SetupDoneResultDataSchema = z.union([
+  SetupDoneDataSchema,
+  SetupDoneFailureDataSchema,
+]);
+export type SetupDoneResultData = z.infer<typeof SetupDoneResultDataSchema>;
+
 // CLI-only installer/configuration result payloads ────────────────────────────
 
 const setupProjectSchema = z.strictObject({
@@ -2707,6 +2761,13 @@ export const UninstallDataSchema = z.strictObject({
   worktrees: z.array(z.string()).optional(),
   /** Ledger-recorded resources blocking an uninstall (`provisioned_resources`). */
   resources: z.array(z.string()).optional(),
+  /** Whether the bundled templates needed for exact co-owned-file stripping resolved. */
+  templates_available: z.boolean().optional(),
+  /** Co-owned files that may retain template-seeded entries, with the reason. */
+  incomplete_strips: z.array(z.strictObject({
+    rel: z.string(),
+    reason: z.string(),
+  })).optional(),
 });
 export type UninstallData = z.infer<typeof UninstallDataSchema>;
 
@@ -2888,12 +2949,12 @@ export const SetupVerifyOutputSchema = resultOutputSchema(
   SetupVerifyDataSchema,
 );
 
-/** `setup done` output: envelope + the completion `data`. CLI-only (setup is not an MCP
- * tool), modeled here so a faithfulness test can pin the real serialized output —
- * including the completion `instructions` — to one source (ADR 0041). */
+/** `setup done` output: envelope + completion or structured refusal `data`.
+ * CLI-only (setup is not an MCP tool), but every emitted alternative is modeled
+ * here so tests and published consumers validate against one source (ADR 0041). */
 export const SetupDoneOutputSchema = resultOutputSchema(
   "setup done",
-  SetupDoneDataSchema,
+  SetupDoneResultDataSchema,
 );
 
 /** `setup accept` output: envelope + the landing preview/result `data`. */

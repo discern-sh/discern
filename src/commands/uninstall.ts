@@ -68,6 +68,7 @@ import {
 } from "../lib/providers.ts";
 import { gitAdminNamespaceDirs } from "../shared/git_admin_state.ts";
 import { suppressLogbookWrites } from "../engine/logbook/store.ts";
+import type { UninstallData } from "../shared/result_schemas.ts";
 import { stripDiscernFromJsonSettings } from "../lib/settings_strip.ts";
 import {
   DISCERN_GITIGNORE_BEGIN,
@@ -467,7 +468,7 @@ async function applyUninstallPlan(
  * fact a caller acts on — including whether the strip degraded (templates
  * unresolved) and which files may retain template-seeded entries, so nothing the
  * plan computed is left unreported. */
-function planData(plan: UninstallPlan): Record<string, unknown> {
+function planData(plan: UninstallPlan): UninstallData {
   return {
     removed: plan.ops.filter((o) => o.action === "delete").map((o) => o.rel),
     removed_runtime_state: plan.gitAdminDirs,

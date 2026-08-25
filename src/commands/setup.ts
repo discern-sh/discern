@@ -156,7 +156,9 @@ import {
 } from "../shared/setup_messages.ts";
 import type {
   GateProofCheckData,
+  SetupDoneCompletionStage,
   SetupDoneData,
+  SetupDoneFailureData,
 } from "../shared/result_schemas.ts";
 import {
   ACCEPT_COMMAND,
@@ -2450,7 +2452,7 @@ function emitSetupIncomplete(
       verb: "setup done",
       error: "incomplete",
       message,
-      data: { leftover, unmet },
+      data: { leftover, unmet } satisfies SetupDoneFailureData,
       hints: hintTexts([fire(HINTS["setup-finish-incomplete"])]),
     });
     return;
@@ -2534,7 +2536,7 @@ function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
       verb: "setup done",
       error: "uncommitted_changes",
       message,
-      data: { uncommitted },
+      data: { uncommitted } satisfies SetupDoneFailureData,
     });
     return;
   }
@@ -2568,7 +2570,10 @@ function emitSetupRefreshUncommitted(
       verb: "setup done",
       error: "uncommitted_changes",
       message,
-      data: { uncommitted: changes, stage: "refresh" },
+      data: {
+        uncommitted: changes,
+        stage: "refresh",
+      } satisfies SetupDoneFailureData,
     });
     return;
   }
@@ -2593,7 +2598,10 @@ function emitSetupFinalTreeDirty(
       verb: "setup done",
       error: "uncommitted_changes",
       message,
-      data: { uncommitted: [...paths], stage: "final_tree" },
+      data: {
+        uncommitted: [...paths],
+        stage: "final_tree",
+      } satisfies SetupDoneFailureData,
     });
     return;
   }
@@ -3113,18 +3121,10 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   return 0;
 }
 
-type SetupCompletionStage =
-  | "marker_commit"
-  | "refresh"
-  | "doctor"
-  | "worktree_probe"
-  | "done"
-  | "proof";
-
 /** The final-tree transaction either returns the canonical honored Proof or the
  * completion stage whose failure requires marker compensation. */
 type FinalSetupProof =
-  | { ok: false; stage: SetupCompletionStage; detail: string }
+  | { ok: false; stage: SetupDoneCompletionStage; detail: string }
   | { ok: true; proof: GateProofCheckData };
 
 /** The structural linked-worktree leg has no durable Proof of its own; the
@@ -3368,7 +3368,7 @@ function emitDoneUnreadableConfig(json: boolean, detail: string): void {
 /** Emit a completion preparation failure that occurred before the marker write. */
 function emitDonePreMarkerFailure(
   json: boolean,
-  stage: SetupCompletionStage,
+  stage: SetupDoneCompletionStage,
   detail: string,
 ): number {
   const message =
@@ -3380,7 +3380,10 @@ function emitDonePreMarkerFailure(
       verb: "setup done",
       error: "gate_failed",
       message,
-      data: { stage, compensation: "not_needed" },
+      data: {
+        stage,
+        compensation: "not_needed",
+      } satisfies SetupDoneFailureData,
     });
   } else {
     new Logger({ json: false, noColor: false }).error(message);
@@ -3393,7 +3396,7 @@ function emitDonePreMarkerFailure(
  */
 function emitDoneGateFailure(
   json: boolean,
-  stage: SetupCompletionStage,
+  stage: SetupDoneCompletionStage,
   detail: string,
   restore: MarkerRestoreOutcome,
 ): number {
@@ -3409,7 +3412,10 @@ function emitDoneGateFailure(
       verb: "setup done",
       error: "gate_failed",
       message,
-      data: { stage, compensation: restore.state },
+      data: {
+        stage,
+        compensation: restore.state,
+      } satisfies SetupDoneFailureData,
     });
   } else {
     const log = new Logger({ json: false, noColor: false });
