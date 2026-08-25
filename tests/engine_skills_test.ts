@@ -12,6 +12,7 @@ import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 Deno.test("discern skills list shows the built-ins, and --json emits structured rows", async () => {
   await withTempDir(async (dir) => {
@@ -128,13 +129,10 @@ Deno.test("discern skills eject --dry-run plans every owned target and writes no
       "--json",
     ]);
     assertEquals(result.code, 0, result.output);
-    const envelope = JSON.parse(result.stdout) as {
-      dry_run: boolean;
-      steps?: unknown[];
-      plan: { steps: Array<{ label: string }> };
-    };
+    const envelope = decodeCliResult(result.stdout, "skills eject");
     assertEquals(envelope.dry_run, true);
     assertEquals(envelope.steps, undefined);
+    assert(envelope.plan !== undefined);
     const targets = envelope.plan.steps.map((step) => step.label);
     for (
       const target of [

@@ -48,7 +48,9 @@ import {
 } from "@std/assert";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { Command } from "@cliffy/command";
+import { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 import {
   addWorktree,
   git,
@@ -355,8 +357,10 @@ const PROBES: Record<string, DryRunProbe> = {
         "stale\n",
       );
       const manifestPath = join(skillsDir, ".discern-materialized.json");
-      const manifest = JSON.parse(await Deno.readTextFile(manifestPath));
-      assert(Array.isArray(manifest));
+      const manifest = decodeWith(
+        z.array(z.string()),
+        await Deno.readTextFile(manifestPath),
+      );
       manifest.push(staleName);
       await Deno.writeTextFile(
         manifestPath,
