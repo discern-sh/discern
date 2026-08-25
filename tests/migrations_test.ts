@@ -257,16 +257,35 @@ Deno.test("context reads and edits root discern.toml with comments intact", asyn
 Deno.test("context deep-merges .claude/settings.json", async () => {
   await withTempDir(async (dir) => {
     const ctx = createMigrationContext(dir);
+    await ctx.writeText(
+      ".claude/settings.json",
+      '{"theme":"dark","permissions":{"allow":["Read"]}}\n',
+    );
     await ctx.mergeSettings({ model: "opus" });
     await ctx.mergeSettings({ permissions: { deny: ["Read(./.env)"] } });
     const text = await ctx.readText(".claude/settings.json");
     assertExists(text);
     const settings = JSON.parse(text) as {
       model?: string;
+      theme?: string;
       permissions?: { deny?: string[] };
     };
     assertEquals(settings.model, "opus");
+    assertEquals(settings.theme, "dark");
     assertEquals(settings.permissions?.deny, ["Read(./.env)"]);
+  });
+});
+
+Deno.test("context rejects a non-object .claude/settings.json root", async () => {
+  await withTempDir(async (dir) => {
+    const ctx = createMigrationContext(dir);
+    await ctx.writeText(".claude/settings.json", "[]\n");
+    await assertRejects(
+      () => ctx.mergeSettings({ model: "opus" }),
+      TypeError,
+      "must contain a JSON object at the root",
+    );
+    assertEquals(await ctx.readText(".claude/settings.json"), "[]\n");
   });
 });
 
