@@ -37,12 +37,16 @@ const DECODER = new TextDecoder();
 const CLAUDE_HOOK_SETTINGS_SCHEMA = z.object({
   hooks: z.record(
     z.string(),
-    z.array(z.object({
-      hooks: z.array(z.object({
-        type: z.string(),
-        command: z.string(),
-      }).passthrough()),
-    }).passthrough()),
+    z.array(
+      z.object({
+        hooks: z.array(
+          z.object({
+            type: z.string(),
+            command: z.string(),
+          }).passthrough(),
+        ),
+      }).passthrough(),
+    ),
   ),
 }).passthrough();
 
