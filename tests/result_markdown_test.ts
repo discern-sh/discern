@@ -419,6 +419,32 @@ Deno.test("status wire and Markdown remove repeated Proof pages within a combine
   assertEquals(authority.uncovered_total, UNCOVERED.length);
 });
 
+Deno.test("status config refusals require their wire projection account", () => {
+  const refusal = {
+    ok: false,
+    verb: "status",
+    error: "invalid_config",
+    data: {
+      issues: [{
+        path: "project.slgu",
+        message: "Unknown key: project.slgu.",
+      }],
+    },
+  };
+
+  assert(
+    !StatusOutputSchema.safeParse(refusal).success,
+    "bare config issues are not a published status result",
+  );
+  assertEquals(
+    StatusOutputSchema.parse(projectStatusResult(refusal)).data,
+    {
+      ...refusal.data,
+      projection: { mode: "orientation" },
+    },
+  );
+});
+
 Deno.test("default status wire stays bounded as unrelated fleet state grows", () => {
   const result = minimalStatusResult();
   const data = result.data as Record<string, unknown>;
