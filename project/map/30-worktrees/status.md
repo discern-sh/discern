@@ -21,11 +21,11 @@ Worktrees default to a local view. The main checkout shows its state, fleet task
 
 `--all` explicitly adds the fleet to a worktree's detailed local view; `--local` suppresses it. The flags conflict.
 
-One observed result, invocation clock, and terminal snapshot feed every projection. Published design-system CLI Components render each visible block and responsive frame; discern composes the product facts.
+One observation feeds every projection; shared CLI components render each terminal view.
 
-The report caps at 104 columns. Default rows use human task labels, revealing a generated tail only to disambiguate duplicate names. `--verbose` shows complete worktree and branch identities; narrow layouts wrap them without loss.
+The 104-column report uses human task labels; `--verbose` reveals complete worktree and branch identities.
 
-Each row names its own condition. Live, stale, or uncommitted work precedes branch lag while **DRIFT** still exposes it. A completed `status` contributes activity time only. Shared-file and Architecture Decision Record (ADR) number collisions remain pairwise landing risks outside row state, Proof readiness, and authority.
+Rows prioritize live, stale, or uncommitted work while still showing branch drift. Shared-file and Architecture Decision Record (ADR) number collisions remain separate landing risks.
 
 The other fields explain that status:
 
@@ -34,9 +34,9 @@ The other fields explain that status:
 - **Activity** combines the winning clock and completed action. A live Gate reads `Gate running · 2m`; `usually 4m` is historical context.
 - **Landing** is granted, needs approval, or scope-limited on ready rows; detail wraps below it.
 
-Text and glyphs classify every state; color does not. Exhaustive adapters preserve status and Proof precedence through every terminal mode. `--no-color` changes no facts.
+Text and glyphs carry every state; `--no-color` changes no facts.
 
-**Owner attention** contains lifecycle and landing decisions. **Landing risks** contains shared-file, incoming-trunk, and ADR-number relationships. **Next action** contains executable continuation. `--verbose` adds diagnostics and shared paths. A reappeared-path card shows when discern removed a worktree, a bounded content sample, and any reason prune must keep it.
+**Owner attention** holds lifecycle and landing decisions; **Landing risks** holds file, trunk, and ADR conflicts; **Next action** holds the executable continuation. `--verbose` adds evidence.
 
 In the expanded view, **Checks** shows configured changed scopes, planned Gate jobs, and a Standards count. Derived `code` and `previewable` markers stay machine-only. Port and resources sit under **Local environment**. **Landing** shows pass, branch, files changed, diff size, commit, and age. **Proofs** contains stored Proof Markdown.
 
@@ -65,7 +65,7 @@ Every default result includes the route to full structured detail. Run `discern 
 
 Fleet retains the main row. Each sampled readable worktree carries identity, Git state, divergence, activity, one `gate_proof`, and authority. `gate_proof` always carries its inspection status. A current honored marker adds compact Proof facts and the one-line rendering; an older marker may add only `proof_line`. Every structured mode omits rendered Proof pages and the earlier `proof_honored`, `proof`, and `proof_line` compatibility copies at fleet-row level. Status authority keeps the exact decision, six authored-first path examples plus uncovered totals and scopes. In full mode, `landed_proof.proof` is compact and `landed_proof.commit_at` supplies landing age when Git can read it.
 
-Ahead and behind fields carry a non-negative integer only when Git returned a canonical count. The literal `"unknown"` means the command failed or its output was not a trustworthy integer; `0` remains a verified zero. On the local row, `null` retains its separate meaning that the configured local trunk does not exist. Human views render unknown divergence explicitly, and unknown counts cannot make a row ready or contained ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)).
+Ahead and behind are non-negative integers, `"unknown"` after a failed or malformed count, and `null` on local status when the trunk is missing. Only a number can support readiness or containment ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)).
 
 `last_action` records the newest completion. `running` records a recent start with no matching completion, and `last_activity` takes the later Git or Logbook time. Disabling the Logbook removes the action fields; Git activity remains available ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
 
