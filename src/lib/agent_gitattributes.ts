@@ -18,7 +18,7 @@ import {
 } from "../shared/generated_artifacts.ts";
 import { generatedArtifactMarker } from "../shared/brand.ts";
 import type { EnvReader } from "../shared/env.ts";
-import { readTextIfExists } from "../shared/fs_presence.ts";
+import { fileExists, readTextIfExists } from "../shared/fs_presence.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import { splitNulRecords } from "../shared/git_paths.ts";
 import { runGit } from "../shared/subprocess.ts";
@@ -501,13 +501,8 @@ async function activeBuiltInPaths(
       active.push(path);
       continue;
     }
-    try {
-      if ((await Deno.stat(join(root, path))).isFile) {
-        active.push(path);
-      }
-    } catch {
-      // A configured path that is neither tracked nor present is not yet a
-      // compiled built-in candidate. Refresh may create it before replanning.
+    if (await fileExists(join(root, path))) {
+      active.push(path);
     }
   }
   return active;

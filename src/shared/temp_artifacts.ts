@@ -27,6 +27,7 @@
 
 import { tmpdir } from "os";
 import { join } from "@std/path";
+import { bestEffortFs } from "./fs_presence.ts";
 
 /** The registry: one filename prefix per artifact family. The prefixes are the
  * retention contract — {@link pruneStaleTempArtifacts} reaps exactly these. */
@@ -293,16 +294,19 @@ export async function pruneStaleTempArtifacts(
     lastInspected = entry.name;
     inspected++;
     const path = join(dir, entry.name);
-    try {
+    const didRemove = await bestEffortFs(async () => {
       const mtime = (await Deno.stat(path)).mtime?.getTime();
       if (mtime === undefined || now - mtime < ttlMs) {
-        continue; // fresh, or an unreadable age — keep (fail-safe)
+        return false; // fresh, or an unreadable age — keep (fail-safe)
       }
       await Deno.remove(path, { recursive: entry.isDirectory });
-      removed++;
-    } catch {
-      // Raced away by a concurrent process, or unreadable — skip it.
-    }
+      return true;
+    }, {
+      onFailure: false,
+      reason:
+        "Temp retention skips an entry that raced away or is unreadable without affecting the gate.",
+    });
+    if (didRemove) removed++;
   }
   return {
     removed,

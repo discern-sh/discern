@@ -34,6 +34,11 @@ import { gunzipSync, gzipSync } from "zlib";
 import { createFromBuffer } from "@dprint/formatter";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
+import {
+  bestEffortFs,
+  readDirIfExists,
+  readTextIfExists,
+} from "./fs_presence.ts";
 import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
 import {
   MARKDOWN_PLUGIN_VERSION,
@@ -212,16 +217,9 @@ const LICENSE_FILE_RE = /^(licen[cs]e|copying)([._-].*)?$/i;
 
 /** Select the shortest deterministic LICENSE, LICENCE, or COPYING filename. */
 async function findLicenseFile(dir: string): Promise<string | undefined> {
-  const names: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isFile && LICENSE_FILE_RE.test(entry.name)) {
-        names.push(entry.name);
-      }
-    }
-  } catch {
-    return undefined;
-  }
+  const names = (await readDirIfExists(dir) ?? [])
+    .filter((entry) => entry.isFile && LICENSE_FILE_RE.test(entry.name))
+    .map((entry) => entry.name);
   // Prefer the bare LICENSE spelling over variants, deterministically.
   names.sort((a, b) => a.length - b.length || a.localeCompare(b));
   return names[0];
@@ -229,10 +227,10 @@ async function findLicenseFile(dir: string): Promise<string | undefined> {
 
 /** The `license` field of a package.json (string or legacy `{ type }`). */
 async function declaredNpmLicense(dir: string): Promise<string | undefined> {
-  try {
-    const pkg = JSON.parse(
-      await Deno.readTextFile(join(dir, "package.json")),
-    ) as { license?: unknown };
+  return await bestEffortFs(async () => {
+    const text = await readTextIfExists(join(dir, "package.json"));
+    if (text === undefined) return undefined;
+    const pkg = JSON.parse(text) as { license?: unknown };
     if (typeof pkg.license === "string") return pkg.license;
     if (
       typeof pkg.license === "object" && pkg.license !== null &&
@@ -240,10 +238,12 @@ async function declaredNpmLicense(dir: string): Promise<string | undefined> {
     ) {
       return pkg.license.type;
     }
-  } catch {
-    // fall through — the caller decides how to handle an unknown license
-  }
-  return undefined;
+    return undefined;
+  }, {
+    onFailure: undefined,
+    reason:
+      "License resolution may fall back to a package's LICENSE file when package metadata is unavailable.",
+  });
 }
 
 /** Convert CRLF to LF and remove trailing whitespace without altering the body. */
@@ -519,16 +519,16 @@ export async function generateThirdPartyArtifacts(
     );
   }
 
-  let cache: Record<string, string> = {};
-  try {
-    cache = JSON.parse(
-      await Deno.readTextFile(
-        join(options.repoRoot, THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache),
-      ),
-    ) as Record<string, string>;
-  } catch {
-    // no cache yet — every JSR text resolves via fetch (or fails offline)
-  }
+  const cache = await bestEffortFs(async () => {
+    const text = await readTextIfExists(
+      join(options.repoRoot, THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache),
+    );
+    return text === undefined ? {} : JSON.parse(text) as Record<string, string>;
+  }, {
+    onFailure: {} as Record<string, string>,
+    reason:
+      "An unavailable JSR license cache falls back to resolving every text from its authoritative source.",
+  });
 
   let store: Promise<string> | undefined;
   const storeDir = (): Promise<string> => {

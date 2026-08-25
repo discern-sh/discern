@@ -47,7 +47,13 @@ import {
   type InstructionContext,
   renderInstructionTemplate,
 } from "../engine/instruction_template.ts";
-import { lstatIfExists, targetExists } from "../shared/fs_presence.ts";
+import {
+  bestEffortFs,
+  lstatIfExists,
+  readDirIfExists,
+  readTextIfExists,
+  targetExists,
+} from "../shared/fs_presence.ts";
 
 /** Where a skill in the effective set comes from. */
 export type SkillSource = "authored" | "bundled";
@@ -75,19 +81,9 @@ export const MATERIALIZED_MANIFEST = ".discern-materialized.json";
 
 /** Directory names directly under `dir` (sorted), or `[]` if `dir` is absent. */
 async function dirNames(dir: string): Promise<string[]> {
-  const names: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isDirectory) {
-        names.push(entry.name);
-      }
-    }
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return [];
-    }
-    throw error;
-  }
+  const names = (await readDirIfExists(dir) ?? [])
+    .filter((entry) => entry.isDirectory)
+    .map((entry) => entry.name);
   return names.sort();
 }
 
@@ -374,18 +370,21 @@ async function removeAny(path: string, isDir: boolean): Promise<void> {
 async function readMaterializedNames(
   claudeSkillsDir: string,
 ): Promise<Set<string>> {
-  try {
-    const text = await Deno.readTextFile(
+  return await bestEffortFs(async () => {
+    const text = await readTextIfExists(
       join(claudeSkillsDir, MATERIALIZED_MANIFEST),
     );
+    if (text === undefined) return new Set<string>();
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed)) {
       return new Set(parsed.filter((n): n is string => typeof n === "string"));
     }
-  } catch {
-    // absent or corrupt — nothing to reconcile this run.
-  }
-  return new Set();
+    return new Set<string>();
+  }, {
+    onFailure: new Set<string>(),
+    reason:
+      "A missing, corrupt, or unreadable ownership record disables orphan pruning for this run.",
+  });
 }
 
 /** Record the skill names discern now owns, sorted so the file is byte-stable run
@@ -656,9 +655,9 @@ export async function ejectSkill(
 
 /** Best-effort: ensure a freshly-copied tree is writable (recursively). */
 async function chmodWritable(dir: string): Promise<void> {
-  try {
+  await bestEffortFs(async () => {
     await Deno.chmod(dir, 0o755);
-    for await (const entry of Deno.readDir(dir)) {
+    for (const entry of await readDirIfExists(dir) ?? []) {
       const path = join(dir, entry.name);
       if (entry.isDirectory) {
         await chmodWritable(path);
@@ -666,9 +665,11 @@ async function chmodWritable(dir: string): Promise<void> {
         await Deno.chmod(path, 0o644);
       }
     }
-  } catch {
-    // best-effort; an un-chmod-able file is still readable/editable on most hosts
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "An un-chmod-able ejected skill remains readable or editable on most hosts.",
+  });
 }
 
 /** Claude Code's provider skills directory, for callers that report or clean it.

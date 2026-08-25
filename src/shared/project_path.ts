@@ -1,6 +1,7 @@
 /** Project-relative path resolution for reads and writes with different risk. */
 
 import { basename, isAbsolute, join, relative } from "@std/path";
+import { bestEffortFs, lstatIfExists } from "./fs_presence.ts";
 
 const INVALID_PORTABLE_PUNCTUATION = /[<>:"\\|?*]/;
 const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
@@ -120,13 +121,15 @@ export async function resolveContainedProjectReadPath(
   if (projectRelativePathIssue(value) !== undefined) {
     return undefined;
   }
-  try {
+  return await bestEffortFs(async () => {
     const realRoot = await Deno.realPath(root);
     const resolved = await Deno.realPath(join(realRoot, value));
     return isContained(realRoot, resolved) ? resolved : undefined;
-  } catch {
-    return undefined;
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "A missing, stale, unreadable, or escaping optional read path is not safe to consume.",
+  });
 }
 
 /**
@@ -149,34 +152,32 @@ export async function resolveContainedProjectWritePath(
       throw new Error(`invalid ${label} path ${JSON.stringify(value)}`);
     }
     const candidate = join(resolved, segment);
-    try {
-      const info = await Deno.lstat(candidate);
-      if (info.isSymlink) {
-        throw new Error(
-          `invalid ${label} path ${
-            JSON.stringify(value)
-          }: remove the symbolic link before discern writes this file`,
-        );
-      }
-      const canonical = await Deno.realPath(candidate);
-      const canonicalBasename = basename(canonical).normalize("NFC");
-      if (canonicalBasename !== segment.normalize("NFC")) {
-        throw new Error(
-          `invalid ${label} path ${
-            JSON.stringify(value)
-          }: existing path segment ${
-            JSON.stringify(canonicalBasename)
-          } does not use the configured spelling ${
-            JSON.stringify(segment.normalize("NFC"))
-          }`,
-        );
-      }
-      resolved = canonical;
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    const info = await lstatIfExists(candidate);
+    if (info === undefined) {
       resolved = join(resolved, ...segments.slice(index));
       break;
     }
+    if (info.isSymlink) {
+      throw new Error(
+        `invalid ${label} path ${
+          JSON.stringify(value)
+        }: remove the symbolic link before discern writes this file`,
+      );
+    }
+    const canonical = await Deno.realPath(candidate);
+    const canonicalBasename = basename(canonical).normalize("NFC");
+    if (canonicalBasename !== segment.normalize("NFC")) {
+      throw new Error(
+        `invalid ${label} path ${
+          JSON.stringify(value)
+        }: existing path segment ${
+          JSON.stringify(canonicalBasename)
+        } does not use the configured spelling ${
+          JSON.stringify(segment.normalize("NFC"))
+        }`,
+      );
+    }
+    resolved = canonical;
   }
 
   if (!isContained(realRoot, resolved)) {

@@ -20,7 +20,7 @@ import {
 } from "./providers.ts";
 import { resolveTemplatesDir } from "./paths.ts";
 import type { EnvReader } from "../shared/env.ts";
-import { readTextIfExists } from "../shared/fs_presence.ts";
+import { bestEffortFs, readTextIfExists } from "../shared/fs_presence.ts";
 import { fire, type FiredHint, HINTS } from "../shared/hints.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { generatedArtifactMarker } from "../shared/brand.ts";
@@ -172,12 +172,14 @@ export function reconcileDiscernGitignore(
 export async function readGitignoreFragment(
   env: EnvReader = Deno.env,
 ): Promise<string | undefined> {
-  try {
+  return await bestEffortFs(async () => {
     const templatesDir = await resolveTemplatesDir(env);
-    return await Deno.readTextFile(join(templatesDir, GITIGNORE_FRAGMENT_NAME));
-  } catch {
-    return undefined;
-  }
+    return await readTextIfExists(join(templatesDir, GITIGNORE_FRAGMENT_NAME));
+  }, {
+    onFailure: undefined,
+    reason:
+      "Callers explicitly handle an unavailable bundled gitignore fragment as no reconciliation source.",
+  });
 }
 
 /** Plan `.gitignore` reconciliation without touching disk. */
