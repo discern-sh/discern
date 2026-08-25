@@ -72,6 +72,10 @@ import {
   CLI_RESULT_RENDER,
   type ResultOutputFormat,
 } from "./shared/result_formats.ts";
+import {
+  cliCommandModel,
+  type CliModelProvider,
+} from "./shared/cli_reference_codegen.ts";
 
 // The full built-in verb vocabulary (installer + engine) is defined once in the
 // dispatcher and re-exported here as the CLI's
@@ -442,6 +446,8 @@ export function buildCli(
       );
     });
 
+  const cliModel: CliModelProvider = () => cliCommandModel(root);
+
   // `setup` — the staged, zero-config project setup (ADR 0036, staged by ADR 0075).
   // A bare `discern setup` (no scaffold input) prints the read-only WELCOME; the
   // sub-verbs drive the handshake — `begin` (the first mutating step: scaffold +
@@ -540,6 +546,7 @@ export function buildCli(
       return await runSetupDone({
         json: globalFlags(options).json,
         force: options.force ?? false,
+        cliModel,
       });
     }));
 
@@ -555,6 +562,7 @@ export function buildCli(
         json,
         noColor,
         dryRun: options.dryRun ?? false,
+        cliModel,
       });
     }));
 
@@ -1124,7 +1132,7 @@ export function buildCli(
   // first-class `discern` subcommands. The cast drops
   // the threaded global-option generics (which the engine actions don't read) —
   // Cliffy's generic Command type is impractical to spell at this boundary.
-  attachEngineCommands(root as unknown as Command, mainBranch);
+  attachEngineCommands(root as unknown as Command, cliModel, mainBranch);
 
   // A verb leaves the help listing only through the hidden-verb registry —
   // hiding is a recorded product decision, never an inline flourish. Applied
@@ -1577,7 +1585,11 @@ export async function main(args: string[]): Promise<void> {
           // interceptor as `discern desk`: the session's begin/verb pair and
           // its delivered tip ids land in the logbook from either spelling.
           Deno.exit(
-            await recordedRun("desk", "cli", () => runDesk({ json })),
+            await recordedRun(
+              "desk",
+              "cli",
+              () => runDesk({ json, cliModel: () => cliCommandModel(cli) }),
+            ),
           );
         }
       }

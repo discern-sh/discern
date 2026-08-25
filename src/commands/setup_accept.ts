@@ -58,6 +58,7 @@ import {
 } from "../engine/instructions.ts";
 import { planTrackedRefresh } from "../engine/tracked_refresh.ts";
 import { plainModeEnabled } from "../lib/terminal_interaction.ts";
+import type { CliModelProvider } from "../shared/cli_reference_codegen.ts";
 import type {
   GateProofCheckData,
   Proof,
@@ -104,6 +105,8 @@ export interface SetupAcceptOptions {
   json: boolean;
   noColor: boolean;
   dryRun: boolean;
+  /** Fully attached live command tree supplied by the binary entry point. */
+  cliModel: CliModelProvider;
 }
 
 /** The exact command a user runs to land their setup — the one string `setup done`
@@ -557,6 +560,7 @@ export async function runSetupAccept(
     }
 
     const gate = await finishResult(root, {
+      cliModel: opts.cliModel,
       surface: opts.json
         ? { kind: "quiet" }
         : { kind: "human", plain: plainModeEnabled() },

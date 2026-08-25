@@ -18,6 +18,7 @@ import type { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
 import { isRepoMapPath, REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 import {
   addWorktree,
   defaultMapPath,
@@ -841,13 +842,17 @@ Deno.test("done result is faithful to FinishOutputSchema (preview, clean, failin
       "done",
       await finishResult(dir, {
         surface: { kind: "quiet" },
+        cliModel: TEST_CLI_MODEL,
         dryRun: true,
       }),
       "finish dry-run",
     );
     expectFaithful(
       "done",
-      await finishResult(dir, { surface: { kind: "quiet" } }),
+      await finishResult(dir, {
+        surface: { kind: "quiet" },
+        cliModel: TEST_CLI_MODEL,
+      }),
       "finish clean",
     );
 
@@ -865,6 +870,7 @@ Deno.test("done result is faithful to FinishOutputSchema (preview, clean, failin
     );
     const failing = await finishResult(dir, {
       surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
     });
     assertEquals(failing.ok, false);
     expectFaithful("done", failing, "finish failing");
@@ -1505,7 +1511,10 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
       wt,
       new Logger({ json: true, noColor: true }),
     );
-    const preview = await acceptResult(ctx, { dryRun: true });
+    const preview = await acceptResult(ctx, {
+      dryRun: true,
+      cliModel: TEST_CLI_MODEL,
+    });
     assertEquals(preview.dry_run, true);
     expectFaithful("accept", preview, "accept dry-run");
   });
@@ -1523,7 +1532,10 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
       wt,
       new Logger({ json: true, noColor: true }),
     );
-    const applied = await acceptResult(ctx, { confirmed: true });
+    const applied = await acceptResult(ctx, {
+      confirmed: true,
+      cliModel: TEST_CLI_MODEL,
+    });
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "rerun");
     assertEquals(
@@ -1549,6 +1561,7 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
     await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");
     const finish = await finishResult(wt, {
       surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
     });
     assertEquals(finish.ok, true);
     const ctx = await lifecycleContext(
@@ -1556,7 +1569,10 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
       new Logger({ json: true, noColor: true }),
     );
 
-    const applied = await acceptResult(ctx, { confirmed: true });
+    const applied = await acceptResult(ctx, {
+      confirmed: true,
+      cliModel: TEST_CLI_MODEL,
+    });
     assertEquals(applied.ok, true);
     assertEquals(applied.data?.gate_validation?.mode, "proof");
     assertEquals(

@@ -274,20 +274,6 @@ function citationFindings(
 }
 
 /**
- * The live CLI command model, built lazily from the command registry. The
- * dynamic import keeps the whole command tree off the load path of every
- * caller that never validates an example (the registry module is heavy and
- * self-contained, so no static engine→CLI edge exists either).
- */
-export async function liveCliModel(): Promise<CliCommand> {
-  const { buildCli } = await import("../main.ts");
-  const { cliCommandModel } = await import(
-    "../shared/cli_reference_codegen.ts"
-  );
-  return cliCommandModel(buildCli(false));
-}
-
-/**
  * Check the configured map and instruction sources for integrity defects. Pure
  * and read-only; returns every finding in corpus order (map pages first, then
  * instruction sources), empty when the documentation is sound. A project with no

@@ -35,6 +35,7 @@ import {
   notInitializedResult,
 } from "../../shared/env.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { serializeResult } from "../../shared/result_serialization.ts";
 import { resultPresenterForVerb } from "../../shared/result_contracts.ts";
 import { renderResultMarkdown } from "../../shared/result_markdown.ts";
@@ -226,7 +227,14 @@ interface ReaimContext {
 /** Per-invocation protocol context available to handlers but not user input. */
 interface McpToolContext {
   readonly awaitCallProfile: AwaitCallProfile;
+  /** Fully attached live command tree supplied by the binary entry point. */
+  readonly cliModel: CliModelProvider;
 }
+
+/** Direct-call fallback that fails only when a Gate-capable tool needs the model. */
+const missingCliModel: CliModelProvider = () => {
+  throw new Error("MCP Gate execution requires a live CLI model provider");
+};
 
 /** A tool: its advertised schema + metadata plus the handler that runs the verb.
  * The SDK converts {@link inputSchema}/{@link outputSchema} (Zod raw shapes, the
@@ -496,9 +504,10 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       ...PATH_PARAM,
     },
-    run: (root, args, signal) =>
+    run: (root, args, signal, context) =>
       finishResult(root, {
         surface: { kind: "quiet" },
+        cliModel: context.cliModel,
         dryRun: args.dry_run === true,
         ci: args.ci === true,
         rerun: args.rerun === true,
@@ -995,10 +1004,11 @@ export const TOOLS: McpTool[] = orderTools([
         ? data.root
         : undefined;
     },
-    run: (root, args) =>
+    run: (root, args, _signal, context) =>
       acceptToolResult(root, {
         dryRun: args.dry_run === true,
         confirmed: args.confirmed === true,
+        cliModel: context.cliModel,
         ...(args.variance === undefined ? {} : { variance: args.variance }),
       }),
   }),
@@ -1211,7 +1221,12 @@ function renderMcpHintText(authored: string): string {
  */
 async function acceptToolResult(
   root: string,
-  opts: { dryRun?: boolean; confirmed?: boolean; variance?: string[] },
+  opts: {
+    dryRun?: boolean;
+    confirmed?: boolean;
+    variance?: string[];
+    cliModel: CliModelProvider;
+  },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,
@@ -1524,6 +1539,7 @@ async function runVerb(
   args: Record<string, unknown>,
   signal?: AbortSignal,
   awaitCallProfile: AwaitCallProfile = "unknown-client",
+  cliModel: CliModelProvider = missingCliModel,
 ): Promise<VerbRun> {
   try {
     throwIfCrashProbe();
@@ -1532,7 +1548,7 @@ async function runVerb(
         root,
         args,
         signal ?? new AbortController().signal,
-        { awaitCallProfile },
+        { awaitCallProfile, cliModel },
       ),
     };
   } catch (e) {
@@ -1625,6 +1641,7 @@ async function dispatchToolCall(
   signal?: AbortSignal,
   mcpClient?: RecordedMcpClient,
   awaitCallProfile: AwaitCallProfile = "unknown-client",
+  cliModel: CliModelProvider = missingCliModel,
 ): Promise<PendingToolCall> {
   // The explicit `path` override wins over the working root for this one call; any dir
   // inside a worktree resolves to its root, a non-project path → undefined → refusal.
@@ -1671,6 +1688,7 @@ async function dispatchToolCall(
         args,
         signal,
         awaitCallProfile,
+        cliModel,
       );
       return {
         ...run,
@@ -1712,6 +1730,7 @@ async function dispatchToolCall(
     args,
     signal,
     awaitCallProfile,
+    cliModel,
   );
   // Data-driven re-aim (ADR 0062): after a non-preview lifecycle call, move the
   // working root per the tool's own effect-aware hook (start → the new worktree it
@@ -1748,6 +1767,7 @@ export async function runTool(
     defaultInstalledVersion,
   mcpClient?: RecordedMcpClient,
   awaitCallProfile: AwaitCallProfile = "unknown-client",
+  cliModel: CliModelProvider = missingCliModel,
 ): Promise<ToolResult> {
   // Drain state left by CLI-only output in this long-lived process before this
   // call starts. The final boundary drains again after observing this result.
@@ -1767,6 +1787,7 @@ export async function runTool(
     signal,
     mcpClient,
     awaitCallProfile,
+    cliModel,
   );
   return await completeToolCall(tool, args, pending, stale);
 }
@@ -2081,6 +2102,7 @@ export function buildInstructions(): string {
  * transport's `onclose`), at which point this resolves and the process exits.
  */
 export async function runMcpServer(
+  cliModel: CliModelProvider,
   awaitCallProfile: AwaitCallProfile = "unknown-client",
 ): Promise<number> {
   const spawnRoot = await findRoot();
@@ -2148,6 +2170,7 @@ export async function runMcpServer(
           installedVersion,
           mcpClient,
           awaitCallProfile,
+          cliModel,
         );
       },
     );

@@ -22,6 +22,7 @@ import { DISCERN_DOCS_URL, DISCERN_WORDMARK } from "../../shared/brand.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { renderHumanOutputGroups } from "../../shared/result.ts";
 import type { StartData, StatusData } from "../../shared/result_schemas.ts";
 import {
@@ -113,6 +114,8 @@ const FILTER_THRESHOLD = 8;
 export interface DeskOptions {
   /** Present for surface parity only — the desk has no JSON form; it refuses. */
   json?: boolean;
+  /** Fully attached live command tree supplied by the binary entry point. */
+  cliModel?: CliModelProvider;
 }
 
 type DeskSelectOptions = SelectionRequestOptions<string>;
@@ -150,7 +153,11 @@ export interface DeskRuntime {
   lifecycle(root: string): DeskMaybePromise<LifecycleContext>;
   accept(
     ctx: LifecycleContext,
-    opts: { dryRun?: boolean; confirmed?: boolean },
+    opts: {
+      dryRun?: boolean;
+      confirmed?: boolean;
+      cliModel?: CliModelProvider;
+    },
   ): DeskMaybePromise<void>;
   update(
     ctx: LifecycleContext,
@@ -303,7 +310,12 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   input: (options) => requestText(options),
   pause: (out) => awaitEnter(out),
   lifecycle: (root) => lifecycleContext(root, deskLogger()),
-  accept: (ctx, opts) => accept(ctx, opts),
+  accept: (ctx, opts) => {
+    if (opts.cliModel === undefined) {
+      throw new Error("desk acceptance requires a live CLI model provider");
+    }
+    return accept(ctx, { ...opts, cliModel: opts.cliModel });
+  },
   update: (ctx, opts) => update(ctx, opts),
   drop: (ctx, target, opts) => worktreeDrop(ctx, target, opts),
   reclaim: async (ctx, target) => {
@@ -813,6 +825,7 @@ async function dispatchAction(
   row: DeskRow,
   action: DeskAction,
   runtime: DeskRuntime,
+  cliModel?: CliModelProvider,
 ): Promise<boolean> {
   const trunk = config.repository.trunk;
   const target = basename(row.entry.path);
@@ -820,7 +833,10 @@ async function dispatchAction(
     case "accept": {
       echoCommand(out, `discern accept  (in ${target})`);
       const ctx = await runtime.lifecycle(row.entry.path);
-      await runtime.accept(ctx, { dryRun: true });
+      await runtime.accept(ctx, {
+        dryRun: true,
+        ...(cliModel === undefined ? {} : { cliModel }),
+      });
       if (
         !(await runtime.confirm(`Land ${row.entry.branch} on ${trunk}?`, {
           defaultTo: true,
@@ -833,7 +849,10 @@ async function dispatchAction(
       // The human just accepted the landing in this interaction, so pass
       // the consent attestation in — the desk's confirm IS the acceptance, and
       // accept must not double-refuse for a consent it already collected (ADR 0134).
-      await runtime.accept(ctx, { confirmed: true });
+      await runtime.accept(ctx, {
+        confirmed: true,
+        ...(cliModel === undefined ? {} : { cliModel }),
+      });
       await runtime.pause(out);
       return true;
     }
@@ -1101,6 +1120,7 @@ async function actOn(
   config: DiscernConfig,
   row: DeskRow,
   runtime: DeskRuntime,
+  cliModel?: CliModelProvider,
 ): Promise<void> {
   clearBoard(out);
   out.heading(terminalLine(row.task.name));
@@ -1153,6 +1173,7 @@ async function actOn(
           row,
           action as DeskAction,
           runtime,
+          cliModel,
         )
       ) {
         return;
@@ -1353,7 +1374,7 @@ export async function runDesk(
     } else if (choice !== REFRESH) {
       const row = rows.find((r) => r.entry.path === choice);
       if (row !== undefined) {
-        await actOn(out, root, config, row, runtime);
+        await actOn(out, root, config, row, runtime, opts.cliModel);
       }
     }
     const next = await runtime.status(root);

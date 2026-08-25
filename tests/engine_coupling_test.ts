@@ -52,6 +52,7 @@ import {
   type CouplingData,
   CouplingOutputSchema,
 } from "../src/shared/result_schemas.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 /** A bare set-up project (no capabilities; instructions/skills off so the gate is a clean
  * green no-op) — coupling needs zero config, so the only thing a test varies is `in_gate`. */
@@ -582,7 +583,10 @@ Deno.test("declared outputs are excluded before every coupling statistic while a
     for (
       const automatic of [
         await prepareResult(dir),
-        await finishResult(dir, { surface: { kind: "quiet" } }),
+        await finishResult(dir, {
+          surface: { kind: "quiet" },
+          cliModel: TEST_CLI_MODEL,
+        }),
       ]
     ) {
       assertEquals(automatic.ok, true);
@@ -926,7 +930,10 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
 
     // Explicitly disabled: the gate is green and carries no coupling advisory.
-    const off = await finishResult(dir, { surface: { kind: "quiet" } });
+    const off = await finishResult(dir, {
+      surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
+    });
     assertEquals(off.ok, true);
     assertEquals(off.data?.failed_stage ?? null, null);
     assertLacksHint(off, HINTS["coupling-diff-header"]);
@@ -943,7 +950,10 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
         "",
       ].join("\n"),
     );
-    const on = await finishResult(dir, { surface: { kind: "quiet" } });
+    const on = await finishResult(dir, {
+      surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
+    });
     assertEquals(
       on.ok,
       true,
@@ -999,6 +1009,7 @@ Deno.test("done suppresses the coupling advisory until the install is bootstrapp
 
     const result = await finishResult(dir, {
       surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
     });
     assertLacksHint(result, HINTS["coupling-diff-header"]);
   });

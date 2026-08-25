@@ -58,6 +58,7 @@ import {
   AWAIT_STRICT_CALL_SECONDS,
 } from "../src/engine/await/defaults.ts";
 import { withTempDir } from "./helpers.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 import { stageBundledDocs } from "../scripts/build.ts";
 import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import {
@@ -2516,6 +2517,9 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
       { confirmed: true },
       undefined,
       () => Promise.resolve(undefined),
+      undefined,
+      "unknown-client",
+      TEST_CLI_MODEL,
     );
     assertEquals(partial.isError, true);
     assertEquals(partial.structuredContent.error, "partial_acceptance");

@@ -28,6 +28,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 /** Read completed verb events from the single current-month fixture log. */
 async function completedEvents(dir: string): Promise<VerbEvent[]> {
@@ -218,6 +219,7 @@ Deno.test("a stalled validation dependency cannot delay or replace the Gate verd
     );
     const result = await finishResult(dir, {
       surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
       confirmed: true,
       validationCaptureOptions,
     });

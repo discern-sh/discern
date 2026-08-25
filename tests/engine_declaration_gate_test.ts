@@ -34,6 +34,7 @@ import {
 } from "../src/shared/declarations.ts";
 import { ERROR_SLUGS } from "../src/shared/result.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 /** The wire fields these refusal probes read from an envelope. */
 interface RefusalEnvelope {
@@ -98,6 +99,9 @@ async function runMcp(
     args,
     undefined,
     () => Promise.resolve(undefined),
+    undefined,
+    "unknown-client",
+    TEST_CLI_MODEL,
   );
   return {
     isError: outcome.isError === true,

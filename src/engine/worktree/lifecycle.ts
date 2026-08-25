@@ -32,6 +32,7 @@ import {
   plainModeEnabled,
 } from "../../lib/terminal_interaction.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
   type CheckpointDrop,
@@ -330,6 +331,8 @@ export interface WorktreeOpOptions {
 export interface AcceptOpOptions extends WorktreeOpOptions {
   confirmed?: boolean;
   variance?: string[];
+  /** Fully attached live command tree supplied by the binary entry point. */
+  cliModel: CliModelProvider;
 }
 
 /**
@@ -2437,6 +2440,7 @@ async function executeAcceptPlan(
   ctx: LifecycleContext,
   run: GitRunner,
   plan: AcceptPlan,
+  cliModel: CliModelProvider,
   authority: LandingAuthorityResolution,
   consent: LandingConsent,
   progress: AcceptExecutionProgress,
@@ -2530,6 +2534,7 @@ async function executeAcceptPlan(
     ctx.log.info("Validating the branch against the full gate before landing…");
     const pin = await pinValidatedTree(ctx.cwd);
     const gate = await finishResult(ctx.cwd, {
+      cliModel,
       surface: ctx.log.json
         ? { kind: "quiet" }
         : { kind: "human", plain: plainModeEnabled() },
@@ -3195,12 +3200,13 @@ async function executeAcceptPlan(
  */
 export async function accept(
   ctx: LifecycleContext,
-  opts: AcceptOpOptions = {},
+  opts: AcceptOpOptions,
 ): Promise<void> {
   const result = await acceptResult(ctx, {
     dryRun: opts.dryRun ?? false,
     confirmed: opts.confirmed ?? false,
     variance: opts.variance ?? [],
+    cliModel: opts.cliModel,
   });
   if (!result.ok && result.error === "report_only_proof") {
     throw new WorktreeResultError(
@@ -3223,7 +3229,12 @@ export async function accept(
  */
 export async function acceptResult(
   ctx: LifecycleContext,
-  opts: { dryRun?: boolean; confirmed?: boolean; variance?: string[] } = {},
+  opts: {
+    dryRun?: boolean;
+    confirmed?: boolean;
+    variance?: string[];
+    cliModel: CliModelProvider;
+  },
 ): Promise<DiscernResult<AcceptData>> {
   const existingProof = await inspectGateProof(ctx.cwd);
   if (existingProof.status === "report_only") {
@@ -3245,10 +3256,23 @@ export async function acceptResult(
   if (!dryRun) {
     return await withAcceptanceTransactionLock(
       ctx.cwd,
-      () => executeAcceptResult(ctx, false, confirmed, variance),
+      () =>
+        executeAcceptResult(
+          ctx,
+          false,
+          confirmed,
+          opts.cliModel,
+          variance,
+        ),
     );
   }
-  return await executeAcceptResult(ctx, true, confirmed, variance);
+  return await executeAcceptResult(
+    ctx,
+    true,
+    confirmed,
+    opts.cliModel,
+    variance,
+  );
 }
 
 /**
@@ -3260,6 +3284,7 @@ async function executeAcceptResult(
   ctx: LifecycleContext,
   dryRun: boolean,
   confirmed: boolean,
+  cliModel: CliModelProvider,
   varianceIds: readonly string[] = [],
 ): Promise<DiscernResult<AcceptData>> {
   const startingProof = await inspectGateProof(ctx.cwd);
@@ -3444,6 +3469,7 @@ async function executeAcceptResult(
       ctx,
       run,
       plan,
+      cliModel,
       authority,
       consent,
       progress,

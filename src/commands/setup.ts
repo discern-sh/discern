@@ -164,6 +164,7 @@ import {
   landingSummary,
 } from "./setup_accept.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
+import type { CliModelProvider } from "../shared/cli_reference_codegen.ts";
 import { instructionSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 import {
   renderSetupReadinessTable,
@@ -256,6 +257,8 @@ export interface SetupOptions extends InitFlags {
 export interface SetupDoneOptions {
   json: boolean;
   force: boolean;
+  /** Fully attached live command tree supplied by the binary entry point. */
+  cliModel: CliModelProvider;
 }
 
 /**
@@ -3007,6 +3010,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
       root,
       opts.json,
       markerCommit.head,
+      opts.cliModel,
     );
     if (!completion.ok) {
       const restore = await restoreCompletionMarker(
@@ -3194,6 +3198,7 @@ async function proveFinalSetupTree(
   root: string,
   json: boolean,
   markerHead: string,
+  cliModel: CliModelProvider,
 ): Promise<FinalSetupProof> {
   const refreshFailure = await refreshSetupInstructions(root, json);
   if (refreshFailure !== undefined) {
@@ -3221,7 +3226,7 @@ async function proveFinalSetupTree(
     return { ok: false, stage: "doctor", detail: doctorDrift };
   }
 
-  const probe = await proveWorktreeViable(root, json, markerHead);
+  const probe = await proveWorktreeViable(root, json, markerHead, cliModel);
   if (!probe.ok) {
     return probe;
   }
@@ -3231,6 +3236,7 @@ async function proveFinalSetupTree(
   }
 
   const gate = await finishResult(root, {
+    cliModel,
     surface: json
       ? { kind: "quiet" }
       : { kind: "human", plain: plainModeEnabled() },
@@ -3269,6 +3275,7 @@ async function proveWorktreeViable(
   root: string,
   json: boolean,
   markerHead: string,
+  cliModel: CliModelProvider,
 ): Promise<WorktreeProbeProof> {
   const cfg = await loadConfig(root);
   const log = new Logger({ json, noColor: false, humanStream: "stdout" });
@@ -3286,6 +3293,7 @@ async function proveWorktreeViable(
         };
       }
       const r = await finishResult(probeDir, {
+        cliModel,
         surface: json
           ? { kind: "quiet" }
           : { kind: "human", plain: plainModeEnabled() },

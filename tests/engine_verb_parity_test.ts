@@ -41,6 +41,7 @@ import {
   RECORDED_CLI_VERBS,
 } from "../src/engine/logbook/cli.ts";
 import { LOGBOOK_EFFECTFUL_VERBS } from "../src/shared/verbs.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -53,7 +54,7 @@ Deno.test("Cliffy registrations cover EXACTLY the engine-verb SSOT (verb → han
   // exactly KNOWN_ENGINE_VERBS — a verb added to the SSOT with no `.command()` (or a
   // registration with no SSOT entry) red-lights here.
   const root = new Command();
-  attachEngineCommands(root as unknown as Command);
+  attachEngineCommands(root as unknown as Command, TEST_CLI_MODEL);
   const registered = root.getCommands().map((c) => c.getName());
   assertEquals(
     sorted(registered),
@@ -190,7 +191,7 @@ Deno.test("the identity CLI exposes a flag for EXACTLY the identity-field SSOT",
   // and the action's field selection already derive from the SSOT; this catches a
   // flag that drifts from it (a renamed/removed field, or a new one with no flag).
   const root = new Command();
-  attachEngineCommands(root as unknown as Command);
+  attachEngineCommands(root as unknown as Command, TEST_CLI_MODEL);
   const identity = root.getCommands().find((c) => c.getName() === "identity");
   assert(identity !== undefined, "the identity command is not registered");
   const optionNames = identity.getOptions().map((o) => o.name);
