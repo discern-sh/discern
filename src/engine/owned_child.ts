@@ -24,6 +24,7 @@ import {
   reraiseInterrupt,
   signalProcessGroup,
 } from "./process_signals.ts";
+import { operationLockChildEnv } from "../shared/operation_lock_context.ts";
 
 export interface OwnedChildOptions {
   /** Arguments passed to the executable without a shell. */
@@ -169,7 +170,7 @@ export async function runOwnedChild(
       new Deno.Command(command, {
         args: [...(opts.args ?? [])],
         ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
-        ...(opts.env === undefined ? {} : { env: opts.env }),
+        env: { ...opts.env, ...operationLockChildEnv() },
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",

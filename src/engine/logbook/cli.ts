@@ -22,6 +22,7 @@
  */
 
 import {
+  observeResult,
   takeCheckpointActivity,
   takeObservedResult,
   takeShownTipIds,
@@ -43,6 +44,7 @@ import {
 
 const recordedVerbs = new Set<string>();
 const beginRecordedVerbs = new Set<string>();
+const recordedCommandPaths = new Set<string>();
 
 /**
  * The CLI's raw driver signals — evidence for the who-drove-this question,
@@ -135,6 +137,9 @@ function cliFlagNames(): string[] | undefined {
  * verb). The parity guard reconciles this against the verb SSOT.
  */
 export const RECORDED_CLI_VERBS: ReadonlySet<string> = recordedVerbs;
+/** Exact command paths whose live execution reaches {@link recordedRun}. */
+export const RECORDED_CLI_COMMAND_PATHS: ReadonlySet<string> =
+  recordedCommandPaths;
 /** Effectful top-level verbs with at least one action registered through the
  * begin-recording path. The verb parity guard reconciles this derived registry
  * against the canonical effectful set. */
@@ -154,6 +159,69 @@ export interface RecordedRunOptions {
   readonly target?: string;
   /** Read envelope-less slot-wait timing after the body settles. */
   readonly waitedMs?: () => number | undefined;
+  /** A mixed runner received the operand that selects its effectful form. */
+  readonly hasOperands?: boolean;
+}
+
+/** Enroll a pre-Cliffy execution path that calls {@link recordedRun} directly. */
+export function registerDirectRecordedCliCommandPath(command: string): void {
+  recordedCommandPaths.add(command);
+}
+
+/** Whether this CLI invocation requested a serialized result projection. */
+function serializedResultRequested(): boolean {
+  return ["--json", "--markdown", "--render"].some((flag) =>
+    Deno.args.includes(flag)
+  );
+}
+
+/** Render a lock refusal through the same CLI result boundary as the verb. */
+async function routeOperationLockRefusal(
+  error: import("../operation_lock.ts").OperationLockError,
+): Promise<number> {
+  if (serializedResultRequested()) {
+    const { emitResult } = await import("../../shared/emit.ts");
+    emitResult(error.result);
+  } else {
+    observeResult(error.result);
+    const { Logger } = await import("../../lib/log.ts");
+    new Logger({ json: false, noColor: false }).errorBlock(error.message);
+  }
+  return 1;
+}
+
+/** Run every CLI path through the operation policy, recorded or otherwise. */
+async function runClassifiedCliOperation(
+  verb: string,
+  body: () => number | undefined | Promise<number | undefined>,
+  options: {
+    readonly flags?: readonly string[];
+    readonly dryRun: boolean;
+    readonly hasOperands?: boolean;
+  },
+): Promise<number> {
+  const { OperationLockError, withOperationLock } = await import(
+    "../operation_lock.ts"
+  );
+  try {
+    return (await withOperationLock(
+      Deno.cwd(),
+      {
+        command: verb,
+        ...(options.flags === undefined ? {} : { flags: options.flags }),
+        ...(options.hasOperands === undefined
+          ? {}
+          : { hasOperands: options.hasOperands }),
+        ...(options.dryRun ? { dryRun: true } : {}),
+      },
+      async () => (await body()) ?? 0,
+    ));
+  } catch (error) {
+    if (error instanceof OperationLockError) {
+      return await routeOperationLockRefusal(error);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -169,9 +237,18 @@ export async function recordedRun(
   body: () => number | undefined | Promise<number | undefined>,
   opts: RecordedRunOptions = {},
 ): Promise<number> {
-  if (!logbookInvocationIsRecorded(verb)) {
-    return (await body()) ?? 0;
-  }
+  const scanArgs = verb !== "scripts";
+  const flags = scanArgs ? cliFlagNames() : undefined;
+  const dryRun = scanArgs && Deno.args.includes("--dry-run");
+  const run = () =>
+    runClassifiedCliOperation(verb, body, {
+      ...(flags === undefined ? {} : { flags }),
+      dryRun,
+      ...(opts.hasOperands === undefined
+        ? {}
+        : { hasOperands: opts.hasOperands }),
+    });
+  if (!logbookInvocationIsRecorded(verb)) return await run();
   // A CLI process normally serves one verb, but the accumulators are process
   // local: clear any stale test/embedded-call state before this invocation.
   takeSupplementalHintIds();
@@ -182,9 +259,7 @@ export async function recordedRun(
   // `--help` builds the whole CLI tree through recordedExit without it).
   // Start driver enrichment before opening the recorder so an effectful
   // invocation's begin event carries the same raw signals as its completion.
-  const scanArgs = verb !== "scripts";
   const driver = cliDriverFacts(scanArgs);
-  const flags = scanArgs ? cliFlagNames() : undefined;
   const { beginRecording } = await import("./record.ts");
   const recording = beginRecording(Deno.cwd(), {
     verb,
@@ -200,7 +275,7 @@ export async function recordedRun(
   let crash: CrashSignature | undefined;
   try {
     throwIfCrashProbe();
-    code = (await body()) ?? 0;
+    code = await run();
   } catch (err) {
     // An unexpected throw still records — outcome `failed`, plus the
     // logbook-safe signature — before propagating to the crash frame.
@@ -219,8 +294,7 @@ export async function recordedRun(
     // mislabel the event.
     const result = observed?.result;
     const waitedMs = result?.waitedMs ?? opts.waitedMs?.();
-    const dryRun = result?.dry_run === true ||
-      (scanArgs && Deno.args.includes("--dry-run"));
+    const observedDryRun = result?.dry_run === true || dryRun;
     await recording.finish({
       verb,
       surface,
@@ -239,7 +313,7 @@ export async function recordedRun(
       ...(checkpointActivity !== undefined
         ? { checkpoints: checkpointActivity }
         : {}),
-      ...(dryRun ? { dryRun: true } : {}),
+      ...(observedDryRun ? { dryRun: true } : {}),
       ...(flags !== undefined ? { flags } : {}),
       ...(target !== undefined ? { target } : {}),
       ...(crash !== undefined ? { crash } : {}),
@@ -260,6 +334,7 @@ export function recordedExit<TThis, A extends unknown[]>(
   body: VerbBody<TThis, A>,
 ): (this: TThis, ...args: A) => Promise<void> {
   const top = verb.split(" ")[0];
+  recordedCommandPaths.add(verb);
   if (top !== undefined && top !== "") {
     recordedVerbs.add(top);
     if (LOGBOOK_EFFECTFUL_VERBS.has(top)) {

@@ -98,6 +98,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  operationCommonLock: {
+    path: "discern/operation-common.lock",
+    scope: "common",
+    kind: "file",
+    validation: false,
+  },
   gateProof: {
     path: "discern/gate-proof",
     scope: "worktree",
@@ -146,8 +152,8 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
-  acceptanceTransactionLock: {
-    path: "discern/acceptance-transaction.lock",
+  operationCheckoutLock: {
+    path: "discern/operation-checkout.lock",
     scope: "worktree",
     kind: "file",
     validation: false,

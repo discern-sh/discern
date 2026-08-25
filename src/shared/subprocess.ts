@@ -20,6 +20,7 @@
  */
 
 import type { GitAdminPathRunner } from "./git_admin_paths.ts";
+import { operationLockChildEnv } from "./operation_lock_context.ts";
 import {
   selfShimDir as resolveSelfShimDir,
   selfShimPath as resolveSelfShimPath,
@@ -692,7 +693,11 @@ export async function runShell(
       cwd: opts.cwd,
       // `discern` in an operator command resolves to the running engine,
       // whatever the ambient PATH holds (self_shim.ts).
-      env: { ...opts.env, PATH: await selfShimPath(opts.cwd, opts.env?.PATH) },
+      env: {
+        ...opts.env,
+        ...operationLockChildEnv(),
+        PATH: await selfShimPath(opts.cwd, opts.env?.PATH),
+      },
       stdin: "null",
       stdout: "piped",
       stderr: "piped",

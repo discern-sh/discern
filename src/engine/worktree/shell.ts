@@ -24,6 +24,7 @@
 
 import { byteWriter } from "../output.ts";
 import type { Logger } from "../../lib/log.ts";
+import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
 import { selfShimPath, SPAWN_FAILED } from "../../shared/subprocess.ts";
 import { superviseSpawn } from "../owned_child.ts";
 import {
@@ -154,7 +155,11 @@ export async function runShellRouted(
   const isolatedGroup = Deno.build.os !== "windows";
   // `discern` in an operator command resolves to the running engine, whatever
   // the ambient PATH holds (self_shim.ts).
-  const childEnv = { ...env, PATH: await selfShimPath(cwd, env?.PATH) };
+  const childEnv = {
+    ...env,
+    ...operationLockChildEnv(),
+    PATH: await selfShimPath(cwd, env?.PATH),
+  };
   try {
     const run = await superviseSpawn(
       () =>

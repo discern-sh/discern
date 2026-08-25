@@ -172,6 +172,10 @@ export async function runQueue(
     "queue",
     "cli",
     () => runQueueChild(command, args, false, (value) => acquirer = value),
-    { target: command, waitedMs: () => acquirer?.waitedMs },
+    {
+      target: command,
+      waitedMs: () => acquirer?.waitedMs,
+      hasOperands: true,
+    },
   );
 }

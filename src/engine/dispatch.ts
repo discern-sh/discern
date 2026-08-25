@@ -61,7 +61,10 @@ import type { DiscernResult } from "../shared/result.ts";
 import type { CliModelProvider } from "../shared/cli_reference_codegen.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import { runOwnedChild } from "./owned_child.ts";
-import { recordedExit } from "./logbook/cli.ts";
+import {
+  recordedExit,
+  registerDirectRecordedCliCommandPath,
+} from "./logbook/cli.ts";
 import { runCommandGroup } from "../shared/command_group.ts";
 import {
   AWAIT_LONG_CALL_SECONDS,
@@ -412,6 +415,7 @@ export function attachEngineCommands(
         "Use `discern await` to watch a fleet condition instead. " +
         "This command has no `--json`, `--markdown`, or `--render` mode; tokens after `--` belong to the child.",
     );
+  registerDirectRecordedCliCommandPath("queue");
 
   root
     .command("improvement")
@@ -1235,6 +1239,16 @@ export function attachEngineCommands(
     .description(
       "Provider hook entry points (machine-invoked; stdin carries the hook payload).",
     )
+    .action(recordedExit("worktree hook", function (
+      this: Command,
+      o,
+    ): number {
+      return runCommandGroup(
+        this,
+        "worktree hook",
+        (o as { json?: boolean } | undefined)?.json ?? false,
+      );
+    }))
     .command(
       "create",
       new Command().action(

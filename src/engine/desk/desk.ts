@@ -64,6 +64,7 @@ import { mainRepoPath } from "../worktree/git.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { runOwnedChild } from "../owned_child.ts";
+import { withOperationLock } from "../operation_lock.ts";
 import {
   listProjectScriptsWithConfig,
   type ProjectScript,
@@ -284,11 +285,16 @@ export async function runDeskProjectScript(
   name: string,
   env: Record<string, string>,
 ): Promise<number> {
-  return await runProjectScriptAt(root, name, [], {
-    cwd: root,
-    env,
-    resumeAfterInterrupt: true,
-  });
+  return await withOperationLock(
+    root,
+    { command: "scripts", hasOperands: true },
+    () =>
+      runProjectScriptAt(root, name, [], {
+        cwd: root,
+        env,
+        resumeAfterInterrupt: true,
+      }),
+  );
 }
 
 /** The real terminal/git implementation. Keeping the boundary in one value
@@ -316,20 +322,42 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     }
     return accept(ctx, { ...opts, cliModel: opts.cliModel });
   },
-  update: (ctx, opts) => update(ctx, opts),
-  drop: (ctx, target, opts) => worktreeDrop(ctx, target, opts),
+  update: (ctx, opts) =>
+    withOperationLock(
+      ctx.cwd,
+      { command: "update", ...(opts.dryRun ? { dryRun: true } : {}) },
+      () => update(ctx, opts),
+    ),
+  drop: (ctx, target, opts) =>
+    withOperationLock(
+      ctx.cwd,
+      {
+        command: "worktree drop",
+        ...(opts.dryRun ? { dryRun: true } : {}),
+      },
+      () => worktreeDrop(ctx, target, opts),
+    ),
   reclaim: async (ctx, target) => {
-    await worktreeReclaimContained(ctx, target);
+    await withOperationLock(
+      ctx.cwd,
+      { command: "worktree prune" },
+      () => worktreeReclaimContained(ctx, target),
+    );
   },
   git: (args, cwd) => runGit(args, { cwd }),
   interactive: (command, args, cwd, env) =>
     runDeskInteractiveChild(command, args, cwd, env),
   detectAgents: () => detectAgentBinariesOnPath(),
   start: async (ctx, opts) => {
-    const result = await startResult(ctx, {
-      worktreeRoot: opts.worktreeRoot,
-      ...(opts.name !== undefined ? { name: opts.name } : {}),
-    });
+    const result = await withOperationLock(
+      ctx.cwd,
+      { command: "start" },
+      () =>
+        startResult(ctx, {
+          worktreeRoot: opts.worktreeRoot,
+          ...(opts.name !== undefined ? { name: opts.name } : {}),
+        }),
+    );
     if (result.data === undefined) {
       throw new Error(result.message ?? "discern start returned no worktree");
     }

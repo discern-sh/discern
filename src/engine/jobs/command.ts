@@ -11,6 +11,7 @@
  */
 
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
+import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
 import { activeInvocationId } from "../logbook/invocation_context.ts";
 import type { Job, JobOutputObserver, JobResult } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
@@ -244,6 +245,7 @@ export async function spawnJob(
       ...CAPTURE_ENV,
       ...spawnedByEnv(),
       ...(opts.env ?? {}),
+      ...operationLockChildEnv(),
       PATH: await selfShimPath(opts.cwd),
     },
     stdin: "null",

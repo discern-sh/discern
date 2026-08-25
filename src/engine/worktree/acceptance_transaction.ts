@@ -34,6 +34,7 @@ import {
   recoverCheckedOutFastForward,
   WorktreeGitError,
 } from "./git.ts";
+import { OperationLockError, withOperationLock } from "../operation_lock.ts";
 
 /** Durable facts that precede a later acceptance phase. */
 export const ACCEPTANCE_TRANSACTION_BOUNDARIES = [
@@ -136,78 +137,23 @@ const TRANSACTION_ID =
 const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 /**
- * Run one acceptance apply while holding this worktree's OS advisory lock.
+ * Run one acceptance apply while holding the repository-wide acceptance policy.
  *
- * `tryLock` refuses a concurrent caller instead of letting it mistake an active
- * journal for an interrupted transaction. Closing the file releases the lock,
- * including when the process exits unexpectedly; the worktree's Git-admin
- * lifecycle reaps the otherwise inert lock file.
+ * The shared capability acquires the common-repository lock before this
+ * checkout's lock, so two linked worktrees cannot inspect one another's active
+ * acceptance as interrupted state or overlap the shared trunk transition.
  */
 export async function withAcceptanceTransactionLock<T>(
   cwd: string,
   operation: () => Promise<T>,
 ): Promise<T> {
-  const path = await gitAdminStatePath(cwd, "acceptanceTransactionLock");
-  if (path === undefined) {
-    throw new WorktreeGitError(
-      "Git could not resolve Discern's per-worktree acceptance lock. " +
-        "Nothing was claimed or landed.",
-    );
-  }
   try {
-    await Deno.mkdir(dirname(path), { recursive: true });
+    return await withOperationLock(cwd, { command: "accept" }, operation);
   } catch (error) {
-    throw new WorktreeGitError(
-      `Discern could not prepare its per-worktree acceptance lock at ${path}. ` +
-        `Nothing was claimed or landed. ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-    );
-  }
-
-  let file: Deno.FsFile;
-  try {
-    file = await Deno.open(path, {
-      create: true,
-      read: true,
-      write: true,
-    });
-  } catch (error) {
-    throw new WorktreeGitError(
-      `Discern could not open its per-worktree acceptance lock at ${path}. ` +
-        `Nothing was claimed or landed. ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-    );
-  }
-
-  let acquired: boolean;
-  try {
-    acquired = await file.tryLock(true);
-  } catch (error) {
-    file.close();
-    throw new WorktreeGitError(
-      `Discern could not check its per-worktree acceptance lock at ${path}. ` +
-        `Nothing was claimed or landed. ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-    );
-  }
-  if (!acquired) {
-    file.close();
-    throw new WorktreeGitError(
-      "Another acceptance is already running for this worktree. It still owns " +
-        "the recovery journal, authority claim, and trunk transition. Wait for " +
-        "it to finish, then re-run `discern accept`. This call changed nothing.",
-    );
-  }
-
-  try {
-    return await operation();
-  } finally {
-    // Closing an FsFile releases its advisory lock even if Git removed this
-    // worktree's administrative directory during successful cleanup.
-    file.close();
+    if (error instanceof OperationLockError) {
+      throw new WorktreeGitError(error.message);
+    }
+    throw error;
   }
 }
 

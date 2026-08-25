@@ -158,6 +158,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "operation-effects",
+    title: "Operation effects",
+    what:
+      "Every live CLI command path's effect classes, exclusion boundary, and preview obligation; the live-tree guard makes new nested and top-level commands enroll before they can run.",
+    source: {
+      kind: "module",
+      module: "src/shared/operation_effects.ts",
+      exportName: "OPERATION_EFFECTS",
+    },
+    guards: ["tests/operation_effects_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the operation protocol documentation explains the shared policy as one concept rather than defining every command path as a term",
+      },
+      featureCanon: {
+        absent:
+          "the registry governs cross-cutting execution mechanics rather than a separately selectable product feature",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/operation_effects.ts")).OPERATION_EFFECTS,
+      ),
+  },
+  {
     id: "dry-run-verbs",
     title: "Dry-run-capable verbs",
     what:

@@ -150,6 +150,7 @@ import {
   operatingPolicyStatementsFor,
   worktreeContinuityPolicy,
 } from "../../shared/operating_policies.ts";
+import { OperationLockError, withOperationLock } from "../operation_lock.ts";
 
 const SERVER_NAME = "discern";
 
@@ -1543,15 +1544,29 @@ async function runVerb(
 ): Promise<VerbRun> {
   try {
     throwIfCrashProbe();
+    const command = verbOf(tool.name);
+    const { flags } = mcpCallFacts(args);
     return {
-      result: await tool.run(
+      result: await withOperationLock(
         root,
-        args,
-        signal ?? new AbortController().signal,
-        { awaitCallProfile, cliModel },
+        {
+          command,
+          ...(flags === undefined ? {} : { flags }),
+          ...(args.dry_run === true ? { dryRun: true } : {}),
+        },
+        () =>
+          tool.run(
+            root,
+            args,
+            signal ?? new AbortController().signal,
+            { awaitCallProfile, cliModel },
+          ),
       ),
     };
   } catch (e) {
+    if (e instanceof OperationLockError) {
+      return { result: e.result };
+    }
     const configFailure = configFailureResult(verbOf(tool.name), e);
     if (configFailure !== undefined) {
       return { result: configFailure };

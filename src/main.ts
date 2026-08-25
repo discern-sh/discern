@@ -1713,6 +1713,7 @@ export async function main(args: string[]): Promise<void> {
               await runProjectScript(script.name, script.args, {
                 json: quietResult,
               }),
+            { hasOperands: script.name !== undefined },
           ),
         );
       }

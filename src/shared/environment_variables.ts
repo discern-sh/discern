@@ -401,6 +401,16 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
         "Carries the parent invocation id into a discern child the gate's job runner spawns, so the Logbook records the run as a self-invocation.",
     },
   },
+  operationLockDelegation: {
+    name: "DISCERN_OPERATION_LOCK_DELEGATION",
+    group: "process-internals",
+    lifecycle: "live",
+    documentation: {
+      public: false,
+      reason:
+        "Delegates an OS-backed operation-lock lease to a discern child process so nested built-in commands cannot deadlock their parent.",
+    },
+  },
   setupDeno: {
     name: "DISCERN_SETUP_DENO",
     group: "process-internals",
