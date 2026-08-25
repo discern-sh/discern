@@ -4003,7 +4003,7 @@ export type DiscernAwaitResult = {
       landed?: boolean;
       trunk_start?: string;
       trunk_head?: string;
-      behind?: number;
+      behind?: number | "unknown";
       incoming_overlap?: Array<string>;
       overlap_total?: number;
     };
@@ -5030,8 +5030,8 @@ export type DiscernStatusResult = {
       trunk: string;
       clean: boolean;
       changed_files: number;
-      behind_trunk: number | null;
-      ahead_trunk: number | null;
+      behind_trunk: number | "unknown" | null;
+      ahead_trunk: number | "unknown" | null;
       incoming_overlap?: Array<string>;
     } | null;
     scopes?: Array<string>;
@@ -5185,8 +5185,8 @@ export type DiscernStatusResult = {
       branch: string;
       clean?: boolean;
       changed_files?: number;
-      ahead?: number;
-      behind?: number;
+      ahead?: number | "unknown";
+      behind?: number | "unknown";
       last_activity?: string;
       last_action?: {
         verb: string;

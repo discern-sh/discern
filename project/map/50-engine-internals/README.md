@@ -57,7 +57,7 @@ Package `InlineFramePainter` rejects frames it cannot wholly replace. Gate and a
 
 ## Absence and failed observations
 
-[`fs_presence.ts`](../../../src/shared/fs_presence.ts) is the filesystem presence boundary. Its ordinary helpers translate only `NotFound` into absence and rethrow every other failure. A caller whose observation is genuinely non-critical uses the named best-effort form with an explicit reason and fallback. The Git counterpart, [`git_count.ts`](../../../src/shared/git_count.ts), keeps a verified non-negative integer distinct from `"unknown"`; effects use fresh preconditions rather than advisory counts. Replacement errors retain the caught value through `Error.cause` ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)).
+[`fs_presence.ts`](../../../src/shared/fs_presence.ts) is the filesystem presence boundary. Its ordinary helpers translate only `NotFound` into absence and let every other failure propagate. A caller whose observation is genuinely non-critical uses the named best-effort form with an explicit reason and fallback. The Git counterpart, [`git_count.ts`](../../../src/shared/git_count.ts), keeps a verified non-negative integer distinct from `"unknown"`; effects use fresh preconditions rather than advisory counts. Replacement errors retain the caught value through `Error.cause` ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)).
 
 The authored-Deno presence guard rejects local catch-all presence semantics outside the capability. The lint plugin rejects a replacement error that consumes a caught value without `{ cause: error }`. These checks cover future modules through Git-derived source enrollment rather than a filename inventory.
 

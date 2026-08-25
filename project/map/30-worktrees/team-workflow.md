@@ -25,7 +25,7 @@ The survey preserves unknown states instead of guessing:
 | Tracked or untracked non-ignored files changed | `clean: false` with the changed-file count.                            |
 | Checkout has no project config                 | `broken`, with the `worktree drop` recovery.                           |
 | Git cannot read a checkout's status            | Sets `git_unavailable`. Clean and divergence values stay absent.       |
-| Git returns a failed or malformed count        | The affected ahead or behind value is `"unknown"`, never `0`.          |
+| Git returns a failed or malformed count        | Reports `"unknown"` for the affected ahead or behind value.            |
 | Work remains idle for 7 days                   | A hint to resume or drop the stale worktree.                           |
 | `agent/*` branch has no worktree               | `unlanded_branches`, with `start --from` and `update --from` recovery. |
 | Local trunk is missing                         | Ahead remains `null` because discern cannot compare it.                |
