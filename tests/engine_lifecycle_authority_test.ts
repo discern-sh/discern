@@ -88,7 +88,7 @@ function parseResult(
     return result;
   }
   const result = decodeCliResult(stdout, "status");
-  assertResultDataKey(result, "projection");
+  assertResultDataKey(result, "location");
   return result;
 }
 

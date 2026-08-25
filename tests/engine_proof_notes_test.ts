@@ -255,7 +255,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
       orientedStatus.stdout,
       "status",
     );
-    assertResultDataKey(orientedStatusResult, "projection");
+    assertResultDataKey(orientedStatusResult, "location");
     assertEquals(orientedStatusResult.data.projection.mode, "orientation");
     assertEquals(orientedStatusResult.data.landed_proof, undefined);
     assertEquals(orientedStatusResult.data.landed_proof_unsupported, undefined);
@@ -263,7 +263,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
     const status = await runAgent(dir, ["status", "--verbose", "--json"]);
     assertEquals(status.code, 0, status.output);
     const statusResult = decodeCliResult(status.stdout, "status");
-    assertResultDataKey(statusResult, "projection");
+    assertResultDataKey(statusResult, "location");
     assertEquals(statusResult.data.projection.mode, "full");
     assertEquals(statusResult.data.landed_proof, {
       commit: second.target,
@@ -308,7 +308,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
     ]);
     assertEquals(unreadStatus.code, 0, unreadStatus.output);
     const unreadResult = decodeCliResult(unreadStatus.stdout, "status");
-    assertResultDataKey(unreadResult, "projection");
+    assertResultDataKey(unreadResult, "location");
     assertEquals(unreadResult.data.landed_proof, undefined);
     assertEquals(unreadResult.data.landed_proof_unsupported, {
       commit: newerCommit,
@@ -519,7 +519,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
       siblingOnlyStatus.stdout,
       "status",
     );
-    assertResultDataKey(siblingOnlyResult, "projection");
+    assertResultDataKey(siblingOnlyResult, "location");
     assertEquals(
       siblingOnlyResult.data.landed_proof,
       undefined,
