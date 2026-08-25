@@ -10,7 +10,6 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { ScopesData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -18,6 +17,7 @@ import { runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import { pathMatchesPattern } from "./glob.ts";
 import { resolvedScopePaths } from "./scope_paths.ts";
+import { integrationBranch } from "../worktree/git.ts";
 
 /**
  * The two derived markers a classification emits ALONGSIDE the scope names: `code`
@@ -256,8 +256,7 @@ export async function classifyScopes(
   const names = Object.keys(scopes);
   const fireScopes = names.filter((s) => !scopes[s]?.neutral);
 
-  const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
-    config.repository.trunk;
+  const mainBranch = integrationBranch(config.repository.trunk);
   const paths = await collectPaths(root, mainBranch);
   if (paths === null) {
     // Fail open: cannot tell what changed → report every scope/marker.

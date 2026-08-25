@@ -50,7 +50,6 @@ import {
   policyCheckpointDrop,
 } from "../../shared/checkpoint_drops.ts";
 import { questionById } from "../../shared/questions.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { effectiveInstructionSourcePatterns } from "../../shared/paths_registry.ts";
 import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 import {
@@ -60,6 +59,7 @@ import {
 } from "../../shared/generated_artifacts.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { resolvedScopePaths } from "../scopes/scope_paths.ts";
+import { integrationBranch } from "../worktree/git.ts";
 import type { ResolvedCheckpoint } from "./types.ts";
 
 type SeedTriggerField = Exclude<
@@ -488,8 +488,7 @@ export async function loadGoverningPolicy(
   root: string,
   config: DiscernConfig,
 ): Promise<GoverningPolicy> {
-  const trunk = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
-    config.repository.trunk;
+  const trunk = integrationBranch(config.repository.trunk);
   const policyCommit = await policyMergeBase(root, trunk);
   if (policyCommit === undefined) {
     return {

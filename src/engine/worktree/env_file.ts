@@ -201,6 +201,7 @@ export async function writeEnvVar(
   value: string,
   files: readonly string[] = DEFAULT_ENV_FILES,
   opts: { create?: boolean; env?: EnvReader } = {},
+  env: EnvReader = opts.env ?? Deno.env,
 ): Promise<boolean> {
   // Prefer updating where the key already lives (last definition wins on read,
   // so that is the definition to move).
@@ -242,7 +243,7 @@ export async function writeEnvVar(
   }
   await Deno.writeTextFile(
     path,
-    upsertEnvLine(text, key, value, opts.env ?? Deno.env),
+    upsertEnvLine(text, key, value, env),
   );
   return true;
 }

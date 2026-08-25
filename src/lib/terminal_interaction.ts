@@ -448,10 +448,10 @@ export function groupedSelectionEntries<T>(
  * passes through unchanged, and a trace fault never disturbs the interaction.
  */
 function interactionTraceTarget(
-  env: EnvReader | undefined,
+  env: EnvReader = Deno.env,
 ): string | undefined {
   try {
-    const path = (env ?? Deno.env).get(
+    const path = env.get(
       DISCERN_ENVIRONMENT_VARIABLES.interactionTrace,
     );
     return path === undefined || path === "" ? undefined : path;
@@ -1314,10 +1314,11 @@ function canonicalSourceGlobs(value: string): string {
 /** Ask Git itself whether the prefix can begin every discern worktree branch. */
 async function validateBranchPrefix(
   value: string,
+  cwd: string = Deno.cwd(),
 ): Promise<InteractionValidation> {
   const result = await runGit(
     ["check-ref-format", "--branch", `${value}discern-probe`],
-    { cwd: Deno.cwd() },
+    { cwd },
   );
   if (result.success) return true;
   return result.code === SPAWN_FAILED
@@ -1642,8 +1643,7 @@ export async function confirmDialogAction(
 }
 
 /** Default project name from the current directory's basename. */
-function defaultNameFromCwd(): string {
-  const cwd = Deno.cwd();
+function defaultNameFromCwd(cwd: string = Deno.cwd()): string {
   const base = cwd.split("/").filter(Boolean).pop() ?? "app";
   return base;
 }

@@ -100,6 +100,7 @@ import {
   gitSnapshot,
   hasUncommittedTrackedChanges,
   incomingOverlap,
+  integrationBranch,
   listWorktreeFleet,
   localBranchExists,
   mainRepoPath,
@@ -232,8 +233,7 @@ export async function statusResult(
   }
 
   const cfg = await loadConfig(root);
-  const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
-    cfg.repository.trunk;
+  const mainBranch = integrationBranch(cfg.repository.trunk);
 
   // Location: a linked worktree has its own git admin dir (worktreeGitKey defined);
   // the main checkout (or no git repo) does not.

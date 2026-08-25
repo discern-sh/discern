@@ -187,8 +187,9 @@ export function skillFrontmatterIssues(
 async function resolveSkillsByName(
   root: string,
   config: DiscernConfig,
+  templatesDir?: string,
 ): Promise<Map<string, SkillEntry>> {
-  const bundledDir = await resolveBundledSkillsDir();
+  const bundledDir = await resolveBundledSkillsDir(templatesDir);
   const bundled = await dirNames(bundledDir);
   const { abs: authoredDir } = resolveSkillsDir(root, config);
   const authored = await dirNames(authoredDir);
@@ -407,6 +408,8 @@ export interface SkillMaterializationPlan {
 /** Read-only overlay used when another plan will create an authored skill. */
 export interface PlanMaterializeSkillsOptions {
   readonly prospectiveAuthoredSkill?: SkillEntry | undefined;
+  /** Explicit templates root for a host boundary that has already resolved it. */
+  readonly templatesDir?: string | undefined;
 }
 
 /** Remove a file, symlink, or directory at `path`; a no-op if already gone. */
@@ -612,7 +615,7 @@ export async function planMaterializeSkills(
   dirs: readonly string[],
   options: PlanMaterializeSkillsOptions = {},
 ): Promise<SkillMaterializationPlan> {
-  const byName = await resolveSkillsByName(root, config);
+  const byName = await resolveSkillsByName(root, config, options.templatesDir);
   const prospective = options.prospectiveAuthoredSkill;
   if (prospective !== undefined) {
     byName.set(prospective.name, prospective);

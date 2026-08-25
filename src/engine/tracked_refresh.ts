@@ -314,9 +314,9 @@ function addProofNotesEffects(
 export async function planRefresh(
   root: string,
   options: PlanRefreshOptions = {},
+  env: EnvReader = options.env ?? Deno.env,
 ): Promise<RefreshPlan> {
   const config = options.config ?? await loadConfig(root);
-  const env = options.env ?? Deno.env;
   const effects: RefreshEffect[] = [];
   const errors: RefreshPlanningError[] = [];
   const warnings: string[] = [];

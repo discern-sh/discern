@@ -167,8 +167,8 @@ function addSignal(
  */
 export async function detectAgentSignals(
   options: AgentSignalOptions = {},
+  env: EnvReader = options.env ?? Deno.env,
 ): Promise<AgentSignal[]> {
-  const env = options.env ?? Deno.env;
   const hasSignalPath = options.pathExists ??
     ((path: string) =>
       bestEffortFs(() => pathExists(path), {

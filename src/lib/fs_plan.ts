@@ -177,7 +177,7 @@ export async function buildPlan(params: {
   configuredAgents?: readonly string[];
   /** Process environment for generated-file attribution rendering. */
   env?: EnvReader | undefined;
-}): Promise<Plan> {
+}, env: EnvReader = params.env ?? Deno.env): Promise<Plan> {
   const { templatesDir, destDir, tokens } = params;
   const excludeNonSeed = params.excludeNonSeed ?? false;
   // Registry-derived map of a per-agent seed's target path → the agent that owns it,
@@ -222,7 +222,7 @@ export async function buildPlan(params: {
       const op = await planGitignoreAppend(
         entry.path,
         destDir,
-        params.env ?? Deno.env,
+        env,
       );
       ops.push(op);
       continue;

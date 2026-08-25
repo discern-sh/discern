@@ -8,7 +8,6 @@
 
 import { join } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { emitResult } from "../shared/emit.ts";
 import {
   CONFIG_REL,
@@ -24,6 +23,7 @@ import { resolveScriptsDir } from "../lib/paths.ts";
 import { renderAlignedRows } from "../lib/text.ts";
 import { terminalLine } from "../lib/terminal.ts";
 import { runOwnedChild } from "./owned_child.ts";
+import { integrationBranch } from "./worktree/git.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { ScriptsData } from "../shared/result_schemas.ts";
@@ -166,8 +166,7 @@ export async function runProjectScriptAt(
 
   const scriptFile = join(directory.abs, name.replace(/:/g, "-"));
   if (await isExecutable(scriptFile)) {
-    const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
-      config.repository.trunk;
+    const mainBranch = integrationBranch(config.repository.trunk);
     const tomlPath = join(
       root,
       (await installedConfigRel(root)) ?? CONFIG_REL,

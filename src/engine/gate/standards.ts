@@ -28,7 +28,6 @@ import {
   type Extent,
   loadConfig,
 } from "../../shared/config_schema.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { colorEnabled, makeOut, outSink } from "../output.ts";
 import {
   buildStandardPlan,
@@ -100,7 +99,7 @@ import {
   type WritePreflightFailure,
   writePreflightFailureMessage,
 } from "../../shared/write_preflight.ts";
-import { assertMainMerged } from "../worktree/git.ts";
+import { assertMainMerged, integrationBranch } from "../worktree/git.ts";
 import { writeDiscernToml } from "../../lib/tidy_format.ts";
 
 export { readTrunkConfig, type TrunkConfigRead } from "./standard_limits.ts";
@@ -1555,8 +1554,7 @@ export async function standardsResult(
   const unpinnedNames = (opts.pinNames?.length ?? 0) > 0 &&
     !(opts.pin ?? false);
   if (!unpinnedNames && !(opts.dryRun ?? false)) {
-    const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
-      cfg.repository.trunk;
+    const mainBranch = integrationBranch(cfg.repository.trunk);
     verification = await verifyTrunkLimits(
       root,
       mainBranch,
@@ -1576,8 +1574,7 @@ export async function standardsResult(
   } else if (opts.pin ?? false) {
     let behindHint: FiredHint | undefined;
     if (!(opts.dryRun ?? false)) {
-      const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
-        cfg.repository.trunk;
+      const mainBranch = integrationBranch(cfg.repository.trunk);
       const merged = await assertMainMerged(root, mainBranch);
       if (merged.kind === "behind") {
         behindHint = fire(HINTS["standards-pin-behind"], {

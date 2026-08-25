@@ -149,9 +149,9 @@ export function missingIntegrationBranchWarning(branch: string): string {
  * rather than inheriting it. The spawn itself — GIT_BIN, decoding, the no-git
  * fallback — lives once in {@link runGit}.
  */
-function git(args: string[], cwd?: string): Promise<GitResult> {
+function git(args: string[], cwd: string = Deno.cwd()): Promise<GitResult> {
   return runGit(args, {
-    cwd: cwd ?? Deno.cwd(),
+    cwd,
     quiesceDescendants: true,
   });
 }
@@ -1861,7 +1861,7 @@ async function gitlinksInto(
  * GC. Returns undefined outside a git repository.
  */
 export async function resolveCommonGitDir(
-  cwd?: string,
+  cwd: string = Deno.cwd(),
 ): Promise<string | undefined> {
   const run = await git(["rev-parse", "--git-common-dir"], cwd);
   if (!run.success) {
@@ -1872,7 +1872,7 @@ export async function resolveCommonGitDir(
     return undefined;
   }
   if (!isAbsolute(raw)) {
-    raw = resolve(cwd ?? Deno.cwd(), raw);
+    raw = resolve(cwd, raw);
   }
   return await realPathOr(raw);
 }
@@ -1893,10 +1893,10 @@ async function commonGitDirFrom(
  * (where the absolute and common git dirs are the same).
  */
 export async function worktreeGitKey(
-  cwd?: string,
+  cwd: string = Deno.cwd(),
 ): Promise<string | undefined> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(
-    cwd ?? Deno.cwd(),
+    cwd,
   );
   if (
     absoluteGitDir === undefined || commonGitDir === undefined ||
@@ -2277,6 +2277,7 @@ async function assertRemovalTargetIsNarrow(
   target: string,
   mainRepo: string,
   commonGitDir: string | undefined,
+  homeRaw: string | undefined = Deno.env.get("HOME"),
 ): Promise<void> {
   if (dirname(target) === target) {
     throw new WorktreeGitError(
@@ -2284,7 +2285,6 @@ async function assertRemovalTargetIsNarrow(
         "linked-worktree path from `git worktree list` instead.",
     );
   }
-  const homeRaw = Deno.env.get("HOME");
   const home = homeRaw === undefined || homeRaw === ""
     ? undefined
     : await realPathOr(homeRaw);

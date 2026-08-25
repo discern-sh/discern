@@ -2576,6 +2576,7 @@ async function executeAcceptPlan(
   consent: LandingConsent,
   progress: AcceptExecutionProgress,
   variances: readonly AuthorizedVarianceData[],
+  env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<{
   steps: StepResult[];
   gateValidation: NonNullable<AcceptData["gate_validation"]>;
@@ -3009,7 +3010,7 @@ async function executeAcceptPlan(
     mainRepo,
     validatedSha,
     proofForNote,
-    Deno.env,
+    env,
     acceptanceEvidence,
   );
   const proofNote: AcceptProofNoteData = {
@@ -3746,7 +3747,7 @@ async function postLandingLocalTemplatesDir(
   return available ? remapped : undefined;
 }
 
-/** Temporarily bind remapped templates while materializing the landed checkout. */
+/** Materialize the landed checkout from the already-remapped templates directory. */
 async function materializeLocalRefreshForLanding(
   root: string,
   logger: Logger,
@@ -3755,19 +3756,7 @@ async function materializeLocalRefreshForLanding(
   if (templatesDir === undefined) {
     return await materializeLocalRefreshArtifacts(root, logger);
   }
-
-  const variable = DISCERN_ENVIRONMENT_VARIABLES.templatesDirectory;
-  const previous = Deno.env.get(variable);
-  Deno.env.set(variable, templatesDir);
-  try {
-    return await materializeLocalRefreshArtifacts(root, logger);
-  } finally {
-    if (previous === undefined) {
-      Deno.env.delete(variable);
-    } else {
-      Deno.env.set(variable, previous);
-    }
-  }
+  return await materializeLocalRefreshArtifacts(root, logger, templatesDir);
 }
 
 // How much integration detail rides inline before an agent is pointed at git for

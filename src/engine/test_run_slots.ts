@@ -34,8 +34,10 @@ export const TEST_RUN_SLOT_ENV = DISCERN_ENVIRONMENT_VARIABLES.testSlot;
 export const TEST_RUN_SLOT_VALUE = "1";
 
 /** Whether an ancestor already accounts this process under the test-run cap. */
-export function testRunSlotAccounted(): boolean {
-  return (Deno.env.get(TEST_RUN_SLOT_ENV) ?? "") !== "";
+export function testRunSlotAccounted(
+  env: Pick<typeof Deno.env, "get"> = Deno.env,
+): boolean {
+  return (env.get(TEST_RUN_SLOT_ENV) ?? "") !== "";
 }
 
 /** One held slot. Releasing closes the file, which releases the OS lock. */

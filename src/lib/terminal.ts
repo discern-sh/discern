@@ -438,10 +438,11 @@ export function resolveTerminalContext(
 /** Snapshot the process without background sensing for synchronous fallbacks. */
 export function terminalProcessContext(
   options: TerminalProcessOptions = {},
+  env: EnvReader = options.env ?? Deno.env,
 ): TerminalContext {
   return resolveTerminalContext({
     noColor: options.noColor ?? false,
-    env: options.env ?? Deno.env,
+    env,
     isTerminal: options.isTerminal ?? (() => Deno.stdout.isTerminal()),
     consoleSize: options.consoleSize ?? (() => Deno.consoleSize()),
     ...(options.fallbackColumns === undefined
@@ -487,10 +488,11 @@ export function createProductionTerminalContextResolver(
   let processIo: TerminalIo | undefined;
   return async (
     options: ProductionTerminalOptions = {},
+    env: EnvReader = options.env ?? Deno.env,
   ): Promise<TerminalContext> => {
     const facts = resolveTerminalFacts({
       noColor: options.noColor ?? false,
-      env: options.env ?? Deno.env,
+      env,
       isTerminal: options.isTerminal ?? (() => Deno.stdout.isTerminal()),
       consoleSize: options.consoleSize ?? (() => Deno.consoleSize()),
       ...(options.fallbackColumns === undefined
@@ -637,9 +639,10 @@ export function terminalCapabilitiesAtWidth(
 /** Resolve both dimensions through the shared process adapter. */
 export function terminalSize(
   options: TerminalSizeOptions = {},
+  env: EnvReader = options.env ?? Deno.env,
 ): TerminalSize {
   const environment = environmentSnapshot(
-    options.env ?? Deno.env,
+    env,
     DIMENSION_ENVIRONMENT_KEYS,
   );
   return resolveSize(

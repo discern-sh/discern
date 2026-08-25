@@ -374,6 +374,7 @@ Deno.test("the env override never renames a FOREIGN worktree inspected by path",
         settings,
         worktree,
         fakeEnv({ DISCERN_WORKTREE_ID: "imposter" }),
+        dir,
       ),
       "real-identity",
     );

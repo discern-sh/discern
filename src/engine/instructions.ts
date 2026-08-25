@@ -465,6 +465,7 @@ export async function compileInstructions(
 export async function materializeLocalRefreshArtifacts(
   root: string,
   logger?: Logger,
+  templatesDir?: string,
 ): Promise<InstructionsResult> {
   const log = logger ??
     new Logger({ json: false, noColor: false, humanStream: "stdout" });
@@ -474,6 +475,7 @@ export async function materializeLocalRefreshArtifacts(
       root,
       config,
       skillsDirsForAgents(instructionAgents(config)),
+      templatesDir === undefined ? {} : { templatesDir },
     ),
     log,
   );

@@ -176,9 +176,11 @@ export async function resolveInstructionSources(
   return [...matched].sort();
 }
 
-/** The bundled-skills directory inside the resolved `templates/` tree. */
-export async function resolveBundledSkillsDir(): Promise<string> {
-  return join(await resolveTemplatesDir(), "skills");
+/** The bundled-skills directory inside an explicit or resolved `templates/` tree. */
+export async function resolveBundledSkillsDir(
+  templatesDir?: string,
+): Promise<string> {
+  return join(templatesDir ?? await resolveTemplatesDir(), "skills");
 }
 
 /**
@@ -322,8 +324,10 @@ export async function resolveTemplatesDir(
  * binary; never in a checkout) — the caller turns that into a clear message
  * rather than serving a project's docs by mistake.
  */
-export async function resolveBundledDocsDir(): Promise<string | undefined> {
-  const override = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.docsDirectory);
+export async function resolveBundledDocsDir(
+  env: EnvReader = Deno.env,
+): Promise<string | undefined> {
+  const override = env.get(DISCERN_ENVIRONMENT_VARIABLES.docsDirectory);
   if (override) {
     return (await directoryExists(override)) ? override : undefined;
   }

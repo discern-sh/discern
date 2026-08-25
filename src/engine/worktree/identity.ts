@@ -638,6 +638,7 @@ export async function resolveWorktreeId(
   settings: IdentitySettings,
   target: string = Deno.cwd(),
   env: EnvReader = Deno.env,
+  processCwd: string = Deno.cwd(),
 ): Promise<string> {
   const canonical = await canonicalizeTarget(target);
 
@@ -650,7 +651,7 @@ export async function resolveWorktreeId(
     // honoring it there collapses every row a caller walks onto one id — the
     // defect that let `worktree drop <id>` delete whichever worktree it met
     // first. Apply it only when the target IS the process's own workroot.
-    const own = await canonicalizeTarget(Deno.cwd());
+    const own = await canonicalizeTarget(processCwd);
     if (canonical === own) {
       return validateOverrideId(envOverride);
     }

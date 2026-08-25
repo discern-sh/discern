@@ -43,7 +43,6 @@ import {
 import type { DiscernResult } from "../../shared/result.ts";
 import type { CouplingData } from "../../shared/result_schemas.ts";
 import type { EnvReader } from "../../shared/env.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
@@ -56,6 +55,7 @@ import {
 } from "../scopes/scopes.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { type TerminalContext, terminalLine } from "../../lib/terminal.ts";
+import { integrationBranch } from "../worktree/git.ts";
 
 /** How many recent non-merge commits to mine — a bounded window, the one resource
  * bound. A name-only log over this many commits is cheap even on a large repo. */
@@ -505,8 +505,7 @@ async function diffCoupling(
   generatedGroups: readonly ResolvedGeneratedGroup[],
   env: EnvReader,
 ): Promise<CouplingData> {
-  const mainBranch = env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
-    config.repository.trunk;
+  const mainBranch = integrationBranch(config.repository.trunk, env);
   const raw = await collectPaths(root, mainBranch);
   const candidates = [
     ...new Set((raw ?? []).map(normalizePath).filter((path) => path !== "")),

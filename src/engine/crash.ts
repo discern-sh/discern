@@ -55,10 +55,12 @@ export const CRASH_PROBE_ENV = DISCERN_ENVIRONMENT_VARIABLES.crashProbe;
 /** Throw a synthetic crash when {@link CRASH_PROBE_ENV} is set. Called inside
  * each surface's recording chokepoint, so a probe crash exercises the whole
  * real path: logbook signature, artifact, frame, envelope, exit code. */
-export function throwIfCrashProbe(): void {
+export function throwIfCrashProbe(
+  env: Pick<typeof Deno.env, "get"> = Deno.env,
+): void {
   let probe: string | undefined;
   try {
-    probe = Deno.env.get(CRASH_PROBE_ENV);
+    probe = env.get(CRASH_PROBE_ENV);
   } catch {
     return; // no env permission — nothing to probe
   }

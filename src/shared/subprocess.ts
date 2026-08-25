@@ -45,8 +45,10 @@ export async function selfShimPath(
 }
 
 /** The configured git binary (`GIT_BIN`, default `git`) — the one resolver. */
-export function gitBin(): string {
-  return Deno.env.get("GIT_BIN") ?? "git";
+export function gitBin(
+  env: Pick<typeof Deno.env, "get"> = Deno.env,
+): string {
+  return env.get("GIT_BIN") ?? "git";
 }
 
 /**

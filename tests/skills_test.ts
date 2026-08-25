@@ -32,6 +32,7 @@ import {
   listSkills,
   MATERIALIZED_MANIFEST,
   materializeSkills,
+  planMaterializeSkills,
   resolveEffectiveSkills,
 } from "../src/lib/skills.ts";
 import { resolveBundledSkillsDir } from "../src/lib/paths.ts";
@@ -74,6 +75,29 @@ Deno.test("bundledSkillNames lists the shipped built-ins, sorted", async () => {
     );
   }
   assertEquals([...names], [...names].sort());
+});
+
+Deno.test("skill planning accepts an already-resolved templates directory", async () => {
+  await withTempDir(async (root) => {
+    const templatesDir = join(root, "landing-templates");
+    await Deno.mkdir(join(templatesDir, "skills", "host-boundary-skill"), {
+      recursive: true,
+    });
+    const plan = await planMaterializeSkills(
+      root,
+      cfg(),
+      CLAUDE_SKILLS,
+      { templatesDir },
+    );
+    const operation = plan.directories[0]?.operations.find((candidate) =>
+      candidate.skill?.name === "host-boundary-skill"
+    );
+    assertExists(operation?.skill);
+    assertEquals(
+      operation.skill.srcAbs,
+      join(templatesDir, "skills", "host-boundary-skill"),
+    );
+  });
 });
 
 Deno.test("shipped content names no vendor-specific skills dir (stays provider-neutral)", async () => {

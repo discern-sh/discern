@@ -82,8 +82,9 @@ export function operationLockChildEnv(): Record<string, string> {
 export function inheritedOperationLockLease(
   key: string,
   path: string,
+  env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): OperationLockLease | undefined {
-  const raw = Deno.env.get(
+  const raw = env.get(
     DISCERN_ENVIRONMENT_VARIABLES.operationLockDelegation,
   );
   if (raw === undefined) return undefined;

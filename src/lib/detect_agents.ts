@@ -52,11 +52,13 @@ function pathListDelimiter(os: typeof Deno.build.os = Deno.build.os): string {
 function executableCandidates(
   binary: string,
   os: typeof Deno.build.os = Deno.build.os,
+  pathExtensions: string = Deno.env.get("PATHEXT") ??
+    ".COM;.EXE;.BAT;.CMD",
 ): string[] {
   if (os !== "windows") {
     return [binary];
   }
-  const exts = (Deno.env.get("PATHEXT") ?? ".COM;.EXE;.BAT;.CMD")
+  const exts = pathExtensions
     .split(";").map((e) => e.trim()).filter((e) => e.length > 0);
   return [binary, ...exts.map((e) => `${binary}${e.toLowerCase()}`)];
 }
@@ -69,9 +71,11 @@ async function binaryOnPath(
   binary: string,
   pathDirs: readonly string[],
   os: typeof Deno.build.os = Deno.build.os,
+  pathExtensions: string = Deno.env.get("PATHEXT") ??
+    ".COM;.EXE;.BAT;.CMD",
 ): Promise<boolean> {
   for (const dir of pathDirs) {
-    for (const candidate of executableCandidates(binary, os)) {
+    for (const candidate of executableCandidates(binary, os, pathExtensions)) {
       const info = await bestEffortFs(() => Deno.stat(join(dir, candidate)), {
         onFailure: undefined,
         reason:
@@ -105,9 +109,12 @@ export async function detectAgentBinariesOnPath(
     .split(pathListDelimiter())
     .filter((d) => d.length > 0);
   const present: DetectedAgentBinary[] = [];
+  const pathExtensions = env.get("PATHEXT") ?? ".COM;.EXE;.BAT;.CMD";
   for (const name of AGENT_NAMES) {
     for (const binary of PROVIDERS[name].binaries) {
-      if (await binaryOnPath(binary, pathDirs)) {
+      if (
+        await binaryOnPath(binary, pathDirs, Deno.build.os, pathExtensions)
+      ) {
         present.push({ name, binary });
         break; // match-any — one present binary makes the agent present
       }
@@ -165,8 +172,9 @@ export async function providerInstalledForSetup(
     ...provider.binaries,
     ...provider.setupPresence.additionalPathBinaries,
   ];
+  const pathExtensions = env.get("PATHEXT") ?? ".COM;.EXE;.BAT;.CMD";
   for (const binary of pathBinaries) {
-    if (await binaryOnPath(binary, pathDirs, host.os)) {
+    if (await binaryOnPath(binary, pathDirs, host.os, pathExtensions)) {
       return true;
     }
   }

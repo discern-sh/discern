@@ -187,10 +187,9 @@ const PATH_DELIMITER = Deno.build.os === "windows" ? ";" : ":";
  */
 export async function selfShimPath(
   root?: string,
-  base?: string,
+  base: string = Deno.env.get("PATH") ?? "",
   gitRunner?: GitAdminPathRunner,
 ): Promise<string> {
   const dir = await selfShimDir(root, gitRunner);
-  const rest = base ?? Deno.env.get("PATH") ?? "";
-  return rest === "" ? dir : `${dir}${PATH_DELIMITER}${rest}`;
+  return base === "" ? dir : `${dir}${PATH_DELIMITER}${base}`;
 }
