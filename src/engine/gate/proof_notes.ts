@@ -144,46 +144,348 @@ function legacyMappingError(
     }\`, then run \`discern refresh\` again.`;
 }
 
-/** Remove discern-owned note refspecs and their ownership marker for one remote. */
-async function removeManagedRemote(
+/** One planned local Git-config mutation owned by proof-note fetch transport. */
+export interface ProofNotesFetchOperation {
+  readonly kind: "add" | "remove" | "replace";
+  readonly key: string;
+  readonly value: string;
+  readonly previous?: string | undefined;
+  readonly remote: string;
+  readonly addedKeys: readonly string[];
+  readonly removedKeys: readonly string[];
+  readonly failurePrefix: string;
+  /** A failed mapping add removes the marker this plan just added. */
+  readonly rollback?: ProofNotesFetchOperation | undefined;
+}
+
+/** One remote is the partial-failure boundary for its planned config effects. */
+export interface ProofNotesFetchBoundaryPlan {
+  readonly remote: string;
+  readonly operations: readonly ProofNotesFetchOperation[];
+}
+
+/** Complete read-only proof-note fetch reconciliation. */
+export interface ProofNotesFetchPlan {
+  readonly mode: "local" | "fetch";
+  readonly remotes: readonly string[];
+  readonly boundaries: readonly ProofNotesFetchBoundaryPlan[];
+  readonly errors: readonly string[];
+}
+
+/** Construct one local Git-config plan operation. */
+function proofNotesOperation(
+  fields:
+    & Omit<
+      ProofNotesFetchOperation,
+      "addedKeys" | "removedKeys"
+    >
+    & {
+      readonly addedKeys?: readonly string[];
+      readonly removedKeys?: readonly string[];
+    },
+): ProofNotesFetchOperation {
+  return {
+    ...fields,
+    addedKeys: fields.addedKeys ?? [],
+    removedKeys: fields.removedKeys ?? [],
+  };
+}
+
+/** Plan removal of every discern-owned proof-note value for one remote. */
+async function planManagedRemoteRemoval(
   root: string,
   remote: string,
-  removed: string[],
-  errors: string[],
-): Promise<void> {
+): Promise<{ operations: ProofNotesFetchOperation[]; errors: string[] }> {
   const key = `remote.${remote}.fetch`;
   const current = await configValues(root, key);
   if (current.error !== undefined) {
-    errors.push(`could not read ${key}: ${current.error}`);
-    return;
+    return {
+      operations: [],
+      errors: [`could not read ${key}: ${current.error}`],
+    };
   }
-  let mappingRemoved = false;
-  for (
-    const mapping of [fetchMapping(remote), legacyFetchMapping(remote)]
-  ) {
+  const operations: ProofNotesFetchOperation[] = [];
+  for (const mapping of [fetchMapping(remote), legacyFetchMapping(remote)]) {
     if (!current.values.includes(mapping)) {
       continue;
     }
-    const removalError = await removeFixedConfigValue(root, key, mapping);
-    if (removalError !== undefined) {
-      errors.push(`could not remove ${key}: ${removalError}`);
-      return;
-    }
-    mappingRemoved = true;
+    operations.push(proofNotesOperation({
+      kind: "remove",
+      key,
+      value: mapping,
+      remote,
+      removedKeys: [key],
+      failurePrefix: `could not remove ${key}`,
+    }));
   }
-  if (mappingRemoved) {
-    pushUnique(removed, key);
-  }
-  const markerError = await removeFixedConfigValue(
-    root,
-    MANAGED_REMOTE_KEY,
+  operations.push(proofNotesOperation({
+    kind: "remove",
+    key: MANAGED_REMOTE_KEY,
+    value: remote,
     remote,
-  );
-  if (markerError !== undefined) {
-    errors.push(
-      `could not clear discern's proof-note marker for ${remote}: ${markerError}`,
+    failurePrefix: `could not clear discern's proof-note marker for ${remote}`,
+  }));
+  return { operations, errors: [] };
+}
+
+/** Project a proof-note plan into the stable result data shape. */
+export function proofNotesFetchPlanData(
+  plan: ProofNotesFetchPlan,
+): ProofNotesFetchData {
+  const added: string[] = [];
+  const removed: string[] = [];
+  for (const boundary of plan.boundaries) {
+    for (const operation of boundary.operations) {
+      for (const key of operation.addedKeys) pushUnique(added, key);
+      for (const key of operation.removedKeys) pushUnique(removed, key);
+    }
+  }
+  return {
+    mode: plan.mode,
+    status: plan.errors.length > 0
+      ? "failed"
+      : plan.mode === "local"
+      ? "local"
+      : plan.remotes.length === 0
+      ? "no_remote"
+      : added.length > 0 || removed.length > 0
+      ? "wired"
+      : "unchanged",
+    remotes: [...plan.remotes],
+    added,
+    removed,
+    errors: [...plan.errors],
+  };
+}
+
+/**
+ * Compute every proof-note fetch Git-config effect without writing. The plan is
+ * grouped per remote so one unreadable or failed remote never blinds the rest.
+ */
+export async function planProofNotesFetch(
+  root: string,
+  mode: "local" | "fetch",
+): Promise<ProofNotesFetchPlan> {
+  const repository = await runGit(["rev-parse", "--git-dir"], { cwd: root });
+  if (!repository.success) {
+    return { mode, remotes: [], boundaries: [], errors: [] };
+  }
+
+  const managedRead = await configValues(root, MANAGED_REMOTE_KEY);
+  if (managedRead.error !== undefined) {
+    return {
+      mode,
+      remotes: [],
+      boundaries: [],
+      errors: [
+        `could not read discern's proof-note markers: ${managedRead.error}`,
+      ],
+    };
+  }
+  const managed = new Set(managedRead.values);
+  const remoteRun = await runGit(["remote"], { cwd: root });
+  if (!remoteRun.success) {
+    return {
+      mode,
+      remotes: [],
+      boundaries: [],
+      errors: [`could not list Git remotes: ${gitReason(remoteRun)}`],
+    };
+  }
+  const remotes = remoteRun.stdout.split(/\r?\n/).filter((value) =>
+    value !== ""
+  )
+    .sort();
+  const remoteSet = new Set(remotes);
+  const boundaries: ProofNotesFetchBoundaryPlan[] = [];
+  const errors: string[] = [];
+
+  for (const remote of [...managed].filter((name) => !remoteSet.has(name))) {
+    const planned = await planManagedRemoteRemoval(root, remote);
+    boundaries.push({ remote, operations: planned.operations });
+    errors.push(...planned.errors);
+    managed.delete(remote);
+  }
+
+  if (mode === "local") {
+    for (const remote of managed) {
+      const planned = await planManagedRemoteRemoval(root, remote);
+      boundaries.push({ remote, operations: planned.operations });
+      errors.push(...planned.errors);
+    }
+    return { mode, remotes, boundaries, errors };
+  }
+
+  for (const remote of remotes) {
+    const key = `remote.${remote}.fetch`;
+    const mapping = fetchMapping(remote);
+    const legacyMapping = legacyFetchMapping(remote);
+    const current = await configValues(root, key);
+    if (current.error !== undefined) {
+      errors.push(`could not read ${key}: ${current.error}`);
+      continue;
+    }
+    const operations: ProofNotesFetchOperation[] = [];
+    const mappingCount = current.values.filter((value) => value === mapping)
+      .length;
+    const hasLegacyMapping = current.values.includes(legacyMapping);
+    if (!managed.has(remote) && hasLegacyMapping) {
+      errors.push(legacyMappingError(remote, key, legacyMapping));
+      continue;
+    }
+
+    if (managed.has(remote)) {
+      if (hasLegacyMapping && mappingCount === 0) {
+        operations.push(proofNotesOperation({
+          kind: "replace",
+          key,
+          value: mapping,
+          previous: legacyMapping,
+          remote,
+          addedKeys: [key],
+          removedKeys: [key],
+          failurePrefix:
+            `could not migrate ${key} to an optional proof-note mapping`,
+        }));
+        boundaries.push({ remote, operations });
+        continue;
+      }
+      if (hasLegacyMapping) {
+        operations.push(proofNotesOperation({
+          kind: "remove",
+          key,
+          value: legacyMapping,
+          remote,
+          removedKeys: [key],
+          failurePrefix:
+            `could not remove the older proof-note mapping from ${key}`,
+        }));
+      }
+      if (mappingCount > 1) {
+        operations.push(proofNotesOperation({
+          kind: "replace",
+          key,
+          value: mapping,
+          previous: mapping,
+          remote,
+          addedKeys: [key],
+          failurePrefix:
+            `could not normalize discern's proof-note mapping in ${key}`,
+        }));
+      }
+      if (mappingCount > 0) {
+        if (operations.length > 0) boundaries.push({ remote, operations });
+        continue;
+      }
+    } else if (mappingCount > 0) {
+      continue;
+    }
+
+    let rollback: ProofNotesFetchOperation | undefined;
+    if (!managed.has(remote)) {
+      const marker = proofNotesOperation({
+        kind: "add",
+        key: MANAGED_REMOTE_KEY,
+        value: remote,
+        remote,
+        failurePrefix: `could not mark ${key} as discern-managed`,
+      });
+      operations.push(marker);
+      rollback = proofNotesOperation({
+        kind: "remove",
+        key: MANAGED_REMOTE_KEY,
+        value: remote,
+        remote,
+        failurePrefix: `could not roll back discern's marker for ${remote}`,
+      });
+    }
+    operations.push(proofNotesOperation({
+      kind: "add",
+      key,
+      value: mapping,
+      remote,
+      addedKeys: [key],
+      failurePrefix: `could not add ${key}`,
+      ...(rollback === undefined ? {} : { rollback }),
+    }));
+    boundaries.push({ remote, operations });
+  }
+  return { mode, remotes, boundaries, errors };
+}
+
+/** Apply one planned proof-note Git-config mutation. */
+export async function applyProofNotesFetchOperation(
+  root: string,
+  operation: ProofNotesFetchOperation,
+): Promise<string | undefined> {
+  if (operation.kind === "remove") {
+    return await removeFixedConfigValue(
+      root,
+      operation.key,
+      operation.value,
     );
   }
+  if (operation.kind === "replace") {
+    return await replaceFixedConfigValue(
+      root,
+      operation.key,
+      operation.value,
+      operation.previous ?? operation.value,
+    );
+  }
+  const result = await runGit(
+    ["config", "--local", "--add", operation.key, operation.value],
+    { cwd: root },
+  );
+  return result.success ? undefined : gitReason(result);
+}
+
+/** Apply a proof-note fetch plan without re-reading discovery state. */
+export async function applyProofNotesFetchPlan(
+  root: string,
+  plan: ProofNotesFetchPlan,
+): Promise<ProofNotesFetchData> {
+  const added: string[] = [];
+  const removed: string[] = [];
+  const errors = [...plan.errors];
+  for (const boundary of plan.boundaries) {
+    for (const operation of boundary.operations) {
+      const error = await applyProofNotesFetchOperation(root, operation);
+      if (error !== undefined) {
+        errors.push(`${operation.failurePrefix}: ${error}`);
+        if (operation.rollback !== undefined) {
+          const rollbackError = await applyProofNotesFetchOperation(
+            root,
+            operation.rollback,
+          );
+          if (rollbackError !== undefined) {
+            errors.push(
+              `${operation.rollback.failurePrefix}: ${rollbackError}`,
+            );
+          }
+        }
+        break;
+      }
+      for (const key of operation.addedKeys) pushUnique(added, key);
+      for (const key of operation.removedKeys) pushUnique(removed, key);
+    }
+  }
+  return {
+    mode: plan.mode,
+    status: errors.length > 0
+      ? "failed"
+      : plan.mode === "local"
+      ? "local"
+      : plan.remotes.length === 0
+      ? "no_remote"
+      : added.length > 0 || removed.length > 0
+      ? "wired"
+      : "unchanged",
+    remotes: [...plan.remotes],
+    added,
+    removed,
+    errors,
+  };
 }
 
 /**
@@ -196,202 +498,10 @@ export async function reconcileProofNotesFetch(
   root: string,
   mode: "local" | "fetch",
 ): Promise<ProofNotesFetchData> {
-  const repository = await runGit(["rev-parse", "--git-dir"], { cwd: root });
-  if (!repository.success) {
-    return {
-      mode,
-      status: mode === "fetch" ? "no_remote" : "local",
-      remotes: [],
-      added: [],
-      removed: [],
-      errors: [],
-    };
-  }
-
-  const managedRead = await configValues(root, MANAGED_REMOTE_KEY);
-  if (managedRead.error !== undefined) {
-    return {
-      mode,
-      status: "failed",
-      remotes: [],
-      added: [],
-      removed: [],
-      errors: [
-        `could not read discern's proof-note markers: ${managedRead.error}`,
-      ],
-    };
-  }
-
-  const managed = new Set(managedRead.values);
-  const added: string[] = [];
-  const removed: string[] = [];
-  const errors: string[] = [];
-
-  const remoteRun = await runGit(["remote"], { cwd: root });
-  if (!remoteRun.success) {
-    return {
-      mode,
-      status: "failed",
-      remotes: [],
-      added,
-      removed,
-      errors: [`could not list Git remotes: ${gitReason(remoteRun)}`],
-    };
-  }
-  const remotes = remoteRun.stdout.split(/\r?\n/).filter((value) =>
-    value !== ""
-  )
-    .sort();
-  const remoteSet = new Set(remotes);
-
-  for (const remote of [...managed].filter((name) => !remoteSet.has(name))) {
-    await removeManagedRemote(root, remote, removed, errors);
-    managed.delete(remote);
-  }
-
-  if (mode === "local") {
-    for (const remote of managed) {
-      await removeManagedRemote(root, remote, removed, errors);
-    }
-    return {
-      mode,
-      status: errors.length > 0 ? "failed" : "local",
-      remotes,
-      added,
-      removed,
-      errors,
-    };
-  }
-
-  for (const remote of remotes) {
-    const key = `remote.${remote}.fetch`;
-    const mapping = fetchMapping(remote);
-    const legacyMapping = legacyFetchMapping(remote);
-    const current = await configValues(root, key);
-    if (current.error !== undefined) {
-      errors.push(`could not read ${key}: ${current.error}`);
-      continue;
-    }
-
-    const mappingCount = current.values.filter((value) =>
-      value === mapping
-    ).length;
-    const hasLegacyMapping = current.values.includes(legacyMapping);
-    if (!managed.has(remote) && hasLegacyMapping) {
-      errors.push(legacyMappingError(remote, key, legacyMapping));
-      continue;
-    }
-
-    if (managed.has(remote)) {
-      if (hasLegacyMapping && mappingCount === 0) {
-        const migrationError = await replaceFixedConfigValue(
-          root,
-          key,
-          mapping,
-          legacyMapping,
-        );
-        if (migrationError !== undefined) {
-          errors.push(
-            `could not migrate ${key} to an optional proof-note mapping: ${migrationError}`,
-          );
-          continue;
-        }
-        pushUnique(added, key);
-        pushUnique(removed, key);
-        continue;
-      }
-
-      if (hasLegacyMapping) {
-        const removalError = await removeFixedConfigValue(
-          root,
-          key,
-          legacyMapping,
-        );
-        if (removalError !== undefined) {
-          errors.push(
-            `could not remove the older proof-note mapping from ${key}: ${removalError}`,
-          );
-          continue;
-        }
-        pushUnique(removed, key);
-      }
-
-      if (mappingCount > 1) {
-        const normalizeError = await replaceFixedConfigValue(
-          root,
-          key,
-          mapping,
-          mapping,
-        );
-        if (normalizeError !== undefined) {
-          errors.push(
-            `could not normalize discern's proof-note mapping in ${key}: ${normalizeError}`,
-          );
-          continue;
-        }
-        pushUnique(added, key);
-      }
-
-      if (mappingCount > 0) {
-        continue;
-      }
-    } else if (mappingCount > 0) {
-      continue;
-    }
-
-    let markerAdded = false;
-    if (!managed.has(remote)) {
-      const marker = await runGit(
-        ["config", "--local", "--add", MANAGED_REMOTE_KEY, remote],
-        { cwd: root },
-      );
-      if (!marker.success) {
-        errors.push(
-          `could not mark ${key} as discern-managed: ${gitReason(marker)}`,
-        );
-        continue;
-      }
-      markerAdded = true;
-      managed.add(remote);
-    }
-
-    const write = await runGit(
-      ["config", "--local", "--add", key, mapping],
-      { cwd: root },
-    );
-    if (!write.success) {
-      errors.push(`could not add ${key}: ${gitReason(write)}`);
-      if (markerAdded) {
-        const rollback = await removeFixedConfigValue(
-          root,
-          MANAGED_REMOTE_KEY,
-          remote,
-        );
-        if (rollback !== undefined) {
-          errors.push(
-            `could not roll back discern's marker for ${remote}: ${rollback}`,
-          );
-        }
-      }
-      continue;
-    }
-    pushUnique(added, key);
-  }
-
-  return {
-    mode,
-    status: errors.length > 0
-      ? "failed"
-      : remotes.length === 0
-      ? "no_remote"
-      : added.length > 0 || removed.length > 0
-      ? "wired"
-      : "unchanged",
-    remotes,
-    added,
-    removed,
-    errors,
-  };
+  return await applyProofNotesFetchPlan(
+    root,
+    await planProofNotesFetch(root, mode),
+  );
 }
 
 /** Whether fetch transport reconciliation completed without an error. */

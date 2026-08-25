@@ -62,6 +62,14 @@ export interface PlannedRefreshFileChange {
   readonly modeChanged: boolean;
 }
 
+/** One executable file operation retained by a planning overlay. */
+export interface PlannedRefreshFileOperation extends PlannedRefreshFileChange {
+  readonly targetAbs: string;
+  readonly disposition: "create" | "update";
+  readonly text: string;
+  readonly mode: number;
+}
+
 /**
  * An in-memory filesystem overlay for invoking the real refresh writers without
  * applying their effects. Reads fall through to disk once, writes remain in the
@@ -153,5 +161,36 @@ export class PlanningRefreshFileOps implements RefreshFileOps {
       });
     }
     return changes.sort((left, right) => left.path.localeCompare(right.path));
+  }
+
+  /**
+   * The exact final text and mode behind each proposed change. Consumers apply
+   * these operations directly instead of re-running provider discovery.
+   */
+  operations(): PlannedRefreshFileOperation[] {
+    const operations: PlannedRefreshFileOperation[] = [];
+    for (const [targetAbs, state] of this.#states) {
+      if (state.text === undefined) {
+        continue;
+      }
+      const bytesChanged = !state.existed || state.text !== state.initialText;
+      const modeChanged = state.existed && state.mode !== undefined &&
+        state.initialMode !== undefined && state.mode !== state.initialMode;
+      if (!bytesChanged && !modeChanged) {
+        continue;
+      }
+      operations.push({
+        path: relative(this.#root, targetAbs),
+        targetAbs,
+        disposition: state.existed ? "update" : "create",
+        text: state.text,
+        mode: state.mode ?? 0o644,
+        bytesChanged,
+        modeChanged,
+      });
+    }
+    return operations.sort((left, right) =>
+      left.path.localeCompare(right.path)
+    );
   }
 }

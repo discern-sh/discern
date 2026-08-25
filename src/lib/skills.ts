@@ -25,7 +25,7 @@
  * too. Materialization always reconciles, so a removed/ejected skill never lingers.
  */
 
-import { join, relative } from "@std/path";
+import { dirname, join, relative } from "@std/path";
 import { copy, ensureDir, walk } from "@std/fs";
 import {
   type DiscernConfig,
@@ -295,7 +295,7 @@ function rendersViaEngine(path: string): boolean {
  * become the project's configured paths — a stray or misspelled token throws,
  * exactly like a built-in instruction section); any other file passes through
  * byte-for-byte. The ONE transform both the write path
- * ({@link materializeSkillsDir}, {@link ejectSkill}) and the currency check
+ * ({@link applySkillMaterializationOperation}, {@link ejectSkill}) and the currency check
  * ({@link checkSkillsCurrent}) apply, so the check can never disagree with what
  * a refresh would place.
  */
@@ -353,6 +353,40 @@ export interface MaterializeResult {
   errors: string[];
 }
 
+/** How one planned materialized-skill target changes. */
+export type SkillMaterializationDisposition = "create" | "update" | "remove";
+
+/** One plan-bound effect under a configured agent skills directory. */
+export interface SkillMaterializationOperation {
+  /** Project-relative target; a bundled-skill target classifies its whole tree. */
+  readonly targetRel: string;
+  readonly targetAbs: string;
+  readonly dirRel: string;
+  readonly disposition: SkillMaterializationDisposition;
+  readonly kind: "bundled" | "authored" | "stale" | "manifest";
+  /** Present for an effective bundled/authored skill. */
+  readonly skill?: SkillEntry | undefined;
+  /** The exact manifest bytes planned from the effective set. */
+  readonly manifestText?: string | undefined;
+  /** Existing directories need recursive removal before replacement. */
+  readonly removeDirectory?: boolean | undefined;
+}
+
+/** One independently-failing skills-directory boundary. */
+export interface SkillMaterializationDirectoryPlan {
+  readonly dirRel: string;
+  readonly operations: readonly SkillMaterializationOperation[];
+  readonly foreign: readonly string[];
+}
+
+/** The complete read-only materialized-skills plan. */
+export interface SkillMaterializationPlan {
+  readonly config: DiscernConfig;
+  readonly directories: readonly SkillMaterializationDirectoryPlan[];
+  readonly warnings: readonly string[];
+  readonly errors: readonly string[];
+}
+
 /** Remove a file, symlink, or directory at `path`; a no-op if already gone. */
 async function removeAny(path: string, isDir: boolean): Promise<void> {
   try {
@@ -387,25 +421,13 @@ async function readMaterializedNames(
   });
 }
 
-/** Record the skill names discern now owns, sorted so the file is byte-stable run
- * to run (it is never diffed today, but determinism here costs nothing). */
-async function writeMaterializedNames(
-  claudeSkillsDir: string,
-  names: string[],
-): Promise<void> {
-  await Deno.writeTextFile(
-    join(claudeSkillsDir, MATERIALIZED_MANIFEST),
-    `${JSON.stringify([...names].sort(), null, 2)}\n`,
-  );
-}
-
 /**
  * True when a directory entry that is NOT in the effective set is discern's own
  * stale artifact rather than a user drop-in: its name is in the ownership
  * manifest (discern placed it — a copied bundled skill or an authored skill's
  * symlink, live or not), or it is a dangling symlink (a removed authored skill
  * from a run predating the manifest). The ONE classification the prune pass
- * ({@link materializeSkillsDir}) and the currency check ({@link checkSkillsDir})
+ * ({@link planMaterializeSkills}) and the currency check ({@link checkSkillsDir})
  * share, so the check can never call an entry `stale` that a refresh would then
  * refuse to prune.
  */
@@ -451,158 +473,246 @@ export async function materializeSkills(
   dirs: readonly string[],
   log?: Logger,
 ): Promise<MaterializeResult> {
-  const effective = await resolveEffectiveSkills(root, config);
-  // A typo'd exclusion silently excludes nothing — say so, but never fail on it.
-  const unknownExcluded = await unknownExcludedSkills(root, config);
-  if (unknownExcluded.length > 0) {
-    log?.warn(
-      `[skills].exclude names no known skill: ${
-        unknownExcluded.join(", ")
-      } — check for a typo (\`discern skills list\` shows the known set).`,
-    );
-  }
-  // The same resolved-config context the instruction compiler renders against —
-  // one context for both rendered surfaces (ADR 0102).
-  const ctx = instructionContext(config);
-  const total: MaterializeResult = {
-    copied: 0,
-    linked: 0,
-    pruned: 0,
-    errors: [],
-  };
-  for (const rel of dirs) {
-    try {
-      const r = await materializeSkillsDir(
-        rel,
-        join(root, rel),
-        effective,
-        ctx,
-        log,
-      );
-      total.copied += r.copied;
-      total.linked += r.linked;
-      total.pruned += r.pruned;
-    } catch (error) {
-      // Isolate per directory: a denied/failed write into one agent's skills dir
-      // is recorded and the rest still materialize (ADR 0065).
-      const msg = `could not materialize skills into ${rel}: ${
-        error instanceof Error ? error.message : String(error)
-      }`;
-      log?.warn(msg);
-      total.errors.push(msg);
-    }
-  }
-  return total;
+  return await applyMaterializeSkillsPlan(
+    await planMaterializeSkills(root, config, dirs),
+    log,
+  );
 }
 
-/**
- * Reconcile ONE agent skills directory with the effective skill set: render
- * bundled skills in ({@link copyRenderedSkillTree}, against `ctx`), symlink
- * authored ones (relative, so edits are live and the link survives
- * a tree move), and prune entries discern owns that are no longer effective —
- * whatever their kind ({@link isOwnedStaleEntry}): a removed authored skill's
- * dangling symlink, an excluded authored skill's LIVE symlink, and a
- * real-directory copy of a bundled skill a newer binary stopped shipping
- * (tracked via {@link MATERIALIZED_MANIFEST}, per directory, so it self-heals
- * instead of needing a one-off migration per removal). A genuinely foreign
- * entry — a name discern never materialized — is left untouched and warned
- * about, so a stray drop-in is never clobbered. `skillsRel` is the
- * project-relative path (for logs); `skillsAbs` is where the work happens.
- * discern-allow-retrospective: "no longer effective" is the current effective set.
- */
-async function materializeSkillsDir(
-  skillsRel: string,
-  skillsAbs: string,
+/** Render the stable ownership-manifest body for one effective skill set. */
+function materializedNamesText(names: readonly string[]): string {
+  return `${JSON.stringify([...names].sort(), null, 2)}\n`;
+}
+
+/** Plan one configured agent skills directory without changing it. */
+async function planMaterializeSkillsDir(
+  root: string,
+  rel: string,
   effective: SkillEntry[],
   ctx: InstructionContext,
-  log?: Logger,
-): Promise<Omit<MaterializeResult, "errors">> {
-  const managed = new Map(effective.map((e) => [e.name, e]));
-
-  // The names discern materialized on the LAST run, in THIS directory. A real dir
-  // under one of these names that is no longer effective is a stale copy discern
-  // placed (e.g. a bundled skill dropped from a newer binary) — safe to prune.
-  // Without this record such an orphan is indistinguishable from a user drop-in.
-  // discern-allow-retrospective: "no longer effective" is the current effective set.
-  const ownedBefore = await readMaterializedNames(skillsAbs);
-
-  let pruned = 0;
+): Promise<SkillMaterializationDirectoryPlan> {
+  const abs = join(root, rel);
+  const managed = new Map(effective.map((entry) => [entry.name, entry]));
+  const ownedBefore = await readMaterializedNames(abs);
+  const operations: SkillMaterializationOperation[] = [];
   const foreign: string[] = [];
+  const seen = new Set<string>();
+  const skillsDirEntry = await lstatIfExists(abs);
 
-  // Prune pass: remove entries we manage (recreated below) and entries discern
-  // owns that are now stale ({@link isOwnedStaleEntry} — the same classification
-  // the currency check applies, so everything it reports `stale` a refresh
-  // actually clears). Anything else is a foreign drop-in: leave it, and warn
-  // (never clobber it).
-  try {
-    for await (const entry of Deno.readDir(skillsAbs)) {
+  if (skillsDirEntry !== undefined) {
+    for await (const entry of Deno.readDir(abs)) {
       if (entry.name === MATERIALIZED_MANIFEST) {
-        continue; // discern's own ownership record, not a skill
+        continue;
       }
-      const path = join(skillsAbs, entry.name);
-      const realDir = entry.isDirectory && !entry.isSymlink;
-      if (managed.has(entry.name)) {
-        await removeAny(path, realDir);
+      const path = join(abs, entry.name);
+      const targetRel = join(rel, entry.name);
+      const skill = managed.get(entry.name);
+      if (skill !== undefined) {
+        seen.add(entry.name);
+        if (await skillMismatch(abs, path, entry, skill, ctx) !== undefined) {
+          operations.push({
+            targetRel,
+            targetAbs: path,
+            dirRel: rel,
+            disposition: "update",
+            kind: skill.source,
+            skill,
+            removeDirectory: entry.isDirectory && !entry.isSymlink,
+          });
+        }
         continue;
       }
       if (await isOwnedStaleEntry(path, entry, ownedBefore)) {
-        await removeAny(path, realDir);
-        pruned++;
+        operations.push({
+          targetRel,
+          targetAbs: path,
+          dirRel: rel,
+          disposition: "remove",
+          kind: "stale",
+          removeDirectory: entry.isDirectory && !entry.isSymlink,
+        });
       } else {
         foreign.push(entry.name);
       }
     }
-  } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) {
-      throw error;
-    }
-    // No skills dir yet — created below only if there is anything to place.
   }
 
-  warnForeignSkills(log, skillsRel, foreign);
-
-  if (effective.length === 0) {
-    // Nothing to place; still record the now-empty ownership set when the dir
-    // exists, so a later run can tell a future orphan from a foreign drop-in.
-    if (await targetExists(skillsAbs)) {
-      await writeMaterializedNames(skillsAbs, []);
-    }
-    return { copied: 0, linked: 0, pruned };
-  }
-
-  await ensureDir(skillsAbs);
-  let copied = 0;
-  let linked = 0;
   for (const skill of effective) {
-    const target = join(skillsAbs, skill.name);
-    // A foreign real directory left over (name not managed) can't reach here —
-    // every effective name was removed in the prune pass. But a real non-symlink
-    // a user dropped under a managed name would have been removed above; that is
-    // acceptable since the agent skills dir is discern-generated.
-    const existing = await lstatIfExists(target);
-    if (existing !== undefined) {
-      // Should be gone (prune handles managed names); guard defensively.
-      await removeAny(target, existing.isDirectory && !existing.isSymlink);
+    if (seen.has(skill.name)) {
+      continue;
     }
-    if (skill.source === "bundled") {
-      await copyRenderedSkillTree(skill.srcAbs, target, ctx);
-      copied++;
-    } else {
-      await Deno.symlink(relative(skillsAbs, skill.srcAbs), target);
-      linked++;
+    operations.push({
+      targetRel: join(rel, skill.name),
+      targetAbs: join(abs, skill.name),
+      dirRel: rel,
+      disposition: "create",
+      kind: skill.source,
+      skill,
+    });
+  }
+
+  if (effective.length > 0 || skillsDirEntry !== undefined) {
+    const manifestAbs = join(abs, MATERIALIZED_MANIFEST);
+    const expected = materializedNamesText(
+      effective.map((entry) => entry.name),
+    );
+    const current = await readTextIfExists(manifestAbs);
+    if (current !== expected) {
+      operations.push({
+        targetRel: join(rel, MATERIALIZED_MANIFEST),
+        targetAbs: manifestAbs,
+        dirRel: rel,
+        disposition: current === undefined ? "create" : "update",
+        kind: "manifest",
+        manifestText: expected,
+      });
     }
   }
 
-  // Record what discern now owns in THIS dir, so the next run can prune any of these
-  // names a future binary stops shipping — the self-healing the manifest exists for.
-  await writeMaterializedNames(skillsAbs, effective.map((e) => e.name));
-
-  log?.info(
-    pruned > 0
-      ? `skills materialized into ${skillsRel}/: ${copied} bundled, ${linked} authored (pruned ${pruned} stale)`
-      : `skills materialized into ${skillsRel}/: ${copied} bundled, ${linked} authored`,
+  operations.sort((left, right) =>
+    left.kind === "manifest"
+      ? 1
+      : right.kind === "manifest"
+      ? -1
+      : left.targetRel.localeCompare(right.targetRel)
   );
-  return { copied, linked, pruned };
+  return { dirRel: rel, operations, foreign: foreign.sort() };
+}
+
+/**
+ * Compute every materialized-skill create, update, and removal without writing.
+ * Each configured agent directory is an independent error boundary, matching
+ * materialization's partial-failure contract.
+ */
+export async function planMaterializeSkills(
+  root: string,
+  config: DiscernConfig,
+  dirs: readonly string[],
+): Promise<SkillMaterializationPlan> {
+  const effective = await resolveEffectiveSkills(root, config);
+  const unknownExcluded = await unknownExcludedSkills(root, config);
+  const ctx = instructionContext(config);
+  const directories: SkillMaterializationDirectoryPlan[] = [];
+  const errors: string[] = [];
+  for (const rel of dirs) {
+    try {
+      directories.push(
+        await planMaterializeSkillsDir(root, rel, effective, ctx),
+      );
+    } catch (error) {
+      errors.push(
+        `could not plan skills materialization into ${rel}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+  return {
+    config,
+    directories,
+    warnings: unknownExcluded.length === 0 ? [] : [
+      `[skills].exclude names no known skill: ${
+        unknownExcluded.join(", ")
+      } — check for a typo (\`discern skills list\` shows the known set).`,
+    ],
+    errors,
+  };
+}
+
+/**
+ * Apply one operation from a materialized-skills plan. Bundled targets classify
+ * their complete copied subtree; no writer is reachable except through this
+ * operation's target.
+ */
+export async function applySkillMaterializationOperation(
+  operation: SkillMaterializationOperation,
+  config: DiscernConfig,
+): Promise<Omit<MaterializeResult, "errors">> {
+  if (operation.kind === "stale") {
+    await removeAny(operation.targetAbs, operation.removeDirectory === true);
+    return { copied: 0, linked: 0, pruned: 1 };
+  }
+  if (operation.kind === "manifest") {
+    await ensureDir(dirname(operation.targetAbs));
+    await Deno.writeTextFile(operation.targetAbs, operation.manifestText ?? "");
+    return { copied: 0, linked: 0, pruned: 0 };
+  }
+  const skill = operation.skill;
+  if (skill === undefined) {
+    throw new Error(
+      `skill materialization plan lost the source for ${operation.targetRel}`,
+    );
+  }
+  if (operation.disposition === "update") {
+    await removeAny(operation.targetAbs, operation.removeDirectory === true);
+  }
+  if (skill.source === "bundled") {
+    await copyRenderedSkillTree(
+      skill.srcAbs,
+      operation.targetAbs,
+      instructionContext(config),
+    );
+    return { copied: 1, linked: 0, pruned: 0 };
+  }
+  await ensureDir(dirname(operation.targetAbs));
+  await Deno.symlink(
+    relative(dirname(operation.targetAbs), skill.srcAbs),
+    operation.targetAbs,
+  );
+  return { copied: 0, linked: 1, pruned: 0 };
+}
+
+/** Apply a complete materialized-skills plan, isolating failures per directory. */
+export async function applyMaterializeSkillsPlan(
+  plan: SkillMaterializationPlan,
+  log?: Logger,
+): Promise<MaterializeResult> {
+  const total: MaterializeResult = {
+    copied: 0,
+    linked: 0,
+    pruned: 0,
+    errors: [...plan.errors],
+  };
+  for (const warning of plan.warnings) {
+    log?.warn(warning);
+  }
+  for (const directory of plan.directories) {
+    warnForeignSkills(log, directory.dirRel, [...directory.foreign]);
+    let failed = false;
+    const changed = { copied: 0, linked: 0, pruned: 0 };
+    for (const operation of directory.operations) {
+      if (failed) {
+        continue;
+      }
+      try {
+        const result = await applySkillMaterializationOperation(
+          operation,
+          plan.config,
+        );
+        changed.copied += result.copied;
+        changed.linked += result.linked;
+        changed.pruned += result.pruned;
+        total.copied += result.copied;
+        total.linked += result.linked;
+        total.pruned += result.pruned;
+      } catch (error) {
+        failed = true;
+        const message =
+          `could not materialize skills into ${directory.dirRel}: ${
+            error instanceof Error ? error.message : String(error)
+          }`;
+        log?.warn(message);
+        total.errors.push(message);
+      }
+    }
+    if (!failed && directory.operations.length > 0) {
+      log?.info(
+        `skills materialized into ${directory.dirRel}/: ${changed.copied} bundled, ${changed.linked} authored` +
+          (changed.pruned > 0 ? ` (pruned ${changed.pruned} stale)` : ""),
+      );
+    }
+  }
+  return total;
 }
 
 /** The outcome of an {@link ejectSkill} call. */

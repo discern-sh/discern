@@ -1,111 +1,92 @@
 /**
- * The instruction compiler (ADR 0020): the EFFECTFUL orchestrator that writes the
- * generated per-provider agent files (CLAUDE.md, AGENTS.md, GEMINI.md, …),
- * materializes skills, and wires provider integration artifacts (MCP, worktree app
- * config, project rules). The pure content — what each file should contain — is
- * computed by `renderAgentFiles` in `./instruction_render.ts`, the single source this
- * writer and the `status`/`done` currency check both use, so a generated file can
- * never silently disagree with what a refresh produces (ADR 0034). It writes each
- * provider file named in `[project].agents`.
+ * Complete refresh planning and execution.
  *
- * The files carry no banner — they open with the instructions itself; `base.md`'s
- * in-body "never hand-edit" section conveys their generated-ness to every agent,
- * and the currency check guards drift. Nothing is hand-edited: edit your sources,
- * or discern's built-ins, and recompile.
- *
- * Two independent jobs, both safe to run from anywhere: materialize skills into
- * each configured agent's skills dir (`.claude/skills/`, `.agents/skills/`; see
- * lib/skills.ts + the registry), and compile the agent files via
- * `renderAgentFiles`.
+ * The read-only planner in `tracked_refresh.ts` composes every Discern-owned
+ * artifact domain. This module is the thin executor: it consumes that plan,
+ * reports each planned target as a step, and never reaches a writer that was
+ * absent from the preview.
  */
 
 import { ensureDir } from "@std/fs";
-import { dirname, join } from "@std/path";
-import { adrIndexState } from "../lib/adr_index.ts";
+import { dirname } from "@std/path";
+import {
+  applyMaterializeSkillsPlan,
+  applySkillMaterializationOperation,
+  planMaterializeSkills,
+} from "../lib/skills.ts";
+import { skillsDirsForAgents } from "../lib/providers.ts";
+import { Logger, loggerSink } from "../lib/log.ts";
+import { atomicReplaceBytes } from "../shared/atomic_write.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
-import type { DiscernResult } from "../shared/result.ts";
-import type { RefreshData } from "../shared/result_schemas.ts";
-import { resolveInstructionSources } from "../lib/paths.ts";
-import { materializeSkills } from "../lib/skills.ts";
-import { providerFor, skillsDirsForAgents } from "../lib/providers.ts";
-import {
-  fire,
-  type FiredHint,
-  HINTS,
-  hintTexts,
-  mergeHintTexts,
-} from "../shared/hints.ts";
-import {
-  agentFilePaths,
-  instructionAgents,
-  renderAgentFiles,
-} from "./instruction_render.ts";
-import { Logger } from "../lib/log.ts";
-import { reconcileProofNotesFetch } from "./gate/proof_notes.ts";
-import {
-  ensureDiscernGitattributesBlock,
-  GITATTRIBUTES_REL,
-  refusedGitattributesPatternLabel,
-} from "../lib/agent_gitattributes.ts";
 import type { EnvReader } from "../shared/env.ts";
-import { reconcileTrackedProviderArtifacts } from "./tracked_refresh_providers.ts";
+import { fire, HINTS, hintTexts, mergeHintTexts } from "../shared/hints.ts";
+import {
+  type DiscernResult,
+  renderPlan,
+  type StepResult,
+} from "../shared/result.ts";
+import type { RefreshData } from "../shared/result_schemas.ts";
+import { applyProofNotesFetchOperation } from "./gate/proof_notes.ts";
+import { instructionAgents } from "./instruction_render.ts";
+import {
+  planRefresh,
+  type RefreshEffect,
+  type RefreshFileOperation,
+  type RefreshPlan,
+  refreshPlanToEngine,
+} from "./tracked_refresh.ts";
 
-/** What a single `compileInstructions` run accomplished. */
+/** What one complete refresh apply accomplished. */
 export interface InstructionsResult {
-  /** Output paths (relative to `root`) written, in agent-config order. */
+  /** Changed Agent-file paths, in plan order. */
   agentsWritten: string[];
-  /** Tracked Agent files and Shared files whose bytes or executable bit changed.
-   * Internal trigger evidence for refresh's commit advisory; the public data shape
-   * continues to report paths in its existing per-artifact buckets. */
+  /** Tracked-capable Agent and Shared files whose bytes or mode changed. */
   trackedArtifactsChanged: string[];
-  /** Managed attributes files whose discern-owned block changed. Kept separate
-   * so update can commit this Shared derived region without treating the whole
-   * file as safe for generated-conflict auto-resolution. */
+  /** Managed attributes files whose discern-owned block changed. */
   gitattributesChanged: string[];
-  /** Project files written wiring each agent's MCP server (`.mcp.json`, settings). */
+  /** Project files wiring each agent's MCP server. */
   mcpWired: string[];
   /** Provider hook/settings files re-seeded with discern's hook groups. */
   hooksWired: string[];
-  /** Project files written co-managing an agent app's worktree-lifecycle config
-   * (Codex's `environment.toml` [setup]/[cleanup]). Empty when no configured agent
-   * declares one, or when all were already in place. */
+  /** Agent-app worktree-lifecycle files changed. */
   worktreeAppWired: string[];
-  /** Project-local provider policy/rules files written, such as Codex exec rules. */
+  /** Project-local provider policy/rules files changed. */
   projectRulesWired: string[];
-  /** Local Git config keys whose managed proof-note fetch mappings changed. */
+  /** Local Git config keys whose managed proof-note mappings changed. */
   proofNotesFetchChanged: string[];
-  /** The ADR README whose maintained record lists this run regenerated — at
-   * most one path; empty when the index is current or the project carries no
-   * index markers (the index is opt-in by construction). */
+  /** Maintained ADR index paths changed. */
   adrIndexWritten: string[];
-  /** Agent/user-facing advice from this run (e.g. the MCP first-install restart hint). */
+  /** Agent/user-facing advice from this run. */
   hints: string[];
-  /** Bundled skills copied, summed across every configured agent's skills dir. */
+  /** Bundled skill trees copied. */
   skillsCopied: number;
-  /** Authored skills symlinked, summed across every configured agent's skills dir. */
+  /** Authored skill links created. */
   skillsLinked: number;
-  /** Stale managed skill entries pruned, summed across every agent's skills dir. */
+  /** Stale managed skill entries pruned. */
   skillsPruned: number;
-  /** Per-artifact failures isolated during the compile — a skills dir, the MCP
-   * wiring, or one agent file — so a single failure can't abort the rest (ADR 0065).
-   * Empty on a fully clean compile. */
+  /** Planning or apply failures, isolated by artifact boundary. */
   errors: string[];
 }
 
 export interface CompileInstructionsOptions {
   /** Process environment used by generated-file attribution and integrations. */
-  readonly env?: EnvReader;
-  /**
-   * Acceptance reconciles this integration before writing the note, where its
-   * fail-open result is recorded. Its later checkout refresh skips the duplicate
-   * pass so the same transport error cannot make a successful landing look red.
-   */
-  readonly reconcileProofNotesFetch?: boolean;
+  readonly env?: EnvReader | undefined;
+  /** Skip proof-note fetch transport when a caller already reconciled it. */
+  readonly reconcileProofNotesFetch?: boolean | undefined;
 }
 
-/** The non-blank refresh errors a caller should treat as failed artifacts.
- * Whitespace-only entries are ignored so accidental empty strings don't turn a
- * successful refresh into a failure. */
+/** Options specific to the public refresh result core. */
+export interface RefreshResultOptions extends CompileInstructionsOptions {
+  readonly dryRun?: boolean | undefined;
+}
+
+/** Internal apply output pairing the stable summary with executed steps. */
+export interface RefreshApplyResult {
+  readonly summary: InstructionsResult;
+  readonly steps: StepResult[];
+}
+
+/** The non-blank refresh errors a caller should treat as failed artifacts. */
 export function instructionRefreshErrors(
   result: Pick<InstructionsResult, "errors">,
 ): string[] {
@@ -114,49 +95,263 @@ export function instructionRefreshErrors(
     .filter((error) => error.length > 0);
 }
 
-/** Whether an instruction refresh completed without any non-blank artifact errors. */
+/** Whether an instruction refresh completed without a non-blank error. */
 export function instructionRefreshSucceeded(
   result: Pick<InstructionsResult, "errors">,
 ): boolean {
   return instructionRefreshErrors(result).length === 0;
 }
 
-/** Reconcile generated merge attributes and reduce failures to refresh errors. */
-async function reconcileGeneratedMergeAttributes(
-  root: string,
-  config: DiscernConfig,
-  log: Logger,
-  env: EnvReader,
-): Promise<{ changed: string[]; errors: string[] }> {
-  try {
-    const result = await ensureDiscernGitattributesBlock(
-      root,
-      config,
-      agentFilePaths(config),
-      env,
-    );
-    const changed = result.operations.length > 0 ? [GITATTRIBUTES_REL] : [];
-    if (changed.length > 0) {
-      log.info(`reconciled the discern block in ${GITATTRIBUTES_REL}`);
+/** Start an empty refresh summary with the supplied errors and hints. */
+function emptySummary(errors: readonly string[] = []): InstructionsResult {
+  return {
+    agentsWritten: [],
+    trackedArtifactsChanged: [],
+    gitattributesChanged: [],
+    mcpWired: [],
+    hooksWired: [],
+    worktreeAppWired: [],
+    projectRulesWired: [],
+    proofNotesFetchChanged: [],
+    adrIndexWritten: [],
+    hints: [],
+    skillsCopied: 0,
+    skillsLinked: 0,
+    skillsPruned: 0,
+    errors: [...errors],
+  };
+}
+
+/** Add a string once while preserving first-effect order. */
+function pushUnique(values: string[], value: string): void {
+  if (!values.includes(value)) values.push(value);
+}
+
+/** Record one successful planned effect in the stable refresh summary. */
+function recordSuccessfulEffect(
+  summary: InstructionsResult,
+  effect: RefreshEffect,
+): void {
+  if (effect.artifacts.includes("agent_file")) {
+    pushUnique(summary.agentsWritten, effect.target);
+  }
+  if (effect.artifacts.includes("gitattributes")) {
+    pushUnique(summary.gitattributesChanged, effect.target);
+  }
+  if (effect.artifacts.includes("mcp")) {
+    pushUnique(summary.mcpWired, effect.target);
+  }
+  if (effect.artifacts.includes("hooks")) {
+    pushUnique(summary.hooksWired, effect.target);
+  }
+  if (effect.artifacts.includes("worktree_app")) {
+    pushUnique(summary.worktreeAppWired, effect.target);
+  }
+  if (effect.artifacts.includes("project_rules")) {
+    pushUnique(summary.projectRulesWired, effect.target);
+  }
+  if (effect.artifacts.includes("adr_index")) {
+    pushUnique(summary.adrIndexWritten, effect.target);
+  }
+  if (effect.trackedKinds.length > 0) {
+    pushUnique(summary.trackedArtifactsChanged, effect.target);
+  }
+  if (effect.type === "skill") {
+    if (effect.operation.kind === "bundled") summary.skillsCopied++;
+    if (effect.operation.kind === "authored") summary.skillsLinked++;
+    if (effect.operation.kind === "stale") summary.skillsPruned++;
+  }
+  if (effect.type === "proof-notes-fetch") {
+    for (
+      const key of [
+        ...effect.operation.addedKeys,
+        ...effect.operation.removedKeys,
+      ]
+    ) {
+      pushUnique(summary.proofNotesFetchChanged, key);
     }
-    for (const refused of result.refused) {
-      log.warn(
-        `refresh: ${refusedGitattributesPatternLabel(refused)} pattern ${
-          JSON.stringify(refused.pattern)
-        } was omitted from ${GITATTRIBUTES_REL}: ${refused.reason}.`,
-      );
-    }
-    return { changed, errors: [] };
-  } catch (error) {
-    const message = `could not maintain ${GITATTRIBUTES_REL}: ${
-      errText(error)
-    }`;
-    log.warn(message);
-    return { changed: [], errors: [message] };
   }
 }
 
-/** Render the compile summary as the stable `refresh` data payload. */
+/** Build the summary a successful application of every planned effect yields. */
+function plannedSummary(plan: RefreshPlan): InstructionsResult {
+  const summary = emptySummary(plan.errors.map((error) => error.message));
+  for (const effect of plan.effects) recordSuccessfulEffect(summary, effect);
+  return summary;
+}
+
+/** Apply one exact file operation retained by the plan. */
+async function applyRefreshFileOperation(
+  operation: RefreshFileOperation,
+): Promise<void> {
+  if (operation.disposition === "remove") {
+    try {
+      await Deno.remove(operation.targetAbs);
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    return;
+  }
+  const bytes = operation.bytes;
+  if (bytes === undefined) {
+    throw new Error(`refresh plan lost the bytes for ${operation.targetRel}`);
+  }
+  await ensureDir(dirname(operation.targetAbs));
+  await atomicReplaceBytes(operation.targetAbs, bytes, {
+    mode: operation.mode ?? 0o644,
+    exactMode: true,
+    sync: false,
+  });
+}
+
+/** Apply one plan-bound effect and perform no discovery. */
+async function applyRefreshEffect(
+  plan: RefreshPlan,
+  effect: RefreshEffect,
+): Promise<void> {
+  if (effect.type === "file") {
+    await applyRefreshFileOperation(effect.operation);
+    return;
+  }
+  if (effect.type === "skill") {
+    await applySkillMaterializationOperation(effect.operation, plan.config);
+    return;
+  }
+  const error = await applyProofNotesFetchOperation(
+    plan.root,
+    effect.operation,
+  );
+  if (error === undefined) return;
+  let message = `${effect.operation.failurePrefix}: ${error}`;
+  if (effect.operation.rollback !== undefined) {
+    const rollback = await applyProofNotesFetchOperation(
+      plan.root,
+      effect.operation.rollback,
+    );
+    if (rollback !== undefined) {
+      message += `; ${effect.operation.rollback.failurePrefix}: ${rollback}`;
+    }
+  }
+  throw new Error(message);
+}
+
+/** Past-tense apply narration for one planned disposition. */
+function appliedVerb(effect: RefreshEffect): string {
+  return effect.disposition === "create"
+    ? "created"
+    : effect.disposition === "update"
+    ? "updated"
+    : "removed";
+}
+
+/** Add plan-derived hints after the actual successful set is known. */
+function addRefreshHints(
+  plan: RefreshPlan,
+  summary: InstructionsResult,
+): void {
+  if (plan.mcpFirstInstall && summary.mcpWired.length > 0) {
+    summary.hints.push(
+      fire(
+        plan.config.meta.bootstrapped
+          ? HINTS["refresh-mcp-first-install"]
+          : HINTS["refresh-mcp-setup-deferred"],
+      ).text,
+    );
+  }
+  const errors = instructionRefreshErrors(summary);
+  if (errors.length > 0) {
+    summary.hints = mergeHintTexts(
+      hintTexts(
+        errors.map((message) =>
+          fire(HINTS["refresh-artifact-failed"], { message })
+        ),
+      ),
+      summary.hints,
+    );
+  } else if (summary.trackedArtifactsChanged.length > 0) {
+    summary.hints = mergeHintTexts(
+      hintTexts([fire(HINTS["refresh-commit-tracked-artifacts"])]),
+      summary.hints,
+    );
+  }
+}
+
+/**
+ * Apply the complete refresh plan. A failed effect blocks later effects only in
+ * its declared artifact boundary; every other planned boundary still proceeds.
+ */
+export async function applyRefreshPlan(
+  plan: RefreshPlan,
+  log = new Logger({ json: true, noColor: true }),
+): Promise<RefreshApplyResult> {
+  const summary = emptySummary(plan.errors.map((error) => error.message));
+  const steps: StepResult[] = [];
+  const failedBoundaries = new Set<string>();
+  const skillsByDir = new Map<
+    string,
+    { copied: number; linked: number; pruned: number }
+  >();
+  const engine = refreshPlanToEngine(plan);
+  for (const warning of plan.warnings) log.warn(`refresh: ${warning}`);
+  for (const error of plan.errors) log.warn(error.message);
+
+  for (const [index, effect] of plan.effects.entries()) {
+    const step = engine.steps[index];
+    if (step === undefined) {
+      throw new Error("refresh engine projection lost a planned effect");
+    }
+    if (failedBoundaries.has(effect.boundary)) {
+      steps.push({ step, outcome: "skipped" });
+      continue;
+    }
+    try {
+      await applyRefreshEffect(plan, effect);
+      recordSuccessfulEffect(summary, effect);
+      if (effect.type === "skill") {
+        const changed = skillsByDir.get(effect.operation.dirRel) ?? {
+          copied: 0,
+          linked: 0,
+          pruned: 0,
+        };
+        if (effect.operation.kind === "bundled") changed.copied++;
+        if (effect.operation.kind === "authored") changed.linked++;
+        if (effect.operation.kind === "stale") changed.pruned++;
+        skillsByDir.set(effect.operation.dirRel, changed);
+      }
+      steps.push({ step, outcome: "ok" });
+      log.info(`refresh: ${appliedVerb(effect)} ${effect.target}`);
+    } catch (error) {
+      failedBoundaries.add(effect.boundary);
+      const message = `could not ${effect.disposition} ${effect.target}: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+      summary.errors.push(message);
+      steps.push({ step, outcome: "failed" });
+      log.warn(message);
+    }
+  }
+
+  for (const [dir, changed] of skillsByDir) {
+    log.info(
+      `skills materialized into ${dir}/: ${changed.copied} bundled, ${changed.linked} authored` +
+        (changed.pruned > 0 ? ` (pruned ${changed.pruned} stale)` : ""),
+    );
+  }
+  addRefreshHints(plan, summary);
+  if (summary.agentsWritten.length > 0) {
+    log.ok(
+      `refresh: compiled ${plan.sourceCount} source(s) + built-in instructions into ${summary.agentsWritten.length} changed Agent file(s): ${
+        summary.agentsWritten.join(",")
+      }`,
+    );
+  } else if (plan.effects.length === 0 && summary.errors.length === 0) {
+    log.ok("refresh: every managed artifact is current.");
+  }
+  for (const hint of summary.hints) log.info(hint);
+  return { summary, steps };
+}
+
+/** Render the stable refresh data payload. */
 function refreshData(result: InstructionsResult): RefreshData {
   return {
     agents_written: result.agentsWritten,
@@ -175,39 +370,55 @@ function refreshData(result: InstructionsResult): RefreshData {
   };
 }
 
+/** Construct the discriminated success/failure envelope fields. */
+function refreshResultFields(result: InstructionsResult): {
+  hints: string[];
+  data: RefreshData;
+} {
+  return { hints: result.hints, data: refreshData(result) };
+}
+
 /**
  * The result-returning core behind `discern refresh` and `discern_refresh`.
- * Narration is controlled by the caller's logger; by default it is suppressed, so
- * tests and MCP never leak human text onto their machine channels.
+ * A dry run renders and returns the same plan the apply path consumes.
  */
 export async function refreshResult(
   root: string,
   logger = new Logger({ json: true, noColor: true }),
-): Promise<DiscernResult> {
-  const result = await compileInstructions(root, logger);
-  const errors = instructionRefreshErrors(result);
-  const failed = errors.length > 0;
-  const hints = failed
-    ? mergeHintTexts(
-      hintTexts(
-        errors.map((message) =>
-          fire(HINTS["refresh-artifact-failed"], { message })
-        ),
-      ),
-      result.hints,
-    )
-    : result.trackedArtifactsChanged.length > 0
-    ? mergeHintTexts(
-      hintTexts([fire(HINTS["refresh-commit-tracked-artifacts"])]),
-      result.hints,
-    )
-    : result.hints;
+  options: RefreshResultOptions = {},
+): Promise<DiscernResult<RefreshData>> {
+  const plan = await planRefresh(root, options);
+  if (options.dryRun === true) {
+    const summary = plannedSummary(plan);
+    addRefreshHints(plan, summary);
+    const engine = refreshPlanToEngine(plan);
+    renderPlan(loggerSink(logger), engine);
+    for (const error of summary.errors) logger.warn(error);
+    const fields = {
+      verb: "refresh",
+      dry_run: true as const,
+      plan: engine,
+      ...refreshResultFields(summary),
+    };
+    return summary.errors.length > 0
+      ? {
+        ok: false,
+        error: "partial_refresh",
+        message:
+          `${summary.errors.length} artifact(s) could not be planned; see data.errors.`,
+        ...fields,
+      }
+      : { ok: true, ...fields };
+  }
+
+  const applied = await applyRefreshPlan(plan, logger);
+  const errors = instructionRefreshErrors(applied.summary);
   const fields = {
     verb: "refresh",
-    hints,
-    data: refreshData(result),
+    steps: applied.steps,
+    ...refreshResultFields(applied.summary),
   };
-  return failed
+  return errors.length > 0
     ? {
       ok: false,
       error: "partial_refresh",
@@ -218,292 +429,22 @@ export async function refreshResult(
     : { ok: true, ...fields };
 }
 
-/** Normalise an unknown thrown value into a message string. */
-function errText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-/**
- * Compile the agent files from the built-in instructions + the project's sources, and
- * materialize skills. Resolves to a summary of
- * what changed. The worktree lifecycle and `upgrade` call this with the discovered
- * project `root`; the name and signature are a cross-module contract.
- */
+/** Plan and apply a complete refresh for internal lifecycle callers. */
 export async function compileInstructions(
   root: string,
   logger?: Logger,
   options: CompileInstructionsOptions = {},
 ): Promise<InstructionsResult> {
-  // info/ok → stdout, UNLESS the caller passes
-  // its own logger to control the stream — e.g. `upgrade --json` passes its
-  // json-mode logger so this narration is suppressed and the JSON object stays
-  // the only thing on stdout.
-  const log = logger ??
-    new Logger({ json: false, noColor: false, humanStream: "stdout" });
-  const env = options.env ?? Deno.env;
-
-  const config = await loadConfig(root);
-  const agents = instructionAgents(config);
-
-  // Per-artifact failures collected across all three jobs, so one (e.g. a sandbox
-  // denial writing a skills dir) is isolated and reported rather than aborting the
-  // rest (ADR 0065).
-  const errors: string[] = [];
-
-  // --- job 1: materialize skills into each configured agent's skills dir --------
-  let skills = { copied: 0, linked: 0, pruned: 0 };
-  try {
-    const r = await materializeSkills(
-      root,
-      config,
-      skillsDirsForAgents(agents),
-      log,
-    );
-    skills = { copied: r.copied, linked: r.linked, pruned: r.pruned };
-    errors.push(...r.errors);
-  } catch (error) {
-    const msg = `could not materialize skills: ${errText(error)}`;
-    log.warn(msg);
-    errors.push(msg);
-  }
-
-  // --- job 2: MCP integration (ADR 0045) --------------------------------------
-  // The MCP server is core infrastructure — an idempotent
-  // integration artifact (re-)established for every configured agent on each
-  // refresh / upgrade / worktree-setup. A
-  // FIRST install yields the restart hint (surfaced to the user AND the result
-  // `hints`). Best-effort: a hiccup must not fail the compile.
-  const hints: FiredHint[] = [];
-  const providerRefresh = await reconcileTrackedProviderArtifacts(
-    root,
-    config,
-    env,
-  );
-  const {
-    mcpWired,
-    hooksWired,
-    worktreeAppWired,
-    projectRulesWired,
-  } = providerRefresh;
-  errors.push(...providerRefresh.errors);
-  for (const error of providerRefresh.errors) {
-    log.warn(error);
-  }
-  if (mcpWired.length > 0) {
-    log.info(`registered the discern MCP server in: ${mcpWired.join(", ")}`);
-  }
-  if (providerRefresh.mcpFirstInstall) {
-    const restartHint = fire(
-      config.meta.bootstrapped
-        ? HINTS["refresh-mcp-first-install"]
-        : HINTS["refresh-mcp-setup-deferred"],
-    );
-    hints.push(restartHint);
-    log.info(restartHint.text);
-  }
-  if (hooksWired.length > 0) {
-    log.info(`re-seeded provider hooks in: ${hooksWired.join(", ")}`);
-  }
-  if (worktreeAppWired.length > 0) {
-    log.info(
-      `co-managed app worktree lifecycle in: ${worktreeAppWired.join(", ")}`,
-    );
-  }
-  if (projectRulesWired.length > 0) {
-    log.info(`co-managed project rules in: ${projectRulesWired.join(", ")}`);
-  }
-
-  // --- job 2d: proof-note fetch transport -----------------------------------
-  // Local proof recording is unconditional at acceptance. Transport remains
-  // opt-in: only "fetch" adds an optional additive mapping, and returning to
-  // "local" removes only mappings marked as managed by this integration.
-  let proofNotesFetchChanged: string[] = [];
-  if (options.reconcileProofNotesFetch !== false) {
-    try {
-      const reconciled = await reconcileProofNotesFetch(
-        root,
-        config.repository.proof_notes,
-      );
-      proofNotesFetchChanged = [
-        ...new Set([
-          ...reconciled.added,
-          ...reconciled.removed,
-        ]),
-      ];
-      errors.push(...reconciled.errors);
-      if (proofNotesFetchChanged.length > 0) {
-        log.info(
-          `updated proof-note fetch transport in: ${
-            proofNotesFetchChanged.join(", ")
-          }`,
-        );
-      }
-    } catch (error) {
-      const msg = `could not update proof-note fetch transport: ${
-        errText(error)
-      }`;
-      log.warn(msg);
-      errors.push(msg);
-    }
-  }
-
-  // --- job 2e: the maintained ADR index ---------------------------------------
-  // The record lists in the ADR README (`<map dir>/_adr/README.md`) are
-  // regenerated from the record files on disk whenever the README carries the
-  // index markers; a README without them is never touched, so the index is
-  // opt-in by construction. Stateless like the agent-file compile: the expected
-  // content is recomputed each run, and the same computation backs the
-  // `status`/`done` currency checks. Best-effort: a failure is recorded, never
-  // fatal.
-  let adrIndexWritten: string[] = [];
-  try {
-    const state = await adrIndexState(root, config.map.dir);
-    if (state.kind === "stale") {
-      await Deno.writeTextFile(join(root, state.path), state.expected);
-      adrIndexWritten = [state.path];
-      log.info(`regenerated the ADR index in ${state.path}`);
-    } else if (state.kind === "invalid") {
-      const msg =
-        `could not regenerate the ADR index in ${state.path}: ${state.issue}`;
-      log.warn(msg);
-      errors.push(msg);
-    }
-  } catch (error) {
-    const msg = `could not maintain the ADR index: ${errText(error)}`;
-    log.warn(msg);
-    errors.push(msg);
-  }
-
-  // --- job 3: compile the agent files -----------------------------------------
-  const agentsWritten: string[] = [];
-  const agentFilesChanged: string[] = [];
-
-  // Render the expected content for every configured provider — the SINGLE source
-  // of the compiled-file content, shared with the `status`/`done` currency check
-  // (ADR 0034) — then write each. A provider that declares an import (Claude Code)
-  // already gets a pointer to the canonical file here, not a duplicate body.
-  let rendered: Map<string, string>;
-  try {
-    rendered = await renderAgentFiles(root, config);
-  } catch (error) {
-    const msg = `could not compute the agent files: ${errText(error)}`;
-    log.warn(msg);
-    errors.push(msg);
-    const attributes = await reconcileGeneratedMergeAttributes(
-      root,
-      config,
-      log,
-      env,
-    );
-    errors.push(...attributes.errors);
-    return summarize(
-      agentsWritten,
-      agentFilesChanged,
-      attributes.changed,
-      mcpWired,
-      hooksWired,
-      worktreeAppWired,
-      projectRulesWired,
-      proofNotesFetchChanged,
-      adrIndexWritten,
-      hints,
-      skills,
-      errors,
-    );
-  }
-  for (const agent of agents) {
-    const gf = providerFor(agent)?.instructionFile;
-    if (gf === undefined) {
-      log.warn(
-        `refresh: unknown agent '${agent}' in [project].agents — skipping (no output mapping).`,
-      );
-      continue;
-    }
-  }
-  for (const [rel, fileBody] of rendered) {
-    // Isolate per agent file: a denied write to one provider's file doesn't abort
-    // the others (ADR 0065).
-    try {
-      const out = join(root, rel);
-      await ensureDir(dirname(out));
-      let changed = true;
-      try {
-        const existing = await Deno.readTextFile(out);
-        const stat = await Deno.stat(out);
-        changed = existing !== fileBody || ((stat.mode ?? 0) & 0o111) !== 0;
-      } catch {
-        // Preserve the existing write path when inspection is unavailable. The
-        // write below remains the authority on whether this artifact can refresh.
-        changed = true;
-      }
-      await Deno.writeTextFile(out, fileBody);
-      // A generated file should be readable like any other source (mode 0644).
-      await Deno.chmod(out, 0o644);
-      agentsWritten.push(rel);
-      if (changed) {
-        agentFilesChanged.push(rel);
-      }
-    } catch (error) {
-      const msg = `could not write ${rel}: ${errText(error)}`;
-      log.warn(msg);
-      errors.push(msg);
-    }
-  }
-  if (rendered.size === 0) {
-    const knownInstructionAgents = agents.filter((agent) =>
-      providerFor(agent)?.instructionFile !== undefined
-    );
-    const msg = knownInstructionAgents.length === 0
-      ? 'refresh: no known providers in [project].agents — compiled nothing. Set agents = ["claude_code", …].'
-      : "refresh: configured instructions providers rendered no agent files — check [project].agents and provider instructions mappings.";
-    log.warn(msg);
-  } else if (agentsWritten.length === 0) {
-    log.warn(
-      `refresh: rendered ${rendered.size} agent file(s) but wrote none; see warnings above.`,
-    );
-  } else {
-    const sourceCount = (await resolveInstructionSources(root, config)).length;
-    log.ok(
-      `refresh: compiled ${sourceCount} source(s) + built-in instructions into ${agentsWritten.length} agent file(s): ${
-        agentsWritten.join(",")
-      }`,
-    );
-  }
-
-  // --- job 4: generated-artifact merge attributes ---------------------------
-  // Agent paths become built-in candidates in the same refresh that writes
-  // them, so reconcile after compilation. Tracked files remain candidates when
-  // a write failed or a configured provider was removed. A scope pattern whose
-  // meaning Git attributes cannot preserve is omitted and reported; doctor
-  // keeps that warning visible after this run.
-  const attributes = await reconcileGeneratedMergeAttributes(
-    root,
-    config,
-    log,
-    env,
-  );
-  errors.push(...attributes.errors);
-  return summarize(
-    agentsWritten,
-    agentFilesChanged,
-    attributes.changed,
-    mcpWired,
-    hooksWired,
-    worktreeAppWired,
-    projectRulesWired,
-    proofNotesFetchChanged,
-    adrIndexWritten,
-    hints,
-    skills,
-    errors,
-  );
+  return (await applyRefreshPlan(
+    await planRefresh(root, options),
+    logger ??
+      new Logger({ json: false, noColor: false, humanStream: "stdout" }),
+  )).summary;
 }
 
 /**
- * Apply only refresh's machine-local/ignored artifacts. Acceptance uses this
- * after the trunk fast-forward: the validated commit already contains every
- * tracked refresh effect, while materialized skills must exist independently in
- * each checkout. No tracked writer is reachable from this function.
+ * Apply only checkout-local materialized skills. Acceptance uses this after the
+ * validated tracked refresh effects have already landed.
  */
 export async function materializeLocalRefreshArtifacts(
   root: string,
@@ -511,84 +452,18 @@ export async function materializeLocalRefreshArtifacts(
 ): Promise<InstructionsResult> {
   const log = logger ??
     new Logger({ json: false, noColor: false, humanStream: "stdout" });
-  const config = await loadConfig(root);
-  const agents = instructionAgents(config);
-  const errors: string[] = [];
-  let skills = { copied: 0, linked: 0, pruned: 0 };
-  try {
-    const result = await materializeSkills(
+  const config: DiscernConfig = await loadConfig(root);
+  const materialized = await applyMaterializeSkillsPlan(
+    await planMaterializeSkills(
       root,
       config,
-      skillsDirsForAgents(agents),
-      log,
-    );
-    skills = {
-      copied: result.copied,
-      linked: result.linked,
-      pruned: result.pruned,
-    };
-    errors.push(...result.errors);
-  } catch (error) {
-    const message = `could not materialize skills: ${errText(error)}`;
-    log.warn(message);
-    errors.push(message);
-  }
-  return summarize(
-    [],
-    [],
-    [],
-    [],
-    [],
-    [],
-    [],
-    [],
-    [],
-    [],
-    skills,
-    errors,
+      skillsDirsForAgents(instructionAgents(config)),
+    ),
+    log,
   );
-}
-
-/** Build the result. The skills narration is emitted once by `materializeSkills`,
- * so this does not repeat it. */
-function summarize(
-  agentsWritten: string[],
-  agentFilesChanged: string[],
-  gitattributesChanged: string[],
-  mcpWired: string[],
-  hooksWired: string[],
-  worktreeAppWired: string[],
-  projectRulesWired: string[],
-  proofNotesFetchChanged: string[],
-  adrIndexWritten: string[],
-  hints: FiredHint[],
-  skills: { copied: number; linked: number; pruned: number },
-  errors: string[],
-): InstructionsResult {
-  return {
-    agentsWritten,
-    trackedArtifactsChanged: [
-      ...new Set([
-        ...agentFilesChanged,
-        ...gitattributesChanged,
-        ...mcpWired,
-        ...hooksWired,
-        ...worktreeAppWired,
-        ...projectRulesWired,
-        ...adrIndexWritten,
-      ]),
-    ],
-    gitattributesChanged,
-    mcpWired,
-    hooksWired,
-    worktreeAppWired,
-    projectRulesWired,
-    proofNotesFetchChanged,
-    adrIndexWritten,
-    hints: hintTexts(hints),
-    skillsCopied: skills.copied,
-    skillsLinked: skills.linked,
-    skillsPruned: skills.pruned,
-    errors,
-  };
+  const summary = emptySummary(materialized.errors);
+  summary.skillsCopied = materialized.copied;
+  summary.skillsLinked = materialized.linked;
+  summary.skillsPruned = materialized.pruned;
+  return summary;
 }
