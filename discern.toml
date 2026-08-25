@@ -814,7 +814,7 @@
   # At zero, move the detector into an always-on test and retire this table.
   [standards.lint_suppressions]
     direction = "down"
-    limit = 26
+    limit = 6
     run = "deno task lint-suppressions"
     inputs = [
       "*.ts",
