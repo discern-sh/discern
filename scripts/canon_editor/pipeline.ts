@@ -10,11 +10,12 @@
  */
 
 import { join } from "@std/path";
+import { decodeJson } from "../../src/shared/runtime_decode.ts";
 import { stripAnnotationMarkers } from "./annotation.ts";
 import { patchRegistrySource, type PatchRequest } from "./patch.ts";
 import { fieldSpecFor, PLAIN_TWIN } from "./fields.ts";
 import { type GuardRunReport, metricProbe, runGuardFiles } from "./guards.ts";
-import type { Snapshot } from "./snapshot.ts";
+import { type Snapshot, snapshotSchema } from "./snapshot.ts";
 import { decodeValeReport, type ValeReport } from "../prose_lib.ts";
 
 /** Where a refused save stopped. */
@@ -89,7 +90,11 @@ export async function spawnSnapshot(root: string): Promise<Snapshot> {
   if (!output.success) {
     throw new Error(new TextDecoder().decode(output.stderr).slice(-2000));
   }
-  return JSON.parse(new TextDecoder().decode(output.stdout)) as Snapshot;
+  return decodeJson(
+    snapshotSchema,
+    new TextDecoder().decode(output.stdout),
+    "Canon Editor snapshot subprocess output",
+  );
 }
 
 /** Format TypeScript text exactly as the repo's formatter would. */

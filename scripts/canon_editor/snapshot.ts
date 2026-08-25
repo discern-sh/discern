@@ -12,6 +12,7 @@
 
 import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import { markerAnnotator, setProseAnnotator, slugify } from "./annotation.ts";
 import { REPO_ROOT } from "./root.ts";
 import {
@@ -61,100 +62,125 @@ import { CANONICAL_SETS, REGISTRY_ATLAS_PAGE_REL } from "../canonical_sets.ts";
 import { plainReadingGrade } from "../plain_reading_grade_lib.ts";
 import { formatMarkdownText } from "../../src/lib/tidy_format.ts";
 import { readFrontmatterBlock } from "../../src/lib/frontmatter.ts";
-import { buildPickerCatalog, type PickerCatalogEntry } from "./pickers.ts";
+import { buildPickerCatalog, WRITABLE_PICKER_SOURCES } from "./pickers.ts";
 import type { ProseRegistry } from "./annotation.ts";
 
 /** One rendered canon page, annotated and canonically formatted. */
-export interface SnapshotPage {
-  readonly id: string;
+export const snapshotPageSchema = z.object({
+  id: z.string(),
   /** Repo-relative path of the committed page this render corresponds to. */
-  readonly rel: string;
-  readonly title: string;
+  rel: z.string(),
+  title: z.string(),
   /** The formatted, annotated body with any frontmatter stripped for display. */
-  readonly body: string;
-  /**
-   * The complete formatted, annotated text, frontmatter included — stripping
-   * its markers yields the exact bytes the committed page should hold.
-   */
-  readonly full: string;
+  body: z.string(),
+  /** Complete formatted text, including frontmatter and annotation markers. */
+  full: z.string(),
   /** Whether the page carries annotation spans (the atlas does not). */
-  readonly annotated: boolean;
-}
+  annotated: z.boolean(),
+});
+/** One validated rendered canon page. */
+export type SnapshotPage = z.output<typeof snapshotPageSchema>;
 
 /** A cross-reference to another canon entry or an out-of-editor label. */
-export interface CitationRef {
+export const citationRefSchema = z.object({
   /** Present when the target is an editor entry the reader can navigate to. */
-  readonly registry?: string;
-  readonly slug?: string;
-  readonly label: string;
-}
+  registry: z.string().optional(),
+  slug: z.string().optional(),
+  label: z.string(),
+});
+/** One validated cross-reference. */
+export type CitationRef = z.output<typeof citationRefSchema>;
 
 /** One direction of an entry's citation web. */
-export interface OutwardCitation {
-  readonly field: string;
-  readonly refs: readonly CitationRef[];
-}
+export const outwardCitationSchema = z.object({
+  field: z.string(),
+  refs: z.array(citationRefSchema).readonly(),
+});
+/** One validated outward citation group. */
+export type OutwardCitation = z.output<typeof outwardCitationSchema>;
 
 /** An inbound citation: who cites this entry, and through which field. */
-export interface InwardCitation {
-  readonly registry: string;
-  readonly slug: string;
-  readonly label: string;
-  readonly via: string;
-}
+export const inwardCitationSchema = z.object({
+  registry: z.string(),
+  slug: z.string(),
+  label: z.string(),
+  via: z.string(),
+});
+/** One validated inbound citation. */
+export type InwardCitation = z.output<typeof inwardCitationSchema>;
 
 /** One canon entry, evaluated. */
-export interface SnapshotEntry {
-  readonly registry: string;
-  readonly id: string;
-  readonly slug: string;
-  readonly title: string;
-  readonly kind: string;
-  readonly parent?: string;
+export const snapshotEntrySchema = z.object({
+  registry: z.string(),
+  id: z.string(),
+  slug: z.string(),
+  title: z.string(),
+  kind: z.string(),
+  parent: z.string().optional(),
   /** The entry's own data, child entries pruned. */
-  readonly data: Record<string, unknown>;
-  readonly outward: readonly OutwardCitation[];
-  readonly inward: readonly InwardCitation[];
+  data: z.record(z.string(), z.unknown()),
+  outward: z.array(outwardCitationSchema).readonly(),
+  inward: z.array(inwardCitationSchema).readonly(),
   /** Public claim slugs this entry carries through citing benefits. */
-  readonly claimsCarried?: readonly string[];
-}
+  claimsCarried: z.array(z.string()).readonly().optional(),
+});
+/** One validated canon entry. */
+export type SnapshotEntry = z.output<typeof snapshotEntrySchema>;
 
 /** A serialized lint pattern the editor applies as-you-type. */
-export interface LintPattern {
-  readonly name: string;
-  readonly source: string;
-  readonly flags: string;
+export const lintPatternSchema = z.object({
+  name: z.string(),
+  source: z.string(),
+  flags: z.string(),
   /** The canonical replacement or plain rendering to suggest. */
-  readonly plain: string;
-}
+  plain: z.string(),
+});
+/** One validated serialized lint pattern. */
+export type LintPattern = z.output<typeof lintPatternSchema>;
 
 /** One registry's guard roster, from the meta-registry. */
-export interface RegistryGuards {
-  readonly registry: string;
-  readonly guards: readonly string[];
-}
+export const registryGuardsSchema = z.object({
+  registry: z.string(),
+  guards: z.array(z.string()).readonly(),
+});
+/** One validated registry guard roster. */
+export type RegistryGuards = z.output<typeof registryGuardsSchema>;
 
 /** A standard the canons feed, with its recorded limit. */
-export interface StandardReading {
-  readonly name: string;
-  readonly value?: number;
-  readonly limit?: number;
-  readonly direction?: string;
-}
+export const standardReadingSchema = z.object({
+  name: z.string(),
+  value: z.number().optional(),
+  limit: z.number().optional(),
+  direction: z.string().optional(),
+});
+/** One validated standard reading. */
+export type StandardReading = z.output<typeof standardReadingSchema>;
+
+const pickerOptionSchema = z.object({
+  value: z.string(),
+  label: z.string(),
+  group: z.string().optional(),
+});
+const pickerCatalogEntrySchema = z.object({
+  source: z.enum(WRITABLE_PICKER_SOURCES),
+  options: z.array(pickerOptionSchema).readonly(),
+});
 
 /** Everything the editor knows about the canon at one instant. */
-export interface Snapshot {
-  readonly pages: readonly SnapshotPage[];
-  readonly entries: readonly SnapshotEntry[];
+export const snapshotSchema = z.object({
+  pages: z.array(snapshotPageSchema).readonly(),
+  entries: z.array(snapshotEntrySchema).readonly(),
   /** Typed list choices, derived from their live registry authorities. */
-  readonly pickers: readonly PickerCatalogEntry[];
-  readonly lint: {
-    readonly retired: readonly LintPattern[];
-    readonly plainPoliced: readonly LintPattern[];
-  };
-  readonly guards: readonly RegistryGuards[];
-  readonly standards: readonly StandardReading[];
-}
+  pickers: z.array(pickerCatalogEntrySchema).readonly(),
+  lint: z.object({
+    retired: z.array(lintPatternSchema).readonly(),
+    plainPoliced: z.array(lintPatternSchema).readonly(),
+  }),
+  guards: z.array(registryGuardsSchema).readonly(),
+  standards: z.array(standardReadingSchema).readonly(),
+});
+/** One validated Canon Editor snapshot. */
+export type Snapshot = z.output<typeof snapshotSchema>;
 
 /** The set ids the prose registries carry in the meta-registry. */
 const REGISTRY_SET_IDS: Readonly<Record<ProseRegistry, string>> = {

@@ -47,6 +47,8 @@ import {
 import { licensesResult } from "../src/commands/licenses.ts";
 import type { ThirdPartyComponent } from "../src/lib/third_party_types.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { thirdPartyLicenseBundleSchema } from "../src/shared/license_bundle_schemas.ts";
+import { decodeJson } from "../src/shared/runtime_decode.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -103,6 +105,28 @@ Deno.test("JSR license-cache values validate before license use", () => {
   );
   assertStringIncludes(error.message, "scripts/jsr_license_cache.json fixture");
   assertStringIncludes(error.message, "@std/fs@1.0.0");
+});
+
+Deno.test("embedded third-party components validate before license use", () => {
+  const error = assertThrows(
+    () =>
+      decodeJson(
+        thirdPartyLicenseBundleSchema,
+        JSON.stringify({
+          notices: "fixture",
+          components: [{
+            name: "fixture",
+            version: "1",
+            registry: "test",
+            license: 7,
+          }],
+        }),
+        "embedded third-party license fixture",
+      ),
+    Error,
+  );
+  assertStringIncludes(error.message, "embedded third-party license fixture");
+  assertStringIncludes(error.message, "components.0.license");
 });
 
 /** The component list the binary actually serves, via the embedded bundle. */

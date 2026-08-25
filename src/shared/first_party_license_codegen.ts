@@ -13,17 +13,14 @@ import {
   FIRST_PARTY_LEGAL_DOCUMENTS,
   type FirstPartyLegalDocumentDeclaration,
 } from "./license_registry.ts";
+import {
+  type FirstPartyLegalDocument,
+  type FirstPartyLicenseBundle,
+  firstPartyLicenseBundleSchema,
+} from "./license_bundle_schemas.ts";
+import { decodeJson } from "./runtime_decode.ts";
 
-/** One embedded document: registry metadata plus its exact authored text. */
-export interface FirstPartyLegalDocument
-  extends FirstPartyLegalDocumentDeclaration {
-  readonly text: string;
-}
-
-/** The uncompressed JSON shape carried by the generated module. */
-export interface FirstPartyLicenseBundle {
-  readonly documents: readonly FirstPartyLegalDocument[];
-}
+export type { FirstPartyLegalDocument, FirstPartyLicenseBundle };
 
 /** The committed module generated from the authored legal package. */
 export const FIRST_PARTY_LICENSE_ARTIFACT_PATHS = {
@@ -88,9 +85,11 @@ export function firstPartyLicenseBundlePayload(
 export function readFirstPartyLicenseBundle(
   moduleText: string,
 ): FirstPartyLicenseBundle {
-  return JSON.parse(
+  return decodeJson(
+    firstPartyLicenseBundleSchema,
     new TextDecoder().decode(firstPartyLicenseBundlePayload(moduleText)),
-  ) as FirstPartyLicenseBundle;
+    "generated first-party license bundle payload",
+  );
 }
 
 /** Whether two canonical generated modules carry identical JSON bytes. */

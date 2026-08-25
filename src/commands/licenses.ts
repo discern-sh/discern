@@ -9,13 +9,20 @@
  */
 
 import { gunzipSync } from "zlib";
+import type { z } from "@zod/zod";
 import { Logger } from "../lib/log.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { LicensesData } from "../shared/result_schemas.ts";
-import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
 import type { FirstPartyLegalDocument } from "../shared/first_party_license_codegen.ts";
 import { FIRST_PARTY_LICENSE_BUNDLE_B64 } from "../lib/first_party_license_bundle.ts";
 import { THIRD_PARTY_BUNDLE_B64 } from "../lib/third_party_bundle.ts";
+import {
+  type FirstPartyLicenseBundle,
+  firstPartyLicenseBundleSchema,
+  type ThirdPartyLicenseBundle,
+  thirdPartyLicenseBundleSchema,
+} from "../shared/license_bundle_schemas.ts";
+import { decodeJson } from "../shared/runtime_decode.ts";
 
 /** Options for {@link runLicenses}. */
 export interface LicensesOptions {
@@ -23,40 +30,43 @@ export interface LicensesOptions {
   readonly noColor: boolean;
 }
 
-interface ThirdPartyBundle {
-  readonly notices: string;
-  readonly components: readonly ThirdPartyComponent[];
-}
-
-interface FirstPartyBundle {
-  readonly documents: readonly FirstPartyLegalDocument[];
-}
-
 /** Inflate a generated base64-gzip bundle and parse its typed JSON payload. */
-function decodeBundle<T>(encoded: string): T {
-  return JSON.parse(
+function decodeBundle<Schema extends z.ZodType>(
+  encoded: string,
+  schema: Schema,
+  source: string,
+): z.output<Schema> {
+  return decodeJson(
+    schema,
     new TextDecoder().decode(
       gunzipSync(
         Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0)),
       ),
     ),
-  ) as T;
+    source,
+  );
 }
 
-let cachedThirdParty: ThirdPartyBundle | undefined;
+let cachedThirdParty: ThirdPartyLicenseBundle | undefined;
 /** Lazily decode the compile-graph-derived notices embedded in the binary. */
-function thirdPartyBundle(): ThirdPartyBundle {
+function thirdPartyBundle(): ThirdPartyLicenseBundle {
   // atob instead of @std/encoding keeps the decoder out of the compiled graph;
   // the binary_size standard holds the ceiling the extra module would break.
-  cachedThirdParty ??= decodeBundle<ThirdPartyBundle>(THIRD_PARTY_BUNDLE_B64);
+  cachedThirdParty ??= decodeBundle(
+    THIRD_PARTY_BUNDLE_B64,
+    thirdPartyLicenseBundleSchema,
+    "embedded third-party license bundle",
+  );
   return cachedThirdParty;
 }
 
-let cachedFirstParty: FirstPartyBundle | undefined;
+let cachedFirstParty: FirstPartyLicenseBundle | undefined;
 /** Lazily decode discern's own legal documents embedded in the binary. */
-function firstPartyBundle(): FirstPartyBundle {
-  cachedFirstParty ??= decodeBundle<FirstPartyBundle>(
+function firstPartyBundle(): FirstPartyLicenseBundle {
+  cachedFirstParty ??= decodeBundle(
     FIRST_PARTY_LICENSE_BUNDLE_B64,
+    firstPartyLicenseBundleSchema,
+    "embedded first-party license bundle",
   );
   return cachedFirstParty;
 }

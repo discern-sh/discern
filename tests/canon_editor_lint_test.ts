@@ -5,17 +5,54 @@
  * the Vale tier runs the real toolchain over a register-true probe path.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import {
   blankCodeSpans,
   lintFieldText,
   valeFindings,
   valeProbePath,
 } from "../scripts/canon_editor/lint.ts";
-import { buildSnapshot } from "../scripts/canon_editor/snapshot.ts";
+import {
+  buildSnapshot,
+  snapshotSchema,
+} from "../scripts/canon_editor/snapshot.ts";
 import { REPO_ROOT } from "../scripts/canon_editor/root.ts";
+import { decodeJson } from "../src/shared/runtime_decode.ts";
 
 const { lint } = await buildSnapshot();
+
+Deno.test("Canon Editor snapshots validate before the host consumes them", () => {
+  const error = assertThrows(
+    () =>
+      decodeJson(
+        snapshotSchema,
+        JSON.stringify({
+          pages: [{
+            id: 9,
+            rel: "page.md",
+            title: "Page",
+            body: "Body",
+            full: "Body",
+            annotated: false,
+          }],
+          entries: [],
+          pickers: [],
+          lint: { retired: [], plainPoliced: [] },
+          guards: [],
+          standards: [],
+        }),
+        "Canon Editor snapshot fixture",
+      ),
+    Error,
+  );
+  assertStringIncludes(error.message, "Canon Editor snapshot fixture");
+  assertStringIncludes(error.message, "pages.0.id");
+});
 
 Deno.test("code spans blank out with offsets intact", () => {
   const text = "keep `integration branch` quiet";

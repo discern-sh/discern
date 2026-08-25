@@ -3,7 +3,12 @@
  * the generated binary payload all derive from one registry.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { ensureDir } from "@std/fs";
 import { dirname, join } from "@std/path";
 import {
@@ -23,8 +28,34 @@ import {
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { firstPartyLicenseBundleSchema } from "../src/shared/license_bundle_schemas.ts";
+import { decodeJson } from "../src/shared/runtime_decode.ts";
 
 const repoRoot = REPO_ROOT;
+
+Deno.test("embedded first-party documents validate before license use", () => {
+  const error = assertThrows(
+    () =>
+      decodeJson(
+        firstPartyLicenseBundleSchema,
+        JSON.stringify({
+          documents: [{
+            key: "fixture",
+            kind: "notice",
+            identifier: "FIXTURE",
+            title: "fixture",
+            path: "NOTICE.fixture",
+            smokeMarker: "fixture",
+            text: false,
+          }],
+        }),
+        "embedded first-party license fixture",
+      ),
+    Error,
+  );
+  assertStringIncludes(error.message, "embedded first-party license fixture");
+  assertStringIncludes(error.message, "documents.0.text");
+});
 
 Deno.test("every authored first-party legal document is registered exactly once", async () => {
   const declaredPaths = FIRST_PARTY_LEGAL_DOCUMENTS.map((document) =>
