@@ -11,7 +11,9 @@
 import { dirname } from "@std/path";
 import { z } from "@zod/zod";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
+import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { decodeJson } from "../../shared/runtime_decode.ts";
 
 /** The automatic replay state of one configured setup step. */
 export type SetupStepState = "not_started" | "running" | "completed";
@@ -41,8 +43,8 @@ export type SetupStepJournalRead =
 
 /** A bounded refusal that leaves the standing journal intact. */
 export class SetupStepJournalError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "SetupStepJournalError";
   }
 }
@@ -103,14 +105,6 @@ async function journalPath(cwd: string): Promise<string> {
   return path;
 }
 
-/** Render one bounded validation reason without echoing arbitrary journal data. */
-function validationReason(error: z.ZodError): string {
-  const issue = error.issues[0];
-  if (issue === undefined) return "the record does not match its schema";
-  const location = issue.path.length === 0 ? "record" : issue.path.join(".");
-  return `${location}: ${issue.message}`;
-}
-
 /** Ensure the journal carries no duplicate identities. */
 function validateUniqueIds(journal: SetupStepJournal, path: string): void {
   const ids = new Set<string>();
@@ -145,35 +139,31 @@ async function writeJournal(
         `No later setup step ran. ${
           error instanceof Error ? error.message : String(error)
         }`,
+      { cause: error },
     );
   }
 }
 
-/** Parse JSON without treating its untrusted shape as journal data. */
-async function decodeJournal(
+/** Parse and validate JSON before treating its untrusted shape as journal data. */
+function decodeJournal(
   text: string,
   path: string,
-): Promise<SetupStepJournal> {
-  let raw: unknown;
+): SetupStepJournal {
+  let journal: SetupStepJournal;
   try {
-    raw = await new Response(text, {
-      headers: { "content-type": "application/json" },
-    }).json();
-  } catch {
-    throw new SetupStepJournalError(
-      `Discern could not parse the worktree setup-step journal at ${path}. ` +
-        "No setup step ran. Inspect the invalid JSON before deciding whether to repair or remove it.",
+    journal = decodeJson(
+      JournalSchema,
+      text,
+      `worktree setup-step journal at ${path}`,
     );
-  }
-  const decoded = JournalSchema.safeParse(raw);
-  if (!decoded.success) {
+  } catch (error) {
     throw new SetupStepJournalError(
       `Discern rejected the worktree setup-step journal at ${path}: ${
-        validationReason(decoded.error)
+        error instanceof Error ? error.message : String(error)
       }. No setup step ran. Inspect the invalid record before deciding whether to repair or remove it.`,
+      { cause: error },
     );
   }
-  const journal: SetupStepJournal = decoded.data;
   validateUniqueIds(journal, path);
   return journal;
 }
@@ -217,21 +207,20 @@ export async function readSetupStepJournal(
   cwd: string,
 ): Promise<SetupStepJournalRead> {
   const path = await journalPath(cwd);
-  let text: string;
+  let text: string | undefined;
   try {
-    text = await Deno.readTextFile(path);
+    text = await readTextIfExists(path);
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return { status: "missing", path };
-    }
     throw new SetupStepJournalError(
       `Discern could not read the worktree setup-step journal at ${path}. ` +
         `No setup step ran. Retry after the file is readable. ${
           error instanceof Error ? error.message : String(error)
         }`,
+      { cause: error },
     );
   }
-  return { status: "recorded", path, journal: await decodeJournal(text, path) };
+  if (text === undefined) return { status: "missing", path };
+  return { status: "recorded", path, journal: decodeJournal(text, path) };
 }
 
 /** Compare two journal payloads without relying on object identity. */

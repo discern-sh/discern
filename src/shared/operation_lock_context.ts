@@ -7,7 +7,9 @@
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import { z } from "@zod/zod";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
+import { decodeJson } from "./runtime_decode.ts";
 
 export type OperationLockConcreteBoundary = "common" | "checkout";
 
@@ -29,6 +31,17 @@ interface DelegationEnvelope {
   readonly version: 1;
   readonly leases: readonly OperationLockLease[];
 }
+
+const OperationLockLeaseSchema = z.strictObject({
+  boundary: z.enum(["common", "checkout"]),
+  key: z.string().min(1),
+  path: z.string().min(1),
+  token: z.string().min(1),
+});
+const DelegationEnvelopeSchema = z.strictObject({
+  version: z.literal(1),
+  leases: z.array(OperationLockLeaseSchema),
+});
 
 const HELD_LOCKS = new AsyncLocalStorage<HeldOperationLocks>();
 
@@ -62,25 +75,6 @@ export function operationLockChildEnv(): Record<string, string> {
   };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function decodeLease(value: unknown): OperationLockLease | undefined {
-  if (!isRecord(value)) return undefined;
-  const boundary = value.boundary;
-  const key = value.key;
-  const path = value.path;
-  const token = value.token;
-  if (
-    (boundary !== "common" && boundary !== "checkout") ||
-    typeof key !== "string" || key === "" ||
-    typeof path !== "string" || path === "" ||
-    typeof token !== "string" || token === ""
-  ) return undefined;
-  return { boundary, key, path, token };
-}
-
 /**
  * Find a structurally valid inherited lease for an exact resolved lock.
  * Authentication against the live OS-locked file remains the lock owner's job.
@@ -93,17 +87,17 @@ export async function inheritedOperationLockLease(
     DISCERN_ENVIRONMENT_VARIABLES.operationLockDelegation,
   );
   if (raw === undefined) return undefined;
-  let decoded: unknown;
+  let decoded: DelegationEnvelope;
   try {
-    decoded = await new Response(raw).json();
+    decoded = decodeJson(
+      DelegationEnvelopeSchema,
+      raw,
+      DISCERN_ENVIRONMENT_VARIABLES.operationLockDelegation,
+    );
   } catch {
     return undefined;
   }
-  if (!isRecord(decoded) || decoded.version !== 1) return undefined;
-  const values = decoded.leases;
-  if (!Array.isArray(values)) return undefined;
-  for (const value of values) {
-    const lease = decodeLease(value);
+  for (const lease of decoded.leases) {
     if (lease?.key === key && lease.path === path) return lease;
   }
   return undefined;

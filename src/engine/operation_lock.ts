@@ -15,6 +15,7 @@ import {
   type OperationInvocationFacts,
   type OperationLockBoundary,
 } from "../shared/operation_effects.ts";
+import { bestEffortFs, readTextIfExists } from "../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import {
   currentOperationLocks,
@@ -190,15 +191,17 @@ async function acquireLock(
   if (!acquired) {
     const inherited = await inheritedOperationLockLease(spec.key, spec.path);
     if (inherited !== undefined) {
-      let recordedToken: string | undefined;
-      try {
-        const record = await Deno.readTextFile(spec.path);
-        const token = record.match(/^discern-operation-lock-v1 ([^\n]+)\n?$/)
-          ?.[1];
-        recordedToken = token === "" ? undefined : token;
-      } catch {
-        // A delegation is valid only when the live locked file authenticates it.
-      }
+      const record = await bestEffortFs(
+        () => readTextIfExists(spec.path),
+        {
+          onFailure: undefined,
+          reason:
+            "A child-lock delegation that cannot read its live lock record must fail authentication.",
+        },
+      );
+      const token = record?.match(/^discern-operation-lock-v1 ([^\n]+)\n?$/)
+        ?.[1];
+      const recordedToken = token === "" ? undefined : token;
       if (recordedToken === inherited.token) {
         file.close();
         return { lease: inherited };
