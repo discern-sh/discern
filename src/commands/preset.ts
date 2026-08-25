@@ -37,8 +37,8 @@ import {
 import { TomlEditor } from "../lib/toml_edit.ts";
 import {
   applyConfigDoc,
-  assertSupportedVersion,
   type ConfigFillReport,
+  decodeConfigDoc,
   type DiscernConfigDoc,
   docHasFills,
 } from "../lib/config_doc.ts";
@@ -65,12 +65,10 @@ async function loadPresetFills(
     }
     throw error;
   }
-  const parsed: unknown = JSON.parse(text);
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`${PRESET_MANIFEST} must be a JSON object`);
-  }
-  assertSupportedVersion(parsed as DiscernConfigDoc);
-  return parsed as DiscernConfigDoc;
+  return decodeConfigDoc(
+    text,
+    `${PRESET_MANIFEST} at ${join(presetDir, PRESET_MANIFEST)}`,
+  );
 }
 
 /** Options accepted by `preset`. */

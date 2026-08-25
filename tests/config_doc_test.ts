@@ -113,7 +113,7 @@ Deno.test("loadConfigDoc reports invalid JSON", async () => {
     await Deno.writeTextFile(path, "{ not json ]");
     await assertRejectsErr(
       () => loadConfigDoc(path),
-      "--config file is not valid JSON",
+      `--config file \"${path}\" is not valid JSON`,
     );
   });
 });
@@ -125,21 +125,57 @@ Deno.test("loadConfigDoc rejects a non-object top-level JSON value", async () =>
     await Deno.writeTextFile(arr, "[1, 2, 3]");
     await assertRejectsErr(
       () => loadConfigDoc(arr),
-      "--config file must be a JSON object",
+      `--config file \"${arr}\" is invalid: <root>`,
     );
     // A bare scalar is likewise refused.
     const scalar = join(dir, "scalar.json");
     await Deno.writeTextFile(scalar, "42");
     await assertRejectsErr(
       () => loadConfigDoc(scalar),
-      "--config file must be a JSON object",
+      `--config file \"${scalar}\" is invalid: <root>`,
     );
     // `null` parses to null — also not an object.
     const nul = join(dir, "null.json");
     await Deno.writeTextFile(nul, "null");
     await assertRejectsErr(
       () => loadConfigDoc(nul),
-      "--config file must be a JSON object",
+      `--config file \"${nul}\" is invalid: <root>`,
+    );
+  });
+});
+
+Deno.test("loadConfigDoc validates known fields at the source boundary", async () => {
+  await withTempDir(async (dir) => {
+    const path = await writeDoc(dir, {
+      version: CONFIG_DOC_VERSION,
+      branch_prefix: 42,
+    });
+    const error = await assertRejectsErr(
+      () => loadConfigDoc(path),
+      `--config file \"${path}\" is invalid`,
+    );
+    assert(error.message.includes("branch_prefix"));
+  });
+});
+
+Deno.test("loadConfigDoc ignores unknown same-major fields at every depth", async () => {
+  await withTempDir(async (dir) => {
+    const path = await writeDoc(dir, {
+      version: `${CONFIG_DOC_VERSION}.8`,
+      future_root: { enabled: true },
+      map: { dir: "project/guide/", future_layout: "wide" },
+      scopes: {
+        docs: { paths: ["docs/**"], future_selector: "changed" },
+      },
+    });
+    const loaded = await loadConfigDoc(path);
+    assertEquals(loaded.map?.dir, "project/guide/");
+    assertEquals(loaded.scopes?.docs?.paths, ["docs/**"]);
+    assertEquals(Object.hasOwn(loaded, "future_root"), false);
+    assertEquals(Object.hasOwn(loaded.map ?? {}, "future_layout"), false);
+    assertEquals(
+      Object.hasOwn(loaded.scopes?.docs ?? {}, "future_selector"),
+      false,
     );
   });
 });
@@ -595,7 +631,7 @@ Deno.test("applyConfigDoc rejects a non-bare-key name in EVERY named-record sect
 async function assertRejectsErr(
   fn: () => Promise<unknown>,
   fragment: string,
-): Promise<void> {
+): Promise<Error> {
   let thrown: unknown;
   try {
     await fn();
@@ -604,9 +640,8 @@ async function assertRejectsErr(
   }
   assert(thrown instanceof Error, `expected a thrown Error; got ${thrown}`);
   assert(
-    (thrown as Error).message.includes(fragment),
-    `expected message to include "${fragment}"; got "${
-      (thrown as Error).message
-    }"`,
+    thrown.message.includes(fragment),
+    `expected message to include "${fragment}"; got "${thrown.message}"`,
   );
+  return thrown;
 }

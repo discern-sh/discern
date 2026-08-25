@@ -19,9 +19,11 @@ import { isKnownJob, KNOWN_JOBS, STAGES } from "./config.ts";
 import {
   type CommandValue,
   CONFIG_DOC_VERSION,
+  configDocRuntimeSchema,
   type DiscernConfigDoc,
   toCommandList,
 } from "../shared/config_schema.ts";
+import { decodeJson } from "../shared/runtime_decode.ts";
 import {
   CHECKPOINT_MODES,
   isBuiltInCheckpoint,
@@ -51,7 +53,7 @@ function majorOf(version: string | number): string {
 }
 
 /**
- * Load and shallow-validate a config document. `source` is a path, or `-` for
+ * Load and validate a config document. `source` is a path, or `-` for
  * stdin. Throws a clear error on a missing/invalid file or an unsupported
  * `version` major (the caller reports it). Unknown keys are ignored, so a newer
  * field within the same major never breaks an older reader.
@@ -70,18 +72,20 @@ export async function loadConfigDoc(
       throw new Error(`could not read --config file "${source}": ${message}`);
     }
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`--config file is not valid JSON: ${message}`);
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("--config file must be a JSON object");
-  }
-  assertSupportedVersion(parsed as DiscernConfigDoc);
-  return parsed as DiscernConfigDoc;
+  return decodeConfigDoc(
+    text,
+    source === "-" ? "--config stdin" : `--config file \"${source}\"`,
+  );
+}
+
+/** Decode the shared setup/preset document contract from one JSON source. */
+export function decodeConfigDoc(
+  text: string,
+  source: string,
+): DiscernConfigDoc {
+  const doc = decodeJson(configDocRuntimeSchema, text, source);
+  assertSupportedVersion(doc);
+  return doc;
 }
 
 /**

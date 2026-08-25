@@ -429,7 +429,8 @@ Deno.test("preset rejects a preset.json that is not a JSON object", async () => 
     const result = JSON.parse(r.stdout);
     assertEquals(result.ok, false);
     assertEquals(result.error, "invalid_preset");
-    assertStringIncludes(result.message, "must be a JSON object");
+    assertStringIncludes(result.message, "preset.json at");
+    assertStringIncludes(result.message, "expected object");
     // Failed before writing anything (neither the file nor the toml changed).
     assert(!(await exists(join(dir, "scripts/badjson"))));
     assertEquals(
@@ -457,7 +458,7 @@ Deno.test("preset rejects invalid config fills as plain text", async () => {
       r.stderr,
       'preset "badfills" has invalid config fills',
     );
-    assertTerminalTextIncludes(r.stderr, "unknown stage");
+    assertTerminalTextIncludes(r.stderr, "jobs.broken.stage");
   });
 });
 
