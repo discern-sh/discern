@@ -28,9 +28,19 @@ _A command path declares what it can affect before its command-line interface (C
 
 The same entry declares a lock boundary and a preview obligation. Mixed paths carry conditions for the flags or operands that activate their writer form. Dry runs acquire no writer lock. The registry does not treat a project-authored command as side-effect-free. Classification and exclusion remain distinct: `queue` uses its own concurrency authority, while Project Script execution holds the checkout boundary.
 
-The preview field records whether a command has no preview obligation, must disclose effects, or requires a plan. Each command's current plan/apply implementation remains the source of its rendered dry-run behavior.
+The preview field has 3 obligations:
 
-[`tests/operation_effects_test.ts`](../../../tests/operation_effects_test.ts) derives nested and top-level command paths from the live tree. It requires one registry entry for each path, checks MCP parity, and plants a future path to prove enrollment. [`scripts/canonical_sets.ts`](../../../scripts/canonical_sets.ts) enrolls the registry as a canonical set. Logbook routing has a separate recording concern and does not supply effect policy ([ADR 0330](../_adr/0330-every-command-path-declares-its-operation-effects.md)).
+| Obligation | Contract                                                                                                                                                                                       |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `none`     | A pure observation needs no preview.                                                                                                                                                           |
+| `disclose` | A reviewed standalone-preview exemption: the command names its explicit output, owned boundary, or project or external invocation at the relevant surface without predicting opaque internals. |
+| `required` | The command path registers `--dry-run`, returns the uniform preview envelope, and has a fidelity probe.                                                                                        |
+
+The mixed Gate path `done` remains `required`: its plan lists work owned by discern and project command invocations even though the commands' internal effects are opaque. Pure runners such as `queue`, `test`, and Project Scripts use `disclose`. Explicit document exports name their caller-selected output; `prepare` names its fixer and refresh boundary rather than executing those effects during preview. Runner or orchestration status is not a blanket exemption for a path whose discern-owned writes have a faithful read-only plan.
+
+[`tests/operation_effects_test.ts`](../../../tests/operation_effects_test.ts) derives nested and top-level command paths from the live tree. It requires one registry entry for each path, checks MCP parity, and holds every `required` member equal to the live `--dry-run` registrations. A planted classified writer without a flag proves policy enrolls the failure. [`engine_plan_parity_test.ts`](../../../tests/engine_plan_parity_test.ts) derives the fidelity population from the same registry, proves previews write nothing, and requires every applied effect owned by discern to appear in the plan. Apply may skip or refine work as later runtime facts become available; it may not escape the plan ([ADR 0335](../_adr/0335-operation-policy-enrolls-faithful-previews.md)).
+
+[`scripts/canonical_sets.ts`](../../../scripts/canonical_sets.ts) enrolls the registry as a canonical set. Logbook routing has a separate recording concern and does not supply effect policy ([ADR 0330](../_adr/0330-every-command-path-declares-its-operation-effects.md)).
 
 ## Lock boundaries follow shared state
 
@@ -53,11 +63,12 @@ A nested operation can reuse a lease its parent holds. It cannot acquire common 
 
 ## Where it lives in code
 
-| Concern                 | Source                                                                       |
-| ----------------------- | ---------------------------------------------------------------------------- |
-| Effect policy           | [`operation_effects.ts`](../../../src/shared/operation_effects.ts)           |
-| Lock acquisition        | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)                 |
-| Nested and child leases | [`operation_lock_context.ts`](../../../src/shared/operation_lock_context.ts) |
-| Git-admin identity      | [`git_admin_state.ts`](../../../src/shared/git_admin_state.ts)               |
-| CLI interception        | [`main.ts`](../../../src/main.ts)                                            |
-| MCP interception        | [`server.ts`](../../../src/engine/mcp/server.ts)                             |
+| Concern                 | Source                                                                                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Effect policy           | [`operation_effects.ts`](../../../src/shared/operation_effects.ts)                                                                                 |
+| Lock acquisition        | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)                                                                                       |
+| Nested and child leases | [`operation_lock_context.ts`](../../../src/shared/operation_lock_context.ts)                                                                       |
+| Git-admin identity      | [`git_admin_state.ts`](../../../src/shared/git_admin_state.ts)                                                                                     |
+| CLI interception        | [`main.ts`](../../../src/main.ts)                                                                                                                  |
+| MCP interception        | [`server.ts`](../../../src/engine/mcp/server.ts)                                                                                                   |
+| Preview parity          | [`operation_effects_test.ts`](../../../tests/operation_effects_test.ts), [`engine_plan_parity_test.ts`](../../../tests/engine_plan_parity_test.ts) |

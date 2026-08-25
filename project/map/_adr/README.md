@@ -320,6 +320,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0332 — Worktree setup steps preserve interruption ambiguity](0332-worktree-setup-steps-preserve-interruption-ambiguity.md)
 - [0333 — Proof-note replay uses stable claim identity](0333-proof-note-replay-uses-stable-claim-identity.md)
 - [0334 — Result envelopes encode valid structural states](0334-result-envelopes-encode-valid-structural-states.md)
+- [0335 — Operation policy enrolls faithful previews](0335-operation-policy-enrolls-faithful-previews.md)
 
 <!-- END GENERATED: current ADR records -->
 

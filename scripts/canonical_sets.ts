@@ -188,13 +188,16 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "dry-run-verbs",
     title: "Dry-run-capable verbs",
     what:
-      "Every command path that registers `--dry-run`. These plan/apply verbs must produce a faithful preview: a dry run writes nothing, and apply performs only listed effects.",
+      "The measured command paths that register `--dry-run`. `OPERATION_EFFECTS.preview` decides which paths require that flag; the bidirectional policy guard holds the two sets equal, and the fidelity guard proves previews write nothing and apply performs only listed effects owned by discern.",
     source: {
       kind: "module",
       module: "src/main.ts",
       exportName: "dryRunCapableVerbs",
     },
-    guards: ["tests/engine_plan_parity_test.ts"],
+    guards: [
+      "tests/operation_effects_test.ts",
+      "tests/engine_plan_parity_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: {

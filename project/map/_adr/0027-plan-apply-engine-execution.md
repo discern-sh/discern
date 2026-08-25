@@ -4,6 +4,7 @@
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** current pointers use `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), and `impact` where `scopes` names the verb; the decision and reasoning are unchanged.
 > - **[ADR 0028](0028-result-envelope-and-diagnostics.md) — plan locations:** the plan vocabulary (`StepKind`, `EnginePlan`, `renderPlan`, `planToJson`) was consolidated into `src/shared/result.ts` alongside the result envelope, and the per-verb plan builders live in `src/engine/gate/plan.ts`, `src/engine/gate/standard_plan.ts`, and the worktree lifecycle. The decision stands; only the file locations moved (the cited `engine/plan/*` paths below are updated to match).
+> - **[ADR 0335](0335-operation-policy-enrolls-faithful-previews.md) — preview enrollment:** the live [`OPERATION_EFFECTS`](../../../src/shared/operation_effects.ts) registry decides which command paths require `--dry-run`; the class guard no longer infers policy from the flag. Applied Discern effects must be a subset of the plan, while later runtime facts may safely skip or refine planned work and project-authored commands remain bounded by invocation disclosure.
 
 **Status**: accepted
 

@@ -1,5 +1,9 @@
 # ADR 0330: Every command path declares its operation effects
 
+> **Amendments.**
+>
+> - **[ADR 0335](0335-operation-policy-enrolls-faithful-previews.md) — enforced preview obligations:** `OPERATION_EFFECTS.preview` now enrolls required CLI previews and their fidelity probes in both directions. The registry remains the live authority; project-authored command internals stay outside discern's predictive boundary.
+
 **Status**: accepted. Extends the canonical-set forcing function in [ADR 0051](0051-canonical-set-parity.md), keeps the Logbook recording concern from [ADR 0210](0210-effectful-verb-starts-are-paired-logbook-events.md) separate, and supplies policy metadata beside the plan/apply model in [ADR 0027](0027-plan-apply-engine-execution.md).
 
 ## Context

@@ -543,9 +543,10 @@ Refresh the agent files, skills, provider integrations, and the maintained ADR i
 
 Usage: `discern refresh [options]`
 
-| Option   | Description                                                             |
-| -------- | ----------------------------------------------------------------------- |
-| `--json` | Emit the result as a JSON DiscernResult on stdout (narration → stderr). |
+| Option      | Description                                                                |
+| ----------- | -------------------------------------------------------------------------- |
+| `--json`    | Emit the result as a JSON DiscernResult on stdout (narration → stderr).    |
+| `--dry-run` | List every refresh target and create/update/remove effect; change nothing. |
 
 ### `discern uninstall`
 
@@ -619,9 +620,10 @@ Copy a bundled built-in into [skills].dir so you can customize it.
 
 Usage: `discern skills eject <name> [options]`
 
-| Option   | Description                                              |
-| -------- | -------------------------------------------------------- |
-| `--json` | Emit the eject result as a JSON DiscernResult on stdout. |
+| Option      | Description                                                            |
+| ----------- | ---------------------------------------------------------------------- |
+| `--json`    | Emit the eject result as a JSON DiscernResult on stdout.               |
+| `--dry-run` | Preview every ejection and materialization target without changing it. |
 
 ### `discern impact`
 

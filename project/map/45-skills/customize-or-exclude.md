@@ -17,9 +17,12 @@ _Copy a built-in Skill into project ownership when its procedure needs editing, 
 `discern skills eject` copies a bundled source into `[skills].dir/<name>`, renders its configured path tokens, makes the copy writable, and materializes it for every configured agent.
 
 ```sh
+discern skills eject discern-write-adr --dry-run
 discern skills eject discern-write-adr
 discern skills list
 ```
+
+`--dry-run` lists the authored tree, optional config edit, and each configured agent's target. It validates the bundled template and writes nothing.
 
 The listing now reports `discern-write-adr` as `yours (overrides built-in)`. Skill resolution uses the directory name as its key, so the authored directory becomes effective. Edit that source as you would any [project Skill](author-a-skill.md).
 

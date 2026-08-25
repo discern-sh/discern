@@ -17,11 +17,14 @@ _After an instruction edit, run `discern refresh`, review the generated files, a
 From the project root, run:
 
 ```sh
+discern refresh --dry-run
 discern refresh
 discern status
 ```
 
-`refresh` combines discern's built-in instructions with `[instructions].sources`. It also reconciles Skills, agent integration artifacts, and the maintained architecture decision record (ADR) index. That index is the record list between markers in the Map's ADR README, regenerated from the record files on disk. `status` reports any generated agent files, materialized Skills, or ADR index that still differs from the current sources.
+`refresh` compiles built-in and `[instructions].sources` text, then reconciles Skills, integrations, and the maintained architecture decision record (ADR) index.
+
+`--dry-run` lists create, update, and removal targets for agent files, merge attributes, integrations, materialized Skills, the ADR index, proof-note Git config, and planning errors without writing. Command-line interface (CLI) JSON/Markdown and Model Context Protocol (MCP) `discern_refresh` expose the same plan. Apply consumes it; `status` and the Gate use its tracked projection ([ADR 0335](../_adr/0335-operation-policy-enrolls-faithful-previews.md)).
 
 For each full-body output, local Markdown destinations are rewritten to resolve to the same project target they had beside their source. The parser limits edits to destination bytes; external, root-absolute, fragment-only, and code-like text stays unchanged. Provider pointers remain registry-defined.
 
@@ -66,16 +69,16 @@ Operational procedures derive from the Skill resolver and setup templates. A rep
 
 ## Where it lives in code
 
-| Concern                         | Source                                                                              |
-| ------------------------------- | ----------------------------------------------------------------------------------- |
-| Compilation and file writes     | [`instructions.ts`](../../../src/engine/instructions.ts)                            |
-| Canonical and pointer rendering | [`instruction_render.ts`](../../../src/engine/instruction_render.ts)                |
-| Local Markdown link relocation  | [`markdown_links.ts`](../../../src/lib/markdown_links.ts)                           |
-| Region discovery                | [`docs.ts`](../../../src/lib/docs.ts)                                               |
-| Agent file mappings             | [`providers.ts`](../../../src/lib/providers.ts)                                     |
-| Operational-copy universe       | [`agent_surface_contracts.ts`](../../../scripts/agent_surface_contracts.ts)         |
-| Operational-copy guard          | [`agent_surface_contracts_test.ts`](../../../tests/agent_surface_contracts_test.ts) |
-| Maintained ADR index            | [`adr_index.ts`](../../../src/lib/adr_index.ts)                                     |
-| Refresh behavior                | [`engine_refresh_test.ts`](../../../tests/engine_refresh_test.ts)                   |
-| Preparation convergence         | [`prepare.ts`](../../../src/engine/gate/prepare.ts)                                 |
-| ADR index behavior              | [`engine_adr_index_test.ts`](../../../tests/engine_adr_index_test.ts)               |
+| Concern                         | Source                                                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Refresh plan and apply          | [`tracked_refresh.ts`](../../../src/engine/tracked_refresh.ts), [`instructions.ts`](../../../src/engine/instructions.ts) |
+| Canonical and pointer rendering | [`instruction_render.ts`](../../../src/engine/instruction_render.ts)                                                     |
+| Local Markdown link relocation  | [`markdown_links.ts`](../../../src/lib/markdown_links.ts)                                                                |
+| Region discovery                | [`docs.ts`](../../../src/lib/docs.ts)                                                                                    |
+| Agent file mappings             | [`providers.ts`](../../../src/lib/providers.ts)                                                                          |
+| Operational-copy universe       | [`agent_surface_contracts.ts`](../../../scripts/agent_surface_contracts.ts)                                              |
+| Operational-copy guard          | [`agent_surface_contracts_test.ts`](../../../tests/agent_surface_contracts_test.ts)                                      |
+| Maintained ADR index            | [`adr_index.ts`](../../../src/lib/adr_index.ts)                                                                          |
+| Refresh behavior                | [`engine_refresh_test.ts`](../../../tests/engine_refresh_test.ts)                                                        |
+| Preparation convergence         | [`prepare.ts`](../../../src/engine/gate/prepare.ts)                                                                      |
+| ADR index behavior              | [`engine_adr_index_test.ts`](../../../tests/engine_adr_index_test.ts)                                                    |

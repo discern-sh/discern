@@ -15,7 +15,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 35      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 3       | —                | —                           |
 | [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 62      | —                | —                           |
-| [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 22      | —                | node `plan-apply`           |
+| [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 24      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 18      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
 | [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 42      | —                | —                           |
@@ -87,7 +87,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 324     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 325     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -223,7 +223,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/logbook_powered_test.ts`                    | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/logbook_routing_test.ts`                    | [`logbook-events`](#logbook-events--logbook-events), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/logbook_test.ts`                            | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events), [`logbook-lifecycle-actions`](#logbook-lifecycle-actions--logbook-lifecycle-actions), [`error-slugs`](#error-slugs--result-error-slugs)                                                                                                                                                                                                                               |
-| `tests/operation_effects_test.ts`                  | [`operation-effects`](#operation-effects--operation-effects)                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `tests/operation_effects_test.ts`                  | [`operation-effects`](#operation-effects--operation-effects), [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/paths_literal_ban_test.ts`                  | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/paths_registry_test.ts`                     | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/paths_sentinel_render_test.ts`              | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -458,10 +458,10 @@ Every live CLI command path's effect classes, exclusion boundary, and preview ob
 
 ## `dry-run-verbs` — Dry-run-capable verbs
 
-Every command path that registers `--dry-run`. These plan/apply verbs must produce a faithful preview: a dry run writes nothing, and apply performs only listed effects.
+The measured command paths that register `--dry-run`. `OPERATION_EFFECTS.preview` decides which paths require that flag; the bidirectional policy guard holds the two sets equal, and the fidelity guard proves previews write nothing and apply performs only listed effects owned by discern.
 
 - Source: `src/main.ts` — `dryRunCapableVerbs`
-- Members: 22
+- Members: 24
   - `accept`
   - `config set`
   - `config set-job`
@@ -471,9 +471,11 @@ Every command path that registers `--dry-run`. These plan/apply verbs must produ
   - `patterns archive`
   - `patterns reset`
   - `preset`
+  - `refresh`
   - `setup`
   - `setup accept`
   - `setup begin`
+  - `skills eject`
   - `standards`
   - `start`
   - `tidy`
@@ -484,7 +486,7 @@ Every command path that registers `--dry-run`. These plan/apply verbs must produ
   - `worktree prune`
   - `worktree setup`
   - `worktree teardown`
-- Guards: `tests/engine_plan_parity_test.ts`
+- Guards: `tests/operation_effects_test.ts`, `tests/engine_plan_parity_test.ts`
 - Glossary: not enrolled — the plan/apply documentation owns the preview flag for each existing verb
 - Feature canon: described by the `plan-apply` node
 
@@ -2600,7 +2602,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 324
+- Members: 325
   - `0003`
   - `0005`
   - `0006`
@@ -2903,6 +2905,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0332`
   - `0333`
   - `0334`
+  - `0335`
   - `0001`
   - `0002`
   - `0004`
