@@ -19,7 +19,13 @@ import { Logger, loggerSink } from "../lib/log.ts";
 import { atomicReplaceBytes } from "../shared/atomic_write.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import type { EnvReader } from "../shared/env.ts";
-import { fire, HINTS, hintTexts, mergeHintTexts } from "../shared/hints.ts";
+import {
+  fire,
+  HINTS,
+  hintTexts,
+  interactiveHintTexts,
+  mergeHintTexts,
+} from "../shared/hints.ts";
 import {
   type DiscernResult,
   renderPlan,
@@ -347,7 +353,7 @@ export async function applyRefreshPlan(
   } else if (plan.effects.length === 0 && summary.errors.length === 0) {
     log.ok("refresh: every managed artifact is current.");
   }
-  for (const hint of summary.hints) log.info(hint);
+  for (const hint of interactiveHintTexts(summary.hints)) log.info(hint);
   return { summary, steps };
 }
 
