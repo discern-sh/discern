@@ -887,18 +887,19 @@ Deno.test("instruction adoption reports the conflict, preserves policy links, an
 });
 
 /**
- * Plant a fake executable named `name` in a fresh temp "bin" dir and return a PATH
- * with that dir prepended to the real one. The executable may be a terminal-agent
- * launcher or a setup-only editor command. The caller removes `bin` when done.
+ * Run `fn` with a PATH containing a fake executable named `name`. The executable
+ * may be a terminal-agent launcher or a setup-only editor command.
  */
-async function pathWithFakeAgent(
+async function withFakeAgentPath<T>(
   name: string,
-): Promise<{ path: string; bin: string }> {
-  const bin = await Deno.makeTempDir({ prefix: "discern-fakebin-" });
-  const exe = join(bin, name);
-  await Deno.writeTextFile(exe, "#!/bin/sh\n");
-  await Deno.chmod(exe, 0o755);
-  return { path: `${bin}:${Deno.env.get("PATH") ?? ""}`, bin };
+  fn: (path: string) => T | Promise<T>,
+): Promise<T> {
+  return await withTempDir(async (bin) => {
+    const exe = join(bin, name);
+    await Deno.writeTextFile(exe, "#!/bin/sh\n");
+    await Deno.chmod(exe, 0o755);
+    return await fn(`${bin}:${Deno.env.get("PATH") ?? ""}`);
+  }, { prefix: "discern-fakebin-" });
 }
 
 Deno.test("discern setup persists an editor-only Cursor installation into [project].agents", async () => {
@@ -911,8 +912,7 @@ Deno.test("discern setup persists an editor-only Cursor installation into [proje
 
     // `cursor` is the editor shell command, not the separate `cursor-agent`
     // terminal launcher. This is the end-to-end form of the reported regression.
-    const { path, bin } = await pathWithFakeAgent("cursor");
-    try {
+    await withFakeAgentPath("cursor", async (path) => {
       const r = await runAgent(
         dir,
         ["setup", "begin", "--confirmed", "--json"],
@@ -936,9 +936,7 @@ Deno.test("discern setup persists an editor-only Cursor installation into [proje
             JSON.stringify(agents)
           }`,
       );
-    } finally {
-      await Deno.remove(bin, { recursive: true });
-    }
+    });
   });
 });
 
@@ -950,8 +948,7 @@ Deno.test("discern setup honours an explicit --agents over installation detectio
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
 
-    const { path, bin } = await pathWithFakeAgent("gemini"); // detected as installed…
-    try {
+    await withFakeAgentPath("gemini", async (path) => { // detected as installed…
       const r = await runAgent(
         dir,
         ["setup", "--confirmed", "--json", "--agents", "claude_code"], // …but the user named agents
@@ -969,9 +966,7 @@ Deno.test("discern setup honours an explicit --agents over installation detectio
           JSON.stringify(agents)
         }`,
       );
-    } finally {
-      await Deno.remove(bin, { recursive: true });
-    }
+    });
   });
 });
 

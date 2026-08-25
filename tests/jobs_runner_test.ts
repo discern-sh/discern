@@ -14,7 +14,11 @@ import {
   normalizeCapturedOutput,
 } from "../src/shared/result.ts";
 import type { Job } from "../src/engine/jobs/types.ts";
-import { assertTerminalTextIncludes, escapedDaemonCommand } from "./helpers.ts";
+import {
+  assertTerminalTextIncludes,
+  escapedDaemonCommand,
+  withTempDir,
+} from "./helpers.ts";
 
 const CWD = Deno.cwd();
 
@@ -58,8 +62,7 @@ Deno.test("runParallel: all jobs succeed; empty command is a no-op", async () =>
 });
 
 Deno.test("runParallel: observer sees starts up front and settlements in real completion order", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-job-observer-" });
-  try {
+  await withTempDir(async (dir) => {
     const events: string[] = [];
     const result = await runParallel([
       {
@@ -94,14 +97,11 @@ Deno.test("runParallel: observer sees starts up front and settlements in real co
       "settled:fast",
       "settled:slow",
     ]);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-job-observer-" });
 });
 
 Deno.test("buffered capture feeds complete and partial text to a separate live observer", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-job-output-feed-" });
-  try {
+  await withTempDir(async (dir) => {
     const events: string[] = [];
     const result = await runParallel([{
       label: "chatty",
@@ -135,14 +135,11 @@ Deno.test("buffered capture feeds complete and partial text to a separate live o
       await Deno.readTextFile(failure.outputPath),
       "first\npartial\n",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-job-output-feed-" });
 });
 
 Deno.test("runParallel: every job executes in its required cwd", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-job-cwd-" });
-  try {
+  await withTempDir(async (dir) => {
     const sink = makeSink();
     const result = await runParallel([
       { label: "where", command: "pwd > observed.cwd" },
@@ -158,9 +155,7 @@ Deno.test("runParallel: every job executes in its required cwd", async () => {
       (await Deno.readTextFile(join(dir, "observed.cwd"))).trim(),
       await Deno.realPath(dir),
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-job-cwd-" });
 });
 
 Deno.test("spawnJob runs captured commands with the non-interactive CI env contract", async () => {
@@ -169,8 +164,7 @@ Deno.test("spawnJob runs captured commands with the non-interactive CI env contr
   // (the honest local-CI signal that flips watch-vs-single-run runners into their
   // single-run form, so a bare `test = "<runner>"` never enters watch mode and hangs
   // the gate). A command that sets its own values still overrides them.
-  const dir = await Deno.makeTempDir({ prefix: "discern-job-env-" });
-  try {
+  await withTempDir(async (dir) => {
     const sink = makeSink();
     const result = await runParallel([
       {
@@ -198,9 +192,7 @@ Deno.test("spawnJob runs captured commands with the non-interactive CI env contr
       await Deno.readTextFile(join(dir, "observed-override.env")),
       "custom:xterm:0",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-job-env-" });
 });
 
 Deno.test({
@@ -208,8 +200,7 @@ Deno.test({
     "spawnJob quiesces background descendants before a clean result returns",
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    const dir = await Deno.makeTempDir({ prefix: "discern-job-quiesce-" });
-    try {
+    await withTempDir(async (dir) => {
       const late = join(dir, "late");
       const ready = join(dir, "ready");
       const release = join(dir, "release");
@@ -244,9 +235,7 @@ Deno.test({
         undefined,
         "a clean gate result returned while its process group could still write",
       );
-    } finally {
-      await Deno.remove(dir, { recursive: true });
-    }
+    }, { prefix: "discern-job-quiesce-" });
   },
 });
 
@@ -254,8 +243,7 @@ Deno.test("spawnJob stamps the recording invocation into DISCERN_SPAWNED_BY", as
   // A `discern` invoked by a job is a self-invocation: the runner passes the
   // recording invocation's id so the Logbook can attribute the child to the
   // run that spawned it instead of scoring it as somebody's decision.
-  const dir = await Deno.makeTempDir({ prefix: "discern-job-spawned-" });
-  try {
+  await withTempDir(async (dir) => {
     setActiveInvocationId("11111111-2222-4333-8444-555555555555");
     const sink = makeSink();
     const result = await runParallel([
@@ -275,9 +263,7 @@ Deno.test("spawnJob stamps the recording invocation into DISCERN_SPAWNED_BY", as
       await Deno.readTextFile(join(dir, "observed.spawned")),
       "11111111-2222-4333-8444-555555555555",
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-job-spawned-" });
 });
 
 Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () => {
@@ -510,8 +496,7 @@ Deno.test("a sibling that TRAPS SIGTERM and exits non-zero is still cancelled, n
 });
 
 Deno.test("fail-fast escalates to SIGKILL when a sibling ignores SIGTERM", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-job-sigkill-" });
-  try {
+  await withTempDir(async (dir) => {
     let cancellationStarted: number | undefined;
     const r = await runParallel([
       {
@@ -543,9 +528,7 @@ Deno.test("fail-fast escalates to SIGKILL when a sibling ignores SIGTERM", async
     assertEquals(stubborn?.cancelled, true, JSON.stringify(stubborn));
     assertEquals(stubborn?.output, undefined);
     assert(elapsed < 10_000, `expected SIGKILL escalation, took ${elapsed}ms`);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-job-sigkill-" });
 });
 
 Deno.test("capText: returns short text unchanged, head+tail caps an overflow", () => {
@@ -606,8 +589,7 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
   // cancelling its call, the server shutting down) must reach the detached job
   // groups — they are in their own process groups, so nothing but the runner's
   // controller can kill them. Regression here means orphaned gate runs.
-  const dir = await Deno.makeTempDir({ prefix: "discern-job-abort-" });
-  try {
+  await withTempDir(async (dir) => {
     const external = new AbortController();
     const run = runParallel([
       // Record the grandchild's PID so the test can prove the whole process
@@ -645,9 +627,7 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
       (await Deno.readTextFile(join(dir, "inner.pid"))).trim(),
     );
     await waitForExit(innerPid);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-job-abort-" });
 });
 
 Deno.test("runParallel: an external abort stays bounded when an escaped descendant holds the pipes", async () => {
@@ -658,8 +638,7 @@ Deno.test("runParallel: an external abort stays bounded when an escaped descenda
   // pending drains after its grace instead of waiting out the daemon —
   // before the bound, a wedged run also ABSORBED process interrupts, since
   // the signal watcher re-raises only once the last run settles.
-  const dir = await Deno.makeTempDir({ prefix: "discern-job-escape-abort-" });
-  try {
+  await withTempDir(async (dir) => {
     const external = new AbortController();
     const run = runParallel([
       { label: "wedge", command: escapedDaemonCommand(15, "daemon.up") },
@@ -689,14 +668,11 @@ Deno.test("runParallel: an external abort stays bounded when an escaped descenda
       elapsed < 10_000,
       `the abort should settle within the kill grace, took ${elapsed}ms`,
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-job-escape-abort-" });
 });
 
 Deno.test("runParallel: an already-aborted signal cancels before any job runs", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-job-preabort-" });
-  try {
+  await withTempDir(async (dir) => {
     const external = new AbortController();
     external.abort();
     const r = await runParallel([
@@ -711,14 +687,11 @@ Deno.test("runParallel: an already-aborted signal cancels before any job runs", 
     });
     assertEquals(r.ok, false);
     assertEquals(r.results[0]?.cancelled, true);
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-job-preabort-" });
 });
 
 Deno.test("runSerial: an external abort kills the running job and skips the rest", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "discern-serial-abort-" });
-  try {
+  await withTempDir(async (dir) => {
     const external = new AbortController();
     const run = runSerial([
       { label: "current", command: "echo $$ > current.pid; sleep 30" },
@@ -745,9 +718,7 @@ Deno.test("runSerial: an external abort kills the running job and skips the rest
       await Deno.stat(join(dir, "after.txt")).catch(() => null),
       null,
     );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
+  }, { prefix: "discern-serial-abort-" });
 });
 
 /** Poll until a PID no longer exists (signal 0 probes without sending). */

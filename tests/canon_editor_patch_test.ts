@@ -29,6 +29,7 @@ import { allFeatureNodes } from "../scripts/feature_registry.ts";
 import { PRACTICE_CANON } from "../scripts/practice_registry.ts";
 import { buildPickerCatalog } from "../scripts/canon_editor/pickers.ts";
 import { allDemandEntries } from "../scripts/brand/demand.ts";
+import { withTempDir } from "./helpers.ts";
 
 const FEATURE_FILE = join(REPO_ROOT, "scripts", "feature_registry.ts");
 
@@ -100,8 +101,7 @@ async function writeGuard(
 async function withPipelineFixture(
   body: (root: string) => Promise<void>,
 ): Promise<void> {
-  const root = await Deno.makeTempDir({ prefix: "discern-canon-editor-" });
-  try {
+  await withTempDir(async (root) => {
     for (const rel of new Set(PROSE_REGISTRIES.map((entry) => entry.file))) {
       const target = join(root, rel);
       await Deno.mkdir(dirname(target), { recursive: true });
@@ -112,9 +112,7 @@ async function withPipelineFixture(
       "Deno.exit(0);\n",
     );
     await body(root);
-  } finally {
-    await Deno.remove(root, { recursive: true });
-  }
+  }, { prefix: "discern-canon-editor-" });
 }
 
 /** The live prose of one feature node's field, from the evaluated registry. */

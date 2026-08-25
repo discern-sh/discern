@@ -13,6 +13,7 @@ import {
   renderTerminalCaptureHtml,
   serializeTerminalCapture,
 } from "./fixtures/terminal_command_capture.ts";
+import { withTempDir } from "./helpers.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -94,12 +95,8 @@ Deno.test({
     "flagship commands are deterministic, projectable, and match reviewed captures",
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    const temp = await Deno.makeTempDir({
-      dir: "/tmp",
-      prefix: "discern-terminal-binary-",
-    });
-    const executable = join(temp, "discern");
-    try {
+    await withTempDir(async (temp) => {
+      const executable = join(temp, "discern");
       await compileDiscernCaptureBinary(REPO_ROOT, executable);
       const first = await captureFlagshipTerminalScreens(executable);
       const second = await captureFlagshipTerminalScreens(executable);
@@ -145,8 +142,6 @@ Deno.test({
           `run deno task terminal:capture-fixtures to review ${command.name}`,
         );
       }
-    } finally {
-      await Deno.remove(temp, { recursive: true }).catch(() => undefined);
-    }
+    }, { parent: "/tmp", prefix: "discern-terminal-binary-" });
   },
 });

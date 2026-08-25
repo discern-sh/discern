@@ -1593,12 +1593,7 @@ async function mainWithSetup(
 async function withMarkers(
   fn: (markers: string) => Promise<void>,
 ): Promise<void> {
-  const markers = await Deno.makeTempDir({ prefix: "discern-markers-" });
-  try {
-    await fn(markers);
-  } finally {
-    await Deno.remove(markers, { recursive: true });
-  }
+  await withTempDir(fn, { prefix: "discern-markers-" });
 }
 
 /** How many times a marker command ran (non-empty lines appended); 0 when the file
