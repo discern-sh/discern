@@ -33,7 +33,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
-import { targetExists } from "../src/shared/fs_presence.ts";
+import { readTextIfExists, targetExists } from "../src/shared/fs_presence.ts";
 
 interface StandardSpec {
   name: string;
@@ -96,11 +96,7 @@ async function seedProof(dir: string, sha?: string): Promise<void> {
 
 /** Read a trimmed gate proof while preserving missing state as absence. */
 async function readProof(dir: string): Promise<string | undefined> {
-  try {
-    return (await Deno.readTextFile(proofFile(dir))).trim();
-  } catch {
-    return undefined;
-  }
+  return (await readTextIfExists(proofFile(dir)))?.trim();
 }
 
 /** Read the project config after pinning so exact limit edits can be asserted. */

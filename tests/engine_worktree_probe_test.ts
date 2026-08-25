@@ -23,6 +23,7 @@ import {
 import { basename, join, resolve } from "@std/path";
 import { Logger } from "../src/lib/log.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
+import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import {
   type LifecycleContext,
   lifecycleContext,
@@ -43,12 +44,7 @@ async function worktreeRootFor(dir: string): Promise<string> {
 
 /** Assert a retired path is genuinely absent; only NotFound means absent. */
 async function assertPathAbsent(path: string): Promise<void> {
-  try {
-    await Deno.lstat(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return;
-    throw error;
-  }
+  if (await lstatIfExists(path) === undefined) return;
   throw new Error(`a retired probe path still exists: ${path}`);
 }
 

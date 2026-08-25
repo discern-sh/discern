@@ -11,7 +11,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { targetExists } from "../src/shared/fs_presence.ts";
+import { readDirIfExists, targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
@@ -51,14 +51,9 @@ async function assertNoStartDebris(dir: string, output: string): Promise<void> {
   );
   // The worktree root (the `.worktrees` parent) may remain, but it must be empty —
   // no checkout directory left for a later session to stumble into.
-  const entries: string[] = [];
-  try {
-    for await (const e of Deno.readDir(`${dir}.worktrees`)) {
-      entries.push(e.name);
-    }
-  } catch {
-    // absent entirely — even better
-  }
+  const entries = (await readDirIfExists(`${dir}.worktrees`) ?? []).map((e) =>
+    e.name
+  );
   assertEquals(
     entries,
     [],

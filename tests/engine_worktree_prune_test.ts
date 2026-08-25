@@ -18,7 +18,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join, resolve } from "@std/path";
-import { targetExists } from "../src/shared/fs_presence.ts";
+import { lstatIfExists, targetExists } from "../src/shared/fs_presence.ts";
 import { parse as parseToml } from "@std/toml";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -92,12 +92,7 @@ function baseConfig(extra = ""): string {
 
 /** Only a strict `lstat` NotFound result proves a retired path is absent. */
 async function assertLstatAbsent(path: string): Promise<void> {
-  try {
-    await Deno.lstat(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return;
-    throw error;
-  }
+  if (await lstatIfExists(path) === undefined) return;
   throw new Error(`expected retired path to be absent: ${path}`);
 }
 
