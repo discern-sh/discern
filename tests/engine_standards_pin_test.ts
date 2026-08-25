@@ -33,6 +33,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
+import { readTextIfExists, targetExists } from "../src/shared/fs_presence.ts";
 
 interface StandardSpec {
   name: string;
@@ -95,11 +96,7 @@ async function seedProof(dir: string, sha?: string): Promise<void> {
 
 /** Read a trimmed gate proof while preserving missing state as absence. */
 async function readProof(dir: string): Promise<string | undefined> {
-  try {
-    return (await Deno.readTextFile(proofFile(dir))).trim();
-  } catch {
-    return undefined;
-  }
+  return (await readTextIfExists(proofFile(dir)))?.trim();
 }
 
 /** Read the project config after pinning so exact limit edits can be asserted. */
@@ -456,7 +453,7 @@ Deno.test("pin: a behind-trunk worktree succeeds with an update hint", async () 
     };
     assertEquals(obj.ok, true);
     assertHasHint(obj, HINTS["standards-pin-behind"], {
-      behind: "1",
+      behind: 1,
       trunk: "main",
     });
     assert(
@@ -605,10 +602,11 @@ Deno.test("pin --dry-run: renders the pin plan and measures NOTHING", async () =
       !r.stdout.includes("95"),
       `a dry-run must not know the measured value:\n${r.stdout}`,
     );
-    const sentinel = await Deno.stat(join(dir, "measured.sentinel")).catch(
-      () => undefined,
+    assertEquals(
+      await targetExists(join(dir, "measured.sentinel")),
+      false,
+      "dry-run must not run the measurement",
     );
-    assertEquals(sentinel, undefined, "dry-run must not run the measurement");
     // Nothing written, nothing committed.
     assertEquals(limitOf(await readConfig(dir), "coverage"), "80");
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
@@ -1116,10 +1114,9 @@ Deno.test("proof: a --force check over a dirty tree records nothing", async () =
 
     const check = await runAgent(dir, ["standards", "--force"]);
     assertEquals(check.code, 0, check.output);
-    const proof = await Deno.stat(measurementsFile(dir)).catch(() => undefined);
     assertEquals(
-      proof,
-      undefined,
+      await targetExists(measurementsFile(dir)),
+      false,
       "a dirty tree's values describe a state no pin will see",
     );
   });
@@ -1145,10 +1142,9 @@ Deno.test("proof: a commit made while the check measured is never recorded (the 
 
     const check = await runAgent(dir, ["standards", "--json"]);
     assertEquals(check.code, 0, check.output);
-    const proof = await Deno.stat(measurementsFile(dir)).catch(() => undefined);
     assertEquals(
-      proof,
-      undefined,
+      await targetExists(measurementsFile(dir)),
+      false,
       "values measured before a mid-run commit must not vouch for the new HEAD",
     );
   });

@@ -24,7 +24,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, dirname, join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -312,14 +312,14 @@ Deno.test("worktree prune leaves contained worktrees untouched by default and ke
     const human = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(human.code, 0, human.output);
     assert(
-      await exists(a),
+      await targetExists(a),
       "the default apply must not touch a contained checkout",
     );
     assert(
-      await exists(b),
+      await targetExists(b),
       "the default apply must not touch a contained checkout",
     );
-    assert(await exists(c));
+    assert(await targetExists(c));
     assertTerminalTextIncludes(human.output, "Contained worktrees (kept)");
     assertStringIncludes(human.output, "--contained");
 
@@ -354,7 +354,7 @@ Deno.test("worktree prune --contained still requires the explicit confirmation o
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.output, "Confirmation required");
     assert(
-      await exists(a),
+      await targetExists(a),
       `the flag alone must never reclaim — a fresh confirmation does\n${r.output}`,
     );
   });
@@ -388,7 +388,7 @@ Deno.test("worktree prune --contained reclaims the checkout through the resource
     const handle = (await runAgent(a, ["identity", "--resource", "thing"]))
       .stdout.trim();
     assert(
-      await exists(join(markers, `${handle}.live`)),
+      await targetExists(join(markers, `${handle}.live`)),
       `setup must create the resource\n${setup.output}`,
     );
     // Setup materializes agent files the hermetic scaffold does not gitignore
@@ -426,13 +426,17 @@ Deno.test("worktree prune --contained reclaims the checkout through the resource
     assertStringIncludes(reclaimed[0]?.note ?? "", "kept branch agent/a");
 
     // The checkout is gone; the resource was destroyed via its ledger command.
-    assertEquals(await exists(a), false, "the checkout must be reclaimed");
+    assertEquals(
+      await targetExists(a),
+      false,
+      "the checkout must be reclaimed",
+    );
     assert(
-      await exists(join(markers, `${handle}.gone`)),
+      await targetExists(join(markers, `${handle}.gone`)),
       "the resource must be destroyed through the lifecycle path",
     );
     assert(
-      !(await exists(join(markers, `${handle}.live`))),
+      !(await targetExists(join(markers, `${handle}.live`))),
       "the live marker must be gone",
     );
 
@@ -481,13 +485,13 @@ Deno.test("worktreeReclaimContained reclaims one validated stage and refuses a n
       refused instanceof WorktreeGitError,
       "a dirty stage must refuse, never reclaim",
     );
-    assert(await exists(b), "a refused target is left untouched");
+    assert(await targetExists(b), "a refused target is left untouched");
 
     // The validated stage reclaims: checkout gone, ref kept.
     const fact = await worktreeReclaimContained(ctx, basename(a));
     assertEquals(fact.branch, "agent/a");
     assertEquals(fact.containingBranch, "agent/b");
-    assertEquals(await exists(a), false);
+    assertEquals(await targetExists(a), false);
     assert((await branchList(dir)).includes("agent/a"), "the ref must be kept");
   });
 });
@@ -550,9 +554,13 @@ Deno.test("worktreeReclaimContained hits exactly the selected path when basename
       await Deno.realPath(altDup),
     );
     assertEquals(fact.branch, "agent/alt-dup");
-    assertEquals(await exists(altDup), false, "the selected checkout is gone");
+    assertEquals(
+      await targetExists(altDup),
+      false,
+      "the selected checkout is gone",
+    );
     assert(
-      await exists(dup),
+      await targetExists(dup),
       "the same-basename sibling must be left untouched",
     );
     const branches = await branchList(dir);
@@ -593,7 +601,7 @@ Deno.test("a failed resource destroy refuses the reclaim and keeps the checkout"
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.output, "could not be destroyed");
     assert(
-      await exists(a),
+      await targetExists(a),
       `a checkout whose resources survive must survive too\n${r.output}`,
     );
     assert((await branchList(dir)).includes("agent/a"));
@@ -637,9 +645,13 @@ Deno.test("a candidate that gains work during an earlier teardown is skipped, ne
       "--yes",
     ]);
     assertEquals(r.code, 0, r.output);
-    assertEquals(await exists(a), false, "the validated stage is reclaimed");
+    assertEquals(
+      await targetExists(a),
+      false,
+      "the validated stage is reclaimed",
+    );
     assert(
-      await exists(join(b, "injected.txt")),
+      await targetExists(join(b, "injected.txt")),
       "work created during the earlier teardown must survive",
     );
     assertStringIncludes(r.output, "Skipped");

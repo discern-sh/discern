@@ -8,6 +8,7 @@
 import { dirname, isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
 import { emitResult } from "../../shared/emit.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
+import { bestEffortFs, directoryExists } from "../../shared/fs_presence.ts";
 import type {
   StatusAdrCollision,
   StatusData,
@@ -316,22 +317,13 @@ function selectionGroups(
   ];
 }
 
-/** Real filesystem directory predicate. */
-async function isDirectory(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isDirectory;
-  } catch {
-    return false;
-  }
-}
-
 /** Canonicalize an existing path, retaining an absolute fallback for failures. */
 async function canonicalPath(path: string): Promise<string> {
-  try {
-    return await Deno.realPath(path);
-  } catch {
-    return resolve(path);
-  }
+  return await bestEffortFs(() => Deno.realPath(path), {
+    onFailure: resolve(path),
+    reason:
+      "The shell picker can compare an absolute lexical path when canonicalization is unavailable.",
+  });
 }
 
 /** Default terminal and process implementation. */
@@ -342,7 +334,7 @@ const DEFAULT_WORKTREES_RUNTIME: WorktreesRuntime = {
   status: (root) => statusResult(root, { all: true }),
   canonicalPath,
   cwd: () => Deno.cwd(),
-  isDirectory,
+  isDirectory: directoryExists,
   makeOut: () => makeOut(colorEnabled()),
   error: (message) =>
     new Logger({ json: false, noColor: false }).error(message),

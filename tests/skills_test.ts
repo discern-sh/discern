@@ -34,20 +34,11 @@ import { resolveBundledSkillsDir } from "../src/lib/paths.ts";
 import { allSkillsDirs, skillsDirsForAgents } from "../src/lib/providers.ts";
 import { placementLadderProse } from "../src/shared/questions.ts";
 import { modeOf, withTempDir } from "./helpers.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 
 /** The single Claude Code skills dir — pins the per-dir materialization mechanics
  * tests below to one directory (resolved from the registry, not a literal). */
 const CLAUDE_SKILLS = skillsDirsForAgents(["claude_code"]);
-
-/** True when anything exists at the absolute `path` (following symlinks). */
-async function exists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /** A config with the default `[skills].dir = skills`. */
 function cfg(dir = "skills"): DiscernConfig {
@@ -322,7 +313,7 @@ Deno.test("every skeleton path a bundled SKILL.md cites exists in that skill's s
     for (const match of text.matchAll(reference)) {
       const rel = match[1];
       assert(
-        rel !== undefined && await exists(join(bundledDir, name, rel)),
+        rel !== undefined && await targetExists(join(bundledDir, name, rel)),
         `${name}/SKILL.md cites \`${rel}\` but templates/skills/${name}/${rel} does not exist`,
       );
       checked++;
@@ -424,14 +415,14 @@ Deno.test("materializeSkills: prunes a removed authored skill's dangling link", 
     await authoredSkill(root, "temp");
     await materializeSkills(root, cfg(), CLAUDE_SKILLS);
     assert(
-      await exists(join(claudeSkillsDirOf(root), "temp", "SKILL.md")),
+      await targetExists(join(claudeSkillsDirOf(root), "temp", "SKILL.md")),
     );
 
     await Deno.remove(join(root, "skills/temp"), { recursive: true });
     const res = await materializeSkills(root, cfg(), CLAUDE_SKILLS);
     assertEquals(res.pruned, 1);
     assertEquals(
-      await exists(join(claudeSkillsDirOf(root), "temp")),
+      await targetExists(join(claudeSkillsDirOf(root), "temp")),
       false,
     );
   });
@@ -452,9 +443,9 @@ Deno.test("materializeSkills: prunes an excluded authored skill's live symlink a
     );
     const res = await materializeSkills(root, excluded, CLAUDE_SKILLS);
     assertEquals(res.pruned, 1, "the excluded skill's symlink must be pruned");
-    assertEquals(await exists(join(sk, "foo")), false);
+    assertEquals(await targetExists(join(sk, "foo")), false);
     // Pruning removes the LINK only — the authored source stays untouched.
-    assert(await exists(join(root, "skills/foo/SKILL.md")));
+    assert(await targetExists(join(root, "skills/foo/SKILL.md")));
     // And the manifest no longer carries it (nothing left to own).
     const owned = JSON.parse(
       await Deno.readTextFile(join(sk, MATERIALIZED_MANIFEST)),
@@ -478,7 +469,7 @@ Deno.test("materializeSkills: leaves a foreign entry (unmanaged name, live targe
     await materializeSkills(root, cfg(), CLAUDE_SKILLS);
 
     assert(
-      await exists(join(sk, "mine-real/SKILL.md")),
+      await targetExists(join(sk, "mine-real/SKILL.md")),
       "real dir survives",
     );
     assert(
@@ -516,13 +507,13 @@ Deno.test("materializeSkills: prunes a real-dir copy of a bundled skill it no lo
     const res = await materializeSkills(root, cfg(), CLAUDE_SKILLS);
 
     assertEquals(
-      await exists(join(sk, "gone-skill")),
+      await targetExists(join(sk, "gone-skill")),
       false,
       "an orphaned bundled-skill copy discern owned must be pruned",
     );
     assert(res.pruned >= 1, "the orphan prune should be reported");
     assert(
-      await exists(join(sk, "mine-real/SKILL.md")),
+      await targetExists(join(sk, "mine-real/SKILL.md")),
       "a foreign drop-in discern never materialized must never be clobbered",
     );
   });
@@ -539,7 +530,7 @@ Deno.test("materializeSkills: writes into EVERY configured agent's dir (Claude +
     // The SAME effective set is reconciled into BOTH dirs.
     for (const rel of dirs) {
       assert(
-        await exists(join(root, rel, "discern-write-adr", "SKILL.md")),
+        await targetExists(join(root, rel, "discern-write-adr", "SKILL.md")),
         `a bundled skill is missing from ${rel}`,
       );
       assert(
@@ -547,7 +538,7 @@ Deno.test("materializeSkills: writes into EVERY configured agent's dir (Claude +
         `the authored skill is not symlinked in ${rel}`,
       );
       assert(
-        await exists(join(root, rel, MATERIALIZED_MANIFEST)),
+        await targetExists(join(root, rel, MATERIALIZED_MANIFEST)),
         `the ownership manifest is missing from ${rel}`,
       );
     }
@@ -560,7 +551,7 @@ Deno.test("ejectSkill copies a built-in into [skills].dir, writable, then refuse
   await withTempDir(async (root) => {
     const res = await ejectSkill(root, cfg(), "discern-write-adr");
     assertEquals(res.destRel, join("skills", "discern-write-adr"));
-    assert(await exists(join(root, "skills/discern-write-adr/SKILL.md")));
+    assert(await targetExists(join(root, "skills/discern-write-adr/SKILL.md")));
     // Writable (the embedded FS reports read-only; eject must restore owner write).
     assertEquals(
       (await modeOf(root, "skills/discern-write-adr/SKILL.md")) & 0o600,

@@ -28,6 +28,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 
 interface JsonStep {
   label: string;
@@ -102,7 +103,7 @@ async function setUpMeasuredBaseline(
 
 /** How many times the measurement command has actually executed. */
 async function measurementRuns(dir: string): Promise<number> {
-  const raw = await Deno.readTextFile(join(dir, "runs.count")).catch(() => "");
+  const raw = (await readTextIfExists(join(dir, "runs.count"))) ?? "";
   return raw === "" ? 0 : raw.trim().split("\n").length;
 }
 
@@ -292,9 +293,8 @@ Deno.test("replay: a fresh worktree replays from the TRUNK checkout's recorded m
 
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const measuredInWorktree = await Deno.readTextFile(
-      join(wt, "runs.count"),
-    ).catch(() => "");
+    const measuredInWorktree =
+      (await readTextIfExists(join(wt, "runs.count"))) ?? "";
     assertEquals(
       measuredInWorktree,
       "",

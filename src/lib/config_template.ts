@@ -16,6 +16,7 @@
 import { join } from "@std/path";
 import { resolveTemplatesDir } from "./paths.ts";
 import type { EnvReader } from "../shared/env.ts";
+import { bestEffortFs, readTextIfExists } from "../shared/fs_presence.ts";
 import { scanManagedBanners, scanRuledBanners } from "./config_banners.ts";
 
 export {
@@ -254,10 +255,12 @@ export function managedBannersFromTemplate(
 export async function readConfigTemplate(
   env: EnvReader = Deno.env,
 ): Promise<string | undefined> {
-  try {
+  return await bestEffortFs(async () => {
     const dir = await resolveTemplatesDir(env);
-    return await Deno.readTextFile(join(dir, CONFIG_TEMPLATE_NAME));
-  } catch {
-    return undefined;
-  }
+    return await readTextIfExists(join(dir, CONFIG_TEMPLATE_NAME));
+  }, {
+    onFailure: undefined,
+    reason:
+      "Template consumers expose their own fallback or blocking result when the bundled config source is unavailable.",
+  });
 }

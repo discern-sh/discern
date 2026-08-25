@@ -15,7 +15,8 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { ensureDir, exists } from "@std/fs";
+import { ensureDir } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { agentFilePaths } from "../src/engine/instruction_render.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
@@ -233,11 +234,11 @@ Deno.test("engine refresh: a skills-dir failure is isolated — agent files and 
     assert(res.data.agents_written.includes("CLAUDE.md"), r.output);
     assert(res.data.mcp_wired.length > 0, r.output);
     assert(
-      await exists(join(dir, "CLAUDE.md")),
+      await targetExists(join(dir, "CLAUDE.md")),
       "CLAUDE.md must still be written",
     );
     assert(
-      await exists(join(dir, ".mcp.json")),
+      await targetExists(join(dir, ".mcp.json")),
       ".mcp.json must still be wired",
     );
   });
@@ -254,7 +255,7 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
     // With no canonical AGENTS.md emitted (claude_code is the only agent), CLAUDE.md
     // holds the full body and opens with the instructions itself — no banner (ADR 0034).
     assert(
-      await exists(join(dir, "CLAUDE.md")),
+      await targetExists(join(dir, "CLAUDE.md")),
       `CLAUDE.md missing\n${r.output}`,
     );
     const claude = await Deno.readTextFile(join(dir, "CLAUDE.md"));
@@ -266,7 +267,9 @@ Deno.test("engine refresh: compiles agent files and materializes bundled skills"
     // Job 2: a bundled built-in is COPIED into .claude/skills/ (a real SKILL.md,
     // not a dangling link) — exactly what the agent reads to discover a skill.
     assert(
-      await exists(join(dir, ".claude/skills/discern-write-adr/SKILL.md")),
+      await targetExists(
+        join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
+      ),
       `.claude/skills/discern-write-adr must hold a SKILL.md\n${r.output}`,
     );
     assertTerminalTextIncludes(
@@ -283,7 +286,7 @@ Deno.test("engine refresh: backfills the discern MCP server for an install that 
     // core, not seeded) — exactly the pre-feature / not-yet-wired state a real
     // `discern upgrade`/`refresh` must heal without a force-init.
     assert(
-      !(await exists(join(dir, ".mcp.json"))),
+      !(await targetExists(join(dir, ".mcp.json"))),
       "precondition: no .mcp.json",
     );
 
@@ -384,14 +387,16 @@ Deno.test("engine refresh: materializes skills even with no instruction sources 
     // A fresh scaffold has no `instructions.md` source at all: job 1 compiles only
     // the built-in instructions, but job 2 (skills) must still run.
     assert(
-      !(await exists(join(dir, "instructions.md"))),
+      !(await targetExists(join(dir, "instructions.md"))),
       "precondition: no source",
     );
 
     const r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(dir, ".claude/skills/discern-write-adr/SKILL.md")),
+      await targetExists(
+        join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
+      ),
       `skills must materialize independently of instruction compilation\n${r.output}`,
     );
   });
@@ -427,7 +432,7 @@ Deno.test("engine refresh: prunes the link of an authored skill removed from the
     let r = await runAgent(dir, ["refresh"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(dir, ".claude/skills/temp/SKILL.md")),
+      await targetExists(join(dir, ".claude/skills/temp/SKILL.md")),
       `precondition: temp must be linked\n${r.output}`,
     );
 
@@ -444,7 +449,9 @@ Deno.test("engine refresh: prunes the link of an authored skill removed from the
     );
     // A bundled built-in keeps its materialized copy.
     assert(
-      await exists(join(dir, ".claude/skills/discern-write-adr/SKILL.md")),
+      await targetExists(
+        join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
+      ),
       `bundled skills must stay materialized\n${r.output}`,
     );
     assertTerminalTextIncludes(r.stdout, "pruned 1 stale");

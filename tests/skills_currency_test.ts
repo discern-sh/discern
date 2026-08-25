@@ -19,6 +19,7 @@ import {
 } from "../src/lib/skills.ts";
 import { skillsDirsForAgents } from "../src/lib/providers.ts";
 import { withTempDir } from "./helpers.ts";
+import { pathExists } from "../src/shared/fs_presence.ts";
 
 /** Single-agent config so exactly one skills dir (.claude/skills) materializes. */
 function cfg(extra = ""): DiscernConfig {
@@ -68,8 +69,7 @@ Deno.test("an excluded skill is not expected on disk — its absence is no drift
     // The excluded skill was never placed, and its absence must not read as
     // drift: the currency check and the materializer share one effective set.
     assertEquals(
-      await Deno.lstat(join(root, SKILLS_REL, "discern-write-adr"))
-        .then(() => true).catch(() => false),
+      await pathExists(join(root, SKILLS_REL, "discern-write-adr")),
       false,
     );
     assertEquals(await checkSkillsCurrent(root, excluded), []);

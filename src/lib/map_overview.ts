@@ -11,6 +11,7 @@
 
 import { dirname, isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
 import { runGit } from "../shared/subprocess.ts";
+import { isKnownGitCount, parseGitCount } from "../shared/git_count.ts";
 import { type DocEntry, docRegions, type DocsTree } from "./docs.ts";
 
 /** Git-only freshness facts for one map region, jointly absent when unknown. */
@@ -110,8 +111,8 @@ async function regionFreshness(
     ["rev-list", "--count", `${commit}..HEAD`, "--", ...codePaths],
     { cwd: tree.root },
   );
-  const count = Number.parseInt(changes.stdout.trim(), 10);
-  if (!changes.success || !Number.isFinite(count)) {
+  const count = parseGitCount(changes.stdout);
+  if (!changes.success || !isKnownGitCount(count)) {
     return {};
   }
   return {

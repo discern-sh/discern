@@ -34,6 +34,7 @@ import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
+import { bestEffortFs, readTextIfExists } from "../../shared/fs_presence.ts";
 import {
   type IdentitySettings,
   resourceForId,
@@ -220,20 +221,17 @@ export async function writeEntry(
 export async function readEntry(
   path: string,
 ): Promise<ResourceEntry | undefined> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(path);
-  } catch {
-    return undefined;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return undefined;
-  }
-  const result = resourceEntrySchema.safeParse(parsed);
-  return result.success ? result.data : undefined;
+  return await bestEffortFs(async () => {
+    const text = await readTextIfExists(path);
+    if (text === undefined) return undefined;
+    const parsed: unknown = JSON.parse(text);
+    const result = resourceEntrySchema.safeParse(parsed);
+    return result.success ? result.data : undefined;
+  }, {
+    onFailure: undefined,
+    reason:
+      "Resource garbage collection skips a missing, corrupt, foreign, or unreadable ledger entry.",
+  });
 }
 
 /** Every ledger entry for this repo (skipping unreadable/foreign files). */

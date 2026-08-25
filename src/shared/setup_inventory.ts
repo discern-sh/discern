@@ -14,6 +14,7 @@ import {
   deriveSetupProjectContext,
   type SetupProjectContext,
 } from "./setup_project_context.ts";
+import { readDirIfExists, readTextIfExists } from "./fs_presence.ts";
 
 export interface SetupCompletionInventory {
   project_context: SetupProjectContext;
@@ -29,16 +30,9 @@ export interface SetupCompletionInventory {
 
 /** Read the configured top-level numbered Map regions in stable path order. */
 async function mapRegions(root: string, mapDir: string): Promise<string[]> {
-  const names: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(join(root, mapDir))) {
-      if (entry.isDirectory && /^\d{2}-.+/.test(entry.name)) {
-        names.push(entry.name);
-      }
-    }
-  } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
-  }
+  const names = (await readDirIfExists(join(root, mapDir)) ?? [])
+    .filter((entry) => entry.isDirectory && /^\d{2}-.+/.test(entry.name))
+    .map((entry) => entry.name);
   return names.toSorted();
 }
 
@@ -57,12 +51,8 @@ function openLedgerItems(markdown: string): string[] {
 
 /** Read open ledger items, treating a missing configured ledger as empty. */
 async function ledgerItems(root: string, todoRel: string): Promise<string[]> {
-  try {
-    return openLedgerItems(await Deno.readTextFile(join(root, todoRel)));
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return [];
-    throw error;
-  }
+  const text = await readTextIfExists(join(root, todoRel));
+  return text === undefined ? [] : openLedgerItems(text);
 }
 
 /** Derive the exact project context, counts, and lists used by every closing surface. */

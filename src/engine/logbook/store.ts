@@ -37,6 +37,12 @@ import { KIT_VERSION } from "../../lib/version.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
+  bestEffortFs,
+  pathExists,
+  readDirIfExists,
+  readTextIfExists,
+} from "../../shared/fs_presence.ts";
+import {
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
   parseLogbookLine,
@@ -171,16 +177,6 @@ export async function appendEvent(
   }
 }
 
-/** True when `path` exists (any kind). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Digest one month file before its removal: line totals, verb-event counts by
  * outcome and by verb. Best-effort — an unreadable file digests to its name
  * and zero, and torn/foreign lines count as `unparsed` rather than vanishing. */
@@ -307,19 +303,17 @@ export function epochStatePath(commonGitDir: string): string {
 export async function readEpochState(
   commonGitDir: string,
 ): Promise<EpochState | undefined> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(epochStatePath(commonGitDir));
-  } catch {
-    return undefined;
-  }
-  try {
+  return await bestEffortFs(async () => {
+    const text = await readTextIfExists(epochStatePath(commonGitDir));
+    if (text === undefined) return undefined;
     const parsed: unknown = JSON.parse(text);
     const result = epochStateSchema.safeParse(parsed);
     return result.success ? result.data : undefined;
-  } catch {
-    return undefined;
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "A missing, corrupt, foreign, or unreadable epoch sidecar disables advisory reuse.",
+  });
 }
 
 /** Write the epoch sidecar atomically (temp-in-dir + rename). */
@@ -357,19 +351,14 @@ export async function listLogbookFiles(
 ): Promise<LogbookFile[]> {
   const dir = logbookDir(commonGitDir);
   const files: LogbookFile[] = [];
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (!entry.isFile) {
-        continue;
-      }
-      const info = await Deno.stat(join(dir, entry.name));
-      files.push({ file: entry.name, bytes: info.size });
+  const entries = await readDirIfExists(dir);
+  if (entries === undefined) return [];
+  for (const entry of entries) {
+    if (!entry.isFile) {
+      continue;
     }
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return [];
-    }
-    throw error;
+    const info = await Deno.stat(join(dir, entry.name));
+    files.push({ file: entry.name, bytes: info.size });
   }
   return files.sort((a, b) => a.file.localeCompare(b.file));
 }
@@ -384,8 +373,9 @@ export class LogbookLifecycleError extends Error {
     message: string,
     detachedPath?: string,
     archivePath?: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "LogbookLifecycleError";
     this.detachedPath = detachedPath;
     this.archivePath = archivePath;
@@ -462,6 +452,8 @@ export async function removeLogbook(commonGitDir: string): Promise<void> {
         error instanceof Error ? error.message : String(error)
       }`,
       detached,
+      undefined,
+      { cause: error },
     );
   }
 }
@@ -597,6 +589,7 @@ export async function archiveLogbook(
         }`,
         detached,
         finalPath,
+        { cause: error },
       );
     }
     return { file: filename, path: finalPath, bytes };
@@ -620,6 +613,7 @@ export async function archiveLogbook(
       }`,
       detached,
       published ? finalPath : undefined,
+      { cause: error },
     );
   }
 }

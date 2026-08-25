@@ -10,6 +10,11 @@
  */
 
 import { join } from "@std/path";
+import {
+  bestEffortFs,
+  readDirIfExists,
+  readTextIfExists,
+} from "../../shared/fs_presence.ts";
 import { logbookDir, MONTH_FILE_RE } from "./store.ts";
 import {
   type BeginEvent,
@@ -376,23 +381,30 @@ export async function readLogbookStream(
 ): Promise<LogbookStream> {
   const dir = logbookDir(commonGitDir);
   const months: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isFile && MONTH_FILE_RE.test(entry.name)) {
-        months.push(entry.name);
-      }
+  const entries = await bestEffortFs(() => readDirIfExists(dir), {
+    onFailure: undefined,
+    reason:
+      "A logbook stream may be empty when its advisory history directory is unreadable.",
+  });
+  if (entries === undefined) return emptyStream();
+  for (const entry of entries) {
+    if (entry.isFile && MONTH_FILE_RE.test(entry.name)) {
+      months.push(entry.name);
     }
-  } catch {
-    return emptyStream();
   }
   months.sort();
   const events: LogbookEvent[] = [];
   let unparsed = 0;
   for (const name of months) {
-    let text: string;
-    try {
-      text = await Deno.readTextFile(join(dir, name));
-    } catch {
+    const text = await bestEffortFs(
+      () => readTextIfExists(join(dir, name)),
+      {
+        onFailure: undefined,
+        reason:
+          "An unreadable logbook month remains one counted skipped unit in the tolerant stream.",
+      },
+    );
+    if (text === undefined) {
       unparsed += 1; // an unreadable month counts as one skipped unit
       continue;
     }
@@ -438,14 +450,16 @@ export async function readRecentLogbookStream(
   }
   const dir = logbookDir(commonGitDir);
   const available: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isFile && MONTH_FILE_RE.test(entry.name)) {
-        available.push(entry.name);
-      }
+  const entries = await bestEffortFs(() => readDirIfExists(dir), {
+    onFailure: undefined,
+    reason:
+      "A bounded logbook tail may be empty when its advisory history directory is unreadable.",
+  });
+  if (entries === undefined) return emptyStream();
+  for (const entry of entries) {
+    if (entry.isFile && MONTH_FILE_RE.test(entry.name)) {
+      available.push(entry.name);
     }
-  } catch {
-    return emptyStream();
   }
   available.sort().reverse();
   const months: string[] = [];
@@ -453,10 +467,15 @@ export async function readRecentLogbookStream(
   let unparsed = 0;
   for (const name of available) {
     months.push(name);
-    let text: string;
-    try {
-      text = await Deno.readTextFile(join(dir, name));
-    } catch {
+    const text = await bestEffortFs(
+      () => readTextIfExists(join(dir, name)),
+      {
+        onFailure: undefined,
+        reason:
+          "An unreadable logbook month remains one counted skipped unit in the tolerant tail.",
+      },
+    );
+    if (text === undefined) {
       unparsed += 1;
       continue;
     }

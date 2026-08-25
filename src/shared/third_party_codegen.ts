@@ -35,6 +35,11 @@ import { createFromBuffer } from "@dprint/formatter";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
+import {
+  bestEffortFs,
+  readDirIfExists,
+  readTextIfExists,
+} from "./fs_presence.ts";
 import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
 import {
   MARKDOWN_PLUGIN_VERSION,
@@ -253,16 +258,9 @@ const LICENSE_FILE_RE = /^(licen[cs]e|copying)([._-].*)?$/i;
 
 /** Select the shortest deterministic LICENSE, LICENCE, or COPYING filename. */
 async function findLicenseFile(dir: string): Promise<string | undefined> {
-  const names: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isFile && LICENSE_FILE_RE.test(entry.name)) {
-        names.push(entry.name);
-      }
-    }
-  } catch {
-    return undefined;
-  }
+  const names = (await readDirIfExists(dir) ?? [])
+    .filter((entry) => entry.isFile && LICENSE_FILE_RE.test(entry.name))
+    .map((entry) => entry.name);
   // Prefer the bare LICENSE spelling over variants, deterministically.
   names.sort((a, b) => a.length - b.length || a.localeCompare(b));
   return names[0];
@@ -270,11 +268,13 @@ async function findLicenseFile(dir: string): Promise<string | undefined> {
 
 /** The `license` field of a package.json (string or legacy `{ type }`). */
 async function declaredNpmLicense(dir: string): Promise<string | undefined> {
-  try {
+  return await bestEffortFs(async () => {
     const path = join(dir, "package.json");
+    const text = await readTextIfExists(path);
+    if (text === undefined) return undefined;
     const pkg = decodeJson(
       npmPackageMetadataSchema,
-      await Deno.readTextFile(path),
+      text,
       path,
     );
     if (typeof pkg.license === "string") return pkg.license;
@@ -284,10 +284,12 @@ async function declaredNpmLicense(dir: string): Promise<string | undefined> {
     ) {
       return pkg.license.type;
     }
-  } catch {
-    // fall through — the caller decides how to handle an unknown license
-  }
-  return undefined;
+    return undefined;
+  }, {
+    onFailure: undefined,
+    reason:
+      "License resolution may fall back to a package's LICENSE file when package metadata is unavailable.",
+  });
 }
 
 /** Convert CRLF to LF and remove trailing whitespace without altering the body. */
@@ -561,12 +563,14 @@ export async function generateThirdPartyArtifacts(
     options.repoRoot,
     THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache,
   );
-  let cacheText: string | undefined;
-  try {
-    cacheText = await Deno.readTextFile(cachePath);
-  } catch {
-    // no cache yet — every JSR text resolves via fetch (or fails offline)
-  }
+  const cacheText = await bestEffortFs(
+    () => readTextIfExists(cachePath),
+    {
+      onFailure: undefined,
+      reason:
+        "An unavailable JSR license cache falls back to resolving every text from its authoritative source.",
+    },
+  );
   if (cacheText !== undefined) {
     try {
       cache = decodeJsrLicenseCache(cacheText, cachePath);

@@ -9,15 +9,16 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import type { z } from "@zod/zod";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
   git,
   gitInit,
+  gitOut,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -112,6 +113,55 @@ Deno.test("update --json: reports the commits, files, and range anchors brought 
     assertEquals(data.overlap, []);
     assertEquals(data.overlap_total, 0);
   });
+});
+
+Deno.test("update rechecks ancestry inside every apply instead of trusting its plan", async () => {
+  for (const fromArgs of [[], ["--from", "main"]]) {
+    await withTempDir(async (dir) => {
+      const wt = await mainAndWorktree(
+        dir,
+        fromArgs.length === 0 ? "recheck-trunk" : "recheck-from",
+      );
+      await commitOnMain(dir, "incoming", { "incoming.txt": "incoming\n" });
+      const before = await gitOut(wt, "rev-parse", "HEAD");
+      const counter = join(dir, "ancestry-read-once");
+      const mergeEffect = join(dir, "merge-ran");
+      const gitWrapper = join(dir, "fail-second-ancestry-git");
+      await Deno.writeTextFile(
+        gitWrapper,
+        [
+          "#!/bin/sh",
+          'case " $* " in',
+          '  *" merge-base --is-ancestor "*)',
+          '    if [ -e "$NUMERIC_RECHECK_COUNTER" ]; then',
+          '      echo "forced ancestry read failure" >&2',
+          "      exit 2",
+          "    fi",
+          '    : > "$NUMERIC_RECHECK_COUNTER"',
+          "    ;;",
+          "esac",
+          'case " $* " in',
+          '  *" merge "*) : > "$NUMERIC_MERGE_EFFECT" ;;',
+          "esac",
+          'exec git "$@"',
+          "",
+        ].join("\n"),
+        { mode: 0o700 },
+      );
+
+      const r = await runAgent(wt, ["update", ...fromArgs, "--json"], {
+        env: {
+          GIT_BIN: gitWrapper,
+          NUMERIC_MERGE_EFFECT: mergeEffect,
+          NUMERIC_RECHECK_COUNTER: counter,
+        },
+      });
+      assertEquals(r.code, 1, r.output);
+      assertTerminalTextIncludes(r.output, "forced ancestry read failure");
+      assertEquals(await targetExists(mergeEffect), false);
+      assertEquals(await gitOut(wt, "rev-parse", "HEAD"), before);
+    });
+  }
 });
 
 Deno.test("update: overlap names the files you AND main both changed (clean merge, semantic-conflict risk)", async () => {
@@ -300,7 +350,7 @@ Deno.test("update --dry-run --json: predicts the same summary read-only — no `
 
     // …and the preview genuinely merged nothing.
     assertEquals(
-      await exists(join(wt, "upstream.txt")),
+      await targetExists(join(wt, "upstream.txt")),
       false,
       `--dry-run must not merge\n${r.stdout}`,
     );

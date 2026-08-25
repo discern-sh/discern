@@ -13,8 +13,9 @@ import { runUpgrade } from "../src/commands/upgrade.ts";
 import type { Migration } from "../src/lib/migrations.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { readTarget, runCli, targetExists, withTempDir } from "./helpers.ts";
+import { readTarget, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 
 const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
@@ -283,7 +284,7 @@ Deno.test("upgrade dry-run previews an injected migration without applying it", 
       to: SYNTHETIC_CURRENT_SCHEMA,
       describe: "write a marker",
     }]);
-    assertEquals(await targetExists(dir, "MIGRATED"), false);
+    assertEquals(await targetExists(join(dir, "MIGRATED")), false);
     assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
   });
 });
@@ -319,7 +320,7 @@ Deno.test("upgrade runs a pending migration before the sync, then stamps the sch
     assertEquals(await upgradeIn(dir, chain), 0);
     assertEquals(ran, ["applied"]); // the step ran exactly once
     // Its effects landed: the marker file and the config edit.
-    assertEquals(await targetExists(dir, "MIGRATED"), true);
+    assertEquals(await targetExists(join(dir, "MIGRATED")), true);
     assert(
       (await readTarget(dir, "discern.toml")).includes(
         'branch_prefix = "wt/"',

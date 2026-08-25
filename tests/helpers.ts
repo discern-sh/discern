@@ -207,16 +207,6 @@ export async function modeOf(dir: string, rel: string): Promise<number> {
   return (info.mode ?? 0) & 0o777;
 }
 
-/** True when a target file exists. */
-export async function targetExists(dir: string, rel: string): Promise<boolean> {
-  try {
-    await Deno.stat(join(dir, rel));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * An {@link EnvReader} backed by a plain map — the parallel-safe way for a test to
  * hand env overrides to a function under test (resolveTemplatesDir,

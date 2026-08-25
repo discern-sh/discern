@@ -14,7 +14,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -180,7 +180,7 @@ Deno.test("hook WorktreeCreate: branches from the trunk even when the main check
     assertEquals(r.code, 0, r.stderr);
     const wt = r.stdout.trim();
     assertEquals(
-      await exists(join(wt, "poison.txt")),
+      await targetExists(join(wt, "poison.txt")),
       false,
       `the parked branch's commit must not reach the hook's worktree\n${r.stderr}`,
     );
@@ -271,9 +271,9 @@ Deno.test("hook WorktreeCreate: creates the worktree, runs setup, prints its pat
     // newline) — Claude Code reads it as the worktree location.
     assertEquals(r.stdout, wt);
     // It is a real linked worktree, with `discern worktree setup` having run.
-    assert(await exists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
+    assert(await targetExists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
     assert(
-      await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
+      await targetExists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
       `setup did not run inside the worktree\n${r.stderr}`,
     );
   });
@@ -349,7 +349,7 @@ Deno.test("hook WorktreeCreate: a successful setup step is silent and never poll
     assertEquals(r.stdout, wt);
     // The step ran…
     assert(
-      await exists(join(wt, "ran.marker")),
+      await targetExists(join(wt, "ran.marker")),
       `the setup step did not run\n${r.stderr}`,
     );
     // …but a SUCCESSFUL step is silent: its OUTPUT leaks to NEITHER channel.
@@ -432,7 +432,7 @@ Deno.test("hook WorktreeCreate: a RELATIVE [worktree].root resolves against the 
     assertEquals(r.code, 0, r.stderr);
     const wt = join(dir, ".claude/worktrees/rel");
     assertEquals(r.stdout, wt);
-    assert(await exists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
+    assert(await targetExists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
   });
 });
 
@@ -451,7 +451,7 @@ Deno.test("hook WorktreeCreate: an ABSOLUTE [worktree].root is used as-is", asyn
     assertEquals(r.code, 0, r.stderr);
     const wt = join(absRoot, "abs");
     assertEquals(r.stdout, wt);
-    assert(await exists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
+    assert(await targetExists(join(wt, ".git")), `not a worktree\n${r.stderr}`);
   });
 });
 

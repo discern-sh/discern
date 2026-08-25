@@ -3,6 +3,7 @@ import { fromFileUrl, join } from "@std/path";
 import { Logger } from "../src/lib/log.ts";
 import { runShellRouted } from "../src/engine/worktree/shell.ts";
 import { pinnedTerminal, withTempDir } from "./helpers.ts";
+import { lstatIfExists } from "../src/shared/fs_presence.ts";
 
 const DRIVER = fromFileUrl(
   new URL("fixtures/owned_child_driver.ts", import.meta.url),
@@ -92,10 +93,7 @@ Deno.test({
       assertEquals(code, 0);
       await Deno.writeTextFile(release, "");
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
-      const observed = await Deno.lstat(late).catch((error) => {
-        if (error instanceof Deno.errors.NotFound) return undefined;
-        throw error;
-      });
+      const observed = await lstatIfExists(late);
       assertEquals(
         observed,
         undefined,

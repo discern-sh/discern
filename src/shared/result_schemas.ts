@@ -53,6 +53,7 @@ import {
   GATE_MODES,
   POLICY_CHECKPOINT_DROP_REASONS,
 } from "./checkpoint_drops.ts";
+import { UNKNOWN_GIT_COUNT } from "./git_count.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "./public_schemas.ts";
@@ -69,6 +70,12 @@ export {
   type AcceptLandingState,
   AcceptLandingStateSchema,
 };
+
+/** Runtime schema for a trustworthy Git count or its explicit unknown state. */
+export const GitCountSchema = z.union([
+  z.number().int().nonnegative(),
+  z.literal(UNKNOWN_GIT_COUNT),
+]);
 
 // ── ring 1+2 mirrors: the plan / step / diagnostic sub-shapes ────────────────
 // Zod mirrors of the `result.ts` interfaces `serializeResult` emits. The closed
@@ -1208,7 +1215,7 @@ const awaitObservedSchema = z.strictObject({
   landed: z.boolean().optional(),
   trunk_start: z.string().optional(),
   trunk_head: z.string().optional(),
-  behind: z.number().int().optional(),
+  behind: GitCountSchema.optional(),
   incoming_overlap: z.array(z.string()).optional(),
   overlap_total: z.number().int().optional(),
 });
@@ -1430,10 +1437,10 @@ const statusGitSchema = z.strictObject({
   clean: z.boolean(),
   /** Count of ordinary `git status --porcelain` entries. */
   changed_files: z.number(),
-  behind_trunk: z.number().nullable(),
+  behind_trunk: GitCountSchema.nullable(),
   /** Null when the trunk branch doesn't exist locally — there is nothing to
    * count against, and an honest null beats a fabricated 0. */
-  ahead_trunk: z.number().nullable(),
+  ahead_trunk: GitCountSchema.nullable(),
   /** When behind: the files THIS branch changed that the incoming trunk also
    * changed — the hot zone to re-check on updating (capped; present only in a
    * worktree that is behind and has overlap). The same intersection `update` reports. */
@@ -1476,8 +1483,8 @@ const statusFleetEntrySchema = z.strictObject({
   clean: z.boolean().optional(),
   /** Count of ordinary `git status --porcelain` entries. */
   changed_files: z.number().optional(),
-  ahead: z.number().optional(),
-  behind: z.number().optional(),
+  ahead: GitCountSchema.optional(),
+  behind: GitCountSchema.optional(),
   last_activity: z.string().optional(),
   /** The branch's newest completed logbook verb event. */
   last_action: statusFleetLastActionSchema.optional(),

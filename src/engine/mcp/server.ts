@@ -35,6 +35,7 @@ import {
   notInitializedResult,
 } from "../../shared/env.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { pathExists } from "../../shared/fs_presence.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { serializeResult } from "../../shared/result_serialization.ts";
 import { resultPresenterForVerb } from "../../shared/result_contracts.ts";
@@ -1790,17 +1791,6 @@ export async function runTool(
     cliModel,
   );
   return await completeToolCall(tool, args, pending, stale);
-}
-
-/** True when `path` exists on disk — the held-working-root liveness check the re-aim
- * reads to tell "accept removed my root" from a still-live root (ADR 0062 §2). */
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /**

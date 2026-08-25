@@ -40,6 +40,11 @@ import { dirname, join } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { findRoot, notInitializedResult } from "../shared/env.ts";
 import {
+  pathExists,
+  readDirIfExists,
+  readTextIfExists,
+} from "../shared/fs_presence.ts";
+import {
   type DiscernConfig,
   loadConfig,
   parseConfigOrThrow,
@@ -137,31 +142,6 @@ interface UninstallPlan {
 /** The one line that removes the binary itself (install-method agnostic). */
 const BINARY_HINT =
   "discern itself is a single binary outside your repo — remove it by deleting the file `which discern` reports.";
-
-/** Check for any filesystem entry, treating a missing path as false. */
-async function pathExists(abs: string): Promise<boolean> {
-  try {
-    await Deno.lstat(abs);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return false;
-    }
-    throw error;
-  }
-}
-
-/** Read a text file, mapping absence to `undefined` while preserving other errors. */
-async function readTextIfExists(abs: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(abs);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
-}
 
 /**
  * Remove discern's delimited `.gitignore` block, preserving every other rule.
@@ -447,16 +427,9 @@ async function pruneEmptyDirs(
   for (let rel of deepestFirst) {
     while (rel !== "" && rel !== "." && !rel.startsWith("..")) {
       const dir = join(root, rel);
-      let empty: boolean;
-      try {
-        empty = true;
-        for await (const _entry of Deno.readDir(dir)) {
-          empty = false;
-          break;
-        }
-      } catch {
-        break; // absent or not a directory
-      }
+      const entries = await readDirIfExists(dir);
+      if (entries === undefined) break;
+      const empty = entries.length === 0;
       if (!empty) {
         break;
       }
@@ -599,7 +572,7 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
   // main checkout (do it from the trunk once the fleet is landed).
   const fleet = await listWorktreeFleet(root);
   const mainEntry = fleet.find((w) => w.isMain);
-  const rootReal = await Deno.realPath(root).catch(() => root);
+  const rootReal = await Deno.realPath(root);
   if (mainEntry !== undefined && mainEntry.path !== rootReal) {
     const message =
       `run uninstall from the main checkout, not a linked worktree — it is at ${mainEntry.path}.`;

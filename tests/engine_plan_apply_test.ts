@@ -325,7 +325,9 @@ Deno.test("accept --json performs the acceptance and serializes the steps", asyn
     );
     // The work landed on the trunk in main.
     assert(
-      await import("@std/fs").then((m) => m.exists(join(dir, "feature.txt"))),
+      await import("../src/shared/fs_presence.ts").then((m) =>
+        m.targetExists(join(dir, "feature.txt"))
+      ),
       "work not landed on the trunk in main",
     );
   });

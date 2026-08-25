@@ -19,6 +19,7 @@ import {
   escapedDaemonCommand,
   withTempDir,
 } from "./helpers.ts";
+import { lstatIfExists, targetExists } from "../src/shared/fs_presence.ts";
 
 const CWD = Deno.cwd();
 
@@ -226,10 +227,7 @@ Deno.test({
       assertEquals(result.ok, true);
       await Deno.writeTextFile(release, "");
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
-      const lateObservation = await Deno.lstat(late).catch((error) => {
-        if (error instanceof Deno.errors.NotFound) return undefined;
-        throw error;
-      });
+      const lateObservation = await lstatIfExists(late);
       assertEquals(
         lateObservation,
         undefined,
@@ -608,7 +606,7 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
       write: () => {},
     });
     // Give the jobs a moment to start, then cancel from outside.
-    while (!(await Deno.stat(join(dir, "inner.pid")).catch(() => null))) {
+    while (!(await targetExists(join(dir, "inner.pid")))) {
       await new Promise((r) => setTimeout(r, 25));
     }
     const start = performance.now();
@@ -653,7 +651,7 @@ Deno.test("runParallel: an external abort stays bounded when an escaped descenda
     // The marker is written only after the direct shell has exited 0. Abort
     // while the escaped daemon alone holds the pipes: cancellation belongs to
     // the full unsettled job, not merely to a non-zero leader exit.
-    while (!(await Deno.stat(join(dir, "daemon.up")).catch(() => null))) {
+    while (!(await targetExists(join(dir, "daemon.up")))) {
       await new Promise((r) => setTimeout(r, 25));
     }
     const start = performance.now();
@@ -704,7 +702,7 @@ Deno.test("runSerial: an external abort kills the running job and skips the rest
       signal: external.signal,
       write: () => {},
     });
-    while (!(await Deno.stat(join(dir, "current.pid")).catch(() => null))) {
+    while (!(await targetExists(join(dir, "current.pid")))) {
       await new Promise((r) => setTimeout(r, 25));
     }
     external.abort();
@@ -714,10 +712,7 @@ Deno.test("runSerial: an external abort kills the running job and skips the rest
     assertEquals(r.results.map((x) => x.label), ["current"]);
     assertEquals(r.results[0]?.cancelled, true);
     // The job after the abort never started (absent → finish reports "skipped").
-    assertEquals(
-      await Deno.stat(join(dir, "after.txt")).catch(() => null),
-      null,
-    );
+    assertEquals(await targetExists(join(dir, "after.txt")), false);
   }, { prefix: "discern-serial-abort-" });
 });
 

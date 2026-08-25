@@ -45,6 +45,7 @@ import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { findRoot } from "../../shared/env.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { isKnownGitCount, parseGitCount } from "../../shared/git_count.ts";
 import { treeDiffFingerprint } from "../../shared/tree_identity.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
 import type { CrashSignature } from "../crash.ts";
@@ -152,18 +153,33 @@ async function gitLine(cwd: string, args: string[]): Promise<string | null> {
   return line === "" ? null : line;
 }
 
-/** Parse `git diff --shortstat` output into counts (absent pieces are 0). */
+/** Parse `git diff --shortstat`; omitted categories are zero, malformed output is unknown. */
 function parseShortstat(
   s: string,
-): { files: number; insertions: number; deletions: number } {
-  const grab = (re: RegExp): number => {
+): { files: number; insertions: number; deletions: number } | undefined {
+  const grab = (re: RegExp): number | undefined => {
     const first = re.exec(s)?.[1];
-    return first !== undefined ? Number.parseInt(first, 10) : 0;
+    if (first === undefined) {
+      return 0;
+    }
+    const count = parseGitCount(first);
+    return isKnownGitCount(count) ? count : undefined;
   };
+  if (s.trim() !== "" && !/\d+ files? changed/u.test(s)) {
+    return undefined;
+  }
+  const files = grab(/(\d+) files? changed/);
+  const insertions = grab(/(\d+) insertions?\(/);
+  const deletions = grab(/(\d+) deletions?\(/);
+  if (
+    files === undefined || insertions === undefined || deletions === undefined
+  ) {
+    return undefined;
+  }
   return {
-    files: grab(/(\d+) files? changed/),
-    insertions: grab(/(\d+) insertions?\(/),
-    deletions: grab(/(\d+) deletions?\(/),
+    files,
+    insertions,
+    deletions,
   };
 }
 
@@ -185,9 +201,17 @@ async function gatherChangeScale(
   if (!diff.success) {
     return undefined;
   }
+  const commitCount = commits === null ? undefined : parseGitCount(commits);
+  if (commitCount === undefined || !isKnownGitCount(commitCount)) {
+    return undefined;
+  }
+  const shortstat = parseShortstat(diff.stdout);
+  if (shortstat === undefined) {
+    return undefined;
+  }
   return {
-    ...parseShortstat(diff.stdout),
-    commits: commits !== null ? Number.parseInt(commits, 10) : 0,
+    ...shortstat,
+    commits: commitCount,
   };
 }
 

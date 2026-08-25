@@ -16,6 +16,11 @@ import {
 } from "../lib/paths.ts";
 import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
+import {
+  bestEffortFs,
+  fileExists,
+  readDirIfExists,
+} from "../shared/fs_presence.ts";
 import { Logger } from "../lib/log.ts";
 import {
   renderBannerCli,
@@ -299,15 +304,6 @@ async function logbookCheck(
       stream.months.length === 1 ? "" : "s"
     } under the git admin area`,
   };
-}
-
-/** Whether a regular file exists at `path`. */
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isFile;
-  } catch {
-    return false;
-  }
 }
 
 /** Git's file classes needed to verify a generated-artifact declaration without
@@ -914,7 +910,11 @@ export async function runChecks(
         fix: "make your first commit, then worktrees work normally",
       });
     } else {
-      const projectRoot = await Deno.realPath(destDir).catch(() => destDir);
+      const projectRoot = await bestEffortFs(() => Deno.realPath(destDir), {
+        onFailure: destDir,
+        reason:
+          "Doctor can still compare the lexical project root when canonicalization is unavailable.",
+      });
       if (projectRoot !== repository.toplevel) {
         checks.push({
           name: "repository shape",
@@ -979,12 +979,9 @@ export async function runChecks(
   }
   {
     const { rel, abs } = resolveSkillsDir(destDir, config);
-    let authored = 0;
-    try {
-      for await (const e of Deno.readDir(abs)) {
-        if (e.isDirectory) authored++;
-      }
-    } catch { /* absent dir — fine, built-ins still apply */ }
+    const authored =
+      (await readDirIfExists(abs) ?? []).filter((entry) => entry.isDirectory)
+        .length;
     checks.push({
       name: "skills",
       ok: true,
@@ -1130,7 +1127,7 @@ export async function runChecks(
       if (integ === undefined) {
         continue; // providersWithHooks guarantees this, but narrow for the checker.
       }
-      try {
+      await bestEffortFs(async () => {
         const raw = await Deno.readTextFile(join(destDir, integ.settingsFile));
         // Untrusted JSON in any shape — validate it through the lenient schema rather
         // than asserting a type and walking it; a wrong-shaped file yields no hooks.
@@ -1150,10 +1147,11 @@ export async function runChecks(
         if (foreign.length > 0) {
           foreignFiles.push(integ.settingsFile);
         }
-      } catch {
-        // No settings file, a malformed one, or unreadable: this advisory is
-        // best-effort, so skip it silently (install validity is checked above).
-      }
+      }, {
+        onFailure: undefined,
+        reason:
+          "Worktree-automation detection is advisory and install validity is checked separately.",
+      });
     }
     if (foreignFiles.length > 0) {
       checks.push({

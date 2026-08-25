@@ -20,6 +20,7 @@
  */
 
 import { join } from "@std/path";
+import { bestEffortFs, pathExists } from "../shared/fs_presence.ts";
 import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
 import type { EnvReader } from "../shared/env.ts";
 import type { ConsentAgentSet } from "../shared/setup_messages.ts";
@@ -71,23 +72,21 @@ async function binaryOnPath(
 ): Promise<boolean> {
   for (const dir of pathDirs) {
     for (const candidate of executableCandidates(binary, os)) {
-      try {
-        const info = await Deno.stat(join(dir, candidate));
-        if (!info.isFile) {
-          continue;
-        }
-        // On POSIX a PATH entry must be executable; mode can be null on some
-        // platforms, in which case file existence is the best signal available.
-        if (
-          os !== "windows" && info.mode !== null &&
-          (info.mode & 0o111) === 0
-        ) {
-          continue;
-        }
-        return true;
-      } catch {
-        // Not found / unreadable at this candidate — try the next.
+      const info = await bestEffortFs(() => Deno.stat(join(dir, candidate)), {
+        onFailure: undefined,
+        reason:
+          "Agent discovery may skip one missing or unreadable PATH candidate and continue searching.",
+      });
+      if (info === undefined || !info.isFile) {
+        continue;
       }
+      // On POSIX a PATH entry must be executable; mode can be null on some
+      // platforms, in which case file existence is the best signal available.
+      if (
+        os !== "windows" && info.mode !== null &&
+        (info.mode & 0o111) === 0
+      ) continue;
+      return true;
     }
   }
   return false;
@@ -125,14 +124,7 @@ export interface SetupDetectionHost {
 
 const REAL_SETUP_HOST: SetupDetectionHost = {
   os: Deno.build.os,
-  pathExists: async (path: string): Promise<boolean> => {
-    try {
-      await Deno.stat(path);
-      return true;
-    } catch {
-      return false;
-    }
-  },
+  pathExists,
 };
 
 /** Resolve one registry marker for this host, or `undefined` when its base is absent. */

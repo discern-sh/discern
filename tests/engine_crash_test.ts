@@ -13,6 +13,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
+import { readDirIfExists } from "../src/shared/fs_presence.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import {
@@ -277,17 +278,9 @@ Deno.test("CRASH_EXIT_CODE is sysexits EX_SOFTWARE", () => {
 
 /** Every crash report file under the repo's `.git/discern/crash/`. */
 async function crashFiles(dir: string): Promise<string[]> {
-  const names: string[] = [];
-  try {
-    for await (
-      const entry of Deno.readDir(join(dir, ".git", "discern", "crash"))
-    ) {
-      names.push(entry.name);
-    }
-  } catch {
-    // absent directory — no reports
-  }
-  return names.sort();
+  return (await readDirIfExists(join(dir, ".git", "discern", "crash")) ?? [])
+    .map((entry) => entry.name)
+    .sort();
 }
 
 /** Every parsed verb event in the repo's logbook, oldest first. */

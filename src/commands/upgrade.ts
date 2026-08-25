@@ -23,6 +23,7 @@
 import { Logger } from "../lib/log.ts";
 import { worktreeState } from "../lib/git.ts";
 import { notInitializedResult } from "../shared/env.ts";
+import { readTextIfExists } from "../shared/fs_presence.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { KIT_VERSION, SCHEMA_VERSION, UPDATE_CHANNEL } from "../lib/version.ts";
@@ -103,18 +104,6 @@ export interface UpgradeOptions {
    * test files running concurrently under `deno test --parallel`.
    */
   cwd?: string | undefined;
-}
-
-/** Read a text file, or undefined if absent. */
-async function readTextIfExists(path: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
 }
 
 /** Fire the advisory for a project created by a newer discern release. */

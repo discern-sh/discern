@@ -1,6 +1,7 @@
 /** Derive the qualitative project context setup relays at completion. */
 
 import { join } from "@std/path";
+import { readTextIfExists } from "./fs_presence.ts";
 
 export interface SetupPrimarySubsystem {
   region: string;
@@ -15,16 +16,6 @@ export interface SetupProjectContext {
   primary_subsystem: SetupPrimarySubsystem | null;
   principles: { count: number; items: string[] };
   instruction_sources: string[];
-}
-
-/** Read text without making a missing setup authority exceptional. */
-async function readText(path: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return undefined;
-    throw error;
-  }
 }
 
 /** The first paragraph under one exact level-2 heading. */
@@ -81,7 +72,7 @@ export async function deriveSetupPrimarySubsystem(
   const region = (await primaryRegionNames(root, mapDir))[0];
   if (region === undefined) return null;
   const page = join(mapDir, region, "README.md");
-  const markdown = await readText(join(root, page));
+  const markdown = await readTextIfExists(join(root, page));
   if (markdown === undefined) return null;
   const title = markdown.match(/^#\s+(.+?)\s*$/m)?.[1]?.trim();
   const startHere = sectionParagraph(markdown, "Start here");
@@ -126,7 +117,7 @@ export async function deriveSetupProjectContext(
     mapDir,
     "00-orientation/design-principles.md",
   );
-  const principlesText = await readText(principlesPath);
+  const principlesText = await readTextIfExists(principlesPath);
   const principles = principlesText === undefined
     ? []
     : setupPrincipleNames(principlesText);

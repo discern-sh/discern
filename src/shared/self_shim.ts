@@ -42,6 +42,7 @@ import {
 } from "./git_admin_paths.ts";
 import { sha256Hex } from "./sha256.ts";
 import { makeTempArtifactDir } from "./temp_artifacts.ts";
+import { fileExists, readTextIfExists } from "./fs_presence.ts";
 
 /** Single-quote `value` for literal embedding in the shim script. */
 function shellQuote(value: string): string {
@@ -85,15 +86,6 @@ async function touch(dir: string): Promise<void> {
   });
 }
 
-/** Check whether `path` names a regular file, treating lookup errors as absent. */
-async function isFile(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isFile;
-  } catch {
-    return false;
-  }
-}
-
 /** Write `content` beside `target` and rename it into place, executable. */
 async function writeShimAside(target: string, content: string): Promise<void> {
   const suffix = Array.from(
@@ -112,7 +104,7 @@ async function writeShimAside(target: string, content: string): Promise<void> {
     // A concurrent process of the SAME identity renames identical bytes, so
     // losing that race (Windows refuses to replace an existing target) is
     // success — anything else propagates to the fallback path.
-    if (await Deno.readTextFile(target).catch(() => undefined) !== content) {
+    if (await readTextIfExists(target) !== content) {
       throw error;
     }
   }
@@ -122,7 +114,7 @@ async function writeShimAside(target: string, content: string): Promise<void> {
 async function ensureShimAt(home: string, content: string): Promise<string> {
   const dir = join(home, await identityName(content));
   const shim = join(dir, "discern");
-  if (await Deno.readTextFile(shim).catch(() => undefined) === content) {
+  if (await readTextIfExists(shim) === content) {
     return dir;
   }
   await Deno.mkdir(dir, { recursive: true });
@@ -155,7 +147,7 @@ export async function selfShimDir(
 ): Promise<string> {
   const key = root ?? "";
   const cached = resolved.get(key);
-  if (cached !== undefined && (await isFile(join(cached, "discern")))) {
+  if (cached !== undefined && (await fileExists(join(cached, "discern")))) {
     await touch(cached);
     return cached;
   }

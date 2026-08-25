@@ -16,7 +16,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { join } from "@std/path";
 import { doctorResult } from "../src/commands/doctor.ts";
 import { STAGES } from "../src/shared/capabilities.ts";
@@ -76,7 +76,7 @@ Deno.test("all gate command groups execute at the resolved root from a nested CL
     for (const label of [...STAGES, "scope"]) {
       const marker = join(dir, `cwd-${label}.txt`);
       assert(
-        await exists(marker),
+        await targetExists(marker),
         `${label} command ran outside the resolved root\n${result.output}`,
       );
       assertEquals((await Deno.readTextFile(marker)).trim(), canonicalRoot);

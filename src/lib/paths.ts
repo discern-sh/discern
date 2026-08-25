@@ -26,22 +26,13 @@ import {
 // Runtime-only import (used inside a function body, never at module evaluation),
 // so the providers.ts → paths.ts edge in the other direction stays harmless.
 import { allInstructionFilePaths } from "./providers.ts";
+import { directoryExists } from "../shared/fs_presence.ts";
 
 export { resolveWorktreeRoot } from "./worktree_root.ts";
 
 // Re-export the install markers so installer-side callers can import them from
 // the lib layer (the canonical definitions live in the shared env module).
 export { CONFIG_REL };
-
-/** True when `path` is an existing directory. */
-async function isDir(path: string): Promise<boolean> {
-  try {
-    const stat = await Deno.stat(path);
-    return stat.isDirectory;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Resolve the root `discern.toml` inside an install directory, or `undefined`
@@ -283,7 +274,7 @@ export async function resolveTemplatesDir(
   const variable = DISCERN_ENVIRONMENT_VARIABLES.templatesDirectory;
   const override = env.get(variable);
   if (override) {
-    if (await isDir(override)) {
+    if (await directoryExists(override)) {
       return override;
     }
     throw new Error(
@@ -295,7 +286,7 @@ export async function resolveTemplatesDir(
   let dir = dirname(fromFileUrl(import.meta.url));
   for (let depth = 0; depth < 8; depth++) {
     const candidate = join(dir, "templates");
-    if (await isDir(candidate)) {
+    if (await directoryExists(candidate)) {
       return candidate;
     }
     const parent = dirname(dir);
@@ -334,7 +325,7 @@ export async function resolveTemplatesDir(
 export async function resolveBundledDocsDir(): Promise<string | undefined> {
   const override = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.docsDirectory);
   if (override) {
-    return (await isDir(override)) ? override : undefined;
+    return (await directoryExists(override)) ? override : undefined;
   }
 
   // Walk up from this module's directory, preferring the staged public tree (a
@@ -342,12 +333,12 @@ export async function resolveBundledDocsDir(): Promise<string | undefined> {
   let dir = dirname(fromFileUrl(import.meta.url));
   for (let depth = 0; depth < 8; depth++) {
     const staged = join(dir, BUNDLED_DOCS_STAGE_DIR, "docs");
-    if (await isDir(staged)) {
+    if (await directoryExists(staged)) {
       return staged;
     }
     try {
       const checkout = resolveMapDir(dir, await loadConfig(dir)).abs;
-      if (await isDir(checkout)) {
+      if (await directoryExists(checkout)) {
         return checkout;
       }
     } catch {

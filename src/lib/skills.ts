@@ -47,6 +47,13 @@ import {
   type InstructionContext,
   renderInstructionTemplate,
 } from "../engine/instruction_template.ts";
+import {
+  bestEffortFs,
+  lstatIfExists,
+  readDirIfExists,
+  readTextIfExists,
+  targetExists,
+} from "../shared/fs_presence.ts";
 
 /** Where a skill in the effective set comes from. */
 export type SkillSource = "authored" | "bundled";
@@ -74,19 +81,9 @@ export const MATERIALIZED_MANIFEST = ".discern-materialized.json";
 
 /** Directory names directly under `dir` (sorted), or `[]` if `dir` is absent. */
 async function dirNames(dir: string): Promise<string[]> {
-  const names: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isDirectory) {
-        names.push(entry.name);
-      }
-    }
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return [];
-    }
-    throw error;
-  }
+  const names = (await readDirIfExists(dir) ?? [])
+    .filter((entry) => entry.isDirectory)
+    .map((entry) => entry.name);
   return names.sort();
 }
 
@@ -356,28 +353,6 @@ export interface MaterializeResult {
   errors: string[];
 }
 
-/** Stat without following symlinks; undefined when the path does not exist. */
-async function lstat(path: string): Promise<Deno.FileInfo | undefined> {
-  try {
-    return await Deno.lstat(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
-}
-
-/** True when `path` resolves (following symlinks) to something that exists. */
-async function targetExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Remove a file, symlink, or directory at `path`; a no-op if already gone. */
 async function removeAny(path: string, isDir: boolean): Promise<void> {
   try {
@@ -395,18 +370,21 @@ async function removeAny(path: string, isDir: boolean): Promise<void> {
 async function readMaterializedNames(
   claudeSkillsDir: string,
 ): Promise<Set<string>> {
-  try {
-    const text = await Deno.readTextFile(
+  return await bestEffortFs(async () => {
+    const text = await readTextIfExists(
       join(claudeSkillsDir, MATERIALIZED_MANIFEST),
     );
+    if (text === undefined) return new Set<string>();
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed)) {
       return new Set(parsed.filter((n): n is string => typeof n === "string"));
     }
-  } catch {
-    // absent or corrupt — nothing to reconcile this run.
-  }
-  return new Set();
+    return new Set<string>();
+  }, {
+    onFailure: new Set<string>(),
+    reason:
+      "A missing, corrupt, or unreadable ownership record disables orphan pruning for this run.",
+  });
 }
 
 /** Record the skill names discern now owns, sorted so the file is byte-stable run
@@ -601,7 +579,7 @@ async function materializeSkillsDir(
     // every effective name was removed in the prune pass. But a real non-symlink
     // a user dropped under a managed name would have been removed above; that is
     // acceptable since the agent skills dir is discern-generated.
-    const existing = await lstat(target);
+    const existing = await lstatIfExists(target);
     if (existing !== undefined) {
       // Should be gone (prune handles managed names); guard defensively.
       await removeAny(target, existing.isDirectory && !existing.isSymlink);
@@ -653,7 +631,7 @@ export async function ejectSkill(
 ): Promise<EjectResult> {
   const bundledDir = await resolveBundledSkillsDir();
   const src = join(bundledDir, name);
-  if (!(await lstat(src))?.isDirectory) {
+  if (!(await lstatIfExists(src))?.isDirectory) {
     const available = (await bundledSkillNames()).join(", ");
     throw new Error(
       `no bundled skill named "${name}" (available: ${available || "none"})`,
@@ -662,7 +640,7 @@ export async function ejectSkill(
   const { rel: skillsRel, abs: skillsAbs } = resolveSkillsDir(root, config);
   const destAbs = join(skillsAbs, name);
   const destRel = join(skillsRel, name);
-  if (await lstat(destAbs) !== undefined) {
+  if (await lstatIfExists(destAbs) !== undefined) {
     throw new Error(
       `an authored skill already exists at ${destRel} — remove it first to re-eject`,
     );
@@ -677,9 +655,9 @@ export async function ejectSkill(
 
 /** Best-effort: ensure a freshly-copied tree is writable (recursively). */
 async function chmodWritable(dir: string): Promise<void> {
-  try {
+  await bestEffortFs(async () => {
     await Deno.chmod(dir, 0o755);
-    for await (const entry of Deno.readDir(dir)) {
+    for (const entry of await readDirIfExists(dir) ?? []) {
       const path = join(dir, entry.name);
       if (entry.isDirectory) {
         await chmodWritable(path);
@@ -687,9 +665,11 @@ async function chmodWritable(dir: string): Promise<void> {
         await Deno.chmod(path, 0o644);
       }
     }
-  } catch {
-    // best-effort; an un-chmod-able file is still readable/editable on most hosts
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "An un-chmod-able ejected skill remains readable or editable on most hosts.",
+  });
 }
 
 /** Claude Code's provider skills directory, for callers that report or clean it.
@@ -848,7 +828,7 @@ async function checkSkillsDir(
   const managed = new Map(effective.map((e) => [e.name, e]));
 
   // Whole dir absent → missing (non-blocking), and only when something is expected.
-  if (await lstat(abs) === undefined) {
+  if (await lstatIfExists(abs) === undefined) {
     if (effective.length > 0) {
       drift.push({
         dir: rel,

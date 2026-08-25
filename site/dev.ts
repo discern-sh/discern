@@ -9,6 +9,7 @@ import {
 import { handler } from "./serve.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
 import { fromFileUrl, join } from "@std/path";
+import { statIfExists } from "../src/shared/fs_presence.ts";
 
 const REPO_ROOT = new URL("../", import.meta.url);
 const REPO_ROOT_PATH = fromFileUrl(REPO_ROOT);
@@ -106,11 +107,7 @@ export function parseSiteDevPort(value: string | undefined): number {
 
 /** Discover the port discern assigned when this checkout is a linked worktree. */
 async function assignedWorktreePort(): Promise<number | undefined> {
-  try {
-    if (!(await Deno.stat(join(REPO_ROOT_PATH, ".git"))).isFile) {
-      return undefined;
-    }
-  } catch {
+  if (!(await statIfExists(join(REPO_ROOT_PATH, ".git")))?.isFile) {
     return undefined;
   }
   return (await resolveIdentity(REPO_ROOT_PATH, REPO_ROOT_PATH)).port;

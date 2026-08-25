@@ -1,6 +1,7 @@
 /** Execute the binary-only release seams before an artifact can be uploaded. */
 
-import { ensureDir, exists } from "@std/fs";
+import { ensureDir } from "@std/fs";
+import { fileExists, targetExists } from "../src/shared/fs_presence.ts";
 import { fromFileUrl, isAbsolute, join, resolve } from "@std/path";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { FIRST_PARTY_LEGAL_DOCUMENTS } from "../src/shared/license_registry.ts";
@@ -54,6 +55,7 @@ function resultEnvelope(
   } catch (error) {
     throw new Error(
       `${label} returned invalid JSON: ${String(error)}\n${stdout}`,
+      { cause: error },
     );
   }
   if (!isRecord(value) || value.ok !== true) {
@@ -149,7 +151,7 @@ export async function smokeReleaseBinary(
   expectedVersion: string,
 ): Promise<void> {
   const binary = isAbsolute(binaryPath) ? binaryPath : resolve(binaryPath);
-  if (!(await exists(binary, { isFile: true }))) {
+  if (!(await fileExists(binary))) {
     throw new Error(`release binary does not exist: ${binary}`);
   }
 
@@ -241,7 +243,7 @@ export async function smokeReleaseBinary(
         join(SOURCE_PATHS.map.defaultPath, "README.md"),
       ]
     ) {
-      if (!(await exists(join(project, relative)))) {
+      if (!(await targetExists(join(project, relative)))) {
         throw new Error(`compiled setup did not scaffold ${relative}`);
       }
     }
@@ -250,7 +252,7 @@ export async function smokeReleaseBinary(
       throw new Error("compiled setup left an unresolved template token");
     }
     for (const document of FIRST_PARTY_LEGAL_DOCUMENTS) {
-      if (await exists(join(project, document.path))) {
+      if (await targetExists(join(project, document.path))) {
         throw new Error(
           `compiled setup materialized legal file ${document.path}`,
         );

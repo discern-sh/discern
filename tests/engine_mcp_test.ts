@@ -11,7 +11,7 @@ import {
   assertExists,
   assertStringIncludes,
 } from "@std/assert";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { basename, dirname, join } from "@std/path";
 import {
   CouplingOutputSchema,
@@ -2315,7 +2315,7 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
 
     const marker = join(worktree, "command.cwd");
     assert(
-      await exists(marker),
+      await targetExists(marker),
       "the gate passed but its project command ran outside the targeted worktree",
     );
     assertEquals(
@@ -2323,7 +2323,7 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
       await Deno.realPath(worktree),
     );
     assertEquals(
-      await exists(join(dir, "command.cwd")),
+      await targetExists(join(dir, "command.cwd")),
       false,
       "the worktree-targeted command leaked into the MCP server's main cwd",
     );
@@ -2365,7 +2365,7 @@ Deno.test("discern mcp: start then accept over ONE main-rooted session — the w
       JSON.stringify(started.result.structuredContent),
     );
     assert(
-      await exists(join(wtPath, "CLAUDE.md")),
+      await targetExists(join(wtPath, "CLAUDE.md")),
       "the created worktree is set up",
     );
     await commitWorktreeForAcceptance(wtPath);
@@ -2391,7 +2391,7 @@ Deno.test("discern mcp: start then accept over ONE main-rooted session — the w
     // accept removed the worktree it landed — proof it acted on the worktree, not the
     // (still-present) trunk.
     assertEquals(
-      await exists(wtPath),
+      await targetExists(wtPath),
       false,
       "accept removed the worktree directory",
     );
@@ -2425,7 +2425,7 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even
     });
     const started = await maker.recv();
     const wtPath = started.result.structuredContent.data.path as string;
-    assert(await exists(join(wtPath, "CLAUDE.md")), "worktree is set up");
+    assert(await targetExists(join(wtPath, "CLAUDE.md")), "worktree is set up");
     await commitWorktreeForAcceptance(wtPath);
     assertEquals(await maker.close(), 0);
 
@@ -2463,7 +2463,11 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even
       typeof landedRoot === "string" && landedRoot.length > 0,
       JSON.stringify(landed.result.structuredContent),
     );
-    assertEquals(await exists(wtPath), false, "accept removed the worktree");
+    assertEquals(
+      await targetExists(wtPath),
+      false,
+      "accept removed the worktree",
+    );
 
     // The headline: a subsequent call with NO `path` must follow the re-aimed working
     // root to the MAIN CHECKOUT — not the removed worktree. Without the held-root-missing
@@ -2539,7 +2543,7 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
       worktree_removed: true,
       branch_deleted: false,
     });
-    assertEquals(await exists(worktree), false);
+    assertEquals(await targetExists(worktree), false);
     assertEquals(
       working.get(),
       canonicalRoot,
@@ -2634,8 +2638,12 @@ Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held
       false,
       JSON.stringify(landed.result),
     );
-    assertEquals(await exists(other), false, "the OTHER worktree was removed");
-    assert(await exists(held), "the held worktree is untouched");
+    assertEquals(
+      await targetExists(other),
+      false,
+      "the OTHER worktree was removed",
+    );
+    assert(await targetExists(held), "the held worktree is untouched");
 
     // The held root survived — a no-path call still operates on it, NOT the main checkout
     // (it wasn't the one removed, so §2's one-call-override rule holds).
@@ -2740,7 +2748,10 @@ Deno.test("discern mcp: discern_accept without confirmed refuses read-only with 
       (refused.result.structuredContent.hints ?? []).length >= 1,
       JSON.stringify(refused.result.structuredContent),
     );
-    assert(await exists(wtPath), "the refusal must not remove the worktree");
+    assert(
+      await targetExists(wtPath),
+      "the refusal must not remove the worktree",
+    );
 
     // confirmed: true over the same connection lands it — the byte-identical
     // success path, gated only by the attestation.
@@ -2765,7 +2776,7 @@ Deno.test("discern mcp: discern_accept without confirmed refuses read-only with 
       "landed with conversation consent",
     );
     assertEquals(
-      await exists(wtPath),
+      await targetExists(wtPath),
       false,
       "a confirmed accept lands and removes the worktree",
     );
@@ -4332,7 +4343,7 @@ async function startInFlightFinish(
   });
   const pidFile = join(dir, "gate.pid");
   await pollUntil(
-    async () => await exists(pidFile),
+    async () => await targetExists(pidFile),
     "the gate's check job to start",
   );
   const jobPid = Number((await Deno.readTextFile(pidFile)).trim());

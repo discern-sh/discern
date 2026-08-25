@@ -30,6 +30,7 @@ import {
 } from "../scripts/contributor_agreement.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { fileExists, targetExists } from "../src/shared/fs_presence.ts";
 
 const CONTRIBUTING = join(REPO_ROOT, "CONTRIBUTING.md");
 const INDIVIDUAL_CLA = join(REPO_ROOT, "CLA.md");
@@ -60,9 +61,8 @@ async function assertFile(
   source: string,
   line: number,
 ): Promise<void> {
-  const info = await Deno.stat(path).catch(() => undefined);
   assert(
-    info?.isFile,
+    await fileExists(path),
     `${relative(REPO_ROOT, source)}:${line} links to missing file ${
       relative(REPO_ROOT, path)
     }`,
@@ -226,10 +226,7 @@ Deno.test("the hosted assistant accepts the individual agreement without a repos
     !hostedPaths.has(CORPORATE_CONTRIBUTOR_AGREEMENT.repoPath),
     "the hosted assistant must accept only the individual agreement",
   );
-  assertEquals(
-    await Deno.stat(RETIRED_CLA_WORKFLOW).catch(() => undefined),
-    undefined,
-  );
+  assertEquals(await targetExists(RETIRED_CLA_WORKFLOW), false);
 });
 
 const OFFERED_FLAG =

@@ -72,6 +72,8 @@ A runnable discern command inside a hint uses a typed reference ([ADR 0217](../_
 
 Runtime schemas stay strict. The generated schema admits additive fields and publishes current error slugs as metadata, so an older version-1 consumer accepts a compatible release ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)). [`result_codegen_test.ts`](../../../tests/result_codegen_test.ts) fails when committed artifacts or command enrollment drift ([ADR 0097](../_adr/0097-publish-json-result-contracts.md)).
 
+Git divergence fields use a non-negative integer for a verified count and the literal `"unknown"` for a failed or malformed count read. A factual zero remains numeric; status fields that accept `null` reserve it for a missing comparison target. This is a pre-release correction to the live version-1 result publication, with consumer migration required for code that previously assumed every present value was numeric ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)).
+
 ## Protocol adapters
 
 [`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. `MCP_SHELL_ONLY_VERBS`, declared beside `TOOLS` with a reason per member, records the verbs without a tool. The parity guard reconciles the registries against the verb vocabulary. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).

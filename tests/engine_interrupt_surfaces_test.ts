@@ -24,6 +24,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
+import { bestEffortFs } from "../src/shared/fs_presence.ts";
 import {
   INTERRUPT_SIGNALS,
   SIGNAL_EXIT_CODES,
@@ -229,7 +230,7 @@ async function assertInterruptStopsTree(
 
       await waitForSurfaceStart(
         () => {
-          try {
+          return bestEffortFs(() => {
             leaderPid = Number(
               Deno.readTextFileSync(run.leaderPidFile).trim(),
             );
@@ -243,9 +244,11 @@ async function assertInterruptStopsTree(
               Number.isFinite(descendantPid) && descendantPid > 0 &&
               (run.portFile === undefined ||
                 (Number.isFinite(serverPort) && (serverPort ?? 0) > 0));
-          } catch {
-            return false;
-          }
+          }, {
+            onFailure: false,
+            reason:
+              "The readiness poll retries until its child-process marker files are complete.",
+          });
         },
         statusPromise,
         drained,

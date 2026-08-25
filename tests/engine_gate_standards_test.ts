@@ -33,6 +33,7 @@ import { planStandardJobsFromConfig } from "../src/engine/gate/standards_gate.ts
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 
 interface JsonStep {
   kind: string;
@@ -324,8 +325,11 @@ Deno.test('tier 2: measure = "on-demand" defers the measurement but never the li
     const obj = parseGateJson(green.stdout);
     const entry = obj.data?.standards?.find((s) => s.name === "cov");
     assertEquals(entry?.measurement, "deferred");
-    const flag = await Deno.stat(join(dir, "measured.flag")).catch(() => null);
-    assertEquals(flag, null, "a deferred standard must not run its command");
+    assertEquals(
+      await targetExists(join(dir, "measured.flag")),
+      false,
+      "a deferred standard must not run its command",
+    );
     assertHasHint(obj, HINTS["gate-deferred-standards"], { names: ["cov"] });
 
     // Tier 1 still covers it: loosening the deferred standard's limit fails.
@@ -497,8 +501,11 @@ Deno.test("prepare never measures a standard", async () => {
 
     const r = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const flag = await Deno.stat(join(dir, "prepared.flag")).catch(() => null);
-    assertEquals(flag, null, "prepare must not run a standard's measurement");
+    assertEquals(
+      await targetExists(join(dir, "prepared.flag")),
+      false,
+      "prepare must not run a standard's measurement",
+    );
     const obj = JSON.parse(r.stdout.trim()) as { steps?: JsonStep[] };
     const step = (obj.steps ?? []).find((s) => s.label.startsWith("standard:"));
     assertEquals(step, undefined, r.stdout);

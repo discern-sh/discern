@@ -169,14 +169,10 @@ async function measureExtent(
   for (const rel of files) {
     const path = `${root}/${rel}`;
     if (measure === "bytes") {
-      const st = await Deno.stat(path).catch(() => undefined);
-      if (st) total += st.size;
+      total += (await Deno.stat(path)).size;
       continue;
     }
-    const text = await Deno.readTextFile(path).catch(() => undefined);
-    if (text === undefined) {
-      continue;
-    }
+    const text = await Deno.readTextFile(path);
     total += measure === "lines"
       ? (text.match(/\n/g) ?? []).length
       : text.split(/\s+/).filter((t) => t !== "").length;

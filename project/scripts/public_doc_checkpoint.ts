@@ -18,6 +18,7 @@ import type { CheckpointWhenInput } from "../../src/shared/checkpoints.ts";
 import { parseConfig } from "../../src/shared/config_schema.ts";
 import { normalizeMapDir } from "../../src/shared/map_path.ts";
 import { resolveContainedProjectReadPath } from "../../src/shared/project_path.ts";
+import { lstatIfExists } from "../../src/shared/fs_presence.ts";
 import { type GitResult, runGit } from "../../src/shared/subprocess.ts";
 import { parseFrontmatter } from "../../src/lib/frontmatter.ts";
 import { type DocEntry, isPublicDoc } from "../../src/lib/docs.ts";
@@ -164,7 +165,7 @@ async function currentPage(root: string, path: string): Promise<BoundedText> {
   if (absolute === undefined) {
     return fail(`${path} does not resolve inside the candidate worktree`);
   }
-  const info = await Deno.lstat(absolute).catch(() => undefined);
+  const info = await lstatIfExists(absolute);
   if (info === undefined || !info.isFile) {
     return fail(`${path} is not a regular candidate-worktree file`);
   }

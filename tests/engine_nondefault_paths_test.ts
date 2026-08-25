@@ -10,7 +10,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { exists, walk } from "@std/fs";
+import { walk } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import {
   SOURCE_PATH_NAMES,
@@ -83,7 +84,7 @@ Deno.test("engine on non-default paths: refresh compiles instructions and render
 
     // The authored skill from the repointed dir is symlinked live.
     assert(
-      await exists(join(dir, ".claude/skills/my-alt-skill/SKILL.md")),
+      await targetExists(join(dir, ".claude/skills/my-alt-skill/SKILL.md")),
       `authored skill from ${skillsDir} must materialize\n${r.output}`,
     );
   });

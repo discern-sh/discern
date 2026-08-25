@@ -12,6 +12,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { fileExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
@@ -616,13 +617,3 @@ Deno.test("setup accept conflicting changes are refused and stepped aside, leavi
     assertEquals(await gitOut(dir, "status", "--porcelain"), "");
   });
 });
-
-/** True when `path` exists. */
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}

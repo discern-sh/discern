@@ -19,6 +19,7 @@ import {
 import { checkInstructionCurrent } from "../src/engine/instruction_render.ts";
 import { readLogbookStream } from "../src/engine/logbook/read.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { pathExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   gitInit,
@@ -97,19 +98,6 @@ async function writeFile(
   const absolute = join(root, path);
   await ensureDir(dirname(absolute));
   await Deno.writeTextFile(absolute, contents);
-}
-
-/** Distinguish a missing generated artifact from other filesystem failures. */
-async function exists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return false;
-    }
-    throw error;
-  }
 }
 
 /** Current tracked worktree patch, including binary metadata when present. */
@@ -570,7 +558,7 @@ Deno.test("generated gate: dry-run lists generators without running them; prepar
     assertEquals(planned?.label, "generated:reference");
     assertEquals(planned?.disposition, "run");
     assertEquals(planned?.group, "Build");
-    assertEquals(await exists(join(dir, "generator-ran.txt")), false);
+    assertEquals(await pathExists(join(dir, "generator-ran.txt")), false);
 
     const rendered = await runAgent(dir, ["done", "--dry-run"]);
     assertEquals(rendered.code, 0, rendered.output);
@@ -578,7 +566,7 @@ Deno.test("generated gate: dry-run lists generators without running them; prepar
 
     const prepare = await runAgent(dir, ["prepare", "--json"]);
     assertEquals(prepare.code, 0, prepare.output);
-    assertEquals(await exists(join(dir, "generator-ran.txt")), true);
+    assertEquals(await pathExists(join(dir, "generator-ran.txt")), true);
     assertEquals(
       await Deno.readTextFile(join(dir, "generated/reference.txt")),
       "current\nx",

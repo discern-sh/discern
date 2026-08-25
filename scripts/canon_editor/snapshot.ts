@@ -13,6 +13,7 @@
 import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
+import { bestEffortFs } from "../../src/shared/fs_presence.ts";
 import { markerAnnotator, setProseAnnotator, slugify } from "./annotation.ts";
 import { REPO_ROOT } from "./root.ts";
 import {
@@ -694,7 +695,7 @@ async function buildStandards(): Promise<StandardReading[]> {
   const readings: StandardReading[] = [
     { name: "plain_reading_grade", value: plainReadingGrade() },
   ];
-  try {
+  await bestEffortFs(async () => {
     const config = parseToml(
       await Deno.readTextFile(join(REPO_ROOT, "discern.toml")),
     ) as Record<string, unknown>;
@@ -713,9 +714,11 @@ async function buildStandards(): Promise<StandardReading[]> {
         Object.assign(reading, { direction });
       }
     }
-  } catch {
-    // The editor degrades to valueless readings when the config is unreadable.
-  }
+  }, {
+    onFailure: undefined,
+    reason:
+      "The editor can still render its snapshot without advisory standard limits.",
+  });
   return readings;
 }
 

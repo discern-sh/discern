@@ -1579,8 +1579,8 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
     const rowProof = object(entry.gate_proof);
     return `${code(rowBranch)}: ${
       boolean(entry.clean) === true ? "clean" : "dirty"
-    }, ${number(entry.ahead) ?? 0} ahead, ${
-      number(entry.behind) ?? 0
+    }, ${number(entry.ahead) ?? "unknown"} ahead, ${
+      number(entry.behind) ?? "unknown"
     } behind, Proof ${code(text(rowProof?.status) ?? "unknown")}.`;
   });
   const fleetDropFacts = fleet.slice(0, MAX_LIST_ITEMS).flatMap((entry) => {
@@ -1709,7 +1709,7 @@ const presentUpdate: ResultMarkdownPresenter = (result) => {
         } affecting ${plural(files, "file")}.`,
     ),
     evidence: unique([
-      `Behind before update: ${number(data.behind) ?? 0}.`,
+      `Behind before update: ${number(data.behind) ?? "unknown"}.`,
       listFact("Semantic overlap to re-read", overlap),
       listFact("Incoming scopes", strings(data.scopes_incoming)),
       listFact("Auto-resolved generated paths", strings(data.auto_resolved)),

@@ -17,7 +17,8 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { basename, dirname, fromFileUrl, join } from "@std/path";
-import { copy, exists } from "@std/fs";
+import { copy } from "@std/fs";
+import { readTextIfExists, targetExists } from "../src/shared/fs_presence.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import {
   formatMarkdownText,
@@ -156,7 +157,7 @@ async function commitInstructionMarker(
 ): Promise<void> {
   const instructions = join(wt, "discern/instructions.md");
   await Deno.mkdir(join(wt, "discern"), { recursive: true });
-  const existing = await Deno.readTextFile(instructions).catch(() => "");
+  const existing = (await readTextIfExists(instructions)) ?? "";
   await Deno.writeTextFile(
     instructions,
     await formatMarkdownText(
@@ -198,11 +199,11 @@ Deno.test("worktree setup: refreshes agent files and links skills inside the wor
     const r = await runAgent(wt, ["worktree", "setup"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(wt, "CLAUDE.md")),
+      await targetExists(join(wt, "CLAUDE.md")),
       `CLAUDE.md missing\n${r.output}`,
     );
     assert(
-      await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
+      await targetExists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
       `bundled skills not linked in the worktree\n${r.output}`,
     );
     assertTerminalTextIncludes(r.output, "Worktree setup complete");
@@ -299,13 +300,13 @@ Deno.test("accept: fast-forwards the trunk, removes the worktree, deletes the me
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       false,
       `worktree should be removed\n${r.output}`,
     );
     // The work landed on the trunk itself, which stays checked out in main…
     assert(
-      await exists(join(dir, "feature.txt")),
+      await targetExists(join(dir, "feature.txt")),
       `work not fast-forwarded onto the trunk\n${r.output}`,
     );
     assertEquals(
@@ -329,11 +330,11 @@ Deno.test("accept: materializes only checkout-local artifacts after landing", as
     const marker = "Trunk Acceptance Refresh";
     await commitInstructionMarker(wt, marker);
     const localSkills = join(dir, ".claude/skills");
-    if (await exists(localSkills)) {
+    if (await targetExists(localSkills)) {
       await Deno.remove(localSkills, { recursive: true });
     }
     assertEquals(
-      await exists(join(dir, ".claude/skills")),
+      await targetExists(join(dir, ".claude/skills")),
       false,
       "precondition: the receiving checkout needs local skill materialization",
     );
@@ -364,7 +365,7 @@ Deno.test("accept: materializes only checkout-local artifacts after landing", as
     );
     await assertLandedInstructionCurrent(dir, marker);
     assert(
-      await exists(
+      await targetExists(
         join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
       ),
       "acceptance should materialize ignored skills in the receiving checkout",
@@ -410,7 +411,7 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
       const run = await runAgent(wt, ["accept", "--confirmed", "--json"]);
       assertEquals(run.code, 0, run.output);
       assertEquals(
-        await exists(wt),
+        await targetExists(wt),
         false,
         "accept still removes the worktree",
       );
@@ -499,7 +500,7 @@ Deno.test("accept: records a post-landing smoke failure without skipping cleanup
 
     const run = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(run.code, 0, run.output);
-    assertEquals(await exists(wt), false, "cleanup removes the worktree");
+    assertEquals(await targetExists(wt), false, "cleanup removes the worktree");
     assertEquals(
       await gitOut(dir, "branch", "--list", "agent/trunk-smoke-failure"),
       "",
@@ -549,7 +550,7 @@ Deno.test("accept: malformed tracked refresh input is refused before landing", a
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 1, r.output);
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       true,
       `the refused worktree must remain intact\n${r.output}`,
     );
@@ -559,7 +560,7 @@ Deno.test("accept: malformed tracked refresh input is refused before landing", a
       `the trunk must remain checked out\n${r.output}`,
     );
     assertEquals(
-      await exists(join(dir, ".mcp.json")),
+      await targetExists(join(dir, ".mcp.json")),
       false,
       "the malformed branch file must not reach the trunk checkout",
     );
@@ -585,7 +586,7 @@ Deno.test("accept: refuses a dirty worktree without moving anything", async () =
       "never creates a work-in-progress commit",
     );
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       true,
       `dirty worktree must stay in place\n${r.output}`,
     );
@@ -629,7 +630,11 @@ Deno.test("accept: refuses a locked worktree at plan time, before anything moves
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "locked");
     assertTerminalTextIncludes(r.output, "git worktree unlock");
-    assertEquals(await exists(wt), true, `the worktree survives\n${r.output}`);
+    assertEquals(
+      await targetExists(wt),
+      true,
+      `the worktree survives\n${r.output}`,
+    );
     assertEquals(
       await gitOut(dir, "rev-parse", "main"),
       trunkBefore,
@@ -688,7 +693,7 @@ Deno.test("accept: refuses when the main checkout is parked off the trunk, namin
       "switch main` — then re-run `discern accept`",
     );
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       true,
       `off-trunk refusal must leave the worktree intact\n${r.output}`,
     );
@@ -714,7 +719,7 @@ Deno.test("accept refuses (non-destructively) when the main checkout is dirty", 
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.output, "uncommitted tracked changes");
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       true,
       "worktree must be left intact on refusal",
     );
@@ -736,11 +741,11 @@ Deno.test("accept ignores untracked local scratch in the main checkout clean pre
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(join(dir, "feature.txt")),
+      await targetExists(join(dir, "feature.txt")),
       `branch not landed into main\n${r.output}`,
     );
     assert(
-      await exists(join(dir, ".codex/session.local.toml")),
+      await targetExists(join(dir, ".codex/session.local.toml")),
       "the main checkout's local scratch file should be left alone",
     );
   });
@@ -761,7 +766,7 @@ Deno.test("accept: refuses a branch behind main before dirty-tree handling or re
     assertTerminalTextIncludes(r.output, "behind the trunk (main)");
     assertTerminalTextIncludes(r.output, "discern update");
     assert(
-      await exists(wt),
+      await targetExists(wt),
       `behind-main refusal must leave the worktree intact\n${r.output}`,
     );
     assertEquals(
@@ -810,7 +815,7 @@ Deno.test("accept: refuses when main moves during the gate before teardown or re
     assertTerminalTextIncludes(r.output, "behind the trunk (main)");
     assertTerminalTextIncludes(r.output, "discern update");
     assert(
-      await exists(wt),
+      await targetExists(wt),
       `post-gate trunk-race refusal must leave the worktree intact\n${r.output}`,
     );
     assertEquals(await gitOut(wt, "rev-parse", "HEAD"), branchHead);
@@ -1014,7 +1019,7 @@ Deno.test("update: behind main fast-forwards and re-materializes the agent files
     assertTerminalTextIncludes(r.output, "Update complete");
     // The merge brought main's commit in…
     assert(
-      await exists(join(wt, "upstream.txt")),
+      await targetExists(join(wt, "upstream.txt")),
       `main was not merged into the worktree\n${r.output}`,
     );
     assertEquals(
@@ -1041,7 +1046,7 @@ Deno.test("update: behind main fast-forwards and re-materializes the agent files
     );
     // Skills are (re)materialized into the worktree by the same refresh.
     assert(
-      await exists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
+      await targetExists(join(wt, ".claude/skills/discern-write-adr/SKILL.md")),
       `skills not materialized by update\n${r.output}`,
     );
   });
@@ -1066,11 +1071,11 @@ Deno.test("update: ignores untracked local scratch when checking whether the wor
     assertEquals(r.code, 0, r.output);
     assertTerminalTextIncludes(r.output, "Fast-forwarded to main");
     assert(
-      await exists(join(wt, "upstream.txt")),
+      await targetExists(join(wt, "upstream.txt")),
       `main was not merged into the worktree\n${r.output}`,
     );
     assert(
-      await exists(join(wt, ".codex/session.local.toml")),
+      await targetExists(join(wt, ".codex/session.local.toml")),
       "the local scratch file should be left alone",
     );
   });
@@ -1096,11 +1101,11 @@ Deno.test("update: refuses (non-destructively) when the worktree is dirty", asyn
     assertTerminalTextIncludes(r.output, "Commit or stash");
     // The tree is untouched: the dirty file stays, and main was NOT merged in.
     assert(
-      await exists(join(wt, "wip.txt")),
+      await targetExists(join(wt, "wip.txt")),
       "the dirty file must be left intact",
     );
     assertEquals(
-      await exists(join(wt, "upstream.txt")),
+      await targetExists(join(wt, "upstream.txt")),
       false,
       `main must not be merged into a dirty worktree\n${r.output}`,
     );
@@ -1150,7 +1155,7 @@ Deno.test("update --dry-run: previews the merge + refresh and touches nothing", 
     assertTerminalTextIncludes(r.output, "Behind by: 1");
     // The preview merged nothing — main's commit is still absent in the worktree.
     assertEquals(
-      await exists(join(wt, "upstream.txt")),
+      await targetExists(join(wt, "upstream.txt")),
       false,
       `--dry-run must not merge\n${r.output}`,
     );
@@ -1175,7 +1180,7 @@ Deno.test("update end-to-end: a behind finish points at update, which then unblo
     const integ = await runAgent(wt, ["update"]);
     assertEquals(integ.code, 0, integ.output);
     assert(
-      await exists(join(wt, "upstream.txt")),
+      await targetExists(join(wt, "upstream.txt")),
       `update did not merge main\n${integ.output}`,
     );
 
@@ -1218,7 +1223,7 @@ Deno.test("worktree prune --yes reclaims a fully-merged worktree", async () => {
     const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       false,
       `fully-merged worktree should be pruned\n${r.output}`,
     );
@@ -1237,7 +1242,7 @@ Deno.test("worktree prune keeps a sibling worktree that still has unmerged work"
     const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
-      await exists(live),
+      await targetExists(live),
       true,
       `a live, unmerged worktree must NOT be pruned\n${r.output}`,
     );
@@ -1275,14 +1280,14 @@ Deno.test("status and worktree prune keep a fully-merged worktree with uncommitt
     assertEquals(dry.code, 0, dry.output);
     assertTerminalTextIncludes(dry.output, "(nothing to do)");
     assert(
-      await exists(dirty),
+      await targetExists(dirty),
       `dry-run prune must not remove the dirty worktree\n${dry.output}`,
     );
 
     const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(dirty),
+      await targetExists(dirty),
       `dirty merged worktree must not be pruned\n${r.output}`,
     );
     assertTerminalTextIncludes(r.output, "dirty 2 status entries");
@@ -1321,7 +1326,7 @@ Deno.test("worktree prune --yes keeps a clean detached worktree whose HEAD is no
     const r = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(r.code, 0, r.output);
     assert(
-      await exists(detached),
+      await targetExists(detached),
       `detached unmerged worktree must not be pruned\n${r.output}`,
     );
     assertTerminalTextIncludes(r.output, "detached HEAD has unmerged commits");
@@ -1373,7 +1378,7 @@ Deno.test("start: from the main checkout creates a set-up sibling worktree and r
     assertEquals(path, worktreePath(realDir, id));
     // It is genuinely set up: setup materialized the agent files inside the worktree.
     assert(
-      await exists(join(path, "CLAUDE.md")),
+      await targetExists(join(path, "CLAUDE.md")),
       `setup didn't run in ${path}`,
     );
     // …and it is checked out on its own branch.
@@ -1487,7 +1492,7 @@ Deno.test("start: refuses from inside a worktree (main-checkout-only)", async ()
     assertEquals(result.error, "precondition_failed");
     // It must NOT have created a nested worktree of its own.
     assertEquals(
-      await exists(`${wt}.worktrees`),
+      await targetExists(`${wt}.worktrees`),
       false,
       "refusal must touch nothing",
     );
@@ -1508,11 +1513,11 @@ Deno.test("start: mints a fresh, unique id on each call (never re-mints a live w
     assert(first.path !== second.path, "each start lands in its own directory");
     // Both worktrees exist, fully set up, on distinct branches.
     assert(
-      await exists(join(first.path, "CLAUDE.md")),
+      await targetExists(join(first.path, "CLAUDE.md")),
       "first worktree set up",
     );
     assert(
-      await exists(join(second.path, "CLAUDE.md")),
+      await targetExists(join(second.path, "CLAUDE.md")),
       "second worktree set up",
     );
     assertEquals(
@@ -1548,7 +1553,7 @@ Deno.test("start --dry-run: previews creating a worktree and touches nothing", a
     assertEquals(result.plan.title, "Start plan");
     // A dry-run mints an id for the preview but creates no worktree at all.
     assertEquals(
-      await exists(`${dir}.worktrees`),
+      await targetExists(`${dir}.worktrees`),
       false,
       `dry-run must not create the sibling worktree root\n${r.output}`,
     );
@@ -1805,7 +1810,7 @@ Deno.test("worktree setup: a failing ensure at creation is fatal (aborts setup)"
       `a fatal ensure must abort setup\n${r.output}`,
     );
     assertEquals(
-      await exists(join(wt, "CLAUDE.md")),
+      await targetExists(join(wt, "CLAUDE.md")),
       false,
       "the agent-file refresh must not run after a fatal ensure",
     );
@@ -1832,7 +1837,7 @@ Deno.test("update: re-runs [worktree.setup].ensure after the merge", async () =>
       assertEquals(r.code, 0, r.output);
       assertTerminalTextIncludes(r.output, "Update complete");
       assert(
-        await exists(join(wt, "upstream.txt")),
+        await targetExists(join(wt, "upstream.txt")),
         `merge landed\n${r.output}`,
       );
       assertEquals(
@@ -1949,7 +1954,10 @@ Deno.test("update: a failing ensure is recorded but never undoes the merge", asy
     const r = await runAgent(wt, ["update", "--json"]);
     // Non-fatal: the failed ensure does not abort or undo the landed merge.
     assertEquals(r.code, 0, r.output);
-    assert(await exists(join(wt, "upstream.txt")), "the merge must be kept");
+    assert(
+      await targetExists(join(wt, "upstream.txt")),
+      "the merge must be kept",
+    );
     const result = JSON.parse(r.stdout) as {
       ok: boolean;
       steps: Array<{ kind: string; label: string; outcome: string }>;
@@ -2006,7 +2014,10 @@ Deno.test("update: a partial refresh is recorded but never undoes the merge", as
 
     const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assert(await exists(join(wt, "upstream.txt")), "the merge must be kept");
+    assert(
+      await targetExists(join(wt, "upstream.txt")),
+      "the merge must be kept",
+    );
     const result = JSON.parse(r.stdout) as {
       ok: boolean;
       steps: Array<{ kind: string; label: string; outcome: string }>;

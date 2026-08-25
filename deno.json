@@ -128,7 +128,10 @@
     ]
   },
   "lint": {
-    "plugins": ["./scripts/function_docblock_lint.ts"],
+    "plugins": [
+      "./scripts/error_cause_lint.ts",
+      "./scripts/function_docblock_lint.ts"
+    ],
     "rules": {
       "include": [
         "eqeqeq",

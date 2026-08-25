@@ -44,6 +44,11 @@ import { isScopeMarker } from "../scopes/scopes.ts";
 import { taskLabel } from "../worktree/task_label.ts";
 import { isReadyToLand } from "../worktree/readiness.ts";
 import { notApplicableCountLabel } from "../../shared/setup_assurance.ts";
+import {
+  type GitCount,
+  isPositiveGitCount,
+  UNKNOWN_GIT_COUNT,
+} from "../../shared/git_count.ts";
 
 /** Very wide terminals still get a report whose related fields stay together. */
 export const STATUS_REPORT_MAX_WIDTH = 104;
@@ -289,12 +294,20 @@ function rowIdentity(entry: StatusFleetEntry): RowIdentity {
 
 /** Render nonzero ahead/behind dimensions as directional counts. */
 function divergence(
-  ahead: number | undefined,
-  behind: number | undefined,
+  ahead: GitCount | undefined,
+  behind: GitCount | undefined,
 ): string {
   return [
-    ...((ahead ?? 0) > 0 ? [`↑${ahead}`] : []),
-    ...((behind ?? 0) > 0 ? [`↓${behind}`] : []),
+    ...(ahead === UNKNOWN_GIT_COUNT
+      ? ["↑?"]
+      : ahead !== undefined && isPositiveGitCount(ahead)
+      ? [`↑${ahead}`]
+      : []),
+    ...(behind === UNKNOWN_GIT_COUNT
+      ? ["↓?"]
+      : behind !== undefined && isPositiveGitCount(behind)
+      ? [`↓${behind}`]
+      : []),
   ].join(" ");
 }
 
@@ -314,7 +327,10 @@ function gitPresentation(entry: StatusFleetEntry): string {
 /** Semantic tone for the subordinate Git fact. */
 function gitTone(entry: StatusFleetEntry): FleetRowTone {
   if (entry.broken === true || entry.git_unavailable === true) return "red";
-  if (entry.clean === false || (entry.behind ?? 0) > 0) return "yellow";
+  if (
+    entry.clean === false || entry.behind === UNKNOWN_GIT_COUNT ||
+    (entry.behind !== undefined && isPositiveGitCount(entry.behind))
+  ) return "yellow";
   return "dim";
 }
 
@@ -435,15 +451,21 @@ function classifyKind(
   const idleDays = idleDaysOf(entry.last_activity, nowMs);
   if (
     idleDays !== undefined && idleDays >= STALE_WORKTREE_DAYS &&
-    (entry.clean === false || (entry.ahead ?? 0) > 0)
+    (entry.clean === false ||
+      (entry.ahead !== undefined && isPositiveGitCount(entry.ahead)))
   ) return "stale";
   if (entry.clean === false) return "in-progress";
-  if ((entry.behind ?? 0) > 0) return "behind";
+  if (entry.behind !== undefined && isPositiveGitCount(entry.behind)) {
+    return "behind";
+  }
   if (ready) return "ready";
   if (proof.status === "read_failed") return "proof-unreadable";
   if (proof.status === "unavailable") return "proof-unavailable";
   if (proof.status === "stale") return "proof-stale";
-  if ((entry.ahead ?? 0) > 0 && proof.status !== "honored") {
+  if (
+    entry.ahead !== undefined && isPositiveGitCount(entry.ahead) &&
+    proof.status !== "honored"
+  ) {
     return "needs-gate";
   }
   return "idle";
@@ -479,7 +501,7 @@ function attentionFor(
         relativeAge(entry.last_action?.at, nowMs)
       }. Read its refusal and complete the named prerequisite.`;
     case "behind": {
-      const count = entry.behind ?? 0;
+      const count = typeof entry.behind === "number" ? entry.behind : 0;
       return `Run \`discern update\` in this worktree. Its branch is ${count} commit${
         count === 1 ? "" : "s"
       } behind ${trunk}.`;
@@ -677,11 +699,17 @@ function rowDivergence(
   unicode: boolean,
 ): string {
   const values = [
-    ...((row.entry.ahead ?? 0) > 0
-      ? [`${unicode ? "↑" : "+"}${row.entry.ahead ?? 0}`]
+    ...(row.entry.ahead === UNKNOWN_GIT_COUNT
+      ? [`${unicode ? "↑" : "+"}?`]
+      : row.entry.ahead !== undefined &&
+          isPositiveGitCount(row.entry.ahead)
+      ? [`${unicode ? "↑" : "+"}${row.entry.ahead}`]
       : []),
-    ...((row.entry.behind ?? 0) > 0
-      ? [`${unicode ? "↓" : "-"}${row.entry.behind ?? 0}`]
+    ...(row.entry.behind === UNKNOWN_GIT_COUNT
+      ? [`${unicode ? "↓" : "-"}?`]
+      : row.entry.behind !== undefined &&
+          isPositiveGitCount(row.entry.behind)
+      ? [`${unicode ? "↓" : "-"}${row.entry.behind}`]
       : []),
   ];
   return values.length === 0 ? unicode ? "—" : "-" : values.join(" ");

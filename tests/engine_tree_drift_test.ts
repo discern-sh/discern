@@ -17,7 +17,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { exists } from "@std/fs";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -442,7 +442,7 @@ for (const mutator of PRE_CHECKPOINT_MUTATORS) {
       // The doomed tail was cut: the check job serialized as skipped and its
       // sentinel never ran.
       assertEquals(stepFor(obj, "lint")?.outcome, "skipped");
-      assertEquals(await exists(join(dir, "check-ran.txt")), false);
+      assertEquals(await targetExists(join(dir, "check-ran.txt")), false);
     });
   });
 }
@@ -468,7 +468,7 @@ Deno.test("done: a tracked-dirty start skips the checkpoint — later jobs run, 
     assert(!diag.message.includes("wip.txt"), diag.message);
     // Full feedback: the check job really ran before the end-of-run verdict.
     assertEquals(stepFor(obj, "lint")?.outcome, "ok");
-    assertEquals(await exists(join(dir, "check-ran.txt")), true);
+    assertEquals(await targetExists(join(dir, "check-ran.txt")), true);
   });
 });
 
@@ -487,7 +487,7 @@ Deno.test("done: an untracked-dirty start is not proof-eligible — the checkpoi
     assertStringIncludes(diagFor(obj, "tree-drift").message, "data.txt");
     // No early abort: the check job ran to completion first.
     assertEquals(stepFor(obj, "lint")?.outcome, "ok");
-    assertEquals(await exists(join(dir, "check-ran.txt")), true);
+    assertEquals(await targetExists(join(dir, "check-ran.txt")), true);
   });
 });
 
@@ -535,7 +535,7 @@ Deno.test("done: a fixer edit the build stage restores does not trip the checkpo
     assertEquals(stepFor(obj, "format")?.outcome, "ok");
     assertEquals(await Deno.readTextFile(join(dir, "data.txt")), "committed\n");
     assertEquals(stepFor(obj, "lint")?.outcome, "ok");
-    assertEquals(await exists(join(dir, "check-ran.txt")), true);
+    assertEquals(await targetExists(join(dir, "check-ran.txt")), true);
   });
 });
 
@@ -674,7 +674,7 @@ Deno.test("done: the checkpoint keeps post-pre-group scope classification — th
     const gate = stepFor(obj, "scope:widget");
     assertEquals(gate?.disposition, "run");
     assertEquals(gate?.outcome, "skipped");
-    assertEquals(await exists(join(wt, "gate-ran.txt")), false);
+    assertEquals(await targetExists(join(wt, "gate-ran.txt")), false);
   });
 });
 
@@ -703,12 +703,12 @@ Deno.test("accept: refuses (non-destructively) when the fix stage would reformat
     assertTerminalTextIncludes(r.output, "fix stage");
     // Non-destructive: the worktree survives and the unformatted doc never reached main.
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       true,
       `worktree must survive the refusal\n${r.output}`,
     );
     assertEquals(
-      await exists(join(dir, "doc.md")),
+      await targetExists(join(dir, "doc.md")),
       false,
       "the unformatted doc must not reach main",
     );
@@ -733,7 +733,7 @@ Deno.test("accept: a fix-stage-clean branch lands normally", async () => {
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(
-      await exists(wt),
+      await targetExists(wt),
       false,
       `a clean branch should accept\n${r.output}`,
     );

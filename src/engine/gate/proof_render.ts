@@ -25,6 +25,11 @@
  */
 
 import { runGit } from "../../shared/subprocess.ts";
+import {
+  type GitCount,
+  gitCountFrom,
+  isKnownGitCount,
+} from "../../shared/git_count.ts";
 import type {
   CheckpointDropData,
   GateStandard,
@@ -401,12 +406,13 @@ export function renderProofMarkdown(
   return lines.join("\n");
 }
 
-/** The branch's commit count ahead of the trunk. Fails open to 0 (no trunk, no
- * repo, unreadable log) — and 0 means "nothing to proof". */
-async function commitsAheadCount(cwd: string, trunk: string): Promise<number> {
+/** The branch's commit count ahead of the trunk, retaining failed reads as unknown. */
+async function commitsAheadCount(
+  cwd: string,
+  trunk: string,
+): Promise<GitCount> {
   const r = await runGit(["rev-list", "--count", `${trunk}..HEAD`], { cwd });
-  const count = Number(r.stdout.trim());
-  return r.success && Number.isFinite(count) ? count : 0;
+  return gitCountFrom(r);
 }
 
 /**
@@ -445,10 +451,16 @@ export async function buildGateProof(
   if (!headRun.success || head === "") {
     return undefined;
   }
-  if ((await commitsAheadCount(root, trunk)) === 0) {
+  const ahead = await commitsAheadCount(root, trunk);
+  if (!isKnownGitCount(ahead) || ahead === 0) {
     return undefined;
   }
-  const delta = await diffFiles(root, `${trunk}...HEAD`, 0);
+  let delta: Awaited<ReturnType<typeof diffFiles>>;
+  try {
+    delta = await diffFiles(root, `${trunk}...HEAD`, 0);
+  } catch {
+    return undefined;
+  }
   const facts: ProofFacts = {
     branch,
     trunk,

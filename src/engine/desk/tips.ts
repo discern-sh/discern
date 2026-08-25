@@ -18,6 +18,7 @@ import {
   renderTipCli,
   type TipPredicate,
 } from "../../shared/tips.ts";
+import { isPositiveGitCount } from "../../shared/git_count.ts";
 
 /**
  * What a predicate may read: the status survey the desk already ran plus the
@@ -54,7 +55,9 @@ export function tipPredicateHolds(
           (entry) => entry.landing_authority?.kind !== "authorized",
         );
     case "branch-behind-trunk":
-      return efforts(ctx).some((entry) => (entry.behind ?? 0) > 0);
+      return efforts(ctx).some((entry) =>
+        entry.behind !== undefined && isPositiveGitCount(entry.behind)
+      );
     case "ready-to-review":
       return efforts(ctx).some((entry) => entry.proof_honored === true);
     case "contained-worktree":

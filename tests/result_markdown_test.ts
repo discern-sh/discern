@@ -145,6 +145,26 @@ function minimalStatusResult(): Record<string, unknown> {
   };
 }
 
+Deno.test("status Markdown preserves unknown Git counts instead of inventing zeroes", () => {
+  const result = minimalStatusResult();
+  const data = result.data as Record<string, unknown>;
+  const git = data.git as Record<string, unknown>;
+  git.ahead_trunk = "unknown";
+  git.behind_trunk = "unknown";
+  const fleet = data.fleet as Array<Record<string, unknown>>;
+  const current = fleet[1];
+  assert(current !== undefined);
+  current.ahead = "unknown";
+  current.behind = "unknown";
+
+  const markdown = renderResultMarkdown(
+    result,
+    resultPresenterForVerb("status"),
+  );
+  assertStringIncludes(markdown, "unknown ahead and unknown behind");
+  assertStringIncludes(markdown, "unknown ahead, unknown behind");
+});
+
 Deno.test("every public result contract selects an authored Markdown presenter", () => {
   for (const contract of CLI_JSON_RESULT_CONTRACTS) {
     assertEquals(typeof contract.presenter, "function", contract.id);

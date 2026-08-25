@@ -21,6 +21,7 @@ import {
 } from "./engine_helpers.ts";
 import { LOGBOOK_LIFECYCLE_ACTION_NAMES } from "../src/shared/logbook_lifecycle.ts";
 import { LOGBOOK_POWERED } from "../src/shared/logbook_powered.ts";
+import { pathExists } from "../src/shared/fs_presence.ts";
 import {
   GIT_ADMIN_STATE,
   GIT_ADMIN_STATE_KEYS,
@@ -118,19 +119,6 @@ async function seedActiveLogbook(dir: string): Promise<string> {
     }\n`,
   );
   return path;
-}
-
-/** Whether a filesystem entry currently exists. */
-async function exists(path: string): Promise<boolean> {
-  try {
-    await Deno.lstat(path);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return false;
-    }
-    throw error;
-  }
 }
 
 /** Assert the stable semantics of a Receipt check row while leaving its
@@ -329,11 +317,11 @@ Deno.test({
           );
           assertEquals(await Deno.readTextFile(active), before);
           assertEquals(
-            await exists(join(dir, ".git", "discern", "logbook-archives")),
+            await pathExists(join(dir, ".git", "discern", "logbook-archives")),
             false,
           );
           assertEquals(
-            await exists(logbookLifecycleLockPath(join(dir, ".git"))),
+            await pathExists(logbookLifecycleLockPath(join(dir, ".git"))),
             false,
             "cancellation must not create lifecycle state",
           );
@@ -476,7 +464,7 @@ Deno.test({
       assertStringIncludes(archived.output, "2026-07.jsonl");
       assertStringIncludes(archived.output, "2026-08.jsonl");
       assertStringIncludes(archived.output, "epoch.json");
-      assertEquals(await exists(activeDir), false);
+      assertEquals(await pathExists(activeDir), false);
 
       const archiveDir = logbookArchiveDir(common);
       const archiveNames: string[] = [];
@@ -774,24 +762,26 @@ Deno.test("archive sealing failure retains the detached source for recovery", as
     const raw = `${verbLine("2026-08-11T12:00:00.000Z")}\n`;
     await Deno.writeTextFile(join(active, "2026-08.jsonl"), raw);
     const filename = "logbook-20260811T143015Z.jsonl";
+    const sealFailure = new Error("injected seal failure");
     let error: unknown;
     try {
       await archiveLogbook(common, filename, {
-        seal: () => Promise.reject(new Error("injected seal failure")),
+        seal: () => Promise.reject(sealFailure),
       });
     } catch (caught) {
       error = caught;
     }
     assert(error instanceof LogbookLifecycleError);
+    assertEquals(error.cause, sealFailure);
     assertStringIncludes(error.message, "remains recoverable");
     assert(error.detachedPath !== undefined);
     assertEquals(
       await Deno.readTextFile(join(error.detachedPath, "2026-08.jsonl")),
       raw,
     );
-    assertEquals(await exists(active), false);
+    assertEquals(await pathExists(active), false);
     assertEquals(
-      await exists(join(logbookArchiveDir(common), filename)),
+      await pathExists(join(logbookArchiveDir(common), filename)),
       false,
     );
   });

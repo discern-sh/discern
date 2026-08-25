@@ -44,6 +44,11 @@ import {
 } from "./paths.ts";
 import { resolveEffectiveSkills } from "./skills.ts";
 import { discoverProjectScripts } from "../engine/project_scripts.ts";
+import {
+  directoryExists,
+  fileExists,
+  targetExists,
+} from "../shared/fs_presence.ts";
 
 /** The rules the documentation preflight enforces. */
 export const DOCS_INTEGRITY_RULES = [
@@ -107,29 +112,14 @@ function resolveTarget(from: string, path: string): string | undefined {
   }
 }
 
-/** True when `path` exists (any file type). */
-async function exists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** The Markdown file a link target names: itself, or its README when it is a
  * directory. Undefined when the target is not a Markdown page (an anchor on a
  * source file — `#L10` — has no heading contract to check). */
 async function asMarkdownPage(abs: string): Promise<string | undefined> {
   if (abs.toLowerCase().endsWith(".md")) return abs;
-  try {
-    if ((await Deno.stat(abs)).isDirectory) {
-      const readme = join(abs, "README.md");
-      await Deno.stat(readme);
-      return readme;
-    }
-  } catch {
-    return undefined;
+  if (await directoryExists(abs)) {
+    const readme = join(abs, "README.md");
+    return await fileExists(readme) ? readme : undefined;
   }
   return undefined;
 }
@@ -182,7 +172,7 @@ async function linkFindings(
         continue;
       }
       abs = resolved;
-      if (!(await exists(abs))) {
+      if (!(await targetExists(abs))) {
         findings.push({
           file: rel,
           line,

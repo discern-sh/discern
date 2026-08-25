@@ -27,6 +27,7 @@ import { isAbsolute, join, relative } from "@std/path";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { CONFIG_REL } from "../../shared/env.ts";
+import { statIfExists } from "../../shared/fs_presence.ts";
 import {
   type Diagnostic,
   type DiscernResult,
@@ -138,14 +139,7 @@ function displayPath(root: string, abs: string): string {
 
 /** Read file metadata while representing a missing target without throwing. */
 async function statOrMissing(path: string): Promise<Deno.FileInfo | undefined> {
-  try {
-    return await Deno.stat(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
+  return await statIfExists(path);
 }
 
 /** Check whether a relative path stays inside a configured directory boundary. */

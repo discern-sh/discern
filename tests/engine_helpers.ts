@@ -43,6 +43,7 @@ import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { fakeEnv, quietDenoRunArgs, REAL_TEMPLATES } from "./helpers.ts";
 import { suiteTempDir } from "./temp_dir.ts";
 import {
@@ -633,15 +634,8 @@ export async function writeConfig(dir: string, toml: string): Promise<void> {
 export async function convergeFixtureGitattributes(
   dir: string,
 ): Promise<void> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(join(dir, "discern.toml"));
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return;
-    }
-    throw error;
-  }
+  const text = await readTextIfExists(join(dir, "discern.toml"));
+  if (text === undefined) return;
   let config: ReturnType<typeof parseConfigOrThrow>;
   try {
     config = parseConfigOrThrow(text);

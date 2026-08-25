@@ -12,6 +12,7 @@ import {
   assertRejects,
 } from "@std/assert";
 import { join } from "@std/path";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -68,12 +69,7 @@ async function checkpointInputArtifacts(): Promise<string[]> {
 
 /** Read optional fixture evidence without manufacturing a missing file. */
 async function optionalText(path: string): Promise<string | undefined> {
-  try {
-    return await Deno.readTextFile(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return undefined;
-    throw error;
-  }
+  return await readTextIfExists(path);
 }
 
 /** Validate and narrow one black-box `checkpoints --json` envelope. */

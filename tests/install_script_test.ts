@@ -3,6 +3,7 @@
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 
 const INSTALL = fromFileUrl(new URL("../install.sh", import.meta.url));
 const GATE = new URL("../.github/workflows/gate.yml", import.meta.url);
@@ -145,7 +146,7 @@ esac
 
     return await fn({
       binDir,
-      downloaderLog: await Deno.readTextFile(downloaderLog).catch(() => ""),
+      downloaderLog: (await readTextIfExists(downloaderLog)) ?? "",
       stderr: DECODER.decode(result.stderr),
       stdout: DECODER.decode(result.stdout),
       success: result.success,

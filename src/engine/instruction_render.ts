@@ -47,6 +47,7 @@ import {
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { discoverDocs, docRegions } from "../lib/docs.ts";
 import { rebaseMarkdownLinks } from "../lib/markdown_links.ts";
+import { readTextIfExists } from "../shared/fs_presence.ts";
 
 /** Opaque insertion point owned by the map instruction renderer, not the template
  * language. Keeping it outside `{{...}}` preserves the shared config-only
@@ -204,15 +205,8 @@ async function builtinInstructions(
   const ctx = instructionContext(config);
   let out = "";
   for (const section of BUILTIN_SECTIONS) {
-    let text: string;
-    try {
-      text = await Deno.readTextFile(join(dir, section.file));
-    } catch (err) {
-      if (err instanceof Deno.errors.NotFound) {
-        continue;
-      }
-      throw err;
-    }
+    let text = await readTextIfExists(join(dir, section.file));
+    if (text === undefined) continue;
     text = renderInstructionTemplate(text, ctx);
     if (section.file === "map.md") {
       text = text.replaceAll(MAP_REGIONS_MARKER, mapRegions);
@@ -463,15 +457,10 @@ export async function checkInstructionCurrent(
   const expectedFiles = await renderAgentFiles(root, config);
   const drift: InstructionDriftEntry[] = [];
   for (const [rel, expected] of expectedFiles) {
-    let actual: string;
-    try {
-      actual = await Deno.readTextFile(join(root, rel));
-    } catch (err) {
-      if (err instanceof Deno.errors.NotFound) {
-        drift.push({ path: rel, reason: "missing", expected });
-        continue;
-      }
-      throw err;
+    const actual = await readTextIfExists(join(root, rel));
+    if (actual === undefined) {
+      drift.push({ path: rel, reason: "missing", expected });
+      continue;
     }
     if (actual !== expected) {
       drift.push({ path: rel, reason: "stale", expected, actual });
