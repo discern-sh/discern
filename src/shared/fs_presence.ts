@@ -17,6 +17,11 @@ export interface BestEffortFsPolicy<T> {
   readonly reason: string;
 }
 
+/** Add a caller's fallback to either a synchronous or asynchronous read result. */
+export type BestEffortFsResult<T, F> = T extends Promise<infer Value>
+  ? Promise<Value | F>
+  : T | F;
+
 /** True when any directory entry exists, following only `NotFound` to false. */
 export async function pathExists(path: string): Promise<boolean> {
   try {
@@ -96,21 +101,75 @@ export async function lstatIfExists(
   }
 }
 
+/** Read followed-target metadata, mapping only `NotFound` to absence. */
+export async function statIfExists(
+  path: string,
+): Promise<Deno.FileInfo | undefined> {
+  try {
+    return await Deno.stat(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return undefined;
+    throw error;
+  }
+}
+
+/** Resolve a canonical path when present, mapping only `NotFound` to absence. */
+export async function realPathIfExists(
+  path: string,
+): Promise<string | undefined> {
+  try {
+    return await Deno.realPath(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return undefined;
+    throw error;
+  }
+}
+
+/** Read a symlink target when present, mapping only `NotFound` to absence. */
+export async function readLinkIfExists(
+  path: string,
+): Promise<string | undefined> {
+  try {
+    return await Deno.readLink(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return undefined;
+    throw error;
+  }
+}
+
+/** Read every directory entry when present, mapping only `NotFound` to absence. */
+export async function readDirIfExists(
+  path: string,
+): Promise<Deno.DirEntry[] | undefined> {
+  try {
+    const entries: Deno.DirEntry[] = [];
+    for await (const entry of Deno.readDir(path)) entries.push(entry);
+    return entries;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return undefined;
+    throw error;
+  }
+}
+
 /**
  * Run one non-critical filesystem read, returning the caller's named consequence
  * when it fails. The reason is required and validated so suppression is never an
  * invisible ambient default.
  */
-export async function bestEffortFs<T>(
-  operation: () => Promise<T>,
-  policy: BestEffortFsPolicy<T>,
-): Promise<T> {
+export function bestEffortFs<T, F>(
+  operation: () => T,
+  policy: BestEffortFsPolicy<F>,
+): BestEffortFsResult<T, F> {
   if (policy.reason.trim() === "") {
     throw new TypeError("a best-effort filesystem read requires a reason");
   }
   try {
-    return await operation();
+    const result = operation();
+    if (result instanceof Promise) {
+      return result.catch(() => policy.onFailure) as BestEffortFsResult<T, F>;
+    }
+    return result as BestEffortFsResult<T, F>;
   } catch {
-    return policy.onFailure;
+    return policy.onFailure as BestEffortFsResult<T, F>;
   }
 }

@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join } from "@std/path";
 import {
   bestEffortFs,
@@ -7,7 +7,11 @@ import {
   lstatIfExists,
   pathExists,
   readBytesIfExists,
+  readDirIfExists,
+  readLinkIfExists,
   readTextIfExists,
+  realPathIfExists,
+  statIfExists,
   targetExists,
 } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
@@ -40,6 +44,23 @@ Deno.test("presence reads distinguish missing paths from present entries", async
     assertEquals(await readBytesIfExists(missing), undefined);
     assertEquals((await lstatIfExists(file))?.isFile, true);
     assertEquals(await lstatIfExists(missing), undefined);
+    assertEquals((await statIfExists(file))?.isFile, true);
+    assertEquals(await statIfExists(missing), undefined);
+    assertEquals(await realPathIfExists(file), await Deno.realPath(file));
+    assertEquals(await realPathIfExists(missing), undefined);
+    if (Deno.build.os !== "windows") {
+      const link = join(dir, "present-link");
+      await Deno.symlink(file, link);
+      assertEquals(await readLinkIfExists(link), file);
+    }
+    assertEquals(await readLinkIfExists(missing), undefined);
+    assertEquals(
+      (await readDirIfExists(dir))?.map((entry) => entry.name).sort(),
+      Deno.build.os === "windows"
+        ? ["present-dir", "present.txt"]
+        : ["present-dir", "present-link", "present.txt"],
+    );
+    assertEquals(await readDirIfExists(missing), undefined);
   });
 });
 
@@ -83,6 +104,10 @@ Deno.test("presence reads rethrow permission failures", async (t) => {
           ["readTextIfExists", () => readTextIfExists(file)],
           ["readBytesIfExists", () => readBytesIfExists(file)],
           ["lstatIfExists", () => lstatIfExists(file)],
+          ["statIfExists", () => statIfExists(file)],
+          ["realPathIfExists", () => realPathIfExists(file)],
+          ["readLinkIfExists", () => readLinkIfExists(file)],
+          ["readDirIfExists", () => readDirIfExists(file)],
         ] as const
       ) {
         await t.step(name, async () => {
@@ -96,7 +121,7 @@ Deno.test("presence reads rethrow permission failures", async (t) => {
 });
 
 Deno.test("best-effort reads require a reason and expose their fallback", async () => {
-  await assertRejects(
+  assertThrows(
     () =>
       bestEffortFs(
         () => Promise.reject(new Deno.errors.PermissionDenied("denied")),
