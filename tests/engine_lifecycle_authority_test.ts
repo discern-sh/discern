@@ -73,6 +73,7 @@ function parseResult(stdout: string, command: "start"): StartResult;
 function parseResult(stdout: string, command: "done"): DoneResult;
 /** Decode a status envelope and require its normal status payload. */
 function parseResult(stdout: string, command: "status"): StatusResult;
+/** Select the registered lifecycle decoder and require its normal data branch. */
 function parseResult(
   stdout: string,
   command: "start" | "done" | "status",

@@ -104,7 +104,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 91      | —                | node `canonical-sets`       |
 
-91 sets · 147 guard tests · 58 committed artifacts.
+91 sets · 148 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -233,6 +233,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/providers_test.ts`                          | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/public_doc_parity_test.ts`                  | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/public_schema_compatibility_guard_test.ts`  | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                    |
+| `tests/raw_json_parse_guard_test.ts`               | [`result-contracts`](#result-contracts--result-contracts)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/reference_docs_test.ts`                     | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/repo_authored_paths_test.ts`                | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/result_codegen_test.ts`                     | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts), [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts), [`public-schema-publications`](#public-schema-publications--public-schema-publications), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes) |
@@ -2386,7 +2387,7 @@ The per-verb result contracts behind the published JSON schema and type declarat
   - `skills`
   - `skillsList`
   - `skillsEject`
-- Guards: `tests/result_codegen_test.ts`, `tests/engine_json_purity_test.ts`
+- Guards: `tests/result_codegen_test.ts`, `tests/engine_json_purity_test.ts`, `tests/raw_json_parse_guard_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — the generated result references document this schema surface
 - Feature canon: described by the `published-contracts` node
