@@ -24,14 +24,15 @@ The survey preserves unknown states instead of guessing:
 | ---------------------------------------------- | ---------------------------------------------------------------------- |
 | Tracked or untracked non-ignored files changed | `clean: false` with the changed-file count.                            |
 | Checkout has no project config                 | `broken`, with the `worktree drop` recovery.                           |
-| Git cannot read a checkout's status            | Sets `git_unavailable`. Clean and ahead values stay absent.            |
+| Git cannot read a checkout's status            | Sets `git_unavailable`. Clean and divergence values stay absent.       |
+| Git returns a failed or malformed count        | The affected ahead or behind value is `"unknown"`, never `0`.          |
 | Work remains idle for 7 days                   | A hint to resume or drop the stale worktree.                           |
 | `agent/*` branch has no worktree               | `unlanded_branches`, with `start --from` and `update --from` recovery. |
 | Local trunk is missing                         | Ahead remains `null` because discern cannot compare it.                |
 
 If the tools point at a pristine worktree while the main checkout accumulates changes, `status` and `done` warn that editing and validation are happening in different trees. Move file operations into the worktree and pass its absolute path to Model Context Protocol (MCP) tools.
 
-An unreadable index is enough to make the state unknown, even when Git can still identify the checkout and branch. Unknown state never qualifies as clean or ready to land.
+An unreadable index is enough to make the state unknown, even when Git can still identify the checkout and branch. A numeric zero means Git established zero commits; `"unknown"` means it did not establish a count. Unknown state never qualifies as clean, contained, or ready to land, and every mutating lifecycle path reads its own preconditions again immediately before acting ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)).
 
 ## Compose work below the trunk
 
