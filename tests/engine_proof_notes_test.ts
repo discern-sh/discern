@@ -744,6 +744,98 @@ Deno.test("durable proof projection excludes live proof telemetry", () => {
   });
 });
 
+Deno.test("proof-note replay keys identity to subject and stable claim", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const commit = await gitOut(dir, "rev-parse", "HEAD");
+    const proof = syntheticProof(commit, "agent/stable-claim");
+    assertEquals((await writeProofNote(dir, commit, proof)).status, "recorded");
+    const original = await runGit(
+      ["notes", "--ref=discern", "show", commit],
+      { cwd: dir },
+    );
+    assert(original.success);
+
+    const presentationVariants: Proof[] = [
+      { ...proof, line: "A differently rendered proof line" },
+      { ...proof, markdown: "## A differently rendered proof page" },
+      {
+        ...proof,
+        line: "A later line",
+        markdown: "## A later page",
+        waited_ms: 90_000,
+      } as Proof & { waited_ms: number },
+    ];
+    for (const replay of presentationVariants) {
+      assertEquals(
+        (await writeProofNote(dir, commit, replay)).status,
+        "already_present",
+      );
+      const unchanged = await runGit(
+        ["notes", "--ref=discern", "show", commit],
+        { cwd: dir },
+      );
+      assertEquals(unchanged.stdout, original.stdout);
+    }
+
+    const conflicting = await writeProofNote(dir, commit, {
+      ...proof,
+      insertions: proof.insertions + 1,
+    });
+    assertEquals(conflicting.status, "record_failed");
+    assertStringIncludes(conflicting.reason ?? "", "different proof note");
+
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Legacy proof subject",
+      "--no-gpg-sign",
+    );
+    const legacyCommit = await gitOut(dir, "rev-parse", "HEAD");
+    const legacyProof = syntheticProof(legacyCommit, "agent/legacy-replay");
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      JSON.stringify({ ...legacyProof, waited_ms: 10 }),
+      legacyCommit,
+    );
+    const legacyBody = await runGit(
+      ["notes", "--ref=discern", "show", legacyCommit],
+      { cwd: dir },
+    );
+    assert(legacyBody.success);
+
+    const legacyReplay = {
+      ...legacyProof,
+      line: "Legacy line rendered later",
+      markdown: "## Legacy page rendered later",
+      waited_ms: 20,
+    } as Proof & { waited_ms: number };
+    assertEquals(
+      (await writeProofNote(dir, legacyCommit, legacyReplay)).status,
+      "already_present",
+    );
+    const unchangedLegacy = await runGit(
+      ["notes", "--ref=discern", "show", legacyCommit],
+      { cwd: dir },
+    );
+    assertEquals(unchangedLegacy.stdout, legacyBody.stdout);
+
+    const legacyConflict = await writeProofNote(dir, legacyCommit, {
+      ...legacyReplay,
+      deletions: legacyReplay.deletions + 1,
+    });
+    assertEquals(legacyConflict.status, "record_failed");
+  });
+});
+
 Deno.test("proof-note lookup binds the branch to newly landed trunk ancestry", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");

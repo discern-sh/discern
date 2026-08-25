@@ -758,19 +758,15 @@ export async function writeProofNote(
           `the landed commit already carries a proof note in a format this discern does not know (${parsed.format})`,
       };
     }
-    // The same proof already recorded — under either format generation — is
-    // the idempotent success, not a conflict; notes are records, never
-    // rewritten. Equality covers exactly what a note stores: the durable
-    // facts and both renderings. The runtime checkpoints block never enters a
-    // note (its conclusions are in the rendered page and the acceptance
-    // evidence), so it must not defeat an idempotent retry.
-    const comparable = (p: Proof): string => {
-      const { checkpoints: _checkpoints, ...stored } = canonicalProof(p);
-      return JSON.stringify(stored);
-    };
+    // Note identity is the annotated subject plus the stable proof claim. A
+    // retry may render different Markdown, line text, or timing telemetry, but
+    // notes are records and must never be rewritten merely for presentation.
+    // Legacy bare notes imply the commit they annotate as their subject.
+    const comparableClaim = (value: Proof): string =>
+      JSON.stringify(canonicalProofClaim(value));
     if (
       parsed !== undefined &&
-      comparable(parsed.proof) === comparable(proof) &&
+      comparableClaim(parsed.proof) === comparableClaim(proof) &&
       (parsed.subject === undefined || parsed.subject === commit)
     ) {
       return {
