@@ -279,6 +279,7 @@ function reconcileConfiguredJournal(
   };
 }
 
+/** Reconcile configured commands with their durable journal, creating it when absent. */
 async function configuredJournal(
   cwd: string,
   commands: readonly string[],

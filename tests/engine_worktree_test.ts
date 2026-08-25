@@ -1719,7 +1719,7 @@ Deno.test("worktree setup recovery marks an observed command complete without re
         stepId,
       ]);
       assertEquals(unconfirmed.code, 1, unconfirmed.output);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         decodeCliResult(unconfirmed.stdout, "worktree setup").message ?? "",
         "requires --confirmed",
       );

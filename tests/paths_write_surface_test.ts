@@ -145,7 +145,15 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   [
     "src/engine/worktree/acceptance_transaction.ts",
-    "acceptance recovery journal and advisory lock — registry-resolved .git-internal state outside the project tree",
+    "the acceptance recovery journal — registry-resolved .git-internal state outside the project tree",
+  ],
+  [
+    "src/engine/operation_lock.ts",
+    "the operation lock capability — registry-resolved .git-internal state, with a canonical-path OS-temp fallback before Git exists",
+  ],
+  [
+    "src/engine/worktree/setup_step_journal.ts",
+    "the setup-step journal directory — registry-resolved .git-internal state whose file replacement uses the atomic writer",
   ],
   [
     "src/engine/gate/proof.ts",

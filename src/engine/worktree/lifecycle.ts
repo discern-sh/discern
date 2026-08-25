@@ -999,7 +999,7 @@ export async function worktreeSetup(
         recovered.kind !== "already-completed";
     } catch (error) {
       if (error instanceof SetupStepJournalError) {
-        throw new WorktreeGitError(error.message);
+        throw new WorktreeGitError(error.message, { cause: error });
       }
       throw error;
     }
@@ -1012,7 +1012,7 @@ export async function worktreeSetup(
     );
   } catch (error) {
     if (error instanceof SetupStepJournalError) {
-      throw new WorktreeGitError(error.message);
+      throw new WorktreeGitError(error.message, { cause: error });
     }
     throw error;
   }
@@ -1112,7 +1112,7 @@ export async function worktreeSetup(
       );
     } catch (error) {
       if (error instanceof SetupStepJournalError) {
-        throw new WorktreeGitError(error.message);
+        throw new WorktreeGitError(error.message, { cause: error });
       }
       throw error;
     }

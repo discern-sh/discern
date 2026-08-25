@@ -8,7 +8,7 @@
  * parallelism across linked worktrees.
  */
 
-import { tmpdir } from "node:os";
+import { tmpdir } from "os";
 import { dirname, join, resolve } from "@std/path";
 import {
   operationEffectPolicy,
@@ -189,7 +189,7 @@ async function acquireLock(
     );
   }
   if (!acquired) {
-    const inherited = await inheritedOperationLockLease(spec.key, spec.path);
+    const inherited = inheritedOperationLockLease(spec.key, spec.path);
     if (inherited !== undefined) {
       const record = await bestEffortFs(
         () => readTextIfExists(spec.path),
@@ -300,13 +300,10 @@ export async function withOperationLock<T>(
     const commonSpec = specs.find((spec) => spec.boundary === "common");
     const inheritedCheckout = checkoutSpec === undefined
       ? undefined
-      : await inheritedOperationLockLease(
-        checkoutSpec.key,
-        checkoutSpec.path,
-      );
+      : inheritedOperationLockLease(checkoutSpec.key, checkoutSpec.path);
     const inheritedCommon = commonSpec === undefined
       ? undefined
-      : await inheritedOperationLockLease(commonSpec.key, commonSpec.path);
+      : inheritedOperationLockLease(commonSpec.key, commonSpec.path);
     if (inheritedCheckout !== undefined && inheritedCommon === undefined) {
       throw refusal(
         invocation.command,

@@ -6,7 +6,7 @@
  * environment value is never sufficient ownership evidence on its own.
  */
 
-import { AsyncLocalStorage } from "node:async_hooks";
+import { AsyncLocalStorage } from "async_hooks";
 import { z } from "@zod/zod";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
 import { decodeJson } from "./runtime_decode.ts";
@@ -79,10 +79,10 @@ export function operationLockChildEnv(): Record<string, string> {
  * Find a structurally valid inherited lease for an exact resolved lock.
  * Authentication against the live OS-locked file remains the lock owner's job.
  */
-export async function inheritedOperationLockLease(
+export function inheritedOperationLockLease(
   key: string,
   path: string,
-): Promise<OperationLockLease | undefined> {
+): OperationLockLease | undefined {
   const raw = Deno.env.get(
     DISCERN_ENVIRONMENT_VARIABLES.operationLockDelegation,
   );

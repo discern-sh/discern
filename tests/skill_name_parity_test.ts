@@ -53,6 +53,26 @@ const NON_SKILL_TOKENS = new Map<string, string>([
     "discern-checkpoint-input",
     "the registered OS-temp filename prefix for one checkpoint command input",
   ],
+  [
+    "discern-operation-lock",
+    "the versioned record prefix stored in an operation lock file",
+  ],
+  [
+    "discern-operation-locks",
+    "the OS-temp directory for operation locks used before Git exists",
+  ],
+  [
+    "discern-worktree-setup-step",
+    "the versioned identity-domain prefix for a worktree setup step",
+  ],
+  [
+    "discern-checkout-mutation",
+    "the operation-effect registry class for a checkout-scoped mutation",
+  ],
+  [
+    "discern-common-mutation",
+    "the operation-effect registry class for a common-repository mutation",
+  ],
 ]);
 
 const EXEMPT_SEGMENTS = ["/_adr/", "/_private/"] as const;
