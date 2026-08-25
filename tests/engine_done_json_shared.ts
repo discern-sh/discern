@@ -8,47 +8,57 @@
 
 import { assert } from "@std/assert";
 import { pathExists } from "../src/shared/fs_presence.ts";
+import {
+  type CliResultForCommand,
+  decodeCliResult,
+} from "./decode_cli_result.ts";
 
 export { pathExists };
 
-/** A parsed `--json` envelope, deliberately loose: verb-specific data rides
- * in fields no shared type pins, and the assertions are the contract. */
-export interface LooseEnvelope {
-  // deno-lint-ignore no-explicit-any
-  [key: string]: any;
+type DoneEnvelope = CliResultForCommand<"done">;
+type DoneGateData = Extract<
+  NonNullable<DoneEnvelope["data"]>,
+  { failed_stage: unknown }
+>;
+type DoneGateEnvelope = DoneEnvelope & { data: DoneGateData };
+type DoneStep = NonNullable<DoneEnvelope["steps"]>[number];
+type DoneDiagnostic = NonNullable<DoneEnvelope["diagnostics"]>[number];
+
+/** Distinguish a completed Gate result from a config-issue done refusal. */
+function hasGateData(result: DoneEnvelope): result is DoneGateEnvelope {
+  return result.data !== undefined && "failed_stage" in result.data;
 }
 
-/** Decode a done envelope into the shared loose assertion shape. */
-export function parseJson(stdout: string): LooseEnvelope {
-  return JSON.parse(stdout.trim()) as LooseEnvelope;
+/** Validate `done --json` stdout and require its completed Gate data variant. */
+export function decodeGateResult(stdout: string): DoneGateEnvelope {
+  const result = decodeCliResult(stdout, "done");
+  assert(
+    hasGateData(result),
+    `expected done Gate data, got ${JSON.stringify(result.data)}`,
+  );
+  return result;
 }
 
-/** The step with this label — typed loose (and trusted present, as each
- * assertion immediately checks it) like the envelope it came from. */
-export function stepFor(obj: LooseEnvelope, label: string): LooseEnvelope {
-  return obj.steps.find((s: { label: string }) => s.label === label);
+/** Find the executed step with a requested label in a validated done result. */
+export function stepFor(
+  obj: DoneEnvelope,
+  label: string,
+): DoneStep {
+  const step = obj.steps?.find((candidate) => candidate.label === label);
+  assert(step, `expected step ${JSON.stringify(label)}`);
+  return step;
 }
 
-/** The diagnostic for this tool, or undefined — call sites assert presence. */
-export function diagFor(obj: LooseEnvelope, tool: string): LooseEnvelope {
-  return (obj.diagnostics ?? []).find((d: { tool: string }) => d.tool === tool);
-}
-
-export interface JsonStep {
-  kind: string;
-  label: string;
-  outcome: string;
-}
-
-export interface JsonDiagnostic {
-  tool: string;
+/** Find the diagnostic for a requested tool in a validated done result. */
+export function diagFor(
+  obj: DoneEnvelope,
+  tool: string,
+): DoneDiagnostic | undefined {
+  return obj.diagnostics?.find((diagnostic) => diagnostic.tool === tool);
 }
 
 /** Require every genuinely failed job or scope step to have a matching diagnostic tool. */
-export function assertFailedStepsHaveDiagnostics(obj: {
-  steps?: JsonStep[];
-  diagnostics?: JsonDiagnostic[];
-}): void {
+export function assertFailedStepsHaveDiagnostics(obj: DoneEnvelope): void {
   const failed = (obj.steps ?? []).filter((s) =>
     (s.kind === "job" || s.kind === "scope-gate") && s.outcome === "failed"
   );

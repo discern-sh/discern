@@ -29,9 +29,9 @@ import {
 } from "./engine_helpers.ts";
 import {
   assertFailedStepsHaveDiagnostics,
+  decodeGateResult,
   diagFor,
   hasDroppedC0Control,
-  parseJson,
   pathExists,
   stepFor,
 } from "./engine_done_json_shared.ts";
@@ -43,21 +43,26 @@ Deno.test("done --json: a fresh gate runs only its embedded format job", async (
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const obj = parseJson(r.stdout); // stdout must be ONLY the JSON object
+    const obj = decodeGateResult(r.stdout); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "done");
     assertEquals(obj.data.failed_stage, null);
-    assertEquals(obj.data.gate_proof.status, "recorded");
+    const gateProof = obj.data.gate_proof;
     assert(
-      typeof obj.data.gate_proof.path === "string" &&
-        obj.data.gate_proof.path.length > 0,
-      `expected a proof path, got ${JSON.stringify(obj.data.gate_proof)}`,
+      gateProof,
+      `expected Gate proof data, got ${JSON.stringify(obj.data)}`,
+    );
+    assertEquals(gateProof.status, "recorded");
+    assert(
+      typeof gateProof.path === "string" && gateProof.path.length > 0,
+      `expected a proof path, got ${JSON.stringify(gateProof)}`,
     );
     // A fresh install wires only discern's own formatter. Project-specific
     // capabilities remain unset until setup discovers the stack.
-    const jobs = obj.steps.filter((s: { kind: string }) => s.kind === "job");
+    assert(obj.steps, `expected executed steps, got ${JSON.stringify(obj)}`);
+    const jobs = obj.steps.filter((step) => step.kind === "job");
     assertEquals(
-      jobs.map((step: { label: string; note: string; outcome: string }) => ({
+      jobs.map((step) => ({
         label: step.label,
         note: step.note,
         outcome: step.outcome,
@@ -97,10 +102,10 @@ Deno.test("done --json: trunk advancing during a green gate warns and still reco
 
     const r = await runAgent(wt, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
     assertEquals(obj.data.failed_stage, null);
-    assertEquals(obj.data.gate_proof.status, "recorded");
+    assertEquals(obj.data.gate_proof?.status, "recorded");
     assertEquals(await gateProofHonored(wt), true);
     assert(
       (await gitOut(dir, "rev-parse", "main")) !== mainBefore,
@@ -137,7 +142,7 @@ Deno.test("done --json: a failing check reports ok:false, a failed step, and a d
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "done");
     assertEquals(obj.data.failed_stage, "check/test");
@@ -154,6 +159,7 @@ Deno.test("done --json: a failing check reports ok:false, a failed step, and a d
     assertEquals(diag.severity, "error");
     assertEquals(diag.reproduce_cmd, "echo boom-on-stderr >&2; exit 1");
     assertEquals(diag.fix_available, true);
+    assert(diag.output !== undefined, "expected captured lint output");
     assertStringIncludes(diag.output, "boom-on-stderr");
     assertFailedStepsHaveDiagnostics(obj);
   });
@@ -185,7 +191,7 @@ Deno.test("done --json: an exit-127 failure explains command-not-found and point
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     const diag = diagFor(obj, "lint");
     assert(
@@ -219,14 +225,17 @@ Deno.test("done --json: a passing job with suspicious output exposes an advisory
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
     assertEquals(obj.diagnostics, undefined);
     const lint = stepFor(obj, "lint");
     assertEquals(lint.outcome, "ok");
     assertEquals(lint.output_lines, 12);
     assertEquals(lint.error_like_lines, 12);
-    assertEquals(typeof lint.output_path, "string");
+    assert(
+      typeof lint.output_path === "string",
+      "expected a captured output path",
+    );
     const output = await Deno.readTextFile(lint.output_path);
     assertStringIncludes(output, "error: one");
     assertStringIncludes(output, "warning: eight");
@@ -263,11 +272,12 @@ Deno.test("done --json: stream-enabled failures capture output into the diagnost
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "check/test");
     const diag = diagFor(obj, "lint");
     assert(diag, `expected a diagnostic for lint, got ${r.stdout}`);
+    assert(diag.output !== undefined, "expected captured streamed output");
     assertStringIncludes(diag.output, "STREAM-JSON-MARKER");
     assertFailedStepsHaveDiagnostics(obj);
   });
@@ -301,7 +311,7 @@ Deno.test("done --json: a fix-stage failure skips later check/test jobs and scop
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "fix");
     assert(obj.data.scopes_changed.includes("widget"), r.stdout);
@@ -318,6 +328,7 @@ Deno.test("done --json: a fix-stage failure skips later check/test jobs and scop
 
     const diag = diagFor(obj, "format");
     assert(diag, `expected a format diagnostic, got ${r.stdout}`);
+    assert(diag.output !== undefined, "expected captured format output");
     assertStringIncludes(diag.output, "FORMAT-BOOM");
     assertFailedStepsHaveDiagnostics(obj);
 
@@ -366,9 +377,10 @@ Deno.test("done --json: Tier-0 diagnostic output is normalized, bounded, and off
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     const diag = diagFor(obj, "lint");
     assert(diag !== undefined, `expected a lint diagnostic: ${r.stdout}`);
+    assert(diag.output !== undefined, "expected bounded diagnostic output");
 
     assert(!diag.output.includes("\x1b"), diag.output);
     assert(!diag.output.includes("\r"), diag.output);
@@ -380,7 +392,10 @@ Deno.test("done --json: Tier-0 diagnostic output is normalized, bounded, and off
       `diagnostic output should stay within ${CAPTURE_CAP} chars; got ${diag.output.length}`,
     );
     assertEquals(diag.truncated, true);
-    assertEquals(typeof diag.output_path, "string");
+    assert(
+      typeof diag.output_path === "string",
+      "expected offloaded output path",
+    );
 
     const info = await Deno.stat(diag.output_path);
     assert(info.isFile, `expected a readable file at ${diag.output_path}`);
@@ -431,7 +446,7 @@ Deno.test("done --json: scope-gates report fired (ok) and unchanged (skipped) st
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
     const widget = stepFor(obj, "scope:widget");
     const gadget = stepFor(obj, "scope:gadget");
@@ -470,7 +485,7 @@ Deno.test("done --json: a failing scope-gate reports ok:false at the scope_gates
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "scope_gates");
     const widget = stepFor(obj, "scope:widget");
@@ -525,7 +540,7 @@ Deno.test("done --json: a SARIF-emitting check yields Tier-1 diagnostics with fi
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     // The raw output was normalized into a structured, located finding.
     const diag = diagFor(obj, "lint");
@@ -580,7 +595,7 @@ Deno.test("done --json: a JUnit-emitting test job yields Tier-1 diagnostics nami
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     // The raw report was normalized into one located finding per failing test.
     const diag = diagFor(obj, "test");
@@ -626,12 +641,13 @@ Deno.test("done --json: empty SARIF falls back to a raw Tier-0 diagnostic", asyn
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-    const obj = parseJson(r.stdout);
+    const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     const diag = diagFor(obj, "lint");
     assert(diag, `expected Tier-0 fallback diagnostic, got ${r.stdout}`);
     assertEquals(diag.message, "lint failed (exit 1)");
     assertEquals(diag.reproduce_cmd, "cat empty.sarif; exit 1");
+    assert(diag.output !== undefined, "expected raw fallback output");
     assertStringIncludes(diag.output, '"results":[]');
     assertEquals(diag.file, undefined);
     assertFailedStepsHaveDiagnostics(obj);
