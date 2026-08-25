@@ -68,6 +68,47 @@ Deno.test("root discern.toml is the only install marker", async () => {
   });
 });
 
+Deno.test("root discovery surfaces a permission-denied ancestor", async (t) => {
+  if (Deno.build.os === "windows") {
+    await t.step({
+      name: "mode 0o000 cannot simulate permission denial on Windows",
+      ignore: true,
+      fn: () => {},
+    });
+    return;
+  }
+  await withTempDir(async (dir) => {
+    const protectedDir = join(dir, "protected");
+    const nested = join(protectedDir, "nested");
+    await Deno.mkdir(nested, { recursive: true });
+    await Deno.writeTextFile(join(protectedDir, CONFIG_REL), "[project]\n");
+    await Deno.chmod(protectedDir, 0o000);
+    try {
+      let denied: unknown;
+      try {
+        await Deno.stat(join(protectedDir, CONFIG_REL));
+      } catch (error) {
+        denied = error;
+      }
+      if (!(denied instanceof Deno.errors.PermissionDenied)) {
+        await t.step({
+          name:
+            "the current user can traverse mode-0o000 directories, so permission denial cannot be simulated",
+          ignore: true,
+          fn: () => {},
+        });
+        return;
+      }
+      await assertRejects(
+        () => findRoot(nested),
+        Deno.errors.PermissionDenied,
+      );
+    } finally {
+      await Deno.chmod(protectedDir, 0o700);
+    }
+  });
+});
+
 Deno.test("override pointing at a real directory is returned verbatim", async () => {
   await withTempDir(async (dir) => {
     assert((await resolveTemplatesDir(fakeEnv({ [OVERRIDE]: dir }))) === dir);

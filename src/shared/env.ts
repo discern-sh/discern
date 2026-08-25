@@ -15,6 +15,7 @@
 
 import { dirname, join, SEPARATOR } from "@std/path";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
+import { bestEffortFsRead, fileExists, pathExists } from "./fs_presence.ts";
 import type { DiscernResult } from "./result.ts";
 
 /**
@@ -68,15 +69,6 @@ export function notInitializedResult(
   return { ok: false, verb, error: NOT_INITIALIZED, message };
 }
 
-/** True when a regular file exists at `path`. */
-async function isFile(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isFile;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Walk up from `start` (default: the cwd) to the nearest ancestor that is an
  * discern install — one holding a root `discern.toml`. Returns the project
@@ -87,7 +79,7 @@ export async function findRoot(
 ): Promise<string | undefined> {
   let dir = start;
   while (true) {
-    if (await isFile(join(dir, CONFIG_REL))) {
+    if (await fileExists(join(dir, CONFIG_REL))) {
       return dir;
     }
     const parent = dirname(dir);
@@ -95,18 +87,6 @@ export async function findRoot(
       return undefined; // reached the filesystem root without a match
     }
     dir = parent;
-  }
-}
-
-/** True when any directory entry (file or directory) exists at `path` — `.git`
- * is a directory in an ordinary checkout but a file in a linked worktree or a
- * submodule checkout, so a file-only probe would miss half the repositories. */
-async function hasEntry(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -125,7 +105,11 @@ export async function crossedRepoBoundaries(
   root: string,
 ): Promise<string[]> {
   const real = (p: string): Promise<string | undefined> =>
-    Deno.realPath(p).catch(() => undefined);
+    bestEffortFsRead(() => Deno.realPath(p), {
+      onFailure: undefined,
+      reason:
+        "Nested-repository boundary reporting is advisory and must not block the primary command.",
+    });
   const s = await real(start);
   const r = await real(root);
   if (s === undefined || r === undefined || s === r) return [];
@@ -133,7 +117,7 @@ export async function crossedRepoBoundaries(
   const crossed: string[] = [];
   let dir = s;
   while (dir !== r) {
-    if (await hasEntry(join(dir, ".git"))) crossed.push(dir);
+    if (await pathExists(join(dir, ".git"))) crossed.push(dir);
     dir = dirname(dir);
   }
   return crossed;
@@ -146,7 +130,7 @@ export async function crossedRepoBoundaries(
 export async function installedConfigRel(
   root: string,
 ): Promise<string | undefined> {
-  return await isFile(join(root, CONFIG_REL)) ? CONFIG_REL : undefined;
+  return await fileExists(join(root, CONFIG_REL)) ? CONFIG_REL : undefined;
 }
 
 /** The resolved pieces a project script's `DISCERN_*` environment is built from. */
