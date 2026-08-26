@@ -254,11 +254,11 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
     role: "registered-boundary",
   },
   {
-    path: "src/shared/third_party_codegen.ts",
-    enclosingFunction: "denoInfoJson",
-    operation: "read Deno's resolved dependency graph",
+    path: "src/shared/deno_metadata.ts",
+    enclosingFunction: "denoMetadata",
+    operation: "read Deno resolver and type metadata",
     reason:
-      "third-party code generation consumes the exact deno info JSON protocol from a bounded source-only query",
+      "repository tooling consumes the exact Deno info and types protocols from bounded read-only queries",
     may: ["other"],
     role: "registered-boundary",
   },
@@ -333,9 +333,9 @@ export const SPAWN_INTERRUPT_CONTRACTS = {
     exempt:
       "the attributed pathspec-limited commit runs in a detached Git group and quiesces descendants before it returns",
   },
-  "src/shared/third_party_codegen.ts": {
+  "src/shared/deno_metadata.ts": {
     exempt:
-      "deno info is a bounded engine-authored dependency-graph read that exits on its own",
+      "Deno's info and types queries are bounded engine-authored metadata reads that exit on their own",
   },
   "src/commands/docs.ts": {
     exempt:

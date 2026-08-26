@@ -10,6 +10,7 @@ import { handler } from "./serve.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
 import { fromFileUrl, join } from "@std/path";
 import { statIfExists } from "../src/shared/fs_presence.ts";
+import { detachPromise } from "../src/shared/promise_effects.ts";
 
 const REPO_ROOT = new URL("../", import.meta.url);
 const REPO_ROOT_PATH = fromFileUrl(REPO_ROOT);
@@ -308,7 +309,11 @@ export function startManagedSiteServer(
     const activeServer = server;
     if (activeServer === undefined) return new Response(null, { status: 503 });
     queueMicrotask(() => {
-      void activeServer.shutdown();
+      detachPromise(
+        "site-preview-control-shutdown",
+        () => activeServer.shutdown(),
+        (error) => console.error("Site preview shutdown failed:", error),
+      );
     });
     return new Response(null, { status: 202 });
   };
@@ -375,7 +380,11 @@ async function watchSiteBuildInputs(
     if (debounce !== undefined) clearTimeout(debounce);
     debounce = setTimeout(() => {
       debounce = undefined;
-      void rebuild();
+      detachPromise(
+        "site-watch-rebuild",
+        rebuild,
+        (error) => console.error("Site rebuild failed:", error),
+      );
     }, WATCH_DEBOUNCE_MS);
   }
   throw new Error("Site input watcher stopped unexpectedly");

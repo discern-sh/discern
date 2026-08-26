@@ -330,6 +330,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0342 — Git elects module coverage membership and LCOV supplies observations](0342-git-elects-module-coverage-membership.md)
 - [0343 — Duplication holds maximal non-overlapping normalized lines](0343-duplication-holds-maximal-non-overlapping-normalized-lines.md)
 - [0344 — Process egress and termination have exact boundaries](0344-process-egress-and-termination-have-exact-boundaries.md)
+- [0345 — Promise effects have typed owners](0345-promise-effects-have-typed-owners.md)
 
 <!-- END GENERATED: current ADR records -->
 
