@@ -8,16 +8,16 @@ The public path from installing discern through setup, a first Gate-checked chan
 
 ## Files to produce
 
-| File                 | Topic                                                                                                    |
-| -------------------- | -------------------------------------------------------------------------------------------------------- |
-| `README.md`          | 200–350-word overview with the curated reading order.                                                    |
-| `quickstart.md`      | Approved quickstart exemplar; preserve its register and update only required links or location metadata. |
-| `walkthrough.md`     | Guided tour that adds detail after the quickstart.                                                       |
-| `after-setup.md`     | Guide to the files a reader sees after setup.                                                            |
-| `setup-decisions.md` | Guide to the durable choices setup records and how to revisit them.                                      |
-| `tasks.md`           | Task index that routes readers to the supported first-use workflows.                                     |
-| `faq.md`             | Troubleshooting page led by `discern doctor`.                                                            |
-| `upgrade-discern.md` | Task guide for updating the binary and then the project.                                                 |
+| File                 | Shape           | Topic                                                                                                    |
+| -------------------- | --------------- | -------------------------------------------------------------------------------------------------------- |
+| `README.md`          | overview        | Public front door with the curated reading order.                                                        |
+| `quickstart.md`      | quickstart      | Approved quickstart exemplar; preserve its register and update only required links or location metadata. |
+| `walkthrough.md`     | guide           | Guided tour that adds detail after the quickstart.                                                       |
+| `after-setup.md`     | guide           | Guide to the files a reader sees after setup.                                                            |
+| `setup-decisions.md` | guide           | Guide to the durable choices setup records and how to revisit them.                                      |
+| `tasks.md`           | guide           | Task index that routes readers to the supported first-use workflows.                                     |
+| `faq.md`             | troubleshooting | Troubleshooting page led by `discern doctor`.                                                            |
+| `upgrade-discern.md` | guide           | Task guide for updating the binary and then the project.                                                 |
 
 ## Source files to read
 
@@ -44,4 +44,4 @@ Keep the approved `quickstart.md` exemplar's wording and register unchanged. Upd
 
 ## Length-budget note
 
-Use the page-type budgets in [`page-templates.md`](../page-templates.md): README 200–350 words, walkthrough and upgrade guides 500–900 words, and troubleshooting 300–700 words. The fixed exemplars keep their approved lengths.
+The declared page shapes use the defaults in [`page-templates.md`](../page-templates.md). The fixed exemplars keep their approved lengths; no local numeric exception is declared.

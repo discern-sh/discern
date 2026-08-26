@@ -12,10 +12,32 @@ import {
   type ProjectControlFinding,
   type ProjectControlRule,
 } from "../project/scripts/project_control_integrity.ts";
+import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const PROGRAMME = "project/map/_private/planning/fresh-contract-workstreams";
+const PAGE_TEMPLATES = "project/map/_internal/page-templates.md";
+
+/** A compact page-shape authority for scope and budget fixtures. */
+function pageAuthority(): Readonly<Record<string, string>> {
+  return {
+    [PAGE_TEMPLATES]: [
+      "# Page templates",
+      "",
+      "<!-- discern-page-shape: overview -->",
+      "## Overview",
+      "",
+      "Default budget: 100–200 words.",
+      "",
+      "<!-- discern-page-shape: guide -->",
+      "## Guide",
+      "",
+      "Default budget: 200–300 words.",
+      "",
+    ].join("\n"),
+  };
+}
 
 /** Write one synthetic repository tree and return every control finding. */
 async function fixtureFindings(
@@ -23,10 +45,12 @@ async function fixtureFindings(
 ): Promise<ProjectControlFinding[]> {
   let findings: ProjectControlFinding[] = [];
   await withTempDir(async (root) => {
+    await Deno.writeTextFile(join(root, ".gitignore"), "\n");
     for (const [path, text] of Object.entries(files)) {
       await ensureDir(dirname(join(root, path)));
       await Deno.writeTextFile(join(root, path), text);
     }
+    await gitInit(root);
     findings = await checkProjectControls(root);
   });
   return findings;
@@ -117,6 +141,7 @@ Deno.test("TODO items have one parseable shape and two explicit evidence modes",
 Deno.test("scope manifests enroll live leaves in both directions", async () => {
   const manifestPath = "project/map/_internal/scopes/10-example.md";
   const base = {
+    ...pageAuthority(),
     "project/map/10-example/README.md": "# Example\n",
     "project/map/10-example/live.md": "# Live\n",
   };
@@ -127,10 +152,10 @@ Deno.test("scope manifests enroll live leaves in both directions", async () => {
       "",
       "## Files to produce",
       "",
-      "| File | Topic |",
-      "| ---- | ----- |",
-      "| `README.md` | Overview and curated reading order. |",
-      "| `live.md` | Durable behavior of the live example. |",
+      "| File | Shape | Topic |",
+      "| ---- | ----- | ----- |",
+      "| `README.md` | [overview](../page-templates.md#overview) | Overview and curated reading order. |",
+      "| `live.md` | [guide](../page-templates.md#guide) | Durable behavior of the live example. |",
       "",
     ].join("\n"),
   };
@@ -138,7 +163,7 @@ Deno.test("scope manifests enroll live leaves in both directions", async () => {
 
   const missing = { ...valid };
   missing[manifestPath] = missing[manifestPath].replace(
-    "| `live.md` | Durable behavior of the live example. |\n",
+    "| `live.md` | [guide](../page-templates.md#guide) | Durable behavior of the live example. |\n",
     "",
   );
   assert(
@@ -150,8 +175,8 @@ Deno.test("scope manifests enroll live leaves in both directions", async () => {
   const stale = {
     ...valid,
     [manifestPath]: valid[manifestPath].replace(
-      "| `live.md` | Durable behavior of the live example. |",
-      "| `gone.md` | A page that no longer exists in the subtree. |",
+      "| `live.md` | [guide](../page-templates.md#guide) | Durable behavior of the live example. |",
+      "| `gone.md` | [guide](../page-templates.md#guide) | A page that no longer exists in the subtree. |",
     ),
   };
   assert(
@@ -167,9 +192,9 @@ Deno.test("scope manifests enroll live leaves in both directions", async () => {
       "",
       "## Files to produce",
       "",
-      "| File | Topic |",
-      "| ---- | ----- |",
-      "| `README.md` | Overview and curated reading order. |",
+      "| File | Shape | Topic |",
+      "| ---- | ----- | ----- |",
+      "| `README.md` | [overview](../page-templates.md#overview) | Overview and curated reading order. |",
       "",
       "## Declared exclusions",
       "",
@@ -180,6 +205,87 @@ Deno.test("scope manifests enroll live leaves in both directions", async () => {
     ].join("\n"),
   };
   assertEquals(await fixtureFindings(excluded), []);
+});
+
+Deno.test("page budgets have one authority and explicit local exceptions", async () => {
+  const manifestPath = "project/map/_internal/scopes/10-example.md";
+  const valid = {
+    ...pageAuthority(),
+    "project/map/_internal/documenter-agent-brief.md": [
+      "# Documenter brief",
+      "",
+      "<!-- discern-page-shape-use: numbered leaf | guide -->",
+      "Use the [guide shape](page-templates.md#guide).",
+      "",
+    ].join("\n"),
+    "project/map/10-example/README.md": "# Example\n",
+    "project/map/10-example/live.md": "# Live\n",
+    [manifestPath]: [
+      "# Scope: 10-example",
+      "",
+      "## Files to produce",
+      "",
+      "| File | Shape | Topic |",
+      "| ---- | ----- | ----- |",
+      "| `README.md` | [overview](../page-templates.md#overview) | Overview and reading order. |",
+      "| `live.md` | [guide](../page-templates.md#guide) | Durable behavior of the live page. |",
+      "",
+      "<!-- discern-page-budget-exception: live.md | 250–350 words | Existing exemplar retains required safety detail. -->",
+      "",
+    ].join("\n"),
+  };
+  assertEquals(await fixtureFindings(valid), []);
+
+  const copied = {
+    ...valid,
+    "project/map/_internal/documenter-agent-brief.md":
+      valid["project/map/_internal/documenter-agent-brief.md"] +
+      "Default leaves use 200–300 words.\n",
+  };
+  assertEquals(
+    ruleFindings(await fixtureFindings(copied), "budget-copy").length,
+    1,
+  );
+
+  const unknown = {
+    ...valid,
+    [manifestPath]: valid[manifestPath].replace(
+      "[guide](../page-templates.md#guide)",
+      "[essay](../page-templates.md#essay)",
+    ),
+  };
+  assertEquals(
+    ruleFindings(await fixtureFindings(unknown), "page-shape").length,
+    1,
+  );
+
+  const mislinked = {
+    ...valid,
+    "project/map/_internal/documenter-agent-brief.md":
+      valid["project/map/_internal/documenter-agent-brief.md"].replace(
+        "page-templates.md#guide",
+        "page-templates.md#overview",
+      ),
+  };
+  assertEquals(
+    ruleFindings(await fixtureFindings(mislinked), "page-shape").length,
+    1,
+  );
+
+  const staleException = {
+    ...valid,
+    [manifestPath]: valid[manifestPath].replace(
+      "live.md | 250–350 words",
+      "gone.md | 350–250 words",
+    ),
+  };
+  assertEquals(
+    ruleFindings(
+      await fixtureFindings(staleException),
+      "budget-exception",
+    ).length,
+    1,
+  );
 });
 
 Deno.test("planning links and renderer-derived anchors enroll every present programme", async () => {

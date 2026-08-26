@@ -28,10 +28,13 @@ import {
   extractDocLinks,
   headingAnchors,
 } from "../../src/lib/docs_integrity.ts";
+import { structuralGuardScope } from "../../tests/structural_guard_scope.ts";
 
 const PLANNING_REL = "project/map/_private/planning";
 const TODO_REL = "project/TODO.md";
 const SCOPES_REL = "project/map/_internal/scopes";
+const PAGE_TEMPLATES_REL = "project/map/_internal/page-templates.md";
+const DOCUMENTER_BRIEF_REL = "project/map/_internal/documenter-agent-brief.md";
 
 /** Stable rule ids printed by the command and asserted by its fixtures. */
 export const PROJECT_CONTROL_RULES = [
@@ -53,6 +56,10 @@ export const PROJECT_CONTROL_RULES = [
   "scope-manifest",
   "scope-member",
   "scope-exclusion",
+  "budget-authority",
+  "budget-copy",
+  "page-shape",
+  "budget-exception",
 ] as const;
 
 /** One project-control rule id. */
@@ -112,6 +119,11 @@ interface BriefRow {
   readonly pathRaw: string;
   readonly done: boolean;
   readonly line: number;
+}
+
+interface PageShapeAuthority {
+  readonly names: ReadonlySet<string>;
+  readonly anchors: ReadonlyMap<string, string>;
 }
 
 /** Build one finding without letting diagnostics drift across call sites. */
@@ -297,6 +309,17 @@ function tableInSection(
     index > start && /^##\s+/.test(line)
   );
   return nextHeading < 0 || table.line <= nextHeading;
+}
+
+/** Find the judgment-bearing inventory table in one scope document. */
+function scopeFilesTable(text: string): MarkdownTable | undefined {
+  return markdownTables(text).find((table) => {
+    const headers = table.headers.map((header) =>
+      plainCell(header).toLowerCase()
+    );
+    return tableInSection(text, table, "Files to produce") &&
+      headers.includes("file") && headers.includes("topic");
+  });
 }
 
 /** Extract the one Markdown-file path a brief cell names. */
@@ -1059,13 +1082,7 @@ async function checkScopeManifest(
   }
 
   const tables = markdownTables(manifest.text);
-  const filesTable = tables.find((table) => {
-    const headers = table.headers.map((header) =>
-      plainCell(header).toLowerCase()
-    );
-    return tableInSection(manifest.text, table, "Files to produce") &&
-      headers.includes("file") && headers.includes("topic");
-  });
+  const filesTable = scopeFilesTable(manifest.text);
   if (filesTable === undefined) {
     return [finding(
       manifest.rel,
@@ -1249,6 +1266,362 @@ async function checkScopes(root: string): Promise<ProjectControlFinding[]> {
   return findings;
 }
 
+/** Parse the sole page-shape and default-budget authority. */
+async function pageShapeAuthority(
+  root: string,
+): Promise<{
+  authority: PageShapeAuthority | undefined;
+  findings: ProjectControlFinding[];
+}> {
+  const path = join(root, PAGE_TEMPLATES_REL);
+  if (!(await fileExists(path))) return { authority: undefined, findings: [] };
+
+  const findings: ProjectControlFinding[] = [];
+  const text = await Deno.readTextFile(path);
+  const lines = text.split("\n");
+  const names = new Set<string>();
+  const anchors = new Map<string, string>();
+  const boundBudgets = new Set<number>();
+  const budgetLine =
+    /^Default budget: (?:\d[\d,]*[–-]\d[\d,]* words|unbudgeted; keep it scannable)\.$/;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (!line.includes("discern-page-shape")) continue;
+    const match = line.match(
+      /^<!-- discern-page-shape: ([a-z][a-z0-9-]*) -->$/,
+    );
+    if (match === null) {
+      findings.push(finding(
+        PAGE_TEMPLATES_REL,
+        index + 1,
+        "budget-authority",
+        "malformed discern-page-shape declaration",
+        "Use exactly <!-- discern-page-shape: stable-name --> directly before its budgeted level-two heading.",
+      ));
+      continue;
+    }
+    const name = match[1] ?? "";
+    let headingIndex = index + 1;
+    while (
+      headingIndex < lines.length &&
+      (lines[headingIndex] ?? "").trim() === ""
+    ) headingIndex += 1;
+    const heading = lines[headingIndex] ?? "";
+    let budgetIndex = headingIndex + 1;
+    while (
+      budgetIndex < lines.length &&
+      (lines[budgetIndex] ?? "").trim() === ""
+    ) budgetIndex += 1;
+    if (!/^## .+/.test(heading) || !budgetLine.test(lines[budgetIndex] ?? "")) {
+      findings.push(finding(
+        PAGE_TEMPLATES_REL,
+        index + 1,
+        "budget-authority",
+        "page shape " + name +
+          " is not followed by one heading and one Default budget line",
+        "Put the declaration before a stable level-two heading, then state one numeric word range or the unbudgeted marker on the next content line.",
+      ));
+    } else {
+      boundBudgets.add(budgetIndex);
+      const anchor = [...headingAnchors(heading)][0];
+      if (anchor === undefined) {
+        findings.push(finding(
+          PAGE_TEMPLATES_REL,
+          headingIndex + 1,
+          "budget-authority",
+          "page shape " + name + " has no renderer-derived heading anchor",
+          "Give the shape a nonempty stable level-two heading.",
+        ));
+      } else if (!anchors.has(name)) {
+        anchors.set(name, anchor);
+      }
+    }
+    if (names.has(name)) {
+      findings.push(finding(
+        PAGE_TEMPLATES_REL,
+        index + 1,
+        "budget-authority",
+        "page shape " + name + " is declared more than once",
+        "Keep one declaration and one budget-bearing heading per page shape.",
+      ));
+    }
+    names.add(name);
+  }
+  for (let index = 0; index < lines.length; index += 1) {
+    if (budgetLine.test(lines[index] ?? "") && !boundBudgets.has(index)) {
+      findings.push(finding(
+        PAGE_TEMPLATES_REL,
+        index + 1,
+        "budget-authority",
+        "Default budget line has no discern-page-shape declaration",
+        "Bind the budget to one stable shape declaration and level-two heading.",
+      ));
+    }
+  }
+  if (names.size === 0) {
+    findings.push(finding(
+      PAGE_TEMPLATES_REL,
+      1,
+      "budget-authority",
+      "page template authority declares no page shapes",
+      "Declare each supported shape beside its one default budget.",
+    ));
+  }
+  return {
+    authority: {
+      names,
+      anchors,
+    },
+    findings,
+  };
+}
+
+/** Reject copied default budgets outside the authority document. */
+async function checkBudgetCopies(
+  root: string,
+): Promise<ProjectControlFinding[]> {
+  const findings: ProjectControlFinding[] = [];
+  const paths = await structuralGuardScope({
+    guard:
+      "project/scripts/project_control_integrity.ts#documenter-budget-consumers",
+    universe: "tracked-markdown",
+    narrow: {
+      reason:
+        "Default budget copies are forbidden in the documenter brief and every scope-control document.",
+      include: (rel) =>
+        rel === DOCUMENTER_BRIEF_REL || rel.startsWith(SCOPES_REL + "/"),
+    },
+  }, root);
+  const sources = await Promise.all(paths.map(async (rel) => {
+    const abs = join(root, rel);
+    return { abs, rel, text: await Deno.readTextFile(abs) };
+  }));
+  const range = /\b\d[\d,]*\s*[–-]\s*\d[\d,]*[-\s]+words?\b/i;
+  for (const source of sources) {
+    const isManifest = source.rel.startsWith(SCOPES_REL + "/") &&
+      basename(source.abs) !== "_template.md";
+    const lines = source.text.split("\n");
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index] ?? "";
+      const exception = isManifest &&
+        /^<!-- discern-page-budget-exception: .+ -->$/.test(line);
+      if (range.test(line) && !exception) {
+        findings.push(finding(
+          source.rel,
+          index + 1,
+          "budget-copy",
+          "numeric page budget is copied outside " + PAGE_TEMPLATES_REL,
+          isManifest
+            ? "Select the declared page shape, or use one valid file-scoped budget-exception declaration for a genuine local exception."
+            : "Link the selected page shape in page-templates.md instead of restating its numbers.",
+        ));
+      }
+    }
+  }
+  return findings;
+}
+
+/** Validate page-shape links and explicit numeric exceptions in one manifest. */
+async function checkManifestBudgets(
+  root: string,
+  manifest: MarkdownSource,
+  authority: PageShapeAuthority,
+): Promise<ProjectControlFinding[]> {
+  const findings: ProjectControlFinding[] = [];
+  const table = scopeFilesTable(manifest.text);
+  if (table === undefined) return findings;
+  const headers = table.headers.map((header) =>
+    plainCell(header).toLowerCase()
+  );
+  const fileIndex = headers.indexOf("file");
+  const shapeIndex = headers.indexOf("shape");
+  const members = new Set<string>();
+  const isTemplate = basename(manifest.abs) === "_template.md";
+  if (shapeIndex < 0) {
+    findings.push(finding(
+      manifest.rel,
+      table.line,
+      "page-shape",
+      "Files to produce table has no Shape column",
+      "Add Shape and link every row to one declared page shape in ../page-templates.md.",
+    ));
+    return findings;
+  }
+  for (const row of table.rows) {
+    const path = scopePath(row.cells[fileIndex] ?? "");
+    if (path !== undefined) members.add(path);
+    const cell = row.cells[shapeIndex] ?? "";
+    const shapeLink = cell.match(
+      /^\[([a-z][a-z0-9-]*)\]\(\.\.\/page-templates\.md#([^)]+)\)$/,
+    );
+    const shape = plainCell(cell).toLowerCase();
+    const linked = shapeLink !== null && shapeLink[1] === shape &&
+      authority.anchors.get(shape) === shapeLink[2];
+    const declared = cell.trim() === shape;
+    if (
+      !authority.names.has(shape) ||
+      (isTemplate ? !linked : !linked && !declared)
+    ) {
+      findings.push(finding(
+        manifest.rel,
+        row.line,
+        "page-shape",
+        "scope member " + (path ?? plainCell(row.cells[fileIndex] ?? "")) +
+          " names unknown or unlinked page shape " + (shape || "<empty>"),
+        isTemplate
+          ? "Link one shape declared in ../page-templates.md from the Shape cell."
+          : "Name one shape declared in ../page-templates.md, or link that declaration.",
+      ));
+    }
+  }
+
+  if (isTemplate) return findings;
+  const subtree = join(root, "project/map", basename(manifest.abs, ".md"));
+  const seen = new Set<string>();
+  const lines = manifest.text.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (!line.includes("discern-page-budget-exception")) continue;
+    const match = line.match(
+      /^<!-- discern-page-budget-exception: ([^|<>]+\.md) \| (\d[\d,]*)[–-](\d[\d,]*) words \| (.{15,}) -->$/,
+    );
+    if (match === null) {
+      findings.push(finding(
+        manifest.rel,
+        index + 1,
+        "budget-exception",
+        "malformed discern-page-budget-exception declaration",
+        "Use exactly <!-- discern-page-budget-exception: file.md | lower–upper words | durable reason -->.",
+      ));
+      continue;
+    }
+    const path = match[1] ?? "";
+    const lower = Number((match[2] ?? "").replaceAll(",", ""));
+    const upper = Number((match[3] ?? "").replaceAll(",", ""));
+    const target = resolve(subtree, path);
+    if (
+      lower < 1 || upper < lower || isAbsolute(path) ||
+      !isWithin(subtree, target) || !(await fileExists(target)) ||
+      !members.has(path) || seen.has(path)
+    ) {
+      findings.push(finding(
+        manifest.rel,
+        index + 1,
+        "budget-exception",
+        "budget exception for " + path +
+          " has an invalid range, duplicate, stale target, or unenrolled member",
+        "Declare one increasing positive range for one live Files to produce member.",
+      ));
+    }
+    seen.add(path);
+  }
+  return findings;
+}
+
+/** Validate each default shape selected by the shared documenter brief. */
+async function checkDocumenterShapeUses(
+  root: string,
+  authority: PageShapeAuthority,
+): Promise<ProjectControlFinding[]> {
+  const path = join(root, DOCUMENTER_BRIEF_REL);
+  if (!(await fileExists(path))) return [];
+  const findings: ProjectControlFinding[] = [];
+  const lines = (await Deno.readTextFile(path)).split("\n");
+  const subjects = new Map<string, number>();
+  let declarations = 0;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (!line.includes("discern-page-shape-use")) continue;
+    declarations += 1;
+    const match = line.match(
+      /^<!-- discern-page-shape-use: ([^|<>]{2,80}) \| ([a-z][a-z0-9-]*) -->$/,
+    );
+    if (match === null) {
+      findings.push(finding(
+        DOCUMENTER_BRIEF_REL,
+        index + 1,
+        "page-shape",
+        "malformed discern-page-shape-use declaration",
+        "Use exactly <!-- discern-page-shape-use: page role | declared-shape --> directly before its linked instruction.",
+      ));
+      continue;
+    }
+    const subject = match[1]?.trim() ?? "";
+    const shape = match[2] ?? "";
+    let instructionIndex = index + 1;
+    while (
+      instructionIndex < lines.length &&
+      (lines[instructionIndex] ?? "").trim() === ""
+    ) instructionIndex += 1;
+    const instruction = lines[instructionIndex] ?? "";
+    const expectedAnchor = authority.anchors.get(shape);
+    const expectedLink = expectedAnchor === undefined
+      ? ""
+      : "(page-templates.md#" + expectedAnchor + ")";
+    const expectedLinkedShape = "[" + shape + " shape]" + expectedLink;
+    const prior = subjects.get(subject.toLowerCase());
+    if (
+      !authority.names.has(shape) || expectedAnchor === undefined ||
+      !instruction.includes(expectedLinkedShape) || prior !== undefined
+    ) {
+      findings.push(finding(
+        DOCUMENTER_BRIEF_REL,
+        index + 1,
+        "page-shape",
+        "documenter role " + subject +
+          " has an unknown, duplicate, or unlinked shape " + shape,
+        "Declare each role once and link its selected page-templates.md heading in the immediately following instruction.",
+      ));
+    }
+    if (prior === undefined) subjects.set(subject.toLowerCase(), index + 1);
+  }
+  if (declarations === 0) {
+    findings.push(finding(
+      DOCUMENTER_BRIEF_REL,
+      1,
+      "page-shape",
+      "documenter brief declares no default page-shape uses",
+      "Declare each default role and link its shape in page-templates.md instead of restating a budget.",
+    ));
+  }
+  return findings;
+}
+
+/** Check the single page-budget authority and every consumer. */
+async function checkBudgets(root: string): Promise<ProjectControlFinding[]> {
+  const scopes = join(root, SCOPES_REL);
+  const manifests = await directoryExists(scopes)
+    ? await markdownSources(root, scopes)
+    : [];
+  const parsed = await pageShapeAuthority(root);
+  const hasConsumers = manifests.length > 0 ||
+    await fileExists(join(root, DOCUMENTER_BRIEF_REL));
+  if (parsed.authority === undefined) {
+    return hasConsumers
+      ? [finding(
+        PAGE_TEMPLATES_REL,
+        1,
+        "budget-authority",
+        "documenter controls exist without their page-template authority",
+        "Restore page-templates.md with one declared budget per supported shape.",
+      )]
+      : [];
+  }
+  const findings = [...parsed.findings];
+  findings.push(...await checkBudgetCopies(root));
+  findings.push(...await checkDocumenterShapeUses(root, parsed.authority));
+  for (const manifest of manifests) {
+    findings.push(
+      ...await checkManifestBudgets(
+        root,
+        manifest,
+        parsed.authority,
+      ),
+    );
+  }
+  return findings;
+}
+
 /** Run every repository control-document check, read-only. */
 export async function checkProjectControls(
   root: string,
@@ -1258,6 +1631,7 @@ export async function checkProjectControls(
     ...await checkPlanning(resolvedRoot),
     ...await checkTodo(resolvedRoot),
     ...await checkScopes(resolvedRoot),
+    ...await checkBudgets(resolvedRoot),
   ];
   return findings.sort((a, b) =>
     a.file.localeCompare(b.file) || a.line - b.line ||

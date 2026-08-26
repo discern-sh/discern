@@ -50,10 +50,6 @@ The single source of truth for **outstanding work**: verified defects, deferred 
   Enrol the Canonical sets leaf, reconcile the documented test layers and build ownership, and align the generated ownership inventory with its live registry.
   Evidence: `project/map/80-development/README.md`; `project/map/80-development/testing.md`; `project/map/80-development/code-conventions.md`; `discern.toml`; `src/shared/paths_registry.ts`.
 
-- [ ] **Make documenter scope manifests and word budgets authoritative.**
-  Guard each durable refresh inventory against its live subtree and make one page-shape authority define the default guide budget used by the documenter workflow.
-  Evidence: `project/map/_internal/scopes`; `project/map/_internal/documenter-agent-brief.md`; `project/map/_internal/page-templates.md`.
-
 - [ ] **Declare every prose authority behind generated inventories.**
   Extend generated hint and tip ownership to include renderer framing and shared policy prose, or co-locate those literals with the registries their banners already name.
   Evidence: `src/shared/hint_inventory_codegen.ts`; `src/shared/tip_inventory_codegen.ts`; `src/shared/operating_policies.ts`; `scripts/canonical_sets.ts`.

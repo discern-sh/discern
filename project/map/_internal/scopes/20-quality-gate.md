@@ -8,26 +8,26 @@ This subtree documents the public Gate workflow: fixing a failed run, the work `
 
 ## Files to produce
 
-| File                      | Topic                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------ |
-| `README.md`               | Public-facing 200–350-word overview, led by the route from a red Gate to its fix.          |
-| `when-the-gate-fails.md`  | Troubleshooting page for diagnostics and common failure classes; `order: 10`.              |
-| `validation-findings.md`  | Guide to the persisted validation findings emitted after failed and successful runs.       |
-| `standards.md`            | Guide to metric floors, ceilings, measurement, replay, pinning, and failures; `order: 20`. |
-| `practice-stats.md`       | Guide to measuring repeated development practices from the Logbook.                        |
-| `checkpoints.md`          | Guide to deterministic triggers and judgment-bearing checkpoint answers.                   |
-| `checkpoint-recipes.md`   | Task recipes for placing and tuning common checkpoint boundaries.                          |
-| `the-proof.md`            | Guide to review Proof and the exact-tree identity it records; `order: 30`.                 |
-| `proof-notes.md`          | Guide to local Proof notes, opt-in fetch transport, and publication; `order: 40`.          |
-| `strand-detection.md`     | Concept page for tracked output left by a Gate stage; `order: 50`.                         |
-| `ci.md`                   | Guide to enforcing `discern done` with GitHub Actions; `order: 60`.                        |
-| `improvement.md`          | Concept and command guide for ranked continuous-improvement findings; `order: 70`.         |
-| `coupling.md`             | Concept and command guide for coupling; `order: 80`.                                       |
-| `patterns.md`             | Guide to the advisory practice-pattern report; `order: 90`.                                |
-| `pattern-investigations.md` | Guide to collecting evidence for one reported practice pattern.                          |
-| `patterns-decision-evidence.md` | Guide to retaining the decision evidence behind pattern responses.                  |
-| `tidy.md`                 | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                 |
-| `concurrent-test-runs.md` | Guide to the Fleet-wide test-stage concurrency cap; `order: 110`.                          |
+| File                            | Shape           | Topic                                                                                      |
+| ------------------------------- | --------------- | ------------------------------------------------------------------------------------------ |
+| `README.md`                     | overview        | Public front door led by the route from a red Gate to its fix.                             |
+| `when-the-gate-fails.md`        | troubleshooting | Troubleshooting page for diagnostics and common failure classes; `order: 10`.              |
+| `validation-findings.md`        | guide           | Guide to the persisted validation findings emitted after failed and successful runs.       |
+| `standards.md`                  | guide           | Guide to metric floors, ceilings, measurement, replay, pinning, and failures; `order: 20`. |
+| `practice-stats.md`             | guide           | Guide to measuring repeated development practices from the Logbook.                        |
+| `checkpoints.md`                | guide           | Guide to deterministic triggers and judgment-bearing checkpoint answers.                   |
+| `checkpoint-recipes.md`         | guide           | Task recipes for placing and tuning common checkpoint boundaries.                          |
+| `the-proof.md`                  | guide           | Guide to review Proof and the exact-tree identity it records; `order: 30`.                 |
+| `proof-notes.md`                | guide           | Guide to local Proof notes, opt-in fetch transport, and publication; `order: 40`.          |
+| `strand-detection.md`           | guide           | Concept page for tracked output left by a Gate stage; `order: 50`.                         |
+| `ci.md`                         | guide           | Guide to enforcing `discern done` with GitHub Actions; `order: 60`.                        |
+| `improvement.md`                | guide           | Concept and command guide for ranked continuous-improvement findings; `order: 70`.         |
+| `coupling.md`                   | guide           | Concept and command guide for coupling; `order: 80`.                                       |
+| `patterns.md`                   | guide           | Guide to the advisory practice-pattern report; `order: 90`.                                |
+| `pattern-investigations.md`     | guide           | Guide to collecting evidence for one reported practice pattern.                            |
+| `patterns-decision-evidence.md` | guide           | Guide to retaining the decision evidence behind pattern responses.                         |
+| `tidy.md`                       | guide           | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                 |
+| `concurrent-test-runs.md`       | guide           | Guide to the Fleet-wide test-stage concurrency cap; `order: 110`.                          |
 
 ## Source files to read
 
@@ -61,4 +61,4 @@ This subtree documents the public Gate workflow: fixing a failed run, the work `
 
 ## Length-budget note
 
-The README stays within 200–350 words. Troubleshooting stays within 300–700 words. Public guide and concept leaves stay within the subsystem hard ceiling of 400–800 words. The moved engine leaf follows the same 400–800-word ceiling.
+The declared page shapes use the defaults in [`page-templates.md`](../page-templates.md); no local numeric exception is declared.
