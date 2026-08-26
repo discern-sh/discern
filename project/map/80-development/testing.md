@@ -34,6 +34,12 @@ Membership derives in [`scripts/canary_registry.ts`](../../../scripts/canary_reg
 
 Revise membership on evidence: `discern scripts canary-audit` ranks the [Logbook](../70-reference/the-logbook.md)'s recorded per-file test failures against the registry and names hot uncovered files and extras with no record left. The report is advisory — failure history differs per machine, so it never joins the Gate.
 
+### Project-control integrity
+
+`[jobs.project-control]` runs [`project/scripts/project-control`](../../../project/scripts/project-control) at the Gate's check stage. The read-only command derives private planning programmes and numbered briefs from the optional overlay, parses every open [`project/TODO.md`](../../TODO.md) item, compares each documenter scope manifest with its live numbered Map subtree, and resolves page-shape names and default budgets from `project/map/_internal/page-templates.md`. A public clone without `_private` remains valid; present private content receives the full link, state, dependency, literal Worktree identity, and planned-output checks.
+
+[`project_control_integrity_test.ts`](../../../tests/project_control_integrity_test.ts) plants each failure class in isolated trees. Its valid fixtures include the absent-overlay case and a declared future output before creation; negative fixtures cover missing and stale members in both directions. Run `project/scripts/project-control` for the same quiet repository check without the rest of the Gate.
+
 The site tests read the built site, which the Gate's build stage produces through `deno task site:build`. On a fresh checkout that has never run the Gate, run `deno task site:build` before the full suite. The `test.exclude` list in `deno.json` keeps generated output, distribution files, templates, and fixtures out of discovery.
 
 Tests work at these layers:

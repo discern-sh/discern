@@ -8,16 +8,27 @@ The public reference tier for discern's commands, configuration, environment var
 
 ## Files to produce
 
-| File                       | Topic                                                                                                             |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `README.md`                | Public 200–350-word overview and curated reading order.                                                           |
-| `cli-reference.md`         | Generated command, subcommand, flag, and command-alias reference.                                                 |
-| `config-reference.md`      | Generated `discern.toml` section, key, type, default, and key-alias reference.                                    |
-| `environment-variables.md` | Generated public `DISCERN_*` names, grouped purpose, and short descriptions.                                      |
-| `result-surfaces.md`       | Terminal, Markdown, JSON, and MCP projections of one prepared result.                                             |
-| `mcp-and-results.md`       | Public MCP tools, resources, result-envelope wrapper, published schemas, and CLI exit codes.                      |
-| `artifact-ownership.md`    | Approved Files and ownership exemplar; preserve its register and update only required links or location metadata. |
-| `platforms-and-prereqs.md` | Supported release targets, required tools, identity selectors, and tokens.                                        |
+| File                              | Shape     | Topic                                                                                                             |
+| --------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------- |
+| `README.md`                       | overview  | Public front door and curated reading order.                                                                      |
+| `setup-command-boundaries.md`     | reference | Exact ownership boundary among setup, refresh, upgrade, and doctor.                                               |
+| `worktree-setup-step-recovery.md` | reference | Recovery contract for interrupted external setup steps in a new worktree.                                         |
+| `cli-reference.md`                | reference | Generated command, subcommand, flag, and command-alias reference.                                                 |
+| `config-reference.md`             | reference | Generated `discern.toml` section, key, type, default, and key-alias reference.                                    |
+| `environment-variables.md`        | reference | Generated public `DISCERN_*` names, grouped purpose, and short descriptions.                                      |
+| `checkpoint-when-protocol.md`     | reference | Syntax and matching semantics for checkpoint change triggers.                                                     |
+| `checkpoint-state.md`             | reference | Persisted checkpoint answer, variance, and invalidation fields.                                                   |
+| `result-surfaces.md`              | reference | Terminal, Markdown, JSON, and MCP projections of one prepared result.                                             |
+| `mcp-and-results.md`              | reference | Public MCP tools, resources, result-envelope wrapper, published schemas, and CLI exit codes.                      |
+| `mcp-call-duration.md`            | reference | Duration fields and timing boundaries exposed by MCP calls.                                                       |
+| `proof-note-format.md`            | reference | Wire format, identifiers, and validation contract for Proof notes.                                                |
+| `artifact-ownership.md`           | reference | Approved Files and ownership exemplar; preserve its register and update only required links or location metadata. |
+| `project-payload-license.md`      | reference | License boundary for files discern installs into a user's project.                                                |
+| `temp-files-and-retention.md`     | reference | Temporary artifact locations, ownership, and retention policy.                                                    |
+| `crash-reports.md`                | reference | Crash-report contents, storage, redaction, and recovery contract.                                                 |
+| `logbook-lifecycle.md`            | reference | Creation, retention, repair, and deletion lifecycle of Logbook data.                                              |
+| `the-logbook.md`                  | reference | Public field and event reference for the Logbook record.                                                          |
+| `platforms-and-prereqs.md`        | reference | Supported release targets, required tools, identity selectors, and tokens.                                        |
 
 ## Source files to read
 
@@ -47,4 +58,4 @@ The public reference tier for discern's commands, configuration, environment var
 
 ## Length-budget note
 
-The README uses the 200–350-word overview budget. Reference leaves are unbudgeted and must remain scannable through headings and tables.
+The declared page shapes use the defaults in [`page-templates.md`](../page-templates.md); no local numeric exception is declared.

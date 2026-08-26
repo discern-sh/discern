@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# desc: validate private plans, TODO entries, and documenter scope manifests
+set -eu
+
+cd "${DISCERN_ROOT:-.}"
+exec deno run --quiet --no-prompt --allow-read --allow-run=git project/scripts/project_control_integrity.ts "$@"

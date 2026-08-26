@@ -17,16 +17,15 @@ boundaries, and the owner of each adjacent area. -->
 ## Files to produce
 
 <!-- Every `.md` file the agent must write, with a one-line topic each. Put the README
-first. Name the page shape (overview / quickstart / guide / reference /
-troubleshooting — see page-templates.md) when it differs from the default subsystem
-leaf, and any frontmatter the page must carry beyond the brief's baseline
+first. Link every row to its selected shape in page-templates.md, and name any
+frontmatter the page must carry beyond the brief's baseline
 (a specific `order`, `publish: false`, a `redirect_from` claim). Keep the set
-small enough to stay within the length budget. -->
+small enough for each page to perform one job. -->
 
-| File        | Topic                                                                                                    |
-| ----------- | -------------------------------------------------------------------------------------------------------- |
-| `README.md` | Public-facing 200–350-word overview: what this subtree covers, and the reading order through the leaves. |
-| `<leaf>.md` | _Topic._                                                                                                 |
+| File        | Shape                                        | Topic                                                    |
+| ----------- | -------------------------------------------- | -------------------------------------------------------- |
+| `README.md` | [overview](../page-templates.md#overview)    | Public front door and reading order through the subtree. |
+| `<leaf>.md` | [guide](../page-templates.md#guide--concept) | _Topic and boundary._                                    |
 
 ## Source files to read
 
@@ -60,7 +59,13 @@ authority. -->
 
 ## Length-budget note
 
-<!-- If this subtree is unusually large or small, say how to group or split the
-work within its budget. Otherwise write "Standard budget applies." -->
+<!-- Every inventory row already links its default budget. State only grouping or
+split instructions here. Remove this comment before handoff. -->
 
-Standard budget applies (200–350 words per README, 400–800 per leaf — hard ceiling; other page shapes carry the budgets in [`page-templates.md`](../page-templates.md)).
+The linked page shapes apply; no local budget exception is declared.
+
+For a genuine local numeric exception, replace that sentence with:
+
+```markdown
+<!-- project-page-budget-exception: <file.md> | <lower>–<upper> words | <durable reason> -->
+```
