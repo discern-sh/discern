@@ -84,10 +84,7 @@ import {
 } from "../../shared/mcp_timeout_policy.ts";
 import { experimentalAwaitCallSeconds } from "../../shared/experimental.ts";
 import type { EnvReader } from "../../shared/env.ts";
-import {
-  bestEffort,
-  bestEffortSync,
-} from "../../shared/best_effort.ts";
+import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { pathExists } from "../../shared/fs_presence.ts";
 
 import { AWAIT_POLL_INTERVAL_MS, AWAIT_TIMEOUT_EXIT_CODE } from "./defaults.ts";

@@ -220,7 +220,7 @@ function recoverHistoricalQuestionSources(
   try {
     raw = parseToml(text);
   } catch {
-    // discern-best-effort: checkpoint-historical-config-parse-fallback
+    // discern-best-effort: checkpoint-stored-config-parse-fallback
     return undefined;
   }
   if (!isRecord(raw) || !isRecord(raw.checkpoints)) {

@@ -51,7 +51,7 @@ Configured job, scope, standard, resource, command, and path identifiers stay ou
 
 ## Error disposition
 
-An error either remains part of the active failure path, reaches an elected `Logger`, `Out`, or `DiscernResult` authority, or crosses one named deliberate-discard boundary in [`BEST_EFFORT_BOUNDARIES`](../../../src/shared/best_effort.ts). The registry makes the exact owner, operation, reason, synchronous or asynchronous shape, and observability policy reviewable. Direct syntax exceptions are site-specific; module-wide exclusions do not exist.
+An error either remains part of the active failure path, reaches an elected `Logger`, `Out`, or `DiscernResult` authority, or crosses one named discard boundary in [`BEST_EFFORT_BOUNDARIES`](../../../src/shared/best_effort.ts). The registry makes the exact owner, operation, reason, synchronous or asynchronous shape, and observability policy reviewable. Direct syntax exceptions are site-specific; module-wide exclusions do not exist ([ADR 0341](../_adr/0341-deliberate-error-discard-is-a-named-side-effect-boundary.md)).
 
 The shared `bestEffort` and `bestEffortSync` capabilities run secondary side effects only. Their return types are `Promise<void>` and `void`, so a failed data read cannot masquerade as an absent value. Effect and reporter failures settle inside the capability, preserving any primary throw and preventing an unhandled rejection. [`silent_catch_lint.ts`](../../../scripts/silent_catch_lint.ts) rejects synchronous and promise-shaped swallowing, while the bidirectional registry census and falling `silent_error_boundaries` Standard prevent a wrapper from hiding population growth.
 

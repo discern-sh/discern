@@ -2901,9 +2901,9 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   },
   {
     id: "best-effort-boundaries",
-    title: "Deliberate error-discard boundaries",
+    title: "Error-discard boundaries",
     what:
-      "Every deliberate production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.",
+      "Every named production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.",
     source: {
       kind: "module",
       module: "src/shared/best_effort.ts",

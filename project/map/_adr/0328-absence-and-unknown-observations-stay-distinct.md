@@ -1,5 +1,7 @@
 # ADR 0328: Absence and unknown observations stay distinct
 
+> **Amendment ([ADR 0341](0341-deliberate-error-discard-is-a-named-side-effect-boundary.md)):** [`fs_presence.ts`](../../../src/shared/fs_presence.ts) now owns strict presence only. Deliberate suppression moved to [`BEST_EFFORT_BOUNDARIES`](../../../src/shared/best_effort.ts), whose capabilities accept side effects and return only `void`; exact direct syntax exceptions consume the same authority. The Git-count, causal-chain, and strict-presence decisions below remain in force.
+
 **Status**: accepted. Applies the structural-guard universe in [ADR 0324](0324-structural-guards-declare-git-derived-source-universes.md), preserves the apply-time authority boundary in [ADR 0027](0027-plan-apply-engine-execution.md), and makes a pre-release correction to the status field types named in [ADR 0222](0222-frozen-contracts-complete-the-canon.md) under [ADR 0208](0208-public-contracts-version-by-schema-major.md)'s pre-tag rule.
 
 ## Context

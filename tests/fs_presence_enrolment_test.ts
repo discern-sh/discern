@@ -3,10 +3,16 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  BEST_EFFORT_BOUNDARIES,
+  type BestEffortBoundary,
+} from "../src/shared/best_effort.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const FS_PRESENCE_AUTHORITY = "src/shared/fs_presence.ts";
+const DIRECT_BOUNDARY_MARKER =
+  /\bdiscern-best-effort:\s*([a-z0-9]+(?:-[a-z0-9]+)*)\b/g;
 const FILESYSTEM_READS = new Set([
   "lstat",
   "lstatSync",
@@ -23,6 +29,10 @@ const FILESYSTEM_READS = new Set([
   "stat",
   "statSync",
 ]);
+
+type BestEffortBoundaryRegistry = Readonly<
+  Record<string, BestEffortBoundary>
+>;
 
 /** Parse one authored module without resolving its dependency graph. */
 function parseModule(path: string, source: string): SourceFile {
@@ -108,15 +118,36 @@ function catchSuppressesFailure(catchClause: Node): boolean {
   });
 }
 
+/** Whether one fallback consumes an exact direct best-effort registry entry. */
+function isRegisteredDirectBoundary(
+  path: string,
+  node: Node,
+  registry: BestEffortBoundaryRegistry,
+): boolean {
+  const ids = [...node.getText().matchAll(DIRECT_BOUNDARY_MARKER)]
+    .map((match) => match[1])
+    .filter((id): id is string => id !== undefined);
+  if (ids.length !== 1) return false;
+  const boundary = registry[ids[0] ?? ""];
+  return boundary?.kind === "direct" && boundary.path === path;
+}
+
 /** Find raw optional-read semantics that bypass the shared capability. */
-function presenceBypassFindings(path: string, source: string): string[] {
+function presenceBypassFindings(
+  path: string,
+  source: string,
+  registry: BestEffortBoundaryRegistry = BEST_EFFORT_BOUNDARIES,
+): string[] {
   const parsed = parseModule(path, source);
   const findings: string[] = [];
   for (
     const statement of parsed.getDescendantsOfKind(SyntaxKind.TryStatement)
   ) {
     const catchClause = statement.getCatchClause();
-    if (catchClause === undefined || !catchSuppressesFailure(catchClause)) {
+    if (
+      catchClause === undefined || !catchSuppressesFailure(catchClause) ||
+      isRegisteredDirectBoundary(path, catchClause, registry)
+    ) {
       continue;
     }
     for (
@@ -148,7 +179,9 @@ function presenceBypassFindings(path: string, source: string): string[] {
     const handler = call.getArguments()[0];
     const rethrows = handler !== undefined &&
       handler.getDescendantsOfKind(SyntaxKind.ThrowStatement).length > 0;
-    if (operation !== undefined && !rethrows) {
+    const registered = handler !== undefined &&
+      isRegisteredDirectBoundary(path, handler, registry);
+    if (operation !== undefined && !rethrows && !registered) {
       findings.push(
         `${path}:${receiver.getStartLineNumber()} ${operation}.catch`,
       );
@@ -181,7 +214,8 @@ Deno.test("optional filesystem reads are owned by the presence capability", asyn
     findings,
     [],
     "a local helper or swallow-all probe owns optional filesystem semantics; " +
-      "use src/shared/fs_presence.ts and name any best-effort consequence",
+      "use src/shared/fs_presence.ts for absence or an exact " +
+      "BEST_EFFORT_BOUNDARIES entry for a policy fallback",
   );
 });
 
@@ -191,12 +225,40 @@ Deno.test("presence ownership catches helpers whose names do not mention existen
     await Deno.stat(path);
     return true;
   } catch {
+    // discern-best-effort: unknown-cache-probe
     return false;
   }
 }\n`;
   assertEquals(presenceBypassFindings("tools/cache.ts", source), [
     "tools/cache.ts:3 Deno.stat",
   ]);
+});
+
+Deno.test("an exact registered policy fallback does not claim ordinary absence", () => {
+  const source = `async function inspectCache(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    // discern-best-effort: planted-cache-probe
+    return false;
+  }
+}\n`;
+  assertEquals(
+    presenceBypassFindings("tools/cache.ts", source, {
+      "planted-cache-probe": {
+        path: "tools/cache.ts",
+        enclosingFunction: "inspectCache",
+        operation: "treat an unavailable advisory cache probe as not ready",
+        kind: "direct",
+        shape: "async",
+        observability: { kind: "unobservable" },
+        reason:
+          "The planted cache probe has no authority over the primary operation and proves exact enrollment.",
+      },
+    }),
+    [],
+  );
 });
 
 Deno.test("presence ownership catches promise-level failure suppression", () => {

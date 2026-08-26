@@ -11,10 +11,7 @@
  */
 
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
-import {
-  bestEffort,
-  bestEffortSync,
-} from "../../shared/best_effort.ts";
+import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
 import { activeInvocationId } from "../logbook/invocation_context.ts";
 import type { Job, JobOutputObserver, JobResult } from "./types.ts";

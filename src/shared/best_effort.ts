@@ -249,15 +249,15 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "Economics only enrich the checkpoint report and the report's canonical configuration and obligation facts remain available without local history.",
   },
-  "checkpoint-historical-config-parse-fallback": {
+  "checkpoint-stored-config-parse-fallback": {
     path: "src/engine/checkpoints/policy.ts",
     enclosingFunction: "recoverHistoricalQuestionSources",
-    operation: "decline recovery from malformed historical checkpoint TOML",
+    operation: "decline recovery from malformed stored checkpoint TOML",
     kind: "direct",
     shape: "sync",
     observability: { kind: "unobservable" },
     reason:
-      "Recovery is restricted to structurally readable historical questions and the primary validator retains the actionable current config issues.",
+      "Recovery is restricted to structurally readable stored questions and the primary validator retains the actionable current config issues.",
   },
   "checkpoint-untracked-inspection-close": {
     path: "src/engine/checkpoints/diff.ts",
@@ -1139,7 +1139,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     path: "src/engine/mcp/version_check.ts",
     enclosingFunction: "defaultProbeVersion",
     operation:
-      "omit the advisory installed-binary version when its probe cannot run",
+      "omit the advisory installed-discern version when its probe cannot run",
     kind: "direct",
     shape: "async",
     observability: { kind: "unobservable" },
@@ -1150,7 +1150,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     path: "src/engine/mcp/version_check.ts",
     enclosingFunction: "defaultStatKey",
     operation:
-      "omit the advisory installed-binary version hint when stat fails",
+      "omit the advisory installed-discern version hint when stat fails",
     kind: "direct",
     shape: "sync",
     observability: { kind: "unobservable" },
@@ -1610,7 +1610,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "The welcome only selects guidance; strict commands remain responsible for reporting and repairing the config error.",
+      "The welcome only selects an Instruction source; strict commands remain responsible for reporting and repairing the config error.",
   },
   "site-docs-scroll-read-fallback": {
     path: "site/pages/assets/docs.js",
