@@ -43,6 +43,8 @@ The mixed Gate path `done` remains `required`: its plan lists work owned by disc
 
 [`scripts/canonical_sets.ts`](../../../scripts/canonical_sets.ts) enrolls the registry as a canonical set. Logbook routing has a separate recording concern and does not supply effect policy ([ADR 0330](../_adr/0330-every-command-path-declares-its-operation-effects.md)).
 
+Command classification does not decide the sequencing of promise-returning calls inside an implementation. [Promise effect ownership](promise-effect-ownership.md) separately requires each promise-like value to stay in the caller's sequence or cross the exact `detachPromise` lifecycle boundary. A command can therefore have a correctly declared operation effect while one of its asynchronous steps has no completion owner.
+
 ## Git writers prove authority at the shared boundary
 
 Every applied Git writer crosses one real-operation preflight while its lock is held. [`withOperationLock`](../../../src/engine/operation_lock.ts) asks Git for the common administration directory and exercises create, write, rename, and remove there. A checkout mutator also probes its Git administration and project root. Denial returns `write_access`, naming the path and retry before the command body runs.

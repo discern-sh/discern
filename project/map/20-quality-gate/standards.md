@@ -63,6 +63,8 @@ discern's own [duplication census](../80-development/duplication-census.md) is a
 
 The `process_output_boundaries` and `process_exit_boundaries` Standards hold exact exception registries rather than text-match totals. Their shared structural command first proves that every direct product primitive has one current row and every row still has one call, then emits both populations. Unknown sites and stale entries fail even when the numeric count happens to stay level ([ADR 0344](../_adr/0344-process-egress-and-termination-have-exact-boundaries.md)).
 
+The `detached_promise_boundaries` Standard follows the same validate-then-measure shape. Its task first type-checks every promise-like expression statement in the Git-derived production universe, then binds each registered `detachPromise` call to one row naming lifecycle, rejection, and shutdown ownership. Only a clean type scan and exact two-way registry parity emit the falling population ([ADR 0345](../_adr/0345-promise-effects-have-typed-owners.md)).
+
 ## What the Gate does
 
 The Gate checks normalized definitions and limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Definition and limit checks never defer. A Standard with a live proposed limit measures fresh even when ordinary policy would replay or defer it. The reading must equal the proposal. `discern prepare` skips measurement.

@@ -3589,7 +3589,7 @@ Every named production error discard, with its exact module, enclosing function,
 
 ## `detached-promise-boundaries` — Detached promise boundaries
 
-Every promise effect deliberately transferred beyond its caller's sequence, with its exact module, enclosing function, operation, lifecycle owner, rejection policy, cancellation ownership, and reason.
+Every registered promise effect transferred beyond its caller's sequence, with its exact module, enclosing function, operation, lifecycle owner, rejection policy, cancellation ownership, and reason.
 
 - Source: `src/shared/promise_effects.ts` — `DETACHED_PROMISE_BOUNDARIES`
 - Members: 10

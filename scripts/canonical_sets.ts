@@ -2991,7 +2991,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "detached-promise-boundaries",
     title: "Detached promise boundaries",
     what:
-      "Every promise effect deliberately transferred beyond its caller's sequence, with its exact module, enclosing function, operation, lifecycle owner, rejection policy, cancellation ownership, and reason.",
+      "Every registered promise effect transferred beyond its caller's sequence, with its exact module, enclosing function, operation, lifecycle owner, rejection policy, cancellation ownership, and reason.",
     source: {
       kind: "module",
       module: "src/shared/promise_effects.ts",
