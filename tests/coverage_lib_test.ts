@@ -11,10 +11,12 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import {
   classifyModuleSource,
   evaluateModuleCoverage,
+  lcovReportArgs,
   renderTable,
   srcLineCoverage,
   type SourceModule,
 } from "../scripts/coverage_lib.ts";
+import { fromFileUrl, join, toFileUrl } from "@std/path";
 
 const ROOT = "/repo/checkout";
 
@@ -57,6 +59,23 @@ Deno.test("module syntax distinguishes runtime, erased type-only, and no-line mo
     classifyModuleSource("src/empty.ts", "/** Marker only. */\nexport {};\n"),
     "no-executable-lines",
   );
+});
+
+Deno.test("the LCOV report filter admits only this src tree and keeps product test.ts files", () => {
+  const repoRoot = fromFileUrl(new URL("../", import.meta.url));
+  const args = lcovReportArgs("profile-dir", repoRoot);
+  const include = args.find((arg) => arg.startsWith("--include="));
+  const pattern = new RegExp(include?.slice("--include=".length) ?? "(?!)");
+  assertEquals(
+    pattern.test(toFileUrl(join(repoRoot, "src", "engine", "gate", "test.ts")).href),
+    true,
+  );
+  assertEquals(
+    pattern.test(toFileUrl(join(repoRoot, "site", "page-src", "page.ts")).href),
+    false,
+  );
+  assertEquals(args.includes("--exclude=^$"), true);
+  assertEquals(args.slice(0, 3), ["coverage", "profile-dir", "--lcov"]);
 });
 
 Deno.test("the LCOV join gives an unloaded executable module an explicit zero", () => {

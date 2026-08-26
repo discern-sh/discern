@@ -32,6 +32,7 @@
 import { fromFileUrl } from "@std/path";
 import {
   evaluateModuleCoverage,
+  lcovReportArgs,
   renderTable,
   srcLineCoverage,
 } from "./coverage_lib.ts";
@@ -60,6 +61,7 @@ async function deno(
 }
 
 await withToolTempDir("coverage-profile", async (profile) => {
+  const repoRoot = fromFileUrl(new URL("../", import.meta.url));
   // 1. Run the project's own `test` task under coverage instrumentation — the
   //    task is the single definition of how the suite runs (site build, allow
   //    flags, --parallel), and the extra args forward to its final command,
@@ -75,17 +77,18 @@ await withToolTempDir("coverage-profile", async (profile) => {
     "--coverage-raw-data-only",
   ]);
 
-  // 2. The single report pass. `--include` is a cheap size pre-filter over
-  //    script URLs; the authoritative anchored selection happens in
-  //    srcLineCoverage.
+  // 2. The single report pass. Anchor the URL filter to this checkout's src/
+  //    tree so fixture and site paths never enter the report; the join remains
+  //    authoritative for membership inside that boundary. Override Deno's
+  //    default test.ts exclusion because src/engine/gate/test.ts is product
+  //    code, not a test file.
   const lcov = await deno(
-    ["coverage", profile, "--lcov", "--include=src/"],
+    lcovReportArgs(profile, repoRoot),
     { capture: true },
   );
 
   // 3. Per-file table to stderr (context for the operator), then the machine
   //    metric to stdout — the line the standard reads.
-  const repoRoot = fromFileUrl(new URL("../", import.meta.url));
   const modules = await sourceModuleUniverse(repoRoot);
   const cov = srcLineCoverage(lcov, repoRoot, modules);
   const moduleEvaluation = evaluateModuleCoverage(

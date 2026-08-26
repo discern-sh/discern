@@ -3,9 +3,11 @@
 import {
   fromFileUrl,
   isAbsolute,
+  join,
   normalize,
   relative,
   SEPARATOR,
+  toFileUrl,
 } from "@std/path";
 import { ts } from "ts-morph";
 
@@ -70,6 +72,28 @@ interface LcovRecord {
   readonly source: string;
   readonly found: number;
   readonly hit: number;
+}
+
+/** Escape one literal URL for use as an anchored regular expression. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Build the sole LCOV report pass without Deno's basename exclusions. */
+export function lcovReportArgs(
+  profile: string,
+  repoRoot: string,
+): string[] {
+  const srcUrl = toFileUrl(`${join(repoRoot, "src")}${SEPARATOR}`).href;
+  return [
+    "coverage",
+    profile,
+    "--lcov",
+    `--include=^${escapeRegExp(srcUrl)}`,
+    // Deno otherwise excludes every basename matching test.ts, including the
+    // product module src/engine/gate/test.ts.
+    "--exclude=^$",
+  ];
 }
 
 /** Round a percentage to the one decimal place shown by Deno coverage. */

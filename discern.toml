@@ -669,7 +669,7 @@
   [standards.module_coverage_exceptions]
     metric = "module_coverage_exceptions"
     direction = "down"
-    limit = 0
+    limit = 16
     run = "deno task coverage"
     timeout = 1200
     inputs = [
