@@ -21,13 +21,13 @@ export type BestEffortBoundaryRegistry = Readonly<
 /** Whether an unknown lint value is a traversable syntax node. */
 function isNode(value: unknown): value is Deno.lint.Node {
   if (typeof value !== "object" || value === null) return false;
-  const record = value as Record<string, unknown>;
-  return typeof record.type === "string" && Array.isArray(record.range);
+  return typeof Reflect.get(value, "type") === "string" &&
+    Array.isArray(Reflect.get(value, "range"));
 }
 
 /** Return the parent attached by the lint runtime, if present. */
 function parentNode(node: Deno.lint.Node): Deno.lint.Node | undefined {
-  const parent = (node as unknown as Record<string, unknown>).parent;
+  const parent: unknown = Reflect.get(node, "parent");
   return isNode(parent) ? parent : undefined;
 }
 
