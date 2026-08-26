@@ -20,18 +20,18 @@ A fired standard now names two legal responses in its own breach diagnostic: was
 
 The repo's own set recalibrates accordingly, on the trunk, at the owner's instruction: `docs_page_size` and `docs_search_index_size` are dropped (growing totals whose breaches were overwhelmingly legitimate growth); `docs_css_size` and `docs_js_size` are dropped (the browser frontend moved to the `@discern-sh/design-system` package, whose repository holds its own budgets); `public_doc_leaf_density` keeps its rate form but re-floors from 12.68 to 12.18 with `margin = 0.5`, keeping room to deepen existing pages; `binary_size` stays despite its toolchain sensitivity, because it has caught agents installing unexpected dependencies; `coverage`, `prose`, and `guidance` stay unchanged.
 
-What this decision does **not** do: it adds no bypass. A breach still fails the gate, and the escalation it instructs ends in an owner edit on the trunk. A receipt-recorded override adjudicated at `accept` (`discern standards override`) is designed in outline in the project TODO and deliberately deferred.
+What this decision does **not** do: it adds no bypass. A breach still fails the gate, and the escalation it instructs ends in an owner edit on the trunk. A receipt-recorded proposal adjudicated at `accept` (`discern standards propose`) is designed in outline in the project TODO and deliberately deferred.
 
 ## Consequences
 
 - Documentation and features can grow without triggering size engineering on unrelated code; the standards that remain move only when quality moves.
 - The doctrine is now stated at the moment of temptation — the breach diagnostic itself — rather than only in guidance an agent may summarize away.
 - Nothing mechanically bounds the docs site's page or index size anymore. A pathological page will be caught by review, not by the gate. That is the accepted cost of removing a ceiling that mostly gated healthy growth.
-- `binary_size` keeps its known false positive: a toolchain jump can breach it with no tree change at fault. Until the override verb exists, that ends in an owner-adjudicated trunk edit, which is judged acceptable for a rare event with real catch value.
+- `binary_size` keeps its known false positive: a toolchain jump can breach it with no tree change at fault. Until the propose verb exists, that ends in an owner-adjudicated trunk edit, which is judged acceptable for a rare event with real catch value.
 - `guidance` remains a raw-total ceiling on purpose: its words are context every agent pays for in every session, so "adding words must hurt" is the product claim, and doctrine additions must displace weaker material to fit.
 
 ## Alternatives considered
 
 - **Margins on the dropped ceilings.** Rejected: a margin on a monotonically growing total only schedules the next collision; the incentive at collision time is unchanged.
 - **Converting the index ceiling to a rate** (index bytes per 1,000 public words). Viable and compatible with this decision, but deferred: no current claim about index efficiency is worth a standard, and `prose` plus `public_doc_leaf_density` already hold the corpus's quality.
-- **Building the override verb first.** Sequenced later on purpose: the doctrine and the recalibration remove today's perverse incentive without new machinery; the verb needs receipt and accept design work recorded in the TODO.
+- **Building the propose verb first.** Sequenced later on purpose: the doctrine and the recalibration remove today's perverse incentive without new machinery; the verb needs receipt and accept design work recorded in the TODO.
