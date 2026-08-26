@@ -73,6 +73,47 @@ Deno.test("a public clone without the optional private overlay is quiet", async 
   assertEquals(await fixtureFindings({}), []);
 });
 
+Deno.test("TODO items have one parseable shape and two explicit evidence modes", async () => {
+  const repositoryEvidence = {
+    "project/TODO.md": [
+      "# Open work",
+      "",
+      "- [ ] **Repair the durable example.**",
+      "  Replace the placeholder with the repository-backed implementation.",
+      "  Evidence: `src/example.ts:12`.",
+      "",
+      "- [ ] **Complete the account handoff.**",
+      "  Configure the external account after its ownership is assigned.",
+      "  Evidence: Owner-only: The required account has no checkout artifact.",
+      "",
+    ].join("\n"),
+    "src/example.ts": "export {};\n",
+  };
+  assertEquals(await fixtureFindings(repositoryEvidence), []);
+
+  const malformed = await fixtureFindings({
+    "project/TODO.md": [
+      "# Open work",
+      "",
+      "- [x] Finished work stays in the ledger. Evidence: `missing.ts`.",
+      "",
+      "- [ ] **Repeat the durable repair.**",
+      "  Fix it next session after reading the [missing brief](missing.md).",
+      "  Evidence: `missing.ts`.",
+      "",
+      "- [ ] **Repeat the durable repair.**",
+      "  This second item deliberately duplicates the durable title above.",
+      "  Evidence: Owner-only: A maintainer must approve the external account.",
+      "",
+    ].join("\n"),
+  });
+  assert(ruleFindings(malformed, "todo-shape").length >= 1);
+  assert(ruleFindings(malformed, "todo-title").length >= 2);
+  assertEquals(ruleFindings(malformed, "todo-session-wording").length, 1);
+  assertEquals(ruleFindings(malformed, "todo-link").length, 1);
+  assert(ruleFindings(malformed, "todo-evidence").length >= 2);
+});
+
 Deno.test("planning links and renderer-derived anchors enroll every present programme", async () => {
   const sound = activeProgramme(
     "Read the [decision](notes.md#chosen-path).",

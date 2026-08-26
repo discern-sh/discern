@@ -30,6 +30,7 @@ import {
 } from "../../src/lib/docs_integrity.ts";
 
 const PLANNING_REL = "project/map/_private/planning";
+const TODO_REL = "project/TODO.md";
 
 /** Stable rule ids printed by the command and asserted by its fixtures. */
 export const PROJECT_CONTROL_RULES = [
@@ -42,6 +43,12 @@ export const PROJECT_CONTROL_RULES = [
   "planning-dependency",
   "planning-state",
   "planning-transient-state",
+  "todo-shape",
+  "todo-title",
+  "todo-description",
+  "todo-evidence",
+  "todo-link",
+  "todo-session-wording",
 ] as const;
 
 /** One project-control rule id. */
@@ -790,11 +797,223 @@ async function checkPlanning(root: string): Promise<ProjectControlFinding[]> {
   return findings;
 }
 
+/** Remove an optional source location or heading from a repository path. */
+function evidenceTarget(raw: string): string {
+  const withoutFragment = raw.split("#", 1)[0] ?? raw;
+  return withoutFragment.replace(/:\d+(?:-\d+)?$/, "");
+}
+
+/** Check links rendered inside one TODO item independently of its evidence. */
+async function checkTodoLinks(
+  root: string,
+  todo: MarkdownSource,
+  itemText: string,
+  itemLine: number,
+): Promise<ProjectControlFinding[]> {
+  const findings: ProjectControlFinding[] = [];
+  for (const link of extractDocLinks(itemText)) {
+    if (isExternalTarget(link.target)) continue;
+    const parts = targetParts(link.target);
+    const targetAbs = parts.path === ""
+      ? todo.abs
+      : resolveRelativeTarget(todo.abs, parts.path);
+    if (
+      targetAbs === undefined || !isWithin(root, targetAbs) ||
+      !(await targetExists(targetAbs))
+    ) {
+      findings.push(finding(
+        todo.rel,
+        itemLine + link.line - 1,
+        "todo-link",
+        "TODO link " + link.target + " has no repository target",
+        "Correct the repository-relative link or remove it from the item.",
+      ));
+      continue;
+    }
+    if (
+      parts.fragment !== "" && targetAbs.toLowerCase().endsWith(".md") &&
+      !(headingAnchors(await Deno.readTextFile(targetAbs))).has(parts.fragment)
+    ) {
+      findings.push(finding(
+        todo.rel,
+        itemLine + link.line - 1,
+        "todo-link",
+        "TODO link " + link.target + " names no rendered heading anchor",
+        "Use a live heading fragment or remove the stale fragment.",
+      ));
+    }
+  }
+  return findings;
+}
+
+/** Validate the parseable, pickup-able shape of every TODO item. */
+async function checkTodo(root: string): Promise<ProjectControlFinding[]> {
+  const path = join(root, TODO_REL);
+  if (!(await fileExists(path))) return [];
+
+  const findings: ProjectControlFinding[] = [];
+  const text = await Deno.readTextFile(path);
+  const lines = text.split("\n");
+  const titleOwners = new Map<string, number>();
+  const itemStart = /^- \[[^\]]*\]/;
+  const sessionRelative =
+    /\b(?:this|last|next|current)\s+(?:session|round|task|branch|worktree)\b|\bfor now\b/i;
+  const todo: MarkdownSource = { abs: path, rel: TODO_REL, text };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const first = lines[index] ?? "";
+    if (!itemStart.test(first)) continue;
+
+    const block: string[] = [first];
+    for (let offset = 1; index + offset < lines.length; offset += 1) {
+      const line = lines[index + offset] ?? "";
+      if (line.trim() === "" || /^#{1,6}\s/.test(line)) break;
+      block.push(line);
+    }
+    const lineNumber = index + 1;
+    const itemText = block.join("\n");
+    const checkboxCount = [...itemText.matchAll(/\[[ xX]\]/g)].length;
+    const titleMatch = first.match(/^- \[ \] \*\*(.+)\*\*$/);
+
+    if (checkboxCount !== 1 || block.length !== 3) {
+      findings.push(finding(
+        TODO_REL,
+        lineNumber,
+        "todo-shape",
+        "TODO item has " + checkboxCount + " checkbox markers and " +
+          block.length +
+          " nonblank lines; exactly one checkbox and three lines are required",
+        "Use an unchecked bold-title line, one indented description line, and one indented Evidence line.",
+      ));
+    }
+    if (titleMatch === null) {
+      findings.push(finding(
+        TODO_REL,
+        lineNumber,
+        "todo-title",
+        "TODO item is checked or its whole title is not bold",
+        "Start it exactly as - [ ] **A unique, specific title.**; delete completed items instead of checking them.",
+      ));
+    } else {
+      const title = titleMatch[1]?.trim() ?? "";
+      if (title.length < 8 || title.length > 140 || !/[.!?]$/.test(title)) {
+        findings.push(finding(
+          TODO_REL,
+          lineNumber,
+          "todo-title",
+          "TODO title must be 8–140 characters and end with sentence punctuation",
+          "Give the item a short, specific, sentence-shaped bold title.",
+        ));
+      }
+      const normalized = title.toLowerCase().replace(/\s+/g, " ");
+      const priorLine = titleOwners.get(normalized);
+      if (priorLine !== undefined) {
+        findings.push(finding(
+          TODO_REL,
+          lineNumber,
+          "todo-title",
+          "TODO title duplicates line " + priorLine,
+          "Merge the facts into one item or give distinct work distinct titles.",
+        ));
+      } else if (title !== "") {
+        titleOwners.set(normalized, lineNumber);
+      }
+    }
+
+    const descriptionLine = block[1] ?? "";
+    const description = descriptionLine.startsWith("  ") &&
+        !descriptionLine.startsWith("  Evidence:")
+      ? descriptionLine.slice(2).trim()
+      : "";
+    if (
+      description.length < 30 || description.length > 600 ||
+      !/[.!?]$/.test(description)
+    ) {
+      findings.push(finding(
+        TODO_REL,
+        lineNumber + 1,
+        "todo-description",
+        "TODO description is not one standalone 30–600 character sentence line",
+        "Put a bounded, pickup-able description on the second line and end it with punctuation.",
+      ));
+    }
+
+    const evidenceLine = block[2] ?? "";
+    const evidenceMatch = evidenceLine.match(/^ {2}Evidence: (.+)$/);
+    if (evidenceMatch === null) {
+      findings.push(finding(
+        TODO_REL,
+        lineNumber + 2,
+        "todo-evidence",
+        "TODO item has no standalone Evidence line",
+        "Add repository paths in code spans, or use Evidence: Owner-only: followed by one concrete external fact.",
+      ));
+    } else {
+      const evidence = evidenceMatch[1]?.trim() ?? "";
+      const ownerOnly = evidence.match(/^Owner-only: (.{20,240}[.!?])$/);
+      const codePaths = [...evidence.matchAll(/`([^`\n]+)`/g)].flatMap(
+        (match) => match[1] === undefined ? [] : [match[1]],
+      );
+      if (ownerOnly === null && codePaths.length === 0) {
+        findings.push(finding(
+          TODO_REL,
+          lineNumber + 2,
+          "todo-evidence",
+          "TODO evidence declares neither a repository path nor the Owner-only form",
+          "Name at least one live repository-relative path in backticks, or declare a concrete Owner-only fact.",
+        ));
+      }
+      if (ownerOnly !== null && codePaths.length > 0) {
+        findings.push(finding(
+          TODO_REL,
+          lineNumber + 2,
+          "todo-evidence",
+          "Owner-only evidence is mixed with repository paths",
+          "Use repository evidence when it exists; reserve Owner-only for work with no checkout artifact.",
+        ));
+      }
+      for (const rawPath of codePaths) {
+        const relativePath = evidenceTarget(rawPath);
+        const target = resolve(root, relativePath);
+        if (
+          relativePath === "" || isAbsolute(relativePath) ||
+          relativePath.includes("\\") || relativePath.includes("?") ||
+          !isWithin(root, target) || !(await targetExists(target))
+        ) {
+          findings.push(finding(
+            TODO_REL,
+            lineNumber + 2,
+            "todo-evidence",
+            "TODO evidence path " + rawPath + " has no live repository target",
+            "Use a live repository-relative file or directory, with only an optional :line or #heading suffix.",
+          ));
+        }
+      }
+    }
+
+    if (sessionRelative.test(itemText)) {
+      findings.push(finding(
+        TODO_REL,
+        lineNumber,
+        "todo-session-wording",
+        "TODO item depends on session-relative wording",
+        "State the durable condition and pickup point without referring to a session, round, task, branch, or worktree.",
+      ));
+    }
+    findings.push(...await checkTodoLinks(root, todo, itemText, lineNumber));
+  }
+  return findings;
+}
+
 /** Run every repository control-document check, read-only. */
 export async function checkProjectControls(
   root: string,
 ): Promise<ProjectControlFinding[]> {
-  const findings = await checkPlanning(resolve(root));
+  const resolvedRoot = resolve(root);
+  const findings = [
+    ...await checkPlanning(resolvedRoot),
+    ...await checkTodo(resolvedRoot),
+  ];
   return findings.sort((a, b) =>
     a.file.localeCompare(b.file) || a.line - b.line ||
     a.rule.localeCompare(b.rule) || a.detail.localeCompare(b.detail)
