@@ -29,6 +29,7 @@
 
 import { fromFileUrl } from "@std/path";
 import { renderTable, srcLineCoverage } from "./coverage_lib.ts";
+import { withToolTempDir } from "./temp_dir.ts";
 
 /** Run a `deno` subcommand, returning its captured stdout (throws on failure). */
 async function deno(
@@ -47,8 +48,7 @@ async function deno(
   return opts.capture ? new TextDecoder().decode(result.stdout) : "";
 }
 
-const profile = await Deno.makeTempDir({ prefix: "discern-coverage-" });
-try {
+await withToolTempDir("coverage-profile", async (profile) => {
   // 1. Run the project's own `test` task under coverage instrumentation — the
   //    task is the single definition of how the suite runs (site build, allow
   //    flags, --parallel), and the extra args forward to its final command,
@@ -79,6 +79,4 @@ try {
   console.error(renderTable(cov));
   console.error(`src/ line coverage: ${cov.hit}/${cov.found} lines`);
   console.log(`DISCERN_METRIC coverage ${cov.pct.toFixed(1)}`);
-} finally {
-  await Deno.remove(profile, { recursive: true });
-}
+});
