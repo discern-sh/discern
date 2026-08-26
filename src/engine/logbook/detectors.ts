@@ -217,8 +217,9 @@ function buildStreamAnalysis(verbs: readonly VerbEvent[]): StreamAnalysis {
         continue;
       }
       indexedLabels.add(step.label);
-      const bySetup = completedJobs.get(step.label) ?? new Map();
-      const samples = bySetup.get(setup) ?? [];
+      const bySetup = completedJobs.get(step.label) ??
+        new Map<string, CompletedJobSample[]>();
+      const samples: CompletedJobSample[] = bySetup.get(setup) ?? [];
       samples.push({ event, seconds: step.duration_s });
       bySetup.set(setup, samples);
       completedJobs.set(step.label, bySetup);
