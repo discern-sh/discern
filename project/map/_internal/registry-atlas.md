@@ -508,6 +508,7 @@ The MCP tool table; verb parity ties every tool to a CLI verb, and the live tool
   - `discern_accept`
   - `discern_test`
   - `discern_standards`
+  - `discern_standards_propose`
   - `discern_impact`
   - `discern_coupling`
   - `discern_patterns`
@@ -517,7 +518,6 @@ The MCP tool table; verb parity ties every tool to a CLI verb, and the live tool
   - `discern_docs`
   - `discern_doctor`
   - `discern_improvement`
-  - `discern_standards_propose`
 - Guards: `tests/engine_verb_parity_test.ts`, `tests/engine_mcp_test.ts`, `tests/result_codegen_test.ts`, `tests/instruction_corpus_guard_test.ts`
 - Glossary: not enrolled — the glossary defines the mirrored verb vocabulary once
 - Feature canon: described by the `mcp-surface` node

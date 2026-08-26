@@ -353,6 +353,7 @@ const TOOL_PRIORITY = [
   ...MCP_CORE_LIFECYCLE,
   "discern_test",
   "discern_standards",
+  "discern_standards_propose",
   "discern_impact",
   "discern_coupling",
   "discern_patterns",
