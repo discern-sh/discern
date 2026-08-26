@@ -10,9 +10,9 @@ aliases:
 
 # Duplication census
 
-_The repository holds semantic duplicate lines at a falling ceiling and names every source range that contributes._
+_The discern repository holds semantic duplicate lines at a falling ceiling and names every source range that contributes._
 
-Run `deno task duplication-census` to scan the JavaScript and TypeScript files in the Git-elected `authored-deno` universe. The command writes clone diagnostics to stderr and ends stdout with 2 metrics:
+Run `deno task duplication-census` to scan the Git-tracked JavaScript and TypeScript files that the repository classifies as authored. The command writes clone diagnostics to stderr and ends stdout with 2 metrics:
 
 - `duplicate_clone_groups` is the advisory count of selected clone groups;
 - `duplicated_lines` is the blocking Standard.
@@ -29,10 +29,10 @@ Comments, formatting, literal values, and local identifier names do not define a
 
 For each selected group, `duplicated_lines` charges its normalized line count for every occurrence after the first. A third copy adds the group's normalized size even though the group count stays unchanged. The measure therefore tracks the number and size of implementations that can drift independently.
 
-Import and re-export declarations, type-only declarations, syntax-declared top-level registry tables, and files owned by the generated-artifact registry stay outside the population. These exclusions follow syntax and declared ownership. They do not depend on a maintained list of inconvenient paths ([ADR 0343](../_adr/0343-duplication-holds-maximal-non-overlapping-normalized-lines.md)).
+Import and re-export declarations, type-only declarations, syntax-declared top-level registry tables, and declared [generated artifacts](../00-orientation/glossary.md#generated-artifact) stay outside the population. These exclusions follow syntax and declared ownership. They do not depend on a maintained list of inconvenient paths ([ADR 0343](../_adr/0343-duplication-holds-maximal-non-overlapping-normalized-lines.md)).
 
 ## Reduce and pin the total
 
-The census has no cache. Its Standard `inputs` cover authored source suffixes, generated-file ownership configuration, the parser dependency, and runner configuration. The Gate measures a matching change and may replay the recorded value for unrelated work.
+The census has no cache. Its [Standard](standards.md) `inputs` cover authored source suffixes, generated-file ownership configuration, the parser dependency, and runner configuration. The Gate measures a matching change and may replay the recorded value for unrelated work.
 
 Consolidate the path and line ranges named by one diagnostic, then run `deno task duplication-census` again. When `duplicated_lines` falls, run `discern standards --pin duplicated_lines` to hold the lower ceiling.
