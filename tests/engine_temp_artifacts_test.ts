@@ -4,12 +4,10 @@
  * agent-run frequency — so without retention the temp dir grows without bound
  * (tens of thousands of orphaned logs were observed in the wild). These tests
  * pin the retention contract: every registered artifact family is reaped past
- * its TTL, nothing outside the registry is ever touched, and — the structural
- * guard — no code in `src/` can mint an OS-temp file/dir outside the registry
- * module, so a future artifact family cannot silently opt out of the reaper.
- * The one non-artifact use is the target-adjacent write-authority probe: its
- * exact primitive and target directory are pinned below, and its own tests
- * prove immediate cleanup.
+ * its TTL and nothing outside the registry is ever touched. The repo-wide raw
+ * directory-creator guard lives in `temp_dir_guard_test.ts`; the structural
+ * check below separately keeps OS-temp FILE creation inside this registry and
+ * classifies the one target-adjacent write-authority probe by exact shape.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -383,7 +381,7 @@ Deno.test("engine suite: spawned-engine artifacts land in the suite temp home, n
 const REGISTRY_REL = join("src", "shared", "temp_artifacts.ts");
 const WRITE_PREFLIGHT_REL = join("src", "shared", "write_preflight.ts");
 
-Deno.test("temp artifacts: src/ mints temp files only through the registry (the reaper's coverage is total)", async () => {
+Deno.test("temp artifacts: src/ mints temp files only through the registry or the exact adjacent probe", async () => {
   const offenders: string[] = [];
   for (
     const rel of await structuralGuardScope({
@@ -401,7 +399,7 @@ Deno.test("temp artifacts: src/ mints temp files only through the registry (the 
     }
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
     if (rel === WRITE_PREFLIGHT_REL) {
-      const primitives = text.match(/Deno\.makeTemp(File|Dir)(Sync)?\(/g) ?? [];
+      const primitives = text.match(/Deno\.makeTempFile(Sync)?\(/g) ?? [];
       assertEquals(
         primitives.length,
         1,
@@ -414,14 +412,14 @@ Deno.test("temp artifacts: src/ mints temp files only through the registry (the 
       );
       continue;
     }
-    if (/Deno\.makeTemp(File|Dir)(Sync)?\(/.test(text)) {
+    if (/Deno\.makeTempFile(Sync)?\(/.test(text)) {
       offenders.push(rel);
     }
   }
   assertEquals(
     offenders,
     [],
-    "an OS-temp file/dir minted outside src/shared/temp_artifacts.ts never " +
+    "an OS-temp file minted outside src/shared/temp_artifacts.ts never " +
       "gets reaped — add an artifact kind to TEMP_ARTIFACT_KINDS and create " +
       "it via makeTempArtifact instead",
   );
