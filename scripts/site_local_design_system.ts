@@ -7,6 +7,7 @@ import { dirname, fromFileUrl, join, resolve, toFileUrl } from "@std/path";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
+import { withToolTempDir } from "./temp_dir.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 const PACKAGE_NAME = "@discern-sh/design-system";
@@ -278,34 +279,30 @@ async function main(): Promise<number> {
     );
   }
   const snapshots = await dependencySnapshots();
-  const temporaryRoot = await Deno.makeTempDir({
-    prefix: "discern-site-design-system-",
-  });
-  const temporaryConfig = join(temporaryRoot, "deno.json");
-  await Deno.writeTextFile(
-    temporaryConfig,
-    `${
-      JSON.stringify(
-        localDesignSystemConfig(
-          rootConfig,
-          packageRoot,
-          packageConfig.version,
-        ),
-        null,
-        2,
-      )
-    }\n`,
-  );
+  return await withToolTempDir("site-design-system", async (temporaryRoot) => {
+    const temporaryConfig = join(temporaryRoot, "deno.json");
+    await Deno.writeTextFile(
+      temporaryConfig,
+      `${
+        JSON.stringify(
+          localDesignSystemConfig(
+            rootConfig,
+            packageRoot,
+            packageConfig.version,
+          ),
+          null,
+          2,
+        )
+      }\n`,
+    );
 
-  let exitCode = 1;
-  try {
     const resolution = await proveLocalResolution(
       temporaryConfig,
       packageRoot,
     );
     console.log(`Using local design system: ${packageRoot}`);
     console.log(`Resolved runtime: ${resolution}`);
-    exitCode = await inheritedCommand(
+    const exitCode = await inheritedCommand(
       options.buildOnly
         ? buildArgs(temporaryConfig)
         : serverArgs(temporaryConfig, packageRoot),
@@ -316,10 +313,8 @@ async function main(): Promise<number> {
       );
     }
     await assertDependencySnapshots(snapshots);
-  } finally {
-    await Deno.remove(temporaryRoot, { recursive: true }).catch(() => {});
-  }
-  return exitCode;
+    return exitCode;
+  });
 }
 
 if (import.meta.main) {
