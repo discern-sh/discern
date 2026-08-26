@@ -32,7 +32,7 @@ The Engine has no `selfcheck` or shell-recipe matrix because it has no second co
 
 Deno recognizes `deno-lint-ignore` for one line and `deno-lint-ignore-file` for a file. Both forms are migration debt in this repository. Fix the named rule instead of adding either directive. If a rule is wrong for the repository, change the shared lint configuration and explain that policy change in review.
 
-Run `deno task lint-suppressions` to list the live census. The `lint_suppressions` Standard holds that raw count at a falling ceiling, so a branch may remove directives and cannot add them. After removing one or more, run `discern standards --pin lint_suppressions` to capture the lower limit.
+Run `deno task lint-suppressions` to list both live lint censuses. The `lint_suppressions` Standard holds the directive count at a falling ceiling. The separate `lint_exclusions` Standard holds only `deno.json` paths and patterns that actually remove a member of the Git-derived authored-source universe; exclusions for ignored products and inert test fixtures do not enter that number. The command names every effective pattern and the sources it removes. A branch may remove either kind of exception and cannot add one. After removing directives or effective exclusions, pin the corresponding Standard.
 
 When the count reaches 0, turn the detector into an always-on zero-count test, remove the transitional Standard, and delete the backlog item.
 
@@ -44,6 +44,12 @@ When the count reaches 0, turn the detector into an always-on zero-count test, r
 | Source universe | [`tests/repo_authored_paths.ts`](../../../tests/repo_authored_paths.ts)              |
 | Falling ceiling | [`discern.toml`](../../../discern.toml)                                              |
 | Controls        | [`tests/lint_suppressions_test.ts`](../../../tests/lint_suppressions_test.ts)        |
+
+## Census unsafe assertions
+
+TypeScript assertions are not one risk class. Ordinary typed assertions and `as const` remain visible in the advisory `type_assertions` inventory without consuming a blocking budget. [`UNSAFE_ASSERTION_KINDS`](../../../scripts/cast_census.ts) owns the deterministic escape-hatch forms: `as any`, a chain through `unknown`, and a chain through `any`. `deno task cast-census` reports each unsafe kind at its source location and emits both the advisory total and `unsafe_type_assertions`; only the latter has a falling Standard.
+
+The census scans the complete Git-derived authored-TypeScript universe. [`cast_census_test.ts`](../../../tests/cast_census_test.ts) distinguishes the three unsafe forms from `as const`, an ordinary typed assertion, a single `as unknown`, and assertion-shaped text in strings or comments. Its future-root fixture proves that a new source tree joins without another file-list edit.
 
 ## Declare structural guard scope
 

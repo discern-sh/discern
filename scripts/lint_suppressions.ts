@@ -5,9 +5,16 @@
  * stderr and prints `DISCERN_METRIC lint_suppressions <count>` on stdout.
  */
 
-import { REPO_ROOT } from "../tests/repo_authored_paths.ts";
+import { join } from "@std/path";
+import {
+  AUTHORED_DENO_FILES,
+  REPO_ROOT,
+} from "../tests/repo_authored_paths.ts";
 import { structuralGuardScope } from "../tests/structural_guard_scope.ts";
-import { lintSuppressionsInFiles } from "./lint_suppressions_lib.ts";
+import {
+  effectiveLintExclusions,
+  lintSuppressionsInFiles,
+} from "./lint_suppressions_lib.ts";
 
 const findings = await lintSuppressionsInFiles(
   REPO_ROOT,
@@ -24,4 +31,19 @@ console.error(
   `${findings.length} Deno lint suppression directives across ${fileCount} files. ` +
     "Fix the named lint rule and remove the directive.",
 );
+const exclusions = effectiveLintExclusions(
+  await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
+  AUTHORED_DENO_FILES,
+);
+for (const exclusion of exclusions) {
+  console.error(
+    `deno.json lint.exclude '${exclusion.pattern}' excludes ` +
+      `${exclusion.files.join(", ")}`,
+  );
+}
+console.error(
+  `${exclusions.length} effective lint exclusions remove authored sources. ` +
+    "Remove an entry after its sources satisfy the shared lint policy.",
+);
 console.log(`DISCERN_METRIC lint_suppressions ${findings.length}`);
+console.log(`DISCERN_METRIC lint_exclusions ${exclusions.length}`);
