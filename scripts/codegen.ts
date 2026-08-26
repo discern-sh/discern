@@ -17,6 +17,7 @@
  */
 
 import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import {
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
@@ -200,12 +201,7 @@ async function write(
   const canonicalText = rel.endsWith(".md")
     ? await formatMarkdownText(path, text)
     : text;
-  let before: string | undefined;
-  try {
-    before = await Deno.readTextFile(path);
-  } catch {
-    before = undefined;
-  }
+  const before = await readTextIfExists(path);
   if (before !== undefined && equivalent(before, canonicalText)) {
     console.log(`  unchanged  ${rel}`);
     return;

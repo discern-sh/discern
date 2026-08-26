@@ -46,7 +46,8 @@ export function extractSarif(
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
       continue;
     }
     if (parsed === null || typeof parsed !== "object") {

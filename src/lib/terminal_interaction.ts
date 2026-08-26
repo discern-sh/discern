@@ -32,6 +32,7 @@ import {
   type SelectionsRequestOptions as PackageSelectionsRequestOptions,
   type TerminalIO,
 } from "discern-design-system/cli/interactive";
+import { bestEffortSync } from "../shared/best_effort.ts";
 import {
   type AgentName,
   DEFAULTS,
@@ -456,6 +457,7 @@ function interactionTraceTarget(
     );
     return path === undefined || path === "" ? undefined : path;
   } catch {
+    // discern-best-effort: terminal-interaction-trace-target-fallback
     return undefined;
   }
 }
@@ -520,7 +522,7 @@ function traceInteractionIo(target: string, io: TerminalIO): InteractionTrace {
       ...(listenResize === undefined ? {} : { listenResize }),
     },
     settle: (outcome): void => {
-      try {
+      bestEffortSync("terminal-interaction-trace-write", () => {
         // Records carry no clock: append order is the diagnostic timeline.
         Deno.writeTextFileSync(
           target,
@@ -535,9 +537,7 @@ function traceInteractionIo(target: string, io: TerminalIO): InteractionTrace {
           }\n`,
           { append: true },
         );
-      } catch {
-        // Tracing is best-effort; the interaction outcome stays authoritative.
-      }
+      });
     },
   };
 }
@@ -976,15 +976,13 @@ function packageInteractionRuntime(
     ...(trace === undefined ? {} : { settleTrace: trace.settle }),
     terminateUnexpectedFrame: (): void => {
       if (!options.terminateUnexpectedFrame || !wrote) return;
-      try {
+      bestEffortSync("terminal-interaction-frame-newline", () => {
         // The public driver restores raw mode and the cursor on every exception,
         // but only its submitted/cancelled paths finish the painter. This
         // semantic newline leaves an unexpected-error frame complete without
         // entering the painter's replaceable-frame cursor accounting.
         target.write("\n");
-      } catch {
-        // The original interaction fault remains authoritative over cleanup failure.
-      }
+      });
     },
   };
 }

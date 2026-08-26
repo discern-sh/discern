@@ -102,6 +102,7 @@ export function sameFirstPartyLicenseBundlePayload(
     const b = firstPartyLicenseBundlePayload(right);
     return a.length === b.length && a.every((byte, index) => byte === b[index]);
   } catch {
+    // discern-best-effort: first-party-license-payload-compare-fallback
     return false;
   }
 }

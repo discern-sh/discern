@@ -12,6 +12,7 @@
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
+import { bestEffortSync } from "../../shared/best_effort.ts";
 import type { Job, JobResult } from "../jobs/types.ts";
 import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
 import { byteWriter, makeOut, type Out } from "../output.ts";
@@ -142,15 +143,13 @@ function deferredHumanRun(
     flush: (): boolean => {
       if (flushed) return true;
       flushed = true;
-      try {
+      let delivered = false;
+      bestEffortSync("gate-live-output-flush", () => {
         for (const chunk of chunks) destination(chunk);
-        return true;
-      } catch {
-        // Human presentation failure cannot alter the scheduler or result.
-        return false;
-      } finally {
-        chunks.length = 0;
-      }
+        delivered = true;
+      });
+      chunks.length = 0;
+      return delivered;
     },
   };
 }

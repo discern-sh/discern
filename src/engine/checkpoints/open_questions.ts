@@ -226,7 +226,8 @@ function parseStore(
   let value: unknown;
   try {
     value = JSON.parse(raw);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
   if (!isRecord(value) || value.version !== QUESTIONS_STORE_VERSION) {

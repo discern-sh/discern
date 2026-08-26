@@ -35,11 +35,7 @@ import { createFromBuffer } from "@dprint/formatter";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
-import {
-  bestEffortFs,
-  readDirIfExists,
-  readTextIfExists,
-} from "./fs_presence.ts";
+import { readDirIfExists, readTextIfExists } from "./fs_presence.ts";
 import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
 import {
   MARKDOWN_PLUGIN_VERSION,
@@ -268,10 +264,10 @@ async function findLicenseFile(dir: string): Promise<string | undefined> {
 
 /** The `license` field of a package.json (string or legacy `{ type }`). */
 async function declaredNpmLicense(dir: string): Promise<string | undefined> {
-  return await bestEffortFs(async () => {
-    const path = join(dir, "package.json");
-    const text = await readTextIfExists(path);
-    if (text === undefined) return undefined;
+  const path = join(dir, "package.json");
+  const text = await readTextIfExists(path);
+  if (text === undefined) return undefined;
+  try {
     const pkg = decodeJson(
       npmPackageMetadataSchema,
       text,
@@ -285,11 +281,10 @@ async function declaredNpmLicense(dir: string): Promise<string | undefined> {
       return pkg.license.type;
     }
     return undefined;
-  }, {
-    onFailure: undefined,
-    reason:
-      "License resolution may fall back to a package's LICENSE file when package metadata is unavailable.",
-  });
+  } catch {
+    // discern-best-effort: third-party-package-license-decode-fallback
+    return undefined;
+  }
 }
 
 /** Convert CRLF to LF and remove trailing whitespace without altering the body. */
@@ -563,14 +558,7 @@ export async function generateThirdPartyArtifacts(
     options.repoRoot,
     THIRD_PARTY_ARTIFACT_PATHS.jsrLicenseCache,
   );
-  const cacheText = await bestEffortFs(
-    () => readTextIfExists(cachePath),
-    {
-      onFailure: undefined,
-      reason:
-        "An unavailable JSR license cache falls back to resolving every text from its authoritative source.",
-    },
-  );
+  const cacheText = await readTextIfExists(cachePath);
   if (cacheText !== undefined) {
     try {
       cache = decodeJsrLicenseCache(cacheText, cachePath);
@@ -667,6 +655,7 @@ export function sameThirdPartyBundlePayload(
     const b = thirdPartyBundlePayload(right);
     return a.length === b.length && a.every((byte, index) => byte === b[index]);
   } catch {
+    // discern-best-effort: third-party-payload-compare-fallback
     return false;
   }
 }

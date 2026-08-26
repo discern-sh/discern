@@ -30,6 +30,7 @@ function twinList() {
   try {
     return JSON.parse(localStorage.getItem("canon-editor-twins") ?? "[]");
   } catch {
+    // discern-best-effort: canon-editor-twin-storage-fallback
     return [];
   }
 }
@@ -856,6 +857,7 @@ function showSavedNote() {
   try {
     note = JSON.parse(raw);
   } catch {
+    // discern-best-effort: canon-editor-saved-note-fallback
     return;
   }
   const chip = el("span", {

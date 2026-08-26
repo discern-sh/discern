@@ -8,7 +8,8 @@
  */
 
 import { join } from "@std/path";
-import { bestEffortFs } from "../../shared/fs_presence.ts";
+import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
+import { statIfExists } from "../../shared/fs_presence.ts";
 import {
   type ContinuationRandomBytes,
   createContinuationHandle,
@@ -80,7 +81,8 @@ function serializeRecord(record: ContinuationRecord): Uint8Array | undefined {
   let json: string;
   try {
     json = `${JSON.stringify(record)}\n`;
-  } catch {
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
     return undefined;
   }
   const bytes = new TextEncoder().encode(json);
@@ -92,7 +94,8 @@ function parseRecord(text: string): ContinuationRecord | undefined {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
   if (
@@ -153,6 +156,7 @@ async function withStoreLock<T>(
     await lock.lock(true);
     return await run(directory);
   } catch {
+    // discern-best-effort: continuation-store-lock-fallback
     return undefined;
   } finally {
     lock?.close();
@@ -217,11 +221,7 @@ async function pruneForCreate(
       continue;
     }
     const path = join(directory, entry.name);
-    const info = await bestEffortFs(() => Deno.stat(path), {
-      onFailure: undefined,
-      reason:
-        "Continuation pruning may omit a raced or unreadable advisory entry from its live population.",
-    });
+    const info = await statIfExists(path);
     if (info === undefined) continue;
     const mtime = info.mtime?.getTime() ?? now;
     if (now - mtime >= ttlMs) {
@@ -282,19 +282,17 @@ async function createRecord(
       await file.sync();
       return handle;
     } catch (error) {
-      file.close();
-      try {
+      bestEffortSync("continuation-record-error-close", () => {
+        file.close();
+      });
+      await bestEffort("continuation-record-error-remove", async () => {
         await Deno.remove(path);
-      } catch {
-        // Preserve the original write error.
-      }
+      });
       throw error;
     } finally {
-      try {
+      bestEffortSync("continuation-record-final-close", () => {
         file.close();
-      } catch {
-        // Already closed on the error path.
-      }
+      });
     }
   }
   return undefined;
@@ -386,10 +384,8 @@ export async function removeContinuation(
     return;
   }
   await withStoreLock(root, async (directory) => {
-    try {
+    await bestEffort("continuation-terminal-remove", async () => {
       await Deno.remove(recordPath(directory, handle));
-    } catch {
-      // Missing or unreadable terminal state expires through normal retention.
-    }
+    });
   });
 }

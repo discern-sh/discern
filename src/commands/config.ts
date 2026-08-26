@@ -259,6 +259,7 @@ function serializedCommandList(command: string): string[] | undefined {
       ? parsed.commands
       : undefined;
   } catch {
+    // discern-best-effort: config-command-list-parse-fallback
     return undefined;
   }
 }

@@ -215,6 +215,7 @@ function viewportObservation(
           rows: observedDimension(observed.rows, current.rows),
         };
       } catch {
+        // discern-best-effort: terminal-viewport-sample-fallback
         // A platform without live size support retains its stable snapshot.
       }
       return current;
@@ -262,6 +263,7 @@ function environmentSnapshot(
     try {
       value = env.get(name);
     } catch {
+      // discern-best-effort: terminal-environment-read-fallback
       // Sandboxed commands may grant only a subset of terminal variables. An
       // unavailable fact degrades exactly like an unset one at this boundary.
       value = undefined;
@@ -284,6 +286,7 @@ function resolveSize(
   try {
     observed = consoleSize();
   } catch {
+    // discern-best-effort: terminal-size-read-fallback
     observed = undefined;
   }
   return {
@@ -525,7 +528,10 @@ export function createProductionTerminalContextResolver(
       io: interactionIo(),
       environment: facts.environment,
       timeoutMs: TERMINAL_BACKGROUND_TIMEOUT_MS,
-    }).then(themeFromBackground, () => "dark");
+    }).then(themeFromBackground, () => {
+      // discern-best-effort: terminal-background-sense-fallback
+      return "dark";
+    });
     return contextFromResolvedFacts(facts, await sensedTheme, interactionIo);
   };
 }

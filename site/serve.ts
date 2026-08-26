@@ -213,7 +213,8 @@ function decodePath(pathname: string): string | null {
   let path: string;
   try {
     path = decodeURIComponent(pathname);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof URIError)) throw error;
     return null;
   }
   if (path.includes("..") || path.includes("\0")) return null;

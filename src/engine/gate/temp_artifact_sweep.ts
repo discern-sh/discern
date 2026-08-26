@@ -79,7 +79,8 @@ async function readState(
       lastSweepAt: record.last_sweep_at,
       cursor: typeof record.cursor === "string" ? record.cursor : undefined,
     };
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
 }

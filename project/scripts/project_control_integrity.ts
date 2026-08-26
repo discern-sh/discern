@@ -167,7 +167,8 @@ function resolveRelativeTarget(
 ): string | undefined {
   try {
     return resolve(dirname(sourceAbs), decodeURIComponent(rawPath));
-  } catch {
+  } catch (error) {
+    if (!(error instanceof URIError)) throw error;
     return undefined;
   }
 }

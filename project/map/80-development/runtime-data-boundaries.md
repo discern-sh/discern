@@ -36,9 +36,9 @@ The setup config document has two views. `configDocSchema` is the strict authori
 
 ## Caller policy stays outside validation
 
-Read presence and validation as separate decisions. The filesystem helpers in [`fs_presence.ts`](../../../src/shared/fs_presence.ts) distinguish absence from failure ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)); the decoder distinguishes valid data from malformed data. A caller may then preserve its product policy explicitly: return `undefined` for a genuinely absent optional manifest, fall back when package metadata is unavailable, or rebuild a malformed cache only when authoritative fetching is enabled.
+Read presence and validation as separate decisions. The filesystem helpers in [`fs_presence.ts`](../../../src/shared/fs_presence.ts) distinguish absence from failure ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)); the decoder distinguishes valid data from malformed data. A caller may return `undefined` for a genuinely absent optional manifest or rebuild a malformed cache only when authoritative fetching is enabled. It does not route a data-producing read through `bestEffort`: that capability accepts side effects and returns only `void`.
 
-Do not catch a validation error merely to turn readable malformed data into absence unless that loss is the named behavior of the boundary. Tests should include a syntactically valid value with a wrong consumed field type and assert that the failure names the source before downstream work runs.
+Do not catch a validation error merely to turn readable malformed data into absence. When product behavior deliberately converts a specific decode failure into a fallback, the exact syntax site belongs to [`BEST_EFFORT_BOUNDARIES`](../../../src/shared/best_effort.ts) with its owner, operation, observability, and reason. Tests should include a syntactically valid value with a wrong consumed field type and assert that the failure names the source before downstream work runs.
 
 ## Permanent enforcement
 

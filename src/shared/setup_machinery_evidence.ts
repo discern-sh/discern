@@ -57,6 +57,7 @@ function parseEvidence(raw: string): SetupMachineryCommitEvidence | undefined {
   try {
     value = JSON.parse(raw);
   } catch {
+    // discern-best-effort: setup-machinery-evidence-decode-fallback
     return undefined;
   }
   if (value === null || typeof value !== "object" || Array.isArray(value)) {

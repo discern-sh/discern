@@ -41,6 +41,7 @@
  */
 
 import { z } from "@zod/zod";
+import { bestEffort } from "../../shared/best_effort.ts";
 import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { findRoot } from "../../shared/env.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
@@ -237,6 +238,7 @@ async function gatherContext(
     epoch = configEpoch(config);
     trunk = config.repository.trunk;
   } catch {
+    // discern-best-effort: logbook-recording-config-fallback
     return undefined; // consent state unreadable — the conservative reading wins
   }
   const [commonGitDir, branch, head, status, change] = await Promise.all([
@@ -559,10 +561,14 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
   // calls) so this invocation's event carries only its own observations.
   takeCheckpointActivity();
   const startedAt = new Date().toISOString();
-  const context = gatherContext(cwd).catch(() => undefined);
+  const context = gatherContext(cwd).catch(() => {
+    // discern-best-effort: logbook-recording-context-fallback
+    return undefined;
+  });
   const beginAppend = logbookVerbIsEffectful(begin.verb, begin.flags)
-    ? (async (): Promise<void> => {
-      try {
+    ? bestEffort(
+      "logbook-begin-append",
+      async (): Promise<void> => {
         const [ctx, driver] = await Promise.all([context, begin.driver]);
         if (ctx === undefined) {
           return;
@@ -581,14 +587,12 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
           epoch: ctx.epoch.fingerprint,
         };
         await appendEvent(ctx.commonGitDir, event);
-      } catch {
-        // Recording never interferes: a begin failure cannot delay or fail the verb.
-      }
-    })()
+      },
+    )
     : Promise.resolve();
   return {
     async finish(report: FinishReport): Promise<void> {
-      try {
+      await bestEffort("logbook-finish-append", async () => {
         // The surface chokepoints drain the checkpoint-observation mailbox and
         // pass it here (the drain-parity guard holds them to it); the fallback
         // take serves direct recorder callers and clears any remainder, so an
@@ -687,9 +691,7 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
           };
           await appendEvent(ctx.commonGitDir, pinEvent);
         }
-      } catch {
-        // Recording never interferes: any failure here is silence, never the verb's.
-      }
+      });
     },
   };
 }

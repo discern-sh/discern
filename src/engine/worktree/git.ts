@@ -66,12 +66,12 @@ import {
 } from "./identity.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
-  bestEffortFs,
   directoryExists,
   fileExists,
   pathExists,
   readDirIfExists,
   readTextIfExists,
+  statIfExists,
 } from "../../shared/fs_presence.ts";
 import {
   type GitCount,
@@ -2159,20 +2159,14 @@ export async function registeredWorktreeOwnershipEvidence(
   if (registration.kind !== "registered") return undefined;
   const commonGitDir = await commonGitDirFrom(cwd);
   if (commonGitDir === undefined) return undefined;
-  return await bestEffortFs(async () => {
-    const metadata = await staleMetadataForRecord(
-      commonGitDir,
-      registration.record,
-    );
-    return {
-      id: worktreeIdFromGitKey(basename(metadata.adminDir), settings),
-      ready: await hasPlainReadyMarker(metadata.adminDir),
-    };
-  }, {
-    onFailure: undefined,
-    reason:
-      "Automatic cleanup requires positive ownership evidence, so unreadable metadata disables cleanup.",
-  });
+  const metadata = await staleMetadataForRecord(
+    commonGitDir,
+    registration.record,
+  );
+  return {
+    id: worktreeIdFromGitKey(basename(metadata.adminDir), settings),
+    ready: await hasPlainReadyMarker(metadata.adminDir),
+  };
 }
 
 type WorktreeRegistrationObservation =
@@ -2818,14 +2812,11 @@ async function lastActivityAt(
 
 /** A file's mtime in unix seconds, or undefined when it can't be stat'd (a deletion). */
 async function fileMtime(path: string): Promise<number | undefined> {
-  return await bestEffortFs(async () => {
-    const m = (await Deno.stat(path)).mtime;
-    return m === null ? undefined : Math.floor(m.getTime() / 1000);
-  }, {
-    onFailure: undefined,
-    reason:
-      "Last-activity time is advisory and may omit a file that disappears or cannot be inspected.",
-  });
+  const info = await statIfExists(path);
+  const mtime = info?.mtime;
+  return mtime === undefined || mtime === null
+    ? undefined
+    : Math.floor(mtime.getTime() / 1000);
 }
 
 /** The unix-seconds time of the newest HEAD reflog entry (the last HEAD movement),
@@ -3228,6 +3219,7 @@ export async function scanGitWorktreesForPrune(
             opts.identitySettings,
           );
         } catch {
+          // discern-best-effort: git-prune-record-identity-fallback
           return undefined;
         }
       })();
@@ -3654,6 +3646,7 @@ export async function pruneStaleWorktreeMetadata(
           scan.identitySettings,
         );
       } catch {
+        // discern-best-effort: git-stale-metadata-identity-fallback
         return undefined;
       }
     })();
@@ -3763,7 +3756,10 @@ async function inspectOrphanWorktree(
   );
   const branch = branchRun.success ? branchRun.stdout.trim() : "";
   const id = await worktreeIdFromGitMetadata(identitySettings, dir).catch(
-    () => undefined,
+    () => {
+      // discern-best-effort: git-orphan-identity-fallback
+      return undefined;
+    },
   );
   const gitDirs = await resolveGitDirs(dir);
   const ready = gitDirs.absoluteGitDir !== undefined &&

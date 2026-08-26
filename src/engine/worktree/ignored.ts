@@ -15,12 +15,13 @@
 import { dirname, join } from "@std/path";
 import { z } from "@zod/zod";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
+import { bestEffort } from "../../shared/best_effort.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
-  bestEffortFs,
   lstatIfExists,
   readBytesIfExists,
+  readDirIfExists,
   readLinkIfExists,
   readTextIfExists,
 } from "../../shared/fs_presence.ts";
@@ -111,7 +112,7 @@ export async function recordIgnoredFileBaseline(
     return;
   }
   const baseline: IgnoredBaseline = { version: BASELINE_VERSION, roots };
-  try {
+  await bestEffort("ignored-baseline-record", async () => {
     await Deno.mkdir(dirname(path), { recursive: true });
     await atomicReplaceJson(path, baseline, {
       mode: 0o666,
@@ -119,10 +120,7 @@ export async function recordIgnoredFileBaseline(
       space: 2,
       trailingNewline: true,
     });
-  } catch {
-    // Best effort: a missing baseline makes accept skip the drift warning rather
-    // than fail setup or invent a noisy full ignored-file listing.
-  }
+  });
 }
 
 /** Compare the current ignored roots with the setup-time baseline. */
@@ -188,17 +186,17 @@ function unavailable(): IgnoredFileChangeSummary {
 async function readBaseline(
   path: string,
 ): Promise<IgnoredBaseline | undefined> {
-  return await bestEffortFs(async () => {
-    const raw = await readTextIfExists(path);
-    if (raw === undefined) return undefined;
+  const raw = await readTextIfExists(path);
+  if (raw === undefined) return undefined;
+  try {
     const parsed: unknown = JSON.parse(raw);
     const result = ignoredBaselineSchema.safeParse(parsed);
     return result.success ? result.data : undefined;
-  }, {
-    onFailure: undefined,
-    reason:
-      "A missing, malformed, foreign, or unreadable ignored-file baseline disables comparison.",
-  });
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    // discern-best-effort: ignored-baseline-decode-fallback
+    return undefined;
+  }
 }
 
 /** Fingerprint Git's current ignored roots, promoting eligible roots to bounded content hashes. */
@@ -299,6 +297,7 @@ async function fingerprintRoot(
     try {
       target = await Deno.readLink(abs);
     } catch {
+      // discern-best-effort: ignored-symlink-target-fallback
       target = "<unreadable>";
     }
     return {
@@ -364,30 +363,16 @@ async function metadataFingerprintDirectory(
 
   /** Record a stable metadata entry for every descendant without reading contents. */
   async function walk(abs: string, rel: string): Promise<void> {
-    const entries = await bestEffortFs(async () => {
-      const found: Deno.DirEntry[] = [];
-      for await (const entry of Deno.readDir(abs)) {
-        found.push(entry);
-      }
-      return found;
-    }, {
-      onFailure: undefined,
-      reason:
-        "Metadata fingerprints encode an unreadable ignored directory as an explicit marker.",
-    });
+    const entries = await readDirIfExists(abs);
     if (entries === undefined) {
-      parts.push(`unreadable-dir\0${rel}`);
+      parts.push(`missing-dir\0${rel}`);
       return;
     }
     entries.sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
       const childAbs = join(abs, entry.name);
       const childRel = `${rel}/${entry.name}`;
-      const stat = await bestEffortFs(() => lstatIfExists(childAbs), {
-        onFailure: undefined,
-        reason:
-          "Metadata fingerprints encode a raced or unreadable ignored entry as missing.",
-      });
+      const stat = await lstatIfExists(childAbs);
       if (stat === undefined) {
         parts.push(`missing\0${childRel}`);
         continue;
@@ -395,11 +380,7 @@ async function metadataFingerprintDirectory(
       if (stat.isDirectory) {
         await walk(childAbs, childRel);
       } else if (stat.isSymlink) {
-        const target = await bestEffortFs(() => readLinkIfExists(childAbs), {
-          onFailure: undefined,
-          reason:
-            "Metadata fingerprints retain an explicit marker for an unreadable ignored symlink.",
-        }) ?? "<unreadable>";
+        const target = await readLinkIfExists(childAbs) ?? "<missing>";
         files += 1;
         parts.push(`symlink\0${childRel}\0${target}`);
       } else if (stat.isFile) {
@@ -497,27 +478,13 @@ async function contentFingerprintDirectory(
 
   /** Read descendants within the reserved budget and abort on any unstable input. */
   async function walk(abs: string, rel: string): Promise<boolean> {
-    const entries = await bestEffortFs(async () => {
-      const found: Deno.DirEntry[] = [];
-      for await (const entry of Deno.readDir(abs)) {
-        found.push(entry);
-      }
-      return found;
-    }, {
-      onFailure: undefined,
-      reason:
-        "Content fingerprinting aborts when an ignored directory is unstable or unreadable.",
-    });
+    const entries = await readDirIfExists(abs);
     if (entries === undefined) return false;
     entries.sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
       const childAbs = join(abs, entry.name);
       const childRel = `${rel}/${entry.name}`;
-      const stat = await bestEffortFs(() => lstatIfExists(childAbs), {
-        onFailure: undefined,
-        reason:
-          "Content fingerprinting aborts when an ignored entry is unstable or unreadable.",
-      });
+      const stat = await lstatIfExists(childAbs);
       if (stat === undefined) return false;
       if (stat.isDirectory) {
         if (!(await walk(childAbs, childRel))) {
@@ -527,11 +494,7 @@ async function contentFingerprintDirectory(
         if (files + 1 > fileBudget) {
           return false;
         }
-        const target = await bestEffortFs(() => readLinkIfExists(childAbs), {
-          onFailure: undefined,
-          reason:
-            "Content fingerprinting aborts when an ignored symlink is unstable or unreadable.",
-        });
+        const target = await readLinkIfExists(childAbs);
         if (target === undefined) return false;
         files += 1;
         parts.push(`symlink\0${childRel}\0${target}`);
@@ -539,11 +502,7 @@ async function contentFingerprintDirectory(
         if (files + 1 > fileBudget || bytes + stat.size > byteBudget) {
           return false;
         }
-        const data = await bestEffortFs(() => readBytesIfExists(childAbs), {
-          onFailure: undefined,
-          reason:
-            "Content fingerprinting aborts when an ignored file is unstable or unreadable.",
-        });
+        const data = await readBytesIfExists(childAbs);
         if (data === undefined) return false;
         files += 1;
         bytes += stat.size;

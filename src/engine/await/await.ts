@@ -84,7 +84,11 @@ import {
 } from "../../shared/mcp_timeout_policy.ts";
 import { experimentalAwaitCallSeconds } from "../../shared/experimental.ts";
 import type { EnvReader } from "../../shared/env.ts";
-import { bestEffortFs, pathExists } from "../../shared/fs_presence.ts";
+import {
+  bestEffort,
+  bestEffortSync,
+} from "../../shared/best_effort.ts";
+import { pathExists } from "../../shared/fs_presence.ts";
 
 import { AWAIT_POLL_INTERVAL_MS, AWAIT_TIMEOUT_EXIT_CODE } from "./defaults.ts";
 import {
@@ -253,6 +257,7 @@ function decodeLegacyResumeToken(
     );
     decoded = JSON.parse(json);
   } catch {
+    // discern-best-effort: await-legacy-resume-decode
     return undefined;
   }
   if (
@@ -326,22 +331,21 @@ async function waitForWakes(
   try {
     watcher = watchPaths.length > 0 ? Deno.watchFs(watchPaths) : undefined;
   } catch {
+    // discern-best-effort: await-watcher-open-fallback
     watcher = undefined; // watching is best-effort; polling carries the wait
   }
   const pump = (async (): Promise<void> => {
     if (watcher === undefined) {
       return;
     }
-    try {
+    await bestEffort("await-watcher-pump-fallback", async () => {
       for await (const _event of watcher) {
         if (finished) {
           break;
         }
         kick();
       }
-    } catch {
-      // A dying watcher silently hands the wait to the polling fallback.
-    }
+    });
   })();
   signal?.addEventListener("abort", kick, { once: true });
   try {
@@ -368,11 +372,9 @@ async function waitForWakes(
   } finally {
     finished = true;
     signal?.removeEventListener("abort", kick);
-    try {
+    bestEffortSync("await-watcher-close", () => {
       watcher?.close();
-    } catch {
-      // Already closed by its own failure path.
-    }
+    });
     await pump;
   }
 }
@@ -383,13 +385,13 @@ async function waitForWakes(
 async function existingPaths(candidates: string[]): Promise<string[]> {
   const out: string[] = [];
   for (const path of candidates) {
-    if (
-      await bestEffortFs(() => pathExists(path), {
-        onFailure: false,
-        reason:
-          "Await file watching is only a wake optimization; authoritative polling still evaluates the condition.",
-      })
-    ) {
+    let exists = false;
+    try {
+      exists = await pathExists(path);
+    } catch {
+      // discern-best-effort: await-watch-path-presence-fallback
+    }
+    if (exists) {
       out.push(path);
     }
   }
@@ -422,6 +424,7 @@ async function updatePreview(
       ...(o.total > 0 ? { incoming_overlap: o.overlap } : {}),
     };
   } catch {
+    // discern-best-effort: await-update-preview-fallback
     return {};
   }
 }
@@ -931,6 +934,7 @@ async function evaluateCondition(
     try {
       head = await resolveCommitRef(root, `refs/heads/${trunk}`);
     } catch {
+      // discern-best-effort: await-trunk-ref-fallback
       head = undefined; // the trunk vanished mid-wait — not-met, not a crash
     }
     return {
@@ -964,6 +968,7 @@ async function evaluateCondition(
       state.tip = liveTip;
     }
   } catch {
+    // discern-best-effort: await-branch-ref-fallback
     // The ref is gone (a landing removes it) — the last observed tip answers.
   }
   const reachable = await commitIsMerged(root, state.tip, trunk);

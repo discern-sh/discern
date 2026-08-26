@@ -8,7 +8,7 @@
 import { dirname, isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
 import { emitResult } from "../../shared/emit.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
-import { bestEffortFs, directoryExists } from "../../shared/fs_presence.ts";
+import { directoryExists, realPathIfExists } from "../../shared/fs_presence.ts";
 import type {
   StatusAdrCollision,
   StatusData,
@@ -319,11 +319,7 @@ function selectionGroups(
 
 /** Canonicalize an existing path, retaining an absolute fallback for failures. */
 async function canonicalPath(path: string): Promise<string> {
-  return await bestEffortFs(() => Deno.realPath(path), {
-    onFailure: resolve(path),
-    reason:
-      "The shell picker can compare an absolute lexical path when canonicalization is unavailable.",
-  });
+  return await realPathIfExists(path) ?? resolve(path);
 }
 
 /** Default terminal and process implementation. */

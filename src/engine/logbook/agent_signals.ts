@@ -18,7 +18,7 @@ import {
   type AgentSignalSource,
 } from "../../shared/agent_catalogue.ts";
 import { classifyMcpClient } from "./agent_identity.ts";
-import { bestEffortFs, pathExists } from "../../shared/fs_presence.ts";
+import { pathExists } from "../../shared/fs_presence.ts";
 
 /** Request metadata key used by the MCP 2026-07-28 protocol shape. */
 export const MCP_CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo";
@@ -107,12 +107,8 @@ export function resolveMcpClientInfo(
 
 /** An env read that treats denied permission exactly like an absent marker. */
 function envValue(env: EnvReader, name: string): string | undefined {
-  try {
-    const value = env.get(name);
-    return value !== undefined && value !== "" ? value : undefined;
-  } catch {
-    return undefined;
-  }
+  const value = env.get(name);
+  return value !== undefined && value !== "" ? value : undefined;
 }
 
 /** Whether one catalogue conjunction matches, returning every marker involved. */
@@ -169,13 +165,7 @@ export async function detectAgentSignals(
   options: AgentSignalOptions = {},
   env: EnvReader = options.env ?? Deno.env,
 ): Promise<AgentSignal[]> {
-  const hasSignalPath = options.pathExists ??
-    ((path: string) =>
-      bestEffortFs(() => pathExists(path), {
-        onFailure: false,
-        reason:
-          "Coding-agent identity signals are advisory, so an unreadable marker contributes no signal.",
-      }));
+  const hasSignalPath = options.pathExists ?? pathExists;
   const signals: AgentSignal[] = [];
   const aiAgentValue = envValue(env, "AI_AGENT")?.trim();
   const aiAgent = aiAgentValue !== undefined && aiAgentValue !== ""
@@ -220,6 +210,7 @@ export async function detectAgentSignals(
           addSignal(signals, agent, "host-filesystem", [path]);
         }
       } catch {
+        // discern-best-effort: logbook-agent-host-marker-fallback
         // An unreadable host marker is no evidence; detection never interferes.
       }
     }

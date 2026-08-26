@@ -11,6 +11,7 @@
  */
 
 import { dirname, join } from "@std/path";
+import { bestEffort } from "./best_effort.ts";
 
 const ATOMIC_TEMP_PREFIX = ".discern-atomic-write-";
 const ATOMIC_TEMP_SUFFIX = ".tmp";
@@ -49,11 +50,9 @@ async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
 
 /** Remove an abandoned sibling without obscuring the replacement failure. */
 async function removeAbandonedTemp(path: string): Promise<void> {
-  try {
+  await bestEffort("atomic-write-temp-cleanup", async () => {
     await Deno.remove(path);
-  } catch {
-    // The temp was never created, was already removed, or cannot be cleaned up.
-  }
+  });
 }
 
 /** Identify a temporary filename owned by this replacement policy. */

@@ -1,7 +1,7 @@
 /** Project-relative path resolution for reads and writes with different risk. */
 
 import { basename, isAbsolute, join, relative } from "@std/path";
-import { bestEffortFs, lstatIfExists } from "./fs_presence.ts";
+import { lstatIfExists, realPathIfExists } from "./fs_presence.ts";
 
 const INVALID_PORTABLE_PUNCTUATION = /[<>:"\\|?*]/;
 const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
@@ -112,7 +112,7 @@ function isContained(root: string, candidate: string): boolean {
 /**
  * Resolve one existing path below `root` for a tolerant read. Existing symbolic
  * links may participate when their final target remains inside the project.
- * Missing, unreadable, stale, or escaping paths return undefined.
+ * Missing, stale, or escaping paths return undefined; other read failures propagate.
  */
 export async function resolveContainedProjectReadPath(
   root: string,
@@ -121,15 +121,11 @@ export async function resolveContainedProjectReadPath(
   if (projectRelativePathIssue(value) !== undefined) {
     return undefined;
   }
-  return await bestEffortFs(async () => {
-    const realRoot = await Deno.realPath(root);
-    const resolved = await Deno.realPath(join(realRoot, value));
-    return isContained(realRoot, resolved) ? resolved : undefined;
-  }, {
-    onFailure: undefined,
-    reason:
-      "A missing, stale, unreadable, or escaping optional read path is not safe to consume.",
-  });
+  const realRoot = await Deno.realPath(root);
+  const resolved = await realPathIfExists(join(realRoot, value));
+  return resolved !== undefined && isContained(realRoot, resolved)
+    ? resolved
+    : undefined;
 }
 
 /**

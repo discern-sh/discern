@@ -251,6 +251,7 @@ function parseProposalStore(
       "Standard limit proposal record",
     );
   } catch {
+    // discern-best-effort: standard-proposal-store-decode-fallback
     return undefined;
   }
 }
@@ -528,6 +529,7 @@ function parseProposalTransaction(
       "Standard limit proposal recovery journal",
     );
   } catch {
+    // discern-best-effort: standard-proposal-transaction-decode-fallback
     return undefined;
   }
 }

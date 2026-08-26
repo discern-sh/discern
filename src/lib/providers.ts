@@ -701,6 +701,7 @@ function parseTomlObject(text: string | undefined): Record<string, unknown> {
     const parsed: unknown = parseToml(text);
     return isObject(parsed) ? parsed : {};
   } catch {
+    // discern-best-effort: providers-toml-decode-fallback
     return {};
   }
 }
@@ -1040,7 +1041,8 @@ async function editTomlFile(
   let existing: string | undefined;
   try {
     existing = await files.readTextFile(path);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
     existing = undefined;
   }
   const editor = new TomlEditor(existing ?? "");

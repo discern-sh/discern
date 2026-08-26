@@ -1,6 +1,7 @@
 /** Shared process-signal primitives for every owned subprocess boundary. */
 
 import { signalProcessGroup } from "../shared/process_group.ts";
+import { bestEffortSync } from "../shared/best_effort.ts";
 export {
   OWNED_DESCENDANT_GRACE_MS,
   quiesceProcessGroup,
@@ -37,20 +38,12 @@ export const KILLED_PIPE_GRACE_MS = 2_500;
 /** Signal a process group, falling back to its direct child. */
 export function killProcessTree(pid: number, signal: Deno.Signal): void {
   if (!signalProcessGroup(pid, signal)) {
-    try {
-      Deno.kill(pid, signal);
-    } catch {
-      // The process has already exited.
-    }
+    bestEffortSync("process-tree-direct-signal", () => Deno.kill(pid, signal));
   }
 }
 
 /** Restore conventional killed-by-signal status after owned children settle. */
 export function reraiseInterrupt(signal: Deno.Signal): never {
-  try {
-    Deno.kill(Deno.pid, signal);
-  } catch {
-    // Unsupported self-signal. Use the conventional 128+n fallback below.
-  }
+  bestEffortSync("process-self-signal", () => Deno.kill(Deno.pid, signal));
   Deno.exit(SIGNAL_EXIT_CODES[signal] ?? 130);
 }

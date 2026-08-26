@@ -17,9 +17,9 @@ import {
 import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import {
-  bestEffortFs,
   fileExists,
   readDirIfExists,
+  readTextIfExists,
 } from "../shared/fs_presence.ts";
 import { Logger } from "../lib/log.ts";
 import {
@@ -910,11 +910,7 @@ export async function runChecks(
         fix: "make your first commit, then worktrees work normally",
       });
     } else {
-      const projectRoot = await bestEffortFs(() => Deno.realPath(destDir), {
-        onFailure: destDir,
-        reason:
-          "Doctor can still compare the lexical project root when canonicalization is unavailable.",
-      });
+      const projectRoot = await Deno.realPath(destDir);
       if (projectRoot !== repository.toplevel) {
         checks.push({
           name: "repository shape",
@@ -1127,8 +1123,9 @@ export async function runChecks(
       if (integ === undefined) {
         continue; // providersWithHooks guarantees this, but narrow for the checker.
       }
-      await bestEffortFs(async () => {
-        const raw = await Deno.readTextFile(join(destDir, integ.settingsFile));
+      const raw = await readTextIfExists(join(destDir, integ.settingsFile));
+      if (raw === undefined) continue;
+      try {
         // Untrusted JSON in any shape — validate it through the lenient schema rather
         // than asserting a type and walking it; a wrong-shaped file yields no hooks.
         const parsed = hookSettingsSchema.safeParse(JSON.parse(raw));
@@ -1147,11 +1144,9 @@ export async function runChecks(
         if (foreign.length > 0) {
           foreignFiles.push(integ.settingsFile);
         }
-      }, {
-        onFailure: undefined,
-        reason:
-          "Worktree-automation detection is advisory and install validity is checked separately.",
-      });
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+      }
     }
     if (foreignFiles.length > 0) {
       checks.push({
@@ -1208,6 +1203,7 @@ async function loadModelConfig(
   try {
     return await loadConfig(destDir);
   } catch {
+    // discern-best-effort: doctor-model-config-fallback
     return undefined;
   }
 }

@@ -1,4 +1,5 @@
 import { capText } from "../../shared/result.ts";
+import { bestEffort } from "../../shared/best_effort.ts";
 import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
 
 export interface DiagnosticOutputFields {
@@ -9,13 +10,12 @@ export interface DiagnosticOutputFields {
 
 /** Persist uncapped diagnostic text in the temp-artifact registry when possible. */
 async function writeFullOutput(fullText: string): Promise<string | undefined> {
-  try {
-    const path = await makeTempArtifact("diag");
-    await Deno.writeTextFile(path, fullText);
-    return path;
-  } catch {
-    return undefined;
-  }
+  let recordedPath: string | undefined;
+  await bestEffort("diagnostic-full-output-record", async () => {
+    recordedPath = await makeTempArtifact("diag");
+    await Deno.writeTextFile(recordedPath, fullText);
+  });
+  return recordedPath;
 }
 
 /**

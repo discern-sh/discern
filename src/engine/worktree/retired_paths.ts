@@ -14,10 +14,10 @@ import {
   atomicReplaceText,
   isAtomicReplaceTempName,
 } from "../../shared/atomic_write.ts";
+import { bestEffort } from "../../shared/best_effort.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
-  bestEffortFs,
   lstatIfExists,
   readDirIfExists,
   readTextIfExists,
@@ -125,7 +125,9 @@ function parseRecord(text: string): RetiredWorktreePathRecord | undefined {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    // discern-best-effort: retired-path-record-decode-fallback
     return undefined;
   }
   if (
@@ -156,19 +158,13 @@ function parseRecord(text: string): RetiredWorktreePathRecord | undefined {
 async function readRecord(
   path: string,
 ): Promise<RetiredWorktreePathRecord | undefined> {
-  return await bestEffortFs(async () => {
-    const stat = await statIfExists(path);
-    if (stat === undefined) return undefined;
-    if (!stat.isFile || stat.size <= 0 || stat.size > RECORD_MAX_BYTES) {
-      return undefined;
-    }
-    const text = await readTextIfExists(path);
-    return text === undefined ? undefined : parseRecord(text);
-  }, {
-    onFailure: undefined,
-    reason:
-      "Retired-path recovery skips a missing, corrupt, raced, or unreadable evidence record.",
-  });
+  const stat = await statIfExists(path);
+  if (stat === undefined) return undefined;
+  if (!stat.isFile || stat.size <= 0 || stat.size > RECORD_MAX_BYTES) {
+    return undefined;
+  }
+  const text = await readTextIfExists(path);
+  return text === undefined ? undefined : parseRecord(text);
 }
 
 /** Resolve the repository-shared evidence directory. */
@@ -197,6 +193,7 @@ async function withStoreLock<T>(
     await lock.lock(true);
     return await run(directory);
   } catch {
+    // discern-best-effort: retired-path-store-operation-fallback
     return undefined;
   } finally {
     lock?.close();
@@ -237,7 +234,9 @@ async function pruneStore(
     ) {
       const modified = (await Deno.stat(path)).mtime?.getTime() ?? now;
       if (now - modified >= ttlMs) {
-        await Deno.remove(path).catch(() => {});
+        await bestEffort("retired-path-stale-temp-remove", async () => {
+          await Deno.remove(path);
+        });
       }
       continue;
     }
@@ -249,7 +248,9 @@ async function pruneStore(
       ? Number.NEGATIVE_INFINITY
       : Date.parse(record.removed_at);
     if (record === undefined || now - removedAt >= ttlMs) {
-      await Deno.remove(path).catch(() => {});
+      await bestEffort("retired-path-expired-record-remove", async () => {
+        await Deno.remove(path);
+      });
       continue;
     }
     live.push({ path, removedAt });
@@ -258,7 +259,9 @@ async function pruneStore(
     right.removedAt - left.removedAt || left.path.localeCompare(right.path)
   );
   for (const entry of live.slice(Math.max(0, maxEntries))) {
-    await Deno.remove(entry.path).catch(() => {});
+    await bestEffort("retired-path-excess-record-remove", async () => {
+      await Deno.remove(entry.path);
+    });
   }
 }
 
@@ -313,11 +316,7 @@ export async function readRetiredWorktreePathRecords(
   const now = opts.now ?? Date.now();
   const ttlMs = opts.ttlMs ?? RETIRED_WORKTREE_PATH_TTL_MS;
   const records: RetiredWorktreePathRecord[] = [];
-  const entries = await bestEffortFs(() => readDirIfExists(directory), {
-    onFailure: undefined,
-    reason:
-      "Retired-path recovery may return no advisory records when its evidence directory is unreadable.",
-  });
+  const entries = await readDirIfExists(directory);
   if (entries === undefined) return [];
   for (const entry of entries) {
     if (!entry.isFile || !RECORD_NAME.test(entry.name)) {
@@ -461,6 +460,7 @@ async function inspectPath(path: string): Promise<PathInspection | undefined> {
       }
     }
   } catch {
+    // discern-best-effort: retired-path-inspection-read-outcome
     cleanupBlockedReason = "the path contents could not be read";
   }
   return {

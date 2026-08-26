@@ -24,6 +24,7 @@ import {
   reraiseInterrupt,
   signalProcessGroup,
 } from "./process_signals.ts";
+import { bestEffortSync } from "../shared/best_effort.ts";
 import { operationLockChildEnv } from "../shared/operation_lock_context.ts";
 
 export interface OwnedChildOptions {
@@ -69,11 +70,7 @@ function signalDirectChild(
   child: Deno.ChildProcess,
   signal: Deno.Signal,
 ): void {
-  try {
-    child.kill(signal);
-  } catch {
-    // The direct child has already exited.
-  }
+  bestEffortSync("owned-child-direct-signal", () => child.kill(signal));
 }
 
 /**

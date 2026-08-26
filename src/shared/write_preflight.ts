@@ -11,6 +11,7 @@
 
 import { dirname, join } from "@std/path";
 import type { Diagnostic, DiscernResult } from "./result.ts";
+import { bestEffort } from "./best_effort.ts";
 
 /** One predictable write surface a workflow will need later. */
 export type PlannedWriteTarget =
@@ -60,13 +61,17 @@ async function removeProbe(path: string | undefined): Promise<void> {
   if (path === undefined) {
     return;
   }
-  await Deno.remove(path).catch(() => {});
+  await bestEffort("write-preflight-probe-remove", async () => {
+    await Deno.remove(path);
+  });
 }
 
 /** Best-effort recursive cleanup for a temporary probe directory. */
 async function removeProbeTree(path: string | undefined): Promise<void> {
   if (path === undefined) return;
-  await Deno.remove(path, { recursive: true }).catch(() => {});
+  await bestEffort("write-preflight-tree-remove", async () => {
+    await Deno.remove(path, { recursive: true });
+  });
 }
 
 /** Exercise the directory operations used by Git-admin marker writes and Git's

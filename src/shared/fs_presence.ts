@@ -1,26 +1,12 @@
 /**
  * Filesystem presence reads with explicit absence and suppression semantics.
  *
- * The ordinary helpers treat only `NotFound` as absence. Callers whose result is
- * genuinely advisory must opt into {@link bestEffortFs}, name why detail may
- * be lost, and state the value returned when any filesystem read fails.
+ * Every helper treats only `NotFound` as absence. Other failures propagate so
+ * callers cannot silently reinterpret unreadable state as a missing value.
  */
 
 /** A text-file reader seam for callers that already inject filesystem effects. */
 export type TextFileReader = (path: string) => Promise<string>;
-
-/** The explicit policy required when a filesystem read may suppress any error. */
-export interface BestEffortFsPolicy<T> {
-  /** Value returned when the read fails, making the consequence visible. */
-  readonly onFailure: T;
-  /** Why this observation is non-critical and may lose the failure detail. */
-  readonly reason: string;
-}
-
-/** Add a caller's fallback to either a synchronous or asynchronous read result. */
-export type BestEffortFsResult<T, F> = T extends Promise<infer Value>
-  ? Promise<Value | F>
-  : T | F;
 
 /** True when any directory entry exists, following only `NotFound` to false. */
 export async function pathExists(path: string): Promise<boolean> {
@@ -148,28 +134,5 @@ export async function readDirIfExists(
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) return undefined;
     throw error;
-  }
-}
-
-/**
- * Run one non-critical filesystem read, returning the caller's named consequence
- * when it fails. The reason is required and validated so suppression is never an
- * invisible ambient default.
- */
-export function bestEffortFs<T, F>(
-  operation: () => T,
-  policy: BestEffortFsPolicy<F>,
-): BestEffortFsResult<T, F> {
-  if (policy.reason.trim() === "") {
-    throw new TypeError("a best-effort filesystem read requires a reason");
-  }
-  try {
-    const result = operation();
-    if (result instanceof Promise) {
-      return result.catch(() => policy.onFailure) as BestEffortFsResult<T, F>;
-    }
-    return result as BestEffortFsResult<T, F>;
-  } catch {
-    return policy.onFailure as BestEffortFsResult<T, F>;
   }
 }

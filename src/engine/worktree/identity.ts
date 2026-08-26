@@ -25,7 +25,11 @@ import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
-import { realPathIfExists, statIfExists } from "../../shared/fs_presence.ts";
+import {
+  readTextIfExists,
+  realPathIfExists,
+  statIfExists,
+} from "../../shared/fs_presence.ts";
 import {
   DEFAULT_ENV_FILES,
   readEnvValueAcross,
@@ -490,6 +494,7 @@ export async function loadIdentitySettings(
     try {
       config = await loadConfig(root);
     } catch {
+      // discern-best-effort: identity-config-read-fallback
       config = undefined;
     }
     if (rawSlug === "") {
@@ -568,11 +573,7 @@ async function normalizeCommonGitDir(
   raw: string,
 ): Promise<string> {
   const abs = isAbsolute(raw) ? raw : resolve(base, raw);
-  try {
-    return await Deno.realPath(abs);
-  } catch {
-    return abs;
-  }
+  return await realPathIfExists(abs) ?? abs;
 }
 
 /**
@@ -582,12 +583,7 @@ async function normalizeCommonGitDir(
  * `IdentityError` when no linked-worktree metadata can be resolved.
  */
 async function metadataIdFromGit(path: string): Promise<string> {
-  let isDir = false;
-  try {
-    isDir = (await Deno.stat(path)).isDirectory;
-  } catch {
-    isDir = false;
-  }
+  const isDir = (await statIfExists(path))?.isDirectory ?? false;
 
   if (isDir) {
     const gitDir = await gitOut(path, ["rev-parse", "--absolute-git-dir"]);
@@ -606,12 +602,7 @@ async function metadataIdFromGit(path: string): Promise<string> {
 
   // Fall back to a `.git` gitlink file (a worktree whose checkout git cannot run
   // rev-parse against, but whose link still points at its admin dir).
-  let linkText: string | undefined;
-  try {
-    linkText = await Deno.readTextFile(join(path, ".git"));
-  } catch {
-    linkText = undefined;
-  }
+  const linkText = await readTextIfExists(join(path, ".git"));
   if (linkText !== undefined) {
     const firstLine = linkText.split("\n")[0] ?? "";
     if (firstLine.startsWith("gitdir: ")) {

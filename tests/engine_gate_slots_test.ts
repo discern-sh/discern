@@ -24,7 +24,7 @@ import { assert, assertEquals, assertMatch } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { z } from "@zod/zod";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
-import { bestEffortFs, readTextIfExists } from "../src/shared/fs_presence.ts";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import {
   buildTestRunSlots,
   groupNeedsTestSlot,
@@ -90,7 +90,7 @@ async function logLines(path: string): Promise<string[]> {
 
 /** Count the logbook's begin events for one verb (0 when nothing recorded). */
 async function beginEvents(mainDir: string, verb: string): Promise<number> {
-  return await bestEffortFs(async () => {
+  try {
     const dir = join(mainDir, ".git", GIT_ADMIN_STATE.logbook.path);
     let count = 0;
     for await (const entry of Deno.readDir(dir)) {
@@ -110,11 +110,9 @@ async function beginEvents(mainDir: string, verb: string): Promise<number> {
       }
     }
     return count;
-  }, {
-    onFailure: 0,
-    reason:
-      "This test helper treats an absent or unreadable logbook as no observed begin events.",
-  });
+  } catch {
+    return 0;
+  }
 }
 
 const slotDirOf = (mainDir: string): string =>
