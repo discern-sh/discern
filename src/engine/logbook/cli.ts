@@ -46,6 +46,18 @@ const recordedVerbs = new Set<string>();
 const beginRecordedVerbs = new Set<string>();
 const recordedCommandPaths = new Set<string>();
 
+/** Resolve a command path to its public envelope discriminator at the CLI edge. */
+type OperationResultVerbResolver = (command: string) => string | undefined;
+
+let operationResultVerbResolver: OperationResultVerbResolver = () => undefined;
+
+/** Install the public result-contract resolver without importing its graph. */
+export function setOperationResultVerbResolver(
+  resolver: OperationResultVerbResolver,
+): void {
+  operationResultVerbResolver = resolver;
+}
+
 /**
  * The CLI's raw driver signals — evidence for the who-drove-this question,
  * gathered here because only the surface knows them: the parent process id (a
@@ -230,11 +242,13 @@ async function runClassifiedCliOperation(
   const { OperationLockError, withOperationLock } = await import(
     "../operation_lock.ts"
   );
+  const resultVerb = operationResultVerbResolver(verb);
   try {
     return (await withOperationLock(
       Deno.cwd(),
       {
         command: verb,
+        ...(resultVerb === undefined ? {} : { resultVerb }),
         reproduceCmd: cliReproduceCommand(),
         ...(options.flags === undefined ? {} : { flags: options.flags }),
         ...(options.hasOperands === undefined

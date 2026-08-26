@@ -175,7 +175,7 @@ export async function worktreeCreateHook(): Promise<number> {
       { id: name, settings: ownershipSettings },
       startPoint,
       {
-        verb: "worktree",
+        verb: "worktree hook create",
         reproduceCmd: "discern worktree hook create",
       },
     );

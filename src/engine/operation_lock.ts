@@ -29,7 +29,6 @@ import {
   runWithOperationLocks,
 } from "../shared/operation_lock_context.ts";
 import type { DiscernResult } from "../shared/result.ts";
-import { cliJsonResultVerb } from "../shared/result_contracts.ts";
 import { sha256Hex } from "../shared/sha256.ts";
 import {
   type PlannedWriteTarget,
@@ -40,6 +39,8 @@ import {
 /** One classified operation invocation. */
 export interface OperationInvocation extends OperationInvocationFacts {
   readonly command: string;
+  /** Published envelope discriminator supplied by the invoking surface. */
+  readonly resultVerb?: string;
   /** Copyable retry preserving the caller's invocation when that surface has it. */
   readonly reproduceCmd?: string;
 }
@@ -67,9 +68,9 @@ interface AcquiredLock {
   readonly lease: OperationLockLease;
 }
 
-/** Resolve the serialized verb from the public contract for this command path. */
-function resultVerb(command: string): string {
-  return cliJsonResultVerb(command) ?? command.split(" ", 1)[0] ?? command;
+/** Keep internal callers exact unless a public surface supplies its contract. */
+function resultVerb(invocation: OperationInvocation): string {
+  return invocation.resultVerb ?? invocation.command;
 }
 
 /**
@@ -96,10 +97,13 @@ function concreteBoundaries(
 }
 
 /** One stable refusal envelope for every lock-boundary failure. */
-function refusal(command: string, message: string): OperationLockError {
+function refusal(
+  invocation: OperationInvocation,
+  message: string,
+): OperationLockError {
   return new OperationLockError({
     ok: false,
-    verb: resultVerb(command),
+    verb: resultVerb(invocation),
     error: "precondition_failed",
     message,
   });
@@ -223,7 +227,7 @@ async function preflightOperationBoundary(
   if (preflight.ok) return;
   throw new OperationLockError(
     writePreflightFailureResult(
-      resultVerb(invocation.command),
+      resultVerb(invocation),
       preflight,
       invocation.reproduceCmd ?? `discern ${invocation.command}`,
     ),
@@ -266,7 +270,7 @@ async function releaseLocks(locks: AcquiredLock[]): Promise<void> {
 
 /** Open and exclusively try-lock one inert host-temporary lock file. */
 async function acquireLock(
-  command: string,
+  invocation: OperationInvocation,
   cwd: string,
   spec: LockSpec,
 ): Promise<AcquiredLock> {
@@ -280,7 +284,7 @@ async function acquireLock(
     });
   } catch (error) {
     throw refusal(
-      command,
+      invocation,
       `discern could not open the ${boundaryName(spec.boundary)} for ${cwd}. ` +
         `This call made no change. Retry after the boundary is writable. ${
           error instanceof Error ? error.message : String(error)
@@ -293,7 +297,7 @@ async function acquireLock(
   } catch (error) {
     file.close();
     throw refusal(
-      command,
+      invocation,
       `discern could not check the ${
         boundaryName(spec.boundary)
       } for ${cwd}. ` +
@@ -323,7 +327,7 @@ async function acquireLock(
     }
     file.close();
     throw refusal(
-      command,
+      invocation,
       `Another discern operation holds the ${
         boundaryName(spec.boundary)
       } for ${cwd}. ` +
@@ -336,7 +340,7 @@ async function acquireLock(
   } catch (error) {
     file.close();
     throw refusal(
-      command,
+      invocation,
       `discern could not read the ${boundaryName(spec.boundary)} for ${cwd}. ` +
         `This call made no change. Retry after the boundary is readable. ${
           error instanceof Error ? error.message : String(error)
@@ -364,7 +368,7 @@ async function acquireLock(
     }
     file.close();
     throw refusal(
-      command,
+      invocation,
       `discern could not record the ${
         boundaryName(spec.boundary)
       } lease for ${cwd}. ` +
@@ -391,7 +395,7 @@ export async function withOperationLock<T>(
   const policy = operationEffectPolicy(invocation.command, invocation);
   if (policy === undefined) {
     throw refusal(
-      invocation.command,
+      invocation,
       `discern has no operation-effect policy for \`${invocation.command}\`. ` +
         "This call made no change. Retry after the command is classified.",
     );
@@ -424,7 +428,7 @@ export async function withOperationLock<T>(
   );
   if (heldCheckout && acquiringCommon) {
     throw refusal(
-      invocation.command,
+      invocation,
       "discern refused a nested operation that would acquire the common repository boundary after a checkout boundary. " +
         "This call made no change. Retry from the outer operation so it acquires common before checkout.",
     );
@@ -440,7 +444,7 @@ export async function withOperationLock<T>(
       : inheritedOperationLockLease(commonSpec.key, commonSpec.path);
     if (inheritedCheckout !== undefined && inheritedCommon === undefined) {
       throw refusal(
-        invocation.command,
+        invocation,
         "discern refused a child operation that would acquire the common repository boundary after its parent delegated only a checkout boundary. " +
           "This call made no change. Retry from an outer operation classified to acquire common before checkout.",
       );
@@ -448,7 +452,7 @@ export async function withOperationLock<T>(
   }
   if (heldCheckout && acquiringCheckout) {
     throw refusal(
-      invocation.command,
+      invocation,
       "discern refused a nested operation that would hold two checkout boundaries. " +
         "This call made no change. Retry each checkout operation independently.",
     );
@@ -458,7 +462,7 @@ export async function withOperationLock<T>(
   const acquiredLeases: OperationLockLease[] = [];
   try {
     for (const spec of missing) {
-      const acquired = await acquireLock(invocation.command, cwd, spec);
+      const acquired = await acquireLock(invocation, cwd, spec);
       acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);
     }

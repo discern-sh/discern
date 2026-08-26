@@ -46,7 +46,11 @@ import {
   reportUnknownOrSuggest,
   runConfigRead,
 } from "./engine/dispatch.ts";
-import { recordedExit, recordedRun } from "./engine/logbook/cli.ts";
+import {
+  recordedExit,
+  recordedRun,
+  setOperationResultVerbResolver,
+} from "./engine/logbook/cli.ts";
 import { hiddenVerbNames } from "./shared/hidden_verbs.ts";
 import {
   captureCrashReport,
@@ -1484,6 +1488,7 @@ export async function main(args: string[]): Promise<void> {
     // One global interaction decision feeds every input-capable surface. This
     // is set before helper/command dispatch so flag-first forms behave identically.
     setPlainMode(discernArgv.includes(ROOT_GLOBAL_FLAGS.plain));
+    setOperationResultVerbResolver(cliJsonResultVerb);
     setResultMarkdownPresenterResolver(resultPresenterForVerb);
     setResultMarkdownTerminalRenderer(undefined);
     setResultOutputFormat(

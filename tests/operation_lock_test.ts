@@ -121,18 +121,24 @@ Deno.test("Git-writer preflight refusals use each command's public result verb",
 
     await withUnwritableDirectory(join(dir, ".git"), async () => {
       for (const [command] of gitWriters) {
+        const publishedVerb = cliJsonResultVerb(command);
         const refusal = await assertRejects(
           () =>
             withOperationLock(
               dir,
-              { command },
+              {
+                command,
+                ...(publishedVerb === undefined
+                  ? {}
+                  : { resultVerb: publishedVerb }),
+              },
               () => Promise.resolve(),
             ),
           OperationLockError,
         );
         assertEquals(
           refusal.result.verb,
-          cliJsonResultVerb(command) ?? command.split(" ", 1)[0],
+          publishedVerb ?? command,
           command,
         );
       }
