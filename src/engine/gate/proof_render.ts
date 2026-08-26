@@ -187,7 +187,7 @@ function standardProposalsSection(
   }
   const lines = [
     "",
-    "Proposed Standard limits — exact owner approval required before landing:",
+    "Standard limit proposals — resolved only by the owner's exact decision:",
     "",
   ];
   for (const proposal of proposals) {
@@ -207,16 +207,28 @@ function standardProposalsSection(
   return lines;
 }
 
-/** Compact proposal count and owner boundary for the one-line Proof. */
+/** The proposal segment both line renderings share, differing only in the
+ * proposal's state. A single proposal carries the decision itself — Standard,
+ * trunk limit, proposed limit — because the line is what owners actually read;
+ * several fall back to a count, with the page carrying each tuple. */
+function proposalsLineSegment(
+  proposals: readonly StandardLimitProposalData[],
+  state: "awaiting exact owner approval" | "approved by the owner",
+): string {
+  const [only] = proposals;
+  return proposals.length === 1 && only !== undefined
+    ? `proposal ${state}: ${only.standard} ${only.trunk_limit} → ${only.proposed_limit}`
+    : `${proposals.length} proposals ${state}`;
+}
+
+/** The one-line Proof's proposal segment: the open proposal as a present-state
+ * fact, never a demand — the owner decision it awaits is stated as its state. */
 function lineStandardProposalsSegment(
   proposals: readonly StandardLimitProposalData[] | undefined,
 ): string | undefined {
-  const count = proposals?.length ?? 0;
-  return count === 0
+  return proposals === undefined || proposals.length === 0
     ? undefined
-    : `${count} proposed Standard limit${
-      count === 1 ? "" : "s"
-    } — exact owner approval required to land`;
+    : proposalsLineSegment(proposals, "awaiting exact owner approval");
 }
 
 /**
@@ -390,38 +402,73 @@ export function renderProofLine(
   return `Proof: ${segments.join(" · ")}`;
 }
 
+/** The owner decisions a landing resolves. Used to rewrite the validation
+ * line's awaiting-decision segments into their resolved state. */
+export interface LandingLineResolutions {
+  /** The approved Standard limit proposals — the exact set the Proof carried
+   * (acceptance refuses on any mismatch before this rendering happens). */
+  readonly proposals?: readonly StandardLimitProposalData[];
+  /** The Proof's checkpoint facts. A declared-unmet conclusion lands only
+   * under an owner-authorized variance, so landing resolves every one. */
+  readonly checkpoints?: ProofCheckpointsData;
+}
+
+/** Swap one ` · segment` of a proof line for its resolved form, appending the
+ * resolved form instead when the line predates the current open wording (an
+ * honored line stored by an earlier engine). Either way the resolution is
+ * stated exactly once. */
+function resolveLineSegment(
+  line: string,
+  open: string | undefined,
+  resolved: string,
+): string {
+  return open !== undefined && line.includes(` · ${open}`)
+    ? line.replace(` · ${open}`, ` · ${resolved}`)
+    : `${line} · ${resolved}`;
+}
+
 /**
- * Add the consent evidence to a gate proof once that tree has landed. The
- * underlying gate proof stays a claim about validation; this derived line is
- * the acceptance record agents relay after the worktree is gone. An
- * owner-authorized variance is its own evidence kind, so the count rides the
- * line distinctly from the consent segment.
+ * Derive the landed line an agent relays after the worktree is gone. The
+ * underlying gate proof stays a claim about validation; this rendering states
+ * the landing's facts in their final state: each segment that awaited an owner
+ * decision is rewritten as resolved — never left standing next to its own
+ * resolution — and the consent evidence closes the line.
  */
 export function renderLandingProofLine(
   proofLine: string,
   consent: LandingConsent,
-  varianceCount = 0,
-  standardProposalCount = 0,
+  resolutions: LandingLineResolutions = {},
 ): string {
-  const varianceSegment = varianceCount > 0
-    ? ` · ${varianceCount} variance${
-      varianceCount === 1 ? "" : "s"
-    } authorized by the owner`
-    : "";
-  const standardProposalSegment = standardProposalCount > 0
-    ? ` · ${standardProposalCount} proposed Standard limit${
-      standardProposalCount === 1 ? "" : "s"
-    } approved by the owner`
-    : "";
+  let line = proofLine;
+  const proposals = resolutions.proposals ?? [];
+  if (proposals.length > 0) {
+    line = resolveLineSegment(
+      line,
+      lineStandardProposalsSegment(proposals),
+      proposalsLineSegment(proposals, "approved by the owner"),
+    );
+  }
+  const checkpoints = resolutions.checkpoints;
+  const unmet = checkpoints?.declared_unmet.length ?? 0;
+  if (checkpoints !== undefined && unmet > 0) {
+    const met = checkpoints.declared_met.length;
+    line = resolveLineSegment(
+      line,
+      lineCheckpointsSegment(checkpoints),
+      `${unmet} declared unmet — variance${
+        unmet === 1 ? "" : "s"
+      } authorized by the owner` + (met > 0 ? ` (${met} declared met)` : ""),
+    );
+  }
   switch (consent.source) {
     case "conversation":
-      return `${proofLine} · landed with conversation consent${varianceSegment}${standardProposalSegment}`;
+      return `${line} · landed with conversation consent`;
     case "effort-grant":
-      return `${proofLine} · landed under effort grant${varianceSegment}${standardProposalSegment}`;
+      return `${line} · landed under effort grant`;
     case "standing-grant":
-      return `${proofLine} · landed under standing grant: ${
+      return `${line} · landed under standing grant: ${
         consent.scopes?.join(", ") ?? "(none)"
-      }${varianceSegment}${standardProposalSegment}`;
+      }`;
   }
 }
 

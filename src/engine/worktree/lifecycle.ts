@@ -3012,12 +3012,12 @@ async function executeAcceptPlan(
     );
   }
   if (proofLine !== undefined) {
-    proofLine = renderLandingProofLine(
-      proofLine,
-      consent,
-      variances.length,
-      standardProposals.length,
-    );
+    proofLine = renderLandingProofLine(proofLine, consent, {
+      ...(standardProposals.length > 0 ? { proposals: standardProposals } : {}),
+      ...(variances.length > 0 && proofData?.checkpoints !== undefined
+        ? { checkpoints: proofData.checkpoints }
+        : {}),
+    });
   }
   if (proofMarkdown !== undefined) {
     progress.proofMarkdown = proofMarkdown;

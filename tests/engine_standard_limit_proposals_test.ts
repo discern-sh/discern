@@ -194,7 +194,10 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
     const proof = doneData.proof;
     assert(proof !== undefined);
     assertEquals(proof.standard_proposals?.[0]?.standard, "sources");
-    assertStringIncludes(proof.line, "exact owner approval required");
+    assertStringIncludes(
+      proof.line,
+      "proposal awaiting exact owner approval: sources",
+    );
     assertEquals(doneData.standards?.[0]?.measurement, "measured");
 
     const markdown = await runAgent(worktree, [
@@ -205,7 +208,7 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
     assertEquals(markdown.code, 0, markdown.output);
     assertTerminalTextIncludes(
       markdown.stdout,
-      "Proposed Standard limit for `sources`",
+      "Standard limit proposal for `sources`",
     );
     assertTerminalTextIncludes(
       markdown.stdout,
@@ -287,12 +290,20 @@ Deno.test("accept lands the already-proved proposal commit after exact approval"
     ]);
     assertEquals(accepted.code, 0, accepted.output);
     const data = decodeCliResult(accepted.stdout, "accept").data as {
+      proof_line?: string;
       standard_approvals?: {
         standard: string;
         proposed_limit: number;
         reason: string;
       }[];
     };
+    // The landed line states the proposal in its resolved state — the
+    // awaiting-decision segment never survives next to its own resolution.
+    assertStringIncludes(
+      String(data.proof_line),
+      "proposal approved by the owner: sources",
+    );
+    assertEquals(String(data.proof_line).includes("awaiting"), false);
     assertEquals(data.standard_approvals?.[0]?.standard, "sources");
     assertEquals(data.standard_approvals?.[0]?.proposed_limit, 2);
     assertEquals(
