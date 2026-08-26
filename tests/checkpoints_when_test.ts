@@ -29,6 +29,7 @@ import {
 } from "../src/shared/temp_artifacts.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { waitUntil } from "./waiting.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 
 const CheckpointWhenInputSchema = z.object({
   version: z.literal(1),
@@ -63,15 +64,11 @@ const INPUT: CheckpointWhenInput = {
 
 /** Wait until a child has written its synchronization marker. */
 async function waitForPath(path: string): Promise<void> {
-  await waitUntil(async () => {
-    try {
-      await Deno.stat(path);
-      return true;
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
-      return false;
-    }
-  }, `child marker ${path}`, { timeoutMs: 1_000, intervalMs: 5 });
+  await waitUntil(
+    async () => await targetExists(path),
+    `child marker ${path}`,
+    { timeoutMs: 1_000, intervalMs: 5 },
+  );
 }
 
 /** List registered checkpoint-input artifacts in the test temp directory. */
