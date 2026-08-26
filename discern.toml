@@ -654,6 +654,7 @@
     run = "deno task prose \"${map.dir}\""
     inputs = [
       "${map.dir}**",
+      ".vale-assets.json",
       ".vale-version",
       ".vale.ini",
       ".vale/Discern/**",
@@ -663,6 +664,7 @@
       "scripts/prose.ts",
       "scripts/prose_lib.ts",
       "scripts/vale_lib.ts",
+      "scripts/vale_toolchain.ts",
       "src/lib/frontmatter.ts",
     ]
 
