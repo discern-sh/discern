@@ -212,6 +212,11 @@
     provides = "canary tests (hot, cheap subset heard before the full suite)"
     timeout = 300
 
+  [jobs.project-control]
+    stage = "check"
+    run = "project/scripts/project-control"
+    provides = "repository planning, TODO, and documenter control-document integrity"
+
 # Setup assurance counts every known job as applicable unless its lifecycle is
 # explicitly absent here. This declaration never changes Gate scheduling.
 # Author changes with `discern config set-job <known-name> --not-applicable`

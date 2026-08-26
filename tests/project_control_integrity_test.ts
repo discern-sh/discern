@@ -1,0 +1,184 @@
+/**
+ * Repository control documents fail at the same project-owned checker the Gate
+ * runs. Fixtures plant unrelated future siblings so discovery, rather than a
+ * copied filename list, is what enrolls each programme and brief.
+ */
+
+import { dirname, join } from "@std/path";
+import { ensureDir } from "@std/fs";
+import { assert, assertEquals } from "@std/assert";
+import {
+  checkProjectControls,
+  type ProjectControlFinding,
+  type ProjectControlRule,
+} from "../project/scripts/project_control_integrity.ts";
+import { withTempDir } from "./helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+
+const PROGRAMME = "project/map/_private/planning/fresh-contract-workstreams";
+
+/** Write one synthetic repository tree and return every control finding. */
+async function fixtureFindings(
+  files: Readonly<Record<string, string>>,
+): Promise<ProjectControlFinding[]> {
+  let findings: ProjectControlFinding[] = [];
+  await withTempDir(async (root) => {
+    for (const [path, text] of Object.entries(files)) {
+      await ensureDir(dirname(join(root, path)));
+      await Deno.writeTextFile(join(root, path), text);
+    }
+    findings = await checkProjectControls(root);
+  });
+  return findings;
+}
+
+/** One valid active programme whose extra body may plant a violation. */
+function activeProgramme(
+  body = "",
+): Readonly<Record<string, string>> {
+  return {
+    [PROGRAMME + "/README.md"]: [
+      "# Fresh contract workstreams",
+      "",
+      "| Key | Brief | Depends on |",
+      "| --- | ----- | ---------- |",
+      "| 1A | [First](1a-first.md) | — |",
+      "",
+    ].join("\n"),
+    [PROGRAMME + "/1a-first.md"]: [
+      "# First",
+      "",
+      "Run `discern_start` with the literal name `fresh-contract-1a`.",
+      body,
+      "",
+    ].join("\n"),
+  };
+}
+
+/** Findings for one rule, rendered compactly for exact assertions. */
+function ruleFindings(
+  findings: readonly ProjectControlFinding[],
+  rule: ProjectControlRule,
+): string[] {
+  return findings.filter((item) => item.rule === rule).map((item) =>
+    item.file + ":" + item.line + " " + item.detail
+  );
+}
+
+Deno.test("the live repository control documents pass their project checker", async () => {
+  assertEquals(await checkProjectControls(REPO_ROOT), []);
+});
+
+Deno.test("a public clone without the optional private overlay is quiet", async () => {
+  assertEquals(await fixtureFindings({}), []);
+});
+
+Deno.test("planning links and renderer-derived anchors enroll every present programme", async () => {
+  const sound = activeProgramme(
+    "Read the [decision](notes.md#chosen-path).",
+  );
+  const withTarget = {
+    ...sound,
+    [PROGRAMME + "/notes.md"]: "# Notes\n\n## Chosen path\n",
+  };
+  assertEquals(await fixtureFindings(withTarget), []);
+
+  const missing = await fixtureFindings(activeProgramme(
+    "Read the [missing decision](missing.md).",
+  ));
+  assertEquals(ruleFindings(missing, "planning-link").length, 1);
+
+  const badAnchor = await fixtureFindings({
+    ...activeProgramme("Read the [decision](notes.md#wrong-path)."),
+    [PROGRAMME + "/notes.md"]: "# Notes\n\n## Chosen path\n",
+  });
+  assertEquals(ruleFindings(badAnchor, "planning-anchor").length, 1);
+});
+
+Deno.test("README completion state derives from the brief's live path", async () => {
+  const findings = await fixtureFindings({
+    [PROGRAMME + "/README.md"]: [
+      "# Fresh contract workstreams",
+      "",
+      "| Key | Active brief |",
+      "| --- | ------------ |",
+      "| 1A | [First](_done/1a-first.md) |",
+      "",
+    ].join("\n"),
+    [PROGRAMME + "/_done/1a-first.md"]: "# First\n",
+  });
+  assertEquals(ruleFindings(findings, "planning-state").length, 1);
+});
+
+Deno.test("active briefs reject durable claims about transient fleet state", async () => {
+  const findings = await fixtureFindings(activeProgramme(
+    "This dispatches beside the in-flight 7A.",
+  ));
+  assertEquals(ruleFindings(findings, "planning-transient-state").length, 1);
+});
+
+Deno.test("planned outputs pass only while absent, referenced, local, and unique", async () => {
+  const valid = activeProgramme([
+    "<!-- discern-planned-output: generated/report.md -->",
+    "Read the [later report](generated/report.md).",
+  ].join("\n"));
+  assertEquals(await fixtureFindings(valid), []);
+
+  const undeclared = activeProgramme(
+    "Read the [later report](generated/report.md).",
+  );
+  assertEquals(
+    ruleFindings(await fixtureFindings(undeclared), "planning-link").length,
+    1,
+  );
+
+  const stale = {
+    ...valid,
+    [PROGRAMME + "/generated/report.md"]: "# Report\n",
+  };
+  assert(
+    ruleFindings(await fixtureFindings(stale), "planned-output").some((item) =>
+      item.includes("stale")
+    ),
+  );
+
+  const malformed = activeProgramme([
+    "<!-- discern-planned-output generated/report.md -->",
+    "<!-- discern-planned-output: ../escape.md -->",
+    "<!-- discern-planned-output: generated/report.md -->",
+    "<!-- discern-planned-output: generated/report.md -->",
+    "Read the [later report](generated/report.md).",
+  ].join("\n"));
+  const malformedFindings = ruleFindings(
+    await fixtureFindings(malformed),
+    "planned-output",
+  );
+  assert(malformedFindings.some((item) => item.includes("malformed")));
+  assert(malformedFindings.some((item) => item.includes("does not resolve")));
+  assert(malformedFindings.some((item) => item.includes("duplicates")));
+  assert(malformedFindings.some((item) => item.includes("not beside")));
+});
+
+Deno.test("README keys, dependency targets, and active worktree names are guarded", async () => {
+  const findings = await fixtureFindings({
+    [PROGRAMME + "/README.md"]: [
+      "# Fresh contract workstreams",
+      "",
+      "| Key | Brief | Depends on |",
+      "| --- | ----- | ---------- |",
+      "| 1A | [First](1a-first.md) | 9Z |",
+      "| 1A | [Other](1a-other.md) | — |",
+      "",
+    ].join("\n"),
+    [PROGRAMME + "/1a-first.md"]: "# First\n",
+    [PROGRAMME + "/1a-other.md"]: [
+      "# Other",
+      "",
+      "Create worktree `fresh-contract-1a`.",
+      "",
+    ].join("\n"),
+  });
+  assert(ruleFindings(findings, "planning-brief-key").length >= 2);
+  assertEquals(ruleFindings(findings, "planning-dependency").length, 1);
+  assertEquals(ruleFindings(findings, "planning-worktree").length, 1);
+});
