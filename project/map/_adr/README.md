@@ -325,6 +325,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0337 — Vale self-provisions from tracked release integrity](0337-vale-self-provisions-from-tracked-release-integrity.md)
 - [0338 — Operation policy enrolls every discern-owned Git writer in preflight](0338-operation-policy-enrolls-git-write-authority.md)
 - [0339 — Proposed Standard limits require exact approval and identical measurements share one run](0339-proposed-standard-limits-and-shared-measurements.md)
+- [0340 — Tests wait on conditions and enrol real delays](0340-tests-wait-on-conditions-and-enrol-real-delays.md)
 
 <!-- END GENERATED: current ADR records -->
 
