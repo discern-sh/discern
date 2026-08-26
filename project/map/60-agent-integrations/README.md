@@ -22,7 +22,7 @@ Each provider page lists the files discern writes or co-manages, what stays with
 
 `setup done` derives each fresh-session check, local recovery, and CLI fallback from those records; parity tests enroll new providers. Generated files do not prove activation ([Setup command boundaries](../70-reference/setup-command-boundaries.md)).
 
-discern writes workflow integration into vendor surfaces but cannot grant or retain vendor authority. The vendor controls sandbox, permissions, and approval flows; the user remains responsible for project security ([ADR 0193](../_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md)).
+discern writes workflow integration into vendor surfaces but cannot grant or retain vendor authority. The vendor controls sandbox, permissions, and approval flows; the user remains responsible for project security ([ADR 0193](../_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md)). Each provider's trust record separates explanation from typed paths, configuration keys and values, flags, and environment variables. Setup reactivation, `doctor` terminal output, JSON, MCP, and the generated integration reference project those records; no renderer recovers a machine fact from prose.
 
 For the shared instructions behind these files, read [Agent instructions](../40-agent-instructions/). For the isolated checkout lifecycle the hooks prepare, read [Worktrees](../30-worktrees/). The table below is the reading order used in the manual's navigation.
 

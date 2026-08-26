@@ -54,7 +54,12 @@ import {
   LIVE_REFRESH_FILE_OPS,
   type RefreshFileOps,
 } from "./refresh_file_ops.ts";
-
+import {
+  type ProviderTrustData,
+  providerTrustData,
+  renderProviderTrustCli,
+  type TrustGate,
+} from "../shared/provider_trust.ts";
 // ── the MCP server discern registers ────────────────────────────────────────
 
 /** The discern MCP server an agent registers — one source of truth (it is just
@@ -81,6 +86,7 @@ export interface AgentReactivation {
   readonly check: string;
   readonly recovery: string;
   readonly cli_fallback: string;
+  readonly trust: ProviderTrustData;
 }
 
 /** Canonical CLI activation check and fallback for every provider. */
@@ -127,6 +133,7 @@ export function reactivationHandoff(
       check: activation.command,
       recovery: activation.recovery,
       cli_fallback: activation.cliFallback,
+      trust: providerTrustData(name, provider.trust),
     });
   }
   return {
@@ -167,7 +174,7 @@ export function reactivationStep(provider: Provider): string | undefined {
     loads.join(" and ")
   }`;
   const reactivation = provider.trust.required
-    ? `${base}, then ${provider.trust.hint}`
+    ? `${base}, then ${renderProviderTrustCli(provider.trust)}`
     : base;
   const activation = activationCheck(provider);
   const verification =
@@ -271,15 +278,6 @@ export function wiredMcp(provider: Provider): McpIntegration | undefined {
  * the tools still won't appear until the user trusts it. `doctor` surfaces this per
  * agent: the gap between "discern wired it" and "it actually fires".
  */
-export interface TrustGate {
-  /** True ⇒ committed MCP/hooks need a one-time trust/approval before they take
-   * effect; false ⇒ active as soon as discern writes them. */
-  readonly required: boolean;
-  /** The user-facing action that grants trust (when `required`), or the reason none
-   * is needed (when not). Shown verbatim by the per-agent diagnostic; always present. */
-  readonly hint: string;
-}
-
 /** Provider-owned recovery wording for a failed local activation check. */
 export interface ProviderActivation {
   /** Exact callable name as this provider exposes it in a fresh local session. */
@@ -1467,8 +1465,16 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // (enabledMcpjsonServers), so no separate trust/approval prompt gates it.
     trust: {
       required: false,
-      hint:
-        "discern pre-approves its MCP server (enabledMcpjsonServers in .claude/settings.json) — no separate trust prompt.",
+      explanation:
+        "discern pre-approves its MCP server, so no separate trust prompt is required.",
+      actions: [{
+        kind: "verify-configuration",
+        instruction: "Verify the committed pre-approval if activation fails",
+        facts: [
+          { kind: "config-key", value: "enabledMcpjsonServers" },
+          { kind: "path", value: CLAUDE_SETTINGS_FILE },
+        ],
+      }],
     },
     activation: {
       callable: "mcp__discern__discern_status",
@@ -1580,8 +1586,26 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // part of that trusted .codex/ layer and likewise require a fresh/trusted load.
     trust: {
       required: true,
-      hint:
-        'one-time directory trust for .codex/ project config and rules (set trust_level = "trusted"), plus per-hook hash approval before a committed hook runs (bypass: --dangerously-bypass-hook-trust).',
+      explanation:
+        "Committed project configuration, rules, and hooks remain inactive until their trust checks pass.",
+      actions: [{
+        kind: "trust-directory",
+        instruction:
+          "Grant one-time directory trust for the project configuration and rules",
+        facts: [
+          { kind: "path", value: `${dirname(CODEX_CONFIG_FILE)}/` },
+          { kind: "config-key", value: "trust_level" },
+          { kind: "config-value", value: "trusted" },
+        ],
+      }, {
+        kind: "approve-hook",
+        instruction:
+          "Approve each committed hook hash before it runs; use the bypass only when explicitly intended",
+        facts: [{
+          kind: "flag",
+          value: "--dangerously-bypass-hook-trust",
+        }],
+      }],
     },
     activation: {
       callable: "mcp__discern__discern_status",
@@ -1665,8 +1689,28 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // trusted; its hooks additionally require hooksConfig.enabled = true to fire.
     trust: {
       required: true,
-      hint:
-        "trust the workspace so committed .gemini/settings.json loads in safe mode (bypass: --skip-trust or GEMINI_CLI_TRUST_WORKSPACE=true); hooks also require hooksConfig.enabled = true to fire.",
+      explanation:
+        "Committed project settings remain inactive in safe mode until the workspace is trusted, and hooks must be enabled separately.",
+      actions: [{
+        kind: "trust-directory",
+        instruction:
+          "Trust the workspace so committed project settings load; use a bypass only when explicitly intended",
+        facts: [
+          { kind: "path", value: GEMINI_SETTINGS_FILE },
+          { kind: "flag", value: "--skip-trust" },
+          {
+            kind: "environment-variable",
+            value: "GEMINI_CLI_TRUST_WORKSPACE=true",
+          },
+        ],
+      }, {
+        kind: "enable-hooks",
+        instruction: "Enable hooks in the committed settings",
+        facts: [
+          { kind: "config-key", value: "hooksConfig.enabled" },
+          { kind: "config-value", value: "true" },
+        ],
+      }],
     },
     activation: {
       callable: "discern_status",
@@ -1784,8 +1828,14 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // approval-gated by default.
     trust: {
       required: true,
-      hint:
-        "trust the workspace, then approve the discern MCP server's tools on first use (bypass for headless: --approve-mcps).",
+      explanation:
+        "Committed integration configuration and first-use tool calls require workspace approval.",
+      actions: [{
+        kind: "approve-tools",
+        instruction:
+          "Trust the workspace, then approve the discern MCP server tools on first use; use the headless bypass only when explicitly intended",
+        facts: [{ kind: "flag", value: "--approve-mcps" }],
+      }],
     },
     activation: {
       callable: "discern_status",
@@ -1890,8 +1940,19 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // Committed .mcp.json / .github/hooks config is inert until the folder is trusted.
     trust: {
       required: true,
-      hint:
-        "add the folder to trustedFolders in ~/.copilot/config.json (bypass for headless: --allow-all-tools --allow-all-paths).",
+      explanation:
+        "Committed integration configuration remains inactive until the folder is trusted.",
+      actions: [{
+        kind: "trust-directory",
+        instruction:
+          "Add the folder to the user trust list; use the headless bypasses only when explicitly intended",
+        facts: [
+          { kind: "config-key", value: "trustedFolders" },
+          { kind: "path", value: "~/.copilot/config.json" },
+          { kind: "flag", value: "--allow-all-tools" },
+          { kind: "flag", value: "--allow-all-paths" },
+        ],
+      }],
     },
     activation: {
       callable: "discern_status",

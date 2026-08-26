@@ -2833,9 +2833,10 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when: "A successful gate includes a change that has a configured preview.",
-    example: undefined,
-    template: (): string =>
-      "This change touches a previewable scope. Preview it from this worktree with the project's documented development-server workflow.",
+    example: { scope: "site", command: "deno task site" },
+    template: ({ scope, command }): string =>
+      `Preview the changed \`${scope}\` scope by running \`${command}\` from ` +
+      "this worktree. The Gate reports this configured read-only action; it did not run it.",
   }),
 
   /** The pin pass has no configured metric to measure or tighten. */

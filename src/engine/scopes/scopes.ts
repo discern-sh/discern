@@ -9,9 +9,16 @@
  * default) and `previewable` (a previewable-flagged scope changed).
  */
 
-import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import {
+  type DiscernConfig,
+  loadConfig,
+  toCommandList,
+} from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
-import type { ScopesData } from "../../shared/result_schemas.ts";
+import type {
+  PreviewActionData,
+  ScopesData,
+} from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
@@ -19,6 +26,7 @@ import { pathMatchesPattern } from "./glob.ts";
 import { resolvedScopePaths } from "./scope_paths.ts";
 import { integrationBranch } from "../worktree/git.ts";
 import { writeStdout } from "../output.ts";
+import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 
 /**
  * The two derived markers a classification emits ALONGSIDE the scope names: `code`
@@ -234,13 +242,36 @@ export function scopeNamesForPath(
  * though it fires no gate. Matches every previewable-flagged scope — neutral
  * ones included — via the shared matcher.
  */
-function anyPreviewableScopeChanged(
+function previewActionsForPaths(
   paths: string[],
   config: DiscernConfig,
-): boolean {
+): PreviewActionData[] {
   const scopes = config.scopes;
-  const previewable = Object.keys(scopes).filter((s) => scopes[s]?.previewable);
-  return scopesTouchedBy(paths, config, previewable).length > 0;
+  const previewable = Object.keys(scopes).filter((s) =>
+    scopes[s]?.preview !== undefined
+  );
+  return scopesTouchedBy(paths, config, previewable).flatMap((scope) =>
+    toCommandList(scopes[scope]?.preview).map((command) => ({
+      scope,
+      command: expandSourcePathReferences(command, config),
+    }))
+  );
+}
+
+/** Every configured preview action, used by fail-open classification. */
+function allPreviewActions(config: DiscernConfig): PreviewActionData[] {
+  return Object.entries(config.scopes).flatMap(([scope, spec]) =>
+    toCommandList(spec.preview).map((command) => ({
+      scope,
+      command: expandSourcePathReferences(command, config),
+    }))
+  );
+}
+
+/** One complete scope classification, including executable preview advice. */
+export interface ScopeImpact {
+  readonly scopes: string[];
+  readonly previewActions: PreviewActionData[];
 }
 
 /**
@@ -248,10 +279,10 @@ function anyPreviewableScopeChanged(
  * `code` marker, the `previewable` marker, then the firing scopes that matched
  * (in declaration order). Pass a pre-loaded config to avoid re-parsing.
  */
-export async function classifyScopes(
+export async function classifyScopeImpact(
   root: string,
   cfg?: DiscernConfig,
-): Promise<string[]> {
+): Promise<ScopeImpact> {
   const config = cfg ?? await loadConfig(root);
   const scopes = config.scopes;
   const names = Object.keys(scopes);
@@ -261,7 +292,10 @@ export async function classifyScopes(
   const paths = await collectPaths(root, mainBranch);
   if (paths === null) {
     // Fail open: cannot tell what changed → report every scope/marker.
-    return [...SCOPE_MARKERS, ...fireScopes];
+    return {
+      scopes: [...SCOPE_MARKERS, ...fireScopes],
+      previewActions: allPreviewActions(config),
+    };
   }
 
   // All changed paths, still verbatim except for impossible empty records. The
@@ -278,11 +312,20 @@ export async function classifyScopes(
   if (realPaths.length > 0) {
     out.push(CODE_MARKER);
   }
-  if (anyPreviewableScopeChanged(normPaths, config)) {
+  const previewActions = previewActionsForPaths(normPaths, config);
+  if (previewActions.length > 0) {
     out.push(PREVIEWABLE_MARKER);
   }
   out.push(...fired);
-  return out;
+  return { scopes: out, previewActions };
+}
+
+/** Compatibility projection used by consumers that need scope names only. */
+export async function classifyScopes(
+  root: string,
+  cfg?: DiscernConfig,
+): Promise<string[]> {
+  return (await classifyScopeImpact(root, cfg)).scopes;
 }
 
 /** Options for the `impact` subcommand surface. */
@@ -295,16 +338,25 @@ export interface ImpactOptions {
 /** The `impact` envelope for a classified scope list — the one shape both
  * the CLI `--json` and the MCP tool render. */
 function impactEnvelope(
-  scopes: string[],
+  impact: ScopeImpact,
   has?: string,
 ): DiscernResult<ScopesData> {
-  const data: ScopesData = has === undefined ? { scopes } : {
-    scopes,
-    membership: {
-      scope: has,
-      present: scopes.includes(has),
-    },
-  };
+  const previewActions = impact.previewActions.length === 0
+    ? {}
+    : { preview_actions: impact.previewActions };
+  const data: ScopesData = has === undefined
+    ? {
+      scopes: impact.scopes,
+      ...previewActions,
+    }
+    : {
+      scopes: impact.scopes,
+      ...previewActions,
+      membership: {
+        scope: has,
+        present: impact.scopes.includes(has),
+      },
+    };
   return {
     ok: true,
     verb: "impact",
@@ -319,7 +371,7 @@ function impactEnvelope(
 export async function impactResult(
   root: string,
 ): Promise<DiscernResult<ScopesData>> {
-  return impactEnvelope(await classifyScopes(root));
+  return impactEnvelope(await classifyScopeImpact(root));
 }
 
 /**
@@ -331,15 +383,15 @@ export async function runImpact(
   root: string,
   opts: ImpactOptions,
 ): Promise<number> {
-  const scopes = await classifyScopes(root);
+  const impact = await classifyScopeImpact(root);
   if (opts.json) {
-    emitResult(impactEnvelope(scopes, opts.has));
+    emitResult(impactEnvelope(impact, opts.has));
     return 0;
   }
   if (opts.has !== undefined) {
-    return scopes.includes(opts.has) ? 0 : 1;
+    return impact.scopes.includes(opts.has) ? 0 : 1;
   }
-  for (const s of scopes) {
+  for (const s of impact.scopes) {
     writeStdout(`${s}\n`);
   }
   return 0;

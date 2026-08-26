@@ -830,7 +830,7 @@ Rendered example:
 
 Rendered example:
 
-> This change touches a previewable scope. Preview it from this worktree with the project's documented development-server workflow.
+> Preview the changed `site` scope by running `deno task site` from this worktree. The Gate reports this configured read-only action; it did not run it.
 
 ## `gate-proof-clear-failed`
 

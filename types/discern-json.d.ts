@@ -1240,6 +1240,29 @@ export type DiscernSetupDoneResult = DiscernResultState & {
         check: string;
         recovery: string;
         cli_fallback: string;
+        trust: {
+          provider: string;
+          required: boolean;
+          explanation: string;
+          actions: Array<{
+            kind:
+              | "verify-configuration"
+              | "trust-directory"
+              | "approve-hook"
+              | "enable-hooks"
+              | "approve-tools";
+            instruction: string;
+            facts: Array<{
+              kind:
+                | "path"
+                | "config-key"
+                | "config-value"
+                | "flag"
+                | "environment-variable";
+              value: string;
+            }>;
+          }>;
+        };
       }>;
     };
     optional_improvement?: {
@@ -1469,6 +1492,29 @@ export type DiscernSetupAcceptResult = DiscernResultState & {
         check: string;
         recovery: string;
         cli_fallback: string;
+        trust: {
+          provider: string;
+          required: boolean;
+          explanation: string;
+          actions: Array<{
+            kind:
+              | "verify-configuration"
+              | "trust-directory"
+              | "approve-hook"
+              | "enable-hooks"
+              | "approve-tools";
+            instruction: string;
+            facts: Array<{
+              kind:
+                | "path"
+                | "config-key"
+                | "config-value"
+                | "flag"
+                | "environment-variable";
+              value: string;
+            }>;
+          }>;
+        };
       }>;
     };
     activation_context?: string;
@@ -1847,6 +1893,29 @@ export type DiscernDoctorResult = DiscernResultState & {
       detail: string;
       fix?: string;
       warn?: boolean;
+    }>;
+    provider_trust?: Array<{
+      provider: string;
+      required: boolean;
+      explanation: string;
+      actions: Array<{
+        kind:
+          | "verify-configuration"
+          | "trust-directory"
+          | "approve-hook"
+          | "enable-hooks"
+          | "approve-tools";
+        instruction: string;
+        facts: Array<{
+          kind:
+            | "path"
+            | "config-key"
+            | "config-value"
+            | "flag"
+            | "environment-variable";
+          value: string;
+        }>;
+      }>;
     }>;
     execution_model?: Array<{
       verb: string;
@@ -2721,6 +2790,10 @@ export type DiscernDoneResult = DiscernResultState & {
       | "write_access"
       | null;
     scopes_changed: Array<string>;
+    preview_actions?: Array<{
+      scope: string;
+      command: string;
+    }>;
     standards?: Array<{
       name: string;
       direction: "up" | "down";
@@ -4085,6 +4158,10 @@ export type DiscernImpactResult = DiscernResultState & {
   verb: "impact";
   data?: {
     scopes: Array<string>;
+    preview_actions?: Array<{
+      scope: string;
+      command: string;
+    }>;
     membership?: {
       scope: string;
       present: boolean;
@@ -5361,6 +5438,10 @@ export type DiscernStatusResult = DiscernResultState & {
       incoming_overlap?: Array<string>;
     } | null;
     scopes?: Array<string>;
+    preview_actions?: Array<{
+      scope: string;
+      command: string;
+    }>;
     gate?: {
       jobs: Array<string>;
       scope_gates: Array<string>;

@@ -254,8 +254,11 @@ const scopeValue = z.strictObject({
   neutral: z.boolean().default(false).describe(
     "true: changes here need no gate (docs, agent instructions).",
   ),
-  previewable: z.boolean().default(false).describe(
-    "true: a person could see changes here — worth a preview link.",
+  preview: commandOrList.refine(
+    (preview) => toCommandList(preview).length > 0,
+    { message: "scope preview must contain at least one command." },
+  ).optional().describe(
+    `A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes it. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   gate: commandOrList.optional().describe(
     `A command discern done runs when this scope changed (a sub-component with its own self-contained gate). ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
@@ -637,7 +640,7 @@ const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(
   {},
 )
   .describe(
-    "[scopes.<name>] — named regions of the repo. `paths` globs define a scope; the optional flags tune the gate for changes there. Classification fails OPEN: a path matching no scope counts as a real code change.",
+    "[scopes.<name>] — named regions of the repo. `paths` globs define a scope; optional fields declare neutrality, a read-only preview action, or a changed-scope gate. Classification fails OPEN: a path matching no scope counts as a real code change.",
   );
 
 const generatedSection = z.record(

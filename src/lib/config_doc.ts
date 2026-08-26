@@ -251,7 +251,7 @@ export function applyConfigDoc(
     });
   }
 
-  // Scopes: a named region (paths) with optional neutral/previewable/gate.
+  // Scopes: a named region (paths) with optional neutral/preview/gate.
   for (const [name, spec] of Object.entries(doc.scopes ?? {})) {
     assertName("scope", name);
     if (!Array.isArray(spec.paths)) {
@@ -262,8 +262,8 @@ export function applyConfigDoc(
       if (spec.neutral !== undefined) {
         editor.setBool(`scopes.${name}.neutral`, spec.neutral);
       }
-      if (spec.previewable !== undefined) {
-        editor.setBool(`scopes.${name}.previewable`, spec.previewable);
+      if (spec.preview !== undefined) {
+        setCommand(editor, `scopes.${name}.preview`, spec.preview);
       }
       if (spec.gate !== undefined) {
         setCommand(editor, `scopes.${name}.gate`, spec.gate);

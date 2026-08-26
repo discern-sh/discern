@@ -17,7 +17,10 @@ import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
-import type { GateData } from "../../shared/result_schemas.ts";
+import type {
+  GateData,
+  PreviewActionData,
+} from "../../shared/result_schemas.ts";
 import type { GateMode } from "../../shared/checkpoint_drops.ts";
 import type { JobResult } from "../jobs/types.ts";
 import {
@@ -120,6 +123,8 @@ export interface GatePlan {
    * It blocks when a discern-managed ignored artifact was force-added to Git. */
   trackedArtifactsCheck: boolean;
   scopesChanged: string[];
+  /** Read-only actions configured by each changed previewable scope. */
+  previewActions: PreviewActionData[];
 }
 
 /**
@@ -442,6 +447,7 @@ export function composeGatePlan(
   scopeGates: JobGroup | undefined,
   changed: string[],
   mode: GateMode = "strict",
+  previewActions: PreviewActionData[] = [],
 ): GatePlan {
   return {
     mode,
@@ -455,6 +461,7 @@ export function composeGatePlan(
     mergeCheck: true,
     trackedArtifactsCheck: true,
     scopesChanged: changed,
+    previewActions,
   };
 }
 
@@ -474,12 +481,14 @@ export function buildGatePlan(
   changed: string[],
   standardJobs: PlannedJob[] = [],
   mode: GateMode = "strict",
+  previewActions: PreviewActionData[] = [],
 ): GatePlan {
   return composeGatePlan(
     buildStageGroups(cfg, standardJobs),
     scopeGatesGroup(planScopeGates(cfg, changed)),
     changed,
     mode,
+    previewActions,
   );
 }
 
@@ -693,6 +702,9 @@ export async function buildGateResultWithHints(
     gate_ran: true,
     failed_stage: failedStage,
     scopes_changed: plan.scopesChanged,
+    ...(plan.previewActions.length === 0
+      ? {}
+      : { preview_actions: plan.previewActions }),
   };
   const firedHints = failedStage === null
     ? hints
@@ -809,6 +821,9 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
     details: [
       ...(plan.mode === "report" ? [`mode: ${plan.mode}`] : []),
       `scopes changed: ${changed}`,
+      ...plan.previewActions.map((action) =>
+        `preview ${action.scope}: run ${action.command} from this worktree (not executed by the Gate)`
+      ),
     ],
     steps,
   };

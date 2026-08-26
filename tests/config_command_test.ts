@@ -739,7 +739,7 @@ Deno.test("config set-scope sets a paths array", async () => {
   });
 });
 
-Deno.test("config set-scope folds in --neutral and --gate", async () => {
+Deno.test("config set-scope folds in executable --preview and --gate actions", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
@@ -748,15 +748,31 @@ Deno.test("config set-scope folds in --neutral and --gate", async () => {
         "set-scope",
         "native",
         "native/**",
+        "--preview",
+        "make -C native preview",
         "--gate",
         "make -C native check",
       ],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertStringIncludes(
-      await readToml(dir),
-      'gate = "make -C native check"',
+    const toml = await readToml(dir);
+    assertStringIncludes(toml, 'preview = "make -C native preview"');
+    assertStringIncludes(toml, 'gate = "make -C native check"');
+  });
+});
+
+Deno.test("config set-scope rejects the retired Boolean --previewable flag", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const result = await runCli(
+      ["config", "set-scope", "native", "native/**", "--previewable"],
+      dir,
+    );
+    assertEquals(result.code, 1, `${result.stdout}${result.stderr}`);
+    assertTerminalTextIncludes(
+      `${result.stdout}${result.stderr}`,
+      "--preview <cmd>",
     );
   });
 });

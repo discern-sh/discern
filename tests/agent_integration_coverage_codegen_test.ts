@@ -117,6 +117,20 @@ Deno.test("every provider renders one section with its fact table and commentary
   }
 });
 
+Deno.test("every typed provider trust fact reaches the generated reference", () => {
+  for (const name of AGENT_NAMES) {
+    for (const action of PROVIDERS[name].trust.actions) {
+      for (const fact of action.facts) {
+        assertStringIncludes(
+          rendered,
+          `\`${fact.value}\``,
+          `${name}: generated trust reference lost ${fact.kind} ${fact.value}`,
+        );
+      }
+    }
+  }
+});
+
 Deno.test("the field notes cover exactly the live Provider field union", () => {
   const live = new Set<string>();
   for (const name of AGENT_NAMES) {

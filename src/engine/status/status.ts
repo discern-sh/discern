@@ -65,7 +65,7 @@ import {
   setupUnfinishedHint,
 } from "../../shared/setup_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { classifyScopes, isScopeMarker } from "../scopes/scopes.ts";
+import { classifyScopeImpact, isScopeMarker } from "../scopes/scopes.ts";
 import { planScopeGates } from "../gate/plan.ts";
 import { readLandedProofNote } from "../gate/proof_notes.ts";
 import {
@@ -354,8 +354,12 @@ export async function statusResult(
   // Local-only heavy blocks: the changed scopes and what the gate would fire.
   let changed: string[] | undefined;
   if (!fleetLed) {
-    changed = await classifyScopes(root, cfg);
+    const impact = await classifyScopeImpact(root, cfg);
+    changed = impact.scopes;
     data.scopes = changed;
+    if (impact.previewActions.length > 0) {
+      data.preview_actions = impact.previewActions;
+    }
     data.gate = buildGateBlock(cfg, changed);
   }
 

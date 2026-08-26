@@ -1618,6 +1618,49 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired fo
     );
     assertStringIncludes(codex.detail, "trust: one-time");
     assertStringIncludes(codex.detail, "--dangerously-bypass-hook-trust");
+    const codexTrust = payload.data.provider_trust?.find((trust) =>
+      trust.provider === "codex"
+    );
+    assert(codexTrust !== undefined, "doctor JSON must carry Codex trust data");
+    const facts = codexTrust.actions.flatMap((action) => action.facts);
+    assert(
+      facts.some((fact) =>
+        fact.kind === "config-key" && fact.value === "trust_level"
+      ),
+    );
+    assert(
+      facts.some((fact) =>
+        fact.kind === "flag" &&
+        fact.value === "--dangerously-bypass-hook-trust"
+      ),
+    );
+  });
+});
+
+Deno.test("doctor: rejects a scope preview whose static command is unavailable", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const configured = await runCli([
+      "config",
+      "set-scope",
+      "future_ui",
+      "future-ui/**",
+      "--preview",
+      "discern-preview-command-that-does-not-exist --serve",
+    ], dir);
+    assertEquals(configured.code, 0, configured.stderr);
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    const preview = check(payload, "scope preview commands");
+    assertEquals(preview.ok, false);
+    assertStringIncludes(
+      preview.detail,
+      "discern-preview-command-that-does-not-exist",
+    );
+    assertStringIncludes(preview.detail, "no preview ran");
+    assertStringIncludes(preview.fix ?? "", "[scopes.<name>].preview");
+    assertStringIncludes(preview.fix ?? "", "discern doctor");
   });
 });
 
@@ -1690,7 +1733,7 @@ Deno.test("doctor: surfaces Gemini's one-time trust step and the bypass action",
     assertStringIncludes(gemini.detail, ".gemini/settings.json");
     assertStringIncludes(gemini.detail, "trust: one-time");
     assertStringIncludes(gemini.detail, "GEMINI_CLI_TRUST_WORKSPACE=true");
-    assertStringIncludes(gemini.detail, "hooksConfig.enabled = true");
+    assertStringIncludes(gemini.detail, "`hooksConfig.enabled` = `true`");
   });
 });
 

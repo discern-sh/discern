@@ -1120,6 +1120,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
   const review = object(checkpoints?.review);
   const failedStage = text(data.failed_stage);
   const standards = records(data.standards);
+  const previews = records(data.preview_actions);
   const proof = object(data.proof);
   const standardProposals = records(proof?.standard_proposals);
   const unreviewed = records(review?.unreviewed);
@@ -1138,6 +1139,14 @@ const presentGate: ResultMarkdownPresenter = (result) => {
         ? undefined
         : `Failed stage: ${code(failedStage)}.`,
       listFact("Changed scopes", strings(data.scopes_changed)),
+      ...previews.map((preview) => {
+        const scope = text(preview.scope) ?? "unnamed";
+        const command = text(preview.command) ?? "";
+        return `Preview ${code(scope)}: run ${
+          code(command)
+        } from this worktree. ` +
+          "The Gate did not run this command.";
+      }),
       standards.length === 0
         ? undefined
         : `Standards: ${standards.length} read, ${regressions.length} regressed.`,
@@ -1469,6 +1478,7 @@ const presentImpact: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const membership = object(data.membership);
   const scopes = strings(data.scopes);
+  const previews = records(data.preview_actions);
   return {
     state: defaultState(
       result,
@@ -1478,7 +1488,17 @@ const presentImpact: ResultMarkdownPresenter = (result) => {
           boolean(membership.present) === true ? "present" : "absent"
         } in the current impact set.`,
     ),
-    evidence: unique([listFact("Affected scopes", scopes)]),
+    evidence: unique([
+      listFact("Affected scopes", scopes),
+      ...previews.map((preview) => {
+        const scope = text(preview.scope) ?? "unnamed";
+        const command = text(preview.command) ?? "";
+        return `Preview ${code(scope)}: run ${
+          code(command)
+        } from this worktree. ` +
+          "This command was not run.";
+      }),
+    ]),
   };
 };
 
@@ -1664,6 +1684,14 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
         : `Changed files: ${number(git.changed_files) ?? 0}.`,
       listFact("Incoming overlap", strings(git?.incoming_overlap)),
       listFact("Changed scopes", strings(data.scopes)),
+      ...records(data.preview_actions).map((preview) => {
+        const scope = text(preview.scope) ?? "unnamed";
+        const command = text(preview.command) ?? "";
+        return `Preview ${code(scope)}: run ${
+          code(command)
+        } from this worktree. ` +
+          "This command was not run.";
+      }),
       setupAssurance === undefined
         ? undefined
         : `Applicable protections: ${number(setupAssurance.enforced) ?? 0} of ${

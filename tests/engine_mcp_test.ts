@@ -875,7 +875,15 @@ Deno.test("mcp: every tool refuses a relative `path` argument instead of resolvi
 Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernResults", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      `${await Deno.readTextFile(join(dir, "discern.toml"))}\n` +
+        '[scopes.preview_probe]\npaths = ["preview/**"]\n' +
+        'preview = "deno task preview:probe"\n',
+    );
     await gitInit(dir);
+    await Deno.mkdir(join(dir, "preview"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "preview/change.txt"), "changed\n");
     await using mcp = await spawnMcp(dir);
 
     // initialize → server identifies itself and echoes the protocol version.
@@ -1010,6 +1018,10 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const cs = await mcp.recv();
     assertEquals(cs.result.structuredContent.verb, "impact");
     assert(Array.isArray(cs.result.structuredContent.data.scopes));
+    assertEquals(cs.result.structuredContent.data.preview_actions, [{
+      scope: "preview_probe",
+      command: "deno task preview:probe",
+    }]);
 
     // tools/call discern_status → the situation/orientation DiscernResult. The
     // server launched in the main checkout (no worktrees) → a local view.
@@ -1079,6 +1091,20 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(
       doctor.result.structuredContent.data.execution_model,
       undefined,
+    );
+    assert(
+      Array.isArray(doctor.result.structuredContent.data.provider_trust),
+      "doctor MCP data carries typed provider trust guidance",
+    );
+    assert(
+      doctor.result.structuredContent.data.provider_trust.every(
+        (trust: { actions: unknown[] }) =>
+          trust.actions.every((action: unknown) =>
+            typeof action === "object" && action !== null &&
+            Array.isArray((action as { facts?: unknown }).facts)
+          ),
+      ),
+      "every MCP trust action carries typed literal facts",
     );
 
     await mcp.send({

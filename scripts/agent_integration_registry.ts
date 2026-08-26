@@ -32,6 +32,7 @@ import {
   type Provider,
   PROVIDERS,
 } from "../src/lib/providers.ts";
+import { renderProviderTrustMarkdown } from "../src/shared/provider_trust.ts";
 import {
   mcpServerArgsForNativeAgent,
   NATIVE_MCP_TIMEOUT_POLICY,
@@ -124,25 +125,6 @@ function mcpTimeoutPhrase(name: NativeAgentName): string {
     } minutes`;
   }
   return `surface-dependent client bounds (strictest ${policy.strictest_surface_seconds}s), so \`await\` answers in ${policy.await_call_seconds}s continuation slices`;
-}
-
-/** Render product-owned trust instructions as Markdown without changing the
- * provider hint that CLI and JSON surfaces relay. */
-function trustHintForReference(hint: string): string {
-  const literals = [
-    ".codex/",
-    'trust_level = "trusted"',
-    "--dangerously-bypass-hook-trust",
-    "trustedFolders",
-    "~/.copilot/config.json",
-    "--allow-all-tools",
-    "--allow-all-paths",
-  ] as const;
-  let rendered = hint;
-  for (const literal of literals) {
-    rendered = rendered.replaceAll(literal, code(literal));
-  }
-  return rendered;
 }
 
 /** One provider's worktree-hook surface, as a compact phrase. */
@@ -351,8 +333,8 @@ const AGENT_FACT_ROWS: readonly AgentFactRow[] = [
     label: "Trust",
     value: (p) =>
       p.trust.required
-        ? `required — ${trustHintForReference(p.trust.hint)}`
-        : trustHintForReference(p.trust.hint),
+        ? `required — ${renderProviderTrustMarkdown(p.trust)}`
+        : renderProviderTrustMarkdown(p.trust),
   },
   {
     label: "Detection",
@@ -473,7 +455,7 @@ export const PROVIDER_FIELD_NOTES: Readonly<
   },
   trust: {
     meaning:
-      "`TrustGate { required, hint }` — one-time trust for committed MCP/hooks",
+      "`TrustGate { required, explanation, actions }` — one-time trust for committed MCP/hooks, with literal machine facts separated from prose",
     absent: null,
   },
   activation: {
@@ -527,7 +509,7 @@ Its committed-config surface is now the widest of the five, all merged idempoten
 - **The setup and teardown pair** — \`registerCodexEnvironment\` co-manages the Codex app's generated \`.codex/environments/environment.toml\`: \`[setup].script → discern worktree ensure\` and \`[cleanup].script → discern worktree teardown\`. It seeds the top-level \`version\` and \`name\` fields when absent and re-emits discern's entries on every refresh if the app regenerates the file (ADR 0073). The pair fires for Codex-app-managed worktrees under \`$CODEX_HOME/worktrees\`. discern's sibling worktrees use the portable \`SessionStart\` hook. Cleanup has an open reliability bug at \`openai/codex#19480\`, so \`discern worktree prune\` provides out-of-band reclamation.
 - **Exec-policy rules** — \`registerCodexRules\` owns a narrow \`.codex/rules/discern.rules\`: prefix allowances for \`git add\` and \`git commit\` only, so the linked-worktree happy path (Git writing metadata under the main checkout's \`.git/worktrees/\`) clears Codex's approval layer without granting broad git, push, shell wrappers, or sandbox bypass. It is separate from any user-owned \`.codex/rules/*.rules\` file, which discern never touches.
 
-The trust gate is two-stage: a one-time directory trust activates the committed \`.codex/\` layers, and each committed hook additionally needs its hash approved before it runs (the registry's \`trust.hint\` names both, and \`doctor\` relays it).`,
+The trust gate is two-stage: a one-time directory trust activates the committed \`.codex/\` layers, and each committed hook additionally needs its hash approved before it runs (the registry's structured trust actions name both, and \`doctor\` relays them).`,
   },
   gemini: {
     epithet: "wired, opt-in by default",

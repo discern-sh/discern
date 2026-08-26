@@ -94,6 +94,7 @@ import {
 } from "./standards_gate.ts";
 import type {
   GateStandard,
+  PreviewActionData,
   StandardLimitProposalData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
@@ -113,7 +114,7 @@ import { renderFailureTail } from "./failure_tail.ts";
 import { renderGatePlan } from "./presentation.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
-import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
+import { classifyScopeImpact } from "../scopes/scopes.ts";
 import {
   type CheckpointPreflight,
   type DeclarationRequest,
@@ -1017,13 +1018,15 @@ async function runGate(
   //    its fail-open bias (it never runs FEWER gates than the post-fix tree warrants).
   //    Computed even when the merge precondition failed, so the result still lists the
   //    scopes (their gates serialize as skipped, like every other downstream step).
-  const changed = await classifyScopes(root, cfg);
+  const impact = await classifyScopeImpact(root, cfg);
+  const changed = impact.scopes;
   const sgGroup = scopeGatesGroup(planScopeGates(cfg, changed));
   const plan = composeGatePlan(
     stageGroups,
     sgGroup,
     changed,
     presentation.checkpoints?.mode ?? "strict",
+    impact.previewActions,
   );
   progress?.replaceGroups(plan.groups);
 
@@ -1379,8 +1382,7 @@ async function runGate(
     ...reportHints,
     ...varianceHints,
     ...buildGateHints(
-      cfg,
-      changed,
+      plan.previewActions,
       failedStage,
       gotchasTail,
       emittedProof !== undefined,
@@ -1469,8 +1471,7 @@ function gateProofHint(
  * standards, view a previewable change.
  */
 function buildGateHints(
-  cfg: DiscernConfig,
-  changed: string[],
+  previewActions: readonly PreviewActionData[],
   failedStage: FailedStage | null,
   gotchasTail: GotchasFailureTail | undefined,
   proofEmitted: boolean,
@@ -1505,11 +1506,8 @@ function buildGateHints(
       }),
     );
   }
-  if (
-    (cfg.worktree.resources.dev_server?.create ?? "") !== "" &&
-    changed.includes(PREVIEWABLE_MARKER)
-  ) {
-    hints.push(fire(HINTS["gate-previewable-change"]));
+  for (const action of previewActions) {
+    hints.push(fire(HINTS["gate-previewable-change"], action));
   }
   return hints;
 }
@@ -1663,8 +1661,14 @@ async function dryRunGate(
   mode: "strict" | "report" = "strict",
 ): Promise<number> {
   const cfg = await loadConfig(root);
-  const changed = await classifyScopes(root, cfg);
-  const plan = buildGatePlan(cfg, changed, dryRunStandardJobs(cfg), mode);
+  const impact = await classifyScopeImpact(root, cfg);
+  const plan = buildGatePlan(
+    cfg,
+    impact.scopes,
+    dryRunStandardJobs(cfg),
+    mode,
+    impact.previewActions,
+  );
   const engine = gatePlanToEngine(plan);
   engine.details.push(...(await inspectCheckpointNotes(root, cfg, mode)));
   if (json) {
@@ -2177,9 +2181,15 @@ export async function finishResult(
   }
   if (opts.dryRun ?? false) {
     const cfg = await loadConfig(root);
-    const changed = await classifyScopes(root, cfg);
+    const impact = await classifyScopeImpact(root, cfg);
     const engine = gatePlanToEngine(
-      buildGatePlan(cfg, changed, dryRunStandardJobs(cfg), mode),
+      buildGatePlan(
+        cfg,
+        impact.scopes,
+        dryRunStandardJobs(cfg),
+        mode,
+        impact.previewActions,
+      ),
     );
     engine.details.push(...(await inspectCheckpointNotes(root, cfg, mode)));
     return previewResult("done", engine);

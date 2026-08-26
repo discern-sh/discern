@@ -3217,6 +3217,77 @@
                               },
                               "cli_fallback": {
                                 "type": "string"
+                              },
+                              "trust": {
+                                "type": "object",
+                                "properties": {
+                                  "provider": {
+                                    "type": "string"
+                                  },
+                                  "required": {
+                                    "type": "boolean"
+                                  },
+                                  "explanation": {
+                                    "type": "string"
+                                  },
+                                  "actions": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "verify-configuration",
+                                            "trust-directory",
+                                            "approve-hook",
+                                            "enable-hooks",
+                                            "approve-tools"
+                                          ]
+                                        },
+                                        "instruction": {
+                                          "type": "string"
+                                        },
+                                        "facts": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "path",
+                                                  "config-key",
+                                                  "config-value",
+                                                  "flag",
+                                                  "environment-variable"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "value"
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "instruction",
+                                        "facts"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "provider",
+                                  "required",
+                                  "explanation",
+                                  "actions"
+                                ]
                               }
                             },
                             "required": [
@@ -3226,7 +3297,8 @@
                               "check_kind",
                               "check",
                               "recovery",
-                              "cli_fallback"
+                              "cli_fallback",
+                              "trust"
                             ]
                           }
                         }
@@ -3989,6 +4061,77 @@
                           },
                           "cli_fallback": {
                             "type": "string"
+                          },
+                          "trust": {
+                            "type": "object",
+                            "properties": {
+                              "provider": {
+                                "type": "string"
+                              },
+                              "required": {
+                                "type": "boolean"
+                              },
+                              "explanation": {
+                                "type": "string"
+                              },
+                              "actions": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "verify-configuration",
+                                        "trust-directory",
+                                        "approve-hook",
+                                        "enable-hooks",
+                                        "approve-tools"
+                                      ]
+                                    },
+                                    "instruction": {
+                                      "type": "string"
+                                    },
+                                    "facts": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "path",
+                                              "config-key",
+                                              "config-value",
+                                              "flag",
+                                              "environment-variable"
+                                            ]
+                                          },
+                                          "value": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "value"
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "instruction",
+                                    "facts"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "provider",
+                              "required",
+                              "explanation",
+                              "actions"
+                            ]
                           }
                         },
                         "required": [
@@ -3998,7 +4141,8 @@
                           "check_kind",
                           "check",
                           "recovery",
-                          "cli_fallback"
+                          "cli_fallback",
+                          "trust"
                         ]
                       }
                     }
@@ -5340,6 +5484,80 @@
                       "status",
                       "ok",
                       "detail"
+                    ]
+                  }
+                },
+                "provider_trust": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "provider": {
+                        "type": "string"
+                      },
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "explanation": {
+                        "type": "string"
+                      },
+                      "actions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "verify-configuration",
+                                "trust-directory",
+                                "approve-hook",
+                                "enable-hooks",
+                                "approve-tools"
+                              ]
+                            },
+                            "instruction": {
+                              "type": "string"
+                            },
+                            "facts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "path",
+                                      "config-key",
+                                      "config-value",
+                                      "flag",
+                                      "environment-variable"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "value"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "instruction",
+                            "facts"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "provider",
+                      "required",
+                      "explanation",
+                      "actions"
                     ]
                   }
                 },
@@ -8204,6 +8422,24 @@
                   "type": "array",
                   "items": {
                     "type": "string"
+                  }
+                },
+                "preview_actions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "scope": {
+                        "type": "string"
+                      },
+                      "command": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "scope",
+                      "command"
+                    ]
                   }
                 },
                 "standards": {
@@ -12917,6 +13153,24 @@
                   "type": "array",
                   "items": {
                     "type": "string"
+                  }
+                },
+                "preview_actions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "scope": {
+                        "type": "string"
+                      },
+                      "command": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "scope",
+                      "command"
+                    ]
                   }
                 },
                 "membership": {
@@ -17720,6 +17974,24 @@
                   "type": "array",
                   "items": {
                     "type": "string"
+                  }
+                },
+                "preview_actions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "scope": {
+                        "type": "string"
+                      },
+                      "command": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "scope",
+                      "command"
+                    ]
                   }
                 },
                 "gate": {

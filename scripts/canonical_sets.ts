@@ -31,6 +31,11 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
 import { VOICE_ENFORCEMENT_COVERAGE_PAGE_REL } from "./brand/vale.ts";
+import {
+  GENERATED_INVENTORY_POLICIES,
+  type GeneratedInventoryPolicy,
+  type GeneratedInventoryPolicyId,
+} from "../src/shared/generated_inventory_policy.ts";
 
 /** Where a canonical set's single source lives. */
 export type SetSource =
@@ -68,6 +73,8 @@ export type GeneratedArtifact =
     readonly kind: "generated-file";
     /** Whether the file carries a generated banner (JSON cannot). */
     readonly banner: boolean;
+    /** Required for inventory/atlas paths; names the shared framing policy. */
+    readonly framingPolicy?: GeneratedInventoryPolicyId;
   }
   | {
     readonly path: string;
@@ -922,6 +929,58 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "provider-trust-fact-kinds",
+    title: "Provider trust fact kinds",
+    what:
+      "The literal machine-fact vocabulary provider trust actions may carry separately from explanation prose.",
+    source: {
+      kind: "module",
+      module: "src/shared/provider_trust.ts",
+      exportName: "TRUST_FACT_KINDS",
+    },
+    guards: [
+      "tests/providers_test.ts",
+      "tests/result_schemas_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "trust fact kinds are an internal wire vocabulary rather than separate user concepts",
+      },
+      featureCanon: { nodeId: "providers" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/provider_trust.ts")).TRUST_FACT_KINDS,
+    ],
+  },
+  {
+    id: "provider-trust-action-kinds",
+    title: "Provider trust action kinds",
+    what:
+      "The recovery-action vocabulary every provider trust instruction declares before presentation.",
+    source: {
+      kind: "module",
+      module: "src/shared/provider_trust.ts",
+      exportName: "TRUST_ACTION_KINDS",
+    },
+    guards: [
+      "tests/providers_test.ts",
+      "tests/result_schemas_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "trust recovery kinds classify provider integration guidance rather than naming separate user concepts",
+      },
+      featureCanon: { nodeId: "providers" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/provider_trust.ts")).TRUST_ACTION_KINDS,
+    ],
+  },
+  {
     id: "cross-agent-behaviours",
     title: "Cross-agent behavior dimensions",
     what:
@@ -1395,7 +1454,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/hint_audience_guard_test.ts",
       "tests/hint_closed_set_guard_test.ts",
       "tests/hint_command_guard_test.ts",
-      "tests/hint_inventory_codegen_test.ts",
+      ...GENERATED_INVENTORY_POLICIES.hints.tests,
       "tests/gate_plan_test.ts",
       "tests/result_schemas_test.ts",
       "tests/engine_json_purity_test.ts",
@@ -1404,9 +1463,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "project/map/_internal/hint-inventory.md",
+        path: GENERATED_INVENTORY_POLICIES.hints.artifactPath,
         kind: "generated-file",
         banner: true,
+        framingPolicy: "hints",
       },
     ],
     enrolledIn: {
@@ -1431,14 +1491,15 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/tip_canon_enrolment_test.ts",
       "tests/tip_command_guard_test.ts",
       "tests/tip_register_guard_test.ts",
-      "tests/tip_inventory_codegen_test.ts",
+      ...GENERATED_INVENTORY_POLICIES.tips.tests,
       "tests/engine_desk_tips_test.ts",
     ],
     artifacts: [
       {
-        path: "project/map/_internal/tip-inventory.md",
+        path: GENERATED_INVENTORY_POLICIES.tips.artifactPath,
         kind: "generated-file",
         banner: true,
+        framingPolicy: "tips",
       },
     ],
     enrolledIn: {
@@ -3046,6 +3107,34 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "generated-inventory-policies",
+    title: "Generated inventory policies",
+    what:
+      "The named framing, member-wording authority, renderer, documentation exposure, and tests for every generated inventory.",
+    source: {
+      kind: "module",
+      module: "src/shared/generated_inventory_policy.ts",
+      exportName: "GENERATED_INVENTORY_POLICIES",
+    },
+    guards: ["tests/canonical_sets_enrolment_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "inventory framing is an internal projection discipline rather than a public product term",
+      },
+      featureCanon: {
+        absent:
+          "the policies govern generated reference framing rather than a separately selectable feature",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/generated_inventory_policy.ts"))
+          .GENERATED_INVENTORY_POLICIES,
+      ),
+  },
+  {
     id: "canonical-sets",
     title: "Canonical sets",
     what: "This meta-registry: the closed set of closed sets.",
@@ -3055,14 +3144,15 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       exportName: "CANONICAL_SETS",
     },
     guards: [
-      "tests/canonical_sets_enrolment_test.ts",
+      ...GENERATED_INVENTORY_POLICIES["canonical-sets"].tests,
       "tests/ssot_claim_guard_test.ts",
     ],
     artifacts: [
       {
-        path: "project/map/_internal/registry-atlas.md",
+        path: GENERATED_INVENTORY_POLICIES["canonical-sets"].artifactPath,
         kind: "generated-file",
         banner: true,
+        framingPolicy: "canonical-sets",
       },
     ],
     enrolledIn: {
@@ -3258,6 +3348,97 @@ function canonCell(enrollment: CanonEnrolment): string {
   return "—";
 }
 
+/** Paths whose naming convention makes them generated inventory surfaces. */
+function isGeneratedInventoryPath(path: string): boolean {
+  return /(?:inventory|registry-atlas)\.md$/.test(path);
+}
+
+/**
+ * Structural forcing function for generated inventories. A future inventory
+ * path must name one shared policy, and that policy must tie its member wording,
+ * renderer, documentation exposure, and tests back to its canonical-set owner.
+ */
+export function inventoryProjectionOffenders(
+  entries: readonly CanonicalSetEntry[],
+  policies: Readonly<Record<string, GeneratedInventoryPolicy>>,
+): string[] {
+  const offenders: string[] = [];
+  const claimed = new Set<string>();
+  for (const entry of entries) {
+    for (const artifact of entry.artifacts) {
+      if (!isGeneratedInventoryPath(artifact.path)) continue;
+      if (artifact.kind !== "generated-file") {
+        offenders.push(
+          `${artifact.path}: an inventory must be a generated file`,
+        );
+        continue;
+      }
+      const policyId = artifact.framingPolicy;
+      if (policyId === undefined || !Object.hasOwn(policies, policyId)) {
+        offenders.push(
+          `${artifact.path}: generated inventory has no declared framing policy`,
+        );
+        continue;
+      }
+      claimed.add(policyId);
+      const policy = policies[policyId];
+      if (policy === undefined) continue;
+      if (policy.artifactPath !== artifact.path) {
+        offenders.push(
+          `${artifact.path}: policy ${policyId} names a different artifact`,
+        );
+      }
+      if (policy.documentation !== artifact.path) {
+        offenders.push(
+          `${artifact.path}: policy ${policyId} does not expose this documentation`,
+        );
+      }
+      if (
+        policy.framing.length === 0 || policy.title.trim() === "" ||
+        policy.subtitle.trim() === ""
+      ) {
+        offenders.push(
+          `${artifact.path}: policy ${policyId} has no complete framing`,
+        );
+      }
+      if (policy.memberWording.kind === "co-located") {
+        const sourceMatches = entry.source.kind === "module" &&
+          policy.memberWording.module === entry.source.module &&
+          policy.memberWording.exportName === entry.source.exportName;
+        if (!sourceMatches) {
+          offenders.push(
+            `${artifact.path}: co-located wording does not name the set source`,
+          );
+        }
+      }
+      if (
+        policy.tests.length === 0 ||
+        policy.tests.some((test) => !entry.guards.includes(test))
+      ) {
+        offenders.push(
+          `${artifact.path}: policy tests are not enrolled as set guards`,
+        );
+      }
+      if (
+        policy.renderer.module.trim() === "" ||
+        policy.renderer.exportName.trim() === ""
+      ) {
+        offenders.push(
+          `${artifact.path}: policy ${policyId} has no renderer authority`,
+        );
+      }
+    }
+  }
+  for (const policyId of Object.keys(policies)) {
+    if (!claimed.has(policyId)) {
+      offenders.push(
+        `${policyId}: framing policy is claimed by no generated inventory`,
+      );
+    }
+  }
+  return offenders;
+}
+
 /** Render path-and-reason exceptions as Markdown bullets. */
 function strayLines(record: Readonly<Record<string, string>>): string[] {
   return Object.entries(record).map(
@@ -3267,6 +3448,7 @@ function strayLines(record: Readonly<Record<string, string>>): string[] {
 
 /** Render the atlas page from the live registry. */
 export async function renderRegistryAtlasDoc(): Promise<string> {
+  const policy = GENERATED_INVENTORY_POLICIES["canonical-sets"];
   const memberLists = new Map<string, readonly string[]>();
   for (const entry of CANONICAL_SETS) {
     const members = await resolveSetMembers(entry);
@@ -3288,14 +3470,13 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
   ).sort((a, b) => (a.artifact.path < b.artifact.path ? -1 : 1));
 
   const lines: string[] = [
-    "<!-- GENERATED by `deno task codegen` from CANONICAL_SETS (scripts/canonical_sets.ts) — do NOT edit by hand. Change the registry and regenerate. -->",
+    policy.banner,
     "",
-    "# Registry atlas",
+    `# ${policy.title}`,
     "",
-    "_The meta-registry generates every canonical set's members, source, guards, artifacts, and enrollments._",
+    `_${policy.subtitle}_`,
     "",
-    "To add a set, declare it in `scripts/canonical_sets.ts`. The enrollment guard (`tests/canonical_sets_enrolment_test.ts`) requires a declared owner for every conventionally named guard test and codegen target. The claim sweep (`tests/ssot_claim_guard_test.ts`) requires every module that claims single-source-of-truth status to have a declared source or recorded absence.",
-    "",
+    ...policy.framing.flatMap((paragraph) => [paragraph, ""]),
     "## The sets at a glance",
     "",
     "One row per set, in registry order. The detail sections use the same order and carry the full account. The table shows member counts. Each detail section lists member names in source order when codegen can read them; an authored source shows a dash and explains the gap. Under Glossary and Feature canon, a dash marks a recorded absence whose reason appears in the detail section.",
@@ -3338,13 +3519,19 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
     "Alphabetical by path. `deno task codegen` rewrites an entire generated file; a maintained block sits between markers inside an authored page.",
   );
   lines.push("");
-  lines.push("| Artifact | Kind | Compiled from |");
-  lines.push("| --- | --- | --- |");
+  lines.push("| Artifact | Kind | Compiled from | Framing policy |");
+  lines.push("| --- | --- | --- | --- |");
   for (const { artifact, owner } of artifactRows) {
     const kind = artifact.kind === "generated-file"
       ? "generated file"
       : "maintained block";
-    lines.push(`| \`${artifact.path}\` | ${kind} | ${setLink(owner)} |`);
+    const framing = artifact.kind === "generated-file" &&
+        artifact.framingPolicy !== undefined
+      ? `\`GENERATED_INVENTORY_POLICIES.${artifact.framingPolicy}\``
+      : "—";
+    lines.push(
+      `| \`${artifact.path}\` | ${kind} | ${setLink(owner)} | ${framing} |`,
+    );
   }
   lines.push("");
   for (const entry of CANONICAL_SETS) {
@@ -3369,6 +3556,23 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
           pathList(entry.artifacts.map((artifact) => artifact.path))
         }`,
       );
+      for (const artifact of entry.artifacts) {
+        if (
+          artifact.kind !== "generated-file" ||
+          artifact.framingPolicy === undefined
+        ) continue;
+        const projection = GENERATED_INVENTORY_POLICIES[
+          artifact.framingPolicy
+        ];
+        const wording = projection.memberWording.kind === "co-located"
+          ? `co-located at \`${projection.memberWording.module}#${projection.memberWording.exportName}\``
+          : `shared policy \`${projection.memberWording.module}#${projection.memberWording.exportName}\``;
+        lines.push(
+          `- Inventory projection: framing \`GENERATED_INVENTORY_POLICIES.${artifact.framingPolicy}\`; member wording ${wording}; renderer \`${projection.renderer.module}#${projection.renderer.exportName}\`; documentation \`${projection.documentation}\`; tests ${
+            pathList(projection.tests)
+          }.`,
+        );
+      }
     }
     lines.push(glossaryLine(entry.enrolledIn.glossary));
     lines.push(canonLine(entry.enrolledIn.featureCanon));

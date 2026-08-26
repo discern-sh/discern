@@ -61,6 +61,10 @@ import {
   providerFor,
   providersWithHooks,
 } from "../lib/providers.ts";
+import {
+  providerTrustData,
+  renderProviderTrustCli,
+} from "../shared/provider_trust.ts";
 import { isKnownJob, KNOWN_JOBS } from "../shared/capabilities.ts";
 import {
   assessSetupAssurance,
@@ -72,6 +76,7 @@ import {
   runGit,
 } from "../shared/subprocess.ts";
 import { splitNulRecords } from "../shared/git_paths.ts";
+import { expandSourcePathReferences } from "../shared/source_path_references.ts";
 import {
   generatedGroupForPath,
   type ResolvedGeneratedGroup,
@@ -649,6 +654,45 @@ export async function runChecks(
     );
   }
 
+  // Preview actions are advice, not Gate effects, but advice must still be
+  // executable. Probe only the static leading word; dynamic commands remain
+  // explicitly unjudged, matching the job-command boundary above.
+  {
+    const declared = Object.entries(config.scopes).flatMap(([scope, spec]) =>
+      toCommandList(spec.preview).map((command) => ({
+        scope,
+        command: expandSourcePathReferences(command, config),
+      }))
+    );
+    const missing: string[] = [];
+    for (const action of declared) {
+      const word = leadingCommandWord(action.command);
+      if (
+        word !== undefined &&
+        !(await commandExists(word, { cwd: destDir }))
+      ) {
+        missing.push(`${action.scope} → ${word}`);
+      }
+    }
+    checks.push(
+      missing.length === 0
+        ? {
+          name: "scope preview commands",
+          ok: true,
+          detail: declared.length === 0
+            ? "none to check"
+            : "each static leading binary resolves from the project root; no preview ran",
+        }
+        : {
+          name: "scope preview commands",
+          ok: false,
+          detail: `command not found: ${missing.join(", ")}; no preview ran`,
+          fix:
+            "install the tool, or edit the named [scopes.<name>].preview command, then run `discern doctor` again",
+        },
+    );
+  }
+
   // 5b. Git attributes and generated-artifact declarations — verify the managed
   // block, then probe the command and ownership facts the gate and update rely
   // on without running a generator or writing a file. Generated file lists come
@@ -1066,8 +1110,8 @@ export async function runChecks(
       provider.hooks !== undefined;
     if (hasCommittableSurface) {
       detail += provider.trust.required
-        ? `; trust: one-time — ${provider.trust.hint}`
-        : `; trust: not required — ${provider.trust.hint}`;
+        ? `; trust: one-time — ${renderProviderTrustCli(provider.trust)}`
+        : `; trust: not required — ${renderProviderTrustCli(provider.trust)}`;
     }
     checks.push({ name: `agent: ${provider.label}`, ok: true, detail });
   }
@@ -1236,6 +1280,14 @@ export async function doctorResult(
       kit_version: KIT_VERSION,
       environment: await doctorEnvironment(),
       checks,
+      ...(cfg === undefined ? {} : {
+        provider_trust: resolveConfiguredAgents(cfg).flatMap((name) => {
+          const provider = providerFor(name);
+          return provider === undefined
+            ? []
+            : [providerTrustData(name, provider.trust)];
+        }),
+      }),
       ...(cfg !== undefined && options.verbose === true
         ? { execution_model: buildExecutionModel(cfg) }
         : {}),
