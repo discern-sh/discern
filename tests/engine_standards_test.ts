@@ -30,6 +30,8 @@ import {
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
+import { waitUntil } from "./waiting.ts";
 
 type StandardsJson = CliResultForCommand<"standards">;
 
@@ -203,7 +205,8 @@ Deno.test("standardsResult: pre-aborted and mid-run signals cancel promptly", as
         name: "slow",
         direction: "up",
         limit: "1",
-        run: "sleep 30; echo 'DISCERN_METRIC slow 1'",
+        run:
+          "touch .git/standard-cancel-ready; sleep 30; echo 'DISCERN_METRIC slow 1'",
       }),
     );
     await gitInit(dir);
@@ -215,13 +218,14 @@ Deno.test("standardsResult: pre-aborted and mid-run signals cancel promptly", as
       }
       const started = performance.now();
       const pending = standardsResult(dir, { signal: controller.signal });
-      const timer = timing === "mid-run"
-        ? setTimeout(() => controller.abort(), 150)
-        : undefined;
-      const result = await pending;
-      if (timer !== undefined) {
-        clearTimeout(timer);
+      if (timing === "mid-run") {
+        await waitUntil(
+          async () => await targetExists(`${dir}/.git/standard-cancel-ready`),
+          "the Standard measurement to start before cancellation",
+        );
+        controller.abort();
       }
+      const result = await pending;
       const elapsedMs = performance.now() - started;
 
       assertEquals(result.ok, false, `${timing}: ${JSON.stringify(result)}`);

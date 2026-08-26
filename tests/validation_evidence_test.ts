@@ -31,6 +31,7 @@ import {
   validationKey,
   type ValidationKeyResult,
 } from "../src/engine/logbook/validation_key.ts";
+import { realDelay } from "./waiting.ts";
 
 const cfg = configSchema.parse({});
 const SEMANTIC_CAPTURE_TIMEOUT_MS = 180_000;
@@ -568,17 +569,15 @@ async function assertCaptureDeadline(
   timeMs: number,
   label: string,
 ): Promise<ValidationStart> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const watchdog = new AbortController();
   const winner = await Promise.race([
     capturePromise.then((value) => ({ kind: "capture" as const, value })),
-    new Promise<{ kind: "hung" }>((resolve) =>
-      timeout = setTimeout(
-        () => resolve({ kind: "hung" }),
-        timeMs + CAPTURE_DEADLINE_TOLERANCE_MS,
-      )
-    ),
-  ]);
-  if (timeout !== undefined) clearTimeout(timeout);
+    realDelay(
+      "validation-capture-deadline-watchdog",
+      timeMs + CAPTURE_DEADLINE_TOLERANCE_MS,
+      watchdog.signal,
+    ).then(() => ({ kind: "hung" as const })),
+  ]).finally(() => watchdog.abort());
   // Timer ordering is the load-safe bound. If the event loop is starved, both
   // callbacks can resume late; the capture deadline must still beat the later
   // watchdog, without blaming scheduler time in which neither could progress.
@@ -736,7 +735,7 @@ Deno.test("a rejection arriving after the capture deadline is still observed", a
     "late key rejection",
   );
   rejectKey?.(new Error("late forced failure"));
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await Promise.resolve();
 });
 
 Deno.test("a real Git producer is killed at the validation byte boundary", async () => {

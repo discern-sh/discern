@@ -9,96 +9,17 @@ import { withTempDir } from "./helpers.ts";
 import { runPtyProcess } from "./fixtures/pty_process.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
+const PTY_CHILD_PROGRAM = join(
+  REPO_ROOT,
+  "tests",
+  "fixtures",
+  "pty_child_program.ts",
+);
 
-const SLOW_RAW_CHILD = `
-await new Promise((resolve) => setTimeout(resolve, 2_500));
-Deno.stdin.setRaw(true);
-try {
-  console.log("fresh sibling ready");
-  const input = new Uint8Array(1);
-  const read = await Deno.stdin.read(input);
-  console.log("observed:" + (read === null ? "eof" : input[0]));
-} finally {
-  Deno.stdin.setRaw(false);
+/** Build argv for one executable child scenario. */
+function childArgs(scenario: string, ...args: string[]): string[] {
+  return ["run", "--quiet", "-A", PTY_CHILD_PROGRAM, scenario, ...args];
 }
-`;
-
-const RAW_THREE_BYTE_CHILD = `
-Deno.stdin.setRaw(true);
-try {
-  console.log("unrelated input reader ready");
-  const input = new Uint8Array(3);
-  let offset = 0;
-  while (offset < input.length) {
-    const read = await Deno.stdin.read(input.subarray(offset));
-    if (read === null) break;
-    offset += read;
-  }
-  console.log("observed:" + [...input.subarray(0, offset)].join(","));
-} finally {
-  Deno.stdin.setRaw(false);
-}
-`;
-
-const HANGING_CHILD = `
-await Deno.writeTextFile(Deno.args[0], String(Deno.pid));
-console.log("timeout child ready");
-setInterval(() => undefined, 60_000);
-`;
-
-const PROGRESSING_RAW_CHILD = `
-Deno.stdin.setRaw(true);
-try {
-  console.log("progress phase one");
-  const first = new Uint8Array(1);
-  await Deno.stdin.read(first);
-  await new Promise((resolve) => setTimeout(resolve, 900));
-  console.log("progress phase two");
-  const second = new Uint8Array(1);
-  await Deno.stdin.read(second);
-  await new Promise((resolve) => setTimeout(resolve, 900));
-  console.log("progress complete");
-} finally {
-  Deno.stdin.setRaw(false);
-}
-`;
-
-const MULTI_WRITE_FRAME_CHILD = `
-Deno.stdin.setRaw(true);
-try {
-  console.log("frame begins");
-  await new Promise((resolve) => setTimeout(resolve, 350));
-  console.log("frame middle");
-  await new Promise((resolve) => setTimeout(resolve, 350));
-  console.log("frame complete");
-  const input = new Uint8Array(1);
-  await Deno.stdin.read(input);
-} finally {
-  Deno.stdin.setRaw(false);
-}
-`;
-
-const HELD_INPUT_CHILD = `
-Deno.stdin.setRaw(true);
-try {
-  console.log("unrelated reader ready");
-  const first = new Uint8Array(1);
-  await Deno.stdin.read(first);
-  const second = new Uint8Array(1);
-  const state = await Promise.race([
-    Deno.stdin.read(second).then((read) => read === null ? "eof" : "data"),
-    new Promise((resolve) => setTimeout(() => resolve("open"), 250)),
-  ]);
-  console.log("input-state:" + state);
-  Deno.exit(0);
-} finally {
-  Deno.stdin.setRaw(false);
-}
-`;
-
-const SHELL_REPORTING_CHILD = `
-console.log("command-shell:" + Deno.env.get("SHELL"));
-`;
 
 Deno.test({
   name: "PTY input requires an opt-in before continuing a lone Escape write",
@@ -108,7 +29,7 @@ Deno.test({
       () =>
         runPtyProcess({
           command: Deno.execPath(),
-          args: ["eval", RAW_THREE_BYTE_CHILD],
+          args: childArgs("raw-three-byte"),
           cwd: REPO_ROOT,
           input: [{
             waitFor: "unrelated input reader ready",
@@ -124,7 +45,7 @@ Deno.test({
 
     const allowed = await runPtyProcess({
       command: Deno.execPath(),
-      args: ["eval", RAW_THREE_BYTE_CHILD],
+      args: childArgs("raw-three-byte"),
       cwd: REPO_ROOT,
       input: [{
         waitFor: "unrelated input reader ready",
@@ -146,7 +67,7 @@ Deno.test({
   fn: async () => {
     const result = await runPtyProcess({
       command: Deno.execPath(),
-      args: ["eval", SLOW_RAW_CHILD],
+      args: childArgs("slow-raw"),
       cwd: REPO_ROOT,
       input: [{
         waitFor: "fresh sibling ready",
@@ -169,7 +90,7 @@ Deno.test({
   fn: async () => {
     const result = await runPtyProcess({
       command: Deno.execPath(),
-      args: ["eval", PROGRESSING_RAW_CHILD],
+      args: childArgs("progressing-raw"),
       cwd: REPO_ROOT,
       input: [{
         waitFor: "progress phase one",
@@ -210,7 +131,7 @@ Deno.test({
     for (const mode of modes) {
       const result = await runPtyProcess({
         command: Deno.execPath(),
-        args: ["eval", HELD_INPUT_CHILD],
+        args: childArgs("held-input"),
         cwd: REPO_ROOT,
         ...mode.options,
         timeoutMs: 3_000,
@@ -262,7 +183,7 @@ Deno.test({
 
       const result = await runPtyProcess({
         command: Deno.execPath(),
-        args: ["eval", SHELL_REPORTING_CHILD],
+        args: childArgs("shell-reporting"),
         cwd: REPO_ROOT,
         env: {
           PATH: `${dir}:${Deno.env.get("PATH") ?? ""}`,
@@ -282,7 +203,7 @@ Deno.test({
   fn: async () => {
     const result = await runPtyProcess({
       command: Deno.execPath(),
-      args: ["eval", MULTI_WRITE_FRAME_CHILD],
+      args: childArgs("multi-write-frame"),
       cwd: REPO_ROOT,
       input: [{
         waitFor: ["frame begins", "frame complete"],
@@ -332,7 +253,7 @@ Deno.test({
         () =>
           runPtyProcess({
             command: Deno.execPath(),
-            args: ["eval", HANGING_CHILD, pidPath],
+            args: childArgs("hanging", pidPath),
             cwd: REPO_ROOT,
             input: [{
               waitFor: "timeout child ready",

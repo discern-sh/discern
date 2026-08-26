@@ -23,6 +23,7 @@ import {
   setTerminalContext,
   terminalProcessContext,
 } from "../../src/lib/terminal.ts";
+import { realDelay } from "../waiting.ts";
 
 export type InteractiveTtyScenario =
   | "text"
@@ -563,9 +564,7 @@ async function main(args: readonly string[]): Promise<void> {
   const resize = options.resize === undefined
     ? undefined
     : (async (): Promise<void> => {
-      await new Promise((resolve) =>
-        setTimeout(resolve, options.resize?.delayMs)
-      );
+      await realDelay("interactive-tty-resize-delay", options.resize?.delayMs ?? 0);
       if (options.resize === undefined) return;
       await setSize(options.resize);
       resizedSize = consoleSize();
@@ -586,8 +585,9 @@ async function main(args: readonly string[]): Promise<void> {
   let result: Omit<InteractiveTtyResult, "terminal">;
   try {
     if ((options.interactionStartDelayMs ?? 0) > 0) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, options.interactionStartDelayMs)
+      await realDelay(
+        "interactive-tty-start-delay",
+        options.interactionStartDelayMs ?? 0,
       );
     }
     result = {

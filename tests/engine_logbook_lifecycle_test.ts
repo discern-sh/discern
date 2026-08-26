@@ -736,9 +736,7 @@ Deno.test({
           `${beginLine(new Date().toISOString())}\n`,
         );
         const before = await Deno.readTextFile(active);
-        const result = await runAgentPty(dir, ["patterns", action], {
-          input: "y\n",
-        });
+        const result = await runAgentPty(dir, ["patterns", action]);
         assertEquals(result.code, 1, `${action}\n${result.output}`);
         assertTerminalTextIncludes(
           result.output,

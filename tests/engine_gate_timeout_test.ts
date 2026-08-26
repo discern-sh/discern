@@ -37,6 +37,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { waitUntil } from "./waiting.ts";
 
 // Startup and behaviour are separate clocks. A loaded parallel suite may delay
 // a cold engine before it reaches its configured command; once that command
@@ -65,10 +66,9 @@ async function waitForReadiness<T>(
       settled = { ok: false, error };
     },
   );
-  const deadline = Date.now() + ENGINE_READINESS_TIMEOUT_MS;
-  while (Date.now() < deadline) {
+  await waitUntil(async () => {
     if (await targetExists(path)) {
-      return;
+      return true;
     }
     if (settled !== undefined) {
       if (!settled.ok) {
@@ -80,11 +80,11 @@ async function waitForReadiness<T>(
         }`,
       );
     }
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-  throw new Error(
-    `timed out after ${ENGINE_READINESS_TIMEOUT_MS}ms waiting for ${what} readiness`,
-  );
+    return false;
+  }, `${what} readiness`, {
+    timeoutMs: ENGINE_READINESS_TIMEOUT_MS,
+    intervalMs: 25,
+  });
 }
 
 /** Measure only the shutdown interval after a timed job proves it has started. */
@@ -143,15 +143,17 @@ Deno.test("gate timeout harness: a full-engine deadline cannot start before read
 
 /** Poll until a PID no longer exists (signal 0 probes without sending). */
 async function waitForExit(pid: number): Promise<void> {
-  for (let i = 0; i < 100; i++) {
+  await waitUntil(() => {
     try {
       Deno.kill(pid, "SIGCONT");
+      return false;
     } catch {
-      return; // gone
+      return true;
     }
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  throw new Error(`process ${pid} still alive after the timeout`);
+  }, `process ${pid} to exit after the timeout`, {
+    timeoutMs: 5_000,
+    intervalMs: 50,
+  });
 }
 
 Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a genuine timeout failure", async () => {

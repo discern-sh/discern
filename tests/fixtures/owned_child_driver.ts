@@ -12,15 +12,18 @@ function signalArg(value: string | undefined): Deno.Signal {
 
 const signal = signalArg(Deno.args[0]);
 const ignoreSignal = Deno.args[1] === "ignore";
-const childSource = [
-  ...(ignoreSignal
-    ? [`Deno.addSignalListener("${signal}", () => {});`]
-    : []),
-  `setTimeout(() => Deno.kill(${Deno.pid}, "${signal}"), 100);`,
-  "await new Promise((resolve) => setTimeout(resolve, 30_000));",
-].join("\n");
+const child = new URL("self_signalling_child.ts", import.meta.url).pathname;
 const result = await runOwnedChild(Deno.execPath(), {
-  args: ["eval", childSource],
+  args: [
+    "run",
+    "-A",
+    child,
+    "owned",
+    String(Deno.pid),
+    signal,
+    "-",
+    ...(ignoreSignal ? ["ignore"] : []),
+  ],
   resumeAfterInterrupt: true,
 });
 console.log(JSON.stringify({

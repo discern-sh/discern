@@ -11,6 +11,7 @@ import {
 } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { standardsResult } from "../src/engine/gate/standards.ts";
+import { waitUntil } from "./waiting.ts";
 
 interface StandardFixture {
   name: string;
@@ -72,13 +73,11 @@ async function invocationCount(dir: string): Promise<number> {
 
 /** Wait until the planted process counter proves the shared command started. */
 async function waitForInvocation(dir: string): Promise<void> {
-  const deadline = Date.now() + 5_000;
-  while (await invocationCount(dir) === 0) {
-    if (Date.now() >= deadline) {
-      throw new Error("shared Standard process did not start within 5 seconds");
-    }
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
+  await waitUntil(
+    async () => await invocationCount(dir) > 0,
+    "the shared Standard process to start",
+    { timeoutMs: 5_000, intervalMs: 20 },
+  );
 }
 
 /** The common two-metric command, including a planted process counter. */

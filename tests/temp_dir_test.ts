@@ -9,16 +9,11 @@ import {
   TEMP_DIR_OWNERSHIP_POLICIES,
   withTempDir,
 } from "./temp_dir.ts";
+import { fromFileUrl } from "@std/path";
 
-const TEMP_DIR_MODULE = new URL("./temp_dir.ts", import.meta.url).href;
-
-/** Build a child script that creates the process-owned suite directory. */
-function suiteTempChildScript(keepAlive = false): string {
-  return `import { suiteTempDir } from ${JSON.stringify(TEMP_DIR_MODULE)};\n` +
-    `const dir = await suiteTempDir();\n` +
-    (keepAlive ? `setInterval(() => {}, 60_000);\n` : "") +
-    `await Deno.stdout.write(new TextEncoder().encode(dir + "\\n"));\n`;
-}
+const SUITE_TEMP_CHILD = fromFileUrl(
+  new URL("fixtures/suite_temp_child.ts", import.meta.url),
+);
 
 Deno.test("withTempDir returns the callback value and removes the directory", async () => {
   let owned: string | undefined;
@@ -109,7 +104,7 @@ Deno.test({
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const output = await new Deno.Command(Deno.execPath(), {
-      args: ["eval", suiteTempChildScript()],
+      args: ["run", "-A", SUITE_TEMP_CHILD],
       stdout: "piped",
       stderr: "piped",
     }).output();
@@ -125,8 +120,10 @@ Deno.test({
   fn: async () => {
     const child = new Deno.Command(Deno.execPath(), {
       args: [
-        "eval",
-        suiteTempChildScript(true),
+        "run",
+        "-A",
+        SUITE_TEMP_CHILD,
+        "keep-alive",
       ],
       stdout: "piped",
       stderr: "null",

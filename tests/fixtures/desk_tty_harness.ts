@@ -33,6 +33,7 @@ import {
 } from "discern-design-system/cli/projection";
 import { loadConfig } from "../../src/shared/config_schema.ts";
 import { targetExists } from "../../src/shared/fs_presence.ts";
+import { waitUntil } from "../waiting.ts";
 import { SOURCE_PATHS } from "../../src/shared/paths_registry.ts";
 import type { Proof } from "../../src/shared/result_schemas.ts";
 import {
@@ -1610,17 +1611,15 @@ async function waitForResizeAcknowledgement(
     requestName,
     "error",
   );
-  const deadline = Date.now() + RESIZE_ACK_TIMEOUT_MS;
-  while (Date.now() < deadline) {
+  await waitUntil(async () => {
     if (await targetExists(errorPath)) {
       throw new Error(`Desk child rejected resize request ${requestName}`);
     }
-    if (await targetExists(appliedPath)) return;
-    await new Promise<void>((resolve) =>
-      setTimeout(resolve, RESIZE_ACK_POLL_MS)
-    );
-  }
-  throw new Error(`Desk child did not apply resize request ${requestName}`);
+    return await targetExists(appliedPath);
+  }, `Desk child to apply resize request ${requestName}`, {
+    timeoutMs: RESIZE_ACK_TIMEOUT_MS,
+    intervalMs: RESIZE_ACK_POLL_MS,
+  });
 }
 
 /** Publish one child-side resize outcome after the kernel operation settles. */

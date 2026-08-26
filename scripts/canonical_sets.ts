@@ -2846,6 +2846,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       .TEMP_DIR_CREATOR_AUTHORITIES.keys()],
   },
   {
+    id: "test-real-delay-boundaries",
+    title: "Test real-delay boundaries",
+    what:
+      "Every genuine wall-clock interval in executable tests, with its exact module, enclosing test or helper, operation, and reason a condition or fake clock cannot replace it.",
+    source: {
+      kind: "module",
+      module: "tests/waiting.ts",
+      exportName: "TEST_REAL_DELAY_BOUNDARIES",
+    },
+    guards: ["tests/test_waiting_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "real test-delay enrollment is a repository development boundary rather than product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the condition-oriented waiting capability supports this repository and is not part of the shipped discern binary",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../tests/waiting.ts")).TEST_REAL_DELAY_BOUNDARIES,
+      ),
+  },
+  {
     id: "tool-temp-directory-kinds",
     title: "Tool temp-directory kinds",
     what:

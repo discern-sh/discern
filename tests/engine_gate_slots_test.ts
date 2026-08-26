@@ -21,7 +21,7 @@
  */
 
 import { assert, assertEquals, assertMatch } from "@std/assert";
-import { join } from "@std/path";
+import { fromFileUrl, join } from "@std/path";
 import { z } from "@zod/zod";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { bestEffortFs, readTextIfExists } from "../src/shared/fs_presence.ts";
@@ -43,6 +43,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { waitUntil } from "./waiting.ts";
 import {
   assertResultDataKey,
   type CliResultEnvelope,
@@ -51,6 +52,9 @@ import {
 } from "./decode_cli_result.ts";
 
 const QUEUED_TEXT = "Tests queued";
+const SLOT_LOCK_HOLDER = fromFileUrl(
+  new URL("fixtures/slot_lock_holder.ts", import.meta.url),
+);
 
 const LogbookEventProbeSchema = z.object({
   kind: z.string().optional(),
@@ -76,24 +80,6 @@ function parseEnvelope(
  * must never wait; presence is only ever asserted at the unit level. */
 function hasQueuedHint(envelope: CliResultEnvelope): boolean {
   return (envelope.hints ?? []).some((h) => h.includes(QUEUED_TEXT));
-}
-
-/** Poll a predicate to true within a bound; a miss names what never happened. */
-async function pollUntil(
-  what: string,
-  predicate: () => boolean | Promise<boolean>,
-  timeoutMs = 30_000,
-): Promise<void> {
-  const start = Date.now();
-  while (true) {
-    if (await predicate()) {
-      return;
-    }
-    if (Date.now() - start > timeoutMs) {
-      throw new Error(`timed out waiting for ${what}`);
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
 }
 
 /** The shared marker log the fake jobs append to (absent → no lines yet). */
@@ -209,9 +195,10 @@ Deno.test("test slots: the lock excludes a second open of the same file, same pr
     // Closing the holder releases the lock for the next open description — but
     // the release is not instantly visible to another description under load,
     // so poll for it the way the killed-holder test below does.
-    await pollUntil(
-      "the released slot to acquire",
+    await waitUntil(
       () => second.tryLock(true),
+      "the released slot to acquire",
+      { timeoutMs: 30_000, intervalMs: 100 },
     );
     second.close();
   });
@@ -221,24 +208,11 @@ Deno.test("test slots: a killed holder's slot is immediately acquirable (the OS 
   await withTempDir(async (dir) => {
     const slotPath = join(dir, "slot-1");
     const readyPath = join(dir, "ready");
-    const holderPath = join(dir, "holder.ts");
-    await Deno.writeTextFile(
-      holderPath,
-      `const [path, ready] = Deno.args;\n` +
-        `const f = await Deno.open(path, { read: true, write: true, create: true });\n` +
-        `const ok = await f.tryLock(true);\n` +
-        `await Deno.writeTextFile(ready, ok ? "locked" : "failed");\n` +
-        // A pending timer keeps the process (and so the lock) alive until the
-        // test kills it — a bare unresolved promise would let the event loop
-        // drain and the exiting process would release the lock early.
-        `setInterval(() => {}, 1_000_000);\n`,
-    );
     const holder = new Deno.Command("deno", {
       args: [
         "run",
-        `--allow-read=${dir}`,
-        `--allow-write=${dir}`,
-        holderPath,
+        "-A",
+        SLOT_LOCK_HOLDER,
         slotPath,
         readyPath,
       ],
@@ -247,12 +221,15 @@ Deno.test("test slots: a killed holder's slot is immediately acquirable (the OS 
     }).spawn();
     const status = holder.status;
     try {
-      await pollUntil("the holder to take the lock", async () => {
+      await waitUntil(async () => {
         try {
           return (await Deno.readTextFile(readyPath)) === "locked";
         } catch {
           return false;
         }
+      }, "the holder to take the lock", {
+        timeoutMs: 30_000,
+        intervalMs: 100,
       });
       const probe = await Deno.open(slotPath, { read: true, write: true });
       try {
@@ -265,10 +242,10 @@ Deno.test("test slots: a killed holder's slot is immediately acquirable (the OS 
         // release the lock, which is the crash-safety the design rests on.
         holder.kill("SIGKILL");
         await status;
-        await pollUntil(
-          "the killed holder's slot to free",
+        await waitUntil(
           () => probe.tryLock(true),
-          5_000,
+          "the killed holder's slot to free",
+          { timeoutMs: 5_000, intervalMs: 100 },
         );
       } finally {
         probe.close();
@@ -347,9 +324,10 @@ Deno.test("test slots: a queued acquire fires the wait notice, then resolves whe
       assert(slots !== undefined, "cap=1 must build a slot surface");
       assertEquals(slots.cap, 1);
       const pending = slots.acquire(makeOut(false, { quiet: true }));
-      await pollUntil(
-        "the queued notice",
+      await waitUntil(
         () => slots.waits.some((h) => h.text.includes(QUEUED_TEXT)),
+        "the queued notice",
+        { timeoutMs: 30_000, intervalMs: 100 },
       );
       release();
       const hold = await pending;
@@ -455,9 +433,10 @@ Deno.test("gate slots: cap=1 serializes two concurrent test runs and begins befo
         // Deliverable-shaped ordering proof: both runs' begin events reach the
         // logbook while the slot is still held and no test job has started —
         // a queued gate reads as running on fleet rows, never dormant.
-        await pollUntil(
-          "both begin events",
+        await waitUntil(
           async () => (await beginEvents(dir, "test")) >= 2,
+          "both begin events",
+          { timeoutMs: 30_000, intervalMs: 100 },
         );
         assertEquals(
           await logLines(logPath),
@@ -545,9 +524,10 @@ Deno.test("gate slots: a contended done displays slot wait beside run timings", 
     const status = child.status;
     let settled = false;
     try {
-      await pollUntil(
-        "done to report its queue wait",
+      await waitUntil(
         () => `${stdoutText}${stderrText}`.includes(QUEUED_TEXT),
+        "done to report its queue wait",
+        { timeoutMs: 30_000, intervalMs: 100 },
       );
       release();
       const [exit, out, err] = await Promise.all([status, stdout, stderr]);
@@ -770,9 +750,10 @@ Deno.test("gate slots: standards' measurement pass enrols like a test run", asyn
       try {
         const runA = runAgent(dir, ["standards", "--json"]);
         const runB = runAgent(worktree, ["standards", "--json"]);
-        await pollUntil(
-          "both standards begin events",
+        await waitUntil(
           async () => (await beginEvents(dir, "standards")) >= 2,
+          "both standards begin events",
+          { timeoutMs: 30_000, intervalMs: 100 },
         );
         assertEquals(
           await logLines(logPath),

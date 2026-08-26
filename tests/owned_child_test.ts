@@ -6,6 +6,7 @@ import { pinnedTerminal, withTempDir } from "./helpers.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
+import { realDelay } from "./waiting.ts";
 
 const DRIVER = fromFileUrl(
   new URL("fixtures/owned_child_driver.ts", import.meta.url),
@@ -104,7 +105,7 @@ Deno.test({
       );
       assertEquals(code, 0);
       await Deno.writeTextFile(release, "");
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
+      await realDelay("routed-command-quiescence-window", 350);
       const observed = await lstatIfExists(late);
       assertEquals(
         observed,

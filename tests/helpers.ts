@@ -36,6 +36,11 @@ const MAIN = join(
   "src",
   "main.ts",
 );
+const ESCAPED_DAEMON = join(
+  dirname(fromFileUrl(import.meta.url)),
+  "fixtures",
+  "escaped_daemon.ts",
+);
 
 /**
  * A gate-job command that leaves an ESCAPED descendant holding the job's
@@ -52,19 +57,17 @@ export function escapedDaemonCommand(
   holdS: number,
   markerFile?: string,
 ): string {
-  const marker = markerFile === undefined
-    ? ""
-    : `Deno.writeTextFileSync(${JSON.stringify(markerFile)}, "up");`;
-  const daemon = `const parent = Number(Deno.args[0]); ` +
-    `while (true) { try { Deno.kill(parent, "SIGCONT"); } catch { break; } ` +
-    `await new Promise((resolve) => setTimeout(resolve, 10)); } ` +
-    `${marker} ` +
-    `await new Promise((resolve) => setTimeout(resolve, ${holdS * 1000}));`;
+  const daemonArgs = [
+    "run",
+    "-A",
+    ESCAPED_DAEMON,
+    "parent-placeholder",
+    String(holdS * 1000),
+    ...(markerFile === undefined ? [] : [markerFile]),
+  ];
   // The trailing no-op prevents `sh -c` from replacing itself with its final
   // command, so Deno.ppid remains the direct job shell the daemon observes.
-  return `deno eval 'new Deno.Command(Deno.execPath(), { args: ["eval", ${
-    JSON.stringify(daemon)
-  }, String(Deno.ppid)], stdout: "inherit", stderr: "inherit", detached: true }).spawn().unref()'; :`;
+  return `deno eval 'const args = ${JSON.stringify(daemonArgs)}; args[3] = String(Deno.ppid); new Deno.Command(Deno.execPath(), { args, stdout: "inherit", stderr: "inherit", detached: true }).spawn().unref()'; :`;
 }
 
 /** The captured result of one CLI subprocess invocation. */

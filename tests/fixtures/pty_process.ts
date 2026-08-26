@@ -1,5 +1,7 @@
 /** Generic real-PTY process driver shared by interactive integration harnesses. */
 
+import { realDelay, waitUntil } from "../waiting.ts";
+
 const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
 const ESCAPE_BYTE = 0x1b;
@@ -235,7 +237,9 @@ export async function runPtyProcess(
         await waitForOutput(phase.waitFor, cursor);
         inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} ready`;
         const settleMs = phase.settleMs ?? 0;
-        if (settleMs > 0) await delay(settleMs);
+        if (settleMs > 0) {
+          await realDelay("pty-input-phase-settle", settleMs);
+        }
         if (phase.captureAs !== undefined) {
           if (phase.captureAs.length === 0) {
             throw new TypeError("PTY keyframe name must not be empty");
@@ -253,7 +257,9 @@ export async function runPtyProcess(
         };
         for (const [stepIndex, step] of phase.steps.entries()) {
           const delayMs = step.delayMs ?? 0;
-          if (delayMs > 0) await delay(delayMs);
+          if (delayMs > 0) {
+            await realDelay("pty-input-step-pacing", delayMs);
+          }
           inputProgress =
             `phase ${phaseIndex + 1}/${inputPhases.length} step ` +
             `${stepIndex + 1}/${phase.steps.length}`;
@@ -343,17 +349,27 @@ async function settledWithin<T>(
   | { readonly kind: "value"; readonly value: T }
   | { readonly kind: "timeout" }
 > {
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let outcome:
+    | { readonly kind: "value"; readonly value: T }
+    | { readonly kind: "error"; readonly error: unknown }
+    | undefined;
+  void pending.then(
+    (value) => {
+      outcome = { kind: "value", value };
+    },
+    (error: unknown) => {
+      outcome = { kind: "error", error };
+    },
+  );
   try {
-    return await Promise.race([
-      pending.then((value) => ({ kind: "value" as const, value })),
-      new Promise<{ readonly kind: "timeout" }>((resolve) => {
-        timer = setTimeout(() => resolve({ kind: "timeout" }), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
+    await waitUntil(() => outcome !== undefined, "the PTY operation to settle", {
+      timeoutMs,
+    });
+  } catch {
+    return { kind: "timeout" };
   }
+  if (outcome?.kind === "error") throw outcome.error;
+  return outcome ?? { kind: "timeout" };
 }
 
 /** Stop the PTY wrapper and every child still below it. A timeout must not
@@ -366,7 +382,7 @@ async function terminateProcessTree(process: Deno.ChildProcess): Promise<void> {
   } catch {
     // The wrapper finished between the timeout and signal delivery.
   }
-  await delay(100);
+  await realDelay("pty-termination-grace", 100);
   signalProcesses(descendants, "SIGKILL");
   try {
     process.kill("SIGKILL");
@@ -496,8 +512,4 @@ async function collectOutput(
     offset += chunk.length;
   }
   return output;
-}
-
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

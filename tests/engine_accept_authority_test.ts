@@ -41,6 +41,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { waitUntil } from "./waiting.ts";
 import {
   assertResultDataKey,
   decodeCliResult,
@@ -201,11 +202,9 @@ async function waitForPath<T>(
       settled = { ok: false, error };
     },
   );
-  const timeoutMs = ACCEPT_READINESS_TIMEOUT_MS;
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  await waitUntil(async () => {
     if (await targetExists(path)) {
-      return;
+      return true;
     }
     if (settled !== undefined) {
       if (!settled.ok) {
@@ -217,9 +216,10 @@ async function waitForPath<T>(
         }`,
       );
     }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error(`timed out waiting for ${path}`);
+    return false;
+  }, `accept readiness marker ${path}`, {
+    timeoutMs: ACCEPT_READINESS_TIMEOUT_MS,
+  });
 }
 
 interface InterruptedAcceptanceFixture {

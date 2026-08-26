@@ -4,6 +4,8 @@
  * evidence is written out of band for the parent test.
  */
 
+import { realDelay, waitUntil } from "../waiting.ts";
+
 interface TerminalDimensions {
   readonly columns: number;
   readonly rows: number;
@@ -101,17 +103,15 @@ function consoleSize(): TerminalDimensions {
 
 /** Await a job-owned readiness file so the resize occurs during real work. */
 async function waitForPath(path: string): Promise<void> {
-  const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline) {
+  await waitUntil(async () => {
     try {
       await Deno.stat(path);
-      return;
+      return true;
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) throw error;
+      return false;
     }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error(`resize readiness path did not appear: ${path}`);
+  }, `resize readiness path ${path}`, { timeoutMs: 10_000 });
 }
 
 async function main(args: readonly string[]): Promise<void> {
@@ -125,9 +125,7 @@ async function main(args: readonly string[]): Promise<void> {
       if (options.resize?.whenPath !== undefined) {
         await waitForPath(options.resize.whenPath);
       }
-      await new Promise((resolve) =>
-        setTimeout(resolve, options.resize?.delayMs)
-      );
+      await realDelay("terminal-resize-delay", options.resize?.delayMs ?? 0);
       if (options.resize === undefined) return;
       await setSize(options.resize);
       resizedSize = consoleSize();

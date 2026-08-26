@@ -1,5 +1,7 @@
 /** Declared ownership capabilities for test and executable-fixture directories. */
 
+import { waitUntil } from "./waiting.ts";
+
 /** The policy every supported test temp-directory lifetime must declare. */
 export interface TempDirOwnershipPolicy {
   /** The event after which the capability removes the owned directory. */
@@ -58,16 +60,21 @@ export async function removeTempTree(
   dir: string,
   remove: TempTreeRemover = removeTree,
 ): Promise<void> {
-  for (let attempt = 0;; attempt++) {
+  let attempt = 0;
+  await waitUntil(async () => {
     try {
       await remove(dir);
-      return;
+      return true;
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) return;
-      if (attempt >= 4) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
+      if (error instanceof Deno.errors.NotFound) return true;
+      attempt++;
+      if (attempt >= 5) throw error;
+      return false;
     }
-  }
+  }, `temporary tree ${dir} to be removable`, {
+    timeoutMs: 1_000,
+    intervalMs: 50,
+  });
 }
 
 /** Remove the owned path and its sibling worktree root. */

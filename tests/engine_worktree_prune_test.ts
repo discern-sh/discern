@@ -39,6 +39,7 @@ import {
   sweepOrphanWorktrees,
 } from "../src/engine/worktree/git.ts";
 import { Logger } from "../src/lib/log.ts";
+import { waitUntil } from "./waiting.ts";
 import {
   pruneReappearedWorktreePaths,
   readRetiredWorktreePathRecords,
@@ -205,20 +206,17 @@ Deno.test("remove-worktree-safely detects a path recreated while retirement evid
     await evidenceLock.lock(true);
     const removal = runAgent(dir, ["remove-worktree-safely", wt]);
     try {
-      let absent = false;
-      for (let attempt = 0; attempt < 200; attempt++) {
+      await waitUntil(async () => {
         try {
           await Deno.lstat(wt);
+          return false;
         } catch (error) {
-          if (error instanceof Deno.errors.NotFound) {
-            absent = true;
-            break;
-          }
+          if (error instanceof Deno.errors.NotFound) return true;
           throw error;
         }
-        await new Promise((resolveWait) => setTimeout(resolveWait, 10));
-      }
-      assert(absent, "the removal did not reach its evidence-write boundary");
+      }, "the removal to reach its evidence-write boundary", {
+        timeoutMs: 2_000,
+      });
       await Deno.mkdir(join(wt, "observer-state", "nested"), {
         recursive: true,
       });
@@ -286,20 +284,17 @@ Deno.test("remove-worktree-safely detects a symlink swap at the final absence bo
     await evidenceLock.lock(true);
     const removal = runAgent(dir, ["remove-worktree-safely", wt]);
     try {
-      let absent = false;
-      for (let attempt = 0; attempt < 200; attempt++) {
+      await waitUntil(async () => {
         try {
           await Deno.lstat(wt);
+          return false;
         } catch (error) {
-          if (error instanceof Deno.errors.NotFound) {
-            absent = true;
-            break;
-          }
+          if (error instanceof Deno.errors.NotFound) return true;
           throw error;
         }
-        await new Promise((resolveWait) => setTimeout(resolveWait, 10));
-      }
-      assert(absent, "the removal did not reach its final evidence boundary");
+      }, "the removal to reach its final evidence boundary", {
+        timeoutMs: 2_000,
+      });
       await Deno.symlink(bystander, wt);
     } finally {
       evidenceLock.close();

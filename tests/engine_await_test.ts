@@ -42,6 +42,7 @@ import {
   AWAIT_CONDITIONS,
   type AwaitConditionKind,
 } from "../src/shared/result_schemas.ts";
+import { waitUntil } from "./waiting.ts";
 import {
   AWAIT_CALL_PROFILES,
   type AwaitCallProfile,
@@ -95,11 +96,10 @@ async function armAwaitReadinessProbe(
         settled = { ok: false, error };
       },
     );
-    const deadline = Date.now() + AWAIT_READINESS_TIMEOUT_MS;
-    while (Date.now() < deadline) {
+    await waitUntil(async () => {
       const after = await awaitContinuations(directory);
       if ([...after].some((record) => !before.has(record))) {
-        return;
+        return true;
       }
       if (settled !== undefined) {
         if (settled.ok) {
@@ -116,13 +116,11 @@ async function armAwaitReadinessProbe(
           `${what} rejected before readiness: ${settled.error}`,
         );
       }
-      await new Promise((resolve) =>
-        setTimeout(resolve, AWAIT_READINESS_POLL_MS)
-      );
-    }
-    throw new Error(
-      `timed out after ${AWAIT_READINESS_TIMEOUT_MS}ms waiting for ${what} readiness`,
-    );
+      return false;
+    }, `${what} readiness`, {
+      timeoutMs: AWAIT_READINESS_TIMEOUT_MS,
+      intervalMs: AWAIT_READINESS_POLL_MS,
+    });
   };
 }
 
@@ -1107,17 +1105,29 @@ Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () =>
     }).spawn();
     await readiness(child.status, "CLI await --trunk-moved");
     child.kill("SIGINT");
-    const guard = setTimeout(() => child.kill("SIGKILL"), 8_000);
     const killedAt = Date.now();
-    const status = await child.output();
-    clearTimeout(guard);
+    let status: Deno.CommandOutput | undefined;
+    const output = child.output().then((value) => {
+      status = value;
+      return value;
+    });
+    try {
+      await waitUntil(() => status !== undefined, "the interrupted await process to exit", {
+        timeoutMs: 8_000,
+      });
+    } catch (error) {
+      child.kill("SIGKILL");
+      await output;
+      throw error;
+    }
+    const observed = await output;
     assert(
       Date.now() - killedAt < 5_000,
       "the interrupted wait must die promptly, not run out its timeout",
     );
-    assert(!status.success, "an interrupted wait is not a success");
+    assert(!observed.success, "an interrupted wait is not a success");
     assert(
-      status.code !== AWAIT_TIMEOUT_EXIT_CODE,
+      observed.code !== AWAIT_TIMEOUT_EXIT_CODE,
       "SIGINT death is distinct from the not-yet exit",
     );
   });

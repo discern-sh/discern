@@ -102,11 +102,12 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
+| [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 26      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 8       | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 93      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 94      | —                | node `canonical-sets`       |
 
-93 sets · 149 guard tests · 58 committed artifacts.
+94 sets · 150 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -250,6 +251,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/ssot_claim_guard_test.ts`                   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/temp_dir_guard_test.ts`                     | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities), [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds), [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)                                                                                                                                                         |
 | `tests/temp_dir_test.ts`                           | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/test_waiting_guard_test.ts`                 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/third_party_notices_test.ts`                | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/tip_canon_enrolment_test.ts`                | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/tip_closed_set_guard_test.ts`               | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -3261,6 +3263,42 @@ The only modules permitted to call Deno's raw temporary-directory primitives, ea
 - Glossary: not enrolled — raw temporary-directory creation is a repository development boundary rather than product vocabulary
 - Feature canon: not enrolled — the creator guard is repository infrastructure and does not add a shipped discern capability
 
+## `test-real-delay-boundaries` — Test real-delay boundaries
+
+Every genuine wall-clock interval in executable tests, with its exact module, enclosing test or helper, operation, and reason a condition or fake clock cannot replace it.
+
+- Source: `tests/waiting.ts` — `TEST_REAL_DELAY_BOUNDARIES`
+- Members: 26
+  - `commit-hook-quiescence-window`
+  - `escaped-daemon-hold`
+  - `job-descendant-quiescence-window`
+  - `interactive-tty-resize-delay`
+  - `interactive-tty-start-delay`
+  - `pty-input-phase-settle`
+  - `pty-child-frame-completion`
+  - `pty-child-frame-middle`
+  - `pty-child-held-input-window`
+  - `pty-child-progress-phase-two`
+  - `pty-child-progress-phase-one`
+  - `pty-child-slow-start`
+  - `pty-input-step-pacing`
+  - `pty-termination-grace`
+  - `routed-command-quiescence-window`
+  - `terminal-resize-delay`
+  - `slot-lock-holder-lifetime`
+  - `suite-temp-child-lifetime`
+  - `self-signal-desk-lifetime`
+  - `self-signal-desk-trigger`
+  - `self-signal-owned-lifetime`
+  - `self-signal-owned-trigger`
+  - `validation-capture-deadline-watchdog`
+  - `waiting-real-delay-fake-time`
+  - `worktree-probe-hook-quiescence-window`
+  - `worktree-probe-job-quiescence-window`
+- Guards: `tests/test_waiting_guard_test.ts`
+- Glossary: not enrolled — real test-delay enrollment is a repository development boundary rather than product vocabulary
+- Feature canon: not enrolled — the condition-oriented waiting capability supports this repository and is not part of the shipped discern binary
+
 ## `tool-temp-directory-kinds` — Tool temp-directory kinds
 
 Every callback-scoped scratch directory used by a standalone repository tool, with its stable id, secure prefix, purpose, and cleanup policy.
@@ -3296,7 +3334,7 @@ Every supported lifetime for a temporary directory created by tests or executabl
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 93
+- Members: 94
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -3387,6 +3425,7 @@ This meta-registry: the closed set of closed sets.
   - `artifact-validators`
   - `canary-tests`
   - `temp-directory-creator-authorities`
+  - `test-real-delay-boundaries`
   - `tool-temp-directory-kinds`
   - `test-temp-directory-ownership-modes`
   - `canonical-sets`

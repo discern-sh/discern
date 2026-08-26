@@ -36,6 +36,7 @@ import {
   TestOutputSchema,
   UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
+import { waitUntil } from "./waiting.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import { z } from "@zod/zod";
 import { assertResultDataKey, decodeWith } from "./decode_cli_result.ts";
@@ -246,17 +247,27 @@ async function settledWithin<T>(
   promise: Promise<T>,
   timeoutMs: number,
 ): Promise<T | undefined> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<undefined>((resolve) => {
-    timer = setTimeout(() => resolve(undefined), timeoutMs);
-  });
+  let outcome:
+    | { readonly ok: true; readonly value: T }
+    | { readonly ok: false; readonly error: unknown }
+    | undefined;
+  void promise.then(
+    (value) => {
+      outcome = { ok: true, value };
+    },
+    (error: unknown) => {
+      outcome = { ok: false, error };
+    },
+  );
   try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    if (timer !== undefined) {
-      clearTimeout(timer);
-    }
+    await waitUntil(() => outcome !== undefined, "the MCP operation to settle", {
+      timeoutMs,
+    });
+  } catch {
+    return undefined;
   }
+  if (outcome?.ok === false) throw outcome.error;
+  return outcome?.value;
 }
 
 /** A live MCP server process with line-framed JSON-RPC send/recv over stdio. */
@@ -297,37 +308,36 @@ class McpClient {
       (this.receivedResponse
         ? MCP_RECV_TIMEOUT_MS
         : MCP_SERVER_READINESS_TIMEOUT_MS);
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    let timedOut = false;
+    let outcome:
+      | { readonly ok: true; readonly value: unknown }
+      | { readonly ok: false; readonly error: unknown }
+      | undefined;
+    void this.recvLine().then(
+      (value) => {
+        outcome = { ok: true, value };
+      },
+      (error: unknown) => {
+        outcome = { ok: false, error };
+      },
+    );
     try {
-      const response = await Promise.race([
-        this.recvLine(),
-        new Promise((_, reject) => {
-          timeout = setTimeout(
-            () => {
-              timedOut = true;
-              reject(
-                new Error(
-                  `timed out waiting for MCP response after ${deadlineMs}ms`,
-                ),
-              );
-            },
-            deadlineMs,
-          );
-        }),
-      ]);
+      await waitUntil(() => outcome !== undefined, "the MCP response", {
+        timeoutMs: deadlineMs,
+      });
+      if (outcome?.ok === false) throw outcome.error;
+      if (outcome === undefined) throw new Error("MCP response settled without evidence");
       this.receivedResponse = true;
-      return response;
+      return outcome.value;
     } catch (error) {
-      if (timedOut) {
+      if (outcome === undefined) {
         // Reject only after the server and any in-flight gate tree are gone.
         await this.terminate();
+        throw new Error(
+          `timed out waiting for MCP response after ${deadlineMs}ms`,
+          { cause: error },
+        );
       }
       throw error;
-    } finally {
-      if (timeout !== undefined) {
-        clearTimeout(timeout);
-      }
     }
   }
 
@@ -4463,22 +4473,6 @@ function sleeperConfig(): string {
   ].join("\n");
 }
 
-/** Poll until `check` is true, failing the test after the deadline. */
-async function pollUntil(
-  check: () => Promise<boolean> | boolean,
-  what: string,
-  timeoutMs = 30_000,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (await check()) {
-      return;
-    }
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  throw new Error(`timed out waiting for ${what}`);
-}
-
 /** Whether a PID is still alive (signal-0 semantics via a harmless SIGCONT). */
 function pidAlive(pid: number): boolean {
   try {
@@ -4512,9 +4506,10 @@ async function startInFlightFinish(
     params: { name: "discern_done", arguments: {} },
   });
   const pidFile = join(dir, "gate.pid");
-  await pollUntil(
+  await waitUntil(
     async () => await targetExists(pidFile),
     "the gate's check job to start",
+    { timeoutMs: 30_000, intervalMs: 50 },
   );
   const jobPid = Number((await Deno.readTextFile(pidFile)).trim());
   assert(Number.isFinite(jobPid) && jobPid > 0, `bad gate.pid: ${jobPid}`);
@@ -4540,10 +4535,10 @@ Deno.test("mcp: a response timeout tree-kills the server's in-flight gate before
         caught.message,
         "timed out waiting for MCP response",
       );
-      await pollUntil(
+      await waitUntil(
         () => !pidAlive(jobPid),
         `timed-out gate job ${jobPid} to die`,
-        1_000,
+        { timeoutMs: 1_000, intervalMs: 50 },
       );
     } finally {
       await mcp.close().catch(() => undefined);
@@ -4566,10 +4561,10 @@ Deno.test("mcp: cancelling an in-flight discern_done tree-kills its gate jobs", 
       method: "notifications/cancelled",
       params: { requestId: 2, reason: "user cancelled" },
     });
-    await pollUntil(
+    await waitUntil(
       () => !pidAlive(jobPid),
       `cancelled gate job ${jobPid} to die`,
-      10_000,
+      { timeoutMs: 10_000, intervalMs: 50 },
     );
 
     assertEquals(await mcp.close(), 0);
@@ -4588,10 +4583,10 @@ Deno.test("mcp: server shutdown (stdin EOF) tree-kills an in-flight gate", async
     // (killing its jobs) before it exits, not leave them orphaned.
     await mcp.closeStdin();
     assertEquals(await mcp.finish(), 0);
-    await pollUntil(
+    await waitUntil(
       () => !pidAlive(jobPid),
       `gate job ${jobPid} to die with the server`,
-      10_000,
+      { timeoutMs: 10_000, intervalMs: 50 },
     );
   });
 });

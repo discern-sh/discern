@@ -31,6 +31,7 @@ import {
 } from "../src/engine/worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { spawnJob } from "../src/engine/jobs/command.ts";
+import { realDelay, waitUntil } from "./waiting.ts";
 
 /** A quiet lifecycle context rooted at the main checkout `dir`. */
 async function ctxAt(dir: string): Promise<LifecycleContext> {
@@ -129,7 +130,7 @@ Deno.test({
       assert(outcome.kind === "probed" && outcome.ok === true);
       // Give the escaped writer time to run after the probe's removal. A success
       // verdict is valid only if the command boundary first quiesced its group.
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
+      await realDelay("worktree-probe-job-quiescence-window", 350);
       await assertNoProbeRemains(dir, probeDir);
     });
   },
@@ -165,7 +166,7 @@ Deno.test({
       );
 
       assert(outcome.kind === "probed" && outcome.ok === true);
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 400));
+      await realDelay("worktree-probe-hook-quiescence-window", 400);
       await assertNoProbeRemains(dir, probeDir);
     });
   },
@@ -213,20 +214,17 @@ Deno.test({
 
       try {
         await created;
-        let absent = false;
-        for (let attempt = 0; attempt < 200; attempt++) {
+        await waitUntil(async () => {
           try {
             await Deno.lstat(probeDir);
+            return false;
           } catch (error) {
-            if (error instanceof Deno.errors.NotFound) {
-              absent = true;
-              break;
-            }
+            if (error instanceof Deno.errors.NotFound) return true;
             throw error;
           }
-          await new Promise((resolveWait) => setTimeout(resolveWait, 10));
-        }
-        assert(absent, "probe teardown never reached its final verification");
+        }, "probe teardown to reach its final verification", {
+          timeoutMs: 2_000,
+        });
         await Deno.mkdir(join(probeDir, "replacement", "nested"), {
           recursive: true,
         });

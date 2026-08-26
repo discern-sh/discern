@@ -13,6 +13,7 @@
  */
 
 import { runDeskInteractiveChild } from "../../src/engine/desk/desk.ts";
+import { waitUntil } from "../waiting.ts";
 
 function signalArg(value: string | undefined): Deno.Signal {
   switch (value) {
@@ -31,15 +32,11 @@ if (pidFile === undefined) {
   throw new Error("usage: desk_interactive_driver <signal> <child-pid-file>");
 }
 
-const childSource = [
-  `await Deno.writeTextFile(${JSON.stringify(pidFile)}, String(Deno.pid));`,
-  `setTimeout(() => Deno.kill(${Deno.pid}, ${JSON.stringify(signal)}), 150);`,
-  "await new Promise((resolve) => setTimeout(resolve, 30_000));",
-].join("\n");
+const child = new URL("self_signalling_child.ts", import.meta.url).pathname;
 
 const code = await runDeskInteractiveChild(
   Deno.execPath(),
-  ["eval", childSource],
+  ["run", "-A", child, "desk", String(Deno.pid), signal, pidFile],
   Deno.cwd(),
   {},
 );
@@ -48,14 +45,18 @@ const code = await runDeskInteractiveChild(
 // the interrupted child must be gone.
 const childPid = Number((await Deno.readTextFile(pidFile)).trim());
 let childAlive = Number.isFinite(childPid) && childPid > 0;
-const deadline = Date.now() + 5_000;
-while (childAlive && Date.now() < deadline) {
+await waitUntil(() => {
+  if (!childAlive) return true;
   try {
     Deno.kill(childPid, "SIGCONT");
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    return false;
   } catch {
     childAlive = false;
+    return true;
   }
-}
+}, "the interrupted Desk child to exit", {
+  timeoutMs: 5_000,
+  intervalMs: 50,
+});
 
 console.log(JSON.stringify({ resumed: true, code, childAlive }));

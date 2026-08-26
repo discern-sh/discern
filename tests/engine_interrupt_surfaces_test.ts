@@ -43,6 +43,7 @@ import {
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { waitUntil } from "./waiting.ts";
 
 const DeskDriverResultSchema = z.object({
   resumed: z.boolean(),
@@ -76,23 +77,26 @@ async function waitForSurfaceStart(
     earlyStatus = status;
   });
 
-  const deadline = Date.now() + SURFACE_READINESS_TIMEOUT_MS;
-  while (true) {
+  await waitUntil(() => {
     if (earlyStatus !== undefined) {
-      const [outText, errText] = await drained;
       throw new Error(
-        `the surface exited before its child tree started: ${
-          JSON.stringify(earlyStatus)
-        }\nstdout:\n${outText}\nstderr:\n${errText}`,
+        `the surface exited before its child tree started: ${JSON.stringify(earlyStatus)}`,
       );
     }
-    if (check()) return;
-    if (Date.now() >= deadline) break;
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-  }
-  throw new Error(
-    `timed out after ${SURFACE_READINESS_TIMEOUT_MS}ms waiting for the surface's child tree to become ready`,
-  );
+    return check();
+  }, "the surface's child tree to become ready", {
+    timeoutMs: SURFACE_READINESS_TIMEOUT_MS,
+    intervalMs: POLL_INTERVAL_MS,
+  }).catch(async (error: unknown) => {
+    if (earlyStatus === undefined) throw error;
+    const [outText, errText] = await drained;
+    throw new Error(
+      `the surface exited before its child tree started: ${
+        JSON.stringify(earlyStatus)
+      }\nstdout:\n${outText}\nstderr:\n${errText}`,
+      { cause: error },
+    );
+  });
 }
 
 /** Whether a PID is still alive (signal 0 semantics via a harmless SIGCONT). */
@@ -165,12 +169,14 @@ async function waitForTreeShutdown(
   descendantPid: number,
   serverPort: number | undefined,
 ): Promise<void> {
-  const deadline = Date.now() + TREE_SHUTDOWN_TIMEOUT_MS;
   let pending = pendingTreeShutdown(leaderPid, descendantPid, serverPort);
-  while (pending.length > 0 && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  await waitUntil(() => {
     pending = pendingTreeShutdown(leaderPid, descendantPid, serverPort);
-  }
+    return pending.length === 0;
+  }, "the interrupted child tree to shut down", {
+    timeoutMs: TREE_SHUTDOWN_TIMEOUT_MS,
+    intervalMs: POLL_INTERVAL_MS,
+  });
   assertEquals(
     pending,
     [],

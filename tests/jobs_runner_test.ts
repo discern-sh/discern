@@ -20,6 +20,7 @@ import {
   withTempDir,
 } from "./helpers.ts";
 import { lstatIfExists, targetExists } from "../src/shared/fs_presence.ts";
+import { realDelay, waitUntil } from "./waiting.ts";
 
 const CWD = Deno.cwd();
 
@@ -226,7 +227,7 @@ Deno.test({
 
       assertEquals(result.ok, true);
       await Deno.writeTextFile(release, "");
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 350));
+      await realDelay("job-descendant-quiescence-window", 350);
       const lateObservation = await lstatIfExists(late);
       assertEquals(
         lateObservation,
@@ -606,9 +607,11 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
       write: () => {},
     });
     // Give the jobs a moment to start, then cancel from outside.
-    while (!(await targetExists(join(dir, "inner.pid")))) {
-      await new Promise((r) => setTimeout(r, 25));
-    }
+    await waitUntil(
+      async () => await targetExists(join(dir, "inner.pid")),
+      "the timed job's inner process to start",
+      { intervalMs: 25 },
+    );
     const start = performance.now();
     external.abort();
     const r = await run;
@@ -651,9 +654,11 @@ Deno.test("runParallel: an external abort stays bounded when an escaped descenda
     // The marker is written only after the direct shell has exited 0. Abort
     // while the escaped daemon alone holds the pipes: cancellation belongs to
     // the full unsettled job, not merely to a non-zero leader exit.
-    while (!(await targetExists(join(dir, "daemon.up")))) {
-      await new Promise((r) => setTimeout(r, 25));
-    }
+    await waitUntil(
+      async () => await targetExists(join(dir, "daemon.up")),
+      "the escaped daemon to hold the job pipes",
+      { intervalMs: 25 },
+    );
     const start = performance.now();
     external.abort();
     const r = await run;
@@ -702,9 +707,11 @@ Deno.test("runSerial: an external abort kills the running job and skips the rest
       signal: external.signal,
       write: () => {},
     });
-    while (!(await targetExists(join(dir, "current.pid")))) {
-      await new Promise((r) => setTimeout(r, 25));
-    }
+    await waitUntil(
+      async () => await targetExists(join(dir, "current.pid")),
+      "the serial job to start",
+      { intervalMs: 25 },
+    );
     external.abort();
     const r = await run;
 
@@ -718,15 +725,17 @@ Deno.test("runSerial: an external abort kills the running job and skips the rest
 
 /** Poll until a PID no longer exists (signal 0 probes without sending). */
 async function waitForExit(pid: number): Promise<void> {
-  for (let i = 0; i < 100; i++) {
+  await waitUntil(() => {
     try {
       Deno.kill(pid, "SIGCONT");
+      return false;
     } catch {
-      return; // gone
+      return true;
     }
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  throw new Error(`process ${pid} still alive after abort`);
+  }, `process ${pid} to exit after abort`, {
+    timeoutMs: 5_000,
+    intervalMs: 50,
+  });
 }
 
 Deno.test("stream mode prefixes each output line", async () => {

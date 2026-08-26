@@ -26,6 +26,7 @@ import { bestEffortFs, pathExists } from "../src/shared/fs_presence.ts";
 import { logbookEventSchema } from "../src/engine/logbook/schema.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
+import { waitUntil } from "./waiting.ts";
 
 const DENO_TASKS_SCHEMA = z.object({
   tasks: z.record(z.string(), z.string()).optional(),
@@ -81,20 +82,6 @@ function slotDirOf(root: string): string {
 /** Count non-overlapping appearances of one diagnostic fragment. */
 function occurrenceCount(text: string, fragment: string): number {
   return text.split(fragment).length - 1;
-}
-
-/** Poll a predicate until it holds or the named readiness condition expires. */
-async function pollUntil(
-  what: string,
-  predicate: () => boolean | Promise<boolean>,
-): Promise<void> {
-  const deadline = Date.now() + TEST_PROCESS_TIMEOUT_MS;
-  while (!(await predicate())) {
-    if (Date.now() >= deadline) {
-      throw new Error(`timed out waiting for ${what}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
 }
 
 /** Hold the repository's only slot until a serialization test releases it. */
@@ -186,6 +173,38 @@ async function spawnAgent(
   };
 }
 
+/** Await one fixture process by condition, terminating it if its bound expires. */
+async function settledAgent(
+  running: RunningAgent,
+  describe: string,
+): Promise<RunResult> {
+  let outcome:
+    | { readonly ok: true; readonly value: RunResult }
+    | { readonly ok: false; readonly error: unknown }
+    | undefined;
+  void running.result.then(
+    (value) => {
+      outcome = { ok: true, value };
+    },
+    (error: unknown) => {
+      outcome = { ok: false, error };
+    },
+  );
+  try {
+    await waitUntil(() => outcome !== undefined, describe, {
+      timeoutMs: TEST_PROCESS_TIMEOUT_MS,
+      intervalMs: 50,
+    });
+  } catch (error) {
+    running.kill("SIGTERM");
+    await running.result.catch(() => undefined);
+    throw error;
+  }
+  if (outcome?.ok === false) throw outcome.error;
+  if (outcome === undefined) throw new Error(`${describe} settled without evidence`);
+  return outcome.value;
+}
+
 interface QueueEvent {
   kind: "begin" | "verb";
   invocation?: string | undefined;
@@ -256,11 +275,12 @@ Deno.test("queue serializes two wrapped commands at cap 1 and narrates only on s
         "b",
         marker,
       ]);
-      await pollUntil(
-        "both wrappers to report their queue wait",
+      await waitUntil(
         () =>
           a.stderrSoFar().includes(QUEUED_TEXT) &&
           b.stderrSoFar().includes(QUEUED_TEXT),
+        "both wrappers to report their queue wait",
+        { timeoutMs: TEST_PROCESS_TIMEOUT_MS, intervalMs: 50 },
       );
       assertEquals(
         await pathExists(marker),
@@ -340,9 +360,10 @@ Deno.test("queue treats any non-empty marker as accounted and normalizes it for 
     );
     let result: RunResult;
     try {
-      await pollUntil(
-        "the marked wrapper child to bypass the held slot",
+      await waitUntil(
         () => pathExists(observed),
+        "the marked wrapper child to bypass the held slot",
+        { timeoutMs: TEST_PROCESS_TIMEOUT_MS, intervalMs: 50 },
       );
     } finally {
       release();
@@ -386,15 +407,11 @@ Deno.test("queue nesting takes one slot total at cap 1", async () => {
       ready,
       releaseChild,
     ]);
-    let watchdog: ReturnType<typeof setTimeout> | undefined;
     try {
-      watchdog = setTimeout(
-        () => running.kill("SIGTERM"),
-        TEST_PROCESS_TIMEOUT_MS,
-      );
-      await pollUntil(
-        "the nested wrapper child to start",
+      await waitUntil(
         () => pathExists(ready),
+        "the nested wrapper child to start",
+        { timeoutMs: TEST_PROCESS_TIMEOUT_MS, intervalMs: 50 },
       );
       const probe = await Deno.open(join(slotDirOf(dir), "slot-1"), {
         read: true,
@@ -410,7 +427,7 @@ Deno.test("queue nesting takes one slot total at cap 1", async () => {
         probe.close();
       }
       await Deno.writeTextFile(releaseChild, "go");
-      const result = await running.result;
+      const result = await settledAgent(running, "the nested queue process to settle");
       assertEquals(result.code, 0, result.output);
       assertEquals(await Deno.readTextFile(observed), "1");
       assertEquals(occurrenceCount(result.stderr, QUEUED_TEXT), 0);
@@ -428,7 +445,6 @@ Deno.test("queue nesting takes one slot total at cap 1", async () => {
       await running.result;
       throw error;
     } finally {
-      if (watchdog !== undefined) clearTimeout(watchdog);
       await Deno.writeTextFile(releaseChild, "go").catch(() => {});
     }
   });
@@ -466,21 +482,13 @@ Deno.test("queue around a capped gate takes one slot total at cap 1", async () =
       ["queue", "--", "discern", "test", "--json"],
       { [TEST_RUN_SLOT_ENV]: "" },
     );
-    const watchdog = setTimeout(
-      () => running.kill("SIGTERM"),
-      TEST_PROCESS_TIMEOUT_MS,
-    );
-    try {
-      const result = await running.result;
-      assertEquals(result.code, 0, result.output);
-      assertEquals(await Deno.readTextFile(observed), "1");
-      const events = await queueEvents(dir);
-      assertEquals(events.length, 2, "the outer wrapper owns telemetry");
-      assertEquals(events.map((event) => event.kind), ["begin", "verb"]);
-      assertEquals(events[1]?.target, "discern");
-    } finally {
-      clearTimeout(watchdog);
-    }
+    const result = await settledAgent(running, "the capped gate queue to settle");
+    assertEquals(result.code, 0, result.output);
+    assertEquals(await Deno.readTextFile(observed), "1");
+    const events = await queueEvents(dir);
+    assertEquals(events.length, 2, "the outer wrapper owns telemetry");
+    assertEquals(events.map((event) => event.kind), ["begin", "verb"]);
+    assertEquals(events[1]?.target, "discern");
   });
 });
 
@@ -520,19 +528,22 @@ Deno.test("a gate queued behind a wrapped sibling names queue on its wait line",
     ]);
     let gate: RunningAgent | undefined;
     try {
-      await pollUntil(
-        "the wrapped sibling to hold the slot",
+      await waitUntil(
         () => pathExists(ready),
+        "the wrapped sibling to hold the slot",
+        { timeoutMs: TEST_PROCESS_TIMEOUT_MS, intervalMs: 50 },
       );
-      await pollUntil(
-        "the queue begin event",
+      await waitUntil(
         async () =>
           (await queueEvents(dir)).some((event) => event.kind === "begin"),
+        "the queue begin event",
+        { timeoutMs: TEST_PROCESS_TIMEOUT_MS, intervalMs: 50 },
       );
       gate = await spawnAgent(dir, ["test"], { [TEST_RUN_SLOT_ENV]: "" });
-      await pollUntil(
-        "the gate wait line",
+      await waitUntil(
         () => gate?.stdoutSoFar().includes(QUEUED_TEXT) === true,
+        "the gate wait line",
+        { timeoutMs: TEST_PROCESS_TIMEOUT_MS, intervalMs: 50 },
       );
       assertStringIncludes(
         gate.stdoutSoFar(),
@@ -585,22 +596,14 @@ Deno.test("a capped gate completes a slot-wrapped test job at cap 1", async () =
       ["test", "--json"],
       { [TEST_RUN_SLOT_ENV]: "" },
     );
-    const watchdog = setTimeout(
-      () => running.kill("SIGTERM"),
-      TEST_PROCESS_TIMEOUT_MS,
+    const result = await settledAgent(running, "the nested gate queue to settle");
+    assertEquals(result.code, 0, result.output);
+    assertEquals(await Deno.readTextFile(observed), "1");
+    assertEquals(
+      await queueEvents(dir),
+      [],
+      "the gate owns the marked inner wrapper's lifecycle",
     );
-    try {
-      const result = await running.result;
-      assertEquals(result.code, 0, result.output);
-      assertEquals(await Deno.readTextFile(observed), "1");
-      assertEquals(
-        await queueEvents(dir),
-        [],
-        "the gate owns the marked inner wrapper's lifecycle",
-      );
-    } finally {
-      clearTimeout(watchdog);
-    }
   });
 });
 
