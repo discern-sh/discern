@@ -909,7 +909,9 @@ async function runGate(
     : failedStage === null
     ? await resolveStandardActions(root, stdPlan.standards)
     : resolveStandardActionsFromConfig(stdPlan.standards);
-  const gateStandards = buildStandardJobs(root, resolved);
+  const gateStandards = buildStandardJobs(root, resolved, {
+    defaultTimeoutS: cfg.gate.timeout,
+  });
   const ctGroups = checkTestGroups(cfg, gateStandards.jobs);
   let validation: ValidationStart | undefined;
   if (cfg.project.logbook) {
@@ -956,18 +958,21 @@ async function runGate(
         }
       }
     }
-    if (
-      !(await runGroup(
-        group,
-        results,
-        runOpts,
-        runOut,
-        slots,
-        gateStandards.evaluators,
-      ))
-    ) {
+    const groupOk = await runGroup(
+      group,
+      results,
+      runOpts,
+      runOut,
+      slots,
+      gateStandards.evaluators,
+    );
+    gateStandards.settle(results);
+    const standardFailure = group.jobs.some((job) =>
+      job.kind === "standard" && (results.get(job.label)?.code ?? 0) !== 0
+    );
+    if (!groupOk) {
       failedStage = group.stage;
-    } else if (holdsStandards && replayFailure) {
+    } else if (holdsStandards && (replayFailure || standardFailure)) {
       failedStage = group.stage;
     } else {
       await snapshotAfter(group.stage);

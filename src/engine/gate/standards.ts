@@ -30,9 +30,12 @@ import {
 } from "../../shared/config_schema.ts";
 import { colorEnabled, makeOut, outSink } from "../output.ts";
 import {
+  buildStandardMeasurementPlan,
   buildStandardPlan,
   perNote,
   type PlannedStandard,
+  type ResolvedStandard,
+  type StandardAction,
   standardJobLabel,
   standardPinEligibility,
   type StandardPlan,
@@ -339,18 +342,7 @@ export async function evaluateMeasuredOutput(
   return verdict.held ? verdict : { ...verdict, reproduce_cmd: command };
 }
 
-/** What one standard's shared job should do. The gate may replay or defer;
- * standalone standards always supplies `measure`. */
-export type StandardAction =
-  | { kind: "measure" }
-  | { kind: "replay"; value: number; from: string }
-  | { kind: "defer" };
-
-/** One planned standard paired with its resolved action. */
-export interface ResolvedStandard {
-  standard: PlannedStandard;
-  action: StandardAction;
-}
+export type { ResolvedStandard, StandardAction } from "./standard_plan.ts";
 
 /** A holding value's standing against the current limit. */
 function heldVerdict(
@@ -385,6 +377,7 @@ export function plannedStandardJob(
   standard: PlannedStandard,
   action: StandardAction,
   label: string = standardJobLabel(standard.name),
+  opts: { runsProcess?: boolean; sharedWith?: string } = {},
 ): PlannedJob {
   if (action.kind === "defer") {
     return {
@@ -415,6 +408,11 @@ export function plannedStandardJob(
     kind: "standard",
     reportStage: "test",
     willRun: true,
+    ...(opts.runsProcess === false ? { runsProcess: false } : {}),
+    ...(opts.sharedWith === undefined ? {} : {
+      note:
+        `${standard.command} (measurement process shared with ${opts.sharedWith})`,
+    }),
     ...(standard.timeoutS !== undefined ? { timeoutS: standard.timeoutS } : {}),
   };
 }
@@ -428,6 +426,69 @@ export interface StandardJobs {
   outcomes: Map<string, GateStandard>;
   /** Full metric verdicts retained for standalone envelope rendering. */
   verdicts: Map<string, StandardVerdict>;
+  /** Fan shared-process evidence back into every logical Standard result. Must
+   * run after the containing scheduler group settles and before serialization. */
+  settle(results: Map<string, JobResult>): void;
+}
+
+/** The common reading fields every disposition records. */
+function standardReadingBase(
+  standard: PlannedStandard,
+): Pick<GateStandard, "name" | "direction" | "limit" | "margin"> {
+  return {
+    name: standard.name,
+    direction: standard.direction,
+    limit: standard.limit,
+    margin: standard.margin,
+  };
+}
+
+/** Evaluate one logical Standard from a shared process result, recording its
+ * independent verdict and reading while retaining the process's duration and
+ * output evidence. */
+async function evaluateStandardProcessResult(
+  root: string,
+  standard: PlannedStandard,
+  label: string,
+  result: JobResult,
+  outcomes: Map<string, GateStandard>,
+  verdicts: Map<string, StandardVerdict>,
+): Promise<JobResult> {
+  const verdict: StandardVerdict = standard.command === ""
+    ? {
+      held: false,
+      reason:
+        `standard '${standard.name}' has no run command (set run = "<command>" under [standards.${standard.name}]).`,
+    }
+    : await evaluateMeasuredOutput(standard, result.output ?? "", root);
+  verdicts.set(standard.name, verdict);
+  const base = standardReadingBase(standard);
+  outcomes.set(standard.name, {
+    ...base,
+    measurement: "measured",
+    duration_s: result.durationS,
+    ...(verdict.value !== undefined ? { value: verdict.value } : {}),
+    ...(verdict.value !== undefined
+      ? standardPinEvidence(standard, verdict.value)
+      : {}),
+    ...(verdict.held && verdict.value !== undefined
+      ? { verdict: heldVerdict(standard, verdict.value) }
+      : {}),
+    ...(!verdict.held && verdict.value !== undefined
+      ? { verdict: "regressed" as const }
+      : {}),
+  });
+  if (verdict.held) {
+    const { output: _output, ...rest } = result;
+    return { ...rest, label, status: "ok", code: 0 };
+  }
+  return {
+    ...result,
+    label,
+    status: "failed",
+    code: result.code === 0 ? 1 : result.code,
+    failureMessage: verdict.reason ?? `standard '${standard.name}' failed.`,
+  };
 }
 
 /**
@@ -438,7 +499,10 @@ export interface StandardJobs {
 export function buildStandardJobs(
   root: string,
   resolved: ResolvedStandard[],
-  opts: { jobLabel?: (name: string) => string } = {},
+  opts: {
+    defaultTimeoutS: number;
+    jobLabel?: (name: string) => string;
+  },
 ): StandardJobs {
   const jobs: PlannedJob[] = [];
   const evaluators: JobEvaluators = new Map();
@@ -446,16 +510,43 @@ export function buildStandardJobs(
   const outcomes = new Map<string, GateStandard>();
   const verdicts = new Map<string, StandardVerdict>();
   const labelFor = opts.jobLabel ?? standardJobLabel;
+  const measurementPlan = buildStandardMeasurementPlan(
+    root,
+    resolved,
+    opts.defaultTimeoutS,
+  );
+  const measurementByName = new Map<
+    string,
+    { leader: PlannedStandard; members: PlannedStandard[] }
+  >();
+  for (const measurement of measurementPlan.measurements) {
+    const leader = measurement.standards[0];
+    if (leader === undefined) {
+      continue;
+    }
+    for (const standard of measurement.standards) {
+      measurementByName.set(standard.name, {
+        leader,
+        members: measurement.standards,
+      });
+    }
+  }
 
   for (const { standard, action } of resolved) {
     const label = labelFor(standard.name);
-    const base = {
-      name: standard.name,
-      direction: standard.direction,
-      limit: standard.limit,
-      margin: standard.margin,
-    };
-    jobs.push(plannedStandardJob(standard, action, label));
+    const base = standardReadingBase(standard);
+    const measurement = measurementByName.get(standard.name);
+    const leader = measurement?.leader;
+    const leaderLabel = leader === undefined
+      ? undefined
+      : labelFor(leader.name);
+    const ownsProcess = action.kind !== "measure" || leader === standard;
+    jobs.push(plannedStandardJob(standard, action, label, {
+      runsProcess: ownsProcess,
+      ...(action.kind === "measure" && !ownsProcess && leaderLabel !== undefined
+        ? { sharedWith: leaderLabel }
+        : {}),
+    }));
     if (action.kind === "defer") {
       outcomes.set(standard.name, { ...base, measurement: "deferred" });
       continue;
@@ -496,44 +587,80 @@ export function buildStandardJobs(
     }
 
     outcomes.set(standard.name, { ...base, measurement: "skipped" });
+    if (!ownsProcess || measurement === undefined) {
+      continue;
+    }
     evaluators.set(label, async (result: JobResult): Promise<JobResult> => {
-      const verdict: StandardVerdict = standard.command === ""
-        ? {
-          held: false,
-          reason:
-            `standard '${standard.name}' has no run command (set run = "<command>" under [standards.${standard.name}]).`,
+      let aggregate = result;
+      let failed = false;
+      for (const member of measurement.members) {
+        const memberLabel = labelFor(member.name);
+        const evaluated = await evaluateStandardProcessResult(
+          root,
+          member,
+          memberLabel,
+          result,
+          outcomes,
+          verdicts,
+        );
+        synthesized.set(memberLabel, evaluated);
+        if (evaluated.code !== 0) {
+          failed = true;
         }
-        : await evaluateMeasuredOutput(standard, result.output ?? "", root);
-      verdicts.set(standard.name, verdict);
-      outcomes.set(standard.name, {
-        ...base,
-        measurement: "measured",
-        duration_s: result.durationS,
-        ...(verdict.value !== undefined ? { value: verdict.value } : {}),
-        ...(verdict.value !== undefined
-          ? standardPinEvidence(standard, verdict.value)
-          : {}),
-        ...(verdict.held && verdict.value !== undefined
-          ? { verdict: heldVerdict(standard, verdict.value) }
-          : {}),
-        ...(!verdict.held && verdict.value !== undefined
-          ? { verdict: "regressed" as const }
-          : {}),
-      });
-      if (verdict.held) {
-        const { output: _output, ...rest } = result;
-        return { ...rest, status: "ok", code: 0 };
       }
-      return {
-        ...result,
-        status: "failed",
-        code: result.code === 0 ? 1 : result.code,
-        failureMessage: verdict.reason ??
-          `standard '${standard.name}' failed.`,
-      };
+      if (failed) {
+        aggregate = {
+          ...result,
+          status: "failed",
+          code: result.code === 0 ? 1 : result.code,
+          failureMessage:
+            "one or more Standards failed against the shared measurement",
+        };
+      } else {
+        aggregate = { ...result, status: "ok", code: 0 };
+      }
+      return aggregate;
     });
   }
-  return { jobs, evaluators, synthesized, outcomes, verdicts };
+  const settle = (results: Map<string, JobResult>): void => {
+    for (const measurement of measurementPlan.measurements) {
+      const leader = measurement.standards[0];
+      if (leader === undefined) {
+        continue;
+      }
+      const leaderLabel = labelFor(leader.name);
+      const processResult = results.get(leaderLabel);
+      if (processResult === undefined) {
+        continue;
+      }
+      // Cancellation and timeout skip evaluators. Fan the scheduler's genuine
+      // process failure to every dependent Standard without inventing a metric.
+      if (!synthesized.has(leaderLabel)) {
+        for (const member of measurement.standards) {
+          const memberLabel = labelFor(member.name);
+          synthesized.set(memberLabel, {
+            ...processResult,
+            label: memberLabel,
+          });
+          if (processResult.timedOutAfterS !== undefined) {
+            outcomes.set(member.name, {
+              ...standardReadingBase(member),
+              measurement: "measured",
+              duration_s: processResult.durationS,
+            });
+          }
+        }
+      }
+      for (const member of measurement.standards) {
+        const memberLabel = labelFor(member.name);
+        const result = synthesized.get(memberLabel);
+        if (result !== undefined) {
+          results.set(memberLabel, result);
+        }
+      }
+    }
+  };
+  return { jobs, evaluators, synthesized, outcomes, verdicts, settle };
 }
 
 /** One standard's measured outcome, carried alongside its {@link StepResult} so the
@@ -709,7 +836,7 @@ async function executeStandardPlan(
       standard,
       action: { kind: "measure" as const },
     })),
-    { jobLabel: (name) => name },
+    { defaultTimeoutS: opts.timeoutS, jobLabel: (name) => name },
   );
   const plannedByName = new Map<string, PlanStep>(
     steps.map((step) => [step.label, step]),
@@ -745,6 +872,7 @@ async function executeStandardPlan(
     opts.slots,
     jobs.evaluators,
   );
+  jobs.settle(jobResults);
   const serialized = await serializeJobSteps([group], jobResults);
   const executedByName = new Map<string, StepResult>(
     serialized.steps.map((result) => [result.step.label, result]),
