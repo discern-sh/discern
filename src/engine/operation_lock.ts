@@ -29,6 +29,7 @@ import {
   runWithOperationLocks,
 } from "../shared/operation_lock_context.ts";
 import type { DiscernResult } from "../shared/result.ts";
+import { cliJsonResultVerb } from "../shared/result_contracts.ts";
 import { sha256Hex } from "../shared/sha256.ts";
 import {
   type PlannedWriteTarget,
@@ -66,9 +67,9 @@ interface AcquiredLock {
   readonly lease: OperationLockLease;
 }
 
-/** Map a classified nested path to the top-level verb used by result schemas. */
+/** Resolve the serialized verb from the public contract for this command path. */
 function resultVerb(command: string): string {
-  return command.split(" ", 1)[0] ?? command;
+  return cliJsonResultVerb(command) ?? command.split(" ", 1)[0] ?? command;
 }
 
 /**

@@ -12,8 +12,10 @@ import {
   withOperationLock,
 } from "../src/engine/operation_lock.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
+import { OPERATION_EFFECTS } from "../src/shared/operation_effects.ts";
 import { currentOperationLocks } from "../src/shared/operation_lock_context.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { cliJsonResultVerb } from "../src/shared/result_contracts.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -84,17 +86,6 @@ Deno.test("a Git writer probes Git administration without enrolling file-only wr
       );
       assertStringIncludes(refusal.message, gitAdmin);
 
-      const nestedRefusal = await assertRejects(
-        () =>
-          withOperationLock(
-            dir,
-            { command: "setup begin" },
-            () => Promise.resolve(),
-          ),
-        OperationLockError,
-      );
-      assertEquals(nestedRefusal.result.verb, "setup");
-
       const updateTool = TOOLS.find((tool) => tool.name === "discern_update");
       assert(updateTool !== undefined);
       const routed = await runTool(
@@ -117,6 +108,35 @@ Deno.test("a Git writer probes Git administration without enrolling file-only wr
 
     assertEquals(gitWriterRan, false);
     assertEquals(fileWriterRan, true);
+  });
+});
+
+Deno.test("Git-writer preflight refusals use each command's public result verb", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    const gitWriters = Object.entries(OPERATION_EFFECTS).filter(([, policy]) =>
+      policy.gitWriteAuthority === "boundary-plan" ||
+      policy.gitWriteAuthority === "boundary-plus-effect-plan"
+    );
+
+    await withUnwritableDirectory(join(dir, ".git"), async () => {
+      for (const [command] of gitWriters) {
+        const refusal = await assertRejects(
+          () =>
+            withOperationLock(
+              dir,
+              { command },
+              () => Promise.resolve(),
+            ),
+          OperationLockError,
+        );
+        assertEquals(
+          refusal.result.verb,
+          cliJsonResultVerb(command) ?? command.split(" ", 1)[0],
+          command,
+        );
+      }
+    });
   });
 });
 
