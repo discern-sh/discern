@@ -49,6 +49,7 @@
     "lint-suppressions": "deno run --allow-read --allow-run=git scripts/lint_suppressions.ts",
     "coverage": "deno run --allow-read --allow-write --allow-env --allow-run scripts/coverage.ts",
     "prose": "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose.ts",
+    "vale:sync": "deno run --allow-read --allow-write --allow-env --allow-run --allow-net=github.com,release-assets.githubusercontent.com scripts/vale_toolchain.ts",
     "vocab": "deno run --allow-read --allow-env scripts/vocab_signals.ts",
     "codegen": "deno run --allow-read --allow-write --allow-run=deno,git --allow-net=jsr.io --allow-env=DISCERN_TEMPLATES_DIR scripts/codegen.ts",
     "inspect-mcp": "deno run --allow-read --allow-run scripts/inspect_mcp.ts",

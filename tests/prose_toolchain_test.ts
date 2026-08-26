@@ -9,12 +9,23 @@ import {
   assert,
   assertEquals,
   assertMatch,
+  assertRejects,
   assertStringIncludes,
 } from "@std/assert";
 import { z } from "@zod/zod";
+import { BUILD_TARGETS } from "../scripts/build_targets.ts";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { parseValeVersion, runVale } from "../scripts/vale_lib.ts";
+import {
+  ensureVale,
+  readValeAssets,
+  resolveValeBinary,
+  sha256BytesHex,
+  type ValePlatform,
+  valeToolchain,
+} from "../scripts/vale_toolchain.ts";
 import { withTempDir } from "./helpers.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 
@@ -34,6 +45,62 @@ function fixtureAlerts(
   return entry?.[1] ?? [];
 }
 
+const RAW_VALE_PROVISIONING = [
+  /\bvale\s+sync\b/u,
+  /\bVALE_VERSION\b/u,
+  /github\.com\/vale-cli\/vale\/releases\/download/u,
+  /\bbrew\s+["']vale["']/u,
+];
+
+/** Find executable configuration that bypasses the pinned resolver task. */
+function rawValeProvisioningFindings(
+  sources: ReadonlyArray<readonly [string, string]>,
+): string[] {
+  return sources.flatMap(([path, source]) =>
+    RAW_VALE_PROVISIONING.some((pattern) => pattern.test(source)) ? [path] : []
+  );
+}
+
+/** Raw Vale provisioning that bypasses the repository's pinned resolver. */
+async function rawValeProvisioningOffenders(
+  root: string,
+): Promise<string[]> {
+  const files = await structuralGuardScope({
+    guard: "tests/prose_toolchain_test.ts#vale-provisioning",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Shell and dependency configuration can provision Vale; prose cannot run setup commands.",
+      include: (path) =>
+        /(?:^|\/)(?:Brewfile|Dockerfile|Makefile)$/u.test(path) ||
+        /\.(?:json|sh|toml|ya?ml)$/u.test(path),
+    },
+  }, root);
+  const sources: Array<readonly [string, string]> = [];
+  for (const rel of files) {
+    sources.push([rel, await Deno.readTextFile(join(root, rel))]);
+  }
+  return rawValeProvisioningFindings(sources);
+}
+
+Deno.test("executable configuration provisions Vale only through one task", async () => {
+  assertEquals(
+    await rawValeProvisioningOffenders(REPO_ROOT),
+    [],
+    "replace raw Vale installation or sync with `deno task vale:sync`",
+  );
+});
+
+Deno.test("a future executable configuration cannot restore ambient Vale provisioning", () => {
+  assertEquals(
+    rawValeProvisioningFindings([
+      ["tools/future.yml", "run: vale sync\n"],
+      ["tools/pinned.yml", "run: deno task vale:sync\n"],
+    ]),
+    ["tools/future.yml"],
+  );
+});
+
 Deno.test("the Vale binary has one tracked version authority", async () => {
   const expected = (
     await Deno.readTextFile(join(REPO_ROOT, ".vale-version"))
@@ -43,9 +110,79 @@ Deno.test("the Vale binary has one tracked version authority", async () => {
   const workflow = await Deno.readTextFile(
     join(REPO_ROOT, ".github/workflows/gate.yml"),
   );
-  assert(!workflow.includes("VALE_VERSION:"), "the workflow has no second pin");
-  assertStringIncludes(workflow, 'VALE_VERSION="$(<.vale-version)"');
+  const assetsSource = await Deno.readTextFile(
+    join(REPO_ROOT, ".vale-assets.json"),
+  );
+  assert(
+    !/"version"\s*:/u.test(assetsSource),
+    "asset integrity metadata must not repeat the version pin",
+  );
+  assertStringIncludes(workflow, "deno task vale:sync");
+  const config = parseConfigOrThrow(
+    await Deno.readTextFile(join(REPO_ROOT, "discern.toml")),
+  );
+  assertEquals(
+    config.repository.ensure.filter((command) =>
+      command.toLowerCase().includes("vale")
+    ),
+    ["deno task vale:sync"],
+  );
   assertEquals(parseValeVersion(`vale version ${expected}\n`), expected);
+});
+
+/** Convert a release target triple to the host spelling Vale resolves. */
+function valePlatformForTarget(triple: string): string {
+  const arch = triple.split("-")[0];
+  assert(arch === "aarch64" || arch === "x86_64", triple);
+  const os = triple.endsWith("apple-darwin") ? "darwin" : "linux";
+  return `${os}-${arch}`;
+}
+
+Deno.test("every native release platform has one checksum-pinned Vale asset", async () => {
+  const manifest = await readValeAssets(REPO_ROOT);
+  assertEquals(
+    Object.keys(manifest.assets).sort(),
+    BUILD_TARGETS.map((target) => valePlatformForTarget(target.triple)).sort(),
+  );
+  const checksums = Object.values(manifest.assets).map((asset) => asset.sha256);
+  assertEquals(new Set(checksums).size, checksums.length);
+});
+
+/** Count automation commands whose process needs the prose measuring tool. */
+function valeMeasuredRuns(source: string): number {
+  return source.match(/deno task dev (?:done|standards)\b/gu)?.length ?? 0;
+}
+
+/** Count the one supported provisioning task in an automation source. */
+function pinnedValeSetups(source: string): number {
+  return source.match(/deno task vale:sync\b/gu)?.length ?? 0;
+}
+
+Deno.test("every automated Vale-measured run provisions through the pinned task", async () => {
+  const offenders: string[] = [];
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/prose_toolchain_test.ts#vale-automation-lanes",
+      universe: {
+        kind: "specialized",
+        name: "automation-yaml",
+        extensions: [".yml", ".yaml"],
+        reason:
+          "GitHub automation is YAML; other configuration formats do not define hosted gate lanes.",
+      },
+    })
+  ) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    const measured = valeMeasuredRuns(source);
+    if (measured > 0 && pinnedValeSetups(source) !== measured) {
+      offenders.push(rel);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    "each automated `done` or `standards` run needs its own pinned Vale setup",
+  );
 });
 
 Deno.test("Vale packages are immutable release artifacts", async () => {
@@ -64,6 +201,11 @@ Deno.test("Vale packages are immutable release artifacts", async () => {
 
 Deno.test("authored Deno sources invoke Vale only through its wrapper", async () => {
   const directVale = /new\s+Deno\.Command\(\s*["']vale["']/;
+  const internalToolchainImport = /from\s+["'][^"']*vale_toolchain\.ts["']/u;
+  const toolchainImportHomes = new Set([
+    "scripts/vale_lib.ts",
+    "tests/prose_toolchain_test.ts",
+  ]);
   const offenders: string[] = [];
   for (
     const rel of await structuralGuardScope({
@@ -71,15 +213,175 @@ Deno.test("authored Deno sources invoke Vale only through its wrapper", async ()
       universe: "authored-deno",
     })
   ) {
-    if (rel === "scripts/vale_lib.ts") continue;
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
-    if (directVale.test(source)) offenders.push(rel);
+    if (directVale.test(source)) offenders.push(`${rel}: ambient command`);
+    if (
+      internalToolchainImport.test(source) && !toolchainImportHomes.has(rel)
+    ) {
+      offenders.push(`${rel}: internal toolchain import`);
+    }
   }
   assertEquals(
     offenders,
     [],
     `direct Vale invocations bypass the version check: ${offenders.join(", ")}`,
   );
+});
+
+interface FakeValeFixture {
+  readonly repoRoot: string;
+  readonly cacheRoot: string;
+  readonly platform: ValePlatform;
+  readonly archive: Uint8Array;
+}
+
+/** Seed an executable fake Vale release and matching tracked authorities. */
+async function fakeValeFixture(
+  dir: string,
+  version = "3.15.2",
+): Promise<FakeValeFixture> {
+  const repoRoot = join(dir, "repo");
+  const payload = join(dir, "payload");
+  const archivePath = join(dir, "vale.tar.gz");
+  await Deno.mkdir(repoRoot);
+  await Deno.mkdir(payload);
+  const binary = join(payload, "vale");
+  await Deno.writeTextFile(
+    binary,
+    `#!/bin/sh\nif [ "$1" = "--version" ]; then\n  printf 'vale version ${version}\\n'\nelse\n  printf 'pinned:%s\\n' "$*"\nfi\n`,
+  );
+  await Deno.chmod(binary, 0o755);
+  const tar = await new Deno.Command("tar", {
+    args: ["-czf", archivePath, "-C", payload, "vale"],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assert(tar.success, new TextDecoder().decode(tar.stderr));
+  const archive = await Deno.readFile(archivePath);
+  await Deno.writeTextFile(join(repoRoot, ".vale-version"), `${version}\n`);
+  await Deno.writeTextFile(
+    join(repoRoot, ".vale-assets.json"),
+    `${
+      JSON.stringify(
+        {
+          schema: 1,
+          assets: {
+            "linux-x86_64": {
+              release: "Linux_64-bit",
+              sha256: await sha256BytesHex(archive),
+            },
+          },
+        },
+        null,
+        2,
+      )
+    }\n`,
+  );
+  return {
+    repoRoot,
+    cacheRoot: join(dir, "cache"),
+    platform: { os: "linux", arch: "x86_64" },
+    archive,
+  };
+}
+
+Deno.test("a newer Vale on PATH cannot replace the pinned measuring binary", async () => {
+  await withTempDir(async (dir) => {
+    const fixture = await fakeValeFixture(dir);
+    const options = {
+      cacheRoot: fixture.cacheRoot,
+      platform: fixture.platform,
+      download: () => Promise.resolve(fixture.archive),
+    };
+    const [first, second] = await Promise.all([
+      ensureVale(fixture.repoRoot, options),
+      ensureVale(fixture.repoRoot, options),
+    ]);
+    assertEquals(first, second, "concurrent setup converges on one cache");
+
+    const ambient = join(dir, "ambient");
+    await Deno.mkdir(ambient);
+    await Deno.writeTextFile(
+      join(ambient, "vale"),
+      "#!/bin/sh\nprintf 'vale version 3.18.0\\n'\n",
+    );
+    await Deno.chmod(join(ambient, "vale"), 0o755);
+    const run = await runVale(fixture.repoRoot, ["future.md"], {
+      ...options,
+      env: { PATH: ambient },
+    });
+    assert(run.success);
+    assertEquals(new TextDecoder().decode(run.stdout), "pinned:future.md\n");
+  });
+});
+
+Deno.test("a corrupt Vale cache is rejected and repaired from verified bytes", async () => {
+  await withTempDir(async (dir) => {
+    const fixture = await fakeValeFixture(dir);
+    const options = {
+      cacheRoot: fixture.cacheRoot,
+      platform: fixture.platform,
+      download: () => Promise.resolve(fixture.archive),
+    };
+    const binary = await ensureVale(fixture.repoRoot, options);
+    await Deno.writeTextFile(
+      binary,
+      "#!/bin/sh\nprintf 'vale version 3.18.0\\n'\n",
+    );
+    await Deno.chmod(binary, 0o755);
+    await assertRejects(
+      () => resolveValeBinary(fixture.repoRoot, options),
+      Error,
+      "does not match its installed digest",
+    );
+    assertEquals(await ensureVale(fixture.repoRoot, options), binary);
+    assertEquals(await resolveValeBinary(fixture.repoRoot, options), binary);
+  });
+});
+
+Deno.test("Vale provisioning refuses bytes that miss the tracked checksum", async () => {
+  await withTempDir(async (dir) => {
+    const fixture = await fakeValeFixture(dir);
+    const manifest = await readValeAssets(fixture.repoRoot);
+    manifest.assets["linux-x86_64"] = {
+      release: "Linux_64-bit",
+      sha256: "0".repeat(64),
+    };
+    await Deno.writeTextFile(
+      join(fixture.repoRoot, ".vale-assets.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
+    const options = {
+      cacheRoot: fixture.cacheRoot,
+      platform: fixture.platform,
+      download: () => Promise.resolve(fixture.archive),
+    };
+    await assertRejects(
+      () => ensureVale(fixture.repoRoot, options),
+      Error,
+      "archive checksum mismatch",
+    );
+    const toolchain = await valeToolchain(fixture.repoRoot, options);
+    await assertRejects(
+      () => Deno.stat(toolchain.binary),
+      Deno.errors.NotFound,
+    );
+  });
+});
+
+Deno.test("native Windows is unsupported while WSL resolves the Linux asset", async () => {
+  await withTempDir(async (dir) => {
+    const fixture = await fakeValeFixture(dir);
+    await assertRejects(
+      () =>
+        valeToolchain(fixture.repoRoot, {
+          cacheRoot: fixture.cacheRoot,
+          platform: { os: "windows", arch: "x86_64" },
+        }),
+      Error,
+      "no tracked asset for windows-x86_64",
+    );
+  });
 });
 
 Deno.test("brand-path severity cannot downgrade house errors on other map pages", async () => {

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "assets": {
+    "darwin-aarch64": {
+      "release": "macOS_arm64",
+      "sha256": "d3f613ff9226935ace08895fc8557206f309cdbd3a81881d86b6ab5b8b408757"
+    },
+    "darwin-x86_64": {
+      "release": "macOS_64-bit",
+      "sha256": "5d56b292f1612758f6d9e8d735dd739aec4e475830d0ba8c1e0ef7d8f08fa198"
+    },
+    "linux-aarch64": {
+      "release": "Linux_arm64",
+      "sha256": "e8240a3304e2c07b0476d30423f241a80296865cf6d2b78b128fb7e4e14cbb69"
+    },
+    "linux-x86_64": {
+      "release": "Linux_64-bit",
+      "sha256": "fc72e64454d6bd7af91905d4faebbf411bae3eec17bb572f4101311212bc0d9e"
+    }
+  }
+}

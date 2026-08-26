@@ -210,10 +210,7 @@ Deno.test("the ordinary native macOS gate starts when the repository is public",
 });
 
 Deno.test("the shared native macOS action runs the full clean-tree gate", () => {
-  assertStringIncludes(
-    macosGateActionSource,
-    "vale_${VALE_VERSION}_macOS_arm64.tar.gz",
-  );
+  assertStringIncludes(macosGateActionSource, "run: deno task vale:sync");
   assertStringIncludes(macosGateActionSource, "run: deno task dev done");
   assertStringIncludes(macosGateActionSource, "run: git diff --exit-code");
 });

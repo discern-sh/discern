@@ -1,5 +1,7 @@
 # ADR 0231: Prose density shares one versioned corpus
 
+> **Provisioning amendment ([ADR 0337](0337-vale-self-provisions-from-tracked-release-integrity.md)):** `.vale-version` remains the binary-version authority. Tracked platform checksums now complete that authority, and every local or hosted caller resolves the content-verified repository cache instead of an ambient executable. The corpus, package-release, and density decisions below are unchanged.
+
 **Status**: accepted; extends [ADR 0057](0057-rate-standards.md)
 
 ## Context

@@ -17,6 +17,18 @@ export const REGISTERED_RENAMES = [
       "The signal handler must restore the executable synchronously before process exit.",
   },
   {
+    path: "scripts/vale_toolchain.ts",
+    enclosingFunction: "reclaimStaleLock",
+    reason:
+      "Stale-lock recovery claims the complete lock directory under a unique name before removal.",
+  },
+  {
+    path: "scripts/vale_toolchain.ts",
+    enclosingFunction: "ensureVale",
+    reason:
+      "Provisioning publishes a complete content-addressed directory while holding its exclusive install lock.",
+  },
+  {
     path: "src/engine/logbook/store.ts",
     enclosingFunction: "detachLogbook",
     reason:

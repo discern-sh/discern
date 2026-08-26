@@ -20,9 +20,13 @@ An install puts `discern.toml` at the root and keeps the Map, instructions, Skil
 
 - **[Deno](https://deno.com)** runs the source CLI, build, tests, and Project Scripts.
 - **Git** with worktree support runs the worktree workflow, Standards, and `status` subprocesses.
-- **[Vale](https://vale.sh)** runs the `prose` check over the Map during the Gate.
+- **[Vale](https://vale.sh)** runs the `prose` check over the Map during the Gate. The repository provisions its exact binary; do not manage it as a separate prerequisite.
 
-The worktree hooks read their JavaScript Object Notation (JSON) payload in the binary, so they require no `jq` or other shell tool ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). A [`Brewfile`](../../../Brewfile) at the repository root pins the toolchain for macOS and Homebrew users. Run `brew bundle install` from the root. `discern doctor` verifies that Git and a Portable Operating System Interface (POSIX) `sh` resolve on `PATH`. Node is optional and used only by the Model Context Protocol (MCP) Inspector helper in [Inspecting the MCP server](#inspecting-the-mcp-server). The Gate, build, and tests do not use Node.
+The worktree hooks read their JavaScript Object Notation (JSON) payload in the binary, so they require no `jq` or other shell tool ([ADR 0040](../_adr/0040-worktree-hooks-in-the-binary.md)). A [`Brewfile`](../../../Brewfile) at the repository root lists the base Homebrew dependencies for macOS maintainers. Run `brew bundle install` from the root.
+
+Run `deno task vale:sync` after a fresh clone if you need the Gate in the main checkout. Managed worktree setup and post-landing convergence run it automatically through `[repository].ensure`. The task derives the release from [`.vale-version`](../../../.vale-version), verifies the platform checksum in [`.vale-assets.json`](../../../.vale-assets.json), and shares the content-addressed binary through the repository's Git common directory ([ADR 0337](../_adr/0337-vale-self-provisions-from-tracked-release-integrity.md)). A Homebrew `vale` binary is ignored and may be absent; `tar` supplies archive extraction on macOS, Linux, and Windows Subsystem for Linux.
+
+`discern doctor` verifies that Git and a Portable Operating System Interface (POSIX) `sh` resolve on `PATH`. Node is optional and used only by the Model Context Protocol (MCP) Inspector helper in [Inspecting the MCP server](#inspecting-the-mcp-server). The Gate, build, and tests do not use Node.
 
 Stack-specific setup (installing project dependencies, running the app) lives in [getting-started.md](getting-started.md) once `discern setup` has filled it in.
 

@@ -88,7 +88,7 @@
   ensure = [
     "deno install --frozen",
     "deno task site:build",
-    "vale sync",
+    "deno task vale:sync",
   ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -654,6 +654,7 @@
     run = "deno task prose \"${map.dir}\""
     inputs = [
       "${map.dir}**",
+      ".vale-assets.json",
       ".vale-version",
       ".vale.ini",
       ".vale/Discern/**",
@@ -663,6 +664,7 @@
       "scripts/prose.ts",
       "scripts/prose_lib.ts",
       "scripts/vale_lib.ts",
+      "scripts/vale_toolchain.ts",
       "src/lib/frontmatter.ts",
     ]
 
@@ -684,6 +686,7 @@
   #     "site/**",
   #     "src/lib/providers.ts",
   #     "src/shared/agent_catalogue.ts",
+  #     ".vale-assets.json",
   #     ".vale-version",
   #     ".vale.ini",
   #     ".vale/Discern/**",
@@ -694,6 +697,7 @@
   #     "scripts/prose_lib.ts",
   #     "scripts/plain_reading_grade_lib.ts",
   #     "scripts/vale_lib.ts",
+  #     "scripts/vale_toolchain.ts",
   #     "deno.json",
   #     "deno.lock",
   #   ]

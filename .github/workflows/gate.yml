@@ -48,15 +48,10 @@ jobs:
           # gate stops re-downloading every dependency on each run.
           cache: true
 
-      # Vale is the linter behind the [jobs.prose] gate. Install the pinned
-      # binary to /usr/local/bin and sync its styles (Microsoft, proselint) into
-      # the gitignored .vale/ before the gate runs.
-      - name: Install Vale and sync its styles
-        run: |
-          VALE_VERSION="$(<.vale-version)"
-          curl -sfL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
-            | sudo tar -xz -C /usr/local/bin vale
-          vale sync
+      # The repository task verifies the platform asset against tracked
+      # integrity metadata, caches it under Git-admin state, and syncs styles.
+      - name: Provision the pinned Vale toolchain
+        run: deno task vale:sync
 
       - name: Lint the remote installer
         run: shellcheck install.sh
@@ -145,13 +140,9 @@ jobs:
             git branch --force main refs/remotes/origin/main
           fi
 
-      # The prose standard measures with Vale; install + sync it like the gate job.
-      - name: Install Vale and sync its styles
-        run: |
-          VALE_VERSION="$(<.vale-version)"
-          curl -sfL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
-            | sudo tar -xz -C /usr/local/bin vale
-          vale sync
+      # The prose standard measures through the same pinned repository task.
+      - name: Provision the pinned Vale toolchain
+        run: deno task vale:sync
 
       - name: Hold the standards
         run: deno task dev standards

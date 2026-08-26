@@ -40,19 +40,15 @@ runs:
         runuser -u gate -- env HOME=/home/gate \
           git -C /home/gate/discern reset --hard
 
-    # Deno installs the way a WSL user installs it (the official script);
-    # Vale matches the pinned version the other gate lanes use. Both land in
-    # /usr/local/bin, so this step stays root while everything after drops
-    # privileges.
-    - name: Install Deno and Vale inside WSL
+    # Deno installs the way a WSL user installs it (the official script). The
+    # unprivileged gate user then provisions the same checksum-pinned Vale
+    # cache as every other lane.
+    - name: Install Deno and provision Vale inside WSL
       shell: wsl-bash {0}
       run: |
         curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
-        VALE_VERSION="$(</home/gate/discern/.vale-version)"
-        curl -sfL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
-          | tar -xz -C /usr/local/bin vale
         runuser -u gate -- env HOME=/home/gate \
-          bash -c 'cd /home/gate/discern && vale sync'
+          bash -c 'cd /home/gate/discern && deno task vale:sync'
 
     - name: Run the gate (discern done --ci, via the dev binary)
       shell: wsl-bash {0}

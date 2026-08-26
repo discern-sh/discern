@@ -4,13 +4,9 @@ description: Run the repository gate on native macOS and verify a clean tree.
 runs:
   using: composite
   steps:
-    - name: Install Vale and sync its styles
+    - name: Provision the pinned Vale toolchain
       shell: bash
-      run: |
-        VALE_VERSION="$(<.vale-version)"
-        curl -sfL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_macOS_arm64.tar.gz" \
-          | sudo tar -xz -C /usr/local/bin vale
-        vale sync
+      run: deno task vale:sync
 
     - name: Run the gate (discern done --ci, via the dev binary)
       shell: bash

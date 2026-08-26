@@ -17,8 +17,8 @@
 # Deno: drives the whole toolchain.
 brew "deno"
 
-# Vale: lints the documentation.
-brew "vale"
+# Vale is checksum-pinned and self-provisioned by `deno task vale:sync`; an
+# ambient Homebrew binary would not be part of the measuring instrument.
 
 # git: unsurprisingly, a formal requirement of this project.
 brew "git"
