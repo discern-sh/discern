@@ -30,6 +30,7 @@ import {
   missingAgentContractIssues,
 } from "./agent_contract.ts";
 import { blankFrontmatter, decodeValeReport } from "./prose_lib.ts";
+import { withToolTempDir } from "./temp_dir.ts";
 import { runVale } from "./vale_lib.ts";
 
 export type OperationalAgentSurfaceKind = "skill" | "setup-brief";
@@ -838,9 +839,8 @@ export async function agentSurfaceLexicalIssues(
   repoRoot: string,
   files: readonly string[],
 ): Promise<AgentSurfaceLexicalIssue[]> {
-  const stage = await Deno.makeTempDir({ prefix: "discern-agent-copy-" });
-  const stagedToSource = new Map<string, string>();
-  try {
+  return await withToolTempDir("agent-surface-stage", async (stage) => {
+    const stagedToSource = new Map<string, string>();
     for (const [index, file] of files.entries()) {
       const staged = join(
         stage,
@@ -911,9 +911,7 @@ export async function agentSurfaceLexicalIssues(
       a.file.localeCompare(b.file) || (a.line ?? 0) - (b.line ?? 0) ||
       a.check.localeCompare(b.check)
     );
-  } finally {
-    await Deno.remove(stage, { recursive: true }).catch(() => {});
-  }
+  });
 }
 
 /** Human-readable source-located lexical diagnostics. */
