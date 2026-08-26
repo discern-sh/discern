@@ -327,6 +327,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0339 — Proposed Standard limits require exact approval and identical measurements share one run](0339-proposed-standard-limits-and-shared-measurements.md)
 - [0340 — Tests wait on conditions and enrol real delays](0340-tests-wait-on-conditions-and-enrol-real-delays.md)
 - [0341 — Deliberate error discard is a named side-effect boundary](0341-deliberate-error-discard-is-a-named-side-effect-boundary.md)
+- [0342 — Git elects module coverage membership and LCOV supplies observations](0342-git-elects-module-coverage-membership.md)
 
 <!-- END GENERATED: current ADR records -->
 

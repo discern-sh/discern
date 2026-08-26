@@ -85,6 +85,59 @@ function twoMetricCommand(first = 5, second = 20): string {
   return `printf x >> .git/shared-runs; echo DISCERN_METRIC first ${first}; echo DISCERN_METRIC second ${second}`;
 }
 
+/** Stand in for the coverage task's three metrics and one instrumented run. */
+function coverageMetricCommand(): string {
+  return "printf x >> .git/shared-runs; " +
+    "echo DISCERN_METRIC coverage 92; " +
+    "echo DISCERN_METRIC module_coverage_failures 0; " +
+    "echo DISCERN_METRIC module_coverage_exceptions 14";
+}
+
+Deno.test("coverage Standards: aggregate, module floor, and exceptions share one run in Standards and Gate", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const command = coverageMetricCommand();
+    await writeConfig(
+      dir,
+      standardsConfig([
+        {
+          name: "coverage",
+          direction: "up",
+          limit: 91,
+          run: command,
+          timeout: 1200,
+        },
+        {
+          name: "module_coverage",
+          metric: "module_coverage_failures",
+          direction: "down",
+          limit: 0,
+          run: command,
+          timeout: 1200,
+        },
+        {
+          name: "module_coverage_exceptions",
+          metric: "module_coverage_exceptions",
+          direction: "down",
+          limit: 14,
+          run: command,
+          timeout: 1200,
+        },
+      ]),
+    );
+    await gitInit(dir);
+
+    const standalone = await runAgent(dir, ["standards", "--json"]);
+    assertEquals(standalone.code, 0, standalone.output);
+    assertEquals(await invocationCount(dir), 1);
+
+    await Deno.remove(`${dir}/.git/shared-runs`);
+    const gate = await runAgent(dir, ["done", "--json"]);
+    assertEquals(gate.code, 0, gate.output);
+    assertEquals(await invocationCount(dir), 1);
+  });
+});
+
 Deno.test("shared Standard measurement: standalone runs once and keeps separate verdicts and projections", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

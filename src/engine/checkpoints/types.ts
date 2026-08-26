@@ -24,24 +24,18 @@ import type { CheckpointDropReason } from "../../shared/checkpoint_drops.ts";
 /** How one file changed between the effort's merge-base and its working tree. */
 export type EffortChangeKind = CheckpointChangeKind;
 
-export const CONTENT_FACT_UNAVAILABLE_REASONS = [
-  "line_limit",
-  "line_count",
-  "file_limit",
-  "total_bytes",
-  "comparison_work",
-  "unreadable",
-  "patch_mismatch",
-] as const;
 export type ContentFactUnavailableReason =
-  (typeof CONTENT_FACT_UNAVAILABLE_REASONS)[number];
+  | "line_limit"
+  | "line_count"
+  | "file_limit"
+  | "total_bytes"
+  | "comparison_work"
+  | "unreadable"
+  | "patch_mismatch";
 
-export const HISTORY_FACT_UNAVAILABLE_REASONS = [
-  "git_failed",
-  "output_limit",
-] as const;
 export type HistoryFactUnavailableReason =
-  (typeof HISTORY_FACT_UNAVAILABLE_REASONS)[number];
+  | "git_failed"
+  | "output_limit";
 
 /** Bounded changed-line facts. Bytes preserve Git's exact UTF-8-facing
  * payload; raw lines never leave the in-memory effort model. */

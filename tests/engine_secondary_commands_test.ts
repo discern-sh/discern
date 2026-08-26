@@ -3,7 +3,9 @@
  *   - `prepare` / `test` — the fast-loop and test-stage entry points (previously
  *     reached only transitively through `done`).
  *   - `doctor`'s failure path — the smoke test only covered the happy path.
- * Each shells out through the real dispatcher.
+ * The public surfaces shell through the real dispatcher; the test-stage core
+ * also has one direct behavioral seam so its module cannot disappear from the
+ * instrumented process that launches those subprocesses.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -15,6 +17,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { testResult } from "../src/engine/gate/test_job.ts";
 
 // --- prepare / test (entry points, not only transitively via finish) ------
 
@@ -27,12 +30,13 @@ Deno.test("prepare: the fast inner loop passes on a fresh no-op scaffold", async
   });
 });
 
-Deno.test("test: the test phase passes on a fresh no-op scaffold", async () => {
+Deno.test("testResult: the test phase core passes on a fresh no-op scaffold", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const r = await runAgent(dir, ["test"]);
-    assertEquals(r.code, 0, r.output);
+    const result = await testResult(dir);
+    assertEquals(result.ok, true, JSON.stringify(result));
+    assertEquals(result.verb, "test");
   });
 });
 

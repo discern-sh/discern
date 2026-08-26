@@ -13,6 +13,8 @@ import { z } from "@zod/zod";
 import { dirname, join } from "@std/path";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
+  hasIgnoredFileChanges,
+  ignoredFileDriftDisabled,
   inspectIgnoredFileChanges,
   recordIgnoredFileBaseline,
 } from "../src/engine/worktree/ignored.ts";
@@ -74,6 +76,24 @@ async function readBaseline(dir: string): Promise<BaselineFile> {
     await Deno.readTextFile(await baselinePath(dir)),
   );
 }
+
+Deno.test("disabled ignored-file drift remains inert without repository state", async () => {
+  await withTempDir(async (dir) => {
+    const disabled = ignoredFileDriftDisabled();
+    assertEquals(await inspectIgnoredFileChanges(dir, false), disabled);
+    await recordIgnoredFileBaseline(dir, false);
+    assertEquals(hasIgnoredFileChanges(disabled), false);
+    assertEquals(
+      hasIgnoredFileChanges({
+        status: "changed",
+        changed_roots: ["cache/"],
+        changed_total: 1,
+        truncated: false,
+      }),
+      true,
+    );
+  });
+});
 
 Deno.test("ignored drift inspects exact roots but collapses only changed labels", async () => {
   await withTempDir(async (dir) => {
@@ -146,6 +166,27 @@ Deno.test("standalone ignored files retain content-sensitive drift detection", a
     assertEquals(changed.status, "changed");
     assertEquals(changed.changed_roots, [".local-secret"]);
   });
+});
+
+Deno.test({
+  name: "ignored symlink target changes participate in directory fingerprints",
+  ignore: Deno.build.os === "windows",
+  async fn(): Promise<void> {
+    await withTempDir(async (dir) => {
+      await Deno.writeTextFile(join(dir, ".gitignore"), "generated/\n");
+      await Deno.mkdir(join(dir, "generated"));
+      const link = join(dir, "generated/current");
+      await Deno.symlink("first-target", link);
+      await gitInit(dir);
+      await recordIgnoredFileBaseline(dir, true);
+
+      await Deno.remove(link);
+      await Deno.symlink("second-target", link);
+      const changed = await inspectIgnoredFileChanges(dir, true);
+      assertEquals(changed.status, "changed");
+      assertEquals(changed.changed_roots, ["generated/"]);
+    });
+  },
 });
 
 Deno.test("ignored drift reports roots removed since the baseline", async () => {

@@ -79,9 +79,11 @@ One pure Gate function decides mechanical pin eligibility from direction, measur
 
 `discern standards` freshly measures every Standard, including `measure = "on-demand"`. First it checks branch definitions, limits, and trunk-only entries from one trunk snapshot. A redefined or loosened Standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid measurements.
 
-Runnable measurements share one parallel, fail-fast-off group. Standards with the same command, checkout root, and effective timeout share one process run. Replayed and deferred Standards do not join that run. Each Standard still selects its own metric, computes its own rate and verdict, and receives its own result step, diagnostic, duration, and pin decision. A missing metric fails only the Standard that requires it. A failed shared process fails every Standard that depended on the run.
+Runnable measurements share one parallel group without fail-fast. Standards with the same command, checkout root, and timeout use one process, then select their metrics and receive independent verdicts and evidence. Replayed and deferred Standards stay outside the group. A missing metric fails only its consumer; a process failure fails every consumer.
 
-The gate runner supplies global and per-standard timeouts, process-tree kill, durations, terminal interruption, and Model Context Protocol cancellation. Output stays buffered until the result envelope renders ([ADR 0155](../_adr/0155-standalone-standards-share-the-gate-job-pipeline.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
+Coverage shares one run across its aggregate rate, zero-ceiling module failures, and ratcheted exception count. Diagnostics preserve the failed set that a minimum percentage would hide ([ADR 0342](../_adr/0342-git-elects-module-coverage-membership.md)).
+
+The gate runner supplies timeouts, process-tree kill, durations, interruption, and Model Context Protocol cancellation. Output stays buffered until the result renders ([ADR 0155](../_adr/0155-standalone-standards-share-the-gate-job-pipeline.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 
 ## Propose a new limit
 
