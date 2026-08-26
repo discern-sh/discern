@@ -68,6 +68,8 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 
 - [ ] **Publish the opt-in managed GitHub gate after launch.** Replace the one-shot scaffold with a deterministic ejectable workflow after release assets and managed-version authority exist, then add annotations, summaries, and deferred-Standard measurement. Evidence: `project/map/_private/planning/managed-ci-workstreams`; `.github/workflows`.
 
+- [ ] **Follow up the Vale upgrades.** ADR 0337 was necessary because a local Homebrew upgrade of Vale created a version mismatch with the codebase. That was worked around, but the longer-term issue is that the upgraded Vale version changed its parser to detect many more previously undetected issues. The newer version should be considered 'correct', but due to ongoing work the project's pinned version stayed the same. Update the project's pinned Vale to its latest release, then fix the previously undetected issues it finds. Evidence: `project/map/_adr/0337-vale-self-provisions-from-tracked-release-integrity.md`
+
 ## 🔵 Unmerged / at-risk work — decide: land or drop
 
 _Work built but not merged, or otherwise at risk of being lost. Nothing outstanding._
