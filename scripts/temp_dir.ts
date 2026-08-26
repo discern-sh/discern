@@ -90,6 +90,10 @@ export interface ToolTempDirOperations {
 /** Optional operation replacements for deterministic lifecycle tests. */
 export type ToolTempDirOperationOverrides = Partial<ToolTempDirOperations>;
 
+type ToolTempDirCallbackOutcome<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly error: unknown; readonly ok: false };
+
 /** A callback succeeded, but its owned scratch directory could not be removed. */
 export class ToolTempDirCleanupError extends Error {
   /** Stable kind whose cleanup failed. */
@@ -101,13 +105,13 @@ export class ToolTempDirCleanupError extends Error {
     kind: string,
     path: string,
     purpose: string,
-    cause: unknown,
+    options: { readonly cause: unknown },
   ) {
     super(
       `tool temp cleanup failed for '${kind}' at ${path} (${purpose}): ${
-        errorText(cause)
+        errorText(options.cause)
       }`,
-      { cause },
+      options,
     );
     this.name = "ToolTempDirCleanupError";
     this.kind = kind;
@@ -203,49 +207,58 @@ export function createToolTempDirCapability<
       ...(policy.parent === undefined ? {} : { dir: policy.parent }),
       prefix: policy.prefix,
     });
+    const cleanup: { failure?: ToolTempDirCleanupError } = {};
     let callbackFailed = false;
     let primaryFailure: unknown;
-    try {
-      return await fn(dir);
-    } catch (error) {
-      callbackFailed = true;
-      primaryFailure = error;
-      throw error;
-    } finally {
-      if (callbackFailed && policy.preserveOnFailure) {
-        reportSafely(
-          operations,
-          `retained tool temp directory for '${kind}' at ${dir} after failure (${policy.purpose}): ${
-            errorText(primaryFailure)
-          }`,
-        );
-      } else {
-        try {
-          await operations.remove(dir, {
-            recursive: policy.recursiveCleanup,
-          });
-        } catch (error) {
-          if (!(error instanceof Deno.errors.NotFound)) {
-            const cleanupFailure = new ToolTempDirCleanupError(
-              kind,
-              dir,
-              policy.purpose,
-              error,
-            );
-            if (callbackFailed) {
-              reportSafely(
-                operations,
-                `${cleanupFailure.message}; preserving primary failure: ${
-                  errorText(primaryFailure)
-                }`,
+    const outcome = await (async (): Promise<
+      ToolTempDirCallbackOutcome<T>
+    > => {
+      try {
+        return { ok: true, value: await fn(dir) };
+      } catch (error) {
+        callbackFailed = true;
+        primaryFailure = error;
+        return { error, ok: false };
+      } finally {
+        if (callbackFailed && policy.preserveOnFailure) {
+          reportSafely(
+            operations,
+            `retained tool temp directory for '${kind}' at ${dir} after failure (${policy.purpose}): ${
+              errorText(primaryFailure)
+            }`,
+          );
+        } else {
+          try {
+            await operations.remove(dir, {
+              recursive: policy.recursiveCleanup,
+            });
+          } catch (error) {
+            if (!(error instanceof Deno.errors.NotFound)) {
+              cleanup.failure = new ToolTempDirCleanupError(
+                kind,
+                dir,
+                policy.purpose,
+                { cause: error },
               );
-            } else {
-              throw cleanupFailure;
+              if (callbackFailed) {
+                reportSafely(
+                  operations,
+                  `${cleanup.failure.message}; preserving primary failure: ${
+                    errorText(primaryFailure)
+                  }`,
+                );
+              }
             }
           }
         }
       }
+    })();
+
+    if (!outcome.ok) throw outcome.error;
+    if (cleanup.failure !== undefined) {
+      throw cleanup.failure;
     }
+    return outcome.value;
   };
 }
 
