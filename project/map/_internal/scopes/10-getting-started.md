@@ -14,6 +14,8 @@ The public path from installing discern through setup, a first Gate-checked chan
 | `quickstart.md`      | Approved quickstart exemplar; preserve its register and update only required links or location metadata. |
 | `walkthrough.md`     | Guided tour that adds detail after the quickstart.                                                       |
 | `after-setup.md`     | Guide to the files a reader sees after setup.                                                            |
+| `setup-decisions.md` | Guide to the durable choices setup records and how to revisit them.                                      |
+| `tasks.md`           | Task index that routes readers to the supported first-use workflows.                                     |
 | `faq.md`             | Troubleshooting page led by `discern doctor`.                                                            |
 | `upgrade-discern.md` | Task guide for updating the binary and then the project.                                                 |
 

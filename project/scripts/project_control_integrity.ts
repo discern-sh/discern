@@ -31,6 +31,7 @@ import {
 
 const PLANNING_REL = "project/map/_private/planning";
 const TODO_REL = "project/TODO.md";
+const SCOPES_REL = "project/map/_internal/scopes";
 
 /** Stable rule ids printed by the command and asserted by its fixtures. */
 export const PROJECT_CONTROL_RULES = [
@@ -49,6 +50,9 @@ export const PROJECT_CONTROL_RULES = [
   "todo-evidence",
   "todo-link",
   "todo-session-wording",
+  "scope-manifest",
+  "scope-member",
+  "scope-exclusion",
 ] as const;
 
 /** One project-control rule id. */
@@ -93,6 +97,7 @@ interface MarkdownTableRow {
 interface MarkdownTable {
   readonly headers: readonly string[];
   readonly rows: readonly MarkdownTableRow[];
+  readonly line: number;
 }
 
 interface BriefFile {
@@ -264,7 +269,7 @@ function markdownTables(text: string): MarkdownTable[] {
       rows.push({ cells, line: cursor + 1 });
       cursor += 1;
     }
-    tables.push({ headers, rows });
+    tables.push({ headers, rows, line: index + 1 });
     index = cursor - 1;
   }
   return tables;
@@ -277,6 +282,21 @@ function plainCell(cell: string): string {
     .replace(/[*_`]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Whether a table belongs to one exact level-two Markdown section. */
+function tableInSection(
+  text: string,
+  table: MarkdownTable,
+  heading: string,
+): boolean {
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => line.trim() === "## " + heading);
+  if (start < 0 || table.line <= start + 1) return false;
+  const nextHeading = lines.findIndex((line, index) =>
+    index > start && /^##\s+/.test(line)
+  );
+  return nextHeading < 0 || table.line <= nextHeading;
 }
 
 /** Extract the one Markdown-file path a brief cell names. */
@@ -1005,6 +1025,230 @@ async function checkTodo(root: string): Promise<ProjectControlFinding[]> {
   return findings;
 }
 
+/** Parse one code-wrapped Markdown path from a manifest cell. */
+function scopePath(cell: string): string | undefined {
+  return cell.trim().match(/^`([^`]+\.md)`$/)?.[1];
+}
+
+/** Validate one scope manifest against every live Markdown leaf it owns. */
+async function checkScopeManifest(
+  root: string,
+  manifest: MarkdownSource,
+): Promise<ProjectControlFinding[]> {
+  const findings: ProjectControlFinding[] = [];
+  const subtreeName = basename(manifest.abs, ".md");
+  const subtree = join(root, "project/map", subtreeName);
+  if (!/^\d{2}-[a-z0-9-]+$/.test(subtreeName)) {
+    return [finding(
+      manifest.rel,
+      1,
+      "scope-manifest",
+      "scope manifest name " + basename(manifest.abs) +
+        " does not identify a numbered Map subtree",
+      "Name the manifest <NN-subtree>.md or remove it from the live scopes directory.",
+    )];
+  }
+  if (!(await directoryExists(subtree))) {
+    return [finding(
+      manifest.rel,
+      1,
+      "scope-manifest",
+      "scope manifest points at missing subtree project/map/" + subtreeName,
+      "Restore the numbered subtree or remove its stale scope manifest.",
+    )];
+  }
+
+  const tables = markdownTables(manifest.text);
+  const filesTable = tables.find((table) => {
+    const headers = table.headers.map((header) =>
+      plainCell(header).toLowerCase()
+    );
+    return tableInSection(manifest.text, table, "Files to produce") &&
+      headers.includes("file") && headers.includes("topic");
+  });
+  if (filesTable === undefined) {
+    return [finding(
+      manifest.rel,
+      1,
+      "scope-manifest",
+      "scope manifest has no Files to produce table with File and Topic columns",
+      "Restore the hand-authored inventory table under Files to produce.",
+    )];
+  }
+
+  const fileIndex = filesTable.headers.findIndex((header) =>
+    plainCell(header).toLowerCase() === "file"
+  );
+  const topicIndex = filesTable.headers.findIndex((header) =>
+    plainCell(header).toLowerCase() === "topic"
+  );
+  const members = new Map<string, number>();
+  for (const row of filesTable.rows) {
+    const rawCell = row.cells[fileIndex] ?? "";
+    const path = scopePath(rawCell);
+    const topic = plainCell(row.cells[topicIndex] ?? "");
+    if (path === undefined) {
+      findings.push(finding(
+        manifest.rel,
+        row.line,
+        "scope-manifest",
+        "Files to produce row has no single code-wrapped Markdown path",
+        "Put one subtree-relative .md path in backticks in the File cell.",
+      ));
+      continue;
+    }
+    const target = resolve(subtree, path);
+    if (
+      isAbsolute(path) || path.includes("\\") ||
+      !isWithin(subtree, target)
+    ) {
+      findings.push(finding(
+        manifest.rel,
+        row.line,
+        "scope-manifest",
+        "scope member " + path + " escapes its numbered subtree",
+        "Use a relative Markdown path contained by project/map/" +
+          subtreeName + ".",
+      ));
+      continue;
+    }
+    const prior = members.get(path);
+    if (prior !== undefined) {
+      findings.push(finding(
+        manifest.rel,
+        row.line,
+        "scope-manifest",
+        "scope member " + path + " duplicates line " + prior,
+        "Keep one inventory row per live Markdown leaf.",
+      ));
+    } else {
+      members.set(path, row.line);
+    }
+    if (topic.length < 10) {
+      findings.push(finding(
+        manifest.rel,
+        row.line,
+        "scope-manifest",
+        "scope member " + path + " has no substantive hand-authored topic",
+        "Describe the page's topic and boundary in the Topic cell.",
+      ));
+    }
+  }
+
+  const exclusions = new Map<string, number>();
+  const exclusionTable = tables.find((table) => {
+    const headers = table.headers.map((header) =>
+      plainCell(header).toLowerCase()
+    );
+    return tableInSection(manifest.text, table, "Declared exclusions") &&
+      headers.includes("file") && headers.includes("reason");
+  });
+  if (exclusionTable !== undefined) {
+    const exclusionFileIndex = exclusionTable.headers.findIndex((header) =>
+      plainCell(header).toLowerCase() === "file"
+    );
+    const reasonIndex = exclusionTable.headers.findIndex((header) =>
+      plainCell(header).toLowerCase() === "reason"
+    );
+    for (const row of exclusionTable.rows) {
+      const path = scopePath(row.cells[exclusionFileIndex] ?? "");
+      const reason = plainCell(row.cells[reasonIndex] ?? "");
+      if (path === undefined || reason.length < 15) {
+        findings.push(finding(
+          manifest.rel,
+          row.line,
+          "scope-exclusion",
+          "scope exclusion needs one code-wrapped Markdown path and a substantive reason",
+          "Name one live subtree-relative .md file and explain why the refresh scope excludes it.",
+        ));
+        continue;
+      }
+      const target = resolve(subtree, path);
+      if (
+        isAbsolute(path) || path.includes("\\") ||
+        !isWithin(subtree, target) || exclusions.has(path) || members.has(path)
+      ) {
+        findings.push(finding(
+          manifest.rel,
+          row.line,
+          "scope-exclusion",
+          "scope exclusion " + path +
+            " is duplicate, already enrolled, or escapes its subtree",
+          "Keep one exclusion row for one contained live leaf that is absent from Files to produce.",
+        ));
+        continue;
+      }
+      exclusions.set(path, row.line);
+    }
+  }
+
+  const live = new Set(
+    (await markdownPaths(subtree)).map((path) => relative(subtree, path)),
+  );
+  if (!members.has("README.md")) {
+    findings.push(finding(
+      manifest.rel,
+      1,
+      "scope-member",
+      "live subtree README.md is not explicitly enrolled",
+      "Add README.md as an ordinary Files to produce row; it cannot be excluded.",
+    ));
+  }
+  if (exclusions.has("README.md")) {
+    findings.push(finding(
+      manifest.rel,
+      exclusions.get("README.md") ?? 1,
+      "scope-exclusion",
+      "README.md cannot be excluded from a subtree refresh inventory",
+      "Move README.md into Files to produce and describe its overview purpose.",
+    ));
+  }
+
+  for (const [path, line] of [...members, ...exclusions]) {
+    if (!live.has(path)) {
+      findings.push(finding(
+        manifest.rel,
+        line,
+        path === "README.md" || members.has(path)
+          ? "scope-member"
+          : "scope-exclusion",
+        "scope row " + path + " is stale because the leaf is absent",
+        "Remove the stale row or restore the Markdown leaf it deliberately inventories.",
+      ));
+    }
+  }
+  for (const path of live) {
+    if (!members.has(path) && !exclusions.has(path)) {
+      findings.push(finding(
+        manifest.rel,
+        1,
+        "scope-member",
+        "live leaf " + path + " is not enrolled or declared excluded",
+        "Add it to Files to produce, or add a Declared exclusions row with a durable reason.",
+      ));
+    }
+  }
+  return findings;
+}
+
+/** Check every present documenter scope manifest. */
+async function checkScopes(root: string): Promise<ProjectControlFinding[]> {
+  const scopes = join(root, SCOPES_REL);
+  if (!(await directoryExists(scopes))) return [];
+  const findings: ProjectControlFinding[] = [];
+  for (const path of await markdownPaths(scopes)) {
+    if (basename(path) === "_template.md") continue;
+    findings.push(
+      ...await checkScopeManifest(root, {
+        abs: path,
+        rel: relative(root, path),
+        text: await Deno.readTextFile(path),
+      }),
+    );
+  }
+  return findings;
+}
+
 /** Run every repository control-document check, read-only. */
 export async function checkProjectControls(
   root: string,
@@ -1013,6 +1257,7 @@ export async function checkProjectControls(
   const findings = [
     ...await checkPlanning(resolvedRoot),
     ...await checkTodo(resolvedRoot),
+    ...await checkScopes(resolvedRoot),
   ];
   return findings.sort((a, b) =>
     a.file.localeCompare(b.file) || a.line - b.line ||

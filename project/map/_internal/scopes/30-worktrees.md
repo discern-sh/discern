@@ -16,11 +16,18 @@ This subtree documents the public Worktree workflow: isolation, identity, resour
 | `the-resources.md`         | Resource creation, records, teardown, and recovery for each Worktree; `order: 30`. |
 | `identity-and-env.md`      | Worktree ids, ports, environment values, and runtime discovery; `order: 40`.       |
 | `team-workflow.md`         | Fleet ownership and composing concurrent branches; `order: 50`.                    |
+| `awaiting-the-fleet.md`    | Waiting for a sibling branch or the Trunk without polling or stale status prose.    |
 | `multi-repo-workspaces.md` | Repository boundaries, registries, umbrellas, and submodules; `order: 60`.         |
 | `status.md`                | Local and Fleet status, Proof, collisions, and session hints; `order: 70`.         |
 | `the-desk.md`              | The human Fleet view and its valid actions; `order: 80`.                           |
+| `desk-tips.md`             | Task-focused interpretation of Desk tips and next actions.                         |
+| `opening-worktrees.md`     | Supported ways to enter an assigned worktree without splitting an effort.          |
 | `landing-authority.md`     | Conversation consent and recorded grants across the lifecycle; `order: 90`.        |
 | `acceptance-recovery.md`   | Interrupted landing evidence, reconciliation, and partial results; `order: 100`.   |
+| `cleanup-ownership.md`     | Ownership rules for removing stale worktrees, branches, and resource records.      |
+| `drop-recovery.md`         | Recovery paths after an interrupted or partially applied drop operation.           |
+| `reappeared-worktree-paths.md` | Diagnosis and recovery when a removed worktree path returns.                  |
+| `reclaiming-contained-worktrees.md` | Safe reclamation of worktrees contained by another workspace boundary.  |
 | `hand-work-back.md`        | Finish, report, review, revise, accept, and delegate follow-on work; `order: 110`. |
 
 ## Source files to read

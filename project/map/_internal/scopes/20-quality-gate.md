@@ -12,7 +12,11 @@ This subtree documents the public Gate workflow: fixing a failed run, the work `
 | ------------------------- | ------------------------------------------------------------------------------------------ |
 | `README.md`               | Public-facing 200–350-word overview, led by the route from a red Gate to its fix.          |
 | `when-the-gate-fails.md`  | Troubleshooting page for diagnostics and common failure classes; `order: 10`.              |
+| `validation-findings.md`  | Guide to the persisted validation findings emitted after failed and successful runs.       |
 | `standards.md`            | Guide to metric floors, ceilings, measurement, replay, pinning, and failures; `order: 20`. |
+| `practice-stats.md`       | Guide to measuring repeated development practices from the Logbook.                        |
+| `checkpoints.md`          | Guide to deterministic triggers and judgment-bearing checkpoint answers.                   |
+| `checkpoint-recipes.md`   | Task recipes for placing and tuning common checkpoint boundaries.                          |
 | `the-proof.md`            | Guide to review Proof and the exact-tree identity it records; `order: 30`.                 |
 | `proof-notes.md`          | Guide to local Proof notes, opt-in fetch transport, and publication; `order: 40`.          |
 | `strand-detection.md`     | Concept page for tracked output left by a Gate stage; `order: 50`.                         |
@@ -20,6 +24,8 @@ This subtree documents the public Gate workflow: fixing a failed run, the work `
 | `improvement.md`          | Concept and command guide for ranked continuous-improvement findings; `order: 70`.         |
 | `coupling.md`             | Concept and command guide for coupling; `order: 80`.                                       |
 | `patterns.md`             | Guide to the advisory practice-pattern report; `order: 90`.                                |
+| `pattern-investigations.md` | Guide to collecting evidence for one reported practice pattern.                          |
+| `patterns-decision-evidence.md` | Guide to retaining the decision evidence behind pattern responses.                  |
 | `tidy.md`                 | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                 |
 | `concurrent-test-runs.md` | Guide to the Fleet-wide test-stage concurrency cap; `order: 110`.                          |
 

@@ -114,6 +114,74 @@ Deno.test("TODO items have one parseable shape and two explicit evidence modes",
   assert(ruleFindings(malformed, "todo-evidence").length >= 2);
 });
 
+Deno.test("scope manifests enroll live leaves in both directions", async () => {
+  const manifestPath = "project/map/_internal/scopes/10-example.md";
+  const base = {
+    "project/map/10-example/README.md": "# Example\n",
+    "project/map/10-example/live.md": "# Live\n",
+  };
+  const valid = {
+    ...base,
+    [manifestPath]: [
+      "# Scope: 10-example",
+      "",
+      "## Files to produce",
+      "",
+      "| File | Topic |",
+      "| ---- | ----- |",
+      "| `README.md` | Overview and curated reading order. |",
+      "| `live.md` | Durable behavior of the live example. |",
+      "",
+    ].join("\n"),
+  };
+  assertEquals(await fixtureFindings(valid), []);
+
+  const missing = { ...valid };
+  missing[manifestPath] = missing[manifestPath].replace(
+    "| `live.md` | Durable behavior of the live example. |\n",
+    "",
+  );
+  assert(
+    ruleFindings(await fixtureFindings(missing), "scope-member").some(
+      (item) => item.includes("not enrolled"),
+    ),
+  );
+
+  const stale = {
+    ...valid,
+    [manifestPath]: valid[manifestPath].replace(
+      "| `live.md` | Durable behavior of the live example. |",
+      "| `gone.md` | A page that no longer exists in the subtree. |",
+    ),
+  };
+  assert(
+    ruleFindings(await fixtureFindings(stale), "scope-member").some(
+      (item) => item.includes("stale"),
+    ),
+  );
+
+  const excluded = {
+    ...base,
+    [manifestPath]: [
+      "# Scope: 10-example",
+      "",
+      "## Files to produce",
+      "",
+      "| File | Topic |",
+      "| ---- | ----- |",
+      "| `README.md` | Overview and curated reading order. |",
+      "",
+      "## Declared exclusions",
+      "",
+      "| File | Reason |",
+      "| ---- | ------ |",
+      "| `live.md` | Generated elsewhere and deliberately not refreshed here. |",
+      "",
+    ].join("\n"),
+  };
+  assertEquals(await fixtureFindings(excluded), []);
+});
+
 Deno.test("planning links and renderer-derived anchors enroll every present programme", async () => {
   const sound = activeProgramme(
     "Read the [decision](notes.md#chosen-path).",
