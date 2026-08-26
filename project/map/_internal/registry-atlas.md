@@ -3237,7 +3237,7 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `src/shared/subprocess.ts#runShell`
   - `src/shared/subprocess.ts#commandExists`
   - `src/shared/discern_commit.ts#commitDiscernChanges`
-  - `src/shared/third_party_codegen.ts#denoInfoJson`
+  - `src/shared/deno_metadata.ts#denoMetadata`
   - `src/commands/docs.ts#pageThrough`
   - `src/lib/open_browser.ts#runBrowserCommand`
   - `src/engine/owned_child.ts#runOwnedChild`

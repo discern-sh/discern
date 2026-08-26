@@ -11,6 +11,7 @@ import {
 } from "ts-morph";
 import { REPO_ROOT } from "../tests/repo_authored_paths.ts";
 import { structuralGuardScope } from "../tests/structural_guard_scope.ts";
+import { denoMetadata } from "../src/shared/deno_metadata.ts";
 import {
   DETACHED_PROMISE_BOUNDARIES,
   type DetachedPromiseBoundary,
@@ -220,27 +221,6 @@ async function readDenoJson(root: string): Promise<DenoJson> {
     imports[name] = target;
   }
   return { imports };
-}
-
-/** Run one read-only Deno metadata command and return its stdout. */
-async function denoMetadata(
-  root: string,
-  args: readonly string[],
-): Promise<string> {
-  const output = await new Deno.Command("deno", {
-    args: [...args],
-    cwd: root,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  if (!output.success) {
-    throw new Error(
-      `deno ${args[0] ?? "metadata"} failed: ${
-        new TextDecoder().decode(output.stderr).trim()
-      }`,
-    );
-  }
-  return new TextDecoder().decode(output.stdout);
 }
 
 /** Resolve every configured external alias once through Deno's live graph. */
