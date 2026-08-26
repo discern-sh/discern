@@ -609,11 +609,11 @@
   # hand-edit (which can't tell a real gain from a quiet loosening).
   # ─────────────────────────────────────────────────────────────────────────────
 
-  # Coverage standard — hold src/ line coverage at or above a rising floor. The run
-  # executes the suite under Deno coverage and emits DISCERN_METRIC coverage <pct>
-  # for the repo's own src/ tree (the installer AND the TS engine — both
-  # instrumented; scripts/coverage_lib.ts anchors the filter so dependency and
-  # workspace src/ segments never count). Deferred from the gate's measurement
+  # Coverage standards — one instrumented suite run emits the aggregate rate,
+  # the count of per-module floor failures, and the reviewed exception count.
+  # Git elects the live src/ module universe; LCOV supplies observations rather
+  # than membership, so an unloaded executable module is an explicit zero.
+  # Deferred from the gate's measurement
   # pass with the honest reason: it re-runs the ENTIRE test suite under
   # instrumentation, roughly doubling the gate's slowest job — the pathological
   # case the opt-out exists for. The never-loosen floor check still runs on every
@@ -633,6 +633,53 @@
       "templates/**",
       "scripts/coverage.ts",
       "scripts/coverage_lib.ts",
+      "scripts/module_coverage_exceptions.ts",
+      "scripts/source_module_universe.ts",
+      "deno.json",
+      "deno.lock",
+    ]
+    measure = "on-demand"
+
+  # A set-valued module failure is represented honestly by its violation count;
+  # the measurement output names every member and its recovery. Zero is the
+  # permanent ceiling. The 80% line floor lives beside the reviewed registry in
+  # scripts/module_coverage_exceptions.ts, where stale and regressed debts fail.
+  [standards.module_coverage]
+    metric = "module_coverage_failures"
+    direction = "down"
+    limit = 0
+    run = "deno task coverage"
+    timeout = 1200
+    inputs = [
+      "src/**",
+      "tests/**",
+      "templates/**",
+      "scripts/coverage.ts",
+      "scripts/coverage_lib.ts",
+      "scripts/module_coverage_exceptions.ts",
+      "scripts/source_module_universe.ts",
+      "deno.json",
+      "deno.lock",
+    ]
+    measure = "on-demand"
+
+  # The exception population is independent debt with a falling ceiling. New
+  # members require the Standards engine's owner-approved growth transaction;
+  # normal work can only remove them and then pin the smaller count.
+  [standards.module_coverage_exceptions]
+    metric = "module_coverage_exceptions"
+    direction = "down"
+    limit = 0
+    run = "deno task coverage"
+    timeout = 1200
+    inputs = [
+      "src/**",
+      "tests/**",
+      "templates/**",
+      "scripts/coverage.ts",
+      "scripts/coverage_lib.ts",
+      "scripts/module_coverage_exceptions.ts",
+      "scripts/source_module_universe.ts",
       "deno.json",
       "deno.lock",
     ]
