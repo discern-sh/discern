@@ -1121,6 +1121,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
   const failedStage = text(data.failed_stage);
   const standards = records(data.standards);
   const proof = object(data.proof);
+  const standardProposals = records(proof?.standard_proposals);
   const unreviewed = records(review?.unreviewed);
   const regressions = standards.filter((reading) =>
     reading.verdict === "regressed"
@@ -1164,6 +1165,23 @@ const presentGate: ResultMarkdownPresenter = (result) => {
         ? omitted(unreviewed.length - MAX_LIST_ITEMS, "checkpoint question")
         : undefined,
       ...records(checkpoints?.drops).map(checkpointDropLine),
+      ...standardProposals.slice(0, MAX_LIST_ITEMS).map((proposal) => {
+        const standard = text(proposal.standard) ?? "unknown";
+        const proposed = number(proposal.proposed_limit);
+        const delta = number(proposal.delta);
+        const reason = text(proposal.reason) ?? "No reason recorded.";
+        return `Standard growth proposal ${
+          code(standard)
+        }: exact owner approval is required for limit ${proposed ?? "unknown"}${
+          delta === undefined ? "" : ` (delta ${delta >= 0 ? "+" : ""}${delta})`
+        }.\n\nReason: ${reason}`;
+      }),
+      standardProposals.length > MAX_LIST_ITEMS
+        ? omitted(
+          standardProposals.length - MAX_LIST_ITEMS,
+          "Standard growth proposal",
+        )
+        : undefined,
       proofLine(proof),
       gateProofFact(data.gate_proof),
     ]),
@@ -1354,14 +1372,33 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const standards = records(data.standards);
   const pinned = records(data.pinned);
+  const proposalResult = object(data.proposal);
+  const proposal = object(proposalResult?.proposal);
+  const proposalName = text(proposal?.standard);
+  const proposalReason = text(proposal?.reason);
   return {
     state: defaultState(
       result,
-      pinned.length > 0
-        ? `Tightened ${plural(pinned.length, "standard limit")}.`
-        : `Measured ${plural(standards.length, "standard")}.`,
+      proposal === undefined
+        ? pinned.length > 0
+          ? `Tightened ${plural(pinned.length, "standard limit")}.`
+          : `Measured ${plural(standards.length, "standard")}.`
+        : `${
+          text(proposalResult?.status) ?? "Recorded"
+        } the exact growth proposal for ${code(proposalName ?? "a Standard")}.`,
     ),
     evidence: unique([
+      proposal === undefined
+        ? undefined
+        : `${code(proposalName ?? "standard")}: ${
+          number(proposal.trunk_limit) ?? "unknown"
+        } → ${number(proposal.proposed_limit) ?? "unknown"}; measured ${
+          number(proposal.measurement) ?? "unknown"
+        }; delta ${number(proposal.delta) ?? "unknown"}.`,
+      proposalReason === undefined ? undefined : `Reason: ${proposalReason}`,
+      proposal === undefined
+        ? undefined
+        : listFact("Responsible paths", strings(proposal.evidence_paths)),
       ...standards.slice(0, MAX_LIST_ITEMS).map((reading) => {
         const name = text(reading.name) ?? "standard";
         const measurement = text(reading.measurement) ?? "unknown";
@@ -1378,6 +1415,9 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
         ? omitted(standards.length - MAX_LIST_ITEMS, "standard")
         : undefined,
     ]),
+    boundary: proposal === undefined ? [] : [
+      "The Gate must remeasure this exact value. Landing requires explicit owner approval for this Standard/value/reason tuple; generic grants never cover it.",
+    ],
   };
 };
 
@@ -1711,6 +1751,23 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
         }.`,
       text(data.proof_line),
       listFact("Authority warnings", strings(data.authority_warnings)),
+      ...records(data.standard_approvals).map((proposal) =>
+        `Owner-approved Standard growth: ${
+          code(text(proposal.standard) ?? "standard")
+        } ${number(proposal.trunk_limit) ?? "unknown"} → ${
+          number(proposal.proposed_limit) ?? "unknown"
+        }; reason: ${text(proposal.reason) ?? "unknown"}.`
+      ),
+      ...records(data.standard_approvals_required).map((approval) => {
+        const proposal = object(approval.proposal);
+        return `Standard growth awaiting exact owner approval: ${
+          code(text(proposal?.standard) ?? "standard")
+        } ${number(proposal?.trunk_limit) ?? "unknown"} → ${
+          number(proposal?.proposed_limit) ?? "unknown"
+        }; reason: ${text(proposal?.reason) ?? "unknown"}; approval token: ${
+          code(text(approval.token) ?? "unavailable")
+        }.`;
+      }),
       ...records(data.checkpoint_drops).map(checkpointDropLine),
     ]),
     boundary: consent === undefined

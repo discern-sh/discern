@@ -81,20 +81,25 @@ Deno.test("KNOWN_VERBS covers EXACTLY the registered top-level CLI commands", ()
 });
 
 Deno.test("every MCP tool maps to a real verb, with explicit non-engine additions and tool-less engine verbs", () => {
-  const toolVerbs = TOOLS.map((t) => verbOf(t.name));
+  const toolCommandPaths = TOOLS.map((tool) => verbOf(tool.name));
+  const toolVerbs = toolCommandPaths.map((path) =>
+    path.split(" ", 1)[0] ?? path
+  );
+  const distinctToolVerbs = new Set(toolVerbs);
 
-  // No dead slug: every tool's verb is one the CLI actually knows.
-  for (const v of toolVerbs) {
+  // No dead slug: every tool's top-level verb is one the CLI actually knows.
+  for (const v of distinctToolVerbs) {
     assert(
       KNOWN_VERBS.has(v),
       `MCP tool verb "${v}" is not a known CLI verb — its tool slug is dead`,
     );
   }
-  // No duplicate tool for one verb.
+  // No duplicate tool for one exact command path. A command group may expose
+  // both its parent and a real child command as distinct tools.
   assertEquals(
-    toolVerbs.length,
-    new Set(toolVerbs).size,
-    "two MCP tools map to the same verb",
+    toolCommandPaths.length,
+    new Set(toolCommandPaths).size,
+    "two MCP tools map to the same command path",
   );
 
   // The MCP surface is an intentional subset+ of the verbs: it ADDS three
@@ -107,13 +112,13 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
   // The exception sets must themselves stay honest (no stale member).
   for (const v of NON_ENGINE_TOOL_VERBS) {
     assert(
-      toolVerbs.includes(v) && !KNOWN_ENGINE_VERBS.has(v),
+      distinctToolVerbs.has(v) && !KNOWN_ENGINE_VERBS.has(v),
       `NON_ENGINE_TOOL_VERBS lists "${v}", but it is not a non-engine MCP tool verb anymore`,
     );
   }
   for (const v of MCP_SHELL_ONLY_VERBS.keys()) {
     assert(
-      KNOWN_VERBS.has(v) && !toolVerbs.includes(v),
+      KNOWN_VERBS.has(v) && !distinctToolVerbs.has(v),
       `MCP_SHELL_ONLY_VERBS declares "${v}", but it is not a tool-less known verb anymore`,
     );
   }
@@ -122,7 +127,7 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
   // declared shell-only — a new verb must decide its MCP story the day it is
   // born, and the two halves can never overlap or leave a gap.
   assertEquals(
-    sorted([...toolVerbs, ...MCP_SHELL_ONLY_VERBS.keys()]),
+    sorted([...distinctToolVerbs, ...MCP_SHELL_ONLY_VERBS.keys()]),
     sorted(KNOWN_VERBS),
     "the verb vocabulary and the MCP surface have drifted — register a tool for the " +
       "new verb, or declare it (with its reason) in MCP_SHELL_ONLY_VERBS beside TOOLS",
@@ -132,7 +137,7 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
     .filter((v) => !MCP_SHELL_ONLY_VERBS.has(v))
     .concat([...NON_ENGINE_TOOL_VERBS]);
   assertEquals(
-    sorted(toolVerbs),
+    sorted(distinctToolVerbs),
     sorted(expected),
     "the MCP TOOLS table has drifted from the verb SSOT — register a tool for the new " +
       "verb, or record it in MCP_SHELL_ONLY_VERBS / NON_ENGINE_TOOL_VERBS",
