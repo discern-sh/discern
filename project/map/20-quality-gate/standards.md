@@ -59,6 +59,14 @@ Ask before wiring: does this number move when the project healthily grows? The a
 
 Report a breach the work itself caused instead of engineering the number back down. A fresh measured breach can become a Standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that exact proposal ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 
+## Duplication holds normalized clone lines
+
+The `duplicated_lines` Standard measures maximal clone groups from [`duplication_census.ts`](../../../scripts/duplication_census.ts). Fixed token windows nominate candidates; they are never findings. The detector collapses exact and small-edit matches, orders the resulting groups by size, and admits each exact source range to at most one group. Its held value charges formatting-independent statement and block boundaries for every occurrence after the first. A third paste therefore increases debt even when it joins an existing group, while one copied routine cannot inflate into a pile of overlapping windows.
+
+Each diagnostic names a stable semantic fingerprint and every path/range to consolidate. Comments, formatting, local identifier names, and literal values do not define the fingerprint. Import and re-export declarations, type-only declarations, syntax-declared top-level registry tables, and files owned by the generated-artifact registry stay outside the population. The advisory `duplicate_clone_groups` metric reports the number of groups; the falling ceiling holds `duplicated_lines` because it tracks both clone size and additional copies.
+
+The census has no cache. Its declared `inputs` cover the Git-derived authored JavaScript/TypeScript universe, generated ownership, parser dependency, and runner configuration. A matching source or ownership change measures it in the Gate; an unrelated change may replay the recorded value. See [Maintenance](../80-development/maintenance.md) for reducing and pinning the census.
+
 ## What the Gate does
 
 The Gate checks normalized definitions and limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Definition and limit checks never defer. A Standard with a live proposed limit measures fresh even when ordinary policy would replay or defer it. The reading must equal the proposal. `discern prepare` skips measurement.

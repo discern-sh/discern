@@ -813,6 +813,32 @@
       "src/shared/agent_catalogue.ts",
     ]
 
+  # Duplication standard — each finding is one maximal normalized clone group,
+  # and source ranges are admitted globally only when they do not overlap a
+  # larger finding. The held scalar charges formatting-independent logical
+  # lines for every occurrence after the first, so another paste grows the
+  # debt even when it joins an existing group. Imports, declared generated
+  # artifacts, type-only declarations, and syntax-declared registry tables do
+  # not spend the budget. Consolidate a named group, then pin the reduction.
+  [standards.duplicated_lines]
+    direction = "down"
+    limit = 5145
+    run = "deno task duplication-census"
+    inputs = [
+      "*.ts",
+      "*.tsx",
+      "*.mts",
+      "*.cts",
+      "*.js",
+      "*.jsx",
+      "*.mjs",
+      "*.cjs",
+      ".gitignore",
+      "deno.json",
+      "deno.lock",
+      "discern.toml",
+    ]
+
   # Deno-lint suppression standard — hold the raw count of both recognized
   # comment directives (`deno-lint-ignore` and `deno-lint-ignore-file`) at or
   # below a falling ceiling. The structural detector scans every authored

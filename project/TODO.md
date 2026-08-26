@@ -20,6 +20,8 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 
 ## 🟠 Cleanup — known dead or slow code
 
+- [ ] **Reduce maximal duplicated clone lines.** Use each census fingerprint and its exact ranges to consolidate incidental copies whose behavior should move together, keep independent-fate implementations distinct, and pin every reduction until the falling ceiling reaches its defensible minimum. Evidence: `scripts/duplication_census.ts`; `tests/duplication_census_test.ts`; `project/map/80-development/maintenance.md`; `discern.toml`.
+
 - [ ] **Eliminate Deno lint suppression directives.** Replace each remaining suppression with compliant code, pin every census reduction, and convert the detector to an always-on zero guard when none remain. Evidence: `scripts/lint_suppressions.ts`; `project/map/80-development/code-conventions.md`.
 
 - [ ] **Eliminate selected site-component gaps.** Render every component emitted for a live route bundle or stop shipping its unused output, pinning each reduction until the deficit reaches zero. Evidence: `scripts/site_component_coverage.ts`; `site/design_system.ts`; `project/map/90-site/the-design-system.md`.
