@@ -377,7 +377,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Areas of the project",
           what:
-            "`[scopes.<name>]` names one part of the project by the file locations it covers. An area can be `neutral` (changes there need no check), declare a read-only `preview` instruction an agent can run from the working copy, or carry its own `gate` instruction that runs only when that area changed.",
+            "`[scopes.<name>]` names one part of the project by the file locations it covers. An area can be `neutral` (changes there need no check), declare a read-only `preview` instruction a coding agent can run from the working copy, or carry its own `gate` instruction that runs only when that area changed.",
           why:
             "A change to written instructions does not pay the cost of preparing the whole app, and a smaller part's private checks run only when that part moved.",
         },
