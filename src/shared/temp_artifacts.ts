@@ -8,11 +8,13 @@
  * persisting forever: gate runs are agent-frequency events (one file per job, per
  * run), so without retention the OS temp dir accumulates tens of thousands of
  * orphaned logs — and on a size-limited tmpfs `/tmp`, eventually starves unrelated
- * programs (ADR 0117). Every creation therefore goes through
- * {@link makeTempArtifact} — an architectural test limits temp creation to this
- * OS-temp artifact registry and the separate, immediately-removed write-authority
- * probe (which creates beside a planned target, not in the OS temp store) — and
- * the gate verbs call the repository-wide coordinator in
+ * programs (ADR 0117). Runtime artifact creation therefore goes through
+ * {@link makeTempArtifact} or {@link makeTempArtifactDir}. The repo-wide raw
+ * directory guard recognizes this module alongside the separate test and
+ * tooling lifetime authorities; the temp-file guard classifies the one
+ * immediately removed write-authority probe separately because it creates
+ * beside a planned target, not in the OS temp store. The gate verbs call the
+ * repository-wide coordinator in
  * `engine/gate/temp_artifact_sweep.ts` before their jobs spawn, reaping expired
  * artifacts from earlier runs. A new artifact family added to
  * {@link TEMP_ARTIFACT_KINDS} auto-enrols in both the naming and the reaping.

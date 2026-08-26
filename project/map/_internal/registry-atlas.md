@@ -101,10 +101,12 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
+| [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
+| [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 8       | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 91      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 93      | —                | node `canonical-sets`       |
 
-91 sets · 148 guard tests · 58 committed artifacts.
+93 sets · 149 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -246,7 +248,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/source_path_references_test.ts`             | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/spoiler_guard_test.ts`                      | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/ssot_claim_guard_test.ts`                   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `tests/temp_dir_guard_test.ts`                     | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/temp_dir_guard_test.ts`                     | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities), [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds), [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)                                                                                                                                                         |
 | `tests/temp_dir_test.ts`                           | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/third_party_notices_test.ts`                | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/tip_canon_enrolment_test.ts`                | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -254,6 +256,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/tip_command_guard_test.ts`                  | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/tip_inventory_codegen_test.ts`              | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/tip_register_guard_test.ts`                 | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/tool_temp_dir_test.ts`                      | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/triangle_art_test.ts`                       | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs), [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                                                                                                                                                                                                                                                                                                             |
 | `tests/validator_enrolment_test.ts`                | [`artifact-validators`](#artifact-validators--artifact-validators)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/vocab_drift_test.ts`                        | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -3230,6 +3233,37 @@ The recorded judgments behind the canary check job: extras promoted on recorded 
 - Glossary: not enrolled — the canary is one configured gate job; the registry records repository-local test-scheduling judgments
 - Feature canon: not enrolled — repository-local job wiring over the generic [jobs] table, not a shipped discern feature
 
+## `temp-directory-creator-authorities` — Raw temp-directory creator authorities
+
+The only modules permitted to call Deno's raw temporary-directory primitives, each with a reason naming its distinct lifetime.
+
+- Source: `tests/temp_dir_authorities.ts` — `TEMP_DIR_CREATOR_AUTHORITIES`
+- Members: 3
+  - `scripts/temp_dir.ts`
+  - `src/shared/temp_artifacts.ts`
+  - `tests/temp_dir.ts`
+- Guards: `tests/temp_dir_guard_test.ts`
+- Glossary: not enrolled — raw temporary-directory creation is a repository development boundary rather than product vocabulary
+- Feature canon: not enrolled — the creator guard is repository infrastructure and does not add a shipped discern capability
+
+## `tool-temp-directory-kinds` — Tool temp-directory kinds
+
+Every callback-scoped scratch directory used by a standalone repository tool, with its stable id, secure prefix, purpose, and cleanup policy.
+
+- Source: `scripts/temp_dir.ts` — `TOOL_TEMP_DIR_KINDS`
+- Members: 8
+  - `agent-surface-stage`
+  - `coverage-profile`
+  - `map-prose-stage`
+  - `release-smoke`
+  - `site-design-system`
+  - `site-prose-stage`
+  - `terminal-capture`
+  - `terminal-fixture-binary`
+- Guards: `tests/tool_temp_dir_test.ts`, `tests/temp_dir_guard_test.ts`
+- Glossary: not enrolled — tool scratch lifetimes are a repository development convention rather than user-facing product terminology
+- Feature canon: not enrolled — the tooling capability supports this repository and is not part of the shipped discern binary
+
 ## `test-temp-directory-ownership-modes` — Test temp-directory ownership modes
 
 Every supported lifetime for a temporary directory created by tests or executable fixtures, with its cleanup boundary and reason.
@@ -3247,7 +3281,7 @@ Every supported lifetime for a temporary directory created by tests or executabl
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 91
+- Members: 93
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -3337,6 +3371,8 @@ This meta-registry: the closed set of closed sets.
   - `authored-ts-universe`
   - `artifact-validators`
   - `canary-tests`
+  - `temp-directory-creator-authorities`
+  - `tool-temp-directory-kinds`
   - `test-temp-directory-ownership-modes`
   - `canonical-sets`
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`

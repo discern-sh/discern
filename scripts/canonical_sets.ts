@@ -2821,6 +2821,59 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .map((entry) => entry.file),
   },
   {
+    id: "temp-directory-creator-authorities",
+    title: "Raw temp-directory creator authorities",
+    what:
+      "The only modules permitted to call Deno's raw temporary-directory primitives, each with a reason naming its distinct lifetime.",
+    source: {
+      kind: "module",
+      module: "tests/temp_dir_authorities.ts",
+      exportName: "TEMP_DIR_CREATOR_AUTHORITIES",
+    },
+    guards: ["tests/temp_dir_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "raw temporary-directory creation is a repository development boundary rather than product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the creator guard is repository infrastructure and does not add a shipped discern capability",
+      },
+    },
+    members: async () => [...(await import("../tests/temp_dir_authorities.ts"))
+      .TEMP_DIR_CREATOR_AUTHORITIES.keys()],
+  },
+  {
+    id: "tool-temp-directory-kinds",
+    title: "Tool temp-directory kinds",
+    what:
+      "Every callback-scoped scratch directory used by a standalone repository tool, with its stable id, secure prefix, purpose, and cleanup policy.",
+    source: {
+      kind: "module",
+      module: "scripts/temp_dir.ts",
+      exportName: "TOOL_TEMP_DIR_KINDS",
+    },
+    guards: [
+      "tests/tool_temp_dir_test.ts",
+      "tests/temp_dir_guard_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "tool scratch lifetimes are a repository development convention rather than user-facing product terminology",
+      },
+      featureCanon: {
+        absent:
+          "the tooling capability supports this repository and is not part of the shipped discern binary",
+      },
+    },
+    members: async () =>
+      Object.keys((await import("./temp_dir.ts")).TOOL_TEMP_DIR_KINDS),
+  },
+  {
     id: "test-temp-directory-ownership-modes",
     title: "Test temp-directory ownership modes",
     what:

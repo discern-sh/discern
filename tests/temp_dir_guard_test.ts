@@ -13,22 +13,7 @@ import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
-
-/** Modules that truly own raw directory creation, with their distinct lifetime. */
-export const TEMP_DIR_CREATOR_AUTHORITIES = new Map<string, string>([
-  [
-    "scripts/temp_dir.ts",
-    "Standalone repository tools own callback-scoped scratch directories through one kind registry.",
-  ],
-  [
-    "src/shared/temp_artifacts.ts",
-    "Runtime directory artifacts survive a command and expire through the registered retention sweep.",
-  ],
-  [
-    "tests/temp_dir.ts",
-    "Tests and executable fixtures use callback- or suite-scoped ownership with test-specific teardown.",
-  ],
-]);
+import { TEMP_DIR_CREATOR_AUTHORITIES } from "./temp_dir_authorities.ts";
 
 const RAW_CREATORS = new Set(["makeTempDir", "makeTempDirSync"]);
 
