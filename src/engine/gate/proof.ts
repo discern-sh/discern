@@ -39,6 +39,7 @@
  */
 
 import { dirname, join } from "@std/path";
+import { z } from "@zod/zod";
 import { declarationEvidenceIdentity } from "../checkpoints/evidence.ts";
 import {
   type CheckpointDrop,
@@ -54,6 +55,7 @@ import {
 } from "../../shared/git_admin_state.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { bestEffortFs, readTextIfExists } from "../../shared/fs_presence.ts";
+import { decodeJson } from "../../shared/runtime_decode.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import {
@@ -943,12 +945,15 @@ export async function clearStandardMeasurements(
  * replay cache above, this evidence is deliberately useful when a Standard is
  * red: `standards propose` needs the breached value and must distinguish a
  * missing metric or failed command from a measured regression. */
-export interface FreshStandardMeasurementEvidence {
-  readonly version: 1;
-  readonly head: string;
-  readonly values: Readonly<Record<string, number>>;
-  readonly failed: readonly string[];
-}
+const FreshStandardMeasurementEvidenceSchema = z.strictObject({
+  version: z.literal(1),
+  head: z.string().min(1),
+  values: z.record(z.string(), z.number().finite()),
+  failed: z.array(z.string().min(1)),
+});
+export type FreshStandardMeasurementEvidence = z.infer<
+  typeof FreshStandardMeasurementEvidenceSchema
+>;
 
 export type FreshStandardMeasurementEvidenceCheck =
   | {
@@ -1024,36 +1029,15 @@ export async function recordFreshStandardMeasurementEvidence(
 function parseFreshStandardMeasurementEvidence(
   raw: string,
 ): FreshStandardMeasurementEvidence | undefined {
-  let value: unknown;
   try {
-    value = JSON.parse(raw);
+    return decodeJson(
+      FreshStandardMeasurementEvidenceSchema,
+      raw,
+      "fresh Standard measurement evidence",
+    );
   } catch {
     return undefined;
   }
-  if (typeof value !== "object" || value === null) {
-    return undefined;
-  }
-  const record = value as {
-    version?: unknown;
-    head?: unknown;
-    values?: unknown;
-    failed?: unknown;
-  };
-  const values = finiteNumberMap(record.values);
-  if (
-    record.version !== 1 || typeof record.head !== "string" ||
-    record.head === "" || values === undefined ||
-    !Array.isArray(record.failed) ||
-    !record.failed.every((name) => typeof name === "string" && name !== "")
-  ) {
-    return undefined;
-  }
-  return {
-    version: 1,
-    head: record.head,
-    values,
-    failed: [...record.failed],
-  };
 }
 
 /** Honor evidence only for the exact current clean commit. */

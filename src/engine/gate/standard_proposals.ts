@@ -7,6 +7,7 @@
  */
 
 import { dirname, isAbsolute, join } from "@std/path";
+import { z } from "@zod/zod";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import {
@@ -30,6 +31,7 @@ import {
   type StandardsData,
 } from "../../shared/result_schemas.ts";
 import { observeResult } from "../../shared/result_capture.ts";
+import { decodeJson } from "../../shared/runtime_decode.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
   preflightPlannedWrites,
@@ -67,18 +69,29 @@ import { renderPlan, renderStepResults } from "../../shared/result.ts";
 const PROPOSAL_STORE_VERSION = 1;
 const PROPOSAL_TRANSACTION_VERSION = 1;
 
-interface StandardGrowthProposalStore {
-  readonly version: 1;
-  readonly proposals: readonly StandardGrowthProposalData[];
-}
+const StandardGrowthProposalStoreSchema = z.strictObject({
+  version: z.literal(PROPOSAL_STORE_VERSION),
+  proposals: z.array(StandardGrowthProposalSchema),
+}).refine(
+  ({ proposals }) =>
+    new Set(proposals.map((proposal) => proposal.standard)).size ===
+      proposals.length,
+  "proposal Standards must be unique",
+);
+type StandardGrowthProposalStore = z.infer<
+  typeof StandardGrowthProposalStoreSchema
+>;
 
-interface StandardGrowthProposalTransaction {
-  readonly version: 1;
-  readonly branch: string;
-  readonly source_commit: string;
-  readonly config_path: string;
-  readonly proposal: PlannedStandardGrowthProposal;
-}
+const StandardGrowthProposalTransactionSchema = z.strictObject({
+  version: z.literal(PROPOSAL_TRANSACTION_VERSION),
+  branch: z.string().min(1),
+  source_commit: z.string().min(1),
+  config_path: z.string().min(1),
+  proposal: StandardGrowthProposalSchema.omit({ commit: true }),
+});
+type StandardGrowthProposalTransaction = z.infer<
+  typeof StandardGrowthProposalTransactionSchema
+>;
 
 export interface ActiveStandardGrowthProposals {
   readonly active: ReadonlyMap<string, StandardGrowthProposalData>;
@@ -231,33 +244,15 @@ async function preflightProposalWrites(
 function parseProposalStore(
   raw: string,
 ): StandardGrowthProposalStore | undefined {
-  let value: unknown;
   try {
-    value = JSON.parse(raw);
+    return decodeJson(
+      StandardGrowthProposalStoreSchema,
+      raw,
+      "Standard growth proposal record",
+    );
   } catch {
     return undefined;
   }
-  if (typeof value !== "object" || value === null) {
-    return undefined;
-  }
-  const record = value as { version?: unknown; proposals?: unknown };
-  if (
-    record.version !== PROPOSAL_STORE_VERSION ||
-    !Array.isArray(record.proposals)
-  ) {
-    return undefined;
-  }
-  const proposals: StandardGrowthProposalData[] = [];
-  const names = new Set<string>();
-  for (const candidate of record.proposals) {
-    const parsed = StandardGrowthProposalSchema.safeParse(candidate);
-    if (!parsed.success || names.has(parsed.data.standard)) {
-      return undefined;
-    }
-    names.add(parsed.data.standard);
-    proposals.push(parsed.data);
-  }
-  return { version: 1, proposals };
 }
 
 /** Read absent state as an empty store, while preserving malformed/unreadable. */
@@ -299,7 +294,10 @@ async function writeProposalStore(
 ): Promise<void> {
   await atomicReplaceJson(
     authority.proposalPath,
-    { version: 1, proposals } satisfies StandardGrowthProposalStore,
+    {
+      version: 1,
+      proposals: [...proposals],
+    } satisfies StandardGrowthProposalStore,
     { mode: 0o600, sync: true, trailingNewline: true },
   );
 }
@@ -523,45 +521,15 @@ export function staleProposalDiagnostic(
 function parseProposalTransaction(
   raw: string,
 ): StandardGrowthProposalTransaction | undefined {
-  let value: unknown;
   try {
-    value = JSON.parse(raw);
+    return decodeJson(
+      StandardGrowthProposalTransactionSchema,
+      raw,
+      "Standard growth proposal recovery journal",
+    );
   } catch {
     return undefined;
   }
-  if (typeof value !== "object" || value === null) {
-    return undefined;
-  }
-  const record = value as {
-    version?: unknown;
-    branch?: unknown;
-    source_commit?: unknown;
-    config_path?: unknown;
-    proposal?: unknown;
-  };
-  const candidate = StandardGrowthProposalSchema.safeParse({
-    ...(typeof record.proposal === "object" && record.proposal !== null
-      ? record.proposal
-      : {}),
-    commit: record.source_commit,
-  });
-  if (
-    record.version !== PROPOSAL_TRANSACTION_VERSION ||
-    typeof record.branch !== "string" || record.branch === "" ||
-    typeof record.source_commit !== "string" || record.source_commit === "" ||
-    typeof record.config_path !== "string" || record.config_path === "" ||
-    !candidate.success
-  ) {
-    return undefined;
-  }
-  const { commit: _commit, ...proposal } = candidate.data;
-  return {
-    version: 1,
-    branch: record.branch,
-    source_commit: record.source_commit,
-    config_path: record.config_path,
-    proposal,
-  };
 }
 
 /** Remove a finished recovery journal, tolerating an already-clean retry. */
