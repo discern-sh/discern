@@ -116,6 +116,24 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: true,
   },
+  standardMeasurementEvidence: {
+    path: "discern/standard-measurement-evidence.json",
+    scope: "worktree",
+    kind: "file",
+    validation: true,
+  },
+  standardGrowthProposals: {
+    path: "discern/standard-growth-proposals.json",
+    scope: "worktree",
+    kind: "file",
+    validation: true,
+  },
+  standardGrowthProposalTransaction: {
+    path: "discern/standard-growth-proposal-transaction.json",
+    scope: "worktree",
+    kind: "file",
+    validation: true,
+  },
   ignoredBaseline: {
     path: "discern/ignored-baseline",
     scope: "worktree",

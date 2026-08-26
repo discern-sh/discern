@@ -289,6 +289,12 @@ export const OPERATION_EFFECTS = {
     "required",
     { gitWriteAuthority: "boundary-plus-effect-plan" },
   ),
+  "standards propose": policy(
+    ["discern-checkout-mutation", "discern-git-mutation"],
+    "checkout",
+    "required",
+    { gitWriteAuthority: "boundary-plus-effect-plan" },
+  ),
   start: policy(
     [
       "discern-common-mutation",

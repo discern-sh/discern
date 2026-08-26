@@ -73,6 +73,7 @@ import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { TomlEditor } from "../../lib/toml_edit.ts";
 import type {
   GateStandard,
+  StandardGrowthProposalData,
   StandardsData,
 } from "../../shared/result_schemas.ts";
 import type { JobResult } from "../jobs/types.ts";
@@ -93,6 +94,7 @@ import {
   inspectStandardMeasurements,
   pinValidatedTree,
   preflightAdminStateWrites,
+  recordFreshStandardMeasurementEvidence,
   recordStandardMeasurements,
   type ValidatedTreePin,
 } from "./proof.ts";
@@ -104,6 +106,10 @@ import {
 } from "../../shared/write_preflight.ts";
 import { assertMainMerged, integrationBranch } from "../worktree/git.ts";
 import { writeDiscernToml } from "../../lib/tidy_format.ts";
+import {
+  inspectActiveStandardGrowthProposals,
+  staleProposalDiagnostic,
+} from "./standard_proposals.ts";
 
 export { readTrunkConfig, type TrunkConfigRead } from "./standard_limits.ts";
 
@@ -229,9 +235,9 @@ export function compareValueToLimit(
         reason:
           `standard '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. ` +
           `Raise it within the scope of your task; never lower the floor. ` +
-          `If the work itself shrank what this measures, stop and report the breach — ` +
-          `moving a limit is an owner decision taken on the trunk, and propping the ` +
-          `number up with unrelated changes is worse than the breach.`,
+          `If the work itself shrank what this measures, take a fresh standalone ` +
+          `measurement and run \`discern standards propose ${name} --reason "…"\`; ` +
+          `propping the number up with unrelated changes is worse than the breach.`,
       };
     }
     return {
@@ -253,9 +259,9 @@ export function compareValueToLimit(
       reason:
         `standard '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. ` +
         `Bring it down within the scope of your task; never raise the ceiling. ` +
-        `If the work itself grew what this measures, stop and report the breach — ` +
-        `moving a limit is an owner decision taken on the trunk, and offsetting the ` +
-        `number with unrelated changes is worse than the breach.${growHint}`,
+        `If the work itself grew what this measures, take a fresh standalone ` +
+        `measurement and run \`discern standards propose ${name} --reason "…"\`; ` +
+        `offsetting the number with unrelated changes is worse than the breach.${growHint}`,
     };
   }
   return {
@@ -453,14 +459,36 @@ async function evaluateStandardProcessResult(
   result: JobResult,
   outcomes: Map<string, GateStandard>,
   verdicts: Map<string, StandardVerdict>,
+  proposal?: StandardGrowthProposalData,
 ): Promise<JobResult> {
-  const verdict: StandardVerdict = standard.command === ""
+  let verdict: StandardVerdict = standard.command === ""
     ? {
       held: false,
       reason:
         `standard '${standard.name}' has no run command (set run = "<command>" under [standards.${standard.name}]).`,
     }
     : await evaluateMeasuredOutput(standard, result.output ?? "", root);
+  if (proposal !== undefined && verdict.value !== undefined) {
+    if (Math.abs(verdict.value - proposal.measurement) > 1e-9) {
+      verdict = {
+        held: false,
+        value: verdict.value,
+        reason: `standard '${standard.name}' now measures ${
+          fmtRate(verdict.value)
+        }, but its growth proposal records ${
+          fmtRate(proposal.measurement)
+        }. The proposal is stale and authorizes nothing. Restore the trunk limit or take a fresh breached measurement and propose the new exact value.`,
+        reproduce_cmd: standard.command,
+      };
+    } else if (verdict.held) {
+      verdict = {
+        ...verdict,
+        summary: `${
+          verdict.summary ?? `standard '${standard.name}' held.`
+        } Exact growth proposal awaits owner approval.`,
+      };
+    }
+  }
   verdicts.set(standard.name, verdict);
   const base = standardReadingBase(standard);
   outcomes.set(standard.name, {
@@ -502,6 +530,7 @@ export function buildStandardJobs(
   opts: {
     defaultTimeoutS: number;
     jobLabel?: (name: string) => string;
+    proposals?: ReadonlyMap<string, StandardGrowthProposalData>;
   },
 ): StandardJobs {
   const jobs: PlannedJob[] = [];
@@ -602,6 +631,7 @@ export function buildStandardJobs(
           result,
           outcomes,
           verdicts,
+          opts.proposals?.get(member.name),
         );
         synthesized.set(memberLabel, evaluated);
         if (evaluated.code !== 0) {
@@ -836,7 +866,11 @@ async function executeStandardPlan(
       standard,
       action: { kind: "measure" as const },
     })),
-    { defaultTimeoutS: opts.timeoutS, jobLabel: (name) => name },
+    {
+      defaultTimeoutS: opts.timeoutS,
+      jobLabel: (name) => name,
+      proposals: verification.proposals,
+    },
   );
   const plannedByName = new Map<string, PlanStep>(
     steps.map((step) => [step.label, step]),
@@ -985,6 +1019,12 @@ async function recordCheckMeasurements(
   execution: StandardExecution,
   pin: ValidatedTreePin,
 ): Promise<boolean> {
+  await recordFreshStandardMeasurementEvidence(
+    root,
+    authority,
+    execution.readings,
+    pin,
+  );
   if (!execution.ok) {
     await clearStandardMeasurements(root, authority);
     return false;
@@ -1683,11 +1723,24 @@ export async function standardsResult(
     !(opts.pin ?? false);
   if (!unpinnedNames && !(opts.dryRun ?? false)) {
     const mainBranch = integrationBranch(cfg.repository.trunk);
-    verification = await verifyTrunkLimits(
+    const proposals = await inspectActiveStandardGrowthProposals(
       root,
       mainBranch,
       plan.standards,
     );
+    verification = await verifyTrunkLimits(
+      root,
+      mainBranch,
+      plan.standards,
+      proposals.active,
+    );
+    for (const stale of proposals.stale) {
+      if (verification.blockedStandards.has(stale.proposal.standard)) {
+        verification.diagnostics.unshift(
+          staleProposalDiagnostic(stale.proposal.standard, stale.reason),
+        );
+      }
+    }
   }
   if (unpinnedNames) {
     // Names only mean something to the pin pass; a bare `standards <name>` would

@@ -55,6 +55,7 @@ import {
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import { bestEffortFs, readTextIfExists } from "../../shared/fs_presence.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import {
   abbreviatedObjectIdMatches,
   workingStateFingerprint,
@@ -67,6 +68,7 @@ import {
 import {
   canonicalProof,
   type GateData,
+  type GateStandard,
   type GateProofCheckData,
   type Proof,
   TolerantProofSchema,
@@ -933,6 +935,152 @@ export async function clearStandardMeasurements(
   } catch {
     // NotFound or any other hiccup: the proof is an optimization, never load-bearing.
   }
+}
+
+// ── fresh Standard measurement evidence ────────────────────────────────────
+
+/** A clean, exact-HEAD measurement pass, including named failures. Unlike the
+ * replay cache above, this evidence is deliberately useful when a Standard is
+ * red: `standards propose` needs the breached value and must distinguish a
+ * missing metric or failed command from a measured regression. */
+export interface FreshStandardMeasurementEvidence {
+  readonly version: 1;
+  readonly head: string;
+  readonly values: Readonly<Record<string, number>>;
+  readonly failed: readonly string[];
+}
+
+export type FreshStandardMeasurementEvidenceCheck =
+  | { readonly status: "honored"; readonly evidence: FreshStandardMeasurementEvidence }
+  | {
+    readonly status:
+      | "missing"
+      | "stale"
+      | "dirty"
+      | "malformed"
+      | "unavailable";
+  };
+
+/** Record only process-backed readings from this pass. Replays and deferrals do
+ * not refresh proposal evidence, and a dirty or moving tree earns no record. */
+export async function recordFreshStandardMeasurementEvidence(
+  cwd: string,
+  authority: AdminStateWriteAuthority,
+  readings: readonly GateStandard[],
+  pin: ValidatedTreePin,
+): Promise<boolean> {
+  const measured = readings.filter((reading) =>
+    reading.measurement === "measured"
+  );
+  if (measured.length === 0) {
+    return false;
+  }
+  const path = authorityPath(
+    cwd,
+    authority,
+    "standardMeasurementEvidence",
+  );
+  if (path === undefined || pin.head === undefined || !pin.clean) {
+    return false;
+  }
+  if (
+    (await headSha(cwd)) !== pin.head || !(await isWorktreeFullyClean(cwd))
+  ) {
+    return false;
+  }
+  const evidenceHead = pin.head;
+  const values: Record<string, number> = {};
+  const failed: string[] = [];
+  for (const reading of measured) {
+    if (reading.value === undefined || !Number.isFinite(reading.value)) {
+      failed.push(reading.name);
+    } else {
+      values[reading.name] = reading.value;
+    }
+  }
+  return await bestEffortFs(async () => {
+    await atomicReplaceJson(
+      path,
+      {
+        version: 1,
+        head: evidenceHead,
+        values,
+        failed: failed.sort(),
+      } satisfies FreshStandardMeasurementEvidence,
+      { mode: 0o600, sync: false, trailingNewline: true },
+    );
+    return true;
+  }, {
+    onFailure: false,
+    reason:
+      "Fresh Standard evidence is an input to an optional proposal transaction; a failed write leaves ordinary enforcement in force.",
+  });
+}
+
+/** Parse the small proposal-evidence record without trusting persisted JSON. */
+function parseFreshStandardMeasurementEvidence(
+  raw: string,
+): FreshStandardMeasurementEvidence | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  const record = value as {
+    version?: unknown;
+    head?: unknown;
+    values?: unknown;
+    failed?: unknown;
+  };
+  const values = finiteNumberMap(record.values);
+  if (
+    record.version !== 1 || typeof record.head !== "string" ||
+    record.head === "" || values === undefined ||
+    !Array.isArray(record.failed) ||
+    !record.failed.every((name) => typeof name === "string" && name !== "")
+  ) {
+    return undefined;
+  }
+  return {
+    version: 1,
+    head: record.head,
+    values,
+    failed: [...record.failed],
+  };
+}
+
+/** Honor evidence only for the exact current clean commit. */
+export async function inspectFreshStandardMeasurementEvidence(
+  cwd: string,
+): Promise<FreshStandardMeasurementEvidenceCheck> {
+  const path = await gitAdminStatePath(cwd, "standardMeasurementEvidence");
+  if (path === undefined) {
+    return { status: "unavailable" };
+  }
+  let raw: string;
+  try {
+    raw = await Deno.readTextFile(path);
+  } catch (error) {
+    return error instanceof Deno.errors.NotFound
+      ? { status: "missing" }
+      : { status: "unavailable" };
+  }
+  const evidence = parseFreshStandardMeasurementEvidence(raw);
+  if (evidence === undefined) {
+    return { status: "malformed" };
+  }
+  const currentHead = await headSha(cwd);
+  if (currentHead === undefined || currentHead !== evidence.head) {
+    return { status: "stale" };
+  }
+  if (!(await isWorktreeFullyClean(cwd))) {
+    return { status: "dirty" };
+  }
+  return { status: "honored", evidence };
 }
 
 /**
