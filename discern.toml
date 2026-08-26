@@ -633,8 +633,6 @@
       "templates/**",
       "scripts/coverage.ts",
       "scripts/coverage_lib.ts",
-      "scripts/module_coverage_exceptions.ts",
-      "scripts/source_module_universe.ts",
       "deno.json",
       "deno.lock",
     ]
