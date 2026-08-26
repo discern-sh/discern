@@ -104,11 +104,12 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 26      | —                | —                           |
+| [`best-effort-boundaries`](#best-effort-boundaries--deliberate-error-discard-boundaries)                              | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 190     | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 8       | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 95      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 96      | —                | node `canonical-sets`       |
 
-95 sets · 151 guard tests · 58 committed artifacts.
+96 sets · 154 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -129,6 +130,8 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/art_gallery_test.ts`                        | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants), [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs), [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                                                                                                                                                                                                                                   |
 | `tests/artifact_ownership_test.ts`                 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/atomic_write_enrolment_test.ts`             | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/best_effort_guard_test.ts`                  | [`best-effort-boundaries`](#best-effort-boundaries--deliberate-error-discard-boundaries)                                                                                                                                                                                                                                                                                                                                                                                              |
+| `tests/best_effort_test.ts`                        | [`best-effort-boundaries`](#best-effort-boundaries--deliberate-error-discard-boundaries)                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/boundary_canon_test.ts`                     | [`brand-boundaries`](#brand-boundaries--boundary-canon)                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/brand_animation_test.ts`                    | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/brand_art_test.ts`                          | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -244,6 +247,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/result_codegen_test.ts`                     | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts), [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts), [`public-schema-publications`](#public-schema-publications--public-schema-publications), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes) |
 | `tests/result_schemas_test.ts`                     | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields), [`step-kinds`](#step-kinds--step-kinds), [`hints`](#hints--hints), [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence), [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes)                              |
 | `tests/security_disclosure_test.ts`                | [`security-disclosure`](#security-disclosure--security-disclosure)                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/silent_catch_lint_test.ts`                  | [`best-effort-boundaries`](#best-effort-boundaries--deliberate-error-discard-boundaries)                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/site_serve_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/site_smoke_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/site_workflow_test.ts`                      | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -3342,6 +3346,206 @@ Every genuine wall-clock interval in executable tests, with its exact module, en
 - Glossary: not enrolled — real test-delay enrollment is a repository development boundary rather than product vocabulary
 - Feature canon: not enrolled — the condition-oriented waiting capability supports this repository and is not part of the shipped discern binary
 
+## `best-effort-boundaries` — Deliberate error-discard boundaries
+
+Every deliberate production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.
+
+- Source: `src/shared/best_effort.ts` — `BEST_EFFORT_BOUNDARIES`
+- Members: 190
+  - `acceptance-transaction-temp-cleanup`
+  - `adr-duplicate-scan-fallback`
+  - `agent-gitignore-template-fallback`
+  - `atomic-write-temp-cleanup`
+  - `await-branch-ref-fallback`
+  - `await-legacy-resume-decode`
+  - `await-trunk-ref-fallback`
+  - `await-update-preview-fallback`
+  - `await-watch-path-presence-fallback`
+  - `await-watcher-close`
+  - `await-watcher-open-fallback`
+  - `await-watcher-pump-fallback`
+  - `build-bundled-doc-stage-cleanup`
+  - `build-bundled-doc-stage-reset`
+  - `canon-editor-git-dirty-fallback`
+  - `canon-editor-saved-note-fallback`
+  - `canon-editor-sse-controller-close`
+  - `canon-editor-twin-storage-fallback`
+  - `canon-editor-watch-loop-settlement`
+  - `checkpoint-economics-fallback`
+  - `checkpoint-historical-config-parse-fallback`
+  - `checkpoint-untracked-inspection-close`
+  - `checkpoint-untracked-nonregular-close`
+  - `checkpoint-untracked-open-fallback`
+  - `checkpoint-untracked-stat-error-close`
+  - `checkpoint-when-input-cleanup-outcome`
+  - `compiled-lease-signal-registration`
+  - `config-command-list-parse-fallback`
+  - `config-template-source-fallback`
+  - `continuation-record-error-close`
+  - `continuation-record-error-remove`
+  - `continuation-record-final-close`
+  - `continuation-store-lock-fallback`
+  - `continuation-terminal-remove`
+  - `coupling-gate-hints-fallback`
+  - `crash-error-field-fallback`
+  - `crash-error-instanceof-fallback`
+  - `crash-git-artifact-fallback`
+  - `crash-probe-env-fallback`
+  - `crash-temp-artifact-unavailable`
+  - `crash-thrown-value-text-fallback`
+  - `crash-write-error-close`
+  - `crash-write-error-remove`
+  - `desk-project-scripts-fallback`
+  - `desk-tip-presentation`
+  - `desk-tip-state-record`
+  - `desk-worktree-config-fallback`
+  - `diagnostic-full-output-record`
+  - `dispatch-command-suggestion-config-fallback`
+  - `docs-leaf-metadata-fallback`
+  - `docs-pager-input-close`
+  - `doctor-model-config-fallback`
+  - `effort-grant-restore-outcome`
+  - `first-party-license-payload-compare-fallback`
+  - `gate-active-standard-proposals-fallback`
+  - `gate-live-output-flush`
+  - `gate-tty-observer-close`
+  - `gate-tty-observer-open-fallback`
+  - `gate-tty-observer-sample-fallback`
+  - `gate-tty-write-outcome`
+  - `git-orphan-identity-fallback`
+  - `git-prune-record-identity-fallback`
+  - `git-stale-metadata-identity-fallback`
+  - `identity-config-read-fallback`
+  - `ignored-baseline-decode-fallback`
+  - `ignored-baseline-record`
+  - `ignored-symlink-target-fallback`
+  - `improve-checkpoint-observations-fallback`
+  - `job-output-observer-notify`
+  - `job-output-reader-cancel`
+  - `job-output-record-create-fallback`
+  - `job-output-record-error-close`
+  - `job-output-record-finish-close`
+  - `lifecycle-drop-identity-settings-fallback`
+  - `lifecycle-drop-row-identity-fallback`
+  - `lifecycle-live-port-identity-fallback`
+  - `lifecycle-post-convergence-clean-check-fallback`
+  - `lifecycle-post-landing-dirty-baseline-fallback`
+  - `lifecycle-post-landing-templates-fallback`
+  - `lifecycle-ready-sentinel-write`
+  - `lifecycle-refresh-adr-target-fallback`
+  - `lifecycle-refresh-agent-targets-fallback`
+  - `lifecycle-resource-identity-settings-fallback`
+  - `lifecycle-resource-row-identity-fallback`
+  - `lifecycle-source-manifest-decode-fallback`
+  - `logbook-agent-host-marker-fallback`
+  - `logbook-begin-append`
+  - `logbook-cli-agent-signals-fallback`
+  - `logbook-cli-ci-fallback`
+  - `logbook-cli-spawned-by-fallback`
+  - `logbook-cli-tty-fallback`
+  - `logbook-epoch-state-decode-fallback`
+  - `logbook-finish-append`
+  - `logbook-month-read-outcome`
+  - `logbook-recent-month-read-outcome`
+  - `logbook-recording-config-fallback`
+  - `logbook-recording-context-fallback`
+  - `logbook-snapshot-temp-remove`
+  - `logbook-validation-elapsed-fallback`
+  - `main-crash-cwd-fallback`
+  - `map-link-uri-decode-fallback`
+  - `mcp-agent-signals-fallback`
+  - `mcp-ci-marker-fallback`
+  - `mcp-server-config-fallback`
+  - `mcp-setup-gate-config-fallback`
+  - `mcp-version-probe-fallback`
+  - `mcp-version-stat-fallback`
+  - `operation-lock-acquire-rollback`
+  - `operation-lock-delegation-decode-fallback`
+  - `operation-lock-record-restore`
+  - `owned-child-direct-signal`
+  - `paths-bundled-docs-config-fallback`
+  - `private-docs-git-query-fallback`
+  - `process-group-signal-outcome`
+  - `process-self-signal`
+  - `process-tree-direct-signal`
+  - `proof-fresh-standard-evidence-decode-fallback`
+  - `proof-fresh-standard-evidence-record`
+  - `proof-last-gate-run-record`
+  - `proof-render-diff-fallback`
+  - `proof-standard-measurements-clear`
+  - `proof-standard-measurements-record`
+  - `providers-toml-decode-fallback`
+  - `resource-ledger-decode-fallback`
+  - `resource-ledger-entry-remove`
+  - `retired-path-excess-record-remove`
+  - `retired-path-expired-record-remove`
+  - `retired-path-inspection-read-outcome`
+  - `retired-path-record-decode-fallback`
+  - `retired-path-stale-temp-remove`
+  - `retired-path-store-operation-fallback`
+  - `self-shim-admin-store-fallback`
+  - `self-shim-aside-cleanup`
+  - `self-shim-keepalive-touch`
+  - `settings-template-decode-fallback`
+  - `setup-agent-file-ownership-fallback`
+  - `setup-brief-render-fallback`
+  - `setup-configured-agents-fallback`
+  - `setup-existing-bootstrap-fallback`
+  - `setup-machinery-evidence-clear`
+  - `setup-machinery-evidence-decode-fallback`
+  - `setup-project-metadata-decode-fallback`
+  - `setup-required-effects-config-fallback`
+  - `setup-scaffold-instruction-path-fallback`
+  - `setup-skeleton-config-fallback`
+  - `setup-skeleton-marker-config-fallback`
+  - `setup-step-paths-fallback`
+  - `setup-uncommitted-footprint-fallback`
+  - `setup-unmet-checks-config-fallback`
+  - `setup-verify-config-fallback`
+  - `setup-welcome-config-fallback`
+  - `site-docs-scroll-read-fallback`
+  - `site-docs-scroll-write-fallback`
+  - `site-docs-search-load-fallback`
+  - `site-preview-probe-fallback`
+  - `site-theme-read-fallback`
+  - `site-theme-write-fallback`
+  - `skills-ejected-tree-chmod`
+  - `skills-materialized-manifest-decode-fallback`
+  - `standard-proposal-store-decode-fallback`
+  - `standard-proposal-transaction-decode-fallback`
+  - `status-identity-settings-fallback`
+  - `status-root-canonicalization-fallback`
+  - `status-worktree-id-fallback`
+  - `subprocess-bounded-child-kill`
+  - `subprocess-command-probe-fallback`
+  - `subprocess-input-abort`
+  - `subprocess-output-reader-cancel`
+  - `subprocess-stdin-abort`
+  - `subprocess-timeout-child-kill`
+  - `temp-artifact-stale-remove`
+  - `terminal-background-sense-fallback`
+  - `terminal-environment-read-fallback`
+  - `terminal-interaction-frame-newline`
+  - `terminal-interaction-trace-target-fallback`
+  - `terminal-interaction-trace-write`
+  - `terminal-playback-failure-clear`
+  - `terminal-playback-fit-fallback`
+  - `terminal-size-read-fallback`
+  - `terminal-viewport-sample-fallback`
+  - `test-slot-directory-fallback`
+  - `third-party-package-license-decode-fallback`
+  - `third-party-payload-compare-fallback`
+  - `toml-number-probe-fallback`
+  - `uninstall-template-resolution-fallback`
+  - `worktree-hook-live-ports-fallback`
+  - `worktree-hook-port-warning-fallback`
+  - `worktree-shell-drain-cancel`
+  - `write-preflight-probe-remove`
+  - `write-preflight-tree-remove`
+- Guards: `tests/best_effort_test.ts`, `tests/best_effort_guard_test.ts`, `tests/silent_catch_lint_test.ts`
+- Glossary: not enrolled — error-discard enrollment is an internal reliability policy rather than user-facing product vocabulary
+- Feature canon: not enrolled — the boundary registry supports every feature's error semantics rather than adding a separately selectable capability
+
 ## `tool-temp-directory-kinds` — Tool temp-directory kinds
 
 Every callback-scoped scratch directory used by a standalone repository tool, with its stable id, secure prefix, purpose, and cleanup policy.
@@ -3377,7 +3581,7 @@ Every supported lifetime for a temporary directory created by tests or executabl
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 95
+- Members: 96
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -3470,6 +3674,7 @@ This meta-registry: the closed set of closed sets.
   - `canary-tests`
   - `temp-directory-creator-authorities`
   - `test-real-delay-boundaries`
+  - `best-effort-boundaries`
   - `tool-temp-directory-kinds`
   - `test-temp-directory-ownership-modes`
   - `canonical-sets`
