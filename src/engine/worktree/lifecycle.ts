@@ -2351,7 +2351,7 @@ function acceptAwaitingStandardApprovalResult(
     ? `The owner approval set is incomplete; missing: ${
       missing.map(({ proposal }) => proposal.standard).join(", ")
     }.`
-    : "This Proof contains a proposed Standard limit that requires a separate, exact owner decision.";
+    : "This Proof contains a Standard limit proposal that requires a separate, exact owner decision.";
   return {
     ok: false,
     verb: "accept",
@@ -2404,13 +2404,13 @@ async function enforceStandardLimitApprovals(
     !sameStandardLimitProposalSet(proofProposals, active)
   ) {
     throw new WorktreeResultError(
-      "The proposed Standard limit record no longer matches the honored Proof. Run `discern done` to revalidate the current exact value and reason; nothing has been landed.",
+      "The Standard limit proposal record no longer matches the honored Proof. Run `discern done` to revalidate the current exact value and reason; nothing has been landed.",
       {
         ok: false,
         verb: "accept",
         error: "proposal_stale",
         message:
-          "The proposed Standard limit record no longer matches the honored Proof. A reason change, revocation, or stale record restores ordinary enforcement. Run `discern done` to revalidate the current exact proposal; nothing has been landed.",
+          "The Standard limit proposal record no longer matches the honored Proof. A reason change, revocation, or stale record restores ordinary enforcement. Run `discern done` to revalidate the current exact proposal; nothing has been landed.",
       },
     );
   }
@@ -2925,7 +2925,7 @@ async function executeAcceptPlan(
     !sameStandardLimitProposalSet(proofStandardProposals, standardProposals)
   ) {
     throw new WorktreeResultError(
-      "The validated Proof does not carry exactly the proposed Standard limits approved for this landing.",
+      "The validated Proof does not carry exactly the Standard limit proposals approved for this landing.",
       {
         ok: false,
         verb: "accept",
@@ -3091,13 +3091,13 @@ async function executeAcceptPlan(
     )
   ) {
     throw new WorktreeResultError(
-      "The proposed Standard limit was changed or revoked after validation.",
+      "The Standard limit proposal was changed or revoked after validation.",
       {
         ok: false,
         verb: "accept",
         error: "proposal_stale",
         message:
-          `The proposed Standard limit was changed, revoked, or made stale after validation. No trunk ref moved. Run \`discern done\` and obtain exact owner approval for the current tuple before retrying. ${ACCEPT_NOTHING_LANDED}`,
+          `The Standard limit proposal was changed, revoked, or made stale after validation. No trunk ref moved. Run \`discern done\` and obtain exact owner approval for the current tuple before retrying. ${ACCEPT_NOTHING_LANDED}`,
       },
     );
   }

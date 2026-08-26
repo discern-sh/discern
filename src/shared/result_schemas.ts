@@ -424,7 +424,7 @@ export const CheckpointDropSchema = z.discriminatedUnion("scope", [
 ]);
 export type CheckpointDropData = z.infer<typeof CheckpointDropSchema>;
 
-/** One proposed Standard limit. It is bound to the measured source
+/** One Standard limit proposal. It is bound to the measured source
  * commit, the config-only proposal commit, the trunk baseline, the complete
  * Standard definition, and the responsible changed paths. */
 export const StandardLimitProposalSchema = z.strictObject({
@@ -580,7 +580,7 @@ const PROOF_FIELDS = {
   checkpoint_drops: z.array(CheckpointDropSchema).optional(),
   /** Present when checkpoints governed the run and any fired. */
   checkpoints: ProofCheckpointsSchema.optional(),
-  /** Present only when an exact proposed Standard limit remains for
+  /** Present only when an exact Standard limit proposal remains for
    * the owner; generic landing authority never covers these records. */
   standard_proposals: z.array(StandardLimitProposalSchema).optional(),
 };

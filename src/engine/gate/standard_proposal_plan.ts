@@ -160,7 +160,7 @@ export function buildStandardLimitProposalPlan(
     ok: true,
     plan: {
       engine: {
-        title: "Proposed Standard limit",
+        title: "Standard limit proposal",
         details: [
           `standard: ${standard.name}`,
           `trunk: ${context.trunk}@${context.trunkCommit.slice(0, 12)}`,

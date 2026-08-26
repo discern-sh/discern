@@ -248,7 +248,7 @@ function parseProposalStore(
     return decodeJson(
       StandardLimitProposalStoreSchema,
       raw,
-      "Proposed Standard limit record",
+      "Standard limit proposal record",
     );
   } catch {
     return undefined;
@@ -525,7 +525,7 @@ function parseProposalTransaction(
     return decodeJson(
       StandardLimitProposalTransactionSchema,
       raw,
-      "Proposed Standard limit recovery journal",
+      "Standard limit proposal recovery journal",
     );
   } catch {
     return undefined;
@@ -752,13 +752,13 @@ export async function standardsProposeResult(
   if (branch === undefined || branch === mainBranch) {
     return proposalFailure(
       "precondition_failed",
-      `A proposed Standard limit requires a named worktree branch ahead of ${mainBranch}; it never edits the trunk checkout directly.`,
+      `A Standard limit proposal requires a named worktree branch ahead of ${mainBranch}; it never edits the trunk checkout directly.`,
     );
   }
   if (head === undefined) {
     return proposalFailure(
       "precondition_failed",
-      "A proposed Standard limit requires a readable current HEAD.",
+      "A Standard limit proposal requires a readable current HEAD.",
     );
   }
   // Recovery itself is an apply operation. Dry-run never creates or completes
@@ -788,7 +788,7 @@ export async function standardsProposeResult(
   if (!(await isWorktreeFullyClean(root))) {
     return proposalFailure(
       "dirty_worktree",
-      "A proposed Standard limit requires a clean worktree so the config-only proposal commit cannot absorb unrelated changes. Commit or stash the current changes, take a fresh measurement, then retry.",
+      "A Standard limit proposal requires a clean worktree so the config-only proposal commit cannot absorb unrelated changes. Commit or stash the current changes, take a fresh measurement, then retry.",
     );
   }
   // Recovery may have restored the pre-proposal config bytes. Plan only from
@@ -817,7 +817,7 @@ export async function standardsProposeResult(
     }
     if (opts.dryRun ?? false) {
       const preview: EnginePlan = {
-        title: "Proposed Standard limit",
+        title: "Standard limit proposal",
         details: [
           `standard: ${existing.standard}`,
           `replace reason: ${reason.reason}`,
@@ -939,7 +939,7 @@ export async function standardsProposeResult(
   } catch (error) {
     return proposalFailure(
       "proposal_failed",
-      `could not apply the proposed Standard limit: ${
+      `could not apply the Standard limit proposal: ${
         errText(error)
       }. Retry the same command; the recovery journal will finish or safely unwind the exact transaction.`,
     );

@@ -533,9 +533,9 @@ export async function verifyTrunkLimits(
         trunk: mainBranch,
         reason: `${acceptedProposals.size} ${
           acceptedProposals.size === 1
-            ? "proposed Standard limit"
-            : "proposed Standard limits"
-        } explain otherwise-forbidden limit changes`,
+            ? "Standard limit proposal explains"
+            : "Standard limit proposals explain"
+        } otherwise-forbidden limit changes`,
       },
       diagnostics: [],
       blocking: false,

@@ -1,4 +1,4 @@
-/** End-to-end contract for measured, commit-bound proposed Standard limits. */
+/** End-to-end contract for measured, commit-bound Standard limit proposals. */
 
 import {
   assert,

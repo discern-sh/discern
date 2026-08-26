@@ -402,7 +402,7 @@ export function renderProofLine(
   return `Proof: ${segments.join(" · ")}`;
 }
 
-/** The owner decisions a landing resolves. Used to rewrite the validation
+/** The owner decisions a landing resolves, which rewrite the validation
  * line's awaiting-decision segments into their resolved state. */
 export interface LandingLineResolutions {
   /** The approved Standard limit proposals — the exact set the Proof carried

@@ -1,7 +1,7 @@
 /**
  * Acceptance journals bind narrow owner decisions to one exact
  * expected-to-target transition: v3 carries checkpoint variances; v4 also
- * carries proposed Standard limit tuples. Recorded grants cannot authorize
+ * carries Standard limit proposal tuples. Recorded grants cannot authorize
  * either narrow decision, and malformed/duplicated bindings remain inert for
  * inspection instead of replaying onto another tree.
  */
@@ -165,7 +165,7 @@ Deno.test("journal v4: exact Standard proposal tuples require and preserve conve
   });
 });
 
-Deno.test("journal v4: a recorded grant cannot authorize a proposed Standard limit", async () => {
+Deno.test("journal v4: a recorded grant cannot authorize a Standard limit proposal", async () => {
   await withTempDir(async (dir) => {
     const { wt, path } = await journaledWorktree(dir);
     await Deno.writeTextFile(

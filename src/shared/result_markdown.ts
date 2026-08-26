@@ -1170,7 +1170,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
         const proposed = number(proposal.proposed_limit);
         const delta = number(proposal.delta);
         const reason = text(proposal.reason) ?? "No reason recorded.";
-        return `Proposed Standard limit for ${
+        return `Standard limit proposal for ${
           code(standard)
         }: exact owner approval is required for limit ${proposed ?? "unknown"}${
           delta === undefined ? "" : ` (delta ${delta >= 0 ? "+" : ""}${delta})`
@@ -1179,7 +1179,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
       standardProposals.length > MAX_LIST_ITEMS
         ? omitted(
           standardProposals.length - MAX_LIST_ITEMS,
-          "proposed Standard limit",
+          "Standard limit proposal",
         )
         : undefined,
       proofLine(proof),
@@ -1752,7 +1752,7 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       text(data.proof_line),
       listFact("Authority warnings", strings(data.authority_warnings)),
       ...records(data.standard_approvals).map((proposal) =>
-        `Owner-approved Standard limit: ${
+        `Standard limit proposal approved by the owner: ${
           code(text(proposal.standard) ?? "standard")
         } ${number(proposal.trunk_limit) ?? "unknown"} → ${
           number(proposal.proposed_limit) ?? "unknown"
@@ -1760,7 +1760,7 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       ),
       ...records(data.standard_approvals_required).map((approval) => {
         const proposal = object(approval.proposal);
-        return `Proposed Standard limit awaiting exact owner approval: ${
+        return `Standard limit proposal awaiting exact owner approval: ${
           code(text(proposal?.standard) ?? "standard")
         } ${number(proposal?.trunk_limit) ?? "unknown"} → ${
           number(proposal?.proposed_limit) ?? "unknown"
