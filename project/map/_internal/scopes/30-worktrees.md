@@ -16,7 +16,7 @@ This subtree documents the public Worktree workflow: isolation, identity, resour
 | `the-resources.md`                  | guide    | Resource creation, records, teardown, and recovery for each Worktree; `order: 30`. |
 | `identity-and-env.md`               | guide    | Worktree ids, ports, environment values, and runtime discovery; `order: 40`.       |
 | `team-workflow.md`                  | guide    | Fleet ownership and composing concurrent branches; `order: 50`.                    |
-| `awaiting-the-fleet.md`             | guide    | Waiting for a sibling branch or the Trunk without polling or stale status prose.    |
+| `awaiting-the-fleet.md`             | guide    | Waiting for a sibling branch or the Trunk without polling or stale status prose.   |
 | `multi-repo-workspaces.md`          | guide    | Repository boundaries, registries, umbrellas, and submodules; `order: 60`.         |
 | `status.md`                         | guide    | Local and Fleet status, Proof, collisions, and session hints; `order: 70`.         |
 | `the-desk.md`                       | guide    | The human Fleet view and its valid actions; `order: 80`.                           |
@@ -26,7 +26,7 @@ This subtree documents the public Worktree workflow: isolation, identity, resour
 | `acceptance-recovery.md`            | guide    | Interrupted landing evidence, reconciliation, and partial results; `order: 100`.   |
 | `cleanup-ownership.md`              | guide    | Ownership rules for removing stale worktrees, branches, and resource records.      |
 | `drop-recovery.md`                  | guide    | Recovery paths after an interrupted or partially applied drop operation.           |
-| `reappeared-worktree-paths.md`      | guide    | Diagnosis and recovery when a removed worktree path returns.                        |
+| `reappeared-worktree-paths.md`      | guide    | Diagnosis and recovery when a removed worktree path returns.                       |
 | `reclaiming-contained-worktrees.md` | guide    | Safe reclamation of worktrees contained by another workspace boundary.             |
 | `hand-work-back.md`                 | guide    | Finish, report, review, revise, accept, and delegate follow-on work; `order: 110`. |
 

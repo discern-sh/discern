@@ -5,7 +5,7 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 ## For agents (any agent — and the maintainer)
 
 - **When you defer something, descope, or find a real issue you won't fix, record it here.** Don't bury it in private memory, a chat reply, or a lone code comment—the next agent and the maintainer cannot see those.
-- **Format:** use one tidy-stable line: `- [ ] **Specific title.** Bounded standalone description. Evidence: `live/repository/path`.` Add more live repository-relative paths in code spans when useful. When no checkout artifact can exist, use `Evidence: Owner-only: <concrete external fact>.` instead.
+- **Format:** use one tidy-stable line with an unchecked checkbox, bold title, bounded standalone description, and terminal `Evidence:` field. Wrap live repository-relative paths in code spans. When no checkout artifact can exist, use `Evidence: Owner-only: <concrete external fact>.` instead.
 - **When you finish an item, delete it**—the resolving commit is the record. Never leave checked boxes behind.
 - **Scope:** this file is for work that outlives the work which discovered it. Track the steps of active work in the agent's own task tooling.
 - This is a backlog, not documentation—modal verbs are fine here. Every item must remain pickup-able without session-relative context.

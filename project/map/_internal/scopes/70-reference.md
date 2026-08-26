@@ -12,19 +12,19 @@ The public reference tier for discern's commands, configuration, environment var
 | --------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------- |
 | `README.md`                       | overview  | Public front door and curated reading order.                                                                      |
 | `setup-command-boundaries.md`     | reference | Exact ownership boundary among setup, refresh, upgrade, and doctor.                                               |
-| `worktree-setup-step-recovery.md` | reference | Recovery contract for interrupted external setup steps in a new worktree.                                        |
+| `worktree-setup-step-recovery.md` | reference | Recovery contract for interrupted external setup steps in a new worktree.                                         |
 | `cli-reference.md`                | reference | Generated command, subcommand, flag, and command-alias reference.                                                 |
 | `config-reference.md`             | reference | Generated `discern.toml` section, key, type, default, and key-alias reference.                                    |
 | `environment-variables.md`        | reference | Generated public `DISCERN_*` names, grouped purpose, and short descriptions.                                      |
-| `checkpoint-when-protocol.md`     | reference | Syntax and matching semantics for checkpoint change triggers.                                                    |
+| `checkpoint-when-protocol.md`     | reference | Syntax and matching semantics for checkpoint change triggers.                                                     |
 | `checkpoint-state.md`             | reference | Persisted checkpoint answer, variance, and invalidation fields.                                                   |
 | `result-surfaces.md`              | reference | Terminal, Markdown, JSON, and MCP projections of one prepared result.                                             |
 | `mcp-and-results.md`              | reference | Public MCP tools, resources, result-envelope wrapper, published schemas, and CLI exit codes.                      |
 | `mcp-call-duration.md`            | reference | Duration fields and timing boundaries exposed by MCP calls.                                                       |
 | `proof-note-format.md`            | reference | Wire format, identifiers, and validation contract for Proof notes.                                                |
 | `artifact-ownership.md`           | reference | Approved Files and ownership exemplar; preserve its register and update only required links or location metadata. |
-| `project-payload-license.md`      | reference | License boundary for files discern installs into a user's project.                                               |
-| `temp-files-and-retention.md`     | reference | Temporary artifact locations, ownership, and retention policy.                                                   |
+| `project-payload-license.md`      | reference | License boundary for files discern installs into a user's project.                                                |
+| `temp-files-and-retention.md`     | reference | Temporary artifact locations, ownership, and retention policy.                                                    |
 | `crash-reports.md`                | reference | Crash-report contents, storage, redaction, and recovery contract.                                                 |
 | `logbook-lifecycle.md`            | reference | Creation, retention, repair, and deletion lifecycle of Logbook data.                                              |
 | `the-logbook.md`                  | reference | Public field and event reference for the Logbook record.                                                          |
