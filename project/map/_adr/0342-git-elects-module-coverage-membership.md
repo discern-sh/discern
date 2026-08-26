@@ -4,11 +4,11 @@
 
 ## Context
 
-Aggregate coverage answers how many reported executable lines ran. It cannot answer whether every source module participated: LCOV contains an `SF:` record only for a file the coverage reporter observes, so a wholly unloaded runtime module disappears from both numerator and denominator. Electing membership from LCOV would therefore let the easiest regression for this check—the complete absence of a module—improve or leave the aggregate unchanged.
+Aggregate coverage says how many reported executable lines ran, not whether every source module participated. LCOV records only files the reporter observes, so an unloaded module disappears from both numerator and denominator. Electing membership from LCOV would let complete absence improve or preserve the aggregate.
 
 The product source tree also contains modules that erase to types and marker modules with no executable lines. They are valid source members but have no runtime denominator. Treating them as accidental zeroes would confuse distinct states and create decorative failures.
 
-A useful per-module floor exposes a bounded legacy tail. That tail needs temporary exceptions, but an uncapped registry would merely relocate the loophole. The aggregate measure, the per-module rule, and the exception population all depend on the same expensive instrumented suite, whose raw profiles take another costly pass to render as LCOV.
+A useful per-module floor exposes legacy debt. Temporary exceptions need a cap or the registry becomes the loophole. The aggregate, module rule, and exception count all depend on the same expensive instrumented suite and LCOV rendering.
 
 ## Decision
 
@@ -16,7 +16,7 @@ Git and the declared `authored-deno` structural scope elect product-module membe
 
 LCOV supplies observations only. The coverage reader resolves every `SF:` path and joins observations to the elected universe. An elected executable module without an LCOV record measures zero and cannot be exempted. A type-only or no-executable-lines module remains explicit without entering a denominator. Records outside the universe, non-canonical paths, and kind mismatches are diagnosed rather than discarded. Product runtime modules use file names that do not match Deno's test-source exclusion; a future conflicting name remains elected and therefore fails as unloaded.
 
-Every executable module must meet an 80% line-coverage floor. Four executed lines out of five is high enough to require a real behavioral seam in ordinary modules, while the measured distribution leaves a reviewable legacy tail instead of choosing a number every current file already clears. Line coverage is the initial metric because it maps directly to the existing aggregate claim and produces stable, actionable module debts; branch coverage remains a possible later complement, not a substitute.
+Every executable module must meet an 80% line-coverage floor. Four lines out of five requires a behavioral seam in ordinary modules while leaving a reviewable legacy tail. Line coverage maps directly to the aggregate claim and produces stable, actionable debts; branch coverage may later complement it.
 
 Reviewed legacy debts live only in [`MODULE_COVERAGE_EXCEPTIONS`](../../../scripts/module_coverage_exceptions.ts). Each exact path binds its measured baseline, owner, reason, and recovery. A listed module may improve below the floor, but it may not regress; reaching the floor makes the entry stale. Unloaded modules, unlisted low modules, missing exception paths, duplicates, and invalid metadata fail.
 
