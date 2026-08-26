@@ -96,31 +96,35 @@ async function armAwaitReadinessProbe(
         settled = { ok: false, error };
       },
     );
-    await waitUntil(async () => {
-      const after = await awaitContinuations(directory);
-      if ([...after].some((record) => !before.has(record))) {
-        return true;
-      }
-      if (settled !== undefined) {
-        if (settled.ok) {
+    await waitUntil(
+      async () => {
+        const after = await awaitContinuations(directory);
+        if ([...after].some((record) => !before.has(record))) {
+          return true;
+        }
+        if (settled !== undefined) {
+          if (settled.ok) {
+            throw new Error(
+              `${what} settled before recording readiness: ${
+                JSON.stringify(settled.value)
+              }`,
+            );
+          }
+          if (settled.error instanceof Error) {
+            throw settled.error;
+          }
           throw new Error(
-            `${what} settled before recording readiness: ${
-              JSON.stringify(settled.value)
-            }`,
+            `${what} rejected before readiness: ${settled.error}`,
           );
         }
-        if (settled.error instanceof Error) {
-          throw settled.error;
-        }
-        throw new Error(
-          `${what} rejected before readiness: ${settled.error}`,
-        );
-      }
-      return false;
-    }, `${what} readiness`, {
-      timeoutMs: AWAIT_READINESS_TIMEOUT_MS,
-      intervalMs: AWAIT_READINESS_POLL_MS,
-    });
+        return false;
+      },
+      `${what} readiness`,
+      {
+        timeoutMs: AWAIT_READINESS_TIMEOUT_MS,
+        intervalMs: AWAIT_READINESS_POLL_MS,
+      },
+    );
   };
 }
 
@@ -1112,9 +1116,13 @@ Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () =>
       return value;
     });
     try {
-      await waitUntil(() => status !== undefined, "the interrupted await process to exit", {
-        timeoutMs: 8_000,
-      });
+      await waitUntil(
+        () => status !== undefined,
+        "the interrupted await process to exit",
+        {
+          timeoutMs: 8_000,
+        },
+      );
     } catch (error) {
       child.kill("SIGKILL");
       await output;

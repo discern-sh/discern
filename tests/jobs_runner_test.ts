@@ -725,17 +725,21 @@ Deno.test("runSerial: an external abort kills the running job and skips the rest
 
 /** Poll until a PID no longer exists (signal 0 probes without sending). */
 async function waitForExit(pid: number): Promise<void> {
-  await waitUntil(() => {
-    try {
-      Deno.kill(pid, "SIGCONT");
-      return false;
-    } catch {
-      return true;
-    }
-  }, `process ${pid} to exit after abort`, {
-    timeoutMs: 5_000,
-    intervalMs: 50,
-  });
+  await waitUntil(
+    () => {
+      try {
+        Deno.kill(pid, "SIGCONT");
+        return false;
+      } catch {
+        return true;
+      }
+    },
+    `process ${pid} to exit after abort`,
+    {
+      timeoutMs: 5_000,
+      intervalMs: 50,
+    },
+  );
 }
 
 Deno.test("stream mode prefixes each output line", async () => {

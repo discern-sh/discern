@@ -30,4 +30,3 @@ A text guard scans the Git-derived `tests/` universe, including executable fixtu
 - **Accept a free-form reason at each helper call.** Rejected because the helper would launder new sleeps and the falling ceiling would count only the helper implementation.
 - **Scan parsed authored TypeScript only.** Rejected because executable fixtures and child-program source outside that universe can still run timers.
 - **Install fake timers globally.** Rejected because process, terminal, signal, and watchdog integration tests need the real scheduler, while global replacement would change the behavior they exercise.
-

@@ -2,8 +2,8 @@
 
 import { join } from "@std/path";
 import {
-  type TestRealDelayBoundary,
   TEST_REAL_DELAY_BOUNDARIES,
+  type TestRealDelayBoundary,
 } from "./waiting.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -60,7 +60,9 @@ export function waitingFindings(
     if (item.path !== CAPABILITY_PATH) {
       for (const match of item.source.matchAll(TIMER_CALL)) {
         findings.push(
-          `${item.path}:${lineAt(item.source, match.index)} calls a raw test timer outside ${CAPABILITY_PATH}`,
+          `${item.path}:${
+            lineAt(item.source, match.index)
+          } calls a raw test timer outside ${CAPABILITY_PATH}`,
         );
       }
     }
@@ -110,4 +112,3 @@ export function waitingFindings(
   }
   return findings.sort();
 }
-

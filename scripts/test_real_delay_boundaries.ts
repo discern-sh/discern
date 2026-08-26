@@ -24,4 +24,3 @@ if (import.meta.main) {
   const count = await measureTestRealDelayBoundaries();
   console.log(`DISCERN_METRIC test_real_delay_boundaries ${count}`);
 }
-

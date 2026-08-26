@@ -29,7 +29,9 @@ Deno.test("test waiting guard rejects raw timers across tests, future fixture ro
     }
     const findings = waitingFindings(await waitingSources(root), {});
     assertEquals(findings.length, 3);
-    assert(findings.some((finding) => finding.startsWith("tests/ordinary_test.ts:")));
+    assert(
+      findings.some((finding) => finding.startsWith("tests/ordinary_test.ts:")),
+    );
     assert(
       findings.some((finding) =>
         finding.startsWith("tests/future-fixtures/new-root/program.ts:")
@@ -71,11 +73,31 @@ Deno.test("test waiting guard binds unknown, stale, duplicate, and misplaced rea
       reason: "the synthetic registry proves stale members fail",
     },
   });
-  assert(findings.some((finding) => finding.includes("unknown realDelay boundary 'unknown'")));
-  assert(findings.some((finding) => finding.includes("boundary id must be a string literal")));
-  assert(findings.some((finding) => finding.includes("boundary 'stale' has no call site")));
-  assert(findings.some((finding) => finding.includes("boundary 'known' has 2 call sites")));
-  assert(findings.some((finding) => finding.includes("registered at tests/elsewhere_test.ts")));
+  assert(
+    findings.some((finding) =>
+      finding.includes("unknown realDelay boundary 'unknown'")
+    ),
+  );
+  assert(
+    findings.some((finding) =>
+      finding.includes("boundary id must be a string literal")
+    ),
+  );
+  assert(
+    findings.some((finding) =>
+      finding.includes("boundary 'stale' has no call site")
+    ),
+  );
+  assert(
+    findings.some((finding) =>
+      finding.includes("boundary 'known' has 2 call sites")
+    ),
+  );
+  assert(
+    findings.some((finding) =>
+      finding.includes("registered at tests/elsewhere_test.ts")
+    ),
+  );
 });
 
 Deno.test("test waiting guard holds the live timer and real-delay population", async () => {

@@ -1,8 +1,4 @@
-import {
-  assertEquals,
-  assertRejects,
-  assertStringIncludes,
-} from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
 import { realDelay, waitUntil } from "./waiting.ts";
 

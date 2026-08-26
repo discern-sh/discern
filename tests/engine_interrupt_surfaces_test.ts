@@ -77,17 +77,23 @@ async function waitForSurfaceStart(
     earlyStatus = status;
   });
 
-  await waitUntil(() => {
-    if (earlyStatus !== undefined) {
-      throw new Error(
-        `the surface exited before its child tree started: ${JSON.stringify(earlyStatus)}`,
-      );
-    }
-    return check();
-  }, "the surface's child tree to become ready", {
-    timeoutMs: SURFACE_READINESS_TIMEOUT_MS,
-    intervalMs: POLL_INTERVAL_MS,
-  }).catch(async (error: unknown) => {
+  await waitUntil(
+    () => {
+      if (earlyStatus !== undefined) {
+        throw new Error(
+          `the surface exited before its child tree started: ${
+            JSON.stringify(earlyStatus)
+          }`,
+        );
+      }
+      return check();
+    },
+    "the surface's child tree to become ready",
+    {
+      timeoutMs: SURFACE_READINESS_TIMEOUT_MS,
+      intervalMs: POLL_INTERVAL_MS,
+    },
+  ).catch(async (error: unknown) => {
     if (earlyStatus === undefined) throw error;
     const [outText, errText] = await drained;
     throw new Error(
@@ -170,13 +176,17 @@ async function waitForTreeShutdown(
   serverPort: number | undefined,
 ): Promise<void> {
   let pending = pendingTreeShutdown(leaderPid, descendantPid, serverPort);
-  await waitUntil(() => {
-    pending = pendingTreeShutdown(leaderPid, descendantPid, serverPort);
-    return pending.length === 0;
-  }, "the interrupted child tree to shut down", {
-    timeoutMs: TREE_SHUTDOWN_TIMEOUT_MS,
-    intervalMs: POLL_INTERVAL_MS,
-  });
+  await waitUntil(
+    () => {
+      pending = pendingTreeShutdown(leaderPid, descendantPid, serverPort);
+      return pending.length === 0;
+    },
+    "the interrupted child tree to shut down",
+    {
+      timeoutMs: TREE_SHUTDOWN_TIMEOUT_MS,
+      intervalMs: POLL_INTERVAL_MS,
+    },
+  );
   assertEquals(
     pending,
     [],

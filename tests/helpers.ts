@@ -67,7 +67,9 @@ export function escapedDaemonCommand(
   ];
   // The trailing no-op prevents `sh -c` from replacing itself with its final
   // command, so Deno.ppid remains the direct job shell the daemon observes.
-  return `deno eval 'const args = ${JSON.stringify(daemonArgs)}; args[3] = String(Deno.ppid); new Deno.Command(Deno.execPath(), { args, stdout: "inherit", stderr: "inherit", detached: true }).spawn().unref()'; :`;
+  return `deno eval 'const args = ${
+    JSON.stringify(daemonArgs)
+  }; args[3] = String(Deno.ppid); new Deno.Command(Deno.execPath(), { args, stdout: "inherit", stderr: "inherit", detached: true }).spawn().unref()'; :`;
 }
 
 /** The captured result of one CLI subprocess invocation. */

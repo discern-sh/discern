@@ -214,17 +214,21 @@ Deno.test({
 
       try {
         await created;
-        await waitUntil(async () => {
-          try {
-            await Deno.lstat(probeDir);
-            return false;
-          } catch (error) {
-            if (error instanceof Deno.errors.NotFound) return true;
-            throw error;
-          }
-        }, "probe teardown to reach its final verification", {
-          timeoutMs: 2_000,
-        });
+        await waitUntil(
+          async () => {
+            try {
+              await Deno.lstat(probeDir);
+              return false;
+            } catch (error) {
+              if (error instanceof Deno.errors.NotFound) return true;
+              throw error;
+            }
+          },
+          "probe teardown to reach its final verification",
+          {
+            timeoutMs: 2_000,
+          },
+        );
         await Deno.mkdir(join(probeDir, "replacement", "nested"), {
           recursive: true,
         });

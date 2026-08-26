@@ -202,24 +202,28 @@ async function waitForPath<T>(
       settled = { ok: false, error };
     },
   );
-  await waitUntil(async () => {
-    if (await targetExists(path)) {
-      return true;
-    }
-    if (settled !== undefined) {
-      if (!settled.ok) {
-        throw settled.error;
+  await waitUntil(
+    async () => {
+      if (await targetExists(path)) {
+        return true;
       }
-      throw new Error(
-        `accept settled before writing its readiness marker: ${
-          JSON.stringify(settled.value)
-        }`,
-      );
-    }
-    return false;
-  }, `accept readiness marker ${path}`, {
-    timeoutMs: ACCEPT_READINESS_TIMEOUT_MS,
-  });
+      if (settled !== undefined) {
+        if (!settled.ok) {
+          throw settled.error;
+        }
+        throw new Error(
+          `accept settled before writing its readiness marker: ${
+            JSON.stringify(settled.value)
+          }`,
+        );
+      }
+      return false;
+    },
+    `accept readiness marker ${path}`,
+    {
+      timeoutMs: ACCEPT_READINESS_TIMEOUT_MS,
+    },
+  );
 }
 
 interface InterruptedAcceptanceFixture {

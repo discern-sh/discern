@@ -201,7 +201,9 @@ async function settledAgent(
     throw error;
   }
   if (outcome?.ok === false) throw outcome.error;
-  if (outcome === undefined) throw new Error(`${describe} settled without evidence`);
+  if (outcome === undefined) {
+    throw new Error(`${describe} settled without evidence`);
+  }
   return outcome.value;
 }
 
@@ -427,7 +429,10 @@ Deno.test("queue nesting takes one slot total at cap 1", async () => {
         probe.close();
       }
       await Deno.writeTextFile(releaseChild, "go");
-      const result = await settledAgent(running, "the nested queue process to settle");
+      const result = await settledAgent(
+        running,
+        "the nested queue process to settle",
+      );
       assertEquals(result.code, 0, result.output);
       assertEquals(await Deno.readTextFile(observed), "1");
       assertEquals(occurrenceCount(result.stderr, QUEUED_TEXT), 0);
@@ -482,7 +487,10 @@ Deno.test("queue around a capped gate takes one slot total at cap 1", async () =
       ["queue", "--", "discern", "test", "--json"],
       { [TEST_RUN_SLOT_ENV]: "" },
     );
-    const result = await settledAgent(running, "the capped gate queue to settle");
+    const result = await settledAgent(
+      running,
+      "the capped gate queue to settle",
+    );
     assertEquals(result.code, 0, result.output);
     assertEquals(await Deno.readTextFile(observed), "1");
     const events = await queueEvents(dir);
@@ -596,7 +604,10 @@ Deno.test("a capped gate completes a slot-wrapped test job at cap 1", async () =
       ["test", "--json"],
       { [TEST_RUN_SLOT_ENV]: "" },
     );
-    const result = await settledAgent(running, "the nested gate queue to settle");
+    const result = await settledAgent(
+      running,
+      "the nested gate queue to settle",
+    );
     assertEquals(result.code, 0, result.output);
     assertEquals(await Deno.readTextFile(observed), "1");
     assertEquals(

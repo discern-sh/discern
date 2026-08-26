@@ -206,17 +206,21 @@ Deno.test("remove-worktree-safely detects a path recreated while retirement evid
     await evidenceLock.lock(true);
     const removal = runAgent(dir, ["remove-worktree-safely", wt]);
     try {
-      await waitUntil(async () => {
-        try {
-          await Deno.lstat(wt);
-          return false;
-        } catch (error) {
-          if (error instanceof Deno.errors.NotFound) return true;
-          throw error;
-        }
-      }, "the removal to reach its evidence-write boundary", {
-        timeoutMs: 2_000,
-      });
+      await waitUntil(
+        async () => {
+          try {
+            await Deno.lstat(wt);
+            return false;
+          } catch (error) {
+            if (error instanceof Deno.errors.NotFound) return true;
+            throw error;
+          }
+        },
+        "the removal to reach its evidence-write boundary",
+        {
+          timeoutMs: 2_000,
+        },
+      );
       await Deno.mkdir(join(wt, "observer-state", "nested"), {
         recursive: true,
       });
@@ -284,17 +288,21 @@ Deno.test("remove-worktree-safely detects a symlink swap at the final absence bo
     await evidenceLock.lock(true);
     const removal = runAgent(dir, ["remove-worktree-safely", wt]);
     try {
-      await waitUntil(async () => {
-        try {
-          await Deno.lstat(wt);
-          return false;
-        } catch (error) {
-          if (error instanceof Deno.errors.NotFound) return true;
-          throw error;
-        }
-      }, "the removal to reach its final evidence boundary", {
-        timeoutMs: 2_000,
-      });
+      await waitUntil(
+        async () => {
+          try {
+            await Deno.lstat(wt);
+            return false;
+          } catch (error) {
+            if (error instanceof Deno.errors.NotFound) return true;
+            throw error;
+          }
+        },
+        "the removal to reach its final evidence boundary",
+        {
+          timeoutMs: 2_000,
+        },
+      );
       await Deno.symlink(bystander, wt);
     } finally {
       evidenceLock.close();

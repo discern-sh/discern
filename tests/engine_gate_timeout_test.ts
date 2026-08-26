@@ -66,25 +66,29 @@ async function waitForReadiness<T>(
       settled = { ok: false, error };
     },
   );
-  await waitUntil(async () => {
-    if (await targetExists(path)) {
-      return true;
-    }
-    if (settled !== undefined) {
-      if (!settled.ok) {
-        throw settled.error;
+  await waitUntil(
+    async () => {
+      if (await targetExists(path)) {
+        return true;
       }
-      throw new Error(
-        `${what} settled before writing its readiness marker: ${
-          JSON.stringify(settled.value)
-        }`,
-      );
-    }
-    return false;
-  }, `${what} readiness`, {
-    timeoutMs: ENGINE_READINESS_TIMEOUT_MS,
-    intervalMs: 25,
-  });
+      if (settled !== undefined) {
+        if (!settled.ok) {
+          throw settled.error;
+        }
+        throw new Error(
+          `${what} settled before writing its readiness marker: ${
+            JSON.stringify(settled.value)
+          }`,
+        );
+      }
+      return false;
+    },
+    `${what} readiness`,
+    {
+      timeoutMs: ENGINE_READINESS_TIMEOUT_MS,
+      intervalMs: 25,
+    },
+  );
 }
 
 /** Measure only the shutdown interval after a timed job proves it has started. */
@@ -143,17 +147,21 @@ Deno.test("gate timeout harness: a full-engine deadline cannot start before read
 
 /** Poll until a PID no longer exists (signal 0 probes without sending). */
 async function waitForExit(pid: number): Promise<void> {
-  await waitUntil(() => {
-    try {
-      Deno.kill(pid, "SIGCONT");
-      return false;
-    } catch {
-      return true;
-    }
-  }, `process ${pid} to exit after the timeout`, {
-    timeoutMs: 5_000,
-    intervalMs: 50,
-  });
+  await waitUntil(
+    () => {
+      try {
+        Deno.kill(pid, "SIGCONT");
+        return false;
+      } catch {
+        return true;
+      }
+    },
+    `process ${pid} to exit after the timeout`,
+    {
+      timeoutMs: 5_000,
+      intervalMs: 50,
+    },
+  );
 }
 
 Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a genuine timeout failure", async () => {

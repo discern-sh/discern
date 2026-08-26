@@ -260,9 +260,13 @@ async function settledWithin<T>(
     },
   );
   try {
-    await waitUntil(() => outcome !== undefined, "the MCP operation to settle", {
-      timeoutMs,
-    });
+    await waitUntil(
+      () => outcome !== undefined,
+      "the MCP operation to settle",
+      {
+        timeoutMs,
+      },
+    );
   } catch {
     return undefined;
   }
@@ -325,7 +329,9 @@ class McpClient {
         timeoutMs: deadlineMs,
       });
       if (outcome?.ok === false) throw outcome.error;
-      if (outcome === undefined) throw new Error("MCP response settled without evidence");
+      if (outcome === undefined) {
+        throw new Error("MCP response settled without evidence");
+      }
       this.receivedResponse = true;
       return outcome.value;
     } catch (error) {

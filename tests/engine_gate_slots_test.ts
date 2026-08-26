@@ -221,16 +221,20 @@ Deno.test("test slots: a killed holder's slot is immediately acquirable (the OS 
     }).spawn();
     const status = holder.status;
     try {
-      await waitUntil(async () => {
-        try {
-          return (await Deno.readTextFile(readyPath)) === "locked";
-        } catch {
-          return false;
-        }
-      }, "the holder to take the lock", {
-        timeoutMs: 30_000,
-        intervalMs: 100,
-      });
+      await waitUntil(
+        async () => {
+          try {
+            return (await Deno.readTextFile(readyPath)) === "locked";
+          } catch {
+            return false;
+          }
+        },
+        "the holder to take the lock",
+        {
+          timeoutMs: 30_000,
+          intervalMs: 100,
+        },
+      );
       const probe = await Deno.open(slotPath, { read: true, write: true });
       try {
         assertEquals(

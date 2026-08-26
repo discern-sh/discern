@@ -61,20 +61,24 @@ export async function removeTempTree(
   remove: TempTreeRemover = removeTree,
 ): Promise<void> {
   let attempt = 0;
-  await waitUntil(async () => {
-    try {
-      await remove(dir);
-      return true;
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) return true;
-      attempt++;
-      if (attempt >= 5) throw error;
-      return false;
-    }
-  }, `temporary tree ${dir} to be removable`, {
-    timeoutMs: 1_000,
-    intervalMs: 50,
-  });
+  await waitUntil(
+    async () => {
+      try {
+        await remove(dir);
+        return true;
+      } catch (error) {
+        if (error instanceof Deno.errors.NotFound) return true;
+        attempt++;
+        if (attempt >= 5) throw error;
+        return false;
+      }
+    },
+    `temporary tree ${dir} to be removable`,
+    {
+      timeoutMs: 1_000,
+      intervalMs: 50,
+    },
+  );
 }
 
 /** Remove the owned path and its sibling worktree root. */

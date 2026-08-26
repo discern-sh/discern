@@ -192,7 +192,8 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     path: "tests/engine_worktree_probe_test.ts",
     enclosing:
       "probeWorktreeViability: a backgrounded Git hook is quiesced before teardown",
-    operation: "observe that a delayed checkout-hook descendant cannot recreate the probe",
+    operation:
+      "observe that a delayed checkout-hook descendant cannot recreate the probe",
     reason:
       "Only the full planted hook delay can prove the successful teardown did not return ahead of its process group.",
   },
@@ -200,7 +201,8 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     path: "tests/engine_worktree_probe_test.ts",
     enclosing:
       "probeWorktreeViability: a command-owned late writer cannot follow a successful teardown",
-    operation: "observe that a delayed command descendant cannot recreate the probe",
+    operation:
+      "observe that a delayed command descendant cannot recreate the probe",
     reason:
       "The negative post-teardown assertion becomes meaningful only after the planted writer's delay has elapsed.",
   },
@@ -266,10 +268,14 @@ export async function waitUntil(
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
-    throw new RangeError("waitUntil timeoutMs must be a finite non-negative number");
+    throw new RangeError(
+      "waitUntil timeoutMs must be a finite non-negative number",
+    );
   }
   if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
-    throw new RangeError("waitUntil intervalMs must be a finite positive number");
+    throw new RangeError(
+      "waitUntil intervalMs must be a finite positive number",
+    );
   }
 
   const started = Date.now();
@@ -304,7 +310,9 @@ export async function realDelay(
     throw new TypeError(`unknown test real-delay boundary '${boundaryId}'`);
   }
   if (!Number.isFinite(ms) || ms < 0) {
-    throw new RangeError("realDelay duration must be a finite non-negative number");
+    throw new RangeError(
+      "realDelay duration must be a finite non-negative number",
+    );
   }
   await schedulerDelay(ms, signal);
 }
