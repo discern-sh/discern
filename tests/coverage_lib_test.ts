@@ -1,16 +1,20 @@
 /**
- * The coverage metric counts the repo's OWN `src/` tree and nothing else.
+ * Coverage joins the Git-derived product-module universe to LCOV.
  *
- * Guard for the class of defect where a path filter matches by substring
- * instead of anchored prefix: a bare `/src/` also sweeps in dependency and
- * workspace files (a `src/` directory inside `node_modules` or a nested
- * package), so code outside the measured tree
- * moves the number the standard holds. The vectors below pin the anchored
- * definition from every direction a lookalike path can approach it.
+ * The guard targets the defect class where LCOV is allowed to declare its own
+ * membership: a wholly unloaded runtime module then disappears instead of
+ * measuring zero. The fixtures also hold the two deliberate non-runtime
+ * classes, canonical path matching, legacy-debt parity, and LCOV-only records.
  */
 
-import { assertEquals } from "@std/assert";
-import { renderTable, srcLineCoverage } from "../scripts/coverage_lib.ts";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  classifyModuleSource,
+  evaluateModuleCoverage,
+  renderTable,
+  srcLineCoverage,
+  type SourceModule,
+} from "../scripts/coverage_lib.ts";
 
 const ROOT = "/repo/checkout";
 
@@ -21,48 +25,152 @@ function record(path: string, found: number, hit: number): string {
   );
 }
 
+const MODULES: SourceModule[] = [
+  { path: "src/empty.ts", kind: "no-executable-lines" },
+  { path: "src/engine/dispatch.ts", kind: "executable" },
+  { path: "src/engine/unloaded.ts", kind: "executable" },
+  { path: "src/shared/config.ts", kind: "executable" },
+  { path: "src/shared/types.ts", kind: "type-only" },
+];
+
 const LCOV = [
   record(`${ROOT}/src/engine/dispatch.ts`, 10, 9),
   record(`${ROOT}/src/shared/config.ts`, 10, 8),
-  // A workspace member with its own src/ segment — not the repo's src/.
-  record(`${ROOT}/packages/example/src/components/button.tsx`, 10, 1),
-  // Dependency source shipped with a src/ directory.
-  record(
-    `${ROOT}/node_modules/.deno/zod@4.4.3/node_modules/zod/src/index.ts`,
-    5,
-    0,
-  ),
-  // A sibling directory whose name merely starts with "src".
-  record(`${ROOT}/srcery/tool.ts`, 3, 3),
-  // Outside the repo entirely.
-  record("/elsewhere/src/other.ts", 4, 4),
 ].join("\n");
 
-Deno.test("srcLineCoverage counts only files under the repo root's src/", () => {
-  const cov = srcLineCoverage(LCOV, ROOT);
-  assertEquals(cov.files.map((f) => f.path), [
-    "src/engine/dispatch.ts",
-    "src/shared/config.ts",
+Deno.test("module syntax distinguishes runtime, erased type-only, and no-line modules", () => {
+  assertEquals(
+    classifyModuleSource(
+      "src/runtime.ts",
+      'import type { Shape } from "./types.ts";\nexport const value: Shape = {};\n',
+    ),
+    "executable",
+  );
+  assertEquals(
+    classifyModuleSource(
+      "src/types.ts",
+      'import { type Shape } from "./shape.ts";\nexport interface Box { value: Shape }\nexport type Name = string;\n',
+    ),
+    "type-only",
+  );
+  assertEquals(
+    classifyModuleSource("src/empty.ts", "/** Marker only. */\nexport {};\n"),
+    "no-executable-lines",
+  );
+});
+
+Deno.test("the LCOV join gives an unloaded executable module an explicit zero", () => {
+  const cov = srcLineCoverage(LCOV, ROOT, MODULES);
+  assertEquals(cov.files, [
+    {
+      path: "src/empty.ts",
+      hit: 0,
+      found: 0,
+      pct: null,
+      status: "no-executable-lines",
+    },
+    {
+      path: "src/engine/dispatch.ts",
+      hit: 9,
+      found: 10,
+      pct: 90,
+      status: "measured",
+    },
+    {
+      path: "src/engine/unloaded.ts",
+      hit: 0,
+      found: 0,
+      pct: 0,
+      status: "unloaded",
+    },
+    {
+      path: "src/shared/config.ts",
+      hit: 8,
+      found: 10,
+      pct: 80,
+      status: "measured",
+    },
+    {
+      path: "src/shared/types.ts",
+      hit: 0,
+      found: 0,
+      pct: null,
+      status: "type-only",
+    },
   ]);
-  assertEquals(cov.found, 20);
   assertEquals(cov.hit, 17);
+  assertEquals(cov.found, 20);
   assertEquals(cov.pct, 85);
+  assertEquals(cov.issues, []);
 });
 
-Deno.test("a trailing slash on the repo root changes nothing", () => {
-  assertEquals(srcLineCoverage(LCOV, `${ROOT}/`), srcLineCoverage(LCOV, ROOT));
+Deno.test("canonical LCOV records merge while foreign and mismatched paths diagnose", () => {
+  const lcov = [
+    record(`${ROOT}/src/engine/dispatch.ts`, 5, 4),
+    record(`file://${ROOT}/src/engine/dispatch.ts`, 5, 5),
+    record(`${ROOT}/src/engine/lcov-only.ts`, 3, 2),
+    record("src/shared/config.ts", 10, 8),
+    record("/elsewhere/src/other.ts", 4, 4),
+  ].join("\n");
+  const cov = srcLineCoverage(lcov, `${ROOT}/`, MODULES);
+  assertEquals(
+    cov.files.find((file) => file.path === "src/engine/dispatch.ts"),
+    {
+      path: "src/engine/dispatch.ts",
+      hit: 9,
+      found: 10,
+      pct: 90,
+      status: "measured",
+    },
+  );
+  assertEquals(cov.issues.map((issue) => issue.kind), [
+    "lcov-outside-universe",
+    "lcov-path-mismatch",
+    "lcov-outside-universe",
+  ]);
+  assertStringIncludes(cov.issues[0]?.message ?? "", "lcov-only.ts");
+  assertStringIncludes(cov.issues[1]?.message ?? "", "absolute");
+  assertStringIncludes(cov.issues[2]?.message ?? "", "/elsewhere");
 });
 
-Deno.test("an empty report is 0%, not NaN", () => {
-  const cov = srcLineCoverage("", ROOT);
-  assertEquals(cov.pct, 0);
-  assertEquals(cov.files, []);
+Deno.test("a new low module, exact exception, regression, and stale exception are distinct", () => {
+  const cov = srcLineCoverage(LCOV, ROOT, MODULES);
+  const base = {
+    path: "src/shared/config.ts",
+    measuredPct: 80,
+    owner: "configuration runtime",
+    reason: "failure branches require filesystem seams",
+    recovery: "cover the remaining parse and permission outcomes",
+  } as const;
+
+  const newlyLow = evaluateModuleCoverage(cov, 85, []);
+  assertEquals(newlyLow.failureCount, 2);
+  assertStringIncludes(newlyLow.failures.join("\n"), "src/engine/unloaded.ts");
+  assertStringIncludes(newlyLow.failures.join("\n"), "src/shared/config.ts");
+
+  const exact = evaluateModuleCoverage(cov, 85, [base]);
+  assertEquals(exact.failureCount, 1);
+  assertStringIncludes(exact.failures[0] ?? "", "unloaded");
+
+  const regressed = evaluateModuleCoverage(cov, 85, [{
+    ...base,
+    measuredPct: 81,
+  }]);
+  assertStringIncludes(regressed.failures.join("\n"), "regressed");
+
+  const stale = evaluateModuleCoverage(cov, 80, [base]);
+  assertStringIncludes(stale.failures.join("\n"), "stale");
 });
 
-Deno.test("renderTable derives its rows and total from the same parse", () => {
-  const lines = renderTable(srcLineCoverage(LCOV, ROOT)).split("\n");
-  assertEquals(lines.length, 3);
-  assertEquals(lines[0]?.trim(), "src/engine/dispatch.ts   90.0%  9/10");
-  assertEquals(lines[1]?.trim(), "src/shared/config.ts     80.0%  8/10");
-  assertEquals(lines[2]?.trim(), "All src/ files           85.0%  17/20");
+Deno.test("renderTable exposes module states and derives its total from one analysis", () => {
+  const table = renderTable(srcLineCoverage(LCOV, ROOT, MODULES));
+  assertStringIncludes(table, "src/engine/dispatch.ts");
+  assertStringIncludes(table, "src/engine/unloaded.ts");
+  assertStringIncludes(table, "unloaded");
+  assertStringIncludes(table, "src/shared/types.ts");
+  assertStringIncludes(table, "type-only");
+  assertStringIncludes(table, "src/empty.ts");
+  assertStringIncludes(table, "no executable lines");
+  assertStringIncludes(table, "All measured src/ files");
+  assertStringIncludes(table, "85.0%");
 });

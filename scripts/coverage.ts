@@ -1,10 +1,11 @@
 /**
- * Measure `src/` line coverage and emit it as a discern standard metric.
+ * Measure aggregate and per-module `src/` line coverage in one instrumented run.
  *
  * This is the measurement command behind `[standards.coverage]` (see ADR 0003 and
  * `discern.toml`). Discern runs it on demand via `discern standards`,
- * scans the output for the LAST `DISCERN_METRIC coverage <number>` line, and holds
- * it at or above the configured floor.
+ * scans the output for the LAST metric line for each Standard. Aggregate
+ * coverage, module-floor failures, and registered legacy debt all consume this
+ * same process.
  *
  * It runs the full suite — through the project's `test` task, so everything
  * that task provides (the site build, the permission flags, `--parallel`)
@@ -12,8 +13,9 @@
  * the repo's own `src/` tree — both the installer AND the TypeScript engine
  * (`src/engine/**`), all one tree, instrumented by the same number. (`runAgent`
  * subprocesses count too: Deno propagates the coverage dir to child `deno`
- * processes via the environment.) `scripts/coverage_lib.ts` holds the anchored
- * definition of which files count, and its tests pin it.
+ * processes via the environment.) Git and the structural-scope contract elect
+ * which modules ought to have run; `scripts/coverage_lib.ts` joins LCOV onto
+ * that universe, so an absent executable module measures zero.
  *
  * Speed shape: those subprocesses leave one V8 profile per module per spawn —
  * hundreds of thousands of small JSONs — and every report invocation over the
@@ -28,7 +30,16 @@
  */
 
 import { fromFileUrl } from "@std/path";
-import { renderTable, srcLineCoverage } from "./coverage_lib.ts";
+import {
+  evaluateModuleCoverage,
+  renderTable,
+  srcLineCoverage,
+} from "./coverage_lib.ts";
+import {
+  MODULE_COVERAGE_EXCEPTIONS,
+  MODULE_LINE_COVERAGE_FLOOR,
+} from "./module_coverage_exceptions.ts";
+import { sourceModuleUniverse } from "./source_module_universe.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 
 /** Run a `deno` subcommand, returning its captured stdout (throws on failure). */
@@ -75,8 +86,28 @@ await withToolTempDir("coverage-profile", async (profile) => {
   // 3. Per-file table to stderr (context for the operator), then the machine
   //    metric to stdout — the line the standard reads.
   const repoRoot = fromFileUrl(new URL("../", import.meta.url));
-  const cov = srcLineCoverage(lcov, repoRoot);
+  const modules = await sourceModuleUniverse(repoRoot);
+  const cov = srcLineCoverage(lcov, repoRoot, modules);
+  const moduleEvaluation = evaluateModuleCoverage(
+    cov,
+    MODULE_LINE_COVERAGE_FLOOR,
+    MODULE_COVERAGE_EXCEPTIONS,
+  );
   console.error(renderTable(cov));
   console.error(`src/ line coverage: ${cov.hit}/${cov.found} lines`);
+  console.error(
+    `Module line floor: ${MODULE_LINE_COVERAGE_FLOOR.toFixed(1)}%; ` +
+      `${moduleEvaluation.failureCount} failures; ` +
+      `${MODULE_COVERAGE_EXCEPTIONS.length} registered legacy exceptions`,
+  );
+  for (const failure of moduleEvaluation.failures) {
+    console.error(`MODULE COVERAGE: ${failure}`);
+  }
   console.log(`DISCERN_METRIC coverage ${cov.pct.toFixed(1)}`);
+  console.log(
+    `DISCERN_METRIC module_coverage_failures ${moduleEvaluation.failureCount}`,
+  );
+  console.log(
+    `DISCERN_METRIC module_coverage_exceptions ${MODULE_COVERAGE_EXCEPTIONS.length}`,
+  );
 });
