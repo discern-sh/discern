@@ -45,13 +45,11 @@ The mixed Gate path `done` remains `required`: its plan lists work owned by disc
 
 ## Git writers prove authority at the shared boundary
 
-Every applied path carrying the Git-mutation effect crosses the same real-operation preflight while its operation lock is held. [`withOperationLock`](../../../src/engine/operation_lock.ts) derives the common Git-administration directory from Git, then creates, writes, renames, and removes a random temporary entry there. A command that also mutates the checkout probes its Git-administration directory and project root. Failure returns `write_access` with the denied path and a caller-preserving retry command; the command body does not run.
+Every applied Git writer crosses one real-operation preflight while its lock is held. [`withOperationLock`](../../../src/engine/operation_lock.ts) asks Git for the common administration directory and exercises create, write, rename, and remove there. A checkout mutator also probes its Git administration and project root. Denial returns `write_access`, naming the path and retry before the command body runs.
 
-`gitWriteAuthority` records whether a path uses the broad boundary plan alone or supplements it with an exact effect plan. Gate and Standards add their registered validation-state targets. Setup adds the writes carried by its typed effects. Worktree creation adds branch references, reference logs, linked-worktree administration, and the dynamic destination tree before `git worktree add`. Exact probes do not replace the shared boundary: every Git writer remains enrolled even when a later plan knows narrower paths.
+`gitWriteAuthority` distinguishes the broad boundary alone from a boundary supplemented by an exact effect plan. Gate, Standards, setup, and worktree creation add precise targets; central enrollment stays mandatory.
 
-Observations, dry runs, and file-only discern writers do not probe Git. Project-authored commands and external resource effects remain opaque unless the same operation separately declares a discern-owned Git mutation. Probe success is point-in-time evidence, so every real writer still reports a later operating-system or Git failure normally.
-
-[`tests/operation_effects_test.ts`](../../../tests/operation_effects_test.ts) holds Git-effect membership and preflight enrollment equal in each direction. Its unrelated future Git writer proves new command containers auto-enroll; an unrelated file writer proves the registry cannot impose Git authority without the Git effect. [`operation_lock_test.ts`](../../../tests/operation_lock_test.ts) denies Git-administration writes and proves CLI and MCP routing stop before the body while a file-only writer remains callable ([ADR 0338](../_adr/0338-operation-policy-enrolls-git-write-authority.md)).
+Observations, dry runs, and file-only writers do not probe Git. Project-authored commands and external effects stay opaque unless the path also declares a discern-owned Git mutation. Success proves only that moment; later operating-system or Git failures remain possible ([ADR 0338](../_adr/0338-operation-policy-enrolls-git-write-authority.md)).
 
 ## Lock boundaries follow shared state
 
