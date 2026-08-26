@@ -12,20 +12,17 @@ import {
   renderTerminalCaptureHtml,
   serializeTerminalCapture,
 } from "../tests/fixtures/terminal_command_capture.ts";
+import { withToolTempDir } from "./temp_dir.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
 /** Compile once, then refresh both machine-readable and visual evidence. */
 async function main(): Promise<void> {
-  const temp = await Deno.makeTempDir({
-    dir: "/tmp",
-    prefix: "discern-terminal-binary-",
-  });
-  const executable = join(
-    temp,
-    Deno.build.os === "windows" ? "discern.exe" : "discern",
-  );
-  try {
+  await withToolTempDir("terminal-fixture-binary", async (temp) => {
+    const executable = join(
+      temp,
+      Deno.build.os === "windows" ? "discern.exe" : "discern",
+    );
     await compileDiscernCaptureBinary(REPO_ROOT, executable);
     const captures = await captureFlagshipTerminalScreens(executable);
     await ensureDir(FLAGSHIP_CAPTURE_DIRECTORY);
@@ -44,9 +41,7 @@ async function main(): Promise<void> {
       );
     }
     console.log(FLAGSHIP_CAPTURE_DIRECTORY);
-  } finally {
-    await Deno.remove(temp, { recursive: true }).catch(() => undefined);
-  }
+  });
 }
 
 if (import.meta.main) await main();

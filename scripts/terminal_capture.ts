@@ -13,6 +13,7 @@ import type {
   PtyInputPhase,
   PtyInputStep,
 } from "../tests/fixtures/pty_process.ts";
+import { withToolTempDir } from "./temp_dir.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -250,12 +251,11 @@ async function readInputScript(path: string): Promise<PtyInputPhase[]> {
 /** Compile, capture, project, and report the one resulting artifact path. */
 async function main(args: readonly string[]): Promise<void> {
   const options = parseOptions(args);
-  const temp = await Deno.makeTempDir({ prefix: "discern-terminal-capture-" });
-  const executable = join(
-    temp,
-    Deno.build.os === "windows" ? "discern.exe" : "discern",
-  );
-  try {
+  await withToolTempDir("terminal-capture", async (temp) => {
+    const executable = join(
+      temp,
+      Deno.build.os === "windows" ? "discern.exe" : "discern",
+    );
     await compileDiscernCaptureBinary(REPO_ROOT, executable);
     const input = options.script === undefined
       ? undefined
@@ -286,9 +286,7 @@ async function main(args: readonly string[]): Promise<void> {
     );
     console.log(terminalCaptureHandoff(options.output));
     if (capture.exitCode !== 0) Deno.exitCode = capture.exitCode;
-  } finally {
-    await Deno.remove(temp, { recursive: true }).catch(() => undefined);
-  }
+  });
 }
 
 if (import.meta.main) {
