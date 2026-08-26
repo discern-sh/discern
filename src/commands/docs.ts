@@ -122,6 +122,7 @@ import {
   type MapRegion,
 } from "../lib/map_overview.ts";
 import { DISCERN_DOCS_URL } from "../shared/brand.ts";
+import { writeStdout } from "../engine/output.ts";
 
 /** The built-in concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
@@ -912,7 +913,7 @@ async function present(
       : String(result.error);
     log.warn(`The pager failed (${detail}). Showing the document in discern.`);
   }
-  console.log(text);
+  writeStdout(`${text}\n`);
   return "internal";
 }
 
@@ -1732,7 +1733,7 @@ async function exportDocs(
     return 0;
   }
 
-  await Deno.stdout.write(new TextEncoder().encode(markdown));
+  writeStdout(markdown);
   return 0;
 }
 
@@ -2009,7 +2010,7 @@ async function viewTarget(
   if (options.raw) {
     // Pristine source — exactly the file's bytes, no added newline. The RAW
     // contract: frontmatter and citations included, always.
-    await Deno.stdout.write(new TextEncoder().encode(content));
+    writeStdout(content);
     return 0;
   }
   const rendered = renderMarkdown(terminalBody(desc, res.entry, content), {

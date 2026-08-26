@@ -18,6 +18,7 @@ import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import { pathMatchesPattern } from "./glob.ts";
 import { resolvedScopePaths } from "./scope_paths.ts";
 import { integrationBranch } from "../worktree/git.ts";
+import { writeStdout } from "../output.ts";
 
 /**
  * The two derived markers a classification emits ALONGSIDE the scope names: `code`
@@ -339,7 +340,7 @@ export async function runImpact(
     return scopes.includes(opts.has) ? 0 : 1;
   }
   for (const s of scopes) {
-    console.log(s);
+    writeStdout(`${s}\n`);
   }
   return 0;
 }

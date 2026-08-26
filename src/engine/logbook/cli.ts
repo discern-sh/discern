@@ -41,6 +41,7 @@ import {
   LOGBOOK_EFFECTFUL_VERBS,
   logbookInvocationIsRecorded,
 } from "../../shared/verbs.ts";
+import type { DiscernResult } from "../../shared/result.ts";
 
 const recordedVerbs = new Set<string>();
 const beginRecordedVerbs = new Set<string>();
@@ -169,6 +170,22 @@ type VerbBody<TThis, A extends unknown[]> = (
   ...args: A
 ) => number | undefined | Promise<number | undefined> | void | Promise<void>;
 
+/**
+ * An expected CLI refusal raised by a lower dispatcher helper. It carries the
+ * result and status upward without writing or terminating from the library.
+ */
+export class CliRefusal extends Error {
+  readonly result: DiscernResult;
+  readonly exitCode: number;
+
+  constructor(result: DiscernResult, exitCode = 1) {
+    super(result.message ?? `discern ${result.verb} refused`);
+    this.name = "CliRefusal";
+    this.result = result;
+    this.exitCode = exitCode;
+  }
+}
+
 /** Metadata known by a direct pre-Cliffy recording caller. */
 export interface RecordedRunOptions {
   /** The object acted on when no result or target observer supplies one. */
@@ -233,6 +250,21 @@ async function routeOperationLockRefusal(
   return 1;
 }
 
+/** Project one expected lower-layer refusal at the CLI dispatcher boundary. */
+async function routeCliRefusal(error: CliRefusal): Promise<number> {
+  if (serializedResultRequested()) {
+    const { emitResult } = await import("../../shared/emit.ts");
+    emitResult(error.result);
+  } else {
+    observeResult(error.result);
+    const { Logger } = await import("../../lib/log.ts");
+    new Logger({ json: false, noColor: false }).error(
+      error.result.message ?? error.message,
+    );
+  }
+  return error.exitCode;
+}
+
 /** Run every CLI path through the operation policy, recorded or otherwise. */
 async function runClassifiedCliOperation(
   verb: string,
@@ -263,6 +295,9 @@ async function runClassifiedCliOperation(
       async () => (await body()) ?? 0,
     ));
   } catch (error) {
+    if (error instanceof CliRefusal) {
+      return await routeCliRefusal(error);
+    }
     if (error instanceof OperationLockError) {
       return await routeOperationLockRefusal(error);
     }

@@ -294,39 +294,8 @@ const OUTPUT_IDIOM_EXCEPTIONS: readonly OutputIdiomException[] = [
   {
     file: "src/lib/log.ts",
     rule: "direct-console-presentation",
-    count: 3,
-    reason:
-      "The authority's console-backed line writers and the JSON result channel.",
-  },
-  {
-    file: "src/main.ts",
-    rule: "direct-console-presentation",
-    count: 1,
-    reason: "The last-resort crash frame stays free of narration dependencies.",
-  },
-  {
-    file: "src/engine/dispatch.ts",
-    rule: "direct-console-presentation",
-    count: 4,
-    reason: "Scalar identity and config values for shell capture.",
-  },
-  {
-    file: "src/engine/queue.ts",
-    rule: "direct-console-presentation",
-    count: 1,
-    reason: "The wrapped child owns both streams; slot hints ride stderr raw.",
-  },
-  {
-    file: "src/engine/scopes/scopes.ts",
-    rule: "direct-console-presentation",
-    count: 1,
-    reason: "Scalar scope names for shell capture.",
-  },
-  {
-    file: "src/commands/docs.ts",
-    rule: "direct-console-presentation",
-    count: 1,
-    reason: "An unpaged rendered document body is a raw stdout stream.",
+    count: 2,
+    reason: "The Logger authority's exact console-backed line writers.",
   },
   {
     file: "src/shared/third_party_codegen.ts",

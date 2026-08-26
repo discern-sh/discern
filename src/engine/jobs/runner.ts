@@ -31,6 +31,7 @@ import {
   terminalLine,
   terminalPresentationContext,
 } from "../../lib/terminal.ts";
+import { byteWriter } from "../output.ts";
 
 /**
  * Lifecycle events for one scheduler run. A live gate-job TTY table can observe
@@ -87,12 +88,7 @@ export interface RunOptions {
 const ENCODER = new TextEncoder();
 
 /** Write a buffer fully to stderr (the default human-output sink). */
-function defaultWrite(chunk: Uint8Array): void {
-  let n = 0;
-  while (n < chunk.length) {
-    n += Deno.stderr.writeSync(chunk.subarray(n));
-  }
-}
+const defaultWrite: (chunk: Uint8Array) => void = byteWriter("stderr");
 
 /** Render the per-job status line. A fail-fast-cancelled sibling is labelled
  * `cancelled`, not `FAILED` — it wasn't a real failure, just killed mid-run. */

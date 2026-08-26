@@ -329,6 +329,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0341 — Deliberate error discard is a named side-effect boundary](0341-deliberate-error-discard-is-a-named-side-effect-boundary.md)
 - [0342 — Git elects module coverage membership and LCOV supplies observations](0342-git-elects-module-coverage-membership.md)
 - [0343 — Duplication holds maximal non-overlapping normalized lines](0343-duplication-holds-maximal-non-overlapping-normalized-lines.md)
+- [0344 — Process egress and termination have exact boundaries](0344-process-egress-and-termination-have-exact-boundaries.md)
 
 <!-- END GENERATED: current ADR records -->
 

@@ -143,8 +143,8 @@ export class Logger {
    * load-bearing: `renderPlan` (shared/result.ts) routes its heading to the
    * narration stream but each plan row through here, so the rows stay
    * capturable/greppable even when narration is sent to stderr (see the renderPlan
-   * test). Single capturable values (`config get`) bypass the logger with a direct
-   * `console.log`. Suppressed in JSON mode.
+   * test). Single shell-facing values (`config get`) bypass the logger through
+   * the engine's raw stdout adapter. Suppressed in JSON mode.
    *
    * Corollary for a caller that reserves stdout for its OWN structured result — the
    * `worktree create` hook returns the worktree path there: it must NOT narrate via
@@ -153,14 +153,6 @@ export class Logger {
    */
   line(text: string): void {
     this.#sink.line(text, "stdout");
-  }
-
-  /** Emit a final JSON payload to stdout. Only does anything in JSON mode. */
-  jsonResult(payload: unknown): void {
-    if (!this.json) {
-      return;
-    }
-    console.log(JSON.stringify(payload, null, 2));
   }
 
   /**

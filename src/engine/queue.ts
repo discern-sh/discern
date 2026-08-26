@@ -15,6 +15,7 @@ import { reportFailure } from "../lib/narration.ts";
 import { recordedRun } from "./logbook/cli.ts";
 import { reraiseInterrupt } from "./process_signals.ts";
 import { runOwnedChild } from "./owned_child.ts";
+import { writeStderr } from "./output.ts";
 import {
   buildTestRunSlotAcquirer,
   TEST_RUN_SLOT_ENV,
@@ -114,7 +115,7 @@ function errorMessage(error: unknown): string {
 /** Print queue and fail-open events on the wrapper's stderr side channel. */
 function writeSlotEvent(event: TestRunSlotEvent): void {
   if (event.kind !== "acquired") {
-    console.error(event.hint.text);
+    writeStderr(`${event.hint.text}\n`);
   }
 }
 

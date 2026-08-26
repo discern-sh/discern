@@ -95,6 +95,17 @@ import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 
 const ENCODER = new TextEncoder();
 
+/** Set the repository convergence commands for an MCP lifecycle fixture. */
+async function setRepositoryEnsure(
+  dir: string,
+  commands: string[],
+): Promise<void> {
+  const configPath = join(dir, "discern.toml");
+  const editor = new TomlEditor(await Deno.readTextFile(configPath));
+  editor.setStringArray("repository.ensure", commands);
+  await writeDiscernToml(configPath, editor.toString());
+}
+
 const MCP_STRUCTURED_CONTENT_SCHEMA = z.union([
   AcceptOutputSchema,
   AwaitOutputSchema,
@@ -1988,6 +1999,8 @@ Deno.test("discern mcp: discern_accept previews an acceptance from inside a work
 Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    const logAttempt = "printf 'MCP_UNFRAMED_LOG_ATTEMPT\\n'";
+    await setRepositoryEnsure(dir, [logAttempt]);
     const refreshed = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(refreshed.code, 0, refreshed.output);
     await gitInit(dir);
@@ -1999,19 +2012,21 @@ Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date
     // now; it still requires a worktree to act on, per the listing test.)
     const wt = await addWorktree(dir, "intg");
     await using wtMcp = await spawnMcp(wt);
-    await wtMcp.send({
+    const initialize = {
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
       params: initParams(),
-    });
+    };
+    await wtMcp.send(initialize);
     await wtMcp.recv();
-    await wtMcp.send({
+    const updateCall = {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
       params: { name: "discern_update", arguments: {} },
-    });
+    };
+    await wtMcp.send(updateCall);
     const noop = await wtMcp.recv();
     assertEquals(
       noop.result.isError,
@@ -2022,6 +2037,11 @@ Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date
     const steps = noop.result.structuredContent.steps as Array<
       { label: string; outcome: string }
     >;
+    assertEquals(
+      steps.find((step) => step.label === logAttempt)?.outcome,
+      "ok",
+      "the log-attempting command ran; recv decoded the next stdout line as JSON-RPC, proving no unframed output preceded it",
+    );
     assertEquals(
       steps.find((s) => s.label === "merge")?.outcome,
       "skipped",
@@ -2044,10 +2064,7 @@ Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date
 Deno.test("discern mcp: a failed no-op convergence returns command recovery", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    const configPath = join(dir, "discern.toml");
-    const editor = new TomlEditor(await Deno.readTextFile(configPath));
-    editor.setStringArray("repository.ensure", ["exit 7"]);
-    await writeDiscernToml(configPath, editor.toString());
+    await setRepositoryEnsure(dir, ["exit 7"]);
     const refreshed = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(refreshed.code, 0, refreshed.output);
     await gitInit(dir);

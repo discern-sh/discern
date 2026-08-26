@@ -983,6 +983,37 @@
       "deno.lock",
     ]
 
+  # Direct process-output boundary standard — every console call and direct
+  # stdout/stderr write under src/ is one exact registry member naming its path,
+  # enclosing function, operation, channel, purpose, and reason. The structural
+  # census rejects unknown and stale sites before this population can measure.
+  [standards.process_output_boundaries]
+    direction = "down"
+    limit = 6
+    run = "deno task process-boundaries"
+    inputs = [
+      "src/**/*.ts",
+      "scripts/process_boundaries.ts",
+      "tests/structural_guard_scope.ts",
+      "deno.json",
+      "deno.lock",
+    ]
+
+  # Direct process-exit boundary standard — libraries return or throw typed
+  # state while only exact dispatcher, parser, crash, and signal edges may call
+  # Deno.exit. The shared census validates registry parity before measuring.
+  [standards.process_exit_boundaries]
+    direction = "down"
+    limit = 5
+    run = "deno task process-boundaries"
+    inputs = [
+      "src/**/*.ts",
+      "scripts/process_boundaries.ts",
+      "tests/structural_guard_scope.ts",
+      "deno.json",
+      "deno.lock",
+    ]
+
   # Real test-delay boundary standard — every genuine elapsed-time dependency
   # is a stable registry member bound one-to-one to a literal `realDelay` call.
   # The census scans all executable test and fixture text, including child

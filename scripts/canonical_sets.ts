@@ -2770,6 +2770,62 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         ),
   },
   {
+    id: "process-output-boundaries",
+    title: "Process output boundaries",
+    what:
+      "Every direct console or stdout/stderr write in the shipped product, with its stable id, exact path, enclosing function, operation, channel, purpose, and reason.",
+    source: {
+      kind: "module",
+      module: "src/shared/process_boundaries.ts",
+      exportName: "PROCESS_OUTPUT_BOUNDARIES",
+    },
+    guards: ["tests/process_boundaries_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "process output enrollment is an internal product-architecture boundary rather than user-facing vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the output adapters support every feature surface rather than adding a separately selectable capability",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/process_boundaries.ts"))
+          .PROCESS_OUTPUT_BOUNDARIES,
+      ),
+  },
+  {
+    id: "process-exit-boundaries",
+    title: "Process exit boundaries",
+    what:
+      "Every direct process termination in the shipped product, with its stable id, exact path, enclosing function, operation, exit purpose, and reason.",
+    source: {
+      kind: "module",
+      module: "src/shared/process_boundaries.ts",
+      exportName: "PROCESS_EXIT_BOUNDARIES",
+    },
+    guards: ["tests/process_boundaries_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "process termination enrollment is an internal product-architecture boundary rather than user-facing vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "dispatcher, crash, and signal exit boundaries support every feature instead of defining a selectable capability",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/process_boundaries.ts"))
+          .PROCESS_EXIT_BOUNDARIES,
+      ),
+  },
+  {
     id: "authored-ts-universe",
     title: "Authored-TypeScript universe",
     what:

@@ -5,11 +5,11 @@
  * passed explicitly), so every human method emits plain, un-painted text. We spy
  * on `console.error`/`console.log` — saving and restoring the originals in a
  * `finally` — to capture what each method writes, and to which channel. JSON mode
- * is checked from the opposite side: the human methods fall silent and only
- * `jsonResult` speaks.
+ * is checked from the opposite side: every human method falls silent and result
+ * projection stays with the shared `emitResult` authority.
  */
 
-import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import { Logger } from "../src/lib/log.ts";
 import {
   resolveTerminalContext,
@@ -219,13 +219,6 @@ Deno.test("Logger multiline errors require the branded safe-text boundary", () =
   assertEquals(typeof rejectsArbitraryStrings, "function");
 });
 
-Deno.test("jsonResult does nothing in human mode", async () => {
-  const log = plainLogger();
-  const { err, out } = await capture(() => log.jsonResult({ a: 1 }));
-  assertEquals(err, []);
-  assertEquals(out, []);
-});
-
 Deno.test("the json flag is exposed on the logger", () => {
   assertEquals(new Logger({ json: true, noColor: true }).json, true);
   assertEquals(plainLogger().json, false);
@@ -247,18 +240,4 @@ Deno.test("JSON mode silences every human method", async () => {
   });
   assertEquals(err, []);
   assertEquals(out, []);
-});
-
-Deno.test("JSON mode: jsonResult emits a pretty-printed payload to stdout", async () => {
-  const log = new Logger({ json: true, noColor: true });
-  const { err, out } = await capture(() =>
-    log.jsonResult({ ok: true, items: ["a"] })
-  );
-  assertEquals(err, []);
-  assertEquals(out.length, 1);
-  const payload = out[0];
-  assertExists(payload);
-  // Pretty-printed with a two-space indent.
-  assertEquals(payload, JSON.stringify({ ok: true, items: ["a"] }, null, 2));
-  assertStringIncludes(payload, "\n  ");
 });

@@ -41,6 +41,7 @@ import {
   loadIdentitySettings,
   resolveWorktreeId,
 } from "../engine/worktree/identity.ts";
+import { writeStdout } from "../engine/output.ts";
 
 /** A logger whose human output is on stderr, so stdout stays the hook's result. */
 function hookLogger(): Logger {
@@ -207,7 +208,7 @@ export async function worktreeCreateHook(): Promise<number> {
 
   // Claude Code reads the worktree path from stdout — only this, with no trailing
   // newline.
-  await Deno.stdout.write(new TextEncoder().encode(dir));
+  writeStdout(dir);
   return 0;
 }
 

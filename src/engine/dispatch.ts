@@ -55,7 +55,7 @@ import {
 import type { ConfirmationLabels } from "../shared/confirmation.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
 import type { LifecycleContext } from "./worktree/lifecycle.ts";
-import { colorEnabled } from "./output.ts";
+import { colorEnabled, writeStdout } from "./output.ts";
 import { commandSynonymSuggestion } from "../shared/vocabulary.ts";
 import {
   type DiscernResult,
@@ -74,6 +74,7 @@ import type { CliModelProvider } from "../shared/cli_reference_codegen.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import {
+  CliRefusal,
   recordedExit,
   registerDirectRecordedCliCommandPath,
 } from "./logbook/cli.ts";
@@ -183,15 +184,10 @@ function makeLogger(): Logger {
  * structured refusal for free (`tests/engine_not_initialized_test.ts` holds the
  * whole verb surface to it).
  */
-async function requireRoot(verb: string, json: boolean): Promise<string> {
+async function requireRoot(verb: string, _json: boolean): Promise<string> {
   const root = await findRoot();
   if (root === undefined) {
-    if (json) {
-      emitResult(notInitializedResult(verb));
-    } else {
-      new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
-    }
-    Deno.exit(1);
+    throw new CliRefusal(notInitializedResult(verb));
   }
   return root;
 }
@@ -1124,10 +1120,10 @@ export function attachEngineCommands(
           emitResult({ ok: true, verb: "identity", data });
         } else if (data.kind === "resources") {
           for (const [name, value] of Object.entries(data.resources)) {
-            console.log(`${name}=${value}`);
+            writeStdout(`${name}=${value}\n`);
           }
         } else {
-          console.log(data.value);
+          writeStdout(`${data.value}\n`);
         }
         return 0;
       } catch (e) {
@@ -2083,13 +2079,13 @@ export async function runConfigRead(
   }
   switch (data.operation) {
     case "get":
-      console.log(data.value);
+      writeStdout(`${data.value}\n`);
       return 0;
     case "array":
     case "subsections":
     case "keys":
       for (const value of data.values) {
-        console.log(value);
+        writeStdout(`${value}\n`);
       }
       return 0;
     case "has":

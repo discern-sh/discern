@@ -15,6 +15,8 @@ _Every verb builds one result object. Types, runtime validation, generated contr
 
 [`result.ts`](../../../src/shared/result.ts) defines plans, executed steps, diagnostics, and `DiscernResult<TData>`. Terminal, JSON, Markdown, and Model Context Protocol (MCP) presentations render that one object ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
+Projection ownership extends to the process edge. A verb does not print state and ask a caller to recover structure from text. It returns a result; [`emitResult`](../../../src/shared/emit.ts) owns quiet CLI projection, while the MCP adapter serializes the same object inside the SDK transport. Shell-facing scalars and raw document bodies remain explicit raw contracts behind the engine output adapter. The exact output and exit registries prevent another direct process primitive from bypassing those authorities ([ADR 0344](../_adr/0344-process-egress-and-termination-have-exact-boundaries.md)).
+
 ## Human CLI groups
 
 Human views declare stable `HumanOutputGroup<T>` ids. `renderHumanOutputGroups` omits empty groups and separates populated ones; plans use `PlanStep.group`, live output uses `Out.group` or `Logger.group`, and labels draw headings. A top-level package Heading keeps its default leading line; an embedded Heading requests zero; an unlabeled semantic group keeps the output-layer boundary. Mixed Result summaries use the package group compositor so different state prefixes share one fact column. discern owns picker groups: `groupedSelectionEntries` gives every populated group, including the first, a non-selectable package heading. The package owns terminal I/O, editing, frames, and restoration; `withInteractionBoundary` adds one blank outside redraw accounting ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)).
@@ -83,6 +85,8 @@ Git divergence fields use a non-negative integer for a verified count and the li
 ## Protocol adapters
 
 [`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. `MCP_SHELL_ONLY_VERBS`, declared beside `TOOLS` with a reason per member, records the verbs without a tool. The parity guard reconciles the registries against the verb vocabulary. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
+
+The stdio transport alone owns MCP stdout. Tool cores construct quiet `Logger` and runner instances, so an operational log or successful project-command write cannot become an unframed protocol line. A live transport test plants that attempt and requires the next line to decode as the requested JSON-RPC response.
 
 The MCP instructions render the policies required on that surface from the operating-policy registry. The instructions templates remain authored Markdown. The parity guard checks each required policy with its registered probes. Adding a policy enrolls both surfaces in the same test ([ADR 0214](../_adr/0214-mcp-instructions-render-operating-policies.md)).
 

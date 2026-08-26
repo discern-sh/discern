@@ -71,6 +71,7 @@ import {
   type TerminalThemeMode,
 } from "./lib/terminal.ts";
 import { renderMarkdown } from "./lib/markdown.ts";
+import { writeStderr } from "./engine/output.ts";
 import {
   CLI_RESULT_FORMATS,
   CLI_RESULT_RENDER,
@@ -344,6 +345,42 @@ declare function rootShape(): ReturnType<
 >;
 type RootCommand = ReturnType<typeof rootShape>;
 
+/** Project and terminate one Cliffy validation refusal at its parser boundary. */
+function handleCliValidationError(error: Error, command: Command): void {
+  if (!(error instanceof ValidationError)) {
+    return;
+  }
+  const fullPath = command.getPath();
+  const commandPath = fullPath === "discern"
+    ? ""
+    : fullPath.replace(/^discern\s+/, "");
+  const resultVerb = cliJsonResultVerb(commandPath) ?? "discern";
+  const startMessage = commandPath === "start"
+    ? startValidationMessage(activeDiscernArgv, error.message)
+    : undefined;
+  const message = commandPath === "config set-job"
+    ? setJobValidationMessage(activeDiscernArgv, error.message)
+    : startMessage ?? error.message;
+  if (quietResultRequested(activeDiscernArgv)) {
+    emitResult({
+      ok: false,
+      verb: resultVerb,
+      error: "invalid_arguments",
+      message,
+    });
+  } else if (commandPath === "config set-job" || startMessage !== undefined) {
+    const log = new Logger({ json: false, noColor: false });
+    if (startMessage !== undefined) {
+      log.errorBlock(message);
+    } else {
+      log.error(message);
+    }
+  } else {
+    return;
+  }
+  Deno.exit(error.exitCode);
+}
+
 /** Build the root command with its global flags and subcommands. Every verb is
  * attached unconditionally — the subsystems are all core (ADR 0101). Verbs the
  * operator help omits come from the hidden-verb registry
@@ -403,41 +440,7 @@ export function buildCli(
         value: terminalThemeValue,
       },
     )
-    .error((error, command) => {
-      if (!(error instanceof ValidationError)) {
-        return;
-      }
-      const fullPath = command.getPath();
-      const commandPath = fullPath === "discern"
-        ? ""
-        : fullPath.replace(/^discern\s+/, "");
-      const resultVerb = cliJsonResultVerb(commandPath) ?? "discern";
-      const startMessage = commandPath === "start"
-        ? startValidationMessage(activeDiscernArgv, error.message)
-        : undefined;
-      const message = commandPath === "config set-job"
-        ? setJobValidationMessage(activeDiscernArgv, error.message)
-        : startMessage ?? error.message;
-      if (!quietResultRequested(activeDiscernArgv)) {
-        if (commandPath === "config set-job" || startMessage !== undefined) {
-          const log = new Logger({ json: false, noColor: false });
-          if (startMessage !== undefined) {
-            log.errorBlock(message);
-          } else {
-            log.error(message);
-          }
-          Deno.exit(error.exitCode);
-        }
-        return;
-      }
-      emitResult({
-        ok: false,
-        verb: resultVerb,
-        error: "invalid_arguments",
-        message,
-      });
-      Deno.exit(error.exitCode);
-    })
+    .error(handleCliValidationError)
     .action(function (options): void {
       if (globalFlags(options).json) {
         emitRootResultRefusal(activeDiscernArgv);
@@ -1444,7 +1447,7 @@ function splitScriptInvocation(
 }
 
 /** Parse argv and dispatch. Exported for tests; called below when run directly. */
-export async function main(args: string[]): Promise<void> {
+export async function main(args: string[]): Promise<number> {
   let argv = args;
   const discernArgv = discernOwnedArgv(
     argv,
@@ -1527,8 +1530,7 @@ export async function main(args: string[]): Promise<void> {
         message:
           "`--json`, `--markdown`, and `--render` cannot be combined. Choose one output mode.",
       });
-      Deno.exit(1);
-      return;
+      return 1;
     }
 
     // Internal helper verbs (remove-worktree-safely, with-gotchas, …): handled
@@ -1539,7 +1541,7 @@ export async function main(args: string[]): Promise<void> {
     if (helperVerb !== undefined) {
       const helperCode = await dispatchHelper(helperVerb, argv.slice(1));
       if (helperCode !== null) {
-        Deno.exit(helperCode);
+        return helperCode;
       }
     }
 
@@ -1579,19 +1581,16 @@ export async function main(args: string[]): Promise<void> {
     if (verb === undefined) {
       if (quietResult) {
         emitRootResultRefusal(discernArgv);
-        Deno.exit(1);
-        return;
+        return 1;
       }
       if (shouldWelcomeBare(inProject, bootstrapped)) {
         const { runSetupWelcome } = await import(
           "./commands/setup_welcome.ts"
         );
-        Deno.exit(
-          await runSetupWelcome({
-            json: quietResult,
-            noColor: !color,
-          }),
-        );
+        return await runSetupWelcome({
+          json: quietResult,
+          noColor: !color,
+        });
       }
       if (inProject && configOk && bootstrapped) {
         const json = quietResult;
@@ -1600,20 +1599,17 @@ export async function main(args: string[]): Promise<void> {
           // The bare invocation IS the desk, so it records through the same
           // interceptor as `discern desk`: the session's begin/verb pair and
           // its delivered tip ids land in the logbook from either spelling.
-          Deno.exit(
-            await recordedRun(
-              "desk",
-              "cli",
-              () => runDesk({ json, cliModel: () => cliCommandModel(cli) }),
-            ),
+          return await recordedRun(
+            "desk",
+            "cli",
+            () => runDesk({ json, cliModel: () => cliCommandModel(cli) }),
           );
         }
       }
       new Logger({ json: false, noColor: false }).line(
         operatorHelp(cli as unknown as Command, { color }),
       );
-      Deno.exit(0);
-      return;
+      return 0;
     }
 
     // A retired spelling is not an alias: it refuses before unknown-command or
@@ -1639,7 +1635,7 @@ export async function main(args: string[]): Promise<void> {
       } else {
         new Logger({ json: false, noColor: false }).error(message);
       }
-      Deno.exit(1);
+      return 1;
     }
 
     // Grammatical variants are forgiveness, not aliases: rewrite only the verb
@@ -1659,7 +1655,7 @@ export async function main(args: string[]): Promise<void> {
       new Logger({ json: false, noColor: false }).line(
         operatorHelp(cli as unknown as Command, { color }),
       );
-      Deno.exit(0);
+      return 0;
     }
 
     // `queue` is an exec-style boundary: parse only the required `--`, then
@@ -1676,10 +1672,10 @@ export async function main(args: string[]): Promise<void> {
         globalValueTokens,
       );
       if (queued.kind === "error") {
-        Deno.exit(reportQueueUsageError(queued.message));
+        return reportQueueUsageError(queued.message);
       }
       if (queued.kind === "run") {
-        Deno.exit(await runQueue(queued.command, queued.args));
+        return await runQueue(queued.command, queued.args);
       }
     }
 
@@ -1704,7 +1700,7 @@ export async function main(args: string[]): Promise<void> {
       } else {
         new Logger({ json: false, noColor: false }).error(NOT_SET_UP_MESSAGE);
       }
-      Deno.exit(1);
+      return 1;
     }
 
     // Project scripts have one explicit namespace. Intercept before Cliffy so
@@ -1721,16 +1717,14 @@ export async function main(args: string[]): Promise<void> {
         const { runProjectScript } = await import(
           "./engine/project_scripts.ts"
         );
-        Deno.exit(
-          await recordedRun(
-            "scripts",
-            "cli",
-            async () =>
-              await runProjectScript(script.name, script.args, {
-                json: quietResult,
-              }),
-            { hasOperands: script.name !== undefined },
-          ),
+        return await recordedRun(
+          "scripts",
+          "cli",
+          async () =>
+            await runProjectScript(script.name, script.args, {
+              json: quietResult,
+            }),
+          { hasOperands: script.name !== undefined },
         );
       }
     }
@@ -1739,14 +1733,13 @@ export async function main(args: string[]): Promise<void> {
     // path may point at `discern scripts <name>`, preserving discoverability while
     // keeping the root command vocabulary closed.
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
-      Deno.exit(
-        await reportUnknownOrSuggest(verb, {
-          json: quietResult,
-        }),
-      );
+      return await reportUnknownOrSuggest(verb, {
+        json: quietResult,
+      });
     }
 
     await cli.parse(argv);
+    return 0;
   } catch (err) {
     // An unparseable or schema-invalid discern.toml must read as a clean
     // diagnostic, not a raw stack trace — in both human and `--json` modes (a
@@ -1768,9 +1761,9 @@ export async function main(args: string[]): Promise<void> {
           interactiveHintTexts(configFailure.hints),
         );
       }
-      Deno.exit(1);
+      return 1;
     }
-    await exitWithCrashFrame(
+    return await exitWithCrashFrame(
       resultVerb,
       err,
       quietResult,
@@ -1782,6 +1775,11 @@ export async function main(args: string[]): Promise<void> {
  * crash path itself must exit rather than recurse through the last-resort
  * listeners. */
 let crashFrameActive = false;
+
+/** Terminate after a crash frame, including re-entrant crash handling. */
+function terminateCrash(): never {
+  Deno.exit(CRASH_EXIT_CODE);
+}
 
 /**
  * The crash exit — the one path every unexpected throw leaves the process
@@ -1796,7 +1794,7 @@ async function exitWithCrashFrame(
   json: boolean,
 ): Promise<never> {
   if (crashFrameActive) {
-    Deno.exit(CRASH_EXIT_CODE);
+    terminateCrash();
   }
   crashFrameActive = true;
   const report = captureCrashReport(verb, err);
@@ -1811,8 +1809,13 @@ async function exitWithCrashFrame(
   if (json) {
     emitResult(internalErrorResult(report.verb, report, artifact));
   }
-  console.error(renderCrashFrame(report, artifact));
-  Deno.exit(CRASH_EXIT_CODE);
+  writeStderr(`${renderCrashFrame(report, artifact)}\n`);
+  terminateCrash();
+}
+
+/** Convert the top-level dispatcher's typed status into process state. */
+async function runMainProcess(): Promise<never> {
+  Deno.exit(await main(Deno.args));
 }
 
 if (import.meta.main) {
@@ -1836,5 +1839,5 @@ if (import.meta.main) {
       quietResultRequested(activeDiscernArgv),
     );
   });
-  await main(Deno.args);
+  await runMainProcess();
 }

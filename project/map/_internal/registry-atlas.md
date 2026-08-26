@@ -88,7 +88,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 333     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 334     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -99,6 +99,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                    | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                      | `tests/spawn_surfaces.ts#SUBPROCESS_SPAWN_BOUNDARIES`                             | 31      | —                | node `interruption-safety`  |
+| [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries)                                  | `src/shared/process_boundaries.ts#PROCESS_OUTPUT_BOUNDARIES`                      | 6       | —                | —                           |
+| [`process-exit-boundaries`](#process-exit-boundaries--process-exit-boundaries)                                        | `src/shared/process_boundaries.ts#PROCESS_EXIT_BOUNDARIES`                        | 5       | —                | —                           |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
@@ -107,9 +109,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 190     | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 8       | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 96      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 98      | —                | node `canonical-sets`       |
 
-96 sets · 154 guard tests · 58 committed artifacts.
+98 sets · 155 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -238,6 +240,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/paths_write_surface_test.ts`                | [`source-paths`](#source-paths--source-paths), [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                           |
 | `tests/patterns_test.ts`                           | [`hints`](#hints--hints), [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                           |
 | `tests/practice_canon_enrolment_test.ts`           | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon), [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                                                                                                                                                                                                             |
+| `tests/process_boundaries_test.ts`                 | [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries), [`process-exit-boundaries`](#process-exit-boundaries--process-exit-boundaries)                                                                                                                                                                                                                                                                                                                  |
 | `tests/providers_test.ts`                          | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/public_doc_parity_test.ts`                  | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/public_schema_compatibility_guard_test.ts`  | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                    |
@@ -2648,7 +2651,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 333
+- Members: 334
   - `0003`
   - `0005`
   - `0006`
@@ -2960,6 +2963,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0341`
   - `0342`
   - `0343`
+  - `0344`
   - `0001`
   - `0002`
   - `0004`
@@ -3240,6 +3244,37 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
 - Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/engine_interrupt_surfaces_test.ts`
 - Glossary: not enrolled — the interruption-safety reference owns this subprocess contract
 - Feature canon: described by the `interruption-safety` node
+
+## `process-output-boundaries` — Process output boundaries
+
+Every direct console or stdout/stderr write in the shipped product, with its stable id, exact path, enclosing function, operation, channel, purpose, and reason.
+
+- Source: `src/shared/process_boundaries.ts` — `PROCESS_OUTPUT_BOUNDARIES`
+- Members: 6
+  - `engine-byte-stream`
+  - `engine-stderr-text`
+  - `engine-stdout-text`
+  - `installer-stderr-line`
+  - `installer-stdout-line`
+  - `result-envelope-stdout`
+- Guards: `tests/process_boundaries_test.ts`
+- Glossary: not enrolled — process output enrollment is an internal product-architecture boundary rather than user-facing vocabulary
+- Feature canon: not enrolled — the output adapters support every feature surface rather than adding a separately selectable capability
+
+## `process-exit-boundaries` — Process exit boundaries
+
+Every direct process termination in the shipped product, with its stable id, exact path, enclosing function, operation, exit purpose, and reason.
+
+- Source: `src/shared/process_boundaries.ts` — `PROCESS_EXIT_BOUNDARIES`
+- Members: 5
+  - `cli-action-result`
+  - `cli-validation-refusal`
+  - `crash-frame-failure`
+  - `main-dispatch-result`
+  - `signal-reraise-fallback`
+- Guards: `tests/process_boundaries_test.ts`
+- Glossary: not enrolled — process termination enrollment is an internal product-architecture boundary rather than user-facing vocabulary
+- Feature canon: not enrolled — dispatcher, crash, and signal exit boundaries support every feature instead of defining a selectable capability
 
 ## `authored-ts-universe` — Authored-TypeScript universe
 
@@ -3584,7 +3619,7 @@ Every supported lifetime for a temporary directory created by tests or executabl
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 96
+- Members: 98
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -3672,6 +3707,8 @@ This meta-registry: the closed set of closed sets.
   - `first-party-legal-documents`
   - `third-party-artifacts`
   - `spawn-surfaces`
+  - `process-output-boundaries`
+  - `process-exit-boundaries`
   - `authored-ts-universe`
   - `artifact-validators`
   - `canary-tests`

@@ -5,6 +5,10 @@ import { BEST_EFFORT_BOUNDARIES } from "../src/shared/best_effort.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { registeredSpawnBoundaryCount } from "./spawn_surfaces.ts";
+import {
+  processExitBoundaryCount,
+  processOutputBoundaryCount,
+} from "../src/shared/process_boundaries.ts";
 
 Deno.test("mechanical census Standards are distinct falling ceilings", async () => {
   const standards = (await loadConfig(REPO_ROOT)).standards;
@@ -29,5 +33,22 @@ Deno.test("mechanical census Standards are distinct falling ceilings", async () 
     standards.subprocess_spawn_boundaries?.limit,
     registeredSpawnBoundaryCount(),
     "the spawn ceiling starts at the exact registry population the guard validates",
+  );
+  assertEquals(standards.process_output_boundaries?.direction, "down");
+  assertEquals(standards.process_exit_boundaries?.direction, "down");
+  assertEquals(
+    standards.process_output_boundaries?.run,
+    standards.process_exit_boundaries?.run,
+    "process output and exit boundaries share one validated source scan",
+  );
+  assertEquals(
+    standards.process_output_boundaries?.limit,
+    processOutputBoundaryCount(),
+    "the output ceiling starts at the exact registry population the guard validates",
+  );
+  assertEquals(
+    standards.process_exit_boundaries?.limit,
+    processExitBoundaryCount(),
+    "the exit ceiling starts at the exact registry population the guard validates",
   );
 });
