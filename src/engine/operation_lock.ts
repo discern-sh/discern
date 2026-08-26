@@ -66,6 +66,11 @@ interface AcquiredLock {
   readonly lease: OperationLockLease;
 }
 
+/** Map a classified nested path to the top-level verb used by result schemas. */
+function resultVerb(command: string): string {
+  return command.split(" ", 1)[0] ?? command;
+}
+
 /**
  * One host path independent of caller-controlled temp variables. discern ships
  * for POSIX hosts (Windows runs the Linux binary under WSL), so `/tmp` is the
@@ -93,7 +98,7 @@ function concreteBoundaries(
 function refusal(command: string, message: string): OperationLockError {
   return new OperationLockError({
     ok: false,
-    verb: command,
+    verb: resultVerb(command),
     error: "precondition_failed",
     message,
   });
@@ -217,7 +222,7 @@ async function preflightOperationBoundary(
   if (preflight.ok) return;
   throw new OperationLockError(
     writePreflightFailureResult(
-      invocation.command,
+      resultVerb(invocation.command),
       preflight,
       invocation.reproduceCmd ?? `discern ${invocation.command}`,
     ),

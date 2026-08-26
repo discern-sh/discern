@@ -84,6 +84,17 @@ Deno.test("a Git writer probes Git administration without enrolling file-only wr
       );
       assertStringIncludes(refusal.message, gitAdmin);
 
+      const nestedRefusal = await assertRejects(
+        () =>
+          withOperationLock(
+            dir,
+            { command: "setup begin" },
+            () => Promise.resolve(),
+          ),
+        OperationLockError,
+      );
+      assertEquals(nestedRefusal.result.verb, "setup");
+
       const updateTool = TOOLS.find((tool) => tool.name === "discern_update");
       assert(updateTool !== undefined);
       const routed = await runTool(
