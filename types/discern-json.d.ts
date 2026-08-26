@@ -7320,7 +7320,9 @@ export interface DiscernMcpToolResultByTool {
   discern_improvement: DiscernMcpToolResult<DiscernImprovementResult>;
   discern_checkpoints: DiscernMcpToolResult<DiscernCheckpointsResult>;
   discern_standards: DiscernMcpToolResult<DiscernStandardsResult>;
-  discern_standards_propose: DiscernMcpToolResult<DiscernStandardsProposeResult>;
+  discern_standards_propose: DiscernMcpToolResult<
+    DiscernStandardsProposeResult
+  >;
   discern_refresh: DiscernMcpToolResult<DiscernRefreshResult>;
   discern_impact: DiscernMcpToolResult<DiscernImpactResult>;
   discern_coupling: DiscernMcpToolResult<DiscernCouplingResult>;
