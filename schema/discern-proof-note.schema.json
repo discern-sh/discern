@@ -188,6 +188,77 @@
               }
             ]
           }
+        },
+        "standard_proposals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "standard": {
+                "type": "string"
+              },
+              "commit": {
+                "type": "string"
+              },
+              "measured_commit": {
+                "type": "string"
+              },
+              "definition_fingerprint": {
+                "type": "string"
+              },
+              "trunk": {
+                "type": "string"
+              },
+              "trunk_commit": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              "trunk_limit": {
+                "type": "number"
+              },
+              "proposed_limit": {
+                "type": "number"
+              },
+              "measurement": {
+                "type": "number"
+              },
+              "delta": {
+                "type": "number"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "evidence_paths": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "standard",
+              "commit",
+              "measured_commit",
+              "definition_fingerprint",
+              "trunk",
+              "trunk_commit",
+              "direction",
+              "trunk_limit",
+              "proposed_limit",
+              "measurement",
+              "delta",
+              "reason",
+              "evidence_paths"
+            ]
+          }
         }
       },
       "required": [
@@ -248,13 +319,85 @@
           "items": {
             "$ref": "#/$defs/DiscernAuthorizedVariance"
           }
+        },
+        "standard_proposals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "standard": {
+                "type": "string"
+              },
+              "commit": {
+                "type": "string"
+              },
+              "measured_commit": {
+                "type": "string"
+              },
+              "definition_fingerprint": {
+                "type": "string"
+              },
+              "trunk": {
+                "type": "string"
+              },
+              "trunk_commit": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              "trunk_limit": {
+                "type": "number"
+              },
+              "proposed_limit": {
+                "type": "number"
+              },
+              "measurement": {
+                "type": "number"
+              },
+              "delta": {
+                "type": "number"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "evidence_paths": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "standard",
+              "commit",
+              "measured_commit",
+              "definition_fingerprint",
+              "trunk",
+              "trunk_commit",
+              "direction",
+              "trunk_limit",
+              "proposed_limit",
+              "measurement",
+              "delta",
+              "reason",
+              "evidence_paths"
+            ]
+          }
         }
       },
       "required": [
         "consent",
-        "variances"
+        "variances",
+        "standard_proposals"
       ],
-      "description": "How one landing was authorized: the consent evidence, plus each owner-authorized variance for a declared-unmet checkpoint. A reader can therefore distinguish a conclusion awaiting a decision from one the owner authorized to land."
+      "description": "How one landing was authorized: the consent evidence, each owner-authorized variance for a declared-unmet checkpoint, and each exact owner-approved Standard growth proposal. A reader can therefore distinguish a conclusion awaiting a decision from one the owner authorized to land."
     },
     "DiscernAuthorizedVariance": {
       "title": "DiscernAuthorizedVariance",

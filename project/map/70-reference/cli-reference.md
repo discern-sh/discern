@@ -36,6 +36,7 @@ aliases:
   - discern mcp
   - discern scripts
   - discern standards
+  - discern standards propose
   - discern refresh
   - discern tidy
   - discern skills
@@ -227,12 +228,13 @@ Accept and land this worktree's finished branch on the trunk, the shared landing
 
 Usage: `discern accept [options]`
 
-| Option            | Description                                                                                                                                                                                                                                                                                                       |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`          | Emit one JSON result on stdout.                                                                                                                                                                                                                                                                                   |
-| `--dry-run`       | Show the acceptance plan; touch nothing.                                                                                                                                                                                                                                                                          |
-| `--confirmed`     | Attest that your owner accepted this landing in the current conversation. Recorded standing and effort grants are checked directly. Consent bound to an interrupted transaction may authorize recovery of that transaction only. Without applicable evidence, acceptance refuses read-only; a dry-run needs none. |
-| `--variance <id>` | Record that your owner authorized landing this declared-unmet checkpoint without changing it (repeatable; requires --confirmed). The ids must equal the current declared-unmet set, id for id, and recorded grants never authorize a variance.                                                                    |
+| Option                       | Description                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`                     | Emit one JSON result on stdout.                                                                                                                                                                                                                                                                                                          |
+| `--dry-run`                  | Show the acceptance plan; touch nothing.                                                                                                                                                                                                                                                                                                 |
+| `--confirmed`                | Attest that your owner accepted this landing in the current conversation. Recorded standing and effort grants are checked directly. Consent bound to an interrupted transaction may authorize recovery of that transaction only. Without applicable evidence, acceptance refuses read-only; a dry-run needs none.                        |
+| `--variance <id>`            | Record that your owner authorized landing this declared-unmet checkpoint without changing it (repeatable; requires --confirmed). The ids must equal the current declared-unmet set, id for id, and recorded grants never authorize a variance.                                                                                           |
+| `--approve-standard <token>` | Record that the owner approved the exact Standard/value/reason growth tuple carried by the current Proof (repeatable; requires --confirmed). Use the proposal-bound token served by the read-only refusal; the tokens must equal the proposal set exactly. Standing, effort, and generic landing grants never authorize Standard growth. |
 
 ### `discern worktree <subcommand>`
 
@@ -587,6 +589,18 @@ Usage: `discern standards [names...] [options]`
 | `--dry-run` | Show the standards that would be measured; touch nothing.                                                                                                                                                           |
 | `--force`   | Run standards on a dirty worktree; intended only while authoring standards.                                                                                                                                         |
 | `--pin`     | Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate proof forward. Requires a clean worktree. |
+
+#### `discern standards propose`
+
+Record one fresh measured Standard breach as an exact, commit-bound owner-decision proposal. The Gate remeasures it; acceptance still requires explicit approval for its value and reason.
+
+Usage: `discern standards propose <name> [options]`
+
+| Option              | Description                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------- |
+| `--reason <reason>` | The exact non-empty owner-facing reason for intrinsic growth (1-500 visible, secret-free characters). |
+| `--json`            | Emit the result as a JSON DiscernResult object on stdout.                                             |
+| `--dry-run`         | Show the proposal plan; touch nothing.                                                                |
 
 ### `discern checkpoints`
 

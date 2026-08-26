@@ -7,6 +7,7 @@ export type DiscernKnownErrorSlug =
   | "awaiting_consent"
   | "awaiting_declaration"
   | "awaiting_variance"
+  | "awaiting_standard_approval"
   | "below_min_score"
   | "brief_unparseable"
   | "checkout_failed"
@@ -47,6 +48,8 @@ export type DiscernKnownErrorSlug =
   | "partial_materialization"
   | "partial_refresh"
   | "pin_failed"
+  | "proposal_failed"
+  | "proposal_stale"
   | "precondition_failed"
   | "provisioned_resources"
   | "read_error"
@@ -241,6 +244,21 @@ export type DiscernProof = {
     }
   >;
   checkpoints?: DiscernProofCheckpoints;
+  standard_proposals?: Array<{
+    standard: string;
+    commit: string;
+    measured_commit: string;
+    definition_fingerprint: string;
+    trunk: string;
+    trunk_commit: string;
+    direction: "up" | "down";
+    trunk_limit: number;
+    proposed_limit: number;
+    measurement: number;
+    delta: number;
+    reason: string;
+    evidence_paths: Array<string>;
+  }>;
 };
 
 export type DiscernProofCheckpoints = {
@@ -395,6 +413,21 @@ export type DiscernProofSummary = {
       account: string;
     }
   >;
+  standard_proposals?: Array<{
+    standard: string;
+    commit: string;
+    measured_commit: string;
+    definition_fingerprint: string;
+    trunk: string;
+    trunk_commit: string;
+    direction: "up" | "down";
+    trunk_limit: number;
+    proposed_limit: number;
+    measurement: number;
+    delta: number;
+    reason: string;
+    evidence_paths: Array<string>;
+  }>;
 };
 
 export type DiscernAuthorizedVariance = {
@@ -2702,7 +2735,12 @@ export type DiscernDoneResult = DiscernResultState & {
       pin_target?: number;
     }>;
     standards_limits?: {
-      status: "verified" | "loosened" | "unverified" | "parse_failed";
+      status:
+        | "verified"
+        | "proposed"
+        | "loosened"
+        | "unverified"
+        | "parse_failed";
       trunk: string;
       reason?: string;
     };
@@ -3607,6 +3645,154 @@ export type DiscernStandardsResult = DiscernResultState & {
       to: number;
       measured: number;
     }>;
+    proposal?: {
+      status: "recorded" | "replaced" | "unchanged" | "recovered";
+      proposal: {
+        standard: string;
+        commit: string;
+        measured_commit: string;
+        definition_fingerprint: string;
+        trunk: string;
+        trunk_commit: string;
+        direction: "up" | "down";
+        trunk_limit: number;
+        proposed_limit: number;
+        measurement: number;
+        delta: number;
+        reason: string;
+        evidence_paths: Array<string>;
+      };
+    };
+  } | {
+    issues: Array<{
+      kind?: "unknown_root_section";
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernStandardsProposeResult = DiscernResultState & {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "instructions-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "instructions-check"
+      | "skills-check"
+      | "tracked-refresh-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "standards propose";
+  data?: {
+    standards?: Array<{
+      name: string;
+      direction: "up" | "down";
+      limit: number;
+      margin?: number;
+      measurement: "measured" | "replayed" | "deferred" | "skipped";
+      value?: number;
+      verdict?: "improved" | "held" | "regressed";
+      duration_s?: number;
+      replayed_from?: string;
+      pin_eligible?: boolean;
+      pin_target?: number;
+    }>;
+    pinned?: Array<{
+      name: string;
+      from: number;
+      to: number;
+      measured: number;
+    }>;
+    proposal?: {
+      status: "recorded" | "replaced" | "unchanged" | "recovered";
+      proposal: {
+        standard: string;
+        commit: string;
+        measured_commit: string;
+        definition_fingerprint: string;
+        trunk: string;
+        trunk_commit: string;
+        direction: "up" | "down";
+        trunk_limit: number;
+        proposed_limit: number;
+        measurement: number;
+        delta: number;
+        reason: string;
+        evidence_paths: Array<string>;
+      };
+    };
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
@@ -5712,6 +5898,39 @@ export type DiscernAcceptResult = DiscernResultState & {
     authority_warnings?: Array<string>;
     proof_line?: string;
     variances?: Array<DiscernAuthorizedVariance>;
+    standard_approvals?: Array<{
+      standard: string;
+      commit: string;
+      measured_commit: string;
+      definition_fingerprint: string;
+      trunk: string;
+      trunk_commit: string;
+      direction: "up" | "down";
+      trunk_limit: number;
+      proposed_limit: number;
+      measurement: number;
+      delta: number;
+      reason: string;
+      evidence_paths: Array<string>;
+    }>;
+    standard_approvals_required?: Array<{
+      proposal: {
+        standard: string;
+        commit: string;
+        measured_commit: string;
+        definition_fingerprint: string;
+        trunk: string;
+        trunk_commit: string;
+        direction: "up" | "down";
+        trunk_limit: number;
+        proposed_limit: number;
+        measurement: number;
+        delta: number;
+        reason: string;
+        evidence_paths: Array<string>;
+      };
+      token: string;
+    }>;
     proof_note?: {
       fetch: {
         mode: "local" | "fetch";
@@ -6918,6 +7137,7 @@ export type DiscernCliJsonResult =
   | DiscernImprovementResult
   | DiscernCheckpointsResult
   | DiscernStandardsResult
+  | DiscernStandardsProposeResult
   | DiscernRefreshResult
   | DiscernTidyResult
   | DiscernImpactResult
@@ -6966,6 +7186,7 @@ export interface DiscernResultByVerb {
   improvement: DiscernImprovementResult;
   checkpoints: DiscernCheckpointsResult;
   standards: DiscernStandardsResult;
+  "standards propose": DiscernStandardsProposeResult;
   refresh: DiscernRefreshResult;
   tidy: DiscernTidyResult;
   impact: DiscernImpactResult;
@@ -7025,6 +7246,7 @@ export interface DiscernResultByCommand {
   improvement: DiscernImprovementResult;
   checkpoints: DiscernCheckpointsResult;
   standards: DiscernStandardsResult;
+  "standards propose": DiscernStandardsProposeResult;
   refresh: DiscernRefreshResult;
   tidy: DiscernTidyResult;
   impact: DiscernImpactResult;
@@ -7076,6 +7298,7 @@ export interface DiscernMcpStructuredContentByTool {
   discern_improvement: DiscernImprovementResult;
   discern_checkpoints: DiscernCheckpointsResult;
   discern_standards: DiscernStandardsResult;
+  discern_standards_propose: DiscernStandardsProposeResult;
   discern_refresh: DiscernRefreshResult;
   discern_impact: DiscernImpactResult;
   discern_coupling: DiscernCouplingResult;
@@ -7097,6 +7320,7 @@ export interface DiscernMcpToolResultByTool {
   discern_improvement: DiscernMcpToolResult<DiscernImprovementResult>;
   discern_checkpoints: DiscernMcpToolResult<DiscernCheckpointsResult>;
   discern_standards: DiscernMcpToolResult<DiscernStandardsResult>;
+  discern_standards_propose: DiscernMcpToolResult<DiscernStandardsProposeResult>;
   discern_refresh: DiscernMcpToolResult<DiscernRefreshResult>;
   discern_impact: DiscernMcpToolResult<DiscernImpactResult>;
   discern_coupling: DiscernMcpToolResult<DiscernCouplingResult>;
@@ -7118,6 +7342,7 @@ export type DiscernMcpStructuredContent =
   | DiscernImprovementResult
   | DiscernCheckpointsResult
   | DiscernStandardsResult
+  | DiscernStandardsProposeResult
   | DiscernRefreshResult
   | DiscernImpactResult
   | DiscernCouplingResult
@@ -7138,6 +7363,7 @@ export type DiscernMcpJsonResult =
   | DiscernImprovementMcpToolResult
   | DiscernCheckpointsMcpToolResult
   | DiscernStandardsMcpToolResult
+  | DiscernStandardsProposeMcpToolResult
   | DiscernRefreshMcpToolResult
   | DiscernImpactMcpToolResult
   | DiscernCouplingMcpToolResult
@@ -7174,6 +7400,10 @@ export type DiscernCheckpointsMcpToolResult = DiscernMcpToolResult<
 
 export type DiscernStandardsMcpToolResult = DiscernMcpToolResult<
   DiscernStandardsResult
+>;
+
+export type DiscernStandardsProposeMcpToolResult = DiscernMcpToolResult<
+  DiscernStandardsProposeResult
 >;
 
 export type DiscernRefreshMcpToolResult = DiscernMcpToolResult<

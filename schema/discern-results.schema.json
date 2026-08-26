@@ -8276,6 +8276,7 @@
                       "type": "string",
                       "enum": [
                         "verified",
+                        "proposed",
                         "loosened",
                         "unverified",
                         "parse_failed"
@@ -11442,6 +11443,552 @@
                       "measured"
                     ]
                   }
+                },
+                "proposal": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "recorded",
+                        "replaced",
+                        "unchanged",
+                        "recovered"
+                      ]
+                    },
+                    "proposal": {
+                      "type": "object",
+                      "properties": {
+                        "standard": {
+                          "type": "string"
+                        },
+                        "commit": {
+                          "type": "string"
+                        },
+                        "measured_commit": {
+                          "type": "string"
+                        },
+                        "definition_fingerprint": {
+                          "type": "string"
+                        },
+                        "trunk": {
+                          "type": "string"
+                        },
+                        "trunk_commit": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "up",
+                            "down"
+                          ]
+                        },
+                        "trunk_limit": {
+                          "type": "number"
+                        },
+                        "proposed_limit": {
+                          "type": "number"
+                        },
+                        "measurement": {
+                          "type": "number"
+                        },
+                        "delta": {
+                          "type": "number"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "evidence_paths": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "standard",
+                        "commit",
+                        "measured_commit",
+                        "definition_fingerprint",
+                        "trunk",
+                        "trunk_commit",
+                        "direction",
+                        "trunk_limit",
+                        "proposed_limit",
+                        "measurement",
+                        "delta",
+                        "reason",
+                        "evidence_paths"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "proposal"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "unknown_root_section"
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "issues"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
+      ]
+    },
+    "DiscernStandardsProposeResult": {
+      "title": "DiscernStandardsProposeResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "instructions-check",
+                      "skills-check",
+                      "tracked-refresh-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "instructions-check",
+                  "skills-check",
+                  "tracked-refresh-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped",
+                  "cancelled"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "standards propose"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "standards": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "up",
+                          "down"
+                        ]
+                      },
+                      "limit": {
+                        "type": "number"
+                      },
+                      "margin": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "measurement": {
+                        "type": "string",
+                        "enum": [
+                          "measured",
+                          "replayed",
+                          "deferred",
+                          "skipped"
+                        ]
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "verdict": {
+                        "type": "string",
+                        "enum": [
+                          "improved",
+                          "held",
+                          "regressed"
+                        ]
+                      },
+                      "duration_s": {
+                        "type": "number"
+                      },
+                      "replayed_from": {
+                        "type": "string"
+                      },
+                      "pin_eligible": {
+                        "type": "boolean"
+                      },
+                      "pin_target": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "direction",
+                      "limit",
+                      "measurement"
+                    ]
+                  }
+                },
+                "pinned": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "from": {
+                        "type": "number"
+                      },
+                      "to": {
+                        "type": "number"
+                      },
+                      "measured": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "from",
+                      "to",
+                      "measured"
+                    ]
+                  }
+                },
+                "proposal": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "recorded",
+                        "replaced",
+                        "unchanged",
+                        "recovered"
+                      ]
+                    },
+                    "proposal": {
+                      "type": "object",
+                      "properties": {
+                        "standard": {
+                          "type": "string"
+                        },
+                        "commit": {
+                          "type": "string"
+                        },
+                        "measured_commit": {
+                          "type": "string"
+                        },
+                        "definition_fingerprint": {
+                          "type": "string"
+                        },
+                        "trunk": {
+                          "type": "string"
+                        },
+                        "trunk_commit": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "up",
+                            "down"
+                          ]
+                        },
+                        "trunk_limit": {
+                          "type": "number"
+                        },
+                        "proposed_limit": {
+                          "type": "number"
+                        },
+                        "measurement": {
+                          "type": "number"
+                        },
+                        "delta": {
+                          "type": "number"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "evidence_paths": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "standard",
+                        "commit",
+                        "measured_commit",
+                        "definition_fingerprint",
+                        "trunk",
+                        "trunk_commit",
+                        "direction",
+                        "trunk_limit",
+                        "proposed_limit",
+                        "measurement",
+                        "delta",
+                        "reason",
+                        "evidence_paths"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "proposal"
+                  ]
                 }
               }
             },
@@ -19039,6 +19586,161 @@
                     "$ref": "#/$defs/DiscernAuthorizedVariance"
                   }
                 },
+                "standard_approvals": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "standard": {
+                        "type": "string"
+                      },
+                      "commit": {
+                        "type": "string"
+                      },
+                      "measured_commit": {
+                        "type": "string"
+                      },
+                      "definition_fingerprint": {
+                        "type": "string"
+                      },
+                      "trunk": {
+                        "type": "string"
+                      },
+                      "trunk_commit": {
+                        "type": "string"
+                      },
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "up",
+                          "down"
+                        ]
+                      },
+                      "trunk_limit": {
+                        "type": "number"
+                      },
+                      "proposed_limit": {
+                        "type": "number"
+                      },
+                      "measurement": {
+                        "type": "number"
+                      },
+                      "delta": {
+                        "type": "number"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "evidence_paths": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    },
+                    "required": [
+                      "standard",
+                      "commit",
+                      "measured_commit",
+                      "definition_fingerprint",
+                      "trunk",
+                      "trunk_commit",
+                      "direction",
+                      "trunk_limit",
+                      "proposed_limit",
+                      "measurement",
+                      "delta",
+                      "reason",
+                      "evidence_paths"
+                    ]
+                  }
+                },
+                "standard_approvals_required": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "proposal": {
+                        "type": "object",
+                        "properties": {
+                          "standard": {
+                            "type": "string"
+                          },
+                          "commit": {
+                            "type": "string"
+                          },
+                          "measured_commit": {
+                            "type": "string"
+                          },
+                          "definition_fingerprint": {
+                            "type": "string"
+                          },
+                          "trunk": {
+                            "type": "string"
+                          },
+                          "trunk_commit": {
+                            "type": "string"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "up",
+                              "down"
+                            ]
+                          },
+                          "trunk_limit": {
+                            "type": "number"
+                          },
+                          "proposed_limit": {
+                            "type": "number"
+                          },
+                          "measurement": {
+                            "type": "number"
+                          },
+                          "delta": {
+                            "type": "number"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "evidence_paths": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        },
+                        "required": [
+                          "standard",
+                          "commit",
+                          "measured_commit",
+                          "definition_fingerprint",
+                          "trunk",
+                          "trunk_commit",
+                          "direction",
+                          "trunk_limit",
+                          "proposed_limit",
+                          "measurement",
+                          "delta",
+                          "reason",
+                          "evidence_paths"
+                        ]
+                      },
+                      "token": {
+                        "type": "string",
+                        "pattern": "^sgp1_[0-9a-f]{64}$"
+                      }
+                    },
+                    "required": [
+                      "proposal",
+                      "token"
+                    ]
+                  }
+                },
                 "proof_note": {
                   "type": "object",
                   "properties": {
@@ -22913,6 +23615,77 @@
         },
         "checkpoints": {
           "$ref": "#/$defs/DiscernProofCheckpoints"
+        },
+        "standard_proposals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "standard": {
+                "type": "string"
+              },
+              "commit": {
+                "type": "string"
+              },
+              "measured_commit": {
+                "type": "string"
+              },
+              "definition_fingerprint": {
+                "type": "string"
+              },
+              "trunk": {
+                "type": "string"
+              },
+              "trunk_commit": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              "trunk_limit": {
+                "type": "number"
+              },
+              "proposed_limit": {
+                "type": "number"
+              },
+              "measurement": {
+                "type": "number"
+              },
+              "delta": {
+                "type": "number"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "evidence_paths": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "standard",
+              "commit",
+              "measured_commit",
+              "definition_fingerprint",
+              "trunk",
+              "trunk_commit",
+              "direction",
+              "trunk_limit",
+              "proposed_limit",
+              "measurement",
+              "delta",
+              "reason",
+              "evidence_paths"
+            ]
+          }
         }
       },
       "required": [
@@ -23405,6 +24178,77 @@
               }
             ]
           }
+        },
+        "standard_proposals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "standard": {
+                "type": "string"
+              },
+              "commit": {
+                "type": "string"
+              },
+              "measured_commit": {
+                "type": "string"
+              },
+              "definition_fingerprint": {
+                "type": "string"
+              },
+              "trunk": {
+                "type": "string"
+              },
+              "trunk_commit": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              "trunk_limit": {
+                "type": "number"
+              },
+              "proposed_limit": {
+                "type": "number"
+              },
+              "measurement": {
+                "type": "number"
+              },
+              "delta": {
+                "type": "number"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "evidence_paths": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "standard",
+              "commit",
+              "measured_commit",
+              "definition_fingerprint",
+              "trunk",
+              "trunk_commit",
+              "direction",
+              "trunk_limit",
+              "proposed_limit",
+              "measurement",
+              "delta",
+              "reason",
+              "evidence_paths"
+            ]
+          }
         }
       },
       "required": [
@@ -23773,6 +24617,44 @@
         },
         "structuredContent": {
           "$ref": "#/$defs/DiscernStandardsResult",
+          "description": "The compact structured projection, sufficient without text content."
+        },
+        "isError": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "content",
+        "structuredContent",
+        "isError"
+      ]
+    },
+    "DiscernStandardsProposeMcpToolResult": {
+      "title": "DiscernStandardsProposeMcpToolResult",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "text"
+              },
+              "text": {
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ]
+          }
+        },
+        "structuredContent": {
+          "$ref": "#/$defs/DiscernStandardsProposeResult",
           "description": "The compact structured projection, sufficient without text content."
         },
         "isError": {
@@ -24195,6 +25077,9 @@
           "$ref": "#/$defs/DiscernStandardsResult"
         },
         {
+          "$ref": "#/$defs/DiscernStandardsProposeResult"
+        },
+        {
           "$ref": "#/$defs/DiscernRefreshResult"
         },
         {
@@ -24294,6 +25179,7 @@
           "improvement": "#/$defs/DiscernImprovementResult",
           "checkpoints": "#/$defs/DiscernCheckpointsResult",
           "standards": "#/$defs/DiscernStandardsResult",
+          "standards propose": "#/$defs/DiscernStandardsProposeResult",
           "refresh": "#/$defs/DiscernRefreshResult",
           "tidy": "#/$defs/DiscernTidyResult",
           "impact": "#/$defs/DiscernImpactResult",
@@ -24352,6 +25238,9 @@
         },
         {
           "$ref": "#/$defs/DiscernStandardsMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernStandardsProposeMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernRefreshMcpToolResult"
@@ -24581,6 +25470,16 @@
       "mcpToolResultSchema": "#/$defs/DiscernStandardsMcpToolResult"
     },
     {
+      "id": "standardsPropose",
+      "verb": "standards propose",
+      "commands": [
+        "standards propose"
+      ],
+      "mcpTool": "discern_standards_propose",
+      "schema": "#/$defs/DiscernStandardsProposeResult",
+      "mcpToolResultSchema": "#/$defs/DiscernStandardsProposeMcpToolResult"
+    },
+    {
       "id": "refresh",
       "verb": "refresh",
       "commands": [
@@ -24806,6 +25705,7 @@
     "awaiting_consent",
     "awaiting_declaration",
     "awaiting_variance",
+    "awaiting_standard_approval",
     "below_min_score",
     "brief_unparseable",
     "checkout_failed",
@@ -24846,6 +25746,8 @@
     "partial_materialization",
     "partial_refresh",
     "pin_failed",
+    "proposal_failed",
+    "proposal_stale",
     "precondition_failed",
     "provisioned_resources",
     "read_error",
