@@ -5,6 +5,7 @@ import { fileExists, targetExists } from "../src/shared/fs_presence.ts";
 import { fromFileUrl, isAbsolute, join, resolve } from "@std/path";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { FIRST_PARTY_LEGAL_DOCUMENTS } from "../src/shared/license_registry.ts";
+import { withToolTempDir } from "./temp_dir.ts";
 
 const DECODER = new TextDecoder();
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -155,13 +156,12 @@ export async function smokeReleaseBinary(
     throw new Error(`release binary does not exist: ${binary}`);
   }
 
-  const temp = await Deno.makeTempDir({ prefix: "discern-release-smoke-" });
-  const gitEnv = {
-    GIT_CONFIG_GLOBAL: "/dev/null",
-    GIT_CONFIG_SYSTEM: "/dev/null",
-    GIT_TERMINAL_PROMPT: "0",
-  };
-  try {
+  await withToolTempDir("release-smoke", async (temp) => {
+    const gitEnv = {
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_SYSTEM: "/dev/null",
+      GIT_TERMINAL_PROMPT: "0",
+    };
     const version = await run(binary, ["--version"], temp);
     if (version.stdout.trim() !== `discern ${expectedVersion}`) {
       throw new Error(
@@ -258,9 +258,7 @@ export async function smokeReleaseBinary(
         );
       }
     }
-  } finally {
-    await Deno.remove(temp, { recursive: true }).catch(() => {});
-  }
+  });
 }
 
 /** Smoke-test the requested binary and version before reporting the artifact as releasable. */
