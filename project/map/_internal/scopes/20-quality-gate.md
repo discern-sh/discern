@@ -28,7 +28,6 @@ This subtree documents the public Gate workflow: fixing a failed run, the work `
 | `patterns-decision-evidence.md` | guide           | Guide to retaining the decision evidence behind pattern responses.                         |
 | `tidy.md`                       | guide           | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                 |
 | `concurrent-test-runs.md`       | guide           | Guide to the Fleet-wide test-stage concurrency cap; `order: 110`.                          |
-| `duplication-census.md`         | guide           | Guide to clone-group evidence and the held duplicate-line measure; `order: 180`.           |
 
 ## Source files to read
 
@@ -39,7 +38,6 @@ This subtree documents the public Gate workflow: fixing a failed run, the work `
 - `src/engine/coupling/coupling.ts`
 - `src/engine/improve/improve.ts`, `src/engine/improve/rules.ts`, and `src/engine/improve/types.ts`
 - `src/engine/mcp/server.ts`
-- `scripts/duplication_census.ts`, `scripts/duplication_census_lib.ts`, and `tests/duplication_census_test.ts`
 - `tests/engine_gate_*`, `tests/engine_standards_*`, `tests/engine_coupling_test.ts`, `tests/engine_gate_slots_test.ts`, `tests/engine_improvement_test.ts`, `tests/engine_proof_notes_test.ts`, `tests/engine_proof_render_test.ts`, `tests/result_schemas_test.ts`, and `tests/result_codegen_test.ts`
 - `.github/workflows/release.yml` and `install.sh`
 

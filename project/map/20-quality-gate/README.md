@@ -50,4 +50,3 @@ CI, pipes, `--plain`, and terminals without cursor control remain static: `strea
 | [Patterns decision evidence](patterns-decision-evidence.md) | Read the evidence required before Patterns recommends a Gate or Standard change. |
 | [Pattern investigations](pattern-investigations.md)         | Trace related findings into bounded diagnostic paths.                            |
 | [Checkpoint recipes](checkpoint-recipes.md)                 | Adapt nine copyable triggers for common review moments.                          |
-| [Duplication census](duplication-census.md)                 | Read the repository's clone evidence and reduce its held duplicate-line total.   |

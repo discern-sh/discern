@@ -59,7 +59,7 @@ Choose a coherent risk metric; leave broader inventories advisory. Then ask whet
 
 Report a breach the work itself caused instead of engineering the number back down. A fresh measured breach can become a Standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that exact proposal ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 
-discern's own [duplication census](duplication-census.md) is a down-only Standard. It charges the non-overlapping normalized lines contributed by each additional source occurrence.
+discern's own [duplication census](../80-development/duplication-census.md) is a down-only Standard. It charges the non-overlapping normalized lines contributed by each additional source occurrence.
 
 ## What the Gate does
 
