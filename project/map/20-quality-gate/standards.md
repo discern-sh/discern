@@ -51,7 +51,7 @@ Intentional redefinition or recalibration requires owner approval on trunk, foll
 
 ## Choose a number that survives growth
 
-Ask before wiring: does this number move when the project healthily grows? The answer decides how to hold it.
+Choose a coherent risk metric; leave broader inventories advisory. Then ask whether the metric moves with healthy project growth.
 
 - An **invariant** never moves with growth, such as lint suppressions or uses of a banned pattern. Hold the raw count and drive it to zero.
 - A **quality that scales** rises with the tree, such as coverage or alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).

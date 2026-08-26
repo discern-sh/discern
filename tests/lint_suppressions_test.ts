@@ -8,6 +8,7 @@
 
 import { assertEquals } from "@std/assert";
 import {
+  effectiveLintExclusions,
   lintSuppressionsInFiles,
   lintSuppressionsInSource,
 } from "../scripts/lint_suppressions_lib.ts";
@@ -28,6 +29,50 @@ Deno.test("lint suppression census recognizes both Deno directive forms", () => 
     { line: 1, directive: fileDirective },
     { line: 3, directive: lineDirective },
   ]);
+});
+
+Deno.test("lint exclusion census reports only effective authored-source patterns", () => {
+  const config = JSON.stringify({
+    lint: {
+      exclude: [
+        "site/build.ts",
+        "site/page-src/",
+        "future/**/*.ts",
+        "dist/",
+      ],
+    },
+  });
+  assertEquals(
+    effectiveLintExclusions(config, [
+      "scripts/build.ts",
+      "site/build.ts",
+      "site/page-src/render.tsx",
+      "future/nested/tool.ts",
+    ]),
+    [
+      { pattern: "site/build.ts", files: ["site/build.ts"] },
+      {
+        pattern: "site/page-src/",
+        files: ["site/page-src/render.tsx"],
+      },
+      { pattern: "future/**/*.ts", files: ["future/nested/tool.ts"] },
+    ],
+  );
+});
+
+Deno.test("lint exclusion census enrolls a newly excluded future source", () => {
+  assertEquals(
+    effectiveLintExclusions(
+      JSON.stringify({ lint: { exclude: ["another-root/"] } }),
+      ["another-root/new-source.ts"],
+    ),
+    [
+      {
+        pattern: "another-root/",
+        files: ["another-root/new-source.ts"],
+      },
+    ],
+  );
 });
 
 Deno.test("lint suppression census ignores non-directive text and block comments", () => {

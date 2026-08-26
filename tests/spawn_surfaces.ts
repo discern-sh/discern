@@ -1,161 +1,388 @@
 /**
- * The spawn-surface registry: the single source of truth for every file under
- * `src/` permitted to construct `Deno.Command`, and for the interrupt contract
- * each one owes.
+ * Exact registry of direct subprocess construction boundaries.
  *
- * The invariant the registry carries: for every engine surface that spawns a
- * potentially long-running child, a signal delivered to the engine's PID must
- * stop and reap the child's whole process tree. Each home therefore declares
- * either the interrupt E2E `surfaces` that prove it black-box (the scenario
- * table in `engine_interrupt_surfaces_test.ts` is typed over the declared
- * union, so a declared surface without a scenario fails `deno check`), or a
- * written `exempt` justification a reviewer can audit.
+ * Every production or repository-tooling `new Deno.Command(...)` site is one
+ * row naming its path, enclosing function, operation, and reason. Constructors
+ * inside `src/shared/subprocess.ts` are marked as the shared capability; every
+ * other row is a registered exception whose population is held by the falling
+ * `subprocess_spawn_boundaries` Standard. The structural guard checks both
+ * directions, so an unknown constructor and a stale registry row both fail.
  *
- * Enrollment is forced from both ends:
- *   - `engine_subprocess_ssot_test.ts` scans `src/` for every constructor site
- *     (any binary — a variable name evades a literal-`"sh"` regex, not the
- *     constructor scan) and fails on a file missing here or a stale `sites`
- *     count, so a fourth spawner cannot exist unregistered;
- *   - registering it forces the interrupt choice above, so the same spawner
- *     cannot join without either an interrupt E2E or a reviewed exemption.
+ * Engine paths additionally enroll in {@link SPAWN_INTERRUPT_CONTRACTS}. That
+ * separate per-home fact records whether a signal delivered to the engine must
+ * be proven by an end-to-end surface or is a bounded, reviewed exemption.
  */
 
-/** What a home may hand to `Deno.Command`: git, the shell, or another binary. */
+/** What a boundary may hand to `Deno.Command`. */
 export type SpawnBinary = "git" | "sh" | "other";
 
-/** One file permitted to construct `Deno.Command`, and its contracts. */
-export interface SpawnHome {
-  /** Repo-relative path (forward slashes) of the permitted file. */
-  readonly home: string;
-  /** Exact number of `new Deno.Command(…)` sites the file is expected to hold —
-   * a new site in an already-sanctioned home still forces a registry edit. */
-  readonly sites: number;
-  /** The binaries this home may spawn; drives the git/sh funnel guards. */
+/** Whether the constructor implements the shared funnel or remains outside it. */
+export type SpawnBoundaryRole = "shared-capability" | "registered-boundary";
+
+/** One exact direct subprocess constructor. */
+export interface SubprocessSpawnBoundary {
+  /** Repository-relative authored source path. */
+  readonly path: string;
+  /** Stable nearest named function or `<module>` for a top-level constructor. */
+  readonly enclosingFunction: string;
+  /** Concise account of the child operation. */
+  readonly operation: string;
+  /** Why this constructor cannot use the shared Git or buffered-shell funnel. */
+  readonly reason: string;
+  /** Binary class used by the Git and shell funnel guards. */
   readonly may: readonly SpawnBinary[];
-  /** The interrupt contract: E2E-proven surfaces, or a justified exemption. */
-  readonly interrupt:
-    | { readonly surfaces: readonly string[] }
-    | { readonly exempt: string };
+  /** Shared implementation or an exception counted by the Standard. */
+  readonly role: SpawnBoundaryRole;
 }
 
-export const SPAWN_HOMES = [
+/** Every direct production-and-tooling subprocess constructor. */
+export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
-    home: "src/shared/subprocess.ts",
-    sites: 3,
-    may: ["git", "sh"],
-    interrupt: {
-      exempt:
-        "runGit runs engine-authored Git subcommands; lifecycle callers opt " +
-        "into its detached-group quiescence for hook descendants, while " +
-        "commandExists is a `command -v` probe — both bounded, neither carries " +
-        "operator-supplied lifecycle work. runShell is buffered and has no " +
-        "engine caller today; route it through the owned-child supervision " +
-        "boundary and declare an interrupt surface here before pointing an " +
-        "operator command at it.",
-    },
+    path: "scripts/binary_size.ts",
+    enclosingFunction: "<module>",
+    operation: "compile the release binary before measuring its size",
+    reason:
+      "the build process needs Deno-specific permissions and captures the compiler result directly",
+    may: ["other"],
+    role: "registered-boundary",
   },
   {
-    home: "src/shared/discern_commit.ts",
-    sites: 1,
+    path: "scripts/build.ts",
+    enclosingFunction: "compileTarget",
+    operation: "compile one release target",
+    reason:
+      "the release builder streams a Deno compile with target-specific permissions and environment",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/build.ts",
+    enclosingFunction: "verifyDarwinSignature",
+    operation: "verify a macOS release signature",
+    reason:
+      "codesign is a platform-specific release verifier with its own captured diagnostic contract",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/canon_editor/guards.ts",
+    enclosingFunction: "runGuardFile",
+    operation: "run one Canon Editor guard test",
+    reason:
+      "Canon Editor launches the Deno test entrypoint with editor-owned output and timeout handling",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/canon_editor/guards.ts",
+    enclosingFunction: "metricProbe",
+    operation: "measure a Canon Editor Standard probe",
+    reason:
+      "the editor invokes the source CLI in a fresh Deno process and consumes its machine result",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/canon_editor/locate.ts",
+    enclosingFunction: "openUrl",
+    operation: "open the Canon Editor URL in the platform browser",
+    reason:
+      "the platform opener is an operating-system handoff that deliberately outlives the helper",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/canon_editor/locate.ts",
+    enclosingFunction: "openInIde",
+    operation: "open a registry location in the maintainer IDE",
+    reason:
+      "the IDE launcher is a local graphical handoff with product-specific arguments",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/canon_editor/pipeline.ts",
+    enclosingFunction: "spawnSnapshot",
+    operation: "render a fresh Canon Editor snapshot",
+    reason:
+      "the editor isolates registry evaluation in a new Deno process before accepting its JSON snapshot",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/canon_editor/pipeline.ts",
+    enclosingFunction: "formatTs",
+    operation: "format an edited TypeScript registry",
+    reason:
+      "the transactional editor runs Deno fmt against a staged file and owns rollback of its bytes",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/canon_editor/pipeline.ts",
+    enclosingFunction: "proseGate",
+    operation: "run the prose gate for an editor transaction",
+    reason:
+      "the editor invokes the repository prose task with transaction-specific environment and diagnostics",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/cli_install.ts",
+    enclosingFunction: "capture",
+    operation: "capture an installer or CLI command",
+    reason:
+      "the install helper accepts a caller-selected executable and exact Deno command options",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/coverage.ts",
+    enclosingFunction: "deno",
+    operation: "run a Deno coverage subprocess",
+    reason:
+      "coverage owns profile directories, command permissions, and raw subprocess output for its report pipeline",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/release_smoke.ts",
+    enclosingFunction: "run",
+    operation: "smoke-test a staged release command",
+    reason:
+      "the release smoke harness runs a caller-selected binary with isolated environment and captured bytes",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/site_local_design_system.ts",
+    enclosingFunction: "capturedCommand",
+    operation: "run a local design-system helper command",
+    reason:
+      "the site helper launches a Deno task with repository-tooling permissions and returns its exact capture",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/use_compiled_build.ts",
+    enclosingFunction: "buildHostBinary",
+    operation: "compile the host development binary",
+    reason:
+      "the development installer drives Deno compile with the complete binary permission contract",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/vale_toolchain.ts",
+    enclosingFunction: "runExactVale",
+    operation: "run the content-verified Vale executable",
+    reason:
+      "the provisioner must invoke the exact cached binary and preserve Vale-specific environment and output",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "scripts/vale_toolchain.ts",
+    enclosingFunction: "extractVale",
+    operation: "extract a verified Vale release archive",
+    reason:
+      "tar is a platform tool applied to a verified archive with extraction-specific arguments and diagnostics",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "site/dev.ts",
+    enclosingFunction: "runSiteBuild",
+    operation: "rebuild the development site",
+    reason:
+      "the development server starts the site build in a fresh Deno process and publishes its captured failure",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "site/page-src/format-generated.ts",
+    enclosingFunction: "formatGeneratedText",
+    operation: "format generated site text",
+    reason:
+      "the site generator invokes Deno fmt as a byte-transform protocol over piped standard input and output",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "site/specimens.ts",
+    enclosingFunction: "buildSpecimenPreview",
+    operation: "build one isolated site specimen",
+    reason:
+      "the specimen server launches the site builder with route-specific environment and captured diagnostics",
+    may: ["other"],
+    role: "registered-boundary",
+  },
+  {
+    path: "src/shared/subprocess.ts",
+    enclosingFunction: "runGit",
+    operation: "run an ordinary Git command",
+    reason:
+      "this constructor is the shared Git capability that centralizes binary resolution, capture, bounds, and failure data",
     may: ["git"],
-    interrupt: {
-      exempt:
-        "the attributed, pathspec-limited commit of a discern-composed diff; " +
-        "its detached Git group is quiesced after the commit leader settles.",
-    },
+    role: "shared-capability",
   },
   {
-    home: "src/shared/third_party_codegen.ts",
-    sites: 1,
+    path: "src/shared/subprocess.ts",
+    enclosingFunction: "runShell",
+    operation: "run a buffered shell command",
+    reason:
+      "this constructor is the shared buffered-shell capability and owns its output and failure conventions",
+    may: ["sh"],
+    role: "shared-capability",
+  },
+  {
+    path: "src/shared/subprocess.ts",
+    enclosingFunction: "commandExists",
+    operation: "probe whether one command resolves",
+    reason:
+      "this constructor is the shared command-existence capability built on the canonical shell convention",
+    may: ["sh"],
+    role: "shared-capability",
+  },
+  {
+    path: "src/shared/discern_commit.ts",
+    enclosingFunction: "commitDiscernChanges",
+    operation: "create an attributed discern commit",
+    reason:
+      "commit authority requires pathspec-limited input and descendant quiescence that the generic Git runner refuses",
+    may: ["git"],
+    role: "registered-boundary",
+  },
+  {
+    path: "src/shared/third_party_codegen.ts",
+    enclosingFunction: "denoInfoJson",
+    operation: "read Deno's resolved dependency graph",
+    reason:
+      "third-party code generation consumes the exact deno info JSON protocol from a bounded source-only query",
     may: ["other"],
-    interrupt: {
-      exempt:
-        "`deno info --json` over the repo graph — a bounded, engine-authored " +
-        "read that exits on its own.",
-    },
+    role: "registered-boundary",
   },
   {
-    home: "src/commands/docs.ts",
-    sites: 1,
+    path: "src/commands/docs.ts",
+    enclosingFunction: "pageThrough",
+    operation: "run the selected documentation pager",
+    reason:
+      "the interactive pager inherits the terminal and may be a user-selected executable rather than a buffered command",
     may: ["sh", "other"],
-    interrupt: {
-      exempt: "the docs pager runs on the user's terminal in discern's own " +
-        "foreground process group, so terminal-generated interrupts already " +
-        "reach it, and it lives exactly as long as the reader wants it.",
-    },
+    role: "registered-boundary",
   },
   {
-    home: "src/lib/open_browser.ts",
-    sites: 1,
+    path: "src/lib/open_browser.ts",
+    enclosingFunction: "runBrowserCommand",
+    operation: "hand a documentation URL to the platform browser",
+    reason:
+      "the operating-system launcher is a foreground handoff whose browser deliberately outlives the CLI",
     may: ["other"],
-    interrupt: {
-      exempt:
-        "the OS browser launcher is a single foreground `open`/`xdg-open` " +
-        "handoff: terminal-generated interrupts reach the launcher in " +
-        "discern's process group, while the browser it opens deliberately " +
-        "outlives the CLI.",
-    },
+    role: "registered-boundary",
   },
   {
-    home: "src/engine/owned_child.ts",
-    sites: 1,
+    path: "src/engine/owned_child.ts",
+    enclosingFunction: "runOwnedChild",
+    operation: "run an operator-selected supervised child",
+    reason:
+      "owned children require interactive streams, detached groups, cancellation, and reaping beyond buffered-shell semantics",
     may: ["other"],
-    interrupt: {
-      surfaces: [
-        "project-script",
-        "queue",
-        "with-gotchas",
-        "desk-interactive",
-      ],
-    },
+    role: "registered-boundary",
   },
   {
-    home: "src/engine/jobs/command.ts",
-    sites: 1,
+    path: "src/engine/jobs/command.ts",
+    enclosingFunction: "spawnJob",
+    operation: "run a Gate job",
+    reason:
+      "Gate jobs require live prefixed streaming, cancellation, output bounds, and detached process-group supervision",
     may: ["sh"],
-    interrupt: { surfaces: ["gate-job"] },
+    role: "registered-boundary",
   },
   {
-    home: "src/engine/worktree/shell.ts",
-    sites: 1,
+    path: "src/engine/worktree/shell.ts",
+    enclosingFunction: "runShellRouted",
+    operation: "run a worktree lifecycle command",
+    reason:
+      "lifecycle commands reserve machine stdout and require owned-child supervision plus logger-routed diagnostics",
     may: ["sh"],
-    interrupt: { surfaces: ["worktree-setup"] },
+    role: "registered-boundary",
   },
   {
-    home: "src/engine/mcp/version_check.ts",
-    sites: 1,
+    path: "src/engine/mcp/version_check.ts",
+    enclosingFunction: "defaultProbeVersion",
+    operation: "probe a candidate discern executable version",
+    reason:
+      "the MCP handshake invokes an exact executable path with a short timeout and protocol-specific capture",
     may: ["other"],
-    interrupt: {
-      exempt:
-        "the `discern --version` handshake probe — bounded, exits immediately.",
-    },
+    role: "registered-boundary",
   },
-] as const satisfies readonly SpawnHome[];
+] as const satisfies readonly SubprocessSpawnBoundary[];
 
-/**
- * The interrupt-E2E surface ids declared across the registry, as a literal
- * union. The scenario table in `engine_interrupt_surfaces_test.ts` is a
- * `Record` over this union, so declaring a surface without writing its
- * scenario — or orphaning a scenario — fails the gate's type check.
- */
+/** One engine spawn home's interrupt proof or bounded exemption. */
+export type SpawnInterruptContract =
+  | { readonly surfaces: readonly string[] }
+  | { readonly exempt: string };
+
+/** Engine-only interrupt contracts, keyed by every live `src/` spawn home. */
+export const SPAWN_INTERRUPT_CONTRACTS = {
+  "src/shared/subprocess.ts": {
+    exempt:
+      "runGit drives engine-authored Git operations; lifecycle callers opt into descendant quiescence, while runShell and commandExists are buffered probes without an operator-owned lifecycle caller",
+  },
+  "src/shared/discern_commit.ts": {
+    exempt:
+      "the attributed pathspec-limited commit runs in a detached Git group and quiesces descendants before it returns",
+  },
+  "src/shared/third_party_codegen.ts": {
+    exempt:
+      "deno info is a bounded engine-authored dependency-graph read that exits on its own",
+  },
+  "src/commands/docs.ts": {
+    exempt:
+      "the pager runs in the terminal foreground process group and lives exactly as long as its reader chooses",
+  },
+  "src/lib/open_browser.ts": {
+    exempt:
+      "the platform browser launcher is a foreground handoff while the opened browser deliberately outlives the CLI",
+  },
+  "src/engine/owned_child.ts": {
+    surfaces: ["project-script", "queue", "with-gotchas", "desk-interactive"],
+  },
+  "src/engine/jobs/command.ts": { surfaces: ["gate-job"] },
+  "src/engine/worktree/shell.ts": { surfaces: ["worktree-setup"] },
+  "src/engine/mcp/version_check.ts": {
+    exempt:
+      "the discern version handshake is explicitly timeout-bounded and exits immediately",
+  },
+} as const satisfies Readonly<Record<string, SpawnInterruptContract>>;
+
+/** Literal union that makes every declared E2E surface require a scenario. */
 export type InterruptSurface = Extract<
-  (typeof SPAWN_HOMES)[number]["interrupt"],
+  (typeof SPAWN_INTERRUPT_CONTRACTS)[keyof typeof SPAWN_INTERRUPT_CONTRACTS],
   { readonly surfaces: readonly string[] }
 >["surfaces"][number];
 
-/** Every declared interrupt surface id, in registry order (with duplicates,
- * so the uniqueness guard can see a collision). */
+/** Every interrupt surface id, retaining duplicates for the uniqueness guard. */
 export function declaredInterruptSurfaces(): string[] {
-  return SPAWN_HOMES.flatMap((entry) =>
-    "surfaces" in entry.interrupt ? [...entry.interrupt.surfaces] : []
+  return Object.values(SPAWN_INTERRUPT_CONTRACTS).flatMap((contract) =>
+    "surfaces" in contract ? [...contract.surfaces] : []
   );
 }
 
-/** The homes permitted to spawn `binary`, for the funnel guards. */
+/** Paths permitted to construct one binary class. */
 export function homesThatMaySpawn(binary: SpawnBinary): Set<string> {
-  const homes: readonly SpawnHome[] = SPAWN_HOMES;
+  const boundaries: readonly SubprocessSpawnBoundary[] =
+    SUBPROCESS_SPAWN_BOUNDARIES;
   return new Set(
-    homes.filter((entry) => entry.may.includes(binary))
-      .map((entry) => entry.home),
+    boundaries.filter((entry) => entry.may.includes(binary)).map((entry) =>
+      entry.path
+    ),
   );
+}
+
+/** The exact registered-exception population held by the falling Standard. */
+export function registeredSpawnBoundaryCount(): number {
+  return SUBPROCESS_SPAWN_BOUNDARIES.filter((entry) =>
+    entry.role === "registered-boundary"
+  ).length;
 }

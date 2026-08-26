@@ -21,6 +21,7 @@ import {
   directoryExists,
   lstatIfExists,
 } from "../../src/shared/fs_presence.ts";
+import { runGit } from "../../src/shared/subprocess.ts";
 
 /** The overlay's canonical repository-relative path. */
 const OVERLAY_REL = "project/map/_private";
@@ -28,13 +29,10 @@ const OVERLAY_REL = "project/map/_private";
 /** Run a git query; undefined when git is unavailable or the query fails. */
 async function gitQuery(args: string[]): Promise<string | undefined> {
   try {
-    const output = await new Deno.Command("git", {
-      args,
-      stdout: "piped",
-      stderr: "null",
-    }).output();
+    // The setup hook deliberately grants only --allow-run=git, not env access.
+    const output = await runGit(args, { cwd: Deno.cwd(), bin: "git" });
     if (!output.success) return undefined;
-    return new TextDecoder().decode(output.stdout).trim();
+    return output.stdout.trim();
   } catch {
     return undefined;
   }
