@@ -95,9 +95,9 @@ A coding agent can spend its attention on the changed behavior while discern sch
 ### Use a fast inner loop
 
 - **Agent value:** A coding agent can fix generated or formatting drift, exercise targeted tests, and discover final-gate preconditions before paying for the complete Gate.
-- **Why it follows:** Prepare runs the fix and check stages, the test verb exposes project tests, tidy removes declared waste, generated declarations provide regeneration authority, and preflight checks report worktree and write conditions early.
+- **Why it follows:** Prepare runs the fix and check stages, the test verb exposes project tests, tidy removes declared waste, and generated declarations provide regeneration authority. Together they expose relevant drift and checks before the complete Gate.
 - **Boundary:** Prepare and targeted tests accelerate iteration but do not produce the exact-tree Proof required for completion.
-- **Direct product basis:** Canonical formatting for discern surfaces · Fail-fast preconditions · Git write authority proven first · Generated artifact declarations · The fast inner loop · Tests on their own.
+- **Direct product basis:** Canonical formatting for discern surfaces · Fail-fast preconditions · Generated artifact declarations · The fast inner loop · Tests on their own.
 
 ### Load only the context needed
 

@@ -3768,13 +3768,12 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can fix generated or formatting drift, exercise targeted tests, and discover final-gate preconditions before paying for the complete Gate.",
         whyItFollows:
-          "Prepare runs the fix and check stages, the test verb exposes project tests, tidy removes declared waste, generated declarations provide regeneration authority, and preflight checks report worktree and write conditions early.",
+          "Prepare runs the fix and check stages, the test verb exposes project tests, tidy removes declared waste, and generated declarations provide regeneration authority. Together they expose relevant drift and checks before the complete Gate.",
         boundary:
           "Prepare and targeted tests accelerate iteration but do not produce the exact-tree Proof required for completion.",
         drawsOn: [
           "tidy",
           "gate-preconditions",
-          "write-preflight",
           "generated-artifact-declarations",
           "prepare",
           "test-verb",
