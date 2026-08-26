@@ -51,13 +51,11 @@ Intentional redefinition or recalibration requires owner approval on trunk, foll
 
 ## Choose a number that survives growth
 
-Ask before wiring: does this number move when the project healthily grows? The answer decides how to hold it.
+Choose a coherent risk metric; leave broader inventories advisory. Then ask whether the metric moves with healthy project growth.
 
 - An **invariant** never moves with growth, such as lint suppressions or uses of a banned pattern. Hold the raw count and drive it to zero.
 - A **quality that scales** rises with the tree, such as coverage or alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).
 - A **growing total** rises with each shipped feature, such as an asset size or word count. A ceiling pinned at today's value fails the next legitimate change. The resulting pressure can shrink unrelated content or trade readability for bytes while the Gate remains green. Prefer the rate that states the real claim. Where only the total will do, set a `margin` and treat raising the limit as a routine owner decision.
-
-A measurement command may emit a broad inventory beside the metric a Standard binds. Use `metric` to select the coherent, deterministic risk class worth blocking. Keep a noisier total advisory when healthy code can add it; sharing one process does not require treating every emitted number as a Standard.
 
 Report a breach the work itself caused instead of engineering the number back down. A fresh measured breach can become a Standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that exact proposal ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 

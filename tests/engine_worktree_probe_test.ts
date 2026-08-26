@@ -225,9 +225,6 @@ Deno.test({
             }
           },
           "probe teardown to reach its final verification",
-          {
-            timeoutMs: 2_000,
-          },
         );
         await Deno.mkdir(join(probeDir, "replacement", "nested"), {
           recursive: true,

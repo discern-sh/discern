@@ -6,23 +6,18 @@
  */
 
 import { join } from "@std/path";
-import {
-  AUTHORED_DENO_FILES,
-  REPO_ROOT,
-} from "../tests/repo_authored_paths.ts";
+import { REPO_ROOT } from "../tests/repo_authored_paths.ts";
 import { structuralGuardScope } from "../tests/structural_guard_scope.ts";
 import {
   effectiveLintExclusions,
   lintSuppressionsInFiles,
 } from "./lint_suppressions_lib.ts";
 
-const findings = await lintSuppressionsInFiles(
-  REPO_ROOT,
-  await structuralGuardScope({
-    guard: "scripts/lint_suppressions.ts#authored-deno-directives",
-    universe: "authored-deno",
-  }),
-);
+const authoredDenoFiles = await structuralGuardScope({
+  guard: "scripts/lint_suppressions.ts#authored-deno-lint-policy",
+  universe: "authored-deno",
+});
+const findings = await lintSuppressionsInFiles(REPO_ROOT, authoredDenoFiles);
 for (const finding of findings) {
   console.error(`${finding.file}:${finding.line} ${finding.directive}`);
 }
@@ -33,7 +28,7 @@ console.error(
 );
 const exclusions = effectiveLintExclusions(
   await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
-  AUTHORED_DENO_FILES,
+  authoredDenoFiles,
 );
 for (const exclusion of exclusions) {
   console.error(

@@ -197,10 +197,10 @@ async function main(): Promise<void> {
 }
 
 /** Resolve the repository's common Git directory from the working directory. */
-async function resolveCommonGitDir(): Promise<string> {
+async function resolveCommonGitDir(cwd: string = Deno.cwd()): Promise<string> {
   const output = await runGit(
     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    { cwd: Deno.cwd() },
+    { cwd },
   );
   if (!output.success) {
     throw new Error(
