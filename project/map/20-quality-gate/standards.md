@@ -59,13 +59,7 @@ Choose a coherent risk metric; leave broader inventories advisory. Then ask whet
 
 Report a breach the work itself caused instead of engineering the number back down. A fresh measured breach can become a Standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that exact proposal ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 
-## Duplication holds normalized clone lines
-
-A clone group is one normalized semantic shape with at least two exact source occurrences. The `duplicated_lines` Standard measures maximal clone groups. Fixed token windows nominate candidates; they are never findings. The detector collapses exact and small-edit matches, orders the resulting groups by size, and admits each exact source range to at most one group. Its held value charges formatting-independent statement and block boundaries for every occurrence after the first. A third paste therefore increases debt even when it joins an existing group, while one copied routine cannot inflate into a pile of overlapping windows ([ADR 0343](../_adr/0343-duplication-holds-maximal-non-overlapping-normalized-lines.md)).
-
-Each diagnostic names a stable semantic fingerprint and every path/range to consolidate. Comments, formatting, local identifier names, and literal values do not define the fingerprint. Import and re-export declarations, type-only declarations, syntax-declared top-level registry tables, and files owned by the generated-artifact registry stay outside the population. The advisory `duplicate_clone_groups` metric reports the number of groups; the falling ceiling holds `duplicated_lines` because it tracks both clone size and additional copies.
-
-The census has no cache. Its declared `inputs` cover every authored JavaScript or TypeScript file elected by Git, generated-file ownership configuration, the parser dependency, and runner configuration. A matching source or ownership change measures it in the Gate; an unrelated change may replay the recorded value. After consolidating a named group, a maintainer runs `discern standards --pin duplicated_lines` to hold the lower reading.
+discern's own [duplication census](duplication-census.md) is a down-only Standard. It charges the non-overlapping normalized lines contributed by each additional source occurrence.
 
 ## What the Gate does
 
