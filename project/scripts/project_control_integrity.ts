@@ -889,7 +889,7 @@ async function checkTodoLinks(
   return findings;
 }
 
-/** Validate the parseable, pickup-able shape of every TODO item. */
+/** Validate the tidy-stable, pickup-able shape of every TODO item. */
 async function checkTodo(root: string): Promise<ProjectControlFinding[]> {
   const path = join(root, TODO_REL);
   if (!(await fileExists(path))) return [];
@@ -907,26 +907,30 @@ async function checkTodo(root: string): Promise<ProjectControlFinding[]> {
     const first = lines[index] ?? "";
     if (!itemStart.test(first)) continue;
 
-    const block: string[] = [first];
+    const continuationLines: string[] = [];
     for (let offset = 1; index + offset < lines.length; offset += 1) {
       const line = lines[index + offset] ?? "";
-      if (line.trim() === "" || /^#{1,6}\s/.test(line)) break;
-      block.push(line);
+      if (!/^(?: {2,}|\t)\S/.test(line)) break;
+      continuationLines.push(line);
     }
     const lineNumber = index + 1;
-    const itemText = block.join("\n");
+    const itemText = [first, ...continuationLines].join("\n");
     const checkboxCount = [...itemText.matchAll(/\[[ xX]\]/g)].length;
-    const titleMatch = first.match(/^- \[ \] \*\*(.+)\*\*$/);
+    const itemMatch = first.match(
+      /^- \[ \] \*\*(.+?)\*\* (.+?) Evidence: (.+)$/,
+    );
+    const titleMatch = first.match(/^- \[ \] \*\*(.+?)\*\*(?: |$)/);
 
-    if (checkboxCount !== 1 || block.length !== 3) {
+    if (
+      checkboxCount !== 1 || continuationLines.length !== 0 ||
+      itemMatch === null
+    ) {
       findings.push(finding(
         TODO_REL,
         lineNumber,
         "todo-shape",
-        "TODO item has " + checkboxCount + " checkbox markers and " +
-          block.length +
-          " nonblank lines; exactly one checkbox and three lines are required",
-        "Use an unchecked bold-title line, one indented description line, and one indented Evidence line.",
+        "TODO item is not one tidy-stable line with exactly one unchecked checkbox, bold title, description, and Evidence field",
+        "Use - [ ] **Specific title.** Bounded standalone description. Evidence: `live/repository/path`.",
       ));
     }
     if (titleMatch === null) {
@@ -963,36 +967,30 @@ async function checkTodo(root: string): Promise<ProjectControlFinding[]> {
       }
     }
 
-    const descriptionLine = block[1] ?? "";
-    const description = descriptionLine.startsWith("  ") &&
-        !descriptionLine.startsWith("  Evidence:")
-      ? descriptionLine.slice(2).trim()
-      : "";
+    const description = itemMatch?.[2]?.trim() ?? "";
     if (
       description.length < 30 || description.length > 600 ||
       !/[.!?]$/.test(description)
     ) {
       findings.push(finding(
         TODO_REL,
-        lineNumber + 1,
+        lineNumber,
         "todo-description",
-        "TODO description is not one standalone 30–600 character sentence line",
-        "Put a bounded, pickup-able description on the second line and end it with punctuation.",
+        "TODO description is not one standalone 30–600 character sentence",
+        "Put one bounded, pickup-able description between the bold title and Evidence field, ending with punctuation.",
       ));
     }
 
-    const evidenceLine = block[2] ?? "";
-    const evidenceMatch = evidenceLine.match(/^ {2}Evidence: (.+)$/);
-    if (evidenceMatch === null) {
+    const evidence = itemMatch?.[3]?.trim() ?? "";
+    if (evidence === "") {
       findings.push(finding(
         TODO_REL,
-        lineNumber + 2,
+        lineNumber,
         "todo-evidence",
-        "TODO item has no standalone Evidence line",
+        "TODO item has no terminal Evidence field",
         "Add repository paths in code spans, or use Evidence: Owner-only: followed by one concrete external fact.",
       ));
     } else {
-      const evidence = evidenceMatch[1]?.trim() ?? "";
       const ownerOnly = evidence.match(/^Owner-only: (.{20,240}[.!?])$/);
       const codePaths = [...evidence.matchAll(/`([^`\n]+)`/g)].flatMap(
         (match) => match[1] === undefined ? [] : [match[1]],
@@ -1000,7 +998,7 @@ async function checkTodo(root: string): Promise<ProjectControlFinding[]> {
       if (ownerOnly === null && codePaths.length === 0) {
         findings.push(finding(
           TODO_REL,
-          lineNumber + 2,
+          lineNumber,
           "todo-evidence",
           "TODO evidence declares neither a repository path nor the Owner-only form",
           "Name at least one live repository-relative path in backticks, or declare a concrete Owner-only fact.",
@@ -1009,7 +1007,7 @@ async function checkTodo(root: string): Promise<ProjectControlFinding[]> {
       if (ownerOnly !== null && codePaths.length > 0) {
         findings.push(finding(
           TODO_REL,
-          lineNumber + 2,
+          lineNumber,
           "todo-evidence",
           "Owner-only evidence is mixed with repository paths",
           "Use repository evidence when it exists; reserve Owner-only for work with no checkout artifact.",
@@ -1025,7 +1023,7 @@ async function checkTodo(root: string): Promise<ProjectControlFinding[]> {
         ) {
           findings.push(finding(
             TODO_REL,
-            lineNumber + 2,
+            lineNumber,
             "todo-evidence",
             "TODO evidence path " + rawPath + " has no live repository target",
             "Use a live repository-relative file or directory, with only an optional :line or #heading suffix.",

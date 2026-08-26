@@ -97,18 +97,14 @@ Deno.test("a public clone without the optional private overlay is quiet", async 
   assertEquals(await fixtureFindings({}), []);
 });
 
-Deno.test("TODO items have one parseable shape and two explicit evidence modes", async () => {
+Deno.test("TODO items have one tidy-stable shape and two explicit evidence modes", async () => {
   const repositoryEvidence = {
     "project/TODO.md": [
       "# Open work",
       "",
-      "- [ ] **Repair the durable example.**",
-      "  Replace the placeholder with the repository-backed implementation.",
-      "  Evidence: `src/example.ts:12`.",
+      "- [ ] **Repair the durable example.** Replace the placeholder with the repository-backed implementation. Evidence: `src/example.ts:12`.",
       "",
-      "- [ ] **Complete the account handoff.**",
-      "  Configure the external account after its ownership is assigned.",
-      "  Evidence: Owner-only: The required account has no checkout artifact.",
+      "- [ ] **Complete the account handoff.** Configure the external account after its ownership is assigned. Evidence: Owner-only: The required account has no checkout artifact.",
       "",
     ].join("\n"),
     "src/example.ts": "export {};\n",
