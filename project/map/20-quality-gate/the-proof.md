@@ -14,8 +14,8 @@ _A clean green Gate records what ran and identifies the exact branch state ready
 
 `discern done` derives a structured Proof when the run passes on a clean, committed branch that is ahead of trunk. It renders in two forms from the same object ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md), [ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)):
 
-- **The line**: one sentence naming the branch, validated commit, diffstat, Standards state, and page command. JSON and MCP carry it as `data.proof.line`; `accept` derives `data.proof_line` from it and appends the recorded consent source. Agents quote that line verbatim after their account.
-- **The page**: Standards, declared jobs and scope gates, then the diff command. It stays in the worktree marker and landed Proof note. Terminal `status --verbose` prints a valid page. Git owns commit and per-file lists; `Inspect:` names the command.
+- **The line**: one sentence naming the branch, validated commit, diffstat, Standards state, any Standard growth proposals, and the page command. JSON and MCP carry it as `data.proof.line`; `accept` derives `data.proof_line` from it and appends the recorded consent source and approved proposal count. Agents quote that line verbatim after their account.
+- **The page**: pending Standard growth decisions, routine Standards, declared jobs and scope gates, then the diff command. It stays in the worktree marker and landed Proof note. Terminal `status --verbose` prints a valid page. Git owns commit and per-file lists; `Inspect:` names the command.
 
 The complete in-process Proof owns both renderings. Compact results use a projection with branch, trunk, validated commit, diff counts, and line. They omit the page, which can otherwise appear several times in one status fleet. `discern <verb> --markdown` selects an authored result presentation; it does not substitute the full Proof page for that presentation.
 
@@ -32,6 +32,14 @@ On exact, complete, current green Proof, ordinary `done` returns that Proof with
 `waited_ms` reports capped-run waits; durable Proof omits them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
 The Proof pins a reviewable `HEAD` even if trunk advances. Without a verified grant, the agent reports and waits. `discern accept --confirmed` records conversation consent; standing and effort grants need no flag. Landing returns the final line.
+
+## Proposal-bearing Proof
+
+A live Standard growth proposal lets the Gate explain one otherwise-forbidden limit change. The Gate forces a fresh measurement for that Standard, including `measure = "on-demand"` and replay-eligible entries. The measured value must equal the proposal. Proof then carries the Standard, trunk and proposed limits, measurement, signed delta, verbatim reason, responsible paths, definition fingerprint, and commit identities.
+
+The Proof line states that the owner must approve the proposal. The page presents the proposal before routine Standard results. Compact JSON, Markdown, Model Context Protocol results, status, and proof notes retain the structured proposal. A green proposal-bearing Proof establishes Gate success for that committed tree. It does not grant landing authority or approve the growth decision.
+
+Acceptance requires the worktree-local proposal record to equal the proposal set in Proof. It serves a token for each current Standard/value/reason tuple and changes nothing. Generic consent and recorded grants cannot satisfy this decision. [Landing authority](../30-worktrees/landing-authority.md) covers the separate acceptance boundary.
 
 A Proof may carry one `Logbook:` advisory from `hints[]`. `discern patterns` owns its evidence and next step. The advisory changes neither stored Proof, `ok`, nor acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
@@ -56,19 +64,19 @@ The operation boundary also holds the checkout lock around effectful `done`, `pr
 
 discern stores the validated commit, structured Proof, and both renderings in the worktree's Git administration directory. The marker is local to that worktree and disappears when the worktree is removed ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 
-| Surface                | What it does with the Proof                                                                                                                                                                                                                                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `discern done`         | Prints measured results normally; exact current green evidence instead returns its Proof with `data.gate_ran = false` and no Gate step. JSON and MCP return compact `data.proof`; Markdown selects bounded evidence.                                                                                                                             |
-| `discern status`       | Reports whether the marker still matches the clean current `HEAD`. JSON, Markdown, MCP, and the status resource return Proof status plus compact facts; terminal `--verbose` retrieves the page. Status also reads a landed trunk-tip Proof from the local or fetched notes ref as `data.landed_proof`.                                          |
-| `discern accept`       | Uses an honored strict marker to avoid repeating the Gate jobs and checks the current tracked-refresh plan before the fast-forward. It rejects report-only Proof, retains checkpoint drops through review, returns consent-qualified `data.proof_line`, and records the complete structured Proof plus presentation as a Git note after landing. |
-| `discern setup done`   | Clears earlier evidence, commits the completion marker, probes that commit in a linked worktree, runs the final Gate last, and succeeds only with honored structured Proof for the clean marker-bearing `HEAD`. A failed final leg restores setup to incomplete.                                                                                 |
-| `discern setup accept` | Requires the complete current setup Proof before preview or apply. It refuses invalid evidence without moving refs, proves a moved-trunk merge separately, lands the full commit pinned by Proof, and writes the same durable Proof note as normal acceptance.                                                                                   |
+| Surface                | What it does with the Proof                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern done`         | Prints measured results normally; exact current green evidence instead returns its Proof with `data.gate_ran = false` and no Gate step. JSON and MCP return compact `data.proof`; Markdown selects bounded evidence.                                                                                                                                                                                                        |
+| `discern status`       | Reports whether the marker still matches the clean current `HEAD`. JSON, Markdown, MCP, and the status resource return Proof status plus compact facts; terminal `--verbose` retrieves the page. Status also reads a landed trunk-tip Proof from the local or fetched notes ref as `data.landed_proof`.                                                                                                                     |
+| `discern accept`       | Uses an honored strict marker to avoid repeating the Gate jobs and checks the current tracked-refresh plan before the fast-forward. It rejects report-only Proof, requires separate token-bound approval for every Standard growth proposal, retains checkpoint drops through review, returns consent-qualified `data.proof_line`, and records the complete structured Proof plus presentation as a Git note after landing. |
+| `discern setup done`   | Clears earlier evidence, commits the completion marker, probes that commit in a linked worktree, runs the final Gate last, and succeeds only with honored structured Proof for the clean marker-bearing `HEAD`. A failed final leg restores setup to incomplete.                                                                                                                                                            |
+| `discern setup accept` | Requires the complete current setup Proof before preview or apply. It refuses invalid evidence without moving refs, proves a moved-trunk merge separately, lands the full commit pinned by Proof, and writes the same durable Proof note as normal acceptance.                                                                                                                                                              |
 
-Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. A changed checkpoint conclusion or rationale invalidates it the same way at an unchanged `HEAD`: the marker binds to the declaration evidence it recorded, so acceptance never honors a Proof whose agent-declared conclusions have moved ([ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)). `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the Gate Proof forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
+Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. A changed checkpoint conclusion or rationale invalidates it at an unchanged `HEAD`: the marker binds to the declaration evidence it recorded, so acceptance never honors a Proof whose agent-declared conclusions have moved ([ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)). A changed, revoked, or stale Standard proposal also invalidates reuse at the same `HEAD`. The live proposal set must equal the Proof set. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the Gate Proof forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md), [ADR 0339](../_adr/0339-standard-growth-proposals-and-shared-measurements.md)).
 
 ## After landing
 
-After the trunk fast-forward, normal and setup acceptance write separate result and presentation blocks to a DSSE-compatible note under `refs/notes/discern`. The local unsigned record is on by default and fail-open; transport is opt-in. [Proof notes](proof-notes.md) covers inspection, publication, and recovery.
+After the trunk fast-forward, normal and setup acceptance write separate result and presentation blocks to a DSSE-compatible note under `refs/notes/discern`. Normal acceptance evidence includes each owner-approved Standard growth proposal. The local unsigned record is on by default and fail-open. Transport is opt-in. [Proof notes](proof-notes.md) covers inspection, publication, and recovery.
 
 ## Re-running an unchanged tree
 
@@ -83,20 +91,21 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 
 ## Where it lives in code
 
-| Concern                        | Source                                                         |
-| ------------------------------ | -------------------------------------------------------------- |
-| Marker identity and validation | [`proof.ts`](../../../src/engine/gate/proof.ts)                |
-| Write-authority probe          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts) |
-| Operation exclusion            | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)   |
-| Proof facts and markdown       | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts)  |
-| Pure human presentation        | [`presentation.ts`](../../../src/engine/gate/presentation.ts)  |
-| Live TTY effects and viewport  | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)          |
-| `done` proof panel             | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)          |
-| `done` integration             | [`finish.ts`](../../../src/engine/gate/finish.ts)              |
-| `prepare` integration          | [`prepare.ts`](../../../src/engine/gate/prepare.ts)            |
-| Landing validation             | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)    |
-| Setup validation               | [`setup.ts`](../../../src/commands/setup.ts)                   |
-| Setup landing validation       | [`setup_accept.ts`](../../../src/commands/setup_accept.ts)     |
+| Concern                         | Source                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| Marker identity and validation  | [`proof.ts`](../../../src/engine/gate/proof.ts)                           |
+| Proposal authority and currency | [`standard_proposals.ts`](../../../src/engine/gate/standard_proposals.ts) |
+| Write-authority probe           | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)            |
+| Operation exclusion             | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)              |
+| Proof facts and markdown        | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts)             |
+| Pure human presentation         | [`presentation.ts`](../../../src/engine/gate/presentation.ts)             |
+| Live TTY effects and viewport   | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)                     |
+| `done` proof panel              | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)                     |
+| `done` integration              | [`finish.ts`](../../../src/engine/gate/finish.ts)                         |
+| `prepare` integration           | [`prepare.ts`](../../../src/engine/gate/prepare.ts)                       |
+| Landing validation              | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)               |
+| Setup validation                | [`setup.ts`](../../../src/commands/setup.ts)                              |
+| Setup landing validation        | [`setup_accept.ts`](../../../src/commands/setup_accept.ts)                |
 
 ## Current state & gotchas
 
@@ -104,3 +113,4 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 - The marker is a cache of a real Gate result. Normal worktree acceptance can validate a missing or stale marker by rerunning the Gate. Setup acceptance refuses incomplete evidence and routes through `discern setup done`, because that command also owns the completion marker and structural worktree probe.
 - The preflight is a point-in-time check. Proof writes remain best-effort against a permission change or filesystem failure that occurs after the probe; that rare late failure remains visible in `data.gate_proof`.
 - A Logbook hint is advice beside the Proof. The stored Markdown and its commit identity remain unchanged.
+- A proposal-bearing Proof is green Gate evidence with an unresolved owner decision. Report the proposal and use the approval command served by `discern accept`. Do not describe the branch as approved to land.

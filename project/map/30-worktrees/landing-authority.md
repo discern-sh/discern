@@ -15,6 +15,8 @@ _discern verifies landing authority before moving the trunk._
 
 A green [Proof](../20-quality-gate/the-proof.md) records that an exact clean commit passed the declared Gate. Landing permission comes from conversation consent or a recorded grant for the worktree ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
+A Proof that carries Standard growth also needs a separate owner approval for each current Standard/value/reason tuple. Landing authority does not cover that narrower decision ([ADR 0339](../_adr/0339-standard-growth-proposals-and-shared-measurements.md)).
+
 ## Authority sources
 
 | Source         | Evidence                                                                                               | Lifetime               |
@@ -48,6 +50,20 @@ When `accept` has no landing authority, it changes nothing. Every supported resu
 
 An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
 
+## Approve Standard growth
+
+`discern accept` checks Standard growth proposals before applying landing authority. The live worktree proposal record must equal the proposal set in the honored Proof. A mismatch, stale record, reason change, or revocation refuses without moving the trunk.
+
+The read-only refusal names each Standard, old and proposed limits, measurement, delta, reason, responsible paths, and an `sgp1_…` token. Relay those facts to the owner. After the owner approves the current tuples in this conversation, run the complete command returned by discern:
+
+```sh
+discern accept --confirmed --approve-standard sgp1_<token>
+```
+
+Repeat the flag for every proposal. The token set must equal the current proposal set. `--confirmed` records current conversation consent. Each token identifies the approved Standard/value/reason tuple. Standing grants, effort grants, generic conversation consent, checkpoint variances, and earlier tokens do not supply this approval.
+
+If the owner declines, leave acceptance stopped. Restore the trunk limit in the branch, commit the restoration, and run `discern done` under ordinary enforcement. Acceptance never changes the proposed limit after Proof.
+
 ## Where it lives in code
 
 | Concern                   | Source                                                                                                                                                  |
@@ -55,6 +71,7 @@ An interrupted call does not widen any source. [Interrupted landing recovery](ac
 | Resolution and vocabulary | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts), [`consent.ts`](../../../src/shared/consent.ts)                             |
 | Standing grants           | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                                              |
 | Effort grants             | [`effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts), [`effort_grant_writer.ts`](../../../src/engine/worktree/effort_grant_writer.ts)      |
+| Standard growth approval  | [`standard_proposals.ts`](../../../src/engine/gate/standard_proposals.ts), [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                  |
 | Results and surface guard | [`result_schemas.ts`](../../../src/shared/result_schemas.ts), [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts) |
 
 ## Current state & gotchas
@@ -62,3 +79,4 @@ An interrupted call does not widen any source. [Interrupted landing recovery](ac
 - Standing authority is pinned to its trunk commit; concurrent advances refuse.
 - Landing consumes the claim. Drop, prune, and orphan cleanup reap abandoned state.
 - Uncertainty returns to conversation review; it never widens authority.
+- Standard growth approval binds one acceptance call to the current proposal set. It is not a standing source of landing authority.

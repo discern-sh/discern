@@ -105,32 +105,35 @@ Materialized Skills and provider-local state are ignored by exact registry path,
 
 Git-admin runtime records live under `discern/`; do not commit or edit them.
 
-| Registered path                                | Lifetime   | Purpose                                                                                                               |
-| ---------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
-| `discern/resources/`                           | repository | Resource ledger.                                                                                                      |
-| `discern/logbook/`                             | repository | [Logbook](../00-orientation/trust-and-data.md) events.                                                                |
-| `discern/logbook-archives/`                    | repository | Sealed Logbook event streams for historical Patterns and Stats reads.                                                 |
-| `discern/logbook-recovery/`                    | repository | Detached Logbook source retained if reset cleanup or archive sealing fails.                                           |
-| `discern/logbook-lifecycle.lock`               | repository | Advisory lock serializing terminal-confirmed Logbook reset and archive actions.                                       |
-| `discern/validation-hmac-key`                  | repository | Local key that makes validation-state and execution digests opaque but comparable across this repository's worktrees. |
-| `discern/continuations/`                       | repository | Short-handle continuation state, kept for up to 7 days.                                                               |
-| `discern/retired-worktree-paths/`              | repository | Up to 256 removed-path records; status ignores records 90 days after removal.                                         |
-| `discern/drop-recovery.lock`                   | repository | Advisory lock serializing the bounded drop-recovery ref transaction.                                                  |
-| `discern/crash/`                               | repository | Crash reports.                                                                                                        |
-| `discern/test-slots/`                          | repository | Fleet test-run cap lock files.                                                                                        |
-| `discern/desk/tips.json`                       | repository | Desk tip evidence.                                                                                                    |
-| `discern/temp-artifact-sweep`                  | repository | Temp-retention sweep stamp and cursor.                                                                                |
-| `discern/gate-proof`                           | worktree   | Proof from a clean `done` run.                                                                                        |
-| `discern/last-gate-run`                        | worktree   | Last gate verdict.                                                                                                    |
-| `discern/standard-measurements`                | worktree   | Reusable measurements.                                                                                                |
-| `discern/ignored-baseline`                     | worktree   | Ignored-file baseline.                                                                                                |
-| `discern/effort-grant`                         | worktree   | Desk landing grant.                                                                                                   |
-| `discern/effort-grant-claims/`                 | worktree   | Claims held by acceptance.                                                                                            |
-| `discern/acceptance-transaction.json`          | worktree   | Acceptance recovery journal.                                                                                          |
-| `discern/acceptance-transaction.lock`          | worktree   | Single-acceptance advisory lock.                                                                                      |
-| `discern/setup-machinery-commit-evidence.json` | worktree   | Setup retry evidence.                                                                                                 |
-| `discern/worktree-ready`                       | worktree   | Completed-setup marker.                                                                                               |
-| `discern/shim/`                                | worktree   | Per-identity self-shim ([ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).   |
+| Registered path                                     | Lifetime   | Purpose                                                                                                               |
+| --------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| `discern/resources/`                                | repository | Resource ledger.                                                                                                      |
+| `discern/logbook/`                                  | repository | [Logbook](../00-orientation/trust-and-data.md) events.                                                                |
+| `discern/logbook-archives/`                         | repository | Sealed Logbook event streams for historical Patterns and Stats reads.                                                 |
+| `discern/logbook-recovery/`                         | repository | Detached Logbook source retained if reset cleanup or archive sealing fails.                                           |
+| `discern/logbook-lifecycle.lock`                    | repository | Advisory lock serializing terminal-confirmed Logbook reset and archive actions.                                       |
+| `discern/validation-hmac-key`                       | repository | Local key that makes validation-state and execution digests opaque but comparable across this repository's worktrees. |
+| `discern/continuations/`                            | repository | Short-handle continuation state, kept for up to 7 days.                                                               |
+| `discern/retired-worktree-paths/`                   | repository | Up to 256 removed-path records; status ignores records 90 days after removal.                                         |
+| `discern/drop-recovery.lock`                        | repository | Advisory lock serializing the bounded drop-recovery ref transaction.                                                  |
+| `discern/crash/`                                    | repository | Crash reports.                                                                                                        |
+| `discern/test-slots/`                               | repository | Fleet test-run cap lock files.                                                                                        |
+| `discern/desk/tips.json`                            | repository | Desk tip evidence.                                                                                                    |
+| `discern/temp-artifact-sweep`                       | repository | Temp-retention sweep stamp and cursor.                                                                                |
+| `discern/gate-proof`                                | worktree   | Proof from a clean `done` run.                                                                                        |
+| `discern/last-gate-run`                             | worktree   | Last gate verdict.                                                                                                    |
+| `discern/standard-measurements`                     | worktree   | Reusable measurements.                                                                                                |
+| `discern/standard-measurement-evidence.json`        | worktree   | Fresh clean-commit measurements, including failures, used only to open a growth proposal.                             |
+| `discern/standard-growth-proposals.json`            | worktree   | Pending commit-bound Standard growth proposals.                                                                       |
+| `discern/standard-growth-proposal-transaction.json` | worktree   | Interruption recovery for one proposal config edit, commit, and record transition.                                    |
+| `discern/ignored-baseline`                          | worktree   | Ignored-file baseline.                                                                                                |
+| `discern/effort-grant`                              | worktree   | Desk landing grant.                                                                                                   |
+| `discern/effort-grant-claims/`                      | worktree   | Claims held by acceptance.                                                                                            |
+| `discern/acceptance-transaction.json`               | worktree   | Acceptance recovery journal.                                                                                          |
+| `discern/acceptance-transaction.lock`               | worktree   | Single-acceptance advisory lock.                                                                                      |
+| `discern/setup-machinery-commit-evidence.json`      | worktree   | Setup retry evidence.                                                                                                 |
+| `discern/worktree-ready`                            | worktree   | Completed-setup marker.                                                                                               |
+| `discern/shim/`                                     | worktree   | Per-identity self-shim ([ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).   |
 
 Durable state replacements share one interruption-safe policy; intentional moves and create-once publication remain separate ([ADR 0326](../_adr/0326-durable-replace-writes-use-one-atomic-writer.md)).
 
