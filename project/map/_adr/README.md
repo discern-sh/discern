@@ -328,6 +328,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0340 — Tests wait on conditions and enrol real delays](0340-tests-wait-on-conditions-and-enrol-real-delays.md)
 - [0341 — Deliberate error discard is a named side-effect boundary](0341-deliberate-error-discard-is-a-named-side-effect-boundary.md)
 - [0342 — Git elects module coverage membership and LCOV supplies observations](0342-git-elects-module-coverage-membership.md)
+- [0343 — Duplication holds maximal non-overlapping normalized lines](0343-duplication-holds-maximal-non-overlapping-normalized-lines.md)
 
 <!-- END GENERATED: current ADR records -->
 

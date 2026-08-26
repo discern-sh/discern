@@ -68,7 +68,7 @@ A repository-wide claim uses its complete base universe. An intentionally narrow
 
 [`tests/structural_guard_scope_test.ts`](../../../tests/structural_guard_scope_test.ts) scans the complete authored TypeScript universe with a syntax-aware detector. It rejects direct universe consumption, hand-rooted source walks, local member lists, invalid specialized universes, and duplicate declarations. Its injected repositories prove that a new source tree enrolls without another test edit.
 
-The [duplication census](../../../scripts/duplication_census.ts) declares the complete `authored-deno` universe at its call site. It excludes files through the generated-artifact ownership registry and excludes boilerplate through syntax categories inside the analyzer; it does not narrow the structural scope with a maintained path list. A new authored JavaScript or TypeScript root therefore joins the census automatically.
+The [duplication census](../../../scripts/duplication_census.ts) declares the complete `authored-deno` universe at its call site. It excludes files through the generated-artifact ownership registry and excludes boilerplate through syntax categories inside the analyzer; it does not narrow the structural scope with a maintained path list. A new authored JavaScript or TypeScript root therefore joins the census automatically ([ADR 0343](../_adr/0343-duplication-holds-maximal-non-overlapping-normalized-lines.md)).
 
 ## Conventions to follow
 

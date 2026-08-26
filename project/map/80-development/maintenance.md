@@ -20,7 +20,7 @@ Candidate token windows do not appear in this output. [`duplication_census_lib.t
 
 Treat a group as incidental duplication when its occurrences represent one behavior with one reason to change. Elect one authority, route every caller to it, delete the copies, and keep a regression test at the shared boundary. If occurrences have independent reasons to evolve, keep them separate and make that boundary legible in their owning modules; do not distort the implementation merely to move the number.
 
-The detector deliberately ignores comments, whitespace, local identifier spelling, literal values, imports and re-exports, type-only declarations, syntax-declared top-level registry tables, and declared generated artifacts. These categories remove syntax and ownership noise rather than excusing named files. The census remains conservative: a reported clone is actionable evidence, not a proof that two routines have identical product intent.
+The detector ignores comments, whitespace, local identifier spelling, literal values, imports and re-exports, type-only declarations, syntax-declared top-level registry tables, and declared generated artifacts. These categories remove syntax and ownership noise rather than excusing named files. The census remains conservative: a reported clone is actionable evidence, not a proof that two routines have identical product intent.
 
 ## Capture each reduction
 

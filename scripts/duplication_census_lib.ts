@@ -898,7 +898,7 @@ function informativeTokenCounts(
   return counts;
 }
 
-/** Preserve the operation-token order used to reject bag-of-words lookalikes. */
+/** Preserve operation-token order so bag-of-words lookalikes fail similarity. */
 function informativeTokenSequence(segment: TokenSegment): string[] {
   return segment.tokens
     .map((token) => token.key)
