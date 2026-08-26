@@ -16,6 +16,7 @@ import {
   type ProseCounts,
 } from "./plain_reading_grade_lib.ts";
 import { proseWordCount } from "./prose_lib.ts";
+import { withToolTempDir } from "./temp_dir.ts";
 
 const BLOCK_SELECTOR = [
   "h1",
@@ -170,22 +171,24 @@ export function projectSiteProse(): ProjectedSiteProsePage[] {
     });
 }
 
-/** Stage the exact corpus shared by the site prose check and measurements. */
-export async function stageSiteProse(
+/** Run `fn` with the exact corpus shared by site prose checks and measurements. */
+export async function withStagedSiteProse<T>(
   repoRoot: string,
-): Promise<StagedSiteProse> {
-  const dir = await Deno.makeTempDir({ prefix: "discern-site-prose-" });
-  const pages = projectSiteProse();
-  const sources = new Map<string, string>();
-  let words = 0;
-  for (const page of pages) {
-    const destination = join(dir, page.stagePath);
-    await Deno.mkdir(dirname(destination), { recursive: true });
-    await Deno.writeTextFile(destination, page.prose);
-    sources.set(resolve(destination), resolve(repoRoot, page.source));
-    words += proseWordCount(page.prose);
-  }
-  return { dir, words, pages, sources };
+  fn: (stage: StagedSiteProse) => T | Promise<T>,
+): Promise<T> {
+  return await withToolTempDir("site-prose-stage", async (dir) => {
+    const pages = projectSiteProse();
+    const sources = new Map<string, string>();
+    let words = 0;
+    for (const page of pages) {
+      const destination = join(dir, page.stagePath);
+      await Deno.mkdir(dirname(destination), { recursive: true });
+      await Deno.writeTextFile(destination, page.prose);
+      sources.set(resolve(destination), resolve(repoRoot, page.source));
+      words += proseWordCount(page.prose);
+    }
+    return await fn({ dir, words, pages, sources });
+  });
 }
 
 /** Map a staged Vale path back to the registry-owned authored source. */

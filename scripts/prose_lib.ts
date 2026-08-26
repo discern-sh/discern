@@ -13,7 +13,7 @@
  *    here because staged paths never match that glob).
  *
  * Callers map Vale's output paths back through {@link restoreStagePaths} so a
- * diagnostic names the real file, then remove the stage directory.
+ * diagnostic names the real file. The tooling temp capability owns teardown.
  */
 
 import { walk } from "@std/fs";
@@ -21,6 +21,7 @@ import { dirname, join, relative } from "@std/path";
 import { z } from "@zod/zod";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { decodeJson } from "../src/shared/runtime_decode.ts";
+import { withToolTempDir } from "./temp_dir.ts";
 
 const valeCoordinate = z.number().int().positive();
 
@@ -47,8 +48,8 @@ export function decodeValeReport(text: string, source: string): ValeReport {
 }
 
 export interface StagedProseInput {
-  dir: string;
-  words: number;
+  readonly dir: string;
+  readonly words: number;
 }
 
 /** Frontmatter replaced by an equal number of blank lines (line-stable). */
@@ -66,29 +67,31 @@ export function proseWordCount(text: string): number {
 }
 
 /**
- * Stage a frontmatter-blanked, `_private`-free mirror of `docsDir` for Vale.
- * Returns the stage directory and its word count; the caller owns removal.
+ * Run `fn` with a frontmatter-blanked, `_private`-free mirror of `docsDir`.
+ * The callback may return ordinary data, but the staged path ends with it.
  */
-export async function stageProseInput(
+export async function withStagedProseInput<T>(
   docsDir: string,
-): Promise<StagedProseInput> {
-  const dir = await Deno.makeTempDir({ prefix: "discern-prose-" });
-  let words = 0;
-  for await (
-    const entry of walk(docsDir, {
-      exts: [".md"],
-      includeDirs: false,
-      skip: [/(^|\/)_private(\/|$)/],
-    })
-  ) {
-    const rel = relative(docsDir, entry.path);
-    const dest = join(dir, rel);
-    const prose = blankFrontmatter(await Deno.readTextFile(entry.path));
-    await Deno.mkdir(dirname(dest), { recursive: true });
-    await Deno.writeTextFile(dest, prose);
-    words += proseWordCount(prose);
-  }
-  return { dir, words };
+  fn: (stage: StagedProseInput) => T | Promise<T>,
+): Promise<T> {
+  return await withToolTempDir("map-prose-stage", async (dir) => {
+    let words = 0;
+    for await (
+      const entry of walk(docsDir, {
+        exts: [".md"],
+        includeDirs: false,
+        skip: [/(^|\/)_private(\/|$)/],
+      })
+    ) {
+      const rel = relative(docsDir, entry.path);
+      const dest = join(dir, rel);
+      const prose = blankFrontmatter(await Deno.readTextFile(entry.path));
+      await Deno.mkdir(dirname(dest), { recursive: true });
+      await Deno.writeTextFile(dest, prose);
+      words += proseWordCount(prose);
+    }
+    return await fn({ dir, words });
+  });
 }
 
 /** Point Vale's staged paths back at the real tree for readable diagnostics. */

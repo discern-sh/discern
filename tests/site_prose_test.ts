@@ -10,7 +10,7 @@ import {
   projectSiteProse,
   siteProseReadingGrade,
   siteProseSource,
-  stageSiteProse,
+  withStagedSiteProse,
 } from "../scripts/site_prose_lib.ts";
 
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
@@ -68,8 +68,7 @@ Deno.test("the homepage projection measures prose once and excludes artefact dat
 });
 
 Deno.test("the Vale numerator and denominator read the exact same staged bytes", async () => {
-  const stage = await stageSiteProse(ROOT);
-  try {
+  await withStagedSiteProse(ROOT, async (stage) => {
     let words = 0;
     for (const page of stage.pages) {
       const path = join(stage.dir, page.stagePath);
@@ -84,7 +83,5 @@ Deno.test("the Vale numerator and denominator read the exact same staged bytes",
       false,
       "private planning copy never joins the public corpus",
     );
-  } finally {
-    await Deno.remove(stage.dir, { recursive: true });
-  }
+  });
 });

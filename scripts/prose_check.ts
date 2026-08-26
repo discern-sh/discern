@@ -29,9 +29,9 @@ import {
   decodeValeReport,
   restoreStagePaths,
   selectProseGateAlerts,
-  stageProseInput,
   valeAlertCount,
   valeJsonToSarif,
+  withStagedProseInput,
 } from "./prose_lib.ts";
 import { runVale } from "./vale_lib.ts";
 
@@ -58,9 +58,8 @@ for (const arg of Deno.args) {
 const docsDir = mapDirArg ??
   resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
 
-const stage = await stageProseInput(docsDir);
-let code = 1;
-try {
+const code = await withStagedProseInput(docsDir, async (stage) => {
+  let code = 1;
   // A file argument narrows the run to that page's staged copy. A path that
   // has no staged copy isn't lintable prose (outside the map, or `_private`).
   const targets: string[] = [];
@@ -143,8 +142,6 @@ try {
     if (stdout) console.log(stdout.trimEnd());
     if (stderr) console.error(stderr.trimEnd());
   }
-} finally {
-  // Deno.exit skips finally blocks, so teardown precedes the exit below.
-  await Deno.remove(stage.dir, { recursive: true }).catch(() => {});
-}
+  return code;
+});
 Deno.exit(code);

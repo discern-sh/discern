@@ -18,8 +18,8 @@ import {
   decodeValeReport,
   restoreStagePaths,
   selectProseGateAlerts,
-  stageProseInput,
   valeJsonToSarif,
+  withStagedProseInput,
 } from "../scripts/prose_lib.ts";
 import {
   extractSarif,
@@ -101,7 +101,7 @@ Deno.test("blankFrontmatter removes the block but keeps line numbers stable", ()
   assertEquals(blankFrontmatter("# Plain\n\nBody.\n"), "# Plain\n\nBody.\n");
 });
 
-Deno.test("stageProseInput blanks frontmatter and skips _private", async () => {
+Deno.test("withStagedProseInput blanks frontmatter and skips _private", async () => {
   await withTempDir(async (dir) => {
     const map = join(dir, "map");
     await Deno.mkdir(join(map, "_private"), { recursive: true });
@@ -116,8 +116,7 @@ Deno.test("stageProseInput blanks frontmatter and skips _private", async () => {
       `# Nested private notes\n\n${"private ".repeat(100)}`,
     );
 
-    const stage = await stageProseInput(map);
-    try {
+    await withStagedProseInput(map, async (stage) => {
       const staged = await Deno.readTextFile(
         join(stage.dir, "10-tier/page.md"),
       );
@@ -152,9 +151,7 @@ Deno.test("stageProseInput blanks frontmatter and skips _private", async () => {
         ),
         `${map}/10-tier/page.md:3:1 alert`,
       );
-    } finally {
-      await Deno.remove(stage.dir, { recursive: true });
-    }
+    });
   });
 });
 

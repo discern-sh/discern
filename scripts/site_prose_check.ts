@@ -10,7 +10,7 @@ import {
 import {
   siteProseSource,
   type StagedSiteProse,
-  stageSiteProse,
+  withStagedSiteProse,
 } from "./site_prose_lib.ts";
 import { runVale } from "./vale_lib.ts";
 
@@ -54,9 +54,8 @@ function authoredAlerts(
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const sarif = Deno.args.includes("--sarif");
 const customZero = Deno.args.includes("--custom-zero");
-const stage = await stageSiteProse(repoRoot);
-let code = 1;
-try {
+const code = await withStagedSiteProse(repoRoot, async (stage) => {
+  let code = 1;
   const run = await runVale(repoRoot, [
     "--minAlertLevel",
     customZero ? "suggestion" : "error",
@@ -95,7 +94,6 @@ try {
       ? 1
       : 0;
   }
-} finally {
-  await Deno.remove(stage.dir, { recursive: true }).catch(() => {});
-}
+  return code;
+});
 Deno.exit(code);

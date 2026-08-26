@@ -24,7 +24,7 @@
 import { dirname, fromFileUrl } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
-import { decodeValeReport, stageProseInput } from "./prose_lib.ts";
+import { decodeValeReport, withStagedProseInput } from "./prose_lib.ts";
 import { runVale } from "./vale_lib.ts";
 
 // Vale exits non-zero when it finds error-severity alerts; that is not a failure
@@ -35,14 +35,13 @@ const docsDir = Deno.args[0] ??
   resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
 // Measure PROSE, not metadata: Vale reads a staged mirror with frontmatter
 // blanked (scripts/prose_lib.ts) so a metadata block never counts as an alert.
-const stage = await stageProseInput(docsDir);
-const run = await (async (): Promise<Deno.CommandOutput> => {
-  try {
-    return await runVale(repoRoot, ["--output=JSON", stage.dir]);
-  } finally {
-    await Deno.remove(stage.dir, { recursive: true }).catch(() => {});
-  }
-})();
+const { run, words } = await withStagedProseInput(
+  docsDir,
+  async (stage) => ({
+    run: await runVale(repoRoot, ["--output=JSON", stage.dir]),
+    words: stage.words,
+  }),
+);
 
 const stdout = new TextDecoder().decode(run.stdout);
 let report;
@@ -75,7 +74,7 @@ for (const alerts of Object.values(report)) {
 const total = errors + warnings + suggestions;
 
 console.error(
-  `${docsDir} prose: ${total} alerts across ${stage.words} words (${errors} error, ${warnings} warning, ${suggestions} suggestion)`,
+  `${docsDir} prose: ${total} alerts across ${words} words (${errors} error, ${warnings} warning, ${suggestions} suggestion)`,
 );
 console.log(`DISCERN_METRIC prose ${total}`);
-console.log(`DISCERN_METRIC prose_words ${stage.words}`);
+console.log(`DISCERN_METRIC prose_words ${words}`);

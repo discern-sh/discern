@@ -37,7 +37,7 @@ import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
 import { checkDocsIntegrity } from "../src/lib/map_integrity.ts";
 import { measureVocabSignals } from "../scripts/vocab_signals_lib.ts";
-import { stageProseInput } from "../scripts/prose_lib.ts";
+import { withStagedProseInput } from "../scripts/prose_lib.ts";
 import { measurePublicDocs } from "../scripts/public_doc_density_lib.ts";
 import type { GlossaryEntry } from "../scripts/glossary_registry.ts";
 import { withTempDir } from "./helpers.ts";
@@ -113,8 +113,7 @@ const vocabularyAdapter: OverlayAdapter = async (root) =>
   await measureVocabSignals(join(root, MAP), GLOSSARY_FIXTURE);
 
 const proseAdapter: OverlayAdapter = async (root) => {
-  const stage = await stageProseInput(join(root, MAP));
-  try {
+  return await withStagedProseInput(join(root, MAP), async (stage) => {
     const collect = async (dir: string, rel: string): Promise<string[]> => {
       const out: string[] = [];
       for await (const entry of Deno.readDir(dir)) {
@@ -129,9 +128,7 @@ const proseAdapter: OverlayAdapter = async (root) => {
     };
     const files = (await collect(stage.dir, "")).sort();
     return { words: stage.words, files };
-  } finally {
-    await Deno.remove(stage.dir, { recursive: true });
-  }
+  });
 };
 
 const densityAdapter: OverlayAdapter = async (root) =>

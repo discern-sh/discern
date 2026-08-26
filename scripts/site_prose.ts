@@ -2,12 +2,11 @@
 
 import { dirname, fromFileUrl } from "@std/path";
 import { decodeValeReport } from "./prose_lib.ts";
-import { stageSiteProse } from "./site_prose_lib.ts";
+import { withStagedSiteProse } from "./site_prose_lib.ts";
 import { runVale } from "./vale_lib.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
-const stage = await stageSiteProse(repoRoot);
-try {
+await withStagedSiteProse(repoRoot, async (stage) => {
   const run = await runVale(repoRoot, ["--output=JSON", stage.dir]);
   const stdout = new TextDecoder().decode(run.stdout);
   let report;
@@ -43,6 +42,4 @@ try {
   );
   console.log(`DISCERN_METRIC site_prose ${total}`);
   console.log(`DISCERN_METRIC site_prose_words ${stage.words}`);
-} finally {
-  await Deno.remove(stage.dir, { recursive: true }).catch(() => {});
-}
+});
