@@ -11,13 +11,13 @@ import {
   type PlanStep,
   verbatimStepLabel,
 } from "../../shared/result.ts";
-import type { StandardGrowthProposalData } from "../../shared/result_schemas.ts";
-import { validateStandardGrowthReason } from "../../shared/standard_growth_reason.ts";
+import type { StandardLimitProposalData } from "../../shared/result_schemas.ts";
+import { validateStandardLimitReason } from "../../shared/standard_limit_reason.ts";
 import { pathMatchesPattern } from "../scopes/glob.ts";
 import type { PlannedStandard } from "./standard_plan.ts";
 
 /** Read-only facts gathered by the effectful shell before pure planning. */
-export interface StandardGrowthProposalContext {
+export interface StandardLimitProposalContext {
   readonly standard: PlannedStandard;
   readonly reason: string;
   readonly head: string;
@@ -30,27 +30,27 @@ export interface StandardGrowthProposalContext {
 }
 
 /** Record fields known before the config-only proposal commit is made. */
-export type PlannedStandardGrowthProposal = Omit<
-  StandardGrowthProposalData,
+export type PlannedStandardLimitProposal = Omit<
+  StandardLimitProposalData,
   "commit"
 >;
 
-export interface StandardGrowthProposalPlan {
+export interface StandardLimitProposalPlan {
   readonly engine: EnginePlan;
-  readonly proposal: PlannedStandardGrowthProposal;
+  readonly proposal: PlannedStandardLimitProposal;
 }
 
-export interface StandardGrowthProposalRefusal {
+export interface StandardLimitProposalRefusal {
   readonly ok: false;
   readonly error: ErrorSlug;
   readonly message: string;
 }
 
-export type StandardGrowthProposalDecision =
-  | { readonly ok: true; readonly plan: StandardGrowthProposalPlan }
-  | StandardGrowthProposalRefusal;
+export type StandardLimitProposalDecision =
+  | { readonly ok: true; readonly plan: StandardLimitProposalPlan }
+  | StandardLimitProposalRefusal;
 
-/** Whether the measured value is an intrinsic regression against the trunk
+/** Whether the measured value regresses against the trunk
  * bound, using the same epsilon as ordinary Standard comparison. */
 function breached(
   direction: "up" | "down",
@@ -64,10 +64,10 @@ function breached(
 
 /** Build the exact transaction, or explain why ordinary enforcement still
  * applies. A proposal is only meaningful before its branch limit has moved. */
-export function buildStandardGrowthProposalPlan(
-  context: StandardGrowthProposalContext,
-): StandardGrowthProposalDecision {
-  const reason = validateStandardGrowthReason(context.reason);
+export function buildStandardLimitProposalPlan(
+  context: StandardLimitProposalContext,
+): StandardLimitProposalDecision {
+  const reason = validateStandardLimitReason(context.reason);
   if (!reason.ok) {
     return { ok: false, error: "invalid_value", message: reason.message };
   }
@@ -95,7 +95,7 @@ export function buildStandardGrowthProposalPlan(
       message:
         `standard '${standard.name}' measured ${context.measurement}, which does not breach its ${
           standard.direction === "up" ? "floor" : "ceiling"
-        } ${context.trunkLimit}. Improvements and held values use ordinary enforcement; there is no growth decision to propose.`,
+        } ${context.trunkLimit}. Improvements and held values use ordinary enforcement; there is no new limit to propose.`,
     };
   }
   const inputs = standard.inputs;
@@ -104,7 +104,7 @@ export function buildStandardGrowthProposalPlan(
       ok: false,
       error: "invalid_config",
       message:
-        `standard '${standard.name}' declares no inputs, so discern cannot bind intrinsic growth to responsible files. Configure [standards.${standard.name}].inputs, commit it on the trunk, update this worktree, and re-measure.`,
+        `standard '${standard.name}' declares no inputs, so discern cannot bind its proposed limit to responsible files. Configure [standards.${standard.name}].inputs, commit it on the trunk, update this worktree, and re-measure.`,
     };
   }
   const evidencePaths = [
@@ -119,11 +119,11 @@ export function buildStandardGrowthProposalPlan(
       ok: false,
       error: "precondition_failed",
       message:
-        `standard '${standard.name}' breached, but no changed path matches its configured inputs. A proposal cannot attribute this growth; change the responsible input in this effort or investigate measurement drift.`,
+        `standard '${standard.name}' breached, but no changed path matches its configured inputs. A proposal cannot attribute the breach; change the responsible input in this effort or investigate measurement drift.`,
     };
   }
   const proposedLimit = context.measurement;
-  const proposal: PlannedStandardGrowthProposal = {
+  const proposal: PlannedStandardLimitProposal = {
     standard: standard.name,
     measured_commit: context.head,
     definition_fingerprint: context.definitionFingerprint,
@@ -160,7 +160,7 @@ export function buildStandardGrowthProposalPlan(
     ok: true,
     plan: {
       engine: {
-        title: "Standard growth proposal",
+        title: "Proposed Standard limit",
         details: [
           `standard: ${standard.name}`,
           `trunk: ${context.trunk}@${context.trunkCommit.slice(0, 12)}`,

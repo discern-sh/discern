@@ -3,7 +3,7 @@
 > **Amendments.**
 >
 > - **Consent source (2026-07-28; [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md)):** `--confirmed` now attests only that the owner accepted this landing in the current conversation. Standing scope grants and one-effort desk grants are recorded and checked directly; a covered landing needs no flag. Every applied landing still requires either that attestation or a checked grant. The broader standing-pre-authorization meaning in the original decision below is historical.
-> - **Standard growth ([ADR 0339](0339-standard-growth-proposals-and-shared-measurements.md)):** `--confirmed` alone does not approve intrinsic Standard growth. A proposal-bearing Proof also requires the proposal-bound `--approve-standard` token set for the current Standard values and reasons.
+> - **Proposed Standard limits ([ADR 0339](0339-proposed-standard-limits-and-shared-measurements.md)):** `--confirmed` alone does not approve a proposed Standard limit. A proposal-bearing Proof also requires the proposal-bound `--approve-standard` token set for the current Standard values and reasons.
 
 **Status**: accepted — extends [ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md)'s `--confirmed` pattern from the fresh-scaffold act to the landing act. Builds on [ADR 0110](0110-the-landing-model.md) (the landing model: land only on the trunk) and [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope per verb). Reinforces, and does not revise, ADR 0110's entry contract — the explicit-user-request rule it already states becomes structural.
 

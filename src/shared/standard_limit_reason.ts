@@ -1,8 +1,8 @@
-/** One authority for the durable owner-facing Standard-growth reason. */
+/** One authority for the durable owner-facing proposed-limit reason. */
 
-export const STANDARD_GROWTH_REASON_MAX_LENGTH = 500;
+export const STANDARD_LIMIT_REASON_MAX_LENGTH = 500;
 
-export type StandardGrowthReasonValidation =
+export type StandardLimitReasonValidation =
   | { readonly ok: true; readonly reason: string }
   | { readonly ok: false; readonly message: string };
 
@@ -15,20 +15,20 @@ const OBVIOUS_SECRET_PATTERNS: readonly RegExp[] = [
 ];
 
 /** Validate without normalizing: accepted bytes are recorded verbatim. */
-export function validateStandardGrowthReason(
+export function validateStandardLimitReason(
   reason: string,
-): StandardGrowthReasonValidation {
+): StandardLimitReasonValidation {
   if (reason.trim().length === 0) {
     return {
       ok: false,
       message: "--reason needs a non-empty explanation (1-500 characters).",
     };
   }
-  if (reason.length > STANDARD_GROWTH_REASON_MAX_LENGTH) {
+  if (reason.length > STANDARD_LIMIT_REASON_MAX_LENGTH) {
     return {
       ok: false,
       message:
-        `--reason is ${reason.length} characters; keep it to at most ${STANDARD_GROWTH_REASON_MAX_LENGTH}.`,
+        `--reason is ${reason.length} characters; keep it to at most ${STANDARD_LIMIT_REASON_MAX_LENGTH}.`,
     };
   }
   if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(reason)) {

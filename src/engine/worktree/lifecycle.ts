@@ -177,8 +177,8 @@ import type {
   GateData,
   LandingConsentData,
   Proof,
-  StandardGrowthApprovalRequestData,
-  StandardGrowthProposalData,
+  StandardLimitApprovalRequestData,
+  StandardLimitProposalData,
   StartData,
   UpdateData,
 } from "../../shared/result_schemas.ts";
@@ -186,9 +186,9 @@ import { AppliedAcceptDataSchema } from "../../shared/result_schemas.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { buildStandardPlan } from "../gate/standard_plan.ts";
 import {
-  cloneStandardGrowthProposal,
-  inspectActiveStandardGrowthProposals,
-  sameStandardGrowthProposalSet,
+  cloneStandardLimitProposal,
+  inspectActiveStandardLimitProposals,
+  sameStandardLimitProposalSet,
 } from "../gate/standard_proposals.ts";
 import { emitResult } from "../../shared/emit.ts";
 import {
@@ -2305,30 +2305,30 @@ function enforceAcceptanceCheckpoints(
 /** Exact owner-facing approval challenge for the tuple the public contract
  * names. The full proposal is recorded in the transaction; this token makes a
  * copied approval command stale when its value or reason changes. */
-async function standardGrowthApprovalToken(
-  proposal: StandardGrowthProposalData,
+async function standardLimitApprovalToken(
+  proposal: StandardLimitProposalData,
 ): Promise<string> {
   const material = JSON.stringify({
     standard: proposal.standard,
     proposed_limit: proposal.proposed_limit,
     reason: proposal.reason,
   });
-  return `sgp1_${await sha256Hex(`standard-growth-approval-v1\n${material}`)}`;
+  return await sha256Hex(`standard-limit-approval-v1\n${material}`);
 }
 
 /** Derive one exact token challenge per current proposal. */
-async function standardGrowthApprovalRequests(
-  proposals: readonly StandardGrowthProposalData[],
-): Promise<StandardGrowthApprovalRequestData[]> {
+async function standardLimitApprovalRequests(
+  proposals: readonly StandardLimitProposalData[],
+): Promise<StandardLimitApprovalRequestData[]> {
   return await Promise.all(proposals.map(async (proposal) => ({
-    proposal: cloneStandardGrowthProposal(proposal),
-    token: await standardGrowthApprovalToken(proposal),
+    proposal: cloneStandardLimitProposal(proposal),
+    token: await standardLimitApprovalToken(proposal),
   })));
 }
 
 /** Serve every exact value/reason tuple at the owner decision boundary. */
 function acceptAwaitingStandardApprovalResult(
-  approvals: readonly StandardGrowthApprovalRequestData[],
+  approvals: readonly StandardLimitApprovalRequestData[],
   confirmed: boolean,
   requested: readonly string[],
 ): DiscernResult<AcceptData> {
@@ -2351,7 +2351,7 @@ function acceptAwaitingStandardApprovalResult(
     ? `The owner approval set is incomplete; missing: ${
       missing.map(({ proposal }) => proposal.standard).join(", ")
     }.`
-    : "This Proof carries intrinsic Standard growth that requires a separate, exact owner decision.";
+    : "This Proof contains a proposed Standard limit that requires a separate, exact owner decision.";
   return {
     ok: false,
     verb: "accept",
@@ -2366,7 +2366,7 @@ function acceptAwaitingStandardApprovalResult(
     hints: hintTexts([fire(HINTS["accept-review-via-status"])]),
     data: {
       standard_approvals_required: approvals.map(({ proposal, token }) => ({
-        proposal: cloneStandardGrowthProposal(proposal),
+        proposal: cloneStandardLimitProposal(proposal),
         token,
       })),
     },
@@ -2376,17 +2376,17 @@ function acceptAwaitingStandardApprovalResult(
 /** Resolve the current proposal authority and enforce the narrow approval set.
  * A live Proof and the worktree-local record must agree byte-for-byte; a reason
  * edit or revocation routes back through `done` before any landing effect. */
-async function enforceStandardGrowthApprovals(
+async function enforceStandardLimitApprovals(
   ctx: LifecycleContext,
   proof: Awaited<ReturnType<typeof inspectGateProof>>,
   request: {
     readonly confirmed: boolean;
     readonly names: readonly string[];
   },
-): Promise<StandardGrowthProposalData[]> {
+): Promise<StandardLimitProposalData[]> {
   const standardPlan = buildStandardPlan(ctx.config);
   const trunk = integrationBranch(ctx.config.repository.trunk);
-  const inspected = await inspectActiveStandardGrowthProposals(
+  const inspected = await inspectActiveStandardLimitProposals(
     ctx.cwd,
     trunk,
     standardPlan.standards,
@@ -2401,21 +2401,21 @@ async function enforceStandardGrowthApprovals(
     : [];
   if (
     proof.status === "honored" &&
-    !sameStandardGrowthProposalSet(proofProposals, active)
+    !sameStandardLimitProposalSet(proofProposals, active)
   ) {
     throw new WorktreeResultError(
-      "The Standard growth proposal record no longer matches the honored Proof. Run `discern done` to revalidate the current exact value and reason; nothing has been landed.",
+      "The proposed Standard limit record no longer matches the honored Proof. Run `discern done` to revalidate the current exact value and reason; nothing has been landed.",
       {
         ok: false,
         verb: "accept",
         error: "proposal_stale",
         message:
-          "The Standard growth proposal record no longer matches the honored Proof. A reason change, revocation, or stale record restores ordinary enforcement. Run `discern done` to revalidate the current exact proposal; nothing has been landed.",
+          "The proposed Standard limit record no longer matches the honored Proof. A reason change, revocation, or stale record restores ordinary enforcement. Run `discern done` to revalidate the current exact proposal; nothing has been landed.",
       },
     );
   }
   const expected = proof.status === "honored" ? proofProposals : active;
-  const approvals = await standardGrowthApprovalRequests(expected);
+  const approvals = await standardLimitApprovalRequests(expected);
   const uniqueRequested = [...new Set(request.names)].sort();
   if (uniqueRequested.length !== request.names.length) {
     throw new WorktreeResultError(
@@ -2465,7 +2465,7 @@ async function enforceStandardGrowthApprovals(
     );
     throw new WorktreeResultError(result.message ?? "", result);
   }
-  return expected.map(cloneStandardGrowthProposal);
+  return expected.map(cloneStandardLimitProposal);
 }
 
 /** Resolve the consent this apply lands under, or throw the awaiting-consent
@@ -2799,7 +2799,7 @@ async function executeAcceptPlan(
   consent: LandingConsent,
   progress: AcceptExecutionProgress,
   variances: readonly AuthorizedVarianceData[],
-  standardProposals: readonly StandardGrowthProposalData[],
+  standardProposals: readonly StandardLimitProposalData[],
   env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<{
   steps: StepResult[];
@@ -2922,10 +2922,10 @@ async function executeAcceptPlan(
   }
   const proofStandardProposals = proofData?.standard_proposals ?? [];
   if (
-    !sameStandardGrowthProposalSet(proofStandardProposals, standardProposals)
+    !sameStandardLimitProposalSet(proofStandardProposals, standardProposals)
   ) {
     throw new WorktreeResultError(
-      "The validated Proof does not carry exactly the Standard growth proposals approved for this landing.",
+      "The validated Proof does not carry exactly the proposed Standard limits approved for this landing.",
       {
         ok: false,
         verb: "accept",
@@ -3079,25 +3079,25 @@ async function executeAcceptPlan(
   // race is refused with its worktree fully intact — resources included — and
   // the prescribed update → finish → accept recovery actually works.
   await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
-  const liveProposalInspection = await inspectActiveStandardGrowthProposals(
+  const liveProposalInspection = await inspectActiveStandardLimitProposals(
     ctx.cwd,
     integrationBranch(ctx.config.repository.trunk),
     buildStandardPlan(ctx.config).standards,
   );
   if (
-    !sameStandardGrowthProposalSet(
+    !sameStandardLimitProposalSet(
       [...liveProposalInspection.active.values()],
       standardProposals,
     )
   ) {
     throw new WorktreeResultError(
-      "The Standard growth proposal was changed or revoked after validation.",
+      "The proposed Standard limit was changed or revoked after validation.",
       {
         ok: false,
         verb: "accept",
         error: "proposal_stale",
         message:
-          `The Standard growth proposal was changed, revoked, or made stale after validation. No trunk ref moved. Run \`discern done\` and obtain exact owner approval for the current tuple before retrying. ${ACCEPT_NOTHING_LANDED}`,
+          `The proposed Standard limit was changed, revoked, or made stale after validation. No trunk ref moved. Run \`discern done\` and obtain exact owner approval for the current tuple before retrying. ${ACCEPT_NOTHING_LANDED}`,
       },
     );
   }
@@ -3264,7 +3264,7 @@ async function executeAcceptPlan(
   const acceptanceEvidence: AcceptanceEvidenceData = {
     consent: cloneLandingConsent(consent),
     variances: variances.map((variance) => ({ ...variance })),
-    standard_proposals: standardProposals.map(cloneStandardGrowthProposal),
+    standard_proposals: standardProposals.map(cloneStandardLimitProposal),
   };
   const proofForNote = proofData === undefined ? undefined : {
     ...proofData,
@@ -3709,7 +3709,7 @@ async function executeAcceptResult(
   );
   const recoverySteps: StepResult[] = [];
   let authorizedVariances: AuthorizedVarianceData[] = [];
-  let authorizedStandardProposals: StandardGrowthProposalData[] = [];
+  let authorizedStandardProposals: StandardLimitProposalData[] = [];
   let effectRoot: string | undefined;
   let effectConsent: LandingConsent | undefined;
   let effectProgress: AcceptExecutionProgress | undefined;
@@ -3792,7 +3792,7 @@ async function executeAcceptResult(
       // stale declaration routes back to `done`, and a current declared-unmet
       // conclusion serves the owner's ONE complete decision (landing plus
       // each named variance) instead of a bare consent refusal.
-      authorizedStandardProposals = await enforceStandardGrowthApprovals(
+      authorizedStandardProposals = await enforceStandardLimitApprovals(
         ctx,
         startingProof,
         { confirmed, names: approvedStandardNames },
@@ -3856,7 +3856,7 @@ async function executeAcceptResult(
           `Checkpoint advisory: ${advisory}`
         ),
       );
-      const proposalInspection = await inspectActiveStandardGrowthProposals(
+      const proposalInspection = await inspectActiveStandardLimitProposals(
         ctx.cwd,
         integrationBranch(ctx.config.repository.trunk),
         buildStandardPlan(ctx.config).standards,
@@ -3921,7 +3921,7 @@ async function executeAcceptResult(
         : { variances: authorizedVariances.map((v) => ({ ...v })) }),
       ...(authorizedStandardProposals.length === 0 ? {} : {
         standard_approvals: authorizedStandardProposals.map(
-          cloneStandardGrowthProposal,
+          cloneStandardLimitProposal,
         ),
       }),
       ...(progress.scopesChanged.length === 0

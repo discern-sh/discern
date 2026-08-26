@@ -28,7 +28,7 @@ import { displayWidth } from "../src/lib/text.ts";
 import type {
   GateStandard,
   Proof,
-  StandardGrowthProposalData,
+  StandardLimitProposalData,
   StandardsLimitsData,
 } from "../src/shared/result_schemas.ts";
 import {
@@ -118,7 +118,7 @@ const HELD: GateStandard = {
 
 const VERIFIED: StandardsLimitsData = { status: "verified", trunk: "main" };
 
-const GROWTH_PROPOSAL: StandardGrowthProposalData = {
+const GROWTH_PROPOSAL: StandardLimitProposalData = {
   standard: "source_count",
   commit: "c".repeat(40),
   measured_commit: "b".repeat(40),
@@ -177,7 +177,7 @@ Deno.test("proof render: standards render before the job table", () => {
   );
 });
 
-Deno.test("proof render: growth proposal leads routine standards and names the exact decision", () => {
+Deno.test("proof render: proposed Standard limit leads routine standards and names the exact decision", () => {
   const facts: ProofFacts = {
     ...FACTS,
     standard_proposals: [GROWTH_PROPOSAL],
@@ -190,7 +190,7 @@ Deno.test("proof render: growth proposal leads routine standards and names the e
   );
   assertStringIncludes(
     markdown,
-    "Standard growth proposals — exact owner approval required before landing:",
+    "Proposed Standard limits — exact owner approval required before landing:",
   );
   assertStringIncludes(
     markdown,
@@ -201,7 +201,7 @@ Deno.test("proof render: growth proposal leads routine standards and names the e
     "Reason: The accepted feature adds two required sources.",
   );
   assert(
-    markdown.indexOf("Standard growth proposals") <
+    markdown.indexOf("Proposed Standard limits") <
       markdown.indexOf("Standards (limits verified"),
   );
   assertStringIncludes(renderProofLine(facts), "exact owner approval required");
@@ -212,7 +212,7 @@ Deno.test("proof render: growth proposal leads routine standards and names the e
       0,
       1,
     ),
-    "1 Standard growth proposal approved by the owner",
+    "1 proposed Standard limit approved by the owner",
   );
 });
 

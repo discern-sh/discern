@@ -15,7 +15,7 @@ import {
 import { RawConfig } from "../../shared/config_read.ts";
 import type { Diagnostic } from "../../shared/result.ts";
 import type {
-  StandardGrowthProposalData,
+  StandardLimitProposalData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
 import { runGit } from "../../shared/subprocess.ts";
@@ -130,7 +130,7 @@ function normalizeBranchStandard(
 }
 
 /** Stable identity of every Standard-definition field except its monotonic
- * bound. A growth proposal changes only `limit`; any other field movement makes
+ * bound. A proposal changes only `limit`; any other field movement makes
  * the recorded proposal stale instead of letting incomparable measurements
  * share an approval. */
 export async function standardDefinitionFingerprint(
@@ -347,12 +347,12 @@ export interface TrunkLimitsVerification {
   diagnostics: Diagnostic[];
   blocking: boolean;
   blockedStandards: ReadonlySet<string>;
-  proposals: ReadonlyMap<string, StandardGrowthProposalData>;
+  proposals: ReadonlyMap<string, StandardLimitProposalData>;
 }
 
 /** The next step a loosening diagnostic tells an agent to take. */
 const LOOSENING_NEXT_STEP =
-  "If this branch intrinsically changed the metric, take a fresh clean-HEAD " +
+  "If this branch caused the metric breach, take a fresh clean-HEAD " +
   'measurement and run `discern standards propose <name> --reason "…"`; ' +
   "otherwise move the metric the right way. Only an exact proposal and exact " +
   "owner approval can move the held limit.";
@@ -367,7 +367,7 @@ export async function verifyTrunkLimits(
   root: string,
   mainBranch: string,
   standards: PlannedStandard[],
-  proposals: ReadonlyMap<string, StandardGrowthProposalData> = new Map(),
+  proposals: ReadonlyMap<string, StandardLimitProposalData> = new Map(),
 ): Promise<TrunkLimitsVerification> {
   const trunk = await readTrunkConfig(root, mainBranch);
   if (trunk.kind === "unreadable") {
@@ -415,7 +415,7 @@ export async function verifyTrunkLimits(
 
   const diagnostics: Diagnostic[] = [];
   const blockedStandards = new Set<string>();
-  const acceptedProposals = new Map<string, StandardGrowthProposalData>();
+  const acceptedProposals = new Map<string, StandardLimitProposalData>();
   const branchNames = new Set(standards.map((standard) => standard.name));
 
   for (const standard of standards) {
@@ -531,8 +531,11 @@ export async function verifyTrunkLimits(
       summary: {
         status: "proposed",
         trunk: mainBranch,
-        reason:
-          `${acceptedProposals.size} owner-decision Standard proposal(s) explain otherwise-forbidden limit growth`,
+        reason: `${acceptedProposals.size} ${
+          acceptedProposals.size === 1
+            ? "proposed Standard limit"
+            : "proposed Standard limits"
+        } explain otherwise-forbidden limit changes`,
       },
       diagnostics: [],
       blocking: false,

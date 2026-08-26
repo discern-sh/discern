@@ -35,7 +35,7 @@ import type {
   GateStandard,
   Proof,
   ProofCheckpointsData,
-  StandardGrowthProposalData,
+  StandardLimitProposalData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
 import {
@@ -180,14 +180,14 @@ function lineStandardsSegment(
  * reason appear before routine results, together with the narrower landing
  * decision that remains outstanding. */
 function standardProposalsSection(
-  proposals: readonly StandardGrowthProposalData[] | undefined,
+  proposals: readonly StandardLimitProposalData[] | undefined,
 ): string[] {
   if (proposals === undefined || proposals.length === 0) {
     return [];
   }
   const lines = [
     "",
-    "Standard growth proposals — exact owner approval required before landing:",
+    "Proposed Standard limits — exact owner approval required before landing:",
     "",
   ];
   for (const proposal of proposals) {
@@ -209,12 +209,12 @@ function standardProposalsSection(
 
 /** Compact proposal count and owner boundary for the one-line Proof. */
 function lineStandardProposalsSegment(
-  proposals: readonly StandardGrowthProposalData[] | undefined,
+  proposals: readonly StandardLimitProposalData[] | undefined,
 ): string | undefined {
   const count = proposals?.length ?? 0;
   return count === 0
     ? undefined
-    : `${count} Standard growth proposal${
+    : `${count} proposed Standard limit${
       count === 1 ? "" : "s"
     } — exact owner approval required to land`;
 }
@@ -409,7 +409,7 @@ export function renderLandingProofLine(
     } authorized by the owner`
     : "";
   const standardProposalSegment = standardProposalCount > 0
-    ? ` · ${standardProposalCount} Standard growth proposal${
+    ? ` · ${standardProposalCount} proposed Standard limit${
       standardProposalCount === 1 ? "" : "s"
     } approved by the owner`
     : "";
@@ -493,7 +493,7 @@ export async function buildGateProof(
   checkpoints?: ProofCheckpointsData,
   mode: GateMode = "strict",
   drops: readonly CheckpointDropData[] = [],
-  standardProposals: readonly StandardGrowthProposalData[] = [],
+  standardProposals: readonly StandardLimitProposalData[] = [],
 ): Promise<Proof | undefined> {
   if (!(await isWorktreeFullyClean(root))) {
     return undefined;

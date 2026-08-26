@@ -1170,7 +1170,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
         const proposed = number(proposal.proposed_limit);
         const delta = number(proposal.delta);
         const reason = text(proposal.reason) ?? "No reason recorded.";
-        return `Standard growth proposal ${
+        return `Proposed Standard limit for ${
           code(standard)
         }: exact owner approval is required for limit ${proposed ?? "unknown"}${
           delta === undefined ? "" : ` (delta ${delta >= 0 ? "+" : ""}${delta})`
@@ -1179,7 +1179,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
       standardProposals.length > MAX_LIST_ITEMS
         ? omitted(
           standardProposals.length - MAX_LIST_ITEMS,
-          "Standard growth proposal",
+          "proposed Standard limit",
         )
         : undefined,
       proofLine(proof),
@@ -1385,7 +1385,7 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
           : `Measured ${plural(standards.length, "standard")}.`
         : `${
           text(proposalResult?.status) ?? "Recorded"
-        } the exact growth proposal for ${code(proposalName ?? "a Standard")}.`,
+        } the proposed limit for ${code(proposalName ?? "a Standard")}.`,
     ),
     evidence: unique([
       proposal === undefined
@@ -1752,7 +1752,7 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       text(data.proof_line),
       listFact("Authority warnings", strings(data.authority_warnings)),
       ...records(data.standard_approvals).map((proposal) =>
-        `Owner-approved Standard growth: ${
+        `Owner-approved Standard limit: ${
           code(text(proposal.standard) ?? "standard")
         } ${number(proposal.trunk_limit) ?? "unknown"} → ${
           number(proposal.proposed_limit) ?? "unknown"
@@ -1760,7 +1760,7 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       ),
       ...records(data.standard_approvals_required).map((approval) => {
         const proposal = object(approval.proposal);
-        return `Standard growth awaiting exact owner approval: ${
+        return `Proposed Standard limit awaiting exact owner approval: ${
           code(text(proposal?.standard) ?? "standard")
         } ${number(proposal?.trunk_limit) ?? "unknown"} → ${
           number(proposal?.proposed_limit) ?? "unknown"

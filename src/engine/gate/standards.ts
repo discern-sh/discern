@@ -73,7 +73,7 @@ import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { TomlEditor } from "../../lib/toml_edit.ts";
 import type {
   GateStandard,
-  StandardGrowthProposalData,
+  StandardLimitProposalData,
   StandardsData,
 } from "../../shared/result_schemas.ts";
 import type { JobResult } from "../jobs/types.ts";
@@ -107,7 +107,7 @@ import {
 import { assertMainMerged, integrationBranch } from "../worktree/git.ts";
 import { writeDiscernToml } from "../../lib/tidy_format.ts";
 import {
-  inspectActiveStandardGrowthProposals,
+  inspectActiveStandardLimitProposals,
   staleProposalDiagnostic,
 } from "./standard_proposals.ts";
 
@@ -459,7 +459,7 @@ async function evaluateStandardProcessResult(
   result: JobResult,
   outcomes: Map<string, GateStandard>,
   verdicts: Map<string, StandardVerdict>,
-  proposal?: StandardGrowthProposalData,
+  proposal?: StandardLimitProposalData,
 ): Promise<JobResult> {
   let verdict: StandardVerdict = standard.command === ""
     ? {
@@ -475,7 +475,7 @@ async function evaluateStandardProcessResult(
         value: verdict.value,
         reason: `standard '${standard.name}' now measures ${
           fmtRate(verdict.value)
-        }, but its growth proposal records ${
+        }, but its proposed limit records ${
           fmtRate(proposal.measurement)
         }. The proposal is stale and authorizes nothing. Restore the trunk limit or take a fresh breached measurement and propose the new exact value.`,
         reproduce_cmd: standard.command,
@@ -485,7 +485,7 @@ async function evaluateStandardProcessResult(
         ...verdict,
         summary: `${
           verdict.summary ?? `standard '${standard.name}' held.`
-        } Exact growth proposal awaits owner approval.`,
+        } The proposed Standard limit awaits exact owner approval.`,
       };
     }
   }
@@ -530,7 +530,7 @@ export function buildStandardJobs(
   opts: {
     defaultTimeoutS: number;
     jobLabel?: (name: string) => string;
-    proposals?: ReadonlyMap<string, StandardGrowthProposalData>;
+    proposals?: ReadonlyMap<string, StandardLimitProposalData>;
   },
 ): StandardJobs {
   const jobs: PlannedJob[] = [];
@@ -1723,7 +1723,7 @@ export async function standardsResult(
     !(opts.pin ?? false);
   if (!unpinnedNames && !(opts.dryRun ?? false)) {
     const mainBranch = integrationBranch(cfg.repository.trunk);
-    const proposals = await inspectActiveStandardGrowthProposals(
+    const proposals = await inspectActiveStandardLimitProposals(
       root,
       mainBranch,
       plan.standards,

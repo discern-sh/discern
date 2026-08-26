@@ -41,8 +41,8 @@ export const DISCERN_AUTHORED_COMMIT_SITES = {
     id: "standards-pin",
     callerModule: "src/engine/gate/standards.ts",
   },
-  standardsGrowthProposal: {
-    id: "standards-growth-proposal",
+  standardsLimitProposal: {
+    id: "standards-limit-proposal",
     callerModule: "src/engine/gate/standard_proposals.ts",
   },
   updateRegeneration: {

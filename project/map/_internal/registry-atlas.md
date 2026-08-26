@@ -790,8 +790,8 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `lastGateRun`
   - `standardMeasurements`
   - `standardMeasurementEvidence`
-  - `standardGrowthProposals`
-  - `standardGrowthProposalTransaction`
+  - `standardLimitProposals`
+  - `standardLimitProposalTransaction`
   - `ignoredBaseline`
   - `checkpointOpenQuestions`
   - `effortGrant`
@@ -1361,7 +1361,7 @@ The workflows whose diffs discern composes and commits. Every member must route 
   - `scaffold-wiring`
   - `setup-completion`
   - `standards-pin`
-  - `standards-growth-proposal`
+  - `standards-limit-proposal`
   - `update-regeneration`
 - Guards: `tests/discern_commit_enrolment_test.ts`, `tests/writer_boundary_enrolment_test.ts`
 - Glossary: not enrolled — the commit-boundary reference owns this internal provenance vocabulary for existing commands

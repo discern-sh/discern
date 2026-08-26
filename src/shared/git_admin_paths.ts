@@ -122,14 +122,14 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: true,
   },
-  standardGrowthProposals: {
-    path: "discern/standard-growth-proposals.json",
+  standardLimitProposals: {
+    path: "discern/standard-limit-proposals.json",
     scope: "worktree",
     kind: "file",
     validation: true,
   },
-  standardGrowthProposalTransaction: {
-    path: "discern/standard-growth-proposal-transaction.json",
+  standardLimitProposalTransaction: {
+    path: "discern/standard-limit-proposal-transaction.json",
     scope: "worktree",
     kind: "file",
     validation: true,

@@ -81,10 +81,10 @@ import {
 } from "./standards.ts";
 import { verifyTrunkLimits } from "./standard_limits.ts";
 import {
-  inspectActiveStandardGrowthProposals,
-  sameStandardGrowthProposalSet,
+  inspectActiveStandardLimitProposals,
+  sameStandardLimitProposalSet,
   staleProposalDiagnostic,
-  standardGrowthProposalIdentity,
+  standardLimitProposalIdentity,
 } from "./standard_proposals.ts";
 import {
   gateStandardsData,
@@ -94,7 +94,7 @@ import {
 } from "./standards_gate.ts";
 import type {
   GateStandard,
-  StandardGrowthProposalData,
+  StandardLimitProposalData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
 import {
@@ -588,14 +588,14 @@ async function runGate(
   //     parse fails hard; never a silent pass either way.
   const stdPlan = buildStandardPlan(cfg);
   let standardsLimits: StandardsLimitsData | undefined;
-  let standardGrowthProposals: ReadonlyMap<
+  let standardLimitProposals: ReadonlyMap<
     string,
-    StandardGrowthProposalData
+    StandardLimitProposalData
   > = new Map();
   let tier1Diagnostics: Diagnostic[] = [];
   let limitsWarning: FiredHint | undefined;
   if (failedStage === null) {
-    const proposalInspection = await inspectActiveStandardGrowthProposals(
+    const proposalInspection = await inspectActiveStandardLimitProposals(
       root,
       mainBranch,
       stdPlan.standards,
@@ -606,7 +606,7 @@ async function runGate(
       stdPlan.standards,
       proposalInspection.active,
     );
-    standardGrowthProposals = verification.proposals;
+    standardLimitProposals = verification.proposals;
     for (const stale of proposalInspection.stale) {
       if (verification.blockedStandards.has(stale.proposal.standard)) {
         verification.diagnostics.unshift(
@@ -937,12 +937,12 @@ async function runGate(
     ? await resolveStandardActions(
       root,
       stdPlan.standards,
-      new Set(standardGrowthProposals.keys()),
+      new Set(standardLimitProposals.keys()),
     )
     : resolveStandardActionsFromConfig(stdPlan.standards);
   const gateStandards = buildStandardJobs(root, resolved, {
     defaultTimeoutS: cfg.gate.timeout,
-    proposals: standardGrowthProposals,
+    proposals: standardLimitProposals,
   });
   const ctGroups = checkTestGroups(cfg, gateStandards.jobs);
   let validation: ValidationStart | undefined;
@@ -1174,7 +1174,7 @@ async function runGate(
         : proofCheckpointsData(checkpointPreflight),
       checkpointPreflight?.mode ?? "strict",
       checkpointPreflight?.drops ?? [],
-      [...standardGrowthProposals.values()],
+      [...standardLimitProposals.values()],
     )
     : undefined;
   // Record the measurement proof (ADR 0112, extended by ADR 0133): a green
@@ -2032,13 +2032,13 @@ async function unchangedTreeRerunRefusal(
 
 /** Read the exact live proposal set. Undefined makes cache reuse fail closed;
  * the full Gate remains the authoritative fallback. */
-async function activeStandardGrowthProposalSet(
+async function activeStandardLimitProposalSet(
   root: string,
-): Promise<StandardGrowthProposalData[] | undefined> {
+): Promise<StandardLimitProposalData[] | undefined> {
   try {
     const cfg = await loadConfig(root);
     const plan = buildStandardPlan(cfg);
-    const inspected = await inspectActiveStandardGrowthProposals(
+    const inspected = await inspectActiveStandardLimitProposals(
       root,
       integrationBranch(cfg.repository.trunk),
       plan.standards,
@@ -2058,14 +2058,14 @@ async function gateRunEvidenceIdentity(
   root: string,
   checkpointEvidence?: string,
 ): Promise<string | undefined> {
-  const proposals = await activeStandardGrowthProposalSet(root);
+  const proposals = await activeStandardLimitProposalSet(root);
   if (proposals === undefined) {
     return checkpointEvidence;
   }
   return JSON.stringify({
     version: 1,
     checkpoints: checkpointEvidence ?? null,
-    standard_proposals: proposals.map(standardGrowthProposalIdentity),
+    standard_proposals: proposals.map(standardLimitProposalIdentity),
   });
 }
 
@@ -2088,10 +2088,10 @@ async function reusableGreenProof(
   ) {
     return undefined;
   }
-  const activeProposals = await activeStandardGrowthProposalSet(root);
+  const activeProposals = await activeStandardLimitProposalSet(root);
   if (
     activeProposals === undefined ||
-    !sameStandardGrowthProposalSet(
+    !sameStandardLimitProposalSet(
       proof.proof_data.standard_proposals ?? [],
       activeProposals,
     )

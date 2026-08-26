@@ -629,12 +629,12 @@ export const TOOLS: McpTool[] = orderTools([
   }),
   defineTool({
     name: "discern_standards_propose",
-    title: "Propose Standard growth",
+    title: "Propose Standard limit",
     outputSchema: StandardsProposeOutputSchema,
     annotations: PROPOSAL,
     description:
-      "Record one exact, commit-bound proposal for an intrinsically breached " +
-      "Standard. Requires a clean worktree branch and a fresh numeric breach " +
+      "Propose a new limit for a Standard breached by this change. Requires a " +
+      "clean worktree branch and a fresh numeric breach " +
       "from discern_standards on current HEAD. It commits only the proposed " +
       "limit and records the Standard, value, delta, reason, definition, trunk " +
       "baseline, and responsible input paths. The resulting Gate Proof still " +
@@ -643,7 +643,7 @@ export const TOOLS: McpTool[] = orderTools([
     inputSchema: {
       name: z.string().min(1).describe("The exact configured Standard name."),
       reason: z.string().min(1).max(500).describe(
-        "The verbatim, one-paragraph, secret-free engineering reason for the intrinsic metric growth.",
+        "The verbatim, one-paragraph, secret-free engineering reason for the proposed Standard limit.",
       ),
       dry_run: z.boolean().optional().describe(
         "Return the pure proposal plan without committing or recording anything (default false).",
@@ -1045,7 +1045,7 @@ export const TOOLS: McpTool[] = orderTools([
           "rationale — and recorded grants never authorize a variance.",
       ),
       approve_standard: z.array(z.string()).optional().describe(
-        "The owner's exact approval tokens for the Standard growth proposals " +
+        "The owner's exact approval tokens for the proposed Standard limits " +
           "carried by the current Proof (requires confirmed). Use the tokens " +
           "served by the read-only refusal; they bind each Standard, value, and " +
           "reason. Generic or recorded landing grants never authorize them.",

@@ -1,6 +1,6 @@
 # ADR 0155: Standalone standards share the gate job pipeline
 
-> **Amendment ([ADR 0339](0339-standard-growth-proposals-and-shared-measurements.md)):** the shared pipeline now groups measuring Standards by process execution identity. One scheduled process can supply several per-Standard readings while replay, defer, metric evaluation, verdicts, and diagnostics remain independent; [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts) is the live grouping authority.
+> **Amendment ([ADR 0339](0339-proposed-standard-limits-and-shared-measurements.md)):** the shared pipeline now groups measuring Standards by process execution identity. One scheduled process can supply several per-Standard readings while replay, defer, metric evaluation, verdicts, and diagnostics remain independent; [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts) is the live grouping authority.
 
 **Status**: accepted. Extends [ADR 0133](0133-standards-join-the-gate.md), [ADR 0105](0105-interruption-reaches-detached-gate-jobs.md), [ADR 0108](0108-gate-job-timeout.md), and [ADR 0112](0112-standard-measurement-receipt.md).
 

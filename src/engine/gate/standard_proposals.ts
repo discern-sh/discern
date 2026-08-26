@@ -1,6 +1,6 @@
 /**
- * `discern standards propose` — the effectful shell around the pure growth
- * proposal plan. The command consumes a fresh red measurement on clean HEAD,
+ * `discern standards propose` — the effectful shell around the pure proposed
+ * Standard limit plan. The command consumes a fresh red measurement on clean HEAD,
  * makes one config-only commit, and atomically records the exact proposal in
  * worktree-local Git administration state. A recovery journal bridges the only
  * multi-write gap: commit made, proposal record not yet finalized.
@@ -26,8 +26,8 @@ import type {
 } from "../../shared/result.ts";
 import { previewResult, verbatimStepLabel } from "../../shared/result.ts";
 import {
-  type StandardGrowthProposalData,
-  StandardGrowthProposalSchema,
+  type StandardLimitProposalData,
+  StandardLimitProposalSchema,
   type StandardsData,
 } from "../../shared/result_schemas.ts";
 import { observeResult } from "../../shared/result_capture.ts";
@@ -46,11 +46,11 @@ import { pathMatchesPattern } from "../scopes/glob.ts";
 import { collectPaths, repoPathPrefix } from "../scopes/scopes.ts";
 import { integrationBranch } from "../worktree/git.ts";
 import {
-  buildStandardGrowthProposalPlan,
-  type PlannedStandardGrowthProposal,
-  type StandardGrowthProposalPlan,
+  buildStandardLimitProposalPlan,
+  type PlannedStandardLimitProposal,
+  type StandardLimitProposalPlan,
 } from "./standard_proposal_plan.ts";
-import { validateStandardGrowthReason } from "../../shared/standard_growth_reason.ts";
+import { validateStandardLimitReason } from "../../shared/standard_limit_reason.ts";
 import { buildStandardPlan, type PlannedStandard } from "./standard_plan.ts";
 import {
   readTrunkConfig,
@@ -69,49 +69,49 @@ import { renderPlan, renderStepResults } from "../../shared/result.ts";
 const PROPOSAL_STORE_VERSION = 1;
 const PROPOSAL_TRANSACTION_VERSION = 1;
 
-const StandardGrowthProposalStoreSchema = z.strictObject({
+const StandardLimitProposalStoreSchema = z.strictObject({
   version: z.literal(PROPOSAL_STORE_VERSION),
-  proposals: z.array(StandardGrowthProposalSchema),
+  proposals: z.array(StandardLimitProposalSchema),
 }).refine(
   ({ proposals }) =>
     new Set(proposals.map((proposal) => proposal.standard)).size ===
       proposals.length,
   "proposal Standards must be unique",
 );
-type StandardGrowthProposalStore = z.infer<
-  typeof StandardGrowthProposalStoreSchema
+type StandardLimitProposalStore = z.infer<
+  typeof StandardLimitProposalStoreSchema
 >;
 
-const StandardGrowthProposalTransactionSchema = z.strictObject({
+const StandardLimitProposalTransactionSchema = z.strictObject({
   version: z.literal(PROPOSAL_TRANSACTION_VERSION),
   branch: z.string().min(1),
   source_commit: z.string().min(1),
   config_path: z.string().min(1),
-  proposal: StandardGrowthProposalSchema.omit({ commit: true }),
+  proposal: StandardLimitProposalSchema.omit({ commit: true }),
 });
-type StandardGrowthProposalTransaction = z.infer<
-  typeof StandardGrowthProposalTransactionSchema
+type StandardLimitProposalTransaction = z.infer<
+  typeof StandardLimitProposalTransactionSchema
 >;
 
-export interface ActiveStandardGrowthProposals {
-  readonly active: ReadonlyMap<string, StandardGrowthProposalData>;
+export interface ActiveStandardLimitProposals {
+  readonly active: ReadonlyMap<string, StandardLimitProposalData>;
   readonly stale: readonly {
-    readonly proposal: StandardGrowthProposalData;
+    readonly proposal: StandardLimitProposalData;
     readonly reason: string;
   }[];
 }
 
 /** Copy one proposal tuple so persisted/Proof/transaction evidence never
  * aliases a mutable array supplied by another layer. */
-export function cloneStandardGrowthProposal(
-  proposal: StandardGrowthProposalData,
-): StandardGrowthProposalData {
+export function cloneStandardLimitProposal(
+  proposal: StandardLimitProposalData,
+): StandardLimitProposalData {
   return { ...proposal, evidence_paths: [...proposal.evidence_paths] };
 }
 
 /** Canonical exact identity shared by Gate reuse and acceptance. */
-export function standardGrowthProposalIdentity(
-  proposal: StandardGrowthProposalData,
+export function standardLimitProposalIdentity(
+  proposal: StandardLimitProposalData,
 ): string {
   return JSON.stringify([
     proposal.standard,
@@ -131,12 +131,12 @@ export function standardGrowthProposalIdentity(
 }
 
 /** Exact unordered-set equality for proposal authority. */
-export function sameStandardGrowthProposalSet(
-  left: readonly StandardGrowthProposalData[],
-  right: readonly StandardGrowthProposalData[],
+export function sameStandardLimitProposalSet(
+  left: readonly StandardLimitProposalData[],
+  right: readonly StandardLimitProposalData[],
 ): boolean {
-  const keys = (items: readonly StandardGrowthProposalData[]): string[] =>
-    items.map(standardGrowthProposalIdentity).sort();
+  const keys = (items: readonly StandardLimitProposalData[]): string[] =>
+    items.map(standardLimitProposalIdentity).sort();
   const leftKeys = keys(left);
   const rightKeys = keys(right);
   return leftKeys.length === rightKeys.length &&
@@ -178,9 +178,9 @@ async function preflightProposalWrites(
   if (!admin.ok) {
     return admin;
   }
-  const proposalPath = admin.authority.paths.standardGrowthProposals;
+  const proposalPath = admin.authority.paths.standardLimitProposals;
   const transactionPath =
-    admin.authority.paths.standardGrowthProposalTransaction;
+    admin.authority.paths.standardLimitProposalTransaction;
   if (proposalPath === undefined || transactionPath === undefined) {
     return {
       ok: false,
@@ -243,12 +243,12 @@ async function preflightProposalWrites(
 /** Parse the one iterable authority file; malformed state is fail-closed. */
 function parseProposalStore(
   raw: string,
-): StandardGrowthProposalStore | undefined {
+): StandardLimitProposalStore | undefined {
   try {
     return decodeJson(
-      StandardGrowthProposalStoreSchema,
+      StandardLimitProposalStoreSchema,
       raw,
-      "Standard growth proposal record",
+      "Proposed Standard limit record",
     );
   } catch {
     return undefined;
@@ -259,10 +259,10 @@ function parseProposalStore(
 async function readProposalStore(
   root: string,
 ): Promise<
-  | { readonly status: "ok"; readonly store: StandardGrowthProposalStore }
+  | { readonly status: "ok"; readonly store: StandardLimitProposalStore }
   | { readonly status: "malformed" | "unavailable"; readonly reason: string }
 > {
-  const path = await gitAdminStatePath(root, "standardGrowthProposals");
+  const path = await gitAdminStatePath(root, "standardLimitProposals");
   if (path === undefined) {
     return {
       status: "unavailable",
@@ -290,14 +290,14 @@ async function readProposalStore(
 /** Atomically replace the iterable proposal authority. */
 async function writeProposalStore(
   authority: StandardProposalWriteAuthority,
-  proposals: readonly StandardGrowthProposalData[],
+  proposals: readonly StandardLimitProposalData[],
 ): Promise<void> {
   await atomicReplaceJson(
     authority.proposalPath,
     {
       version: 1,
       proposals: [...proposals],
-    } satisfies StandardGrowthProposalStore,
+    } satisfies StandardLimitProposalStore,
     { mode: 0o600, sync: true, trailingNewline: true },
   );
 }
@@ -305,7 +305,7 @@ async function writeProposalStore(
 /** Replace one Standard's record while preserving the iterable set. */
 async function persistProposal(
   authority: StandardProposalWriteAuthority,
-  proposal: StandardGrowthProposalData,
+  proposal: StandardLimitProposalData,
 ): Promise<void> {
   const read = await readProposalStore(authority.root);
   if (read.status !== "ok") {
@@ -332,7 +332,7 @@ async function gitValue(
  * source. This makes a hand-written admin record insufficient to waive Tier 1. */
 async function proposalCommitShape(
   root: string,
-  proposal: StandardGrowthProposalData,
+  proposal: StandardLimitProposalData,
   configRel: string,
 ): Promise<string | undefined> {
   const prefix = await repoPathPrefix(root);
@@ -374,7 +374,7 @@ async function proposalCommitShape(
 /** Validate one persisted record against current HEAD, trunk, and config. */
 async function proposalStaleness(
   root: string,
-  proposal: StandardGrowthProposalData,
+  proposal: StandardLimitProposalData,
   trunk: TrunkConfigRead,
   mainBranch: string,
   byName: ReadonlyMap<string, PlannedStandard>,
@@ -435,11 +435,11 @@ async function proposalStaleness(
 
 /** Inspect proposal authority for Gate and acceptance. Stale entries are never
  * active and carry their exact recovery reason for result diagnostics. */
-export async function inspectActiveStandardGrowthProposals(
+export async function inspectActiveStandardLimitProposals(
   root: string,
   mainBranch: string,
   standards: readonly PlannedStandard[],
-): Promise<ActiveStandardGrowthProposals> {
+): Promise<ActiveStandardLimitProposals> {
   const read = await readProposalStore(root);
   if (read.status !== "ok") {
     return {
@@ -465,9 +465,9 @@ export async function inspectActiveStandardGrowthProposals(
     standards.map((standard) => [standard.name, standard]),
   );
   const freshEvidence = await inspectFreshStandardMeasurementEvidence(root);
-  const active = new Map<string, StandardGrowthProposalData>();
+  const active = new Map<string, StandardLimitProposalData>();
   const stale: {
-    proposal: StandardGrowthProposalData;
+    proposal: StandardLimitProposalData;
     reason: string;
   }[] = [];
   for (const proposal of read.store.proposals) {
@@ -512,7 +512,7 @@ export function staleProposalDiagnostic(
     tool: `standard:${standard}`,
     severity: "error",
     message:
-      `standard '${standard}' has a stale growth proposal: ${reason}. The proposal authorizes nothing; restore the trunk limit or take a fresh breached measurement and run \`discern standards propose ${standard} --reason "…"\` again.`,
+      `standard '${standard}' has a stale proposed limit: ${reason}. The proposal authorizes nothing; restore the trunk limit or take a fresh breached measurement and run \`discern standards propose ${standard} --reason "…"\` again.`,
     reproduce_cmd: "discern standards",
   };
 }
@@ -520,12 +520,12 @@ export function staleProposalDiagnostic(
 /** Read and validate a recovery journal. */
 function parseProposalTransaction(
   raw: string,
-): StandardGrowthProposalTransaction | undefined {
+): StandardLimitProposalTransaction | undefined {
   try {
     return decodeJson(
-      StandardGrowthProposalTransactionSchema,
+      StandardLimitProposalTransactionSchema,
       raw,
-      "Standard growth proposal recovery journal",
+      "Proposed Standard limit recovery journal",
     );
   } catch {
     return undefined;
@@ -546,7 +546,7 @@ async function removeTransaction(path: string): Promise<void> {
 /** Finish or unwind the exact known partial transaction. */
 async function recoverProposalTransaction(
   authority: StandardProposalWriteAuthority,
-): Promise<StandardGrowthProposalData | undefined> {
+): Promise<StandardLimitProposalData | undefined> {
   const raw = await readTextIfExists(authority.transactionPath);
   if (raw === undefined) return undefined;
   const transaction = parseProposalTransaction(raw);
@@ -579,7 +579,7 @@ async function recoverProposalTransaction(
       "the Standard proposal transaction no longer belongs to the current branch/HEAD; ordinary enforcement remains active",
     );
   }
-  const proposal: StandardGrowthProposalData = {
+  const proposal: StandardLimitProposalData = {
     ...transaction.proposal,
     commit: head,
   };
@@ -600,11 +600,11 @@ async function recoverProposalTransaction(
 
 /** Author the config-only proposal commit from its exact planned evidence. */
 function proposalCommitMessage(
-  proposal: PlannedStandardGrowthProposal,
+  proposal: PlannedStandardLimitProposal,
 ): { subject: string; body: string } {
   const bound = proposal.direction === "up" ? "floor" : "ceiling";
   return {
-    subject: `Propose Standard growth: ${proposal.standard}`,
+    subject: `Propose Standard limit: ${proposal.standard}`,
     body:
       `Move the ${bound} from ${proposal.trunk_limit} to ${proposal.proposed_limit} after measuring ${proposal.measurement}.\n\n` +
       `Reason: ${proposal.reason}\n\n` +
@@ -630,10 +630,10 @@ async function restoreProposalEdit(
 async function applyProposalPlan(
   root: string,
   branch: string,
-  plan: StandardGrowthProposalPlan,
+  plan: StandardLimitProposalPlan,
   authority: StandardProposalWriteAuthority,
-): Promise<StandardGrowthProposalData> {
-  const transaction: StandardGrowthProposalTransaction = {
+): Promise<StandardLimitProposalData> {
+  const transaction: StandardLimitProposalTransaction = {
     version: 1,
     branch,
     source_commit: plan.proposal.measured_commit,
@@ -661,7 +661,7 @@ async function applyProposalPlan(
       );
     }
     const commit = await commitDiscernChanges({
-      site: DISCERN_AUTHORED_COMMIT_SITES.standardsGrowthProposal,
+      site: DISCERN_AUTHORED_COMMIT_SITES.standardsLimitProposal,
       cwd: root,
       ...proposalCommitMessage(plan.proposal),
       pathspecs: [authority.configRel],
@@ -683,7 +683,7 @@ async function applyProposalPlan(
       "the proposed-limit commit completed, but its object id could not be read; retry the command to recover the proposal record",
     );
   }
-  const proposal: StandardGrowthProposalData = { ...plan.proposal, commit };
+  const proposal: StandardLimitProposalData = { ...plan.proposal, commit };
   await persistProposal(authority, proposal);
   await removeTransaction(authority.transactionPath);
   return proposal;
@@ -697,7 +697,7 @@ function proposalSteps(plan: EnginePlan): StepResult[] {
 /** Build one successful proposal transaction result. */
 function proposalResult(
   status: "recorded" | "replaced" | "unchanged" | "recovered",
-  proposal: StandardGrowthProposalData,
+  proposal: StandardLimitProposalData,
   plan?: EnginePlan,
 ): DiscernResult<StandardsData> {
   return {
@@ -739,7 +739,7 @@ export async function standardsProposeResult(
     readonly dryRun?: boolean;
   },
 ): Promise<DiscernResult> {
-  const reason = validateStandardGrowthReason(opts.reason);
+  const reason = validateStandardLimitReason(opts.reason);
   if (!reason.ok) {
     return proposalFailure("invalid_value", reason.message);
   }
@@ -752,13 +752,13 @@ export async function standardsProposeResult(
   if (branch === undefined || branch === mainBranch) {
     return proposalFailure(
       "precondition_failed",
-      `Standard growth proposals require a named worktree branch ahead of ${mainBranch}; they never edit the trunk checkout directly.`,
+      `A proposed Standard limit requires a named worktree branch ahead of ${mainBranch}; it never edits the trunk checkout directly.`,
     );
   }
   if (head === undefined) {
     return proposalFailure(
       "precondition_failed",
-      "Standard growth proposals require a readable current HEAD.",
+      "A proposed Standard limit requires a readable current HEAD.",
     );
   }
   // Recovery itself is an apply operation. Dry-run never creates or completes
@@ -788,7 +788,7 @@ export async function standardsProposeResult(
   if (!(await isWorktreeFullyClean(root))) {
     return proposalFailure(
       "dirty_worktree",
-      "Standard growth proposals require a clean worktree so the config-only proposal commit cannot absorb unrelated changes. Commit or stash the current changes, take a fresh measurement, then retry.",
+      "A proposed Standard limit requires a clean worktree so the config-only proposal commit cannot absorb unrelated changes. Commit or stash the current changes, take a fresh measurement, then retry.",
     );
   }
   // Recovery may have restored the pre-proposal config bytes. Plan only from
@@ -805,7 +805,7 @@ export async function standardsProposeResult(
     );
   }
 
-  const inspection = await inspectActiveStandardGrowthProposals(
+  const inspection = await inspectActiveStandardLimitProposals(
     root,
     mainBranch,
     plan.standards,
@@ -817,7 +817,7 @@ export async function standardsProposeResult(
     }
     if (opts.dryRun ?? false) {
       const preview: EnginePlan = {
-        title: "Standard growth proposal",
+        title: "Proposed Standard limit",
         details: [
           `standard: ${existing.standard}`,
           `replace reason: ${reason.reason}`,
@@ -872,7 +872,7 @@ export async function standardsProposeResult(
   ) {
     return proposalFailure(
       "precondition_failed",
-      `standard '${opts.name}' did not yield a numeric metric in the fresh measurement. Fix its command or emitted metric and re-run \`discern standards\` before proposing growth.`,
+      `standard '${opts.name}' did not yield a numeric metric in the fresh measurement. Fix its command or emitted metric and re-run \`discern standards\` before proposing a new limit.`,
     );
   }
   const trunk = await readTrunkConfig(root, mainBranch);
@@ -890,7 +890,7 @@ export async function standardsProposeResult(
   if (trunkLimit === undefined) {
     return proposalFailure(
       "precondition_failed",
-      `standard '${opts.name}' has no numeric limit on ${mainBranch}; it is new or malformed, not an existing held bound eligible for growth approval.`,
+      `standard '${opts.name}' has no numeric limit on ${mainBranch}; it is new or malformed, not an existing held bound eligible for a proposed limit.`,
     );
   }
   const changedPaths = await collectPaths(root, trunk.commit, head);
@@ -900,7 +900,7 @@ export async function standardsProposeResult(
       "discern could not enumerate the changed paths responsible for this measurement; fix the Git diff and retry.",
     );
   }
-  const decision = buildStandardGrowthProposalPlan({
+  const decision = buildStandardLimitProposalPlan({
     standard,
     reason: reason.reason,
     head,
@@ -939,7 +939,7 @@ export async function standardsProposeResult(
   } catch (error) {
     return proposalFailure(
       "proposal_failed",
-      `could not apply the Standard growth proposal: ${
+      `could not apply the proposed Standard limit: ${
         errText(error)
       }. Retry the same command; the recovery journal will finish or safely unwind the exact transaction.`,
     );

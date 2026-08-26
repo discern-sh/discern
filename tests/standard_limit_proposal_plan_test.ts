@@ -1,12 +1,12 @@
-/** Pure state-machine coverage for Standard growth proposal planning. */
+/** Pure state-machine coverage for proposed Standard limit planning. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
-  STANDARD_GROWTH_REASON_MAX_LENGTH,
-  validateStandardGrowthReason,
-} from "../src/shared/standard_growth_reason.ts";
-import { buildStandardGrowthProposalPlan } from "../src/engine/gate/standard_proposal_plan.ts";
+  STANDARD_LIMIT_REASON_MAX_LENGTH,
+  validateStandardLimitReason,
+} from "../src/shared/standard_limit_reason.ts";
+import { buildStandardLimitProposalPlan } from "../src/engine/gate/standard_proposal_plan.ts";
 import {
   buildStandardPlan,
   type PlannedStandard,
@@ -31,9 +31,8 @@ inputs = ${inputs}
 
 /** Build one valid planning context with focused overrides. */
 function context(
-  overrides: Partial<Parameters<typeof buildStandardGrowthProposalPlan>[0]> =
-    {},
-): Parameters<typeof buildStandardGrowthProposalPlan>[0] {
+  overrides: Partial<Parameters<typeof buildStandardLimitProposalPlan>[0]> = {},
+): Parameters<typeof buildStandardLimitProposalPlan>[0] {
   return {
     standard: plannedStandard(),
     reason: "The required feature adds one measured source.",
@@ -48,8 +47,8 @@ function context(
   };
 }
 
-Deno.test("growth proposal plan binds exact measurement, delta, reason, and responsible paths", () => {
-  const decision = buildStandardGrowthProposalPlan(context());
+Deno.test("proposed Standard limit plan binds exact measurement, delta, reason, and responsible paths", () => {
+  const decision = buildStandardLimitProposalPlan(context());
   assert(decision.ok);
   assertEquals(decision.plan.proposal, {
     standard: "size",
@@ -68,8 +67,8 @@ Deno.test("growth proposal plan binds exact measurement, delta, reason, and resp
   assertEquals(decision.plan.engine.steps.length, 2);
 });
 
-Deno.test("growth proposal plan supports a regressed floor with a signed negative delta", () => {
-  const decision = buildStandardGrowthProposalPlan(context({
+Deno.test("proposed Standard limit plan supports a regressed floor with a signed negative delta", () => {
+  const decision = buildStandardLimitProposalPlan(context({
     standard: plannedStandard("up"),
     measurement: 8,
   }));
@@ -78,37 +77,37 @@ Deno.test("growth proposal plan supports a regressed floor with a signed negativ
   assertEquals(decision.plan.proposal.delta, -2);
 });
 
-Deno.test("growth proposal plan refuses held values, improvements, and prior limit edits", () => {
+Deno.test("proposed Standard limit plan refuses held values, improvements, and prior limit edits", () => {
   for (const measurement of [10, 9]) {
-    const decision = buildStandardGrowthProposalPlan(context({ measurement }));
+    const decision = buildStandardLimitProposalPlan(context({ measurement }));
     assert(!decision.ok);
     assertStringIncludes(decision.message, "does not breach");
   }
-  const alreadyMoved = buildStandardGrowthProposalPlan(context({
+  const alreadyMoved = buildStandardLimitProposalPlan(context({
     standard: { ...plannedStandard(), limit: 11 },
   }));
   assert(!alreadyMoved.ok);
   assertStringIncludes(alreadyMoved.message, "already changes its limit");
 });
 
-Deno.test("growth proposal plan requires configured inputs and attributable changed paths", () => {
+Deno.test("proposed Standard limit plan requires configured inputs and attributable changed paths", () => {
   const { inputs: _inputs, ...standardWithoutInputs } = plannedStandard();
-  const noInputs = buildStandardGrowthProposalPlan(context({
+  const noInputs = buildStandardLimitProposalPlan(context({
     standard: standardWithoutInputs,
   }));
   assert(!noInputs.ok);
   assertEquals(noInputs.error, "invalid_config");
 
-  const unrelated = buildStandardGrowthProposalPlan(context({
+  const unrelated = buildStandardLimitProposalPlan(context({
     changedPaths: ["docs/only.md"],
   }));
   assert(!unrelated.ok);
   assertStringIncludes(unrelated.message, "no changed path matches");
 });
 
-Deno.test("growth proposal reasons are verbatim, bounded, visible, and secret-free", () => {
-  const verbatim = "  Intentional product growth.  ";
-  assertEquals(validateStandardGrowthReason(verbatim), {
+Deno.test("proposed Standard limit reasons are verbatim, bounded, visible, and secret-free", () => {
+  const verbatim = "  The product change requires this limit.  ";
+  assertEquals(validateStandardLimitReason(verbatim), {
     ok: true,
     reason: verbatim,
   });
@@ -117,9 +116,9 @@ Deno.test("growth proposal reasons are verbatim, bounded, visible, and secret-fr
       "   ",
       "line one\nline two",
       `api_key=${"x".repeat(24)}`,
-      "x".repeat(STANDARD_GROWTH_REASON_MAX_LENGTH + 1),
+      "x".repeat(STANDARD_LIMIT_REASON_MAX_LENGTH + 1),
     ]
   ) {
-    assertEquals(validateStandardGrowthReason(reason).ok, false);
+    assertEquals(validateStandardLimitReason(reason).ok, false);
   }
 });

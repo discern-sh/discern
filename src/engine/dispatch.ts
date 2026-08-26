@@ -563,12 +563,12 @@ export function attachEngineCommands(
     "propose",
     new Command()
       .description(
-        "Record one fresh measured Standard breach as an exact, commit-bound owner-decision proposal. The Gate remeasures it; acceptance still requires explicit approval for its value and reason.",
+        "Propose a new limit for a Standard breached by this change. The proposal is measured and commit-bound; acceptance still requires explicit approval for its exact value and reason.",
       )
       .arguments("<name:string>")
       .option(
         "--reason <reason:string>",
-        "The exact non-empty owner-facing reason for intrinsic growth (1-500 visible, secret-free characters).",
+        "The exact non-empty owner-facing reason for the proposed Standard limit (1-500 visible, secret-free characters).",
       )
       .option(
         "--json",
@@ -984,11 +984,11 @@ export function attachEngineCommands(
     )
     .option(
       "--approve-standard <token:string>",
-      "Record that the owner approved the exact Standard/value/reason growth " +
-        "tuple carried by the current Proof (repeatable; requires --confirmed). " +
+      "Record that the owner approved the exact Standard/value/reason tuple " +
+        "carried by the current Proof (repeatable; requires --confirmed). " +
         "Use the proposal-bound token served by the read-only refusal; the token " +
         "set must equal the current proposal set. Standing, effort, and " +
-        "generic landing grants never authorize Standard growth.",
+        "generic landing grants never authorize a proposed Standard limit.",
       { collect: true },
     )
     .action(recordedExit("accept", async (o) => {

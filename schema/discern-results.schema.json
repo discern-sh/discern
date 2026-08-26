@@ -19732,7 +19732,7 @@
                       },
                       "token": {
                         "type": "string",
-                        "pattern": "^sgp1_[0-9a-f]{64}$"
+                        "pattern": "^[0-9a-f]{64}$"
                       }
                     },
                     "required": [

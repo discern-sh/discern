@@ -397,7 +397,7 @@
         "variances",
         "standard_proposals"
       ],
-      "description": "How one landing was authorized: the consent evidence, each owner-authorized variance for a declared-unmet checkpoint, and each exact owner-approved Standard growth proposal. A reader can therefore distinguish a conclusion awaiting a decision from one the owner authorized to land."
+      "description": "How one landing was authorized: the consent evidence, each owner-authorized variance for a declared-unmet checkpoint, and each exact owner-approved Standard limit. A reader can therefore distinguish a conclusion awaiting a decision from one the owner authorized to land."
     },
     "DiscernAuthorizedVariance": {
       "title": "DiscernAuthorizedVariance",

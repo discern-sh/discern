@@ -15,8 +15,8 @@ import {
 } from "../../shared/consent.ts";
 import {
   type AuthorizedVarianceData,
-  type StandardGrowthProposalData,
-  StandardGrowthProposalSchema,
+  type StandardLimitProposalData,
+  StandardLimitProposalSchema,
 } from "../../shared/result_schemas.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
@@ -90,7 +90,7 @@ type AcceptanceTransaction =
     readonly consent: LandingConsent;
     readonly variances: readonly AuthorizedVarianceData[];
     /** Exact Standard/value/reason tuples approved for this transition. */
-    readonly standard_proposals: readonly StandardGrowthProposalData[];
+    readonly standard_proposals: readonly StandardLimitProposalData[];
   });
 
 export interface RecordedAcceptanceTransaction {
@@ -260,14 +260,14 @@ function parseVariances(
 /** Validate the exact Standard proposal tuples journaled at approval time. */
 function parseStandardProposals(
   value: unknown,
-): StandardGrowthProposalData[] | undefined {
+): StandardLimitProposalData[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
-  const proposals: StandardGrowthProposalData[] = [];
+  const proposals: StandardLimitProposalData[] = [];
   const names = new Set<string>();
   for (const entry of value) {
-    const parsed = StandardGrowthProposalSchema.safeParse(entry);
+    const parsed = StandardLimitProposalSchema.safeParse(entry);
     if (!parsed.success || names.has(parsed.data.standard)) {
       return undefined;
     }
@@ -362,7 +362,7 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     ...base,
     consent: consent as LandingConsent,
     variances: variances as AuthorizedVarianceData[],
-    standard_proposals: standardProposals as StandardGrowthProposalData[],
+    standard_proposals: standardProposals as StandardLimitProposalData[],
   };
 }
 
@@ -433,7 +433,7 @@ async function writeAcceptanceTransaction(
   input: Omit<AcceptanceTransactionBase, "id"> & {
     readonly consent: LandingConsent;
     readonly variances: readonly AuthorizedVarianceData[];
-    readonly standardProposals: readonly StandardGrowthProposalData[];
+    readonly standardProposals: readonly StandardLimitProposalData[];
   },
 ): Promise<RecordedAcceptanceTransaction> {
   const current = await readAcceptanceTransaction(cwd);
@@ -522,7 +522,7 @@ export async function performAcceptanceTransition(
     readonly consent: LandingConsent;
     /** The owner-authorized variances this exact transition lands under. */
     readonly variances: readonly AuthorizedVarianceData[];
-    readonly standardProposals: readonly StandardGrowthProposalData[];
+    readonly standardProposals: readonly StandardLimitProposalData[];
   },
 ): Promise<AcceptanceTransitionResult> {
   const recorded = await writeAcceptanceTransaction(cwd, {

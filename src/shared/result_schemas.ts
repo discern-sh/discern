@@ -41,7 +41,7 @@ import {
 } from "./result.ts";
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
 import { SetupHumanMomentProjectionSchema } from "./setup_experience.ts";
-import { validateStandardGrowthReason } from "./standard_growth_reason.ts";
+import { validateStandardLimitReason } from "./standard_limit_reason.ts";
 import {
   CHECKPOINT_MODES,
   CHECKPOINT_OBLIGATION_STATES,
@@ -424,10 +424,10 @@ export const CheckpointDropSchema = z.discriminatedUnion("scope", [
 ]);
 export type CheckpointDropData = z.infer<typeof CheckpointDropSchema>;
 
-/** One intrinsic Standard-growth proposal. It is bound to the measured source
+/** One proposed Standard limit. It is bound to the measured source
  * commit, the config-only proposal commit, the trunk baseline, the complete
  * Standard definition, and the responsible changed paths. */
-export const StandardGrowthProposalSchema = z.strictObject({
+export const StandardLimitProposalSchema = z.strictObject({
   standard: z.string(),
   commit: z.string(),
   measured_commit: z.string(),
@@ -440,7 +440,7 @@ export const StandardGrowthProposalSchema = z.strictObject({
   measurement: z.number(),
   delta: z.number(),
   reason: z.string().superRefine((reason, context) => {
-    const validated = validateStandardGrowthReason(reason);
+    const validated = validateStandardLimitReason(reason);
     if (!validated.ok) {
       context.addIssue({ code: "custom", message: validated.message });
     }
@@ -450,19 +450,19 @@ export const StandardGrowthProposalSchema = z.strictObject({
     "responsible paths must be unique",
   ),
 });
-export type StandardGrowthProposalData = z.infer<
-  typeof StandardGrowthProposalSchema
+export type StandardLimitProposalData = z.infer<
+  typeof StandardLimitProposalSchema
 >;
 
 /** One exact approval challenge served at acceptance. The opaque token binds
  * the Standard name, proposed value, and verbatim reason; changing any member
  * produces a different token. */
-export const StandardGrowthApprovalRequestSchema = z.strictObject({
-  proposal: StandardGrowthProposalSchema,
-  token: z.string().regex(/^sgp1_[0-9a-f]{64}$/u),
+export const StandardLimitApprovalRequestSchema = z.strictObject({
+  proposal: StandardLimitProposalSchema,
+  token: z.string().regex(/^[0-9a-f]{64}$/u),
 });
-export type StandardGrowthApprovalRequestData = z.infer<
-  typeof StandardGrowthApprovalRequestSchema
+export type StandardLimitApprovalRequestData = z.infer<
+  typeof StandardLimitApprovalRequestSchema
 >;
 
 const PROOF_SUMMARY_FIELDS = {
@@ -471,7 +471,7 @@ const PROOF_SUMMARY_FIELDS = {
   /** Absent on Proof written before the strict/report distinction. */
   mode: z.enum(GATE_MODES).optional(),
   checkpoint_drops: z.array(CheckpointDropSchema).optional(),
-  standard_proposals: z.array(StandardGrowthProposalSchema).optional(),
+  standard_proposals: z.array(StandardLimitProposalSchema).optional(),
 };
 
 /** Typed evidence related to one changed checkpoint path. Existing siblings
@@ -580,9 +580,9 @@ const PROOF_FIELDS = {
   checkpoint_drops: z.array(CheckpointDropSchema).optional(),
   /** Present when checkpoints governed the run and any fired. */
   checkpoints: ProofCheckpointsSchema.optional(),
-  /** Present only when an exact measured Standard-growth decision remains for
+  /** Present only when an exact proposed Standard limit remains for
    * the owner; generic landing authority never covers these records. */
-  standard_proposals: z.array(StandardGrowthProposalSchema).optional(),
+  standard_proposals: z.array(StandardLimitProposalSchema).optional(),
 };
 
 export const ProofSchema = z.strictObject(PROOF_FIELDS).meta({
@@ -665,12 +665,12 @@ export type AuthorizedVarianceData = z.infer<typeof AuthorizedVarianceSchema>;
 export const AcceptanceEvidenceSchema = z.strictObject({
   consent: LandingConsentDataSchema,
   variances: z.array(AuthorizedVarianceSchema),
-  standard_proposals: z.array(StandardGrowthProposalSchema),
+  standard_proposals: z.array(StandardLimitProposalSchema),
 }).meta({
   id: "DiscernAcceptanceEvidence",
   description: "How one landing was authorized: the consent evidence, each " +
     "owner-authorized variance for a declared-unmet checkpoint, and each exact " +
-    "owner-approved Standard growth proposal. A reader can " +
+    "owner-approved Standard limit. A reader can " +
     "therefore distinguish a conclusion awaiting a decision from one the " +
     "owner authorized to land.",
 });
@@ -737,7 +737,7 @@ export const DurableProofClaimSchema = z.strictObject(
     ...DURABLE_PROOF_FACT_FIELDS,
     mode: z.enum(GATE_MODES).optional(),
     checkpoint_drops: z.array(CheckpointDropSchema).optional(),
-    standard_proposals: z.array(StandardGrowthProposalSchema).optional(),
+    standard_proposals: z.array(StandardLimitProposalSchema).optional(),
   },
 ).meta({
   id: "DiscernProofClaim",
@@ -818,7 +818,7 @@ export const TolerantProofNotePayloadSchema = z.looseObject({
     ...DURABLE_PROOF_FACT_FIELDS,
     mode: z.enum(GATE_MODES).optional(),
     checkpoint_drops: z.array(CheckpointDropSchema).optional(),
-    standard_proposals: z.array(StandardGrowthProposalSchema).optional(),
+    standard_proposals: z.array(StandardLimitProposalSchema).optional(),
     // Pre-split envelopes stored presentation inside `proof`. Keep reading
     // those local pre-release notes without publishing that layout.
     line: z.string().optional(),
@@ -836,7 +836,7 @@ export const TolerantProofNotePayloadSchema = z.looseObject({
       subject: z.string(),
       why: z.string(),
     })),
-    standard_proposals: z.array(StandardGrowthProposalSchema).optional(),
+    standard_proposals: z.array(StandardLimitProposalSchema).optional(),
   }).optional(),
   issuer: z.looseObject(PROOF_ISSUER_FIELDS).optional(),
   brief: z.string().optional(),
@@ -917,12 +917,12 @@ export const PinnedLimitSchema = z.strictObject({
 export type PinnedLimit = z.infer<typeof PinnedLimitSchema>;
 
 /** How `standards propose` changed (or retained) its one proposal record. */
-export const StandardGrowthProposalResultSchema = z.strictObject({
+export const StandardLimitProposalResultSchema = z.strictObject({
   status: z.enum(["recorded", "replaced", "unchanged", "recovered"]),
-  proposal: StandardGrowthProposalSchema,
+  proposal: StandardLimitProposalSchema,
 });
-export type StandardGrowthProposalResultData = z.infer<
-  typeof StandardGrowthProposalResultSchema
+export type StandardLimitProposalResultData = z.infer<
+  typeof StandardLimitProposalResultSchema
 >;
 
 /** The `standards` verb's `data`: the per-standard readings (the same shape the
@@ -932,7 +932,7 @@ export type StandardGrowthProposalResultData = z.infer<
 export const StandardsDataSchema = z.strictObject({
   standards: z.array(GateStandardSchema).optional(),
   pinned: z.array(PinnedLimitSchema).optional(),
-  proposal: StandardGrowthProposalResultSchema.optional(),
+  proposal: StandardLimitProposalResultSchema.optional(),
 });
 export type StandardsData = z.infer<typeof StandardsDataSchema>;
 
@@ -1506,11 +1506,11 @@ export const AcceptDataSchema = z.strictObject({
   variances: z.array(AuthorizedVarianceSchema).optional(),
   /** Exact Standard/value/reason proposal tuples the owner approved for this
    * landing. Distinct from generic landing consent and standing grants. */
-  standard_approvals: z.array(StandardGrowthProposalSchema).optional(),
+  standard_approvals: z.array(StandardLimitProposalSchema).optional(),
   /** Exact proposal/token challenges awaiting owner approval. Present only on
-   * the read-only Standard-growth decision stop. */
+   * the read-only proposed-Standard-limit decision stop. */
   standard_approvals_required: z.array(
-    StandardGrowthApprovalRequestSchema,
+    StandardLimitApprovalRequestSchema,
   ).optional(),
   /** Repository-resident proof recording and its optional fetch transport.
    * Both run after the trunk moves and therefore fail open. */

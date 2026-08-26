@@ -1,6 +1,11 @@
-/** End-to-end contract for measured, commit-bound Standard growth proposals. */
+/** End-to-end contract for measured, commit-bound proposed Standard limits. */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertStringIncludes,
+} from "@std/assert";
 import { dirname, join } from "@std/path";
 import { statIfExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
@@ -20,7 +25,7 @@ import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 function proposalConfig(): string {
   return [
     "[project]",
-    'slug = "growth-proposal-test"',
+    'slug = "limit-proposal-test"',
     "",
     "[repository]",
     'trunk = "main"',
@@ -35,13 +40,13 @@ function proposalConfig(): string {
 }
 
 /** Create one clean feature worktree whose source-count ceiling is breached. */
-async function growthWorktree(dir: string): Promise<string> {
+async function proposalWorktree(dir: string): Promise<string> {
   await scaffoldEngine(dir);
   await writeConfig(dir, proposalConfig());
   await Deno.mkdir(join(dir, "src"), { recursive: true });
   await Deno.writeTextFile(join(dir, "src", "base.ts"), "base\n");
   await gitInit(dir);
-  const worktree = await addWorktree(dir, "growth-proposal");
+  const worktree = await addWorktree(dir, "limit-proposal");
   await Deno.writeTextFile(join(worktree, "src", "feature.ts"), "feature\n");
   await git(worktree, "add", "src/feature.ts");
   await git(worktree, "commit", "-m", "Add feature source");
@@ -68,7 +73,7 @@ function approvalChallenge(stdout: string): ApprovalChallenge {
 
 Deno.test("standards propose records the breached value in one config-only commit and is idempotent", async () => {
   await withTempDir(async (dir) => {
-    const worktree = await growthWorktree(dir);
+    const worktree = await proposalWorktree(dir);
     const measured = await runAgent(worktree, ["standards", "--json"]);
     assertEquals(measured.code, 1, measured.output);
     const measuredData = decodeCliResult(measured.stdout, "standards").data as {
@@ -146,7 +151,7 @@ Deno.test("standards propose records the breached value in one config-only commi
       "propose",
       "sources",
       "--reason",
-      "A revised owner-facing reason for the same measured growth.",
+      "A revised owner-facing reason for the same measured breach.",
       "--json",
     ]);
     assertEquals(replaced.code, 0, replaced.output);
@@ -157,7 +162,7 @@ Deno.test("standards propose records the breached value in one config-only commi
     assertEquals(replacement.status, "replaced");
     assertEquals(
       replacement.proposal.reason,
-      "A revised owner-facing reason for the same measured growth.",
+      "A revised owner-facing reason for the same measured breach.",
     );
     assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), commit);
   });
@@ -165,7 +170,7 @@ Deno.test("standards propose records the breached value in one config-only commi
 
 Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs exact approval", async () => {
   await withTempDir(async (dir) => {
-    const worktree = await growthWorktree(dir);
+    const worktree = await proposalWorktree(dir);
     assertEquals((await runAgent(worktree, ["standards", "--json"])).code, 1);
     const proposed = await runAgent(worktree, [
       "standards",
@@ -200,7 +205,7 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
     assertEquals(markdown.code, 0, markdown.output);
     assertTerminalTextIncludes(
       markdown.stdout,
-      "Standard growth proposal `sources`",
+      "Proposed Standard limit for `sources`",
     );
     assertTerminalTextIncludes(
       markdown.stdout,
@@ -212,6 +217,7 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
     const refusal = decodeCliResult(refused.stdout, "accept");
     assertEquals(refusal.error, "awaiting_standard_approval");
     const approval = approvalChallenge(refused.stdout);
+    assertMatch(approval.token, /^[0-9a-f]{64}$/u);
     assertEquals(approval.proposal.standard, "sources");
     assertEquals(approval.proposal.proposed_limit, 2);
     assertEquals(
@@ -242,7 +248,7 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
 
     const proposalPath = await gitAdminStatePath(
       worktree,
-      "standardGrowthProposals",
+      "standardLimitProposals",
     );
     assert(proposalPath !== undefined);
     assertStringIncludes(await Deno.readTextFile(proposalPath), '"sources"');
@@ -251,7 +257,7 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
 
 Deno.test("accept lands the already-proved proposal commit after exact approval", async () => {
   await withTempDir(async (dir) => {
-    const worktree = await growthWorktree(dir);
+    const worktree = await proposalWorktree(dir);
     assertEquals((await runAgent(worktree, ["standards", "--json"])).code, 1);
     const proposed = await runAgent(worktree, [
       "standards",
@@ -320,13 +326,13 @@ Deno.test("standards propose refuses trunk, unknown, absent-evidence, and dirty 
       "propose",
       "sources",
       "--reason",
-      "Growth belongs to a feature branch.",
+      "The breached limit belongs to a feature branch.",
       "--json",
     ]);
     assertEquals(trunk.code, 1, trunk.output);
     assertTerminalTextIncludes(
       String(decodeCliResult(trunk.stdout, "standards propose").message),
-      "never edit the trunk",
+      "never edits the trunk",
     );
 
     const worktree = await addWorktree(dir, "proposal-preconditions");
@@ -387,7 +393,7 @@ Deno.test("standards propose refuses trunk, unknown, absent-evidence, and dirty 
 
 Deno.test("standards propose refuses stale and failed fresh measurements", async () => {
   await withTempDir(async (dir) => {
-    const worktree = await growthWorktree(dir);
+    const worktree = await proposalWorktree(dir);
     assertEquals((await runAgent(worktree, ["standards", "--json"])).code, 1);
     await Deno.mkdir(join(worktree, "docs"), { recursive: true });
     await Deno.writeTextFile(join(worktree, "docs", "later.md"), "later\n");
@@ -398,7 +404,7 @@ Deno.test("standards propose refuses stale and failed fresh measurements", async
       "propose",
       "sources",
       "--reason",
-      "Stale measurements cannot authorize growth.",
+      "Stale measurements cannot authorize a new limit.",
       "--json",
     ]);
     assertEquals(stale.code, 1, stale.output);
@@ -443,12 +449,12 @@ Deno.test("standards propose refuses stale and failed fresh measurements", async
 
 Deno.test("a deleted Standard and an unproposed simultaneous breach remain ordinary failures", async () => {
   await withTempDir(async (dir) => {
-    const worktree = await growthWorktree(dir);
+    const worktree = await proposalWorktree(dir);
     await writeConfig(
       worktree,
       [
         "[project]",
-        'slug = "growth-proposal-test"',
+        'slug = "limit-proposal-test"',
         "",
         "[repository]",
         'trunk = "main"',
@@ -480,7 +486,7 @@ Deno.test("a deleted Standard and an unproposed simultaneous breach remain ordin
       dir,
       [
         "[project]",
-        'slug = "multi-growth"',
+        'slug = "multi-limit-proposal"',
         "",
         "[repository]",
         'trunk = "main"',
@@ -504,7 +510,7 @@ Deno.test("a deleted Standard and an unproposed simultaneous breach remain ordin
     await Deno.mkdir(join(dir, "src"), { recursive: true });
     await Deno.writeTextFile(join(dir, "src", "base.ts"), "base\n");
     await gitInit(dir);
-    const worktree = await addWorktree(dir, "multi-growth");
+    const worktree = await addWorktree(dir, "multi-limit-proposal");
     await Deno.writeTextFile(join(worktree, "src", "feature.ts"), "feature\n");
     await git(worktree, "add", "src/feature.ts");
     await git(worktree, "commit", "-m", "Add feature source");
@@ -535,7 +541,7 @@ Deno.test("a deleted Standard and an unproposed simultaneous breach remain ordin
 
 Deno.test("trunk movement and changed fresh measurement stale a proposal", async () => {
   await withTempDir(async (dir) => {
-    const worktree = await growthWorktree(dir);
+    const worktree = await proposalWorktree(dir);
     assertEquals((await runAgent(worktree, ["standards", "--json"])).code, 1);
     const proposed = await runAgent(worktree, [
       "standards",
@@ -586,7 +592,7 @@ Deno.test("trunk movement and changed fresh measurement stale a proposal", async
       "propose",
       "sources",
       "--reason",
-      "The initial measured growth is two.",
+      "The initial measured value is two.",
       "--json",
     ]);
     assertEquals(proposed.code, 0, proposed.output);
@@ -595,7 +601,7 @@ Deno.test("trunk movement and changed fresh measurement stale a proposal", async
     assertEquals(changed.code, 1, changed.output);
     assertTerminalTextIncludes(
       changed.stdout,
-      "growth proposal records 2",
+      "proposed limit records 2",
     );
     const stale = await runAgent(worktree, ["standards", "--json"]);
     assertEquals(stale.code, 1, stale.output);
@@ -608,7 +614,7 @@ Deno.test("trunk movement and changed fresh measurement stale a proposal", async
 
 Deno.test("reason changes rotate exact approval tokens and revocation blocks landing", async () => {
   await withTempDir(async (dir) => {
-    const worktree = await growthWorktree(dir);
+    const worktree = await proposalWorktree(dir);
     assertEquals((await runAgent(worktree, ["standards", "--json"])).code, 1);
     const proposed = await runAgent(worktree, [
       "standards",
@@ -654,7 +660,7 @@ Deno.test("reason changes rotate exact approval tokens and revocation blocks lan
 
     const proposalPath = await gitAdminStatePath(
       worktree,
-      "standardGrowthProposals",
+      "standardLimitProposals",
     );
     assert(proposalPath !== undefined);
     await Deno.remove(proposalPath);
@@ -679,13 +685,13 @@ Deno.test("reason changes rotate exact approval tokens and revocation blocks lan
 
 Deno.test("proposal recovery unwinds a pre-commit edit and finalizes a post-commit record", async () => {
   await withTempDir(async (dir) => {
-    const worktree = await growthWorktree(dir);
+    const worktree = await proposalWorktree(dir);
     assertEquals((await runAgent(worktree, ["standards", "--json"])).code, 1);
     const measuredCommit = await gitOut(worktree, "rev-parse", "HEAD");
     const branch = await gitOut(worktree, "branch", "--show-current");
     const transactionPath = await gitAdminStatePath(
       worktree,
-      "standardGrowthProposalTransaction",
+      "standardLimitProposalTransaction",
     );
     assert(transactionPath !== undefined);
     await Deno.mkdir(dirname(transactionPath), { recursive: true });
@@ -748,7 +754,7 @@ Deno.test("proposal recovery unwinds a pre-commit edit and finalizes a post-comm
 
     const proposalPath = await gitAdminStatePath(
       worktree,
-      "standardGrowthProposals",
+      "standardLimitProposals",
     );
     assert(proposalPath !== undefined);
     await Deno.remove(proposalPath);
