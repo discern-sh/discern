@@ -72,6 +72,7 @@ import {
 } from "./lib/terminal.ts";
 import { renderMarkdown } from "./lib/markdown.ts";
 import { writeStderr } from "./engine/output.ts";
+import { detachPromise } from "./shared/promise_effects.ts";
 import {
   CLI_RESULT_FORMATS,
   CLI_RESULT_RENDER,
@@ -1825,18 +1826,28 @@ if (import.meta.main) {
   // leaves a saved report and the frame instead of a raw runtime dump.
   globalThis.addEventListener("unhandledrejection", (event) => {
     event.preventDefault();
-    void exitWithCrashFrame(
-      undefined,
-      event.reason,
-      quietResultRequested(activeDiscernArgv),
+    detachPromise(
+      "main-unhandled-rejection-crash",
+      () =>
+        exitWithCrashFrame(
+          undefined,
+          event.reason,
+          quietResultRequested(activeDiscernArgv),
+        ),
+      () => terminateCrash(),
     );
   });
   globalThis.addEventListener("error", (event) => {
     event.preventDefault();
-    void exitWithCrashFrame(
-      undefined,
-      event.error ?? event.message,
-      quietResultRequested(activeDiscernArgv),
+    detachPromise(
+      "main-error-event-crash",
+      () =>
+        exitWithCrashFrame(
+          undefined,
+          event.error ?? event.message,
+          quietResultRequested(activeDiscernArgv),
+        ),
+      () => terminateCrash(),
     );
   });
   await runMainProcess();

@@ -10,6 +10,7 @@
 
 import { join } from "@std/path";
 import { bestEffort, bestEffortSync } from "../../src/shared/best_effort.ts";
+import { detachPromise } from "../../src/shared/promise_effects.ts";
 import { REPO_ROOT } from "./root.ts";
 import { openInIde } from "./locate.ts";
 import {
@@ -355,17 +356,22 @@ export async function startCanonEditor(
     if (guardRunning.has(registry)) return;
     guardRunning.add(registry);
     notify({ type: "guards", registry, status: "running" });
-    runGuardFiles(registry, files)
-      .then((report) => {
-        guardReports.set(registry, report);
-        notify({
-          type: "guards",
-          registry,
-          status: "finished",
-          ok: report.ok,
-        });
-      })
-      .finally(() => guardRunning.delete(registry));
+    detachPromise(
+      "canon-editor-guard-run",
+      () =>
+        runGuardFiles(registry, files)
+          .then((report) => {
+            guardReports.set(registry, report);
+            notify({
+              type: "guards",
+              registry,
+              status: "finished",
+              ok: report.ok,
+            });
+          })
+          .finally(() => guardRunning.delete(registry)),
+      (error) => console.error("Canon Editor guard run failed:", error),
+    );
   };
 
   const gitDirty = async (): Promise<string[]> => {
@@ -750,7 +756,11 @@ export async function startCanonEditor(
             skipNextWatchRefresh = false;
             return;
           }
-          void refresh();
+          detachPromise(
+            "canon-editor-watch-refresh",
+            refresh,
+            (error) => console.error("Canon Editor refresh failed:", error),
+          );
         }, WATCH_DEBOUNCE_MS);
       }
     })();

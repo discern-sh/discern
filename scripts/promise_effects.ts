@@ -1,6 +1,6 @@
 /** Type-aware detection for promise-like values ignored as expressions. */
 
-import { dirname, join } from "@std/path";
+import { dirname, join, normalize } from "@std/path";
 import {
   Node,
   Project,
@@ -11,6 +11,12 @@ import {
 } from "ts-morph";
 import { REPO_ROOT } from "../tests/repo_authored_paths.ts";
 import { structuralGuardScope } from "../tests/structural_guard_scope.ts";
+import {
+  DETACHED_PROMISE_BOUNDARIES,
+  type DetachedPromiseBoundary,
+  detachedPromiseBoundaryCount,
+  type DetachedPromiseRejectionAuthority,
+} from "../src/shared/promise_effects.ts";
 
 interface DenoInfoResolution {
   readonly specifier: string;
@@ -67,10 +73,29 @@ export interface PromiseEffectFinding {
   readonly reason: "ignored-promise" | "naked-void" | "unresolved-type";
 }
 
+/** One authored production module for syntax-level registry binding. */
+export interface PromiseEffectSource {
+  readonly path: string;
+  readonly source: string;
+}
+
+interface DetachedPromiseCall {
+  readonly id: string | undefined;
+  readonly path: string;
+  readonly line: number;
+  readonly column: number;
+  readonly enclosingFunction: string;
+  readonly reporterAuthority: DetachedPromiseRejectionAuthority | undefined;
+}
+
+const PROMISE_EFFECTS_AUTHORITY = "src/shared/promise_effects.ts";
+
+/** Whether one decoded JSON value is a plain record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Read one required non-empty string from decoded metadata. */
 function requiredString(
   record: Readonly<Record<string, unknown>>,
   key: string,
@@ -277,6 +302,7 @@ function redirectedSpecifier(
   return current;
 }
 
+/** Map Deno graph media types onto TypeScript compiler extensions. */
 function compilerExtension(mediaType: string | undefined): ts.Extension {
   switch (mediaType) {
     case "JavaScript":
@@ -296,6 +322,7 @@ function compilerExtension(mediaType: string | undefined): ts.Extension {
   }
 }
 
+/** Allocate one stable in-memory compiler path for a Deno graph module. */
 function syntheticGraphPath(index: number, extension: ts.Extension): string {
   const suffix = extension === ts.Extension.Js
     ? ".js"
@@ -705,36 +732,85 @@ function classifyPromiseLike(
     : "no";
 }
 
-/** One expression's typed finding, with `void` unable to erase the operand. */
-function findingForExpression(
-  path: string,
+interface DiscardedExpression {
+  readonly inspected: Node;
+  readonly displayed: Node;
+  readonly nakedVoid: boolean;
+}
+
+/** Expand syntax that discards a nested value before the statement does. */
+function discardedExpressions(
   expression: Node,
-): PromiseEffectFinding | undefined {
+  displayed: Node = expression,
+  nakedVoid = false,
+): DiscardedExpression[] {
   if (
     Node.isAwaitExpression(expression) ||
     structurallyConsumesExpression(expression)
-  ) return undefined;
-  const inspected = Node.isVoidExpression(expression)
-    ? expression.getExpression()
-    : expression;
-  const type = inspected.getType();
-  const classification = classifyPromiseLike(type);
-  if (classification === "no") return undefined;
+  ) return [];
+  if (Node.isParenthesizedExpression(expression)) {
+    return discardedExpressions(
+      expression.getExpression(),
+      displayed,
+      nakedVoid,
+    );
+  }
+  if (Node.isVoidExpression(expression)) {
+    return discardedExpressions(
+      expression.getExpression(),
+      displayed,
+      true,
+    );
+  }
+  if (
+    Node.isBinaryExpression(expression) &&
+    expression.getOperatorToken().getKind() === SyntaxKind.CommaToken
+  ) {
+    return [
+      ...discardedExpressions(
+        expression.getLeft(),
+        expression.getLeft(),
+        nakedVoid,
+      ),
+      ...discardedExpressions(
+        expression.getRight(),
+        expression.getRight(),
+        nakedVoid,
+      ),
+    ];
+  }
+  return [{ inspected: expression, displayed, nakedVoid }];
+}
+
+/** One statement's typed findings, with `void` unable to erase its operand. */
+function findingsForExpression(
+  path: string,
+  expression: Node,
+): PromiseEffectFinding[] {
   const sourceFile = expression.getSourceFile();
-  const location = sourceFile.getLineAndColumnAtPos(expression.getStart());
-  return {
-    path,
-    line: location.line,
-    column: location.column,
-    enclosingFunction: enclosingFunctionName(expression),
-    expression: expression.getText(),
-    type: type.getText(inspected),
-    reason: classification === "unresolved"
-      ? "unresolved-type"
-      : Node.isVoidExpression(expression)
-      ? "naked-void"
-      : "ignored-promise",
-  };
+  const findings: PromiseEffectFinding[] = [];
+  for (const discarded of discardedExpressions(expression)) {
+    const type = discarded.inspected.getType();
+    const classification = classifyPromiseLike(type);
+    if (classification === "no") continue;
+    const location = sourceFile.getLineAndColumnAtPos(
+      discarded.displayed.getStart(),
+    );
+    findings.push({
+      path,
+      line: location.line,
+      column: location.column,
+      enclosingFunction: enclosingFunctionName(expression),
+      expression: discarded.displayed.getText(),
+      type: type.getText(discarded.inspected),
+      reason: classification === "unresolved"
+        ? "unresolved-type"
+        : discarded.nakedVoid
+        ? "naked-void"
+        : "ignored-promise",
+    });
+  }
+  return findings;
 }
 
 /** Inspect selected project sources with the project's one compiler checker. */
@@ -752,11 +828,9 @@ export function promiseEffectFindingsInFiles(
         SyntaxKind.ExpressionStatement,
       )
     ) {
-      const finding = findingForExpression(
-        path,
-        statement.getExpression(),
+      findings.push(
+        ...findingsForExpression(path, statement.getExpression()),
       );
-      if (finding !== undefined) findings.push(finding);
     }
   }
   return findings;
@@ -774,14 +848,310 @@ export async function validatePromiseEffects(
   return promiseEffectFindingsInFiles(sourceFiles, root);
 }
 
-if (import.meta.main) {
-  const findings = await validatePromiseEffects();
-  if (findings.length > 0) {
-    for (const finding of findings) {
-      console.error(
-        `${finding.path}:${finding.line}:${finding.column} ${finding.reason}: ${finding.expression} (${finding.type}) inside ${finding.enclosingFunction}`,
+/** Read the Git-derived production universe for exact capability-call binding. */
+export async function promiseEffectSources(
+  root: string = REPO_ROOT,
+): Promise<PromiseEffectSource[]> {
+  return await Promise.all(
+    (await productionPromiseEffectFiles(root)).map(async (path) => ({
+      path,
+      source: await Deno.readTextFile(join(root, path)),
+    })),
+  );
+}
+
+/** Whether a relative import resolves directly to the one detachment authority. */
+function isPromiseEffectsAuthority(path: string, specifier: string): boolean {
+  return specifier.startsWith(".") &&
+    normalize(join(dirname(path), specifier)) === PROMISE_EFFECTS_AUTHORITY;
+}
+
+/** Identify the synchronous reporter selected at one capability call. */
+function reporterAuthority(
+  reporter: Node | undefined,
+): DetachedPromiseRejectionAuthority | undefined {
+  if (reporter === undefined) return undefined;
+  if (
+    Node.isPropertyAccessExpression(reporter) &&
+    reporter.getText() === "globalThis.reportError"
+  ) {
+    return "globalThis.reportError";
+  }
+  if (!Node.isArrowFunction(reporter) && !Node.isFunctionExpression(reporter)) {
+    return undefined;
+  }
+  if (reporter.isAsync()) return undefined;
+  const authorities = new Set<DetachedPromiseRejectionAuthority>();
+  for (
+    const call of reporter.getDescendantsOfKind(SyntaxKind.CallExpression)
+  ) {
+    const callee = call.getExpression().getText();
+    if (callee === "console.error") authorities.add("console.error");
+    if (callee === "globalThis.reportError") {
+      authorities.add("globalThis.reportError");
+    }
+    if (callee === "terminateCrash") authorities.add("terminateCrash");
+  }
+  return authorities.size === 1 ? [...authorities][0] : undefined;
+}
+
+/** Extract direct capability calls while rejecting aliases and re-exports. */
+function detachedPromiseCalls(
+  sources: readonly PromiseEffectSource[],
+): { readonly calls: DetachedPromiseCall[]; readonly findings: string[] } {
+  const project = new Project({
+    useInMemoryFileSystem: true,
+    skipAddingFilesFromTsConfig: true,
+    compilerOptions: { allowImportingTsExtensions: true },
+  });
+  const calls: DetachedPromiseCall[] = [];
+  const findings: string[] = [];
+  for (const source of sources) {
+    const sourceFile = project.createSourceFile(
+      join("/__discern_promise_sources__", source.path),
+      source.source,
+      { overwrite: true },
+    );
+    const importedNames = new Set<string>();
+    for (const declaration of sourceFile.getImportDeclarations()) {
+      const specifier = declaration.getModuleSpecifierValue();
+      const authority = isPromiseEffectsAuthority(source.path, specifier);
+      const capabilityImports = declaration.getNamedImports().filter((item) =>
+        item.getName() === "detachPromise"
+      );
+      if (!authority && capabilityImports.length > 0) {
+        findings.push(
+          `${source.path} imports the reserved detachPromise name from '${specifier}' instead of ${PROMISE_EFFECTS_AUTHORITY}`,
+        );
+      }
+      if (!authority) continue;
+      if (
+        declaration.getDefaultImport() !== undefined ||
+        declaration.getNamespaceImport() !== undefined
+      ) {
+        findings.push(
+          `${source.path} must import detachPromise directly as a named capability`,
+        );
+      }
+      for (const imported of capabilityImports) {
+        importedNames.add(
+          imported.getAliasNode()?.getText() ?? imported.getName(),
+        );
+      }
+    }
+    for (const declaration of sourceFile.getExportDeclarations()) {
+      const specifier = declaration.getModuleSpecifierValue();
+      if (
+        specifier !== undefined &&
+        isPromiseEffectsAuthority(source.path, specifier) &&
+        (declaration.isNamespaceExport() ||
+          declaration.getNamedExports().length === 0 ||
+          declaration.getNamedExports().some((item) =>
+            item.getName() === "detachPromise"
+          ))
+      ) {
+        findings.push(
+          `${source.path} re-exports detachPromise instead of calling its authority directly`,
+        );
+      }
+    }
+
+    const directCallNodes = new Set<Node>();
+    for (
+      const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)
+    ) {
+      const callee = call.getExpression();
+      if (!Node.isIdentifier(callee)) continue;
+      if (!importedNames.has(callee.getText())) {
+        if (callee.getText() === "detachPromise") {
+          const location = sourceFile.getLineAndColumnAtPos(call.getStart());
+          findings.push(
+            `${source.path}:${location.line}:${location.column} calls detachPromise without a direct authority import`,
+          );
+        }
+        continue;
+      }
+      directCallNodes.add(callee);
+      const location = sourceFile.getLineAndColumnAtPos(call.getStart());
+      const args = call.getArguments();
+      const idNode = args[0];
+      const id = idNode !== undefined && Node.isStringLiteral(idNode)
+        ? idNode.getLiteralValue()
+        : undefined;
+      if (args.length !== 3) {
+        findings.push(
+          `${source.path}:${location.line}:${location.column} detachPromise requires exactly an id, effect, and synchronous reporter`,
+        );
+      }
+      if (id === undefined) {
+        findings.push(
+          `${source.path}:${location.line}:${location.column} detachPromise boundary id must be a string literal`,
+        );
+      }
+      calls.push({
+        id,
+        path: source.path,
+        line: location.line,
+        column: location.column,
+        enclosingFunction: enclosingFunctionName(call),
+        reporterAuthority: reporterAuthority(args[2]),
+      });
+    }
+
+    for (
+      const identifier of sourceFile.getDescendantsOfKind(
+        SyntaxKind.Identifier,
+      )
+    ) {
+      if (!importedNames.has(identifier.getText())) continue;
+      if (
+        identifier.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) !==
+          undefined || directCallNodes.has(identifier)
+      ) continue;
+      const location = sourceFile.getLineAndColumnAtPos(identifier.getStart());
+      findings.push(
+        `${source.path}:${location.line}:${location.column} detachPromise may only be called directly, not forwarded or aliased`,
       );
     }
-    Deno.exitCode = 1;
   }
+  return { calls, findings };
 }
+
+/** Validate stable registry metadata independently of live call matching. */
+function detachedPromiseMetadataFindings(
+  boundaries: Readonly<Record<string, DetachedPromiseBoundary>>,
+): string[] {
+  const findings: string[] = [];
+  const ids = Object.keys(boundaries);
+  if (ids.join("\n") !== [...ids].sort().join("\n")) {
+    findings.push("detached promise boundary ids must be sorted");
+  }
+  for (const [id, boundary] of Object.entries(boundaries)) {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(id)) {
+      findings.push(`detached promise boundary '${id}' needs a kebab-case id`);
+    }
+    if (
+      !boundary.path.endsWith(".ts") && !boundary.path.endsWith(".tsx")
+    ) {
+      findings.push(
+        `detached promise boundary '${id}' needs an exact TypeScript path`,
+      );
+    }
+    for (
+      const [field, value] of [
+        ["enclosingFunction", boundary.enclosingFunction],
+        ["operation", boundary.operation],
+        ["lifecycleOwner", boundary.lifecycleOwner],
+        ["cancellationOwnership", boundary.cancellationOwnership],
+        ["reason", boundary.reason],
+      ] as const
+    ) {
+      const minimum = field === "enclosingFunction" ? 1 : 8;
+      if (value.trim().length < minimum || /[\r\n]/u.test(value)) {
+        findings.push(
+          `detached promise boundary '${id}' ${field} needs a specific one-line value`,
+        );
+      }
+    }
+    const expectedKind = boundary.rejectionPolicy.authority ===
+        "terminateCrash"
+      ? "terminate"
+      : "report";
+    if (boundary.rejectionPolicy.kind !== expectedKind) {
+      findings.push(
+        `detached promise boundary '${id}' must ${expectedKind} through ${boundary.rejectionPolicy.authority}`,
+      );
+    }
+  }
+  return findings;
+}
+
+/** Bind every registry row and every capability call exactly once. */
+export function detachedPromiseBoundaryFindings(
+  sources: readonly PromiseEffectSource[],
+  boundaries: Readonly<Record<string, DetachedPromiseBoundary>> =
+    DETACHED_PROMISE_BOUNDARIES,
+): string[] {
+  const scanned = detachedPromiseCalls(sources);
+  const findings = [
+    ...detachedPromiseMetadataFindings(boundaries),
+    ...scanned.findings,
+  ];
+  const callsById = new Map<string, DetachedPromiseCall[]>();
+  for (const call of scanned.calls) {
+    if (call.id === undefined) continue;
+    const registered = boundaries[call.id];
+    if (registered === undefined) {
+      findings.push(
+        `${call.path}:${call.line}:${call.column} calls unknown detached promise boundary '${call.id}'`,
+      );
+      continue;
+    }
+    const entries = callsById.get(call.id) ?? [];
+    entries.push(call);
+    callsById.set(call.id, entries);
+    if (
+      registered.path !== call.path ||
+      registered.enclosingFunction !== call.enclosingFunction
+    ) {
+      findings.push(
+        `detached promise boundary '${call.id}' moved: registry has ${registered.path}#${registered.enclosingFunction}, live call is ${call.path}#${call.enclosingFunction}`,
+      );
+    }
+    if (registered.rejectionPolicy.authority !== call.reporterAuthority) {
+      findings.push(
+        `detached promise boundary '${call.id}' must handle rejection through ${registered.rejectionPolicy.authority}`,
+      );
+    }
+  }
+  for (const id of Object.keys(boundaries)) {
+    const count = callsById.get(id)?.length ?? 0;
+    if (count === 0) {
+      findings.push(`stale detached promise boundary '${id}'`);
+    } else if (count > 1) {
+      findings.push(
+        `detached promise boundary '${id}' has ${count} live sites`,
+      );
+    }
+  }
+  return findings.sort();
+}
+
+/** Refuse typed or registry drift before returning the exact live population. */
+export async function validateDetachedPromiseBoundaries(
+  root: string = REPO_ROOT,
+): Promise<number> {
+  const typed = await validatePromiseEffects(root);
+  const registry = detachedPromiseBoundaryFindings(
+    await promiseEffectSources(root),
+  );
+  const findings = [
+    ...typed.map((finding) =>
+      `${finding.path}:${finding.line}:${finding.column} ${finding.reason}: ${finding.expression} (${finding.type}) inside ${finding.enclosingFunction}`
+    ),
+    ...registry,
+  ];
+  if (findings.length > 0) {
+    throw new Error(
+      "production promise effects diverged from the typed ownership contract:\n  " +
+        findings.join("\n  "),
+    );
+  }
+  return detachedPromiseBoundaryCount();
+}
+
+/** Validate and print the falling deliberate-detachment census. */
+async function main(): Promise<void> {
+  const count = await validateDetachedPromiseBoundaries();
+  for (const [id, boundary] of Object.entries(DETACHED_PROMISE_BOUNDARIES)) {
+    console.error(
+      `${id}: ${boundary.path}#${boundary.enclosingFunction} — ${boundary.lifecycleOwner}; rejection: ${boundary.rejectionPolicy.authority}`,
+    );
+  }
+  console.error(
+    `${count} detached promise boundaries; every promise effect is typed and every registry ID binds exactly.`,
+  );
+  console.log(`DISCERN_METRIC detached_promise_boundaries ${count}`);
+}
+
+if (import.meta.main) await main();
