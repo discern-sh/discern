@@ -60,6 +60,11 @@ export interface PlannedJob {
   /** The stage reported in `jobs[].stage` (a real STAGE), or "scope_gates". */
   reportStage: Stage | "scope_gates";
   willRun: boolean;
+  /** Whether this logical job owns a child process. Defaults to true. A
+   * Standard that consumes an identical sibling measurement remains a running
+   * logical step but sets this false; its per-Standard result is synthesized
+   * from the shared process evidence after the leader settles. */
+  runsProcess?: boolean;
   /** Per-job `timeout` override, replacing the global `[gate].timeout` for this
    * job only (`0` disables the bound for it). */
   timeoutS?: number;

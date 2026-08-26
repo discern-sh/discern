@@ -73,6 +73,7 @@ import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
 import { testResult } from "../src/engine/gate/test.ts";
 import { standardsResult } from "../src/engine/gate/standards.ts";
+import { standardsProposeResult } from "../src/engine/gate/standard_proposals.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
 import { impactResult } from "../src/engine/scopes/scopes.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
@@ -649,6 +650,7 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "patternsReset",
   "prepare",
   "standards",
+  "standardsPropose",
   "refresh",
   "tidy",
   "impact",
@@ -1530,6 +1532,51 @@ Deno.test("standards result is faithful (dry-run plan and applied steps)", async
     const applied = await standardsResult(dir);
     assertEquals(applied.ok, true);
     expectFaithful("standards", applied, "standards applied");
+  });
+});
+
+Deno.test("standards propose result is faithful (preview and recorded proposal)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "proposal-faithfulness"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[standards.sources]",
+        'direction = "down"',
+        "limit = 1",
+        "run = \"count=$(git ls-files 'src/**' | wc -l); echo DISCERN_METRIC sources $count\"",
+        'inputs = ["src/**"]',
+        "",
+      ].join("\n"),
+    );
+    await Deno.mkdir(join(dir, "src"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "src", "base.ts"), "base\n");
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "proposal-faithfulness");
+    await Deno.writeTextFile(join(worktree, "src", "feature.ts"), "feature\n");
+    await git(worktree, "add", "src/feature.ts");
+    await git(worktree, "commit", "-m", "Add feature source");
+    assertEquals((await standardsResult(worktree)).ok, false);
+
+    const preview = await standardsProposeResult(worktree, {
+      name: "sources",
+      reason: "The feature adds one required source.",
+      dryRun: true,
+    });
+    expectFaithful("standardsPropose", preview, "standards propose preview");
+
+    const applied = await standardsProposeResult(worktree, {
+      name: "sources",
+      reason: "The feature adds one required source.",
+    });
+    assertEquals(applied.ok, true);
+    expectFaithful("standardsPropose", applied, "standards propose applied");
   });
 });
 

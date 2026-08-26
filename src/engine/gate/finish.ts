@@ -48,6 +48,7 @@ import {
   inspectLastGateRun,
   pinValidatedTree,
   preflightAdminStateWrites,
+  recordFreshStandardMeasurementEvidence,
   recordGateOutcome,
   recordLastGateRun,
   recordStandardMeasurements,
@@ -80,6 +81,12 @@ import {
 } from "./standards.ts";
 import { verifyTrunkLimits } from "./standard_limits.ts";
 import {
+  inspectActiveStandardLimitProposals,
+  sameStandardLimitProposalSet,
+  staleProposalDiagnostic,
+  standardLimitProposalIdentity,
+} from "./standard_proposals.ts";
+import {
   gateStandardsData,
   planStandardJobsFromConfig,
   resolveStandardActions,
@@ -87,6 +94,7 @@ import {
 } from "./standards_gate.ts";
 import type {
   GateStandard,
+  StandardLimitProposalData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
 import {
@@ -580,14 +588,32 @@ async function runGate(
   //     parse fails hard; never a silent pass either way.
   const stdPlan = buildStandardPlan(cfg);
   let standardsLimits: StandardsLimitsData | undefined;
+  let standardLimitProposals: ReadonlyMap<
+    string,
+    StandardLimitProposalData
+  > = new Map();
   let tier1Diagnostics: Diagnostic[] = [];
   let limitsWarning: FiredHint | undefined;
   if (failedStage === null) {
-    const verification = await verifyTrunkLimits(
+    const proposalInspection = await inspectActiveStandardLimitProposals(
       root,
       mainBranch,
       stdPlan.standards,
     );
+    const verification = await verifyTrunkLimits(
+      root,
+      mainBranch,
+      stdPlan.standards,
+      proposalInspection.active,
+    );
+    standardLimitProposals = verification.proposals;
+    for (const stale of proposalInspection.stale) {
+      if (verification.blockedStandards.has(stale.proposal.standard)) {
+        verification.diagnostics.unshift(
+          staleProposalDiagnostic(stale.proposal.standard, stale.reason),
+        );
+      }
+    }
     tier1Diagnostics = verification.diagnostics;
     if (verification.blocking) {
       failedStage = "standards";
@@ -598,6 +624,7 @@ async function runGate(
     if (
       stdPlan.standards.length > 0 ||
       verification.summary.status === "loosened" ||
+      verification.summary.status === "proposed" ||
       verification.summary.status === "parse_failed"
     ) {
       standardsLimits = verification.summary;
@@ -907,9 +934,16 @@ async function runGate(
   const resolved: ResolvedStandard[] = stdPlan.standards.length === 0
     ? []
     : failedStage === null
-    ? await resolveStandardActions(root, stdPlan.standards)
+    ? await resolveStandardActions(
+      root,
+      stdPlan.standards,
+      new Set(standardLimitProposals.keys()),
+    )
     : resolveStandardActionsFromConfig(stdPlan.standards);
-  const gateStandards = buildStandardJobs(root, resolved);
+  const gateStandards = buildStandardJobs(root, resolved, {
+    defaultTimeoutS: cfg.gate.timeout,
+    proposals: standardLimitProposals,
+  });
   const ctGroups = checkTestGroups(cfg, gateStandards.jobs);
   let validation: ValidationStart | undefined;
   if (cfg.project.logbook) {
@@ -956,18 +990,21 @@ async function runGate(
         }
       }
     }
-    if (
-      !(await runGroup(
-        group,
-        results,
-        runOpts,
-        runOut,
-        slots,
-        gateStandards.evaluators,
-      ))
-    ) {
+    const groupOk = await runGroup(
+      group,
+      results,
+      runOpts,
+      runOut,
+      slots,
+      gateStandards.evaluators,
+    );
+    gateStandards.settle(results);
+    const standardFailure = group.jobs.some((job) =>
+      job.kind === "standard" && (results.get(job.label)?.code ?? 0) !== 0
+    );
+    if (!groupOk) {
       failedStage = group.stage;
-    } else if (holdsStandards && replayFailure) {
+    } else if (holdsStandards && (replayFailure || standardFailure)) {
       failedStage = group.stage;
     } else {
       await snapshotAfter(group.stage);
@@ -1137,6 +1174,7 @@ async function runGate(
         : proofCheckpointsData(checkpointPreflight),
       checkpointPreflight?.mode ?? "strict",
       checkpointPreflight?.drops ?? [],
+      [...standardLimitProposals.values()],
     )
     : undefined;
   // Record the measurement proof (ADR 0112, extended by ADR 0133): a green
@@ -1146,6 +1184,14 @@ async function runGate(
   // the next gate run has a baseline to replay against. Durations ride along so
   // a defer decision can be made from data. Fail-closed on red: a failing
   // standard's values must not stay reusable.
+  if (writeAuthority !== undefined) {
+    await recordFreshStandardMeasurementEvidence(
+      root,
+      writeAuthority,
+      standardsData,
+      treePin,
+    );
+  }
   if (failedStage === null) {
     const values: Record<string, number> = {};
     const durations: Record<string, number> = {};
@@ -1225,7 +1271,7 @@ async function runGate(
       root,
       writeAuthority,
       failedStage === null,
-      checkpointPreflight?.evidence,
+      await gateRunEvidenceIdentity(root, checkpointPreflight?.evidence),
       checkpointPreflight?.mode ?? "strict",
     );
   }
@@ -1984,6 +2030,45 @@ async function unchangedTreeRerunRefusal(
   };
 }
 
+/** Read the exact live proposal set. Undefined makes cache reuse fail closed;
+ * the full Gate remains the authoritative fallback. */
+async function activeStandardLimitProposalSet(
+  root: string,
+): Promise<StandardLimitProposalData[] | undefined> {
+  try {
+    const cfg = await loadConfig(root);
+    const plan = buildStandardPlan(cfg);
+    const inspected = await inspectActiveStandardLimitProposals(
+      root,
+      integrationBranch(cfg.repository.trunk),
+      plan.standards,
+    );
+    return [...inspected.active.values()].sort((left, right) =>
+      left.standard.localeCompare(right.standard)
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+/** The unchanged-tree guard also binds to current proposal authority. A reason
+ * edit, revocation, trunk move, or changed fresh measurement therefore makes
+ * the same Git tree a new Gate judgment instead of demanding `--rerun`. */
+async function gateRunEvidenceIdentity(
+  root: string,
+  checkpointEvidence?: string,
+): Promise<string | undefined> {
+  const proposals = await activeStandardLimitProposalSet(root);
+  if (proposals === undefined) {
+    return checkpointEvidence;
+  }
+  return JSON.stringify({
+    version: 1,
+    checkpoints: checkpointEvidence ?? null,
+    standard_proposals: proposals.map(standardLimitProposalIdentity),
+  });
+}
+
 /**
  * Reuse the canonical Proof only when it completely proves this exact clean
  * HEAD. This check runs before checkpoint reconciliation, so the optimization
@@ -2000,6 +2085,16 @@ async function reusableGreenProof(
     proof.checkpoint_drops?.some((drop) =>
         drop.reason === "declaration_evidence_unavailable"
       ) === true
+  ) {
+    return undefined;
+  }
+  const activeProposals = await activeStandardLimitProposalSet(root);
+  if (
+    activeProposals === undefined ||
+    !sameStandardLimitProposalSet(
+      proof.proof_data.standard_proposals ?? [],
+      activeProposals,
+    )
   ) {
     return undefined;
   }
@@ -2115,7 +2210,10 @@ export async function finishResult(
     : await unchangedTreeRerunRefusal(
       root,
       rerunRequested,
-      checkpointGate.preflight.evidence,
+      await gateRunEvidenceIdentity(
+        root,
+        checkpointGate.preflight.evidence,
+      ),
     );
   if (refusal !== undefined) {
     return refusal;
@@ -2229,7 +2327,10 @@ export async function runFinish(
     : await unchangedTreeRerunRefusal(
       root,
       rerunRequested,
-      checkpointGate.preflight.evidence,
+      await gateRunEvidenceIdentity(
+        root,
+        checkpointGate.preflight.evidence,
+      ),
     );
   if (refusal !== undefined) {
     observeResult(refusal); // the logbook records the refusal with its slug

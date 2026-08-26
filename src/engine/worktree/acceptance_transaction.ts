@@ -13,7 +13,11 @@ import {
   LANDING_CONSENT_SOURCES,
   type LandingConsent,
 } from "../../shared/consent.ts";
-import type { AuthorizedVarianceData } from "../../shared/result_schemas.ts";
+import {
+  type AuthorizedVarianceData,
+  type StandardLimitProposalData,
+  StandardLimitProposalSchema,
+} from "../../shared/result_schemas.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
@@ -80,6 +84,13 @@ type AcceptanceTransaction =
      * rationale. Recovery may complete only THIS authorized transition; the
      * decision never replays onto changed declarations or another tree. */
     readonly variances: readonly AuthorizedVarianceData[];
+  })
+  | (AcceptanceTransactionBase & {
+    readonly version: 4;
+    readonly consent: LandingConsent;
+    readonly variances: readonly AuthorizedVarianceData[];
+    /** Exact Standard/value/reason tuples approved for this transition. */
+    readonly standard_proposals: readonly StandardLimitProposalData[];
   });
 
 export interface RecordedAcceptanceTransaction {
@@ -246,6 +257,26 @@ function parseVariances(
   return out;
 }
 
+/** Validate the exact Standard proposal tuples journaled at approval time. */
+function parseStandardProposals(
+  value: unknown,
+): StandardLimitProposalData[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const proposals: StandardLimitProposalData[] = [];
+  const names = new Set<string>();
+  for (const entry of value) {
+    const parsed = StandardLimitProposalSchema.safeParse(entry);
+    if (!parsed.success || names.has(parsed.data.standard)) {
+      return undefined;
+    }
+    names.add(parsed.data.standard);
+    proposals.push(parsed.data);
+  }
+  return proposals;
+}
+
 /** Decode and validate the versioned journal that binds authority to one expected-to-target transition. */
 function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   let parsed: unknown;
@@ -257,14 +288,19 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   if (!isPlainObject(parsed)) {
     throw new Error("the record is not a JSON object");
   }
-  const consent = parsed.version === 2 || parsed.version === 3
+  const consent = parsed.version === 2 || parsed.version === 3 ||
+      parsed.version === 4
     ? parseLandingConsent(parsed.consent)
     : undefined;
-  const variances = parsed.version === 3
+  const variances = parsed.version === 3 || parsed.version === 4
     ? parseVariances(parsed.variances)
     : undefined;
+  const standardProposals = parsed.version === 4
+    ? parseStandardProposals(parsed.standard_proposals)
+    : undefined;
   if (
-    (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3) ||
+    (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3 &&
+      parsed.version !== 4) ||
     typeof parsed.id !== "string" ||
     !TRANSACTION_ID.test(parsed.id) ||
     !isRefName(parsed.worktree_branch) ||
@@ -279,18 +315,23 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     (parsed.version !== 1 && consent === undefined) ||
     (parsed.version !== 1 &&
       (consent?.source === "effort-grant") !== parsed.effort_claim) ||
-    (parsed.version === 3 && variances === undefined) ||
+    ((parsed.version === 3 || parsed.version === 4) &&
+      variances === undefined) ||
+    (parsed.version === 4 && standardProposals === undefined) ||
     // A variance forces current-conversation consent; a journal claiming one
     // under any recorded grant is not a record this engine ever wrote.
-    (parsed.version === 3 && (variances?.length ?? 0) > 0 &&
+    ((parsed.version === 3 || parsed.version === 4) &&
+      (variances?.length ?? 0) > 0 &&
+      consent?.source !== "conversation") ||
+    (parsed.version === 4 && (standardProposals?.length ?? 0) > 0 &&
       consent?.source !== "conversation")
   ) {
     throw new Error(
-      "the record needs version 1, 2, or 3, a transaction id, branch/trunk " +
+      "the record needs version 1, 2, 3, or 4, a transaction id, branch/trunk " +
         "names, expected and target object IDs, an absolute main checkout, " +
         "and an effort-claim flag; versions 2 and 3 also bind matching " +
-        "consent evidence, and version 3 binds its authorized variances to " +
-        "conversation consent",
+        "consent evidence; versions 3 and 4 bind authorized variances, and " +
+        "version 4 binds exact Standard proposals, to conversation consent",
     );
   }
   const base: AcceptanceTransactionBase = {
@@ -308,11 +349,20 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   if (parsed.version === 2) {
     return { version: 2, ...base, consent: consent as LandingConsent };
   }
+  if (parsed.version === 3) {
+    return {
+      version: 3,
+      ...base,
+      consent: consent as LandingConsent,
+      variances: variances as AuthorizedVarianceData[],
+    };
+  }
   return {
-    version: 3,
+    version: 4,
     ...base,
     consent: consent as LandingConsent,
     variances: variances as AuthorizedVarianceData[],
+    standard_proposals: standardProposals as StandardLimitProposalData[],
   };
 }
 
@@ -383,6 +433,7 @@ async function writeAcceptanceTransaction(
   input: Omit<AcceptanceTransactionBase, "id"> & {
     readonly consent: LandingConsent;
     readonly variances: readonly AuthorizedVarianceData[];
+    readonly standardProposals: readonly StandardLimitProposalData[];
   },
 ): Promise<RecordedAcceptanceTransaction> {
   const current = await readAcceptanceTransaction(cwd);
@@ -396,11 +447,19 @@ async function writeAcceptanceTransaction(
         "starting another landing.",
     );
   }
-  const transaction: AcceptanceTransaction = {
-    version: 3,
-    id: crypto.randomUUID(),
-    ...input,
-  };
+  const { standardProposals, ...transactionInput } = input;
+  const transaction: AcceptanceTransaction = standardProposals.length === 0
+    ? {
+      version: 3,
+      id: crypto.randomUUID(),
+      ...transactionInput,
+    }
+    : {
+      version: 4,
+      id: crypto.randomUUID(),
+      ...transactionInput,
+      standard_proposals: standardProposals,
+    };
   await Deno.mkdir(dirname(current.path), { recursive: true });
   const temp = `${current.path}.tmp-${crypto.randomUUID()}`;
   try {
@@ -463,6 +522,7 @@ export async function performAcceptanceTransition(
     readonly consent: LandingConsent;
     /** The owner-authorized variances this exact transition lands under. */
     readonly variances: readonly AuthorizedVarianceData[];
+    readonly standardProposals: readonly StandardLimitProposalData[];
   },
 ): Promise<AcceptanceTransitionResult> {
   const recorded = await writeAcceptanceTransaction(cwd, {
@@ -474,6 +534,7 @@ export async function performAcceptanceTransition(
     effort_claim: input.effortClaim,
     consent: input.consent,
     variances: input.variances,
+    standardProposals: input.standardProposals,
   });
   const { transaction } = recorded;
 
@@ -612,7 +673,10 @@ export async function inspectInterruptedAcceptance(
     );
   }
   let consent: LandingConsent | undefined;
-  if (transaction.version === 2 || transaction.version === 3) {
+  if (
+    transaction.version === 2 || transaction.version === 3 ||
+    transaction.version === 4
+  ) {
     consent = cloneConsent(transaction.consent);
   } else if (transaction.effort_claim) {
     const claim = await readEffortGrantClaim(

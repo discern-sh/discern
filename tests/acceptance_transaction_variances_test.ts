@@ -1,10 +1,9 @@
 /**
- * The v3 acceptance-transaction journal binds authorized variances to one
- * exact expected-to-target transition: a valid record surfaces its
- * journal-bound consent for recovery; a record claiming variances under any
- * recorded grant, or carrying a malformed variance binding, is invalid — the
- * journal is preserved for inspection and recovery refuses to act, so the
- * decision can never replay onto changed declarations or another tree.
+ * Acceptance journals bind narrow owner decisions to one exact
+ * expected-to-target transition: v3 carries checkpoint variances; v4 also
+ * carries proposed Standard limit tuples. Recorded grants cannot authorize
+ * either narrow decision, and malformed/duplicated bindings remain inert for
+ * inspection instead of replaying onto another tree.
  */
 
 import { assert, assertEquals, assertRejects } from "@std/assert";
@@ -61,6 +60,25 @@ function journal(
       ...overrides,
     })
   }\n`;
+}
+
+/** One structurally valid exact Standard proposal for v4 journal tests. */
+function standardProposal(): Record<string, unknown> {
+  return {
+    standard: "source_count",
+    commit: SHA_B,
+    measured_commit: SHA_A,
+    definition_fingerprint: "definition-fingerprint",
+    trunk: "main",
+    trunk_commit: SHA_A,
+    direction: "down",
+    trunk_limit: 1,
+    proposed_limit: 2,
+    measurement: 2,
+    delta: 1,
+    reason: "The accepted feature adds one required source.",
+    evidence_paths: ["src/feature.ts"],
+  };
 }
 
 Deno.test("journal v3: a valid record surfaces its journal-bound conversation consent", async () => {
@@ -122,5 +140,80 @@ Deno.test("journal v3: an empty variance set under any consent source parses (th
     const inspected = await inspectInterruptedAcceptance(wt, "main");
     assert(inspected.kind === "recorded");
     assertEquals(inspected.transaction.version, 3);
+  });
+});
+
+Deno.test("journal v4: exact Standard proposal tuples require and preserve conversation consent", async () => {
+  await withTempDir(async (dir) => {
+    const { wt, path } = await journaledWorktree(dir);
+    await Deno.writeTextFile(
+      path,
+      journal(dir, {
+        version: 4,
+        variances: [],
+        standard_proposals: [standardProposal()],
+      }),
+    );
+    const inspected = await inspectInterruptedAcceptance(wt, "main");
+    assert(inspected.kind === "recorded");
+    assert(inspected.transaction.version === 4);
+    assertEquals(inspected.consent, { source: "conversation" });
+    assertEquals(
+      inspected.transaction.standard_proposals[0]?.reason,
+      "The accepted feature adds one required source.",
+    );
+  });
+});
+
+Deno.test("journal v4: a recorded grant cannot authorize a proposed Standard limit", async () => {
+  await withTempDir(async (dir) => {
+    const { wt, path } = await journaledWorktree(dir);
+    await Deno.writeTextFile(
+      path,
+      journal(dir, {
+        version: 4,
+        consent: { source: "standing-grant", scopes: ["code"] },
+        variances: [],
+        standard_proposals: [standardProposal()],
+      }),
+    );
+    await assertRejects(
+      () => inspectInterruptedAcceptance(wt, "main"),
+      WorktreeGitError,
+      "invalid",
+    );
+  });
+});
+
+Deno.test("journal v4: duplicate or malformed proposal tuples are invalid", async () => {
+  await withTempDir(async (dir) => {
+    const { wt, path } = await journaledWorktree(dir);
+    await Deno.writeTextFile(
+      path,
+      journal(dir, {
+        version: 4,
+        variances: [],
+        standard_proposals: [standardProposal(), standardProposal()],
+      }),
+    );
+    await assertRejects(
+      () => inspectInterruptedAcceptance(wt, "main"),
+      WorktreeGitError,
+      "invalid",
+    );
+
+    await Deno.writeTextFile(
+      path,
+      journal(dir, {
+        version: 4,
+        variances: [],
+        standard_proposals: [{ ...standardProposal(), reason: "" }],
+      }),
+    );
+    await assertRejects(
+      () => inspectInterruptedAcceptance(wt, "main"),
+      WorktreeGitError,
+      "invalid",
+    );
   });
 });

@@ -100,7 +100,8 @@ Deno.test("tier 1: a loosened limit fails the gate, naming the standard and both
     assert(diag !== undefined, r.stdout);
     assertStringIncludes(diag.message, "80"); // the trunk's value
     assertStringIncludes(diag.message, "70"); // the branch's value
-    assertStringIncludes(diag.message, "owner decision taken on the trunk");
+    assertStringIncludes(diag.message, "discern standards propose");
+    assertStringIncludes(diag.message, "exact owner approval");
   });
 });
 

@@ -4,7 +4,11 @@ These page shapes cover the Map's published tiers: overview, quickstart, guide, 
 
 Each skeleton shows the full frontmatter that its page shape typically carries. Keep only keys permitted by the brief's frontmatter table. Word budgets count body prose and exclude frontmatter and code fences.
 
-## Overview (section `README.md`) — 200–350 words
+<!-- project-page-shape: overview -->
+
+## Overview
+
+Default budget: 200–350 words.
 
 The section's front door states what this part of the system is, why it exists, and where to read next. End with a curated leaf table containing one line per leaf in reading order. Keep mechanism detail in the leaves.
 
@@ -24,7 +28,11 @@ What this is and why it exists, in 2–3 short paragraphs a newcomer can read in
 | [<leaf>](x.md) | One line each. |
 ```
 
-## Quickstart — 600–1,000 words
+<!-- project-page-shape: quickstart -->
+
+## Quickstart
+
+Default budget: 600–1,000 words.
 
 Begin with the reader's desired outcome. State the goal and prerequisites, then provide numbered steps with each exact command and visible success result. End with the achieved outcome and one next-page link.
 
@@ -53,9 +61,13 @@ The command, fenced and copyable. What success looks like — the actual output 
 You now have <the outcome>. Next: [<the deeper page>](x.md).
 ```
 
-## Guide / concept — 500–900 words
+<!-- project-page-shape: guide -->
 
-Explain one mechanism or workflow: what it is, how it works, when to use it, and which alternative covers a different case. Subsystem leaves specialize this shape for code through the brief's 400–800-word template. Put every file path and known trap in "Where it lives in code" and "Current state & gotchas."
+## Guide / concept
+
+Default budget: 500–900 words.
+
+Explain one mechanism or workflow: what it is, how it works, when to use it, and which alternative covers a different case. The documenter brief specializes this shape for code-oriented subsystem leaves without redefining its budget. Put every file path and known trap in "Where it lives in code" and "Current state & gotchas."
 
 ```markdown
 ---
@@ -87,7 +99,11 @@ Give one recommendation and the alternative for cases it does not cover.
 The surprises: half-built corners, known traps, and stated limitations.
 ```
 
-## Reference — unbudgeted, scannable
+<!-- project-page-shape: reference -->
+
+## Reference
+
+Default budget: unbudgeted; keep it scannable.
 
 Cover every key, flag, value, default, and limit in tables and definition lists. Use a neutral, scannable register. Characterful example values may retain personality. State preferences only as named defaults.
 
@@ -110,7 +126,11 @@ _What this page enumerates, in one line._
 | --- | ---- | ------- | ------------ |
 ```
 
-## Troubleshooting — 300–700 words
+<!-- project-page-shape: troubleshooting -->
+
+## Troubleshooting
+
+Default budget: 300–700 words.
 
 Lead with the symptom. Headings quote what the reader sees; each entry gives the cause and one recommended fix before any alternative. Use calm, neutral language.
 

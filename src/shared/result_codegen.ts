@@ -593,6 +593,21 @@ function schemaToType(schema: JsonObject, level = 0): string {
   return "unknown";
 }
 
+/** Render one formatter-stable interface row, including long generic values. */
+function mapInterfaceRow(key: string, value: string): string {
+  const property = propertyName(key);
+  const line = `  ${property}: ${value};`;
+  if (line.length <= FORMAT_WIDTH) return line;
+
+  const genericOpen = value.indexOf("<");
+  if (genericOpen < 1 || !value.endsWith(">")) return line;
+  return [
+    `  ${property}: ${value.slice(0, genericOpen + 1)}`,
+    `    ${value.slice(genericOpen + 1, -1)}`,
+    "  >;",
+  ].join("\n");
+}
+
 /** Render an interface whose rows map literal keys to generated result types. */
 function mapInterface(
   name: string,
@@ -600,7 +615,7 @@ function mapInterface(
 ): string {
   return [
     `export interface ${name} {`,
-    ...rows.map(([key, value]) => `  ${propertyName(key)}: ${value};`),
+    ...rows.map(([key, value]) => mapInterfaceRow(key, value)),
     "}",
   ].join("\n");
 }

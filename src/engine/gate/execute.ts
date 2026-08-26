@@ -187,7 +187,7 @@ export async function runGroup(
   evaluators?: JobEvaluators,
 ): Promise<boolean> {
   const jobs: Job[] = group.jobs
-    .filter((j) => j.willRun)
+    .filter((j) => j.willRun && j.runsProcess !== false)
     .map((j) => {
       const evaluate = evaluators?.get(j.label);
       return {

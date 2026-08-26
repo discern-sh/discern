@@ -86,6 +86,7 @@ import {
   PrepareOutputSchema,
   RefreshOutputSchema,
   StandardsOutputSchema,
+  StandardsProposeOutputSchema,
   type StartData,
   StartOutputSchema,
   StatusOutputSchema,
@@ -110,6 +111,7 @@ import { finishResult } from "../gate/finish.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test.ts";
 import { standardsResult } from "../gate/standards.ts";
+import { standardsProposeResult } from "../gate/standard_proposals.ts";
 import { improvementResult } from "../improve/improve.ts";
 import { checkpointsResult } from "../checkpoints/report.ts";
 import { CATEGORY_NAMES } from "../improve/rules.ts";
@@ -212,6 +214,13 @@ const UPDATE: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
   idempotentHint: true,
+};
+/** A convergent config-only proposal transaction; no project command runs. */
+const PROPOSAL: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
 };
 
 /** A tool handler's `args`: the object the SDK validates each call against and hands
@@ -344,6 +353,7 @@ const TOOL_PRIORITY = [
   ...MCP_CORE_LIFECYCLE,
   "discern_test",
   "discern_standards",
+  "discern_standards_propose",
   "discern_impact",
   "discern_coupling",
   "discern_patterns",
@@ -615,6 +625,36 @@ export const TOOLS: McpTool[] = orderTools([
         pin: args.pin === true,
         ...(args.pin_names !== undefined ? { pinNames: args.pin_names } : {}),
         signal,
+      }),
+  }),
+  defineTool({
+    name: "discern_standards_propose",
+    title: "Propose Standard limit",
+    outputSchema: StandardsProposeOutputSchema,
+    annotations: PROPOSAL,
+    description:
+      "Propose a new limit for a Standard breached by this change. Requires a " +
+      "clean worktree branch and a fresh numeric breach " +
+      "from discern_standards on current HEAD. It commits only the proposed " +
+      "limit and records the Standard, value, delta, reason, definition, trunk " +
+      "baseline, and responsible input paths. The resulting Gate Proof still " +
+      "cannot land until the owner explicitly approves this exact proposal; " +
+      "generic landing authority never covers it. Safe to repeat.",
+    inputSchema: {
+      name: z.string().min(1).describe("The exact configured Standard name."),
+      reason: z.string().min(1).max(500).describe(
+        "The verbatim, one-paragraph, secret-free engineering reason for the proposed Standard limit.",
+      ),
+      dry_run: z.boolean().optional().describe(
+        "Return the pure proposal plan without committing or recording anything (default false).",
+      ),
+      ...PATH_PARAM,
+    },
+    run: (root, args) =>
+      standardsProposeResult(root, {
+        name: args.name,
+        reason: args.reason,
+        dryRun: args.dry_run === true,
       }),
   }),
   defineTool({
@@ -1004,6 +1044,12 @@ export const TOOLS: McpTool[] = orderTools([
           "awaiting_variance refusal serves it with each question and " +
           "rationale — and recorded grants never authorize a variance.",
       ),
+      approve_standard: z.array(z.string()).optional().describe(
+        "The owner's exact approval tokens for the proposed Standard limits " +
+          "carried by the current Proof (requires confirmed). Use the tokens " +
+          "served by the read-only refusal; they bind each Standard, value, and " +
+          "reason. Generic or recorded landing grants never authorize them.",
+      ),
       ...PATH_PARAM,
     },
     // Acceptance can remove the worktree before a later cleanup fails. Re-aim from
@@ -1023,6 +1069,9 @@ export const TOOLS: McpTool[] = orderTools([
         confirmed: args.confirmed === true,
         cliModel: context.cliModel,
         ...(args.variance === undefined ? {} : { variance: args.variance }),
+        ...(args.approve_standard === undefined
+          ? {}
+          : { approveStandard: args.approve_standard }),
       }),
   }),
   defineTool({
@@ -1238,6 +1287,7 @@ async function acceptToolResult(
     dryRun?: boolean;
     confirmed?: boolean;
     variance?: string[];
+    approveStandard?: string[];
     cliModel: CliModelProvider;
   },
 ): Promise<DiscernResult> {
@@ -1357,11 +1407,19 @@ export function mcpStartHint(path: string): string {
   return renderMcpHintText(fired.authored ?? fired.text);
 }
 
-/** The verb slug behind a tool name (`discern_impact` → `impact`),
- * for the envelope every failure path renders. Exported as the tool→verb bridge the
- * verb-parity guard uses to tie {@link TOOLS} back to the CLI verb SSOT. */
+/** MCP names usually encode one top-level CLI verb. The explicit exceptions
+ * preserve real multi-word command paths without pretending their second word
+ * is a hyphenated top-level verb. */
+const MCP_TOOL_COMMAND_PATHS: ReadonlyMap<string, string> = new Map([
+  ["discern_standards_propose", "standards propose"],
+]);
+
+/** The command path behind a tool name (`discern_impact` → `impact`),
+ * for the envelope every failure path renders. Exported as the tool→command
+ * bridge the verb-parity guard uses to tie {@link TOOLS} back to the CLI SSOT. */
 export function verbOf(toolName: string): string {
-  return toolName.replace(/^discern_/, "").replace(/_/g, "-");
+  return MCP_TOOL_COMMAND_PATHS.get(toolName) ??
+    toolName.replace(/^discern_/, "").replace(/_/g, "-");
 }
 
 /** One MCP tool result: independently sufficient text and structured projections,

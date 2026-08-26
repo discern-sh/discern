@@ -28,6 +28,7 @@ import { displayWidth } from "../src/lib/text.ts";
 import type {
   GateStandard,
   Proof,
+  StandardLimitProposalData,
   StandardsLimitsData,
 } from "../src/shared/result_schemas.ts";
 import {
@@ -117,6 +118,22 @@ const HELD: GateStandard = {
 
 const VERIFIED: StandardsLimitsData = { status: "verified", trunk: "main" };
 
+const GROWTH_PROPOSAL: StandardLimitProposalData = {
+  standard: "source_count",
+  commit: "c".repeat(40),
+  measured_commit: "b".repeat(40),
+  definition_fingerprint: "definition-fingerprint",
+  trunk: "main",
+  trunk_commit: "a".repeat(40),
+  direction: "down",
+  trunk_limit: 10,
+  proposed_limit: 12,
+  measurement: 12,
+  delta: 2,
+  reason: "The accepted feature adds two required sources.",
+  evidence_paths: ["src/first.ts", "src/second.ts"],
+};
+
 Deno.test("proof render: fixed facts + steps pin the exact page", () => {
   const expected = [
     "### Proof — `agent/upload-retry`",
@@ -157,6 +174,45 @@ Deno.test("proof render: standards render before the job table", () => {
   assertEquals(
     renderProofMarkdown(FACTS, STEPS, [HELD], VERIFIED),
     expected,
+  );
+});
+
+Deno.test("proof render: proposed Standard limit leads routine standards and names the exact decision", () => {
+  const facts: ProofFacts = {
+    ...FACTS,
+    standard_proposals: [GROWTH_PROPOSAL],
+  };
+  const markdown = renderProofMarkdown(
+    facts,
+    STEPS,
+    [HELD],
+    { status: "proposed", trunk: "main" },
+  );
+  assertStringIncludes(
+    markdown,
+    "Proposed Standard limits — exact owner approval required before landing:",
+  );
+  assertStringIncludes(
+    markdown,
+    "`source_count`: 10 → 12 (measured 12; delta +2)",
+  );
+  assertStringIncludes(
+    markdown,
+    "Reason: The accepted feature adds two required sources.",
+  );
+  assert(
+    markdown.indexOf("Proposed Standard limits") <
+      markdown.indexOf("Standards (limits verified"),
+  );
+  assertStringIncludes(renderProofLine(facts), "exact owner approval required");
+  assertStringIncludes(
+    renderLandingProofLine(
+      renderProofLine(facts),
+      { source: "conversation" },
+      0,
+      1,
+    ),
+    "1 proposed Standard limit approved by the owner",
   );
 });
 

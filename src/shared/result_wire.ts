@@ -54,6 +54,7 @@ const PROOF_SUMMARY_FIELDS = [
   ...REQUIRED_PROOF_SUMMARY_FIELDS,
   "mode",
   "checkpoint_drops",
+  "standard_proposals",
 ] as const;
 
 /** Remove the review-page rendering while retaining every compact Proof fact. */

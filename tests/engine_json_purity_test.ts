@@ -149,6 +149,18 @@ const PROJECT_CASES: readonly PurityCase[] = [
     args: ["standards"],
   },
   {
+    commandPath: "standards propose",
+    envelopeVerb: "standards propose",
+    args: [
+      "standards",
+      "propose",
+      "cov",
+      "--reason",
+      "The purity fixture exercises a proposal refusal.",
+      "--dry-run",
+    ],
+  },
+  {
     commandPath: "improvement",
     envelopeVerb: "improvement",
     args: ["improvement"],

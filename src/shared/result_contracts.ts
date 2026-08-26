@@ -46,6 +46,7 @@ import {
   SkillsListOutputSchema,
   SkillsOutputSchema,
   StandardsOutputSchema,
+  StandardsProposeOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
   TestOutputSchema,
@@ -298,6 +299,14 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     schema: StandardsOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.standards,
     mcpTool: "discern_standards",
+  },
+  {
+    id: "standardsPropose",
+    commands: ["standards propose"],
+    verb: "standards propose",
+    schema: StandardsProposeOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.standards,
+    mcpTool: "discern_standards_propose",
   },
   {
     id: "refresh",

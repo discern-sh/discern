@@ -74,6 +74,94 @@ export interface PlannedStandard {
   timeoutS?: number;
 }
 
+/** What one Standard's Gate-facing measurement should do. Standalone
+ * `standards` resolves every configured Standard to `measure`; the Gate may
+ * instead replay input-keyed evidence or defer an on-demand measurement. */
+export type StandardAction =
+  | { kind: "measure" }
+  | { kind: "replay"; value: number; from: string }
+  | { kind: "defer" };
+
+/** One planned Standard paired with its independently resolved action. */
+export interface ResolvedStandard {
+  standard: PlannedStandard;
+  action: StandardAction;
+}
+
+/** Every process-affecting fact behind one Standard measurement. This is the
+ * execution identity authority: adding another process option requires adding
+ * it here before measurements may share a run. */
+export interface StandardExecutionIdentity {
+  command: string;
+  cwd: string;
+  timeoutS: number;
+}
+
+/** One physical process run and the independently evaluated Standards that
+ * consume its emitted metrics. */
+export interface PlannedStandardMeasurement {
+  identity: StandardExecutionIdentity;
+  standards: PlannedStandard[];
+}
+
+/** The pure process plan after replay/defer policy has been resolved. */
+export interface StandardMeasurementPlan {
+  measurements: PlannedStandardMeasurement[];
+}
+
+/** Build the exact execution identity for one measurement. The root and the
+ * effective timeout (per-Standard override or Gate default) participate beside
+ * the command; shell, environment, streaming, and cancellation policy are
+ * invocation-wide today and therefore equal for every member of this plan. */
+export function standardExecutionIdentity(
+  root: string,
+  standard: PlannedStandard,
+  defaultTimeoutS: number,
+): StandardExecutionIdentity {
+  return {
+    command: standard.command,
+    cwd: root,
+    timeoutS: standard.timeoutS ?? defaultTimeoutS,
+  };
+}
+
+/** Stable, collision-free identity key for the bounded JSON-compatible process
+ * shape. Kept private so consumers group through the typed plan, not by
+ * reimplementing its membership rule. */
+function standardExecutionKey(identity: StandardExecutionIdentity): string {
+  return JSON.stringify(identity);
+}
+
+/** Group only Standards whose own resolved action is `measure`. Replayed and
+ * deferred siblings retain their semantic state even when they declare the
+ * same command as a measuring member. Group order and member order follow the
+ * configured Standard order. Pure: no subprocess, Git, clock, or filesystem. */
+export function buildStandardMeasurementPlan(
+  root: string,
+  resolved: readonly ResolvedStandard[],
+  defaultTimeoutS: number,
+): StandardMeasurementPlan {
+  const byIdentity = new Map<string, PlannedStandardMeasurement>();
+  for (const { standard, action } of resolved) {
+    if (action.kind !== "measure") {
+      continue;
+    }
+    const identity = standardExecutionIdentity(
+      root,
+      standard,
+      defaultTimeoutS,
+    );
+    const key = standardExecutionKey(identity);
+    const existing = byIdentity.get(key);
+    if (existing === undefined) {
+      byIdentity.set(key, { identity, standards: [standard] });
+    } else {
+      existing.standards.push(standard);
+    }
+  }
+  return { measurements: [...byIdentity.values()] };
+}
+
 /** The scheduler label for a standard measurement inside the gate. `:` is
  * outside the configured standard-name vocabulary, so this namespace cannot
  * collide with a declared or scope job. Standalone standards use the

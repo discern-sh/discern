@@ -3352,12 +3352,14 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       "discern_prepare",
       "discern_test",
       "discern_standards",
+      "discern_standards_propose",
       "discern_start",
       "discern_update",
     ]);
     const DESTRUCTIVE_TOOLS = new Set(["discern_accept"]);
     const IDEMPOTENT_MUTATING_TOOLS = new Set([
       "discern_refresh",
+      "discern_standards_propose",
       "discern_update",
     ]);
     assertEquals(
@@ -3392,7 +3394,11 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
           IDEMPOTENT_MUTATING_TOOLS.has(tool.name),
         `${tool.name} idempotentHint`,
       );
-      const closedWorldTools = new Set([...READ_ONLY_TOOLS, "discern_refresh"]);
+      const closedWorldTools = new Set([
+        ...READ_ONLY_TOOLS,
+        "discern_refresh",
+        "discern_standards_propose",
+      ]);
       assertEquals(
         annotations.openWorldHint,
         closedWorldTools.has(tool.name) ? false : undefined,
@@ -3401,7 +3407,11 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     }
     assertEquals(
       sorted(IDEMPOTENT_MUTATING_TOOLS),
-      ["discern_refresh", "discern_update"],
+      [
+        "discern_refresh",
+        "discern_standards_propose",
+        "discern_update",
+      ],
       "record any additional mutating idempotent tool explicitly",
     );
 
@@ -3468,6 +3478,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
         "discern_accept",
         "discern_test",
         "discern_standards",
+        "discern_standards_propose",
         "discern_impact",
         "discern_coupling",
         "discern_patterns",

@@ -8,20 +8,27 @@ This subtree documents the public Worktree workflow: isolation, identity, resour
 
 ## Files to produce
 
-| File                       | Topic                                                                              |
-| -------------------------- | ---------------------------------------------------------------------------------- |
-| `README.md`                | Public overview and curated reading order.                                         |
-| `lifecycle.md`             | Start, update, acceptance, abandoned-work cleanup, and refusal paths; `order: 10`. |
-| `the-trunk.md`             | The shared landing branch and its ownership boundary; `order: 20`.                 |
-| `the-resources.md`         | Resource creation, records, teardown, and recovery for each Worktree; `order: 30`. |
-| `identity-and-env.md`      | Worktree ids, ports, environment values, and runtime discovery; `order: 40`.       |
-| `team-workflow.md`         | Fleet ownership and composing concurrent branches; `order: 50`.                    |
-| `multi-repo-workspaces.md` | Repository boundaries, registries, umbrellas, and submodules; `order: 60`.         |
-| `status.md`                | Local and Fleet status, Proof, collisions, and session hints; `order: 70`.         |
-| `the-desk.md`              | The human Fleet view and its valid actions; `order: 80`.                           |
-| `landing-authority.md`     | Conversation consent and recorded grants across the lifecycle; `order: 90`.        |
-| `acceptance-recovery.md`   | Interrupted landing evidence, reconciliation, and partial results; `order: 100`.   |
-| `hand-work-back.md`        | Finish, report, review, revise, accept, and delegate follow-on work; `order: 110`. |
+| File                                | Shape    | Topic                                                                              |
+| ----------------------------------- | -------- | ---------------------------------------------------------------------------------- |
+| `README.md`                         | overview | Public overview and curated reading order.                                         |
+| `lifecycle.md`                      | guide    | Start, update, acceptance, abandoned-work cleanup, and refusal paths; `order: 10`. |
+| `the-trunk.md`                      | guide    | The shared landing branch and its ownership boundary; `order: 20`.                 |
+| `the-resources.md`                  | guide    | Resource creation, records, teardown, and recovery for each Worktree; `order: 30`. |
+| `identity-and-env.md`               | guide    | Worktree ids, ports, environment values, and runtime discovery; `order: 40`.       |
+| `team-workflow.md`                  | guide    | Fleet ownership and composing concurrent branches; `order: 50`.                    |
+| `awaiting-the-fleet.md`             | guide    | Waiting for a sibling branch or the Trunk without polling or stale status prose.   |
+| `multi-repo-workspaces.md`          | guide    | Repository boundaries, registries, umbrellas, and submodules; `order: 60`.         |
+| `status.md`                         | guide    | Local and Fleet status, Proof, collisions, and session hints; `order: 70`.         |
+| `the-desk.md`                       | guide    | The human Fleet view and its valid actions; `order: 80`.                           |
+| `desk-tips.md`                      | guide    | Task-focused interpretation of Desk tips and next actions.                         |
+| `opening-worktrees.md`              | guide    | Supported ways to enter an assigned worktree without splitting an effort.          |
+| `landing-authority.md`              | guide    | Conversation consent and recorded grants across the lifecycle; `order: 90`.        |
+| `acceptance-recovery.md`            | guide    | Interrupted landing evidence, reconciliation, and partial results; `order: 100`.   |
+| `cleanup-ownership.md`              | guide    | Ownership rules for removing stale worktrees, branches, and resource records.      |
+| `drop-recovery.md`                  | guide    | Recovery paths after an interrupted or partially applied drop operation.           |
+| `reappeared-worktree-paths.md`      | guide    | Diagnosis and recovery when a removed worktree path returns.                       |
+| `reclaiming-contained-worktrees.md` | guide    | Safe reclamation of worktrees contained by another workspace boundary.             |
+| `hand-work-back.md`                 | guide    | Finish, report, review, revise, accept, and delegate follow-on work; `order: 110`. |
 
 ## Source files to read
 
@@ -50,4 +57,4 @@ This subtree documents the public Worktree workflow: isolation, identity, resour
 
 ## Length-budget note
 
-The README uses the 200–350-word overview budget. New guide leaves stay within 400–800 words. Existing reference-rich workflow pages retain their complete command and recovery coverage; split them on a future substantive refresh rather than trimming safety details.
+The declared page shapes use the defaults in [`page-templates.md`](../page-templates.md). Existing reference-rich workflow pages retain their complete command and recovery coverage; split them on a substantive refresh instead of trimming safety detail. No local numeric exception is declared.

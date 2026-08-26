@@ -212,6 +212,11 @@
     provides = "canary tests (hot, cheap subset heard before the full suite)"
     timeout = 300
 
+  [jobs.project-control]
+    stage = "check"
+    run = "project/scripts/project-control"
+    provides = "repository planning, TODO, and documenter control-document integrity"
+
 # Setup assurance counts every known job as applicable unless its lifecycle is
 # explicitly absent here. This declaration never changes Gate scheduling.
 # Author changes with `discern config set-job <known-name> --not-applicable`
@@ -934,7 +939,7 @@
     direction = "up"
     per = "public_doc_words"
     scale = 10000
-    limit = 11.0
+    limit = 10.773629470020305
     # Deepening an existing page is legitimate growth: at the current corpus size
     # the margin keeps roughly a thousand words of room for it before a new leaf
     # is due, and re-pins leave the same headroom.

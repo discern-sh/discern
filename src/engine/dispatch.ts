@@ -522,8 +522,7 @@ export function attachEngineCommands(
       ),
     );
 
-  root
-    .command("standards")
+  const standardsCommand = new Command()
     .description(
       "Measure every quality standard: numbers that can never get worse. `discern done` already verifies and measures them on every run. Authoring one? Hold a rate (`per`) for a number that rises as the project grows, and give a drifting total a `margin` — a ceiling pinned at today's value fails the next legitimate change.",
     )
@@ -559,6 +558,42 @@ export function attachEngineCommands(
         );
       }),
     );
+
+  standardsCommand.command(
+    "propose",
+    new Command()
+      .description(
+        "Propose a new limit for a Standard breached by this change. The proposal is measured and commit-bound; acceptance still requires explicit approval for its exact value and reason.",
+      )
+      .arguments("<name:string>")
+      .option(
+        "--reason <reason:string>",
+        "The exact non-empty owner-facing reason for the proposed Standard limit (1-500 visible, secret-free characters).",
+      )
+      .option(
+        "--json",
+        "Emit the result as a JSON DiscernResult object on stdout.",
+      )
+      .option("--dry-run", "Show the proposal plan; touch nothing.")
+      .action(recordedExit(
+        "standards propose",
+        async (o, name: string) => {
+          const { runStandardsPropose } = await import(
+            "./gate/standard_proposals.ts"
+          );
+          return await runStandardsPropose(
+            await requireRoot("standards propose", o.json ?? false),
+            {
+              name,
+              reason: o.reason ?? "",
+              dryRun: o.dryRun ?? false,
+              json: o.json ?? false,
+            },
+          );
+        },
+      )),
+  );
+  root.command("standards", standardsCommand);
 
   root
     .command("refresh")
@@ -947,6 +982,15 @@ export function attachEngineCommands(
         "recorded grants never authorize a variance.",
       { collect: true },
     )
+    .option(
+      "--approve-standard <token:string>",
+      "Record that the owner approved the exact Standard/value/reason tuple " +
+        "carried by the current Proof (repeatable; requires --confirmed). " +
+        "Use the proposal-bound token served by the read-only refusal; the token " +
+        "set must equal the current proposal set. Standing, effort, and " +
+        "generic landing grants never authorize a proposed Standard limit.",
+      { collect: true },
+    )
     .action(recordedExit("accept", async (o) => {
       const json = o.json ?? false;
       return await runWorktreeOp(
@@ -956,6 +1000,7 @@ export function attachEngineCommands(
             dryRun: o.dryRun ?? false,
             confirmed: o.confirmed ?? false,
             variance: o.variance ?? [],
+            approveStandard: o.approveStandard ?? [],
             cliModel,
           }),
         { json, verb: "accept" },

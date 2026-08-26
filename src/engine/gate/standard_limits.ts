@@ -14,8 +14,12 @@ import {
 } from "../../shared/config_schema.ts";
 import { RawConfig } from "../../shared/config_read.ts";
 import type { Diagnostic } from "../../shared/result.ts";
-import type { StandardsLimitsData } from "../../shared/result_schemas.ts";
+import type {
+  StandardLimitProposalData,
+  StandardsLimitsData,
+} from "../../shared/result_schemas.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { sha256Hex } from "../../shared/sha256.ts";
 import {
   loosenedLimitReason,
   type PlannedStandard,
@@ -123,6 +127,29 @@ function normalizeBranchStandard(
     inputs: spec.inputs === undefined ? undefined : [...spec.inputs],
     timeout: spec.timeout,
   } satisfies NormalizedStandardConfig;
+}
+
+/** Stable identity of every Standard-definition field except its monotonic
+ * bound. A proposal changes only `limit`; any other field movement makes
+ * the recorded proposal stale instead of letting incomparable measurements
+ * share an approval. */
+export async function standardDefinitionFingerprint(
+  name: string,
+  spec: StandardConfig,
+): Promise<string> {
+  const normalized = normalizeBranchStandard(name, spec);
+  const material = {
+    metric: normalized.metric,
+    direction: normalized.direction,
+    run: normalized.run,
+    per: normalized.per,
+    scale: normalized.scale,
+    margin: normalized.margin,
+    measure: normalized.measure,
+    inputs: normalized.inputs,
+    timeout: normalized.timeout,
+  };
+  return await sha256Hex(`standard-definition-v1\n${JSON.stringify(material)}`);
 }
 
 /** Normalize one optional or defaulted numeric field from the raw trunk. */
@@ -320,15 +347,15 @@ export interface TrunkLimitsVerification {
   diagnostics: Diagnostic[];
   blocking: boolean;
   blockedStandards: ReadonlySet<string>;
+  proposals: ReadonlyMap<string, StandardLimitProposalData>;
 }
 
 /** The next step a loosening diagnostic tells an agent to take. */
 const LOOSENING_NEXT_STEP =
-  "Relay this finding to your owner rather than working around it: lowering a " +
-  "limit is an owner decision taken on the trunk — at their explicit " +
-  "instruction, an agent working in the main checkout edits " +
-  "[standards.<name>] in the trunk's discern.toml, in daylight, in trunk " +
-  "history. On this branch, move the metric the right way instead.";
+  "If this branch caused the metric breach, take a fresh clean-HEAD " +
+  'measurement and run `discern standards propose <name> --reason "…"`; ' +
+  "otherwise move the metric the right way. Only an exact proposal and exact " +
+  "owner approval can move the held limit.";
 
 /**
  * Verify every configured Standard's normalized enforcement definition and
@@ -340,6 +367,7 @@ export async function verifyTrunkLimits(
   root: string,
   mainBranch: string,
   standards: PlannedStandard[],
+  proposals: ReadonlyMap<string, StandardLimitProposalData> = new Map(),
 ): Promise<TrunkLimitsVerification> {
   const trunk = await readTrunkConfig(root, mainBranch);
   if (trunk.kind === "unreadable") {
@@ -352,6 +380,7 @@ export async function verifyTrunkLimits(
       diagnostics: [],
       blocking: false,
       blockedStandards: new Set(),
+      proposals: new Map(),
     };
   }
   if (trunk.kind === "parse_failed") {
@@ -371,6 +400,7 @@ export async function verifyTrunkLimits(
       }],
       blocking: true,
       blockedStandards: new Set(),
+      proposals: new Map(),
     };
   }
   if (trunk.kind === "absent") {
@@ -379,11 +409,13 @@ export async function verifyTrunkLimits(
       diagnostics: [],
       blocking: false,
       blockedStandards: new Set(),
+      proposals: new Map(),
     };
   }
 
   const diagnostics: Diagnostic[] = [];
   const blockedStandards = new Set<string>();
+  const acceptedProposals = new Map<string, StandardLimitProposalData>();
   const branchNames = new Set(standards.map((standard) => standard.name));
 
   for (const standard of standards) {
@@ -439,6 +471,15 @@ export async function verifyTrunkLimits(
     if (loosened === undefined) {
       continue;
     }
+    const proposal = proposals.get(standard.name);
+    if (
+      proposal !== undefined && proposal.trunk_limit === mainValue &&
+      proposal.proposed_limit === standard.limit &&
+      proposal.direction === standard.direction
+    ) {
+      acceptedProposals.set(standard.name, proposal);
+      continue;
+    }
     blockedStandards.add(standard.name);
     diagnostics.push({
       tool: standardJobLabel(standard.name),
@@ -482,6 +523,24 @@ export async function verifyTrunkLimits(
       diagnostics,
       blocking: true,
       blockedStandards,
+      proposals: acceptedProposals,
+    };
+  }
+  if (acceptedProposals.size > 0) {
+    return {
+      summary: {
+        status: "proposed",
+        trunk: mainBranch,
+        reason: `${acceptedProposals.size} ${
+          acceptedProposals.size === 1
+            ? "proposed Standard limit"
+            : "proposed Standard limits"
+        } explain otherwise-forbidden limit changes`,
+      },
+      diagnostics: [],
+      blocking: false,
+      blockedStandards,
+      proposals: acceptedProposals,
     };
   }
   return {
@@ -489,5 +548,6 @@ export async function verifyTrunkLimits(
     diagnostics: [],
     blocking: false,
     blockedStandards,
+    proposals: acceptedProposals,
   };
 }

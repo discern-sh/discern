@@ -68,6 +68,7 @@ export function resolveStandardActionsFromConfig(
 export async function resolveStandardActions(
   root: string,
   standards: PlannedStandard[],
+  forceMeasure: ReadonlySet<string> = new Set(),
 ): Promise<ResolvedStandard[]> {
   const replayable = standards.filter(
     (standard) =>
@@ -87,6 +88,10 @@ export async function resolveStandardActions(
 
   const resolved: ResolvedStandard[] = [];
   for (const standard of standards) {
+    if (forceMeasure.has(standard.name)) {
+      resolved.push({ standard, action: { kind: "measure" } });
+      continue;
+    }
     if (!standard.gateMeasure) {
       resolved.push({ standard, action: { kind: "defer" } });
       continue;

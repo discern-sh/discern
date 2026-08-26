@@ -1,5 +1,7 @@
 # ADR 0161: Standards hold growth-proof numbers, and a breach from the work itself escalates
 
+> **Amendment ([ADR 0339](0339-proposed-standard-limits-and-shared-measurements.md)):** a breach caused by the current change can now use a fresh measured, commit-bound proposed Standard limit and a separate owner approval at acceptance. Ordinary never-loosen enforcement and trunk-controlled definition changes remain in force; [`standard_proposals.ts`](../../../src/engine/gate/standard_proposals.ts) is the live proposal authority.
+
 **Status**: accepted; extends [ADR 0057](0057-rate-standards.md) and [ADR 0133](0133-standards-join-the-gate.md), and revisits the programme-end settlement of [ADR 0154](0154-launch-standards-recalibrated-to-the-public-corpus.md)
 
 ## Context

@@ -303,6 +303,22 @@ const CONFIG_WITH_STANDARD = [
   "",
 ].join("\n");
 
+/** One falling ceiling whose worktree adds a responsible breached input. */
+const CONFIG_WITH_BREACHED_STANDARD = [
+  "[project]",
+  'slug = "engine-test"',
+  "",
+  "[repository]",
+  'trunk = "main"',
+  "",
+  "[standards.filecount]",
+  `run = "count=$(git ls-files 'src/**' | wc -l); echo DISCERN_METRIC filecount $count"`,
+  "limit = 1",
+  'direction = "down"',
+  'inputs = ["src/**"]',
+  "",
+].join("\n");
+
 /**
  * One probe per preview-required operation policy, keyed by command path. The
  * class test fails closed: an enumerated member with no probe, or a probe whose
@@ -445,6 +461,46 @@ const PROBES: Record<string, DryRunProbe> = {
         cwd: dir,
         dry: ["standards", "--pin", "--dry-run", "--json"],
         apply: ["standards", "--pin", "--json"],
+      };
+    },
+  },
+  "standards propose": {
+    envelope: "engine-plan",
+    arrange: async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(dir, CONFIG_WITH_BREACHED_STANDARD);
+      await Deno.mkdir(join(dir, "src"), { recursive: true });
+      await Deno.writeTextFile(join(dir, "src", "base.ts"), "base\n");
+      await gitInit(dir);
+      const worktree = await addWorktree(dir, "proposal-preview");
+      await Deno.writeTextFile(
+        join(worktree, "src", "feature.ts"),
+        "feature\n",
+      );
+      await git(worktree, "add", "src/feature.ts");
+      await git(worktree, "commit", "-m", "Add feature source");
+      const measured = await runAgent(worktree, ["standards", "--json"]);
+      assertEquals(measured.code, 1, measured.output);
+      const reason = "The feature requires one additional source file.";
+      return {
+        cwd: worktree,
+        dry: [
+          "standards",
+          "propose",
+          "filecount",
+          "--reason",
+          reason,
+          "--dry-run",
+          "--json",
+        ],
+        apply: [
+          "standards",
+          "propose",
+          "filecount",
+          "--reason",
+          reason,
+          "--json",
+        ],
       };
     },
   },

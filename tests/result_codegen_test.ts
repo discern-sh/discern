@@ -49,6 +49,7 @@ const DURABLE_PROOF_FACT_FIELDS = [
 const DURABLE_PROOF_OPTIONAL_FIELDS = [
   "checkpoint_drops",
   "mode",
+  "standard_proposals",
 ] as const;
 
 const DURABLE_PROOF_PRESENTATION_FIELDS = ["line", "markdown"] as const;
