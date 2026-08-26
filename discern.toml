@@ -872,7 +872,6 @@
       "*.mjs",
       "*.cjs",
       "deno.json",
-      "deno.lock",
     ]
 
   # Deliberate error-discard boundary standard — every synchronous catch,
