@@ -33,6 +33,7 @@ import {
   resolveIdentity,
 } from "../../src/engine/worktree/identity.ts";
 import { statIfExists } from "../../src/shared/fs_presence.ts";
+import { runGit } from "../../src/shared/subprocess.ts";
 import { THEME_BOOTSTRAP } from "../../site/theme.ts";
 import { type PickerCatalogEntry, pickerFromCatalog } from "./pickers.ts";
 
@@ -377,16 +378,14 @@ export async function startCanonEditor(
         .map((page) => page.rel),
     ];
     try {
-      const output = await new Deno.Command("git", {
-        args: ["status", "--porcelain", "--", ...writable],
-        cwd: REPO_ROOT,
-        stdin: "null",
-        stdout: "piped",
-        stderr: "null",
-      }).output();
+      const output = await runGit(
+        ["status", "--porcelain", "--", ...writable],
+        {
+          cwd: REPO_ROOT,
+        },
+      );
       if (!output.success) return [];
-      return new TextDecoder()
-        .decode(output.stdout)
+      return output.stdout
         .split("\n")
         .filter((line) => line.trim() !== "")
         .map((line) => line.slice(3));

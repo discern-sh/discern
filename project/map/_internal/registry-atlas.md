@@ -15,6 +15,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 35      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 3       | —                | —                           |
 | [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 63      | —                | —                           |
+| [`side-restricted-operations`](#side-restricted-operations--side-restricted-operations)                               | `src/engine/worktree/side_restrictions.ts#SIDE_RESTRICTED_OPS`                    | 8       | —                | node `worktrees`            |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 25      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 19      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
@@ -97,7 +98,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)     | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                    | 3       | —                | node `licenses`             |
-| [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
+| [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                      | `tests/spawn_surfaces.ts#SUBPROCESS_SPAWN_BOUNDARIES`                             | 31      | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
@@ -105,9 +106,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 26      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 8       | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 94      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 95      | —                | node `canonical-sets`       |
 
-94 sets · 150 guard tests · 58 committed artifacts.
+95 sets · 151 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -173,7 +174,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/engine_desk_tips_test.ts`                   | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/engine_effort_grant_test.ts`                | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/engine_help_groups_test.ts`                 | [`hidden-verbs`](#hidden-verbs--hidden-verbs), [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                                                                                                                                                    |
-| `tests/engine_interrupt_surfaces_test.ts`          | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/engine_interrupt_surfaces_test.ts`          | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/engine_json_purity_test.ts`                 | [`hints`](#hints--hints), [`result-contracts`](#result-contracts--result-contracts), [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts), [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes), [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                                                                                                          |
 | `tests/engine_landing_authority_test.ts`           | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources), [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                                                                                                                                                                                                                                                                                                        |
 | `tests/engine_lifecycle_authority_test.ts`         | [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -194,8 +195,9 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/engine_setup_pages_test.ts`                 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/engine_setup_phase_parity_test.ts`          | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/engine_setup_welcome_test.ts`               | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `tests/engine_subprocess_ssot_test.ts`             | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/engine_subprocess_ssot_test.ts`             | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/engine_verb_parity_test.ts`                 | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `tests/engine_worktree_test.ts`                    | [`side-restricted-operations`](#side-restricted-operations--side-restricted-operations)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/engine_write_preflight_test.ts`             | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/environment_variables_codegen_test.ts`      | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/environment_variables_enrolment_test.ts`    | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -462,6 +464,24 @@ Every live CLI command path's effect classes, exclusion boundary, and preview ob
 - Guards: `tests/operation_effects_test.ts`
 - Glossary: not enrolled — the operation protocol documentation explains the shared policy as one concept rather than defining every command path as a term
 - Feature canon: not enrolled — the registry governs cross-cutting execution mechanics rather than a separately selectable product feature
+
+## `side-restricted-operations` — Side-restricted operations
+
+Every worktree-lifecycle operation restricted to either the main checkout or a linked worktree, including the derived command-line refusal projection when one exists.
+
+- Source: `src/engine/worktree/side_restrictions.ts` — `SIDE_RESTRICTED_OPS`
+- Members: 8
+  - `worktree-setup`
+  - `worktree-teardown`
+  - `worktree-drop`
+  - `worktree-prune`
+  - `update`
+  - `start`
+  - `accept`
+  - `worktree-probe`
+- Guards: `tests/engine_worktree_test.ts`
+- Glossary: not enrolled — the Worktree term defines the boundary; these operation keys are internal lifecycle identifiers
+- Feature canon: described by the `worktrees` node
 
 ## `dry-run-verbs` — Dry-run-capable verbs
 
@@ -3173,21 +3193,43 @@ The generated third-party notice artifacts and their license cache.
 - Glossary: not enrolled — the CLI reference documents the licenses command and these generated artifacts
 - Feature canon: described by the `licenses` node
 
-## `spawn-surfaces` — Spawn surfaces
+## `spawn-surfaces` — Subprocess spawn boundaries
 
-Every file permitted to spawn a subprocess, with the interrupt contract each one owes: end-to-end test coverage or a written exemption.
+Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt proof or exemption.
 
-- Source: `tests/spawn_surfaces.ts` — `SPAWN_HOMES`
-- Members: 9
-  - `src/shared/subprocess.ts`
-  - `src/shared/discern_commit.ts`
-  - `src/shared/third_party_codegen.ts`
-  - `src/commands/docs.ts`
-  - `src/lib/open_browser.ts`
-  - `src/engine/owned_child.ts`
-  - `src/engine/jobs/command.ts`
-  - `src/engine/worktree/shell.ts`
-  - `src/engine/mcp/version_check.ts`
+- Source: `tests/spawn_surfaces.ts` — `SUBPROCESS_SPAWN_BOUNDARIES`
+- Members: 31
+  - `scripts/binary_size.ts#<module>`
+  - `scripts/build.ts#compileTarget`
+  - `scripts/build.ts#verifyDarwinSignature`
+  - `scripts/canon_editor/guards.ts#runGuardFile`
+  - `scripts/canon_editor/guards.ts#metricProbe`
+  - `scripts/canon_editor/locate.ts#openUrl`
+  - `scripts/canon_editor/locate.ts#openInIde`
+  - `scripts/canon_editor/pipeline.ts#spawnSnapshot`
+  - `scripts/canon_editor/pipeline.ts#formatTs`
+  - `scripts/canon_editor/pipeline.ts#proseGate`
+  - `scripts/cli_install.ts#capture`
+  - `scripts/coverage.ts#deno`
+  - `scripts/release_smoke.ts#run`
+  - `scripts/site_local_design_system.ts#capturedCommand`
+  - `scripts/use_compiled_build.ts#buildHostBinary`
+  - `scripts/vale_toolchain.ts#runExactVale`
+  - `scripts/vale_toolchain.ts#extractVale`
+  - `site/dev.ts#runSiteBuild`
+  - `site/page-src/format-generated.ts#formatGeneratedText`
+  - `site/specimens.ts#buildSpecimenPreview`
+  - `src/shared/subprocess.ts#runGit`
+  - `src/shared/subprocess.ts#runShell`
+  - `src/shared/subprocess.ts#commandExists`
+  - `src/shared/discern_commit.ts#commitDiscernChanges`
+  - `src/shared/third_party_codegen.ts#denoInfoJson`
+  - `src/commands/docs.ts#pageThrough`
+  - `src/lib/open_browser.ts#runBrowserCommand`
+  - `src/engine/owned_child.ts#runOwnedChild`
+  - `src/engine/jobs/command.ts#spawnJob`
+  - `src/engine/worktree/shell.ts#runShellRouted`
+  - `src/engine/mcp/version_check.ts#defaultProbeVersion`
 - Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/engine_interrupt_surfaces_test.ts`
 - Glossary: not enrolled — the interruption-safety reference owns this subprocess contract
 - Feature canon: described by the `interruption-safety` node
@@ -3335,10 +3377,11 @@ Every supported lifetime for a temporary directory created by tests or executabl
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 94
+- Members: 95
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
+  - `side-restricted-operations`
   - `dry-run-verbs`
   - `mcp-tools`
   - `mcp-core-lifecycle`
@@ -3432,7 +3475,7 @@ This meta-registry: the closed set of closed sets.
   - `canonical-sets`
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
-- Glossary: not enrolled — this maintainer-only meta-registry has no assigned Glossary term; the terminology decision remains open
+- Glossary: not enrolled — Canonical set is a maintainer discipline documented in the contributor Map; its internal inventory needs no public product term
 - Feature canon: described by the `canonical-sets` node
 
 ## Unaffiliated, with reasons
@@ -3469,7 +3512,6 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 
 - `site/design_system.ts#DESIGN_SYSTEM_BUNDLES` — site build infrastructure: the route-bundle table drives this repository's site build; project installations omit it
 - `src/engine/gate/proof_render.ts` — the claim defines a derive-once invariant: Proof reads and reuses the result envelope
-- `src/engine/worktree/side_restrictions.ts` — candidate for enrollment: a registry of every side-restricted lifecycle operation whose class test (`tests/engine_worktree_test.ts`) sits outside the guard convention
 - `src/lib/paths.ts#BUNDLED_DOCS_STAGE_DIR` — one staging-directory value shared by the build writer and bundled-docs reader
 - `src/lib/providers.ts` — the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member
 - `src/lib/version.ts` — the kit version constant is one value with no member axis or satellites

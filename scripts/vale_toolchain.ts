@@ -11,6 +11,7 @@ import { dirname, join } from "@std/path";
 import { z } from "@zod/zod";
 import { pathExists } from "../src/shared/fs_presence.ts";
 import { gitReportedAdminPath } from "../src/shared/git_admin_paths.ts";
+import { runGit } from "../src/shared/subprocess.ts";
 
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
@@ -137,15 +138,10 @@ async function resolveCacheRoot(
     repoRoot,
     ["rev-parse", "--git-common-dir"],
     async (cwd, args) => {
-      const result = await new Deno.Command("git", {
-        args,
-        cwd,
-        stdout: "piped",
-        stderr: "null",
-      }).output();
+      const result = await runGit(args, { cwd });
       return {
         success: result.success,
-        stdout: decoder.decode(result.stdout),
+        stdout: result.stdout,
       };
     },
   );

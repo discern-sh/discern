@@ -106,7 +106,7 @@ export interface CliRefusalCase {
  * sibling enrols without any test edit.
  */
 export function cliRefusalCases(
-  ops: Record<string, SideRestriction>,
+  ops: Record<string, SideRestriction> = SIDE_RESTRICTED_OPS,
 ): CliRefusalCase[] {
   return Object.entries(ops).flatMap(([op, r]) =>
     r.cli === null

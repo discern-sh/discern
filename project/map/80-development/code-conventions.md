@@ -32,7 +32,7 @@ The Engine has no `selfcheck` or shell-recipe matrix because it has no second co
 
 Deno recognizes `deno-lint-ignore` for one line and `deno-lint-ignore-file` for a file. Both forms are migration debt in this repository. Fix the named rule instead of adding either directive. If a rule is wrong for the repository, change the shared lint configuration and explain that policy change in review.
 
-Run `deno task lint-suppressions` to list the live census. The `lint_suppressions` Standard holds that raw count at a falling ceiling, so a branch may remove directives and cannot add them. After removing one or more, run `discern standards --pin lint_suppressions` to capture the lower limit.
+`deno task lint-suppressions` emits two censuses. `lint_suppressions` covers directives; `lint_exclusions` covers effective `deno.json` patterns over the Git-derived authored-source universe. The command names each pattern and removed source. Ignored products and inert fixtures do not count. Either population may only shrink; pin its Standard after an improvement.
 
 When the count reaches 0, turn the detector into an always-on zero-count test, remove the transitional Standard, and delete the backlog item.
 
@@ -44,6 +44,12 @@ When the count reaches 0, turn the detector into an always-on zero-count test, r
 | Source universe | [`tests/repo_authored_paths.ts`](../../../tests/repo_authored_paths.ts)              |
 | Falling ceiling | [`discern.toml`](../../../discern.toml)                                              |
 | Controls        | [`tests/lint_suppressions_test.ts`](../../../tests/lint_suppressions_test.ts)        |
+
+## Census unsafe assertions
+
+Ordinary typed assertions and `as const` remain advisory. [`UNSAFE_ASSERTION_KINDS`](../../../scripts/cast_census.ts) owns unsafe `as any` and chains through `unknown` or `any`. `deno task cast-census` reports locations, advisory `type_assertions`, and the blocking `unsafe_type_assertions` metric.
+
+The census scans the Git-derived authored-TypeScript universe. [`cast_census_test.ts`](../../../tests/cast_census_test.ts) distinguishes unsafe forms from safe assertions and lookalikes, then plants a future root to prove enrollment.
 
 ## Declare structural guard scope
 
