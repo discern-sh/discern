@@ -121,7 +121,8 @@ export async function resolveContainedProjectReadPath(
   if (projectRelativePathIssue(value) !== undefined) {
     return undefined;
   }
-  const realRoot = await Deno.realPath(root);
+  const realRoot = await realPathIfExists(root);
+  if (realRoot === undefined) return undefined;
   const resolved = await realPathIfExists(join(realRoot, value));
   return resolved !== undefined && isContained(realRoot, resolved)
     ? resolved
