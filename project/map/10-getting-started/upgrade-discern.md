@@ -82,6 +82,6 @@ discern doctor
 discern upgrade --check
 ```
 
-`discern doctor` checks the complete installation and integrations. `discern upgrade --check` exits successfully when the project's schema, fixed config scaffold, managed banners, and `.gitignore` block match the installed binary. It does not query the network for a newer release.
+`discern doctor` checks the complete installation and integrations. `discern upgrade --check` exits successfully when the project's schema, fixed config scaffold, managed banners, `.gitignore` block, and managed `.gitattributes` fragment match the installed binary. Fragment currency does not prove Git's effective value for each generated path; doctor owns that diagnostic. Neither command queries the network for a newer release.
 
 Commit the reviewed upgrade diff. If the agent files changed, keep them in the same commit as their source and the migration changes.

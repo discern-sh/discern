@@ -7,7 +7,12 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { parsePorcelainZ, splitNulRecords } from "../src/shared/git_paths.ts";
+import {
+  parseCheckAttrZ,
+  parsePorcelainZ,
+  parseScopedGitConfigValueZ,
+  splitNulRecords,
+} from "../src/shared/git_paths.ts";
 
 Deno.test("splitNulRecords: NUL-separated records, verbatim, empties dropped", () => {
   assertEquals(
@@ -50,4 +55,56 @@ Deno.test("parsePorcelainZ: empty output and malformed records yield no entries"
   assertEquals(parsePorcelainZ(""), []);
   assertEquals(parsePorcelainZ("\0"), []);
   assertEquals(parsePorcelainZ(" M \0"), []); // no path — never an entry
+});
+
+Deno.test("parseCheckAttrZ: NUL triples preserve spaces and newlines and distinguish every Git value", () => {
+  assertEquals(
+    parseCheckAttrZ(
+      "generated/space file.txt\0merge\0discern-generated\0" +
+        "generated/line\nbreak.txt\0merge\0unset\0" +
+        "generated/plain.txt\0merge\0unspecified\0" +
+        "generated/set.txt\0merge\0set\0",
+    ),
+    [
+      {
+        path: "generated/space file.txt",
+        attribute: "merge",
+        value: "discern-generated",
+      },
+      {
+        path: "generated/line\nbreak.txt",
+        attribute: "merge",
+        value: "unset",
+      },
+      {
+        path: "generated/plain.txt",
+        attribute: "merge",
+        value: "unspecified",
+      },
+      { path: "generated/set.txt", attribute: "merge", value: "set" },
+    ],
+  );
+  assertEquals(parseCheckAttrZ("path\0merge\0value"), undefined);
+  assertEquals(parseCheckAttrZ("path\0merge\0\0"), [
+    { path: "path", attribute: "merge", value: "" },
+  ]);
+  assertEquals(parseCheckAttrZ("\0merge\0value\0"), undefined);
+});
+
+Deno.test("parseScopedGitConfigValueZ: effective config retains scope, origin, and value", () => {
+  assertEquals(
+    parseScopedGitConfigValueZ(
+      "worktree\0file:/repo/.git/worktrees/topic/config.worktree\0true\0",
+    ),
+    {
+      scope: "worktree",
+      origin: "file:/repo/.git/worktrees/topic/config.worktree",
+      value: "true",
+    },
+  );
+  assertEquals(
+    parseScopedGitConfigValueZ("local\0file:/repo/.git/config\0\0"),
+    { scope: "local", origin: "file:/repo/.git/config", value: "" },
+  );
+  assertEquals(parseScopedGitConfigValueZ("local\0origin\0true"), undefined);
 });

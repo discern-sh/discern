@@ -44,3 +44,20 @@ export function generatedGroupForPath(
     group.paths.some((pattern) => pathMatchesPattern(path, pattern))
   );
 }
+
+/**
+ * Every tracked path whose bytes come from a declared generator or the built-in
+ * instruction compiler. The caller supplies Git's tracked-path inventory and
+ * the compiler's live output registry, so new generated groups, outputs, and
+ * provider Agent files enroll without a second maintained path list.
+ */
+export function trackedGeneratedArtifactPaths(
+  groups: readonly ResolvedGeneratedGroup[],
+  trackedPaths: readonly string[],
+  builtInPaths: readonly string[] = [],
+): string[] {
+  const builtIns = new Set(builtInPaths);
+  return trackedPaths.filter((path) =>
+    builtIns.has(path) || generatedGroupForPath(groups, path) !== undefined
+  );
+}

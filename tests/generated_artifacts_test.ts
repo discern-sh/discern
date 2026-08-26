@@ -3,6 +3,7 @@ import { loadConfig, parseConfig } from "../src/shared/config_schema.ts";
 import {
   generatedGroupForPath,
   resolveGeneratedGroups,
+  trackedGeneratedArtifactPaths,
 } from "../src/shared/generated_artifacts.ts";
 import {
   GATE_FAILURE_REMEDIES,
@@ -71,6 +72,24 @@ Deno.test("a scaffolded project loads generated groups and resolves their owned 
       "schemas",
     );
     assertEquals(generatedGroupForPath(groups, "src/main.ts"), undefined);
+    assertEquals(
+      trackedGeneratedArtifactPaths(
+        groups,
+        [
+          "src/main.ts",
+          "schema/new-output.json",
+          "project/map/70-reference/new-page.md",
+          "FUTURE_AGENT.md",
+        ],
+        ["FUTURE_AGENT.md"],
+      ),
+      [
+        "schema/new-output.json",
+        "project/map/70-reference/new-page.md",
+        "FUTURE_AGENT.md",
+      ],
+      "new declared outputs and new compiler-registry paths auto-enroll",
+    );
   });
 });
 

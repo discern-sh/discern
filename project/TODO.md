@@ -48,8 +48,6 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 
 - [ ] **Complete Canon Editor's remaining structural rung.** Use real launch-copy mileage to choose scaffolded add, retire, and reorder forms, a stage-and-commit composer, and the agent-brief escape hatch for campaign-sized changes. Evidence: `scripts/canon_editor/fields.ts`; `project/map/80-development/canon-editor.md`.
 
-- [ ] **Verify effective generated-artifact attributes, not only the managed block.** Resolve every tracked generated path through Git attribute precedence, report invalid effective merge drivers, and verify the worktree-local driver without rewriting project-owned lines. Evidence: `src/lib/agent_gitattributes.ts`; `src/commands/doctor.ts`; `src/engine/worktree/lifecycle.ts`.
-
 - [ ] **Complete the manual accessibility journeys before site publication.** Exercise VoiceOver, keyboard-only navigation, zoom, narrow viewport, reduced motion, print, and no-JavaScript journeys, then record the supported-browser and release judgment. Evidence: `project/map/_private/planning/public-manual-workstreams/7a-comprehension-and-closeout.md`.
 
 - [ ] **Revisit generated-artifact preservation only with a non-inference design.** Reopen ignored-artifact rescue only when authorship can be established without mistaking stale generated prose for meaningful user edits, or when real incidents justify that trade-off. Evidence: `project/map/_adr/_superseded/0091-rescue-generated-content-before-overwrite.md`; `src/engine/instructions.ts`; `src/lib/skills.ts`.

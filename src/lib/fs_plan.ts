@@ -435,9 +435,9 @@ export async function planGitattributesReconcile(
       ? reconciled.text === ""
         ? "remove empty managed file"
         : reconciled.existing === undefined
-        ? "create .gitattributes"
-        : "reconcile discern block"
-      : "discern block current",
+        ? "create managed .gitattributes fragment; doctor verifies effective path attributes"
+        : "reconcile managed .gitattributes fragment; doctor verifies effective path attributes"
+      : "managed .gitattributes fragment current; doctor verifies effective path attributes",
   };
 }
 

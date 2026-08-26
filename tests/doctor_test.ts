@@ -22,14 +22,22 @@ import {
   unexpectedTerminalControls,
   withTempDir,
 } from "./helpers.ts";
-import { gitInit } from "./engine_helpers.ts";
+import { addWorktree, git, gitInit } from "./engine_helpers.ts";
 import { crossedRepoBoundaries } from "../src/shared/env.ts";
-import { renderAgentFiles } from "../src/engine/instruction_render.ts";
+import {
+  agentFilePaths,
+  renderAgentFiles,
+} from "../src/engine/instruction_render.ts";
 import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
-import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
+import {
+  AGENT_NAMES,
+  loadConfig,
+  toCommandList,
+} from "../src/shared/config_schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
+import { DISCERN_GENERATED_MERGE_DRIVER } from "../src/lib/agent_gitattributes.ts";
 import {
   DOCTOR_ORIENTATION_MAX_CHARS,
   executionModelHumanGroups,
@@ -68,6 +76,8 @@ const COMMAND_LIST_VALUE_SCHEMA = z.union([
   z.string(),
   z.array(z.string()),
 ]);
+
+const DRIVER_KEY = `merge.${DISCERN_GENERATED_MERGE_DRIVER}.driver`;
 
 const CLAUDE_SETTINGS_SCHEMA = z.object({
   hooks: z.record(
@@ -532,6 +542,27 @@ async function disableLogbook(dir: string): Promise<void> {
     path,
     text.replace("logbook = true", "logbook = false"),
   );
+}
+
+/** Scaffold and commit generated paths used by Git-attribute doctor cases. */
+async function generatedDoctorProject(
+  dir: string,
+  paths: readonly string[] = ["generated/bundle.txt"],
+): Promise<void> {
+  await setupInstall(dir);
+  await disableLogbook(dir);
+  await Deno.mkdir(join(dir, "generated"));
+  for (const path of paths) {
+    await Deno.writeTextFile(join(dir, path), `${path}\n`);
+  }
+  await addGeneratedGroups(dir, [{
+    name: "bundle",
+    paths: ["generated/**"],
+    run: "sh -c true",
+  }]);
+  const refresh = await runCli(["refresh", "--json"], dir);
+  assertEquals(refresh.code, 0, refresh.stderr);
+  await gitInit(dir);
 }
 
 Deno.test("doctor --json: a fresh install includes the seeded tidy format job", async () => {
@@ -1231,11 +1262,18 @@ Deno.test("doctor: a stale generated-merge block warns with the refresh remedy",
     }]);
 
     const stale = await runDoctorJson(dir);
-    assertEquals(stale.code, 0, JSON.stringify(stale.payload.data.checks));
+    assertEquals(stale.code, 1, JSON.stringify(stale.payload.data.checks));
     const warning = check(stale.payload, "Git attributes");
     assertEquals(warning.status, "warn");
     assertStringIncludes(warning.detail, "does not match");
     assertStringIncludes(warning.fix ?? "", "discern refresh");
+    assertEquals(
+      check(
+        stale.payload,
+        "generated merge attribute: generated/bundle.txt",
+      ).status,
+      "fail",
+    );
 
     const refresh = await runCli(["refresh", "--json"], dir);
     assertEquals(refresh.code, 0, refresh.stderr);
@@ -1246,6 +1284,193 @@ Deno.test("doctor: a stale generated-merge block warns with the refresh remedy",
       ),
       false,
     );
+  });
+});
+
+Deno.test("doctor: a later project attribute override exposes an unsafe generated path without rewriting rules", async () => {
+  await withTempDir(async (dir) => {
+    await generatedDoctorProject(dir);
+
+    const attributesPath = join(dir, ".gitattributes");
+    const managed = await Deno.readTextFile(attributesPath);
+    const overridden = `${managed}generated/** merge=project-driver\n`;
+    await Deno.writeTextFile(attributesPath, overridden);
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1, JSON.stringify(payload.data.checks));
+    const unsafe = check(
+      payload,
+      "generated merge attribute: generated/bundle.txt",
+    );
+    assertEquals(unsafe.status, "fail");
+    assertStringIncludes(unsafe.detail, "project-driver");
+    assertStringIncludes(unsafe.detail, "generated merges are unsafe");
+    assertStringIncludes(unsafe.fix ?? "", "git check-attr");
+    assertEquals(
+      await Deno.readTextFile(attributesPath),
+      overridden,
+      "doctor must preserve every project-owned attribute byte",
+    );
+  });
+});
+
+Deno.test("doctor: Git precedence exposes later, nested, info, unspecified, and unset generated overrides", async () => {
+  await withTempDir(async (dir) => {
+    await generatedDoctorProject(dir);
+    const attributesPath = join(dir, ".gitattributes");
+    const nestedPath = join(dir, "generated/.gitattributes");
+    const infoPath = join(dir, ".git/info/attributes");
+    const baseline = await Deno.readTextFile(attributesPath);
+    const cases = [
+      {
+        name: "later root",
+        value: "root-driver",
+        install: async (): Promise<void> => {
+          await Deno.writeTextFile(
+            attributesPath,
+            `${baseline}generated/** merge=root-driver\n`,
+          );
+        },
+      },
+      {
+        name: "nested",
+        value: "nested-driver",
+        install: async (): Promise<void> => {
+          await Deno.writeTextFile(nestedPath, "* merge=nested-driver\n");
+        },
+      },
+      {
+        name: "info",
+        value: "info-driver",
+        install: async (): Promise<void> => {
+          await Deno.writeTextFile(
+            infoPath,
+            "generated/** merge=info-driver\n",
+          );
+        },
+      },
+      {
+        name: "unspecified",
+        value: "unspecified",
+        install: async (): Promise<void> => {
+          await Deno.writeTextFile(
+            attributesPath,
+            `${baseline}generated/** !merge\n`,
+          );
+        },
+      },
+      {
+        name: "unset",
+        value: "unset",
+        install: async (): Promise<void> => {
+          await Deno.writeTextFile(
+            attributesPath,
+            `${baseline}generated/** -merge\n`,
+          );
+        },
+      },
+    ] as const;
+
+    for (const fixture of cases) {
+      await Deno.writeTextFile(attributesPath, baseline);
+      await Deno.remove(nestedPath).catch(() => {});
+      await Deno.remove(infoPath).catch(() => {});
+      await fixture.install();
+      const beforeRoot = await Deno.readTextFile(attributesPath);
+      const beforeNested = await targetExists(nestedPath)
+        ? await Deno.readTextFile(nestedPath)
+        : undefined;
+      const beforeInfo = await targetExists(infoPath)
+        ? await Deno.readTextFile(infoPath)
+        : undefined;
+
+      const { code, payload } = await runDoctorJson(dir);
+      assertEquals(code, 1, `${fixture.name}: ${JSON.stringify(payload)}`);
+      const unsafe = check(
+        payload,
+        "generated merge attribute: generated/bundle.txt",
+      );
+      assertEquals(unsafe.status, "fail", fixture.name);
+      assertStringIncludes(unsafe.detail, fixture.value, fixture.name);
+      assertEquals(await Deno.readTextFile(attributesPath), beforeRoot);
+      assertEquals(
+        await targetExists(nestedPath)
+          ? await Deno.readTextFile(nestedPath)
+          : undefined,
+        beforeNested,
+      );
+      assertEquals(
+        await targetExists(infoPath)
+          ? await Deno.readTextFile(infoPath)
+          : undefined,
+        beforeInfo,
+      );
+    }
+  });
+});
+
+Deno.test("doctor: spaces and newly tracked outputs auto-enroll in effective attribute verification", async () => {
+  await withTempDir(async (dir) => {
+    await generatedDoctorProject(dir, [
+      "generated/bundle.txt",
+      "generated/space file.txt",
+      "generated/line\nbreak.txt",
+      "generated/future-output.txt",
+    ]);
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
+    const attributes = check(payload, "generated merge attributes");
+    assertEquals(attributes.status, "ok");
+    const expected = 4 + agentFilePaths(await loadConfig(dir)).length;
+    assertStringIncludes(
+      attributes.detail,
+      `${expected} tracked generated path(s)`,
+    );
+  });
+});
+
+Deno.test("doctor: linked worktrees require the correct worktree-local generated merge driver", async () => {
+  await withTempDir(async (dir) => {
+    await generatedDoctorProject(dir);
+    await git(dir, "config", DRIVER_KEY, "wrong-common-driver");
+    const worktree = await addWorktree(dir, "driver-health");
+    const setup = await runCli(["worktree", "setup", "--json"], worktree);
+    assertEquals(setup.code, 0, setup.stderr);
+
+    const healthy = await runDoctorJson(worktree);
+    assertEquals(healthy.code, 0, JSON.stringify(healthy.payload.data.checks));
+    const configured = check(healthy.payload, "generated merge driver");
+    assertEquals(configured.status, "ok");
+    assertStringIncludes(configured.detail, 'scope "worktree"');
+    assertStringIncludes(configured.detail, "config.worktree");
+
+    await git(worktree, "config", "--worktree", "--unset-all", DRIVER_KEY);
+    await git(dir, "config", "--unset-all", DRIVER_KEY);
+    const missing = await runDoctorJson(worktree);
+    assertEquals(missing.code, 1);
+    const absent = check(missing.payload, "generated merge driver");
+    assertEquals(absent.status, "fail");
+    assertStringIncludes(absent.detail, "has no");
+    assertStringIncludes(
+      absent.fix ?? "",
+      `git config --worktree ${DRIVER_KEY} true`,
+    );
+
+    await git(dir, "config", DRIVER_KEY, "wrong-common-driver");
+    const wrongScope = await runDoctorJson(worktree);
+    assertEquals(wrongScope.code, 1);
+    const common = check(wrongScope.payload, "generated merge driver");
+    assertEquals(common.status, "fail");
+    assertStringIncludes(common.detail, "wrong-common-driver");
+    assertStringIncludes(common.detail, 'scope "local"');
+
+    await git(worktree, "config", "--worktree", DRIVER_KEY, "false");
+    const wrong = await runDoctorJson(worktree);
+    assertEquals(wrong.code, 1);
+    const incorrect = check(wrong.payload, "generated merge driver");
+    assertEquals(incorrect.status, "fail");
+    assertStringIncludes(incorrect.detail, 'resolves to "false"');
+    assertStringIncludes(incorrect.detail, 'scope "worktree"');
   });
 });
 

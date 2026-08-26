@@ -18,6 +18,66 @@ export function splitNulRecords(stdout: string): string[] {
   return stdout.split("\0").filter((r) => r !== "");
 }
 
+/** One `git check-attr --stdin -z <attribute>` output triple. */
+export interface GitAttributeRecord {
+  readonly path: string;
+  readonly attribute: string;
+  readonly value: string;
+}
+
+/**
+ * Parse Git's NUL-delimited attribute protocol without trimming path bytes.
+ * Unlike a single-field listing, the value field is allowed to be empty, so
+ * this decoder validates the trailing terminator and consumes exact triples.
+ */
+export function parseCheckAttrZ(
+  stdout: string,
+): GitAttributeRecord[] | undefined {
+  const fields = stdout.split("\0");
+  if (fields.at(-1) !== "") return undefined;
+  fields.pop();
+  if (fields.length % 3 !== 0) return undefined;
+  const records: GitAttributeRecord[] = [];
+  for (let index = 0; index < fields.length; index += 3) {
+    const path = fields[index];
+    const attribute = fields[index + 1];
+    const value = fields[index + 2];
+    if (
+      path === undefined || path === "" || attribute === undefined ||
+      attribute === "" || value === undefined
+    ) {
+      return undefined;
+    }
+    records.push({ path, attribute, value });
+  }
+  return records;
+}
+
+/** One effective `git config --null --show-origin --show-scope --get` record. */
+export interface ScopedGitConfigValue {
+  readonly scope: string;
+  readonly origin: string;
+  readonly value: string;
+}
+
+/** Parse the exact three-field effective-config protocol used by doctor. */
+export function parseScopedGitConfigValueZ(
+  stdout: string,
+): ScopedGitConfigValue | undefined {
+  const fields = stdout.split("\0");
+  if (fields.length !== 4 || fields[3] !== "") return undefined;
+  const scope = fields[0];
+  const origin = fields[1];
+  const value = fields[2];
+  if (
+    scope === undefined || scope === "" || origin === undefined ||
+    origin === "" || value === undefined
+  ) {
+    return undefined;
+  }
+  return { scope, origin, value };
+}
+
 /** One `git status --porcelain=v1 -z` entry. */
 export interface PorcelainEntry {
   /** The two-character `XY` status code (e.g. `" M"`, `"??"`, `"R "`). */

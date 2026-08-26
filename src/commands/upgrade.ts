@@ -744,10 +744,13 @@ function renderUpgradeSummary(
     }
   }
   if (gitattributesReconciliation.length > 0) {
-    log.ok("gitattributes block reconciled");
+    log.ok("managed gitattributes fragment reconciled");
     for (const op of gitattributesReconciliation) {
       log.detail(gitattributesOperationLabel(op));
     }
+    log.detail(
+      "effective generated-path protection is verified separately by discern doctor",
+    );
   }
   if (instructions !== undefined) {
     log.ok(

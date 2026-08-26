@@ -47,6 +47,7 @@ import {
   toCommandList,
 } from "../shared/config_schema.ts";
 import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
+import { generatedMergeChecks } from "../engine/doctor/generated_merge.ts";
 import {
   agentFilePaths,
   renderAgentFiles,
@@ -684,6 +685,17 @@ export async function runChecks(
           : "run `discern refresh` to reconcile .gitattributes",
       });
     }
+    const inventory = await generatedFileInventory(destDir);
+    if (inventory !== undefined) {
+      checks.push(
+        ...await generatedMergeChecks(
+          destDir,
+          groups,
+          inventory.tracked,
+          agentFilePaths(config),
+        ),
+      );
+    }
     if (groups.length > 0) {
       for (const group of groups) {
         const word = leadingCommandWord(group.run);
@@ -714,7 +726,6 @@ export async function runChecks(
         }
       }
 
-      const inventory = await generatedFileInventory(destDir);
       if (inventory !== undefined) {
         for (const group of groups) {
           const tracked = inventory.tracked.filter((path) =>

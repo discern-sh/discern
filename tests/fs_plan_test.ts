@@ -359,6 +359,8 @@ Deno.test("gitattributes reconciliation plans registered Markdown and generated 
     assert(create !== undefined);
     assertEquals(create.kind, "reconcile-gitattributes");
     assertEquals(create.disposition, "create");
+    assertStringIncludes(create.note ?? "", "managed .gitattributes fragment");
+    assertStringIncludes(create.note ?? "", "doctor verifies effective");
     await applyPlan({ ops: [create], unknownTokens: new Map() });
     assertStringIncludes(
       await readTarget(dir, ".gitattributes"),
@@ -373,6 +375,8 @@ run = "true"
     const update = await planGitattributesReconcile(dir, generatedConfig);
     assert(update !== undefined);
     assertEquals(update.disposition, "append");
+    assertStringIncludes(update.note ?? "", "managed .gitattributes fragment");
+    assertStringIncludes(update.note ?? "", "doctor verifies effective");
     await applyPlan({ ops: [update], unknownTokens: new Map() });
     assertStringIncludes(
       await readTarget(dir, ".gitattributes"),
@@ -382,6 +386,8 @@ run = "true"
     const current = await planGitattributesReconcile(dir, generatedConfig);
     assert(current !== undefined);
     assertEquals(current.disposition, "skip");
+    assertStringIncludes(current.note ?? "", "fragment current");
+    assertStringIncludes(current.note ?? "", "doctor verifies effective");
   });
 });
 

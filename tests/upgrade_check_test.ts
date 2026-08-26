@@ -93,8 +93,16 @@ Deno.test("upgrade detects and reconciles a stale generated-merge block", async 
       [{ kind: "replace-block", path: ".gitattributes" }],
     );
 
-    const upgrade = await runCli(["upgrade", "--json"], dir);
+    const upgrade = await runCli(["upgrade"], dir);
     assertEquals(upgrade.code, 0, upgrade.stderr);
+    assertTerminalTextIncludes(
+      upgrade.stderr,
+      "managed gitattributes fragment reconciled",
+    );
+    assertTerminalTextIncludes(
+      upgrade.stderr,
+      "effective generated-path protection is verified separately by discern doctor",
+    );
     assertStringIncludes(
       await Deno.readTextFile(attributesPath),
       "generated/** merge=discern-generated",
