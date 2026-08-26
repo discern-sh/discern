@@ -560,32 +560,31 @@ Deno.test("path, byte, time, and unreadable budgets fail open without a comparab
   });
 });
 
+const CAPTURE_DEADLINE_TOLERANCE_MS = 250;
+
 /** Require a capture to return its categorical deadline result promptly. */
 async function assertCaptureDeadline(
   capturePromise: Promise<ValidationStart>,
   timeMs: number,
   label: string,
 ): Promise<ValidationStart> {
-  const toleranceMs = 250;
-  const started = performance.now();
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const winner = await Promise.race([
     capturePromise.then((value) => ({ kind: "capture" as const, value })),
     new Promise<{ kind: "hung" }>((resolve) =>
       timeout = setTimeout(
         () => resolve({ kind: "hung" }),
-        timeMs + toleranceMs,
+        timeMs + CAPTURE_DEADLINE_TOLERANCE_MS,
       )
     ),
   ]);
   if (timeout !== undefined) clearTimeout(timeout);
+  // Timer ordering is the load-safe bound. If the event loop is starved, both
+  // callbacks can resume late; the capture deadline must still beat the later
+  // watchdog, without blaming scheduler time in which neither could progress.
   assert(
     winner.kind === "capture",
-    `${label} exceeded its ${timeMs}ms capture deadline plus ${toleranceMs}ms tolerance`,
-  );
-  assert(
-    performance.now() - started <= timeMs + toleranceMs,
-    `${label} returned outside the deadline tolerance`,
+    `${label} exceeded its ${timeMs}ms capture deadline plus ${CAPTURE_DEADLINE_TOLERANCE_MS}ms tolerance`,
   );
   assertEquals(winner.value.state.complete, false, label);
   assert(
@@ -596,6 +595,35 @@ async function assertCaptureDeadline(
   );
   return winner.value;
 }
+
+Deno.test("capture deadline assertions remain valid after scheduler starvation", async () => {
+  const timeMs = 20;
+  const keyProvider = (): Promise<ValidationKeyResult> =>
+    new Promise<ValidationKeyResult>(() => {});
+  const capturePromise = captureValidationStart(
+    "/unreachable",
+    cfg,
+    VALIDATION_RUNS.test,
+    group(VALIDATION_RUNS.test),
+    { limits: { timeMs }, keyProvider },
+  );
+  const blocker = new Int32Array(
+    new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT),
+  );
+  queueMicrotask(() => {
+    Atomics.wait(
+      blocker,
+      0,
+      0,
+      timeMs + CAPTURE_DEADLINE_TOLERANCE_MS + 50,
+    );
+  });
+  await assertCaptureDeadline(
+    capturePromise,
+    timeMs,
+    "scheduler-starved key capture",
+  );
+});
 
 Deno.test("a stalled tracked-file read cannot hold validation capture past its deadline", async () => {
   await withTempDir(async (dir) => {
