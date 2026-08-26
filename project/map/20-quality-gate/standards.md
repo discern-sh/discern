@@ -57,7 +57,7 @@ Ask before wiring: does this number move when the project healthily grows? The a
 - A **quality that scales** rises with the tree, such as coverage or alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).
 - A **growing total** rises with each shipped feature, such as an asset size or word count. A ceiling pinned at today's value fails the next legitimate change. The resulting pressure can shrink unrelated content or trade readability for bytes while the Gate remains green. Prefer the rate that states the real claim. Where only the total will do, set a `margin` and treat raising the limit as a routine owner decision.
 
-Report a breach the work itself caused instead of engineering the number back down. A fresh measured breach can become a proposed Standard limit that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that exact proposal ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
+Report a breach the work itself caused instead of engineering the number back down. A fresh measured breach can become a Standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that exact proposal ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 
 ## What the Gate does
 
@@ -89,13 +89,13 @@ discern records the reason verbatim. It must contain 1–500 visible characters 
 
 Repeating the same request changes nothing. Replacing only the reason updates the proposal record and invalidates prior Proof without adding a commit. A moved commit, trunk, definition, limit, responsible-input boundary, or fresh measurement makes the record stale. A stale proposal authorizes nothing and restores ordinary enforcement.
 
-`discern done` remeasures a live proposal and records the proposed Standard limit prominently in Proof. `discern accept` then refuses read-only and serves one approval token per proposal. The token is a 64-character lowercase hexadecimal digest of the exact Standard, value, and reason. It makes a copied approval command stale when any of those facts changes; it is not a separate source of authority. Relay each Standard, proposed value, delta, reason, and responsible path to the owner. After the owner approves those tuples in the current conversation, run the complete command returned by the refusal:
+`discern done` remeasures a live proposal and records the Standard limit proposal prominently in Proof. `discern accept` then refuses read-only and serves one approval token per proposal. The token is a 64-character lowercase hexadecimal digest of the exact Standard, value, and reason. It makes a copied approval command stale when any of those facts changes; it is not a separate source of authority. Relay each Standard, proposed value, delta, reason, and responsible path to the owner. After the owner approves those tuples in the current conversation, run the complete command returned by the refusal:
 
 ```sh
 discern accept --confirmed --approve-standard <token>
 ```
 
-Repeat `--approve-standard` for every proposal. The supplied tokens must equal the current proposal set. Standing grants, effort grants, generic landing consent, checkpoint variances, and earlier tokens do not approve proposed Standard limits. Acceptance lands the proposal commit that passed the Gate. It does not edit the limit or create a later commit.
+Repeat `--approve-standard` for every proposal. The supplied tokens must equal the current proposal set. Standing grants, effort grants, generic landing consent, checkpoint variances, and earlier tokens do not approve Standard limit proposals. Acceptance lands the proposal commit that passed the Gate. It does not edit the limit or create a later commit.
 
 If the owner declines, leave acceptance stopped, restore the trunk limit in the branch, commit that restoration, and run `discern done` under ordinary enforcement.
 
@@ -136,5 +136,5 @@ Pin records a clean `HEAD` before reading values and rechecks before editing. A 
 ## Current state & gotchas
 
 - `inputs` is a correctness boundary: omitting a file the metric reads can replay a stale value.
-- A proposed Standard limit requires `inputs` because its owner decision names the responsible changed paths.
+- A Standard limit proposal requires `inputs` because its owner decision names the responsible changed paths.
 - An unreadable trunk produces a prominent `UNVERIFIED` warning; the gate records it in the result and proof. Fetch trunk where standards run.

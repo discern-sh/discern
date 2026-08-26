@@ -643,7 +643,7 @@ export const TOOLS: McpTool[] = orderTools([
     inputSchema: {
       name: z.string().min(1).describe("The exact configured Standard name."),
       reason: z.string().min(1).max(500).describe(
-        "The verbatim, one-paragraph, secret-free engineering reason for the proposed Standard limit.",
+        "The verbatim, one-paragraph, secret-free engineering reason for the Standard limit proposal.",
       ),
       dry_run: z.boolean().optional().describe(
         "Return the pure proposal plan without committing or recording anything (default false).",
@@ -1045,7 +1045,7 @@ export const TOOLS: McpTool[] = orderTools([
           "rationale — and recorded grants never authorize a variance.",
       ),
       approve_standard: z.array(z.string()).optional().describe(
-        "The owner's exact approval tokens for the proposed Standard limits " +
+        "The owner's exact approval tokens for the Standard limit proposals " +
           "carried by the current Proof (requires confirmed). Use the tokens " +
           "served by the read-only refusal; they bind each Standard, value, and " +
           "reason. Generic or recorded landing grants never authorize them.",

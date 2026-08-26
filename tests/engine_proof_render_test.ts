@@ -177,7 +177,7 @@ Deno.test("proof render: standards render before the job table", () => {
   );
 });
 
-Deno.test("proof render: proposed Standard limit leads routine standards and names the exact decision", () => {
+Deno.test("proof render: Standard limit proposal leads routine standards and names the exact decision", () => {
   const facts: ProofFacts = {
     ...FACTS,
     standard_proposals: [GROWTH_PROPOSAL],
@@ -190,7 +190,7 @@ Deno.test("proof render: proposed Standard limit leads routine standards and nam
   );
   assertStringIncludes(
     markdown,
-    "Proposed Standard limits — exact owner approval required before landing:",
+    "Standard limit proposals — resolved only by the owner's exact decision:",
   );
   assertStringIncludes(
     markdown,
@@ -201,18 +201,87 @@ Deno.test("proof render: proposed Standard limit leads routine standards and nam
     "Reason: The accepted feature adds two required sources.",
   );
   assert(
-    markdown.indexOf("Proposed Standard limits") <
+    markdown.indexOf("Standard limit proposals") <
       markdown.indexOf("Standards (limits verified"),
   );
-  assertStringIncludes(renderProofLine(facts), "exact owner approval required");
   assertStringIncludes(
-    renderLandingProofLine(
-      renderProofLine(facts),
-      { source: "conversation" },
-      0,
-      1,
-    ),
-    "1 proposed Standard limit approved by the owner",
+    renderProofLine(facts),
+    "· proposal awaiting exact owner approval: source_count 10 → 12 ·",
+  );
+});
+
+Deno.test("landing proof line resolves the proposal segment in place", () => {
+  const facts: ProofFacts = {
+    ...FACTS,
+    standard_proposals: [GROWTH_PROPOSAL],
+  };
+  const landed = renderLandingProofLine(
+    renderProofLine(facts),
+    { source: "conversation" },
+    { proposals: [GROWTH_PROPOSAL] },
+  );
+  assertStringIncludes(
+    landed,
+    "· proposal approved by the owner: source_count 10 → 12 ·",
+  );
+  // The resolution replaces the awaiting-decision segment — a landed line
+  // never states a demand next to the record of its satisfaction.
+  assertEquals(landed.includes("awaiting"), false);
+  assertEquals(landed.includes("required to land"), false);
+});
+
+Deno.test("landing proof line resolves several proposals as a count", () => {
+  const second: StandardLimitProposalData = {
+    ...GROWTH_PROPOSAL,
+    standard: "bundle_size",
+  };
+  const proposals = [GROWTH_PROPOSAL, second];
+  const facts: ProofFacts = { ...FACTS, standard_proposals: proposals };
+  const line = renderProofLine(facts);
+  assertStringIncludes(line, "· 2 proposals awaiting exact owner approval ·");
+  const landed = renderLandingProofLine(line, { source: "conversation" }, {
+    proposals,
+  });
+  assertStringIncludes(landed, "· 2 proposals approved by the owner ·");
+  assertEquals(landed.includes("awaiting"), false);
+});
+
+Deno.test("landing proof line resolves declared-unmet checkpoints as authorized variances", () => {
+  const checkpoints = {
+    declared_met: [{ id: "docs", declared_at: "2026-08-26T00:00:00Z" }],
+    declared_unmet: [{
+      id: "migration",
+      why: "The change ships without a migration path.",
+      declared_at: "2026-08-26T00:00:00Z",
+    }],
+  };
+  const facts: ProofFacts = { ...FACTS, checkpoints };
+  const line = renderProofLine(facts);
+  assertStringIncludes(
+    line,
+    "· 1 declared unmet — owner variance required to land (1 declared met) ·",
+  );
+  const landed = renderLandingProofLine(line, { source: "conversation" }, {
+    checkpoints,
+  });
+  assertStringIncludes(
+    landed,
+    "· 1 declared unmet — variance authorized by the owner (1 declared met) ·",
+  );
+  assertEquals(landed.includes("required to land"), false);
+});
+
+Deno.test("landing proof line appends a resolution it cannot locate exactly once", () => {
+  // An honored line stored by an earlier engine carries older segment wording;
+  // the resolution still lands on the line, stated once, with no demand left.
+  const legacy =
+    "Proof: gate passed on agent/x @ abc1234 · 1 file +1 −0 vs main · full proof: discern status --verbose";
+  const landed = renderLandingProofLine(legacy, { source: "conversation" }, {
+    proposals: [GROWTH_PROPOSAL],
+  });
+  assertStringIncludes(
+    landed,
+    "· proposal approved by the owner: source_count 10 → 12 · landed with conversation consent",
   );
 });
 

@@ -1,4 +1,4 @@
-/** Pure state-machine coverage for proposed Standard limit planning. */
+/** Pure state-machine coverage for Standard limit proposal planning. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
@@ -47,7 +47,7 @@ function context(
   };
 }
 
-Deno.test("proposed Standard limit plan binds exact measurement, delta, reason, and responsible paths", () => {
+Deno.test("Standard limit proposal plan binds exact measurement, delta, reason, and responsible paths", () => {
   const decision = buildStandardLimitProposalPlan(context());
   assert(decision.ok);
   assertEquals(decision.plan.proposal, {
@@ -67,7 +67,7 @@ Deno.test("proposed Standard limit plan binds exact measurement, delta, reason, 
   assertEquals(decision.plan.engine.steps.length, 2);
 });
 
-Deno.test("proposed Standard limit plan supports a regressed floor with a signed negative delta", () => {
+Deno.test("Standard limit proposal plan supports a regressed floor with a signed negative delta", () => {
   const decision = buildStandardLimitProposalPlan(context({
     standard: plannedStandard("up"),
     measurement: 8,
@@ -77,7 +77,7 @@ Deno.test("proposed Standard limit plan supports a regressed floor with a signed
   assertEquals(decision.plan.proposal.delta, -2);
 });
 
-Deno.test("proposed Standard limit plan refuses held values, improvements, and prior limit edits", () => {
+Deno.test("Standard limit proposal plan refuses held values, improvements, and prior limit edits", () => {
   for (const measurement of [10, 9]) {
     const decision = buildStandardLimitProposalPlan(context({ measurement }));
     assert(!decision.ok);
@@ -90,7 +90,7 @@ Deno.test("proposed Standard limit plan refuses held values, improvements, and p
   assertStringIncludes(alreadyMoved.message, "already changes its limit");
 });
 
-Deno.test("proposed Standard limit plan requires configured inputs and attributable changed paths", () => {
+Deno.test("Standard limit proposal plan requires configured inputs and attributable changed paths", () => {
   const { inputs: _inputs, ...standardWithoutInputs } = plannedStandard();
   const noInputs = buildStandardLimitProposalPlan(context({
     standard: standardWithoutInputs,
@@ -105,7 +105,7 @@ Deno.test("proposed Standard limit plan requires configured inputs and attributa
   assertStringIncludes(unrelated.message, "no changed path matches");
 });
 
-Deno.test("proposed Standard limit reasons are verbatim, bounded, visible, and secret-free", () => {
+Deno.test("Standard limit proposal reasons are verbatim, bounded, visible, and secret-free", () => {
   const verbatim = "  The product change requires this limit.  ";
   assertEquals(validateStandardLimitReason(verbatim), {
     ok: true,

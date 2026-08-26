@@ -15,7 +15,7 @@ _discern verifies landing authority before moving the trunk._
 
 A green [Proof](../20-quality-gate/the-proof.md) records that an exact clean commit passed the declared Gate. Landing permission comes from conversation consent or a recorded grant for the worktree ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-A Proof that contains a proposed Standard limit also needs separate owner approval for each current Standard/value/reason tuple. Landing authority does not cover that narrower decision ([ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
+A Proof that contains a Standard limit proposal also needs separate owner approval for each current Standard/value/reason tuple. Landing authority does not cover that narrower decision ([ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 
 ## Authority sources
 
@@ -50,9 +50,9 @@ When `accept` has no landing authority, it changes nothing. Every supported resu
 
 An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
 
-## Approve a proposed Standard limit
+## Approve a Standard limit proposal
 
-`discern accept` checks proposed Standard limits before applying landing authority. The live worktree proposal record must equal the proposal set in the honored Proof. A mismatch, stale record, reason change, or revocation refuses without moving the trunk.
+`discern accept` checks Standard limit proposals before applying landing authority. The live worktree proposal record must equal the proposal set in the honored Proof. A mismatch, stale record, reason change, or revocation refuses without moving the trunk.
 
 The read-only refusal names each Standard, old and proposed limits, measurement, delta, reason, responsible paths, and an approval token. The token is a 64-character lowercase hexadecimal digest of the exact Standard, value, and reason. It prevents an approval command copied for one tuple from approving a changed tuple; it grants no authority by itself. Relay those facts to the owner. After the owner approves the current tuples in this conversation, run the complete command returned by discern:
 
@@ -79,4 +79,4 @@ If the owner declines, leave acceptance stopped. Restore the trunk limit in the 
 - Standing authority is pinned to its trunk commit; concurrent advances refuse.
 - Landing consumes the claim. Drop, prune, and orphan cleanup reap abandoned state.
 - Uncertainty returns to conversation review; it never widens authority.
-- Approval of a proposed Standard limit binds one acceptance call to the current proposal set. It is not a standing source of landing authority.
+- Approval of a Standard limit proposal binds one acceptance call to the current proposal set. It is not a standing source of landing authority.

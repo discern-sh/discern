@@ -568,7 +568,7 @@ export function attachEngineCommands(
       .arguments("<name:string>")
       .option(
         "--reason <reason:string>",
-        "The exact non-empty owner-facing reason for the proposed Standard limit (1-500 visible, secret-free characters).",
+        "The exact non-empty owner-facing reason for the Standard limit proposal (1-500 visible, secret-free characters).",
       )
       .option(
         "--json",
@@ -988,7 +988,7 @@ export function attachEngineCommands(
         "carried by the current Proof (repeatable; requires --confirmed). " +
         "Use the proposal-bound token served by the read-only refusal; the token " +
         "set must equal the current proposal set. Standing, effort, and " +
-        "generic landing grants never authorize a proposed Standard limit.",
+        "generic landing grants never authorize a Standard limit proposal.",
       { collect: true },
     )
     .action(recordedExit("accept", async (o) => {
