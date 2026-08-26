@@ -775,7 +775,7 @@ Deno.test({
           },
           {
             waitFor: [
-              "Showing the document in discern.",
+              "The pager failed (pager exited with status 1).",
               "Welcome.",
               "Press Enter to continue.",
             ],
@@ -792,7 +792,7 @@ Deno.test({
       assertEquals(process.code, 0, process.transcript);
       assertStringIncludes(
         process.transcript,
-        "The pager failed.",
+        "The pager failed (pager exited with status 1).",
       );
       assertStringIncludes(process.transcript, "Press Enter to continue.");
     });
