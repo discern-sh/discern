@@ -874,6 +874,22 @@
       "deno.json",
     ]
 
+  # Direct subprocess construction standard — every production/tooling
+  # constructor is either one of the shared subprocess capability's own sites
+  # or an exact registered boundary naming its path, enclosing function,
+  # operation, and reason. The census validates unknown and stale entries before
+  # emitting the registered-boundary population held by this falling ceiling.
+  [standards.subprocess_spawn_boundaries]
+    direction = "down"
+    limit = 28
+    run = "deno task subprocess-spawn-boundaries"
+    inputs = [
+      "*.ts",
+      "*.tsx",
+      "deno.json",
+      "deno.lock",
+    ]
+
   # Real test-delay boundary standard — every genuine elapsed-time dependency
   # is a stable registry member bound one-to-one to a literal `realDelay` call.
   # The census scans all executable test and fixture text, including child

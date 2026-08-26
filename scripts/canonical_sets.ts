@@ -185,6 +185,31 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "side-restricted-operations",
+    title: "Side-restricted operations",
+    what:
+      "Every worktree-lifecycle operation restricted to either the main checkout or a linked worktree, including the derived command-line refusal projection when one exists.",
+    source: {
+      kind: "module",
+      module: "src/engine/worktree/side_restrictions.ts",
+      exportName: "SIDE_RESTRICTED_OPS",
+    },
+    guards: ["tests/engine_worktree_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the Worktree term defines the boundary; these operation keys are internal lifecycle identifiers",
+      },
+      featureCanon: { nodeId: "worktrees" },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/engine/worktree/side_restrictions.ts"))
+          .SIDE_RESTRICTED_OPS,
+      ),
+  },
+  {
     id: "dry-run-verbs",
     title: "Dry-run-capable verbs",
     what:
@@ -2718,13 +2743,13 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   },
   {
     id: "spawn-surfaces",
-    title: "Spawn surfaces",
+    title: "Subprocess spawn boundaries",
     what:
-      "Every file permitted to spawn a subprocess, with the interrupt contract each one owes: end-to-end test coverage or a written exemption.",
+      "Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt proof or exemption.",
     source: {
       kind: "module",
       module: "tests/spawn_surfaces.ts",
-      exportName: "SPAWN_HOMES",
+      exportName: "SUBPROCESS_SPAWN_BOUNDARIES",
     },
     guards: [
       "tests/engine_subprocess_ssot_test.ts",
@@ -2739,8 +2764,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       featureCanon: { nodeId: "interruption-safety" },
     },
     members: async () =>
-      (await import("../tests/spawn_surfaces.ts")).SPAWN_HOMES
-        .map((entry) => entry.home),
+      (await import("../tests/spawn_surfaces.ts"))
+        .SUBPROCESS_SPAWN_BOUNDARIES.map((entry) =>
+          `${entry.path}#${entry.enclosingFunction}`
+        ),
   },
   {
     id: "authored-ts-universe",
@@ -2953,7 +2980,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "this maintainer-only meta-registry has no assigned Glossary term; the terminology decision remains open",
+          "Canonical set is a maintainer discipline documented in the contributor Map; its internal inventory needs no public product term",
       },
       featureCanon: { nodeId: "canonical-sets" },
     },
@@ -3019,8 +3046,6 @@ export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {
     "site build infrastructure: the route-bundle table drives this repository's site build; project installations omit it",
   "src/engine/gate/proof_render.ts":
     "the claim defines a derive-once invariant: Proof reads and reuses the result envelope",
-  "src/engine/worktree/side_restrictions.ts":
-    "candidate for enrollment: a registry of every side-restricted lifecycle operation whose class test (`tests/engine_worktree_test.ts`) sits outside the guard convention",
   "src/lib/paths.ts#BUNDLED_DOCS_STAGE_DIR":
     "one staging-directory value shared by the build writer and bundled-docs reader",
   "src/lib/providers.ts":

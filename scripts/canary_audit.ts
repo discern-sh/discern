@@ -11,6 +11,7 @@
  */
 
 import { readLogbookStream } from "../src/engine/logbook/read.ts";
+import { runGit } from "../src/shared/subprocess.ts";
 import {
   CANARY_EXCLUDED_TEST_FILES,
   CANARY_EXTRA_TEST_FILES,
@@ -197,19 +198,16 @@ async function main(): Promise<void> {
 
 /** Resolve the repository's common Git directory from the working directory. */
 async function resolveCommonGitDir(): Promise<string> {
-  const output = await new Deno.Command("git", {
-    args: ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
+  const output = await runGit(
+    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    { cwd: Deno.cwd() },
+  );
   if (!output.success) {
     throw new Error(
-      `git rev-parse --git-common-dir failed: ${
-        new TextDecoder().decode(output.stderr).trim()
-      }`,
+      `git rev-parse --git-common-dir failed: ${output.stderr.trim()}`,
     );
   }
-  return new TextDecoder().decode(output.stdout).trim();
+  return output.stdout.trim();
 }
 
 if (import.meta.main) {

@@ -1,119 +1,103 @@
 /**
- * Architectural guard (ADR 0054): every subprocess the engine spawns is
- * accounted for.
+ * Architectural guard for the complete production-and-tooling subprocess
+ * constructor population.
  *
- * Three layers, all driven off the spawn-surface registry
- * (`tests/spawn_surfaces.ts`):
- *   1. every `new Deno.Command(…)` constructor site under `src/` — whatever
- *      binary it names, literal or variable — lives in a registered home with
- *      an exact site count, so a new spawner (or a new site inside an old
- *      home) fails here until it registers and declares its interrupt
- *      contract;
- *   2. a git spawn (`gitBin()` or a literal) lives in a registered Git home:
- *      ordinary commands use runGit, while the attributed commit boundary owns
- *      the only commit spawn;
- *   3. a literal `sh` spawn funnels through the homes registered for the
- *      shell — route a buffered shell command through runShell().
+ * The exact boundary registry carries every path, enclosing function,
+ * operation, and reason. Its engine subset also carries one interrupt contract
+ * per spawn home. Unknown constructors, stale entries, raw Git/shell spawns,
+ * and unaccounted engine interrupt homes all fail independently.
  */
 
 import { assertEquals } from "@std/assert";
-import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
-import { gitInit } from "./engine_helpers.ts";
+import {
+  directSpawnSitesInFiles,
+  directSpawnSitesInSource,
+  productionAndToolingSpawnFiles,
+  spawnBoundaryParityFindings,
+} from "../scripts/subprocess_spawn_boundaries.ts";
 import {
   declaredInterruptSurfaces,
   homesThatMaySpawn,
-  SPAWN_HOMES,
+  SPAWN_INTERRUPT_CONTRACTS,
+  SUBPROCESS_SPAWN_BOUNDARIES,
 } from "./spawn_surfaces.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
-import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { gitInit } from "./engine_helpers.ts";
+import { withTempDir } from "./helpers.ts";
 
-/** Read declared TypeScript files as `[repo-relative path, contents]`. */
-async function tsFiles(
-  root: string,
-  files: readonly string[],
-): Promise<Array<[string, string]>> {
-  return await Promise.all(
-    files.map(async (rel): Promise<[string, string]> => [
-      rel,
-      await Deno.readTextFile(join(root, rel)),
-    ]),
-  );
-}
-
-/** Production modules capable of spawning a child process. */
-function productionSpawnFiles(): Promise<string[]> {
-  return structuralGuardScope({
-    guard: "tests/engine_subprocess_ssot_test.ts#production-spawn-sites",
-    universe: "authored-ts",
-    narrow: {
-      reason:
-        "The spawn-home registry governs production subprocess constructors implemented beneath src.",
-      include: (path) => path.startsWith("src/"),
-    },
-  });
-}
-
-/** Repository-wide injected universe proving a future container auto-enrols. */
-function plantedSpawnFiles(root: string): Promise<string[]> {
-  return structuralGuardScope({
-    guard: "tests/engine_subprocess_ssot_test.ts#future-spawn-site-control",
-    universe: "authored-ts",
-  }, root);
-}
-
-/**
- * A `Deno.Command` constructor site, regardless of the binary it names — the
- * generative mechanism for spawning a child, so a spawner using a variable
- * binary name cannot slip past a literal-name pattern. `node:child_process`
- * counts too: it is the same mechanism through the Node compatibility layer.
- */
-const SPAWN_SITE = /new\s+Deno\.Command\s*\(|["']node:child_process["']/g;
-
-/** Count the constructor sites per file under `root`; zero-count files omitted. */
-async function spawnSites(
-  root: string,
-  files: readonly string[],
-): Promise<Map<string, number>> {
-  const counts = new Map<string, number>();
-  for (const [rel, text] of await tsFiles(root, files)) {
-    const found = text.match(SPAWN_SITE)?.length ?? 0;
-    if (found > 0) counts.set(rel, found);
-  }
-  return counts;
-}
-
-Deno.test("every subprocess constructor site lives in a registered spawn home", async () => {
-  const found = await spawnSites(REPO_ROOT, await productionSpawnFiles());
-  const actual = Object.fromEntries([...found].sort());
-  const expected = Object.fromEntries(
-    SPAWN_HOMES.map((entry) => [entry.home, entry.sites] as const).sort(),
+Deno.test("every production-and-tooling subprocess constructor has one exact boundary", async () => {
+  const actual = await directSpawnSitesInFiles(
+    REPO_ROOT,
+    await productionAndToolingSpawnFiles(),
   );
   assertEquals(
-    actual,
-    expected,
-    "the spawn sites under src/ diverge from tests/spawn_surfaces.ts — " +
-      "register the new home (or update the changed one) and declare its " +
-      "interrupt contract: an E2E surface in engine_interrupt_surfaces_test.ts, " +
-      "or a written exemption a reviewer can audit",
+    spawnBoundaryParityFindings(actual, SUBPROCESS_SPAWN_BOUNDARIES),
+    [],
   );
 });
 
-Deno.test("the spawn-site guard enrolls an unrelated future spawner", async () => {
-  await withTempDir(async (dir) => {
-    await Deno.mkdir(`${dir}/another/container`, { recursive: true });
+Deno.test("the spawn guard enrolls an unrelated future source root", async () => {
+  await withTempDir(async (root) => {
+    await Deno.mkdir(`${root}/another/container`, { recursive: true });
     await Deno.writeTextFile(
-      `${dir}/another/container/relay.ts`,
-      // A fresh-named binary held in a variable: invisible to a literal
-      // "sh"/"git" pattern, caught by the constructor scan.
-      `const tool = "unrelated-tool";\nnew Deno.Command(tool, {}).spawn();\n`,
+      `${root}/another/container/relay.ts`,
+      [
+        "export function launch(): void {",
+        '  new Deno.Command("unrelated-tool", {}).spawn();',
+        "}",
+      ].join("\n"),
     );
-    await gitInit(dir);
+    await gitInit(root);
+    const actual = await directSpawnSitesInFiles(
+      root,
+      await productionAndToolingSpawnFiles(root),
+    );
     assertEquals(
-      Object.fromEntries(await spawnSites(dir, await plantedSpawnFiles(dir))),
-      { "another/container/relay.ts": 1 },
+      spawnBoundaryParityFindings(actual, []),
+      [
+        "unregistered subprocess constructor at another/container/relay.ts:2:3 inside launch",
+      ],
     );
   });
+});
+
+Deno.test("a stale exact spawn registry entry fails with its operation", () => {
+  const registered = [{
+    path: "future/tool.ts",
+    enclosingFunction: "launch",
+    operation: "launch a retired helper",
+    reason: "the helper once required a specialized protocol",
+    may: ["other"],
+    role: "registered-boundary",
+  }] as const;
+  assertEquals(spawnBoundaryParityFindings([], registered), [
+    "stale subprocess boundary future/tool.ts#launch (launch a retired helper)",
+  ]);
+});
+
+Deno.test("constructor syntax reports stable enclosing functions and binary expressions", () => {
+  assertEquals(
+    directSpawnSitesInSource(
+      [
+        "const top = new Deno.Command(Deno.execPath(), {});",
+        "const launch = (): void => {",
+        '  new Deno.Command("tool", {}).spawn();',
+        "};",
+      ].join("\n"),
+    ).map((site) => [site.enclosingFunction, site.binary]),
+    [["<module>", "Deno.execPath()"], ["launch", '"tool"']],
+  );
+});
+
+Deno.test("every engine spawn home declares one live interrupt contract", () => {
+  const engineHomes = [
+    ...new Set(
+      SUBPROCESS_SPAWN_BOUNDARIES.filter((entry) =>
+        entry.path.startsWith("src/")
+      ).map((entry) => entry.path),
+    ),
+  ].sort();
+  assertEquals(Object.keys(SPAWN_INTERRUPT_CONTRACTS).sort(), engineHomes);
 });
 
 Deno.test("every declared interrupt surface id is unique across homes", () => {
@@ -121,52 +105,38 @@ Deno.test("every declared interrupt surface id is unique across homes", () => {
   assertEquals(
     declared,
     [...new Set(declared)],
-    "two spawn homes declare the same interrupt surface — one scenario would " +
-      "silently stand in for both; give each home its own surface id",
+    "two spawn homes declare the same interrupt surface; give each scenario its own id",
   );
 });
 
-/** A `new Deno.Command(…)` whose binary is git: the gitBin() resolver or a literal. */
-const GIT_SPAWN = /new Deno\.Command\(\s*(?:gitBin\(\)|["']git["'])/;
-
-Deno.test("every git spawn lives in a registered Git home", async () => {
-  const gitHomes = homesThatMaySpawn("git");
-  const offenders: string[] = [];
-  for (
-    const [rel, text] of await tsFiles(REPO_ROOT, await productionSpawnFiles())
-  ) {
-    if (gitHomes.has(rel)) continue;
-    if (GIT_SPAWN.test(text)) offenders.push(rel);
-  }
+Deno.test("every literal Git constructor belongs to a declared Git boundary", async () => {
+  const permitted = homesThatMaySpawn("git");
+  const actual = await directSpawnSitesInFiles(
+    REPO_ROOT,
+    await productionAndToolingSpawnFiles(),
+  );
   assertEquals(
-    offenders,
+    actual.filter((site) =>
+      site.binary === '"git"' || site.binary === "'git'" ||
+      site.binary === "gitBin()"
+    ).filter((site) => !permitted.has(site.path))
+      .map((site) => `${site.path}:${site.line}`),
     [],
-    `git is spawned outside ${
-      [...gitHomes].join(", ")
-    } — route ordinary commands through runGit(), or use the attributed ` +
-      `commit boundary:\n  ${offenders.join("\n  ")}`,
+    "route ordinary Git commands through runGit or register the exact specialized boundary",
   );
 });
 
-/** A `new Deno.Command(…)` whose binary is the literal shell. */
-const SH_SPAWN = /new Deno\.Command\(\s*["']sh["']/;
-
-Deno.test("every sh -c spawn funnels through a sanctioned runner", async () => {
-  const shHomes = homesThatMaySpawn("sh");
-  const offenders: string[] = [];
-  for (
-    const [rel, text] of await tsFiles(REPO_ROOT, await productionSpawnFiles())
-  ) {
-    if (shHomes.has(rel)) continue;
-    if (SH_SPAWN.test(text)) offenders.push(rel);
-  }
+Deno.test("every literal shell constructor belongs to a declared shell boundary", async () => {
+  const permitted = homesThatMaySpawn("sh");
+  const actual = await directSpawnSitesInFiles(
+    REPO_ROOT,
+    await productionAndToolingSpawnFiles(),
+  );
   assertEquals(
-    offenders,
+    actual.filter((site) => site.binary === '"sh"' || site.binary === "'sh'")
+      .filter((site) => !permitted.has(site.path))
+      .map((site) => `${site.path}:${site.line}`),
     [],
-    `sh is spawned outside the sanctioned runners (${
-      [...shHomes].join(", ")
-    }) — run buffered shell commands through runShell():\n  ${
-      offenders.join("\n  ")
-    }`,
+    "route buffered shell commands through runShell or register the exact specialized boundary",
   );
 });
