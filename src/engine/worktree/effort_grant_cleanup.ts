@@ -201,6 +201,7 @@ export async function restoreEffortGrantClaim(
     await Deno.writeTextFile(marker, claim.raw, { createNew: true });
   } catch (error) {
     if (!(error instanceof Deno.errors.AlreadyExists)) {
+      // discern-best-effort: effort-grant-restore-outcome
       return false;
     }
   }

@@ -210,6 +210,7 @@ export async function observedCheckpointEconomics(
       buildStreamFacts(stream.events, config.repository.trunk),
     );
   } catch {
+    // discern-best-effort: checkpoint-economics-fallback
     return undefined;
   }
 }

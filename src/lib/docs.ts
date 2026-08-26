@@ -49,7 +49,7 @@ import { RawConfig } from "../shared/config_read.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { resolveConfigPath } from "./paths.ts";
-import { bestEffortFs, directoryExists } from "../shared/fs_presence.ts";
+import { directoryExists } from "../shared/fs_presence.ts";
 
 /** One indexed documentation file. */
 export interface DocEntry {
@@ -775,7 +775,7 @@ export async function discoverDocs(opts: {
     let aliases: string[] = [];
     let redirectFrom: string[] = [];
     let citedAdrs: AdrCitation[] = [];
-    await bestEffortFs(async () => {
+    try {
       const { meta, body } = parseFrontmatter(await Deno.readTextFile(absPath));
       bodies.set(relToDocs, body);
       title = meta.title ?? extractTitle(body) ?? title;
@@ -785,11 +785,9 @@ export async function discoverDocs(opts: {
       aliases = meta.aliases ?? [];
       redirectFrom = meta.redirect_from ?? [];
       citedAdrs = collectAdrCitations(body);
-    }, {
-      onFailure: undefined,
-      reason:
-        "Documentation discovery keeps an unreadable or malformed leaf under its humanized metadata fallback.",
-    });
+    } catch {
+      // discern-best-effort: docs-leaf-metadata-fallback
+    }
 
     entries.push({
       path,

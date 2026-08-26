@@ -107,7 +107,9 @@ function isExternalTarget(target: string): boolean {
 function resolveTarget(from: string, path: string): string | undefined {
   try {
     return resolve(dirname(from), decodeURIComponent(path));
-  } catch {
+  } catch (error) {
+    if (!(error instanceof URIError)) throw error;
+    // discern-best-effort: map-link-uri-decode-fallback
     return undefined;
   }
 }

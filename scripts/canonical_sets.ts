@@ -2900,6 +2900,38 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "best-effort-boundaries",
+    title: "Error-discard boundaries",
+    what:
+      "Every named production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.",
+    source: {
+      kind: "module",
+      module: "src/shared/best_effort.ts",
+      exportName: "BEST_EFFORT_BOUNDARIES",
+    },
+    guards: [
+      "tests/best_effort_test.ts",
+      "tests/best_effort_guard_test.ts",
+      "tests/silent_catch_lint_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "error-discard enrollment is an internal reliability policy rather than user-facing product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the boundary registry supports every feature's error semantics rather than adding a separately selectable capability",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/best_effort.ts"))
+          .BEST_EFFORT_BOUNDARIES,
+      ),
+  },
+  {
     id: "tool-temp-directory-kinds",
     title: "Tool temp-directory kinds",
     what:

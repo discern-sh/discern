@@ -1804,6 +1804,7 @@ async function exitWithCrashFrame(
   try {
     cwd = Deno.cwd();
   } catch {
+    // discern-best-effort: main-crash-cwd-fallback
     // A deleted working directory still gets a report, via the temp fallback.
   }
   const artifact = await writeCrashArtifact(cwd, report);

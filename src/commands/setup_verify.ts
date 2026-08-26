@@ -82,6 +82,7 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
       config = await loadConfig(root);
       bootstrapped = config.meta.bootstrapped;
     } catch {
+      // discern-best-effort: setup-verify-config-fallback
       // Unparseable config — treat as mid-setup; the strict verbs report the error.
     }
   }

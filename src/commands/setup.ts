@@ -106,6 +106,7 @@ import {
   NO_PROJECT_MESSAGE,
 } from "../shared/env.ts";
 import { pathExists, readTextIfExists } from "../shared/fs_presence.ts";
+import { bestEffort } from "../shared/best_effort.ts";
 import { AWAITING_CONSENT_SLUG } from "../shared/consent.ts";
 import { emitResult } from "../shared/emit.ts";
 import {
@@ -749,6 +750,7 @@ async function scaffoldHarness(
       (await loadConfig(destDir)).instructions.sources,
     );
   } catch {
+    // discern-best-effort: setup-scaffold-instruction-path-fallback
     // Unreadable config — seed at the registry default; doctor diagnoses the rest.
   }
   const seeded = await seedInstructions(
@@ -906,6 +908,7 @@ async function seedInstructions(
         allInstructionFiles(),
       );
     } catch {
+      // discern-best-effort: setup-agent-file-ownership-fallback
       ownRenderPatterns = undefined;
     }
     const seen = new Set<string>();
@@ -1179,6 +1182,7 @@ async function resolveScaffoldInput(
           await loadConfig(destDir),
         ).join(",");
       } catch {
+        // discern-best-effort: setup-configured-agents-fallback
         // An unreadable existing config stays on the established repair path:
         // resolveSetupConfig supplies the default provider set, while doctor
         // diagnoses the persisted config separately.
@@ -1222,7 +1226,10 @@ async function beginRequiredEffects(
   scaffoldInput: ResolvedScaffoldInput | undefined,
 ): Promise<SetupRequiredEffect[]> {
   const persistedConfig = scaffoldInput === undefined && !freshInstall
-    ? await loadConfig(destDir).catch(() => undefined)
+    ? await loadConfig(destDir).catch(() => {
+      // discern-best-effort: setup-required-effects-config-fallback
+      return undefined;
+    })
     : undefined;
   const agents = scaffoldInput?.config.agents ??
     (persistedConfig === undefined
@@ -1395,6 +1402,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     try {
       bootstrapped = (await loadConfig(destDir)).meta.bootstrapped;
     } catch {
+      // discern-best-effort: setup-existing-bootstrap-fallback
       bootstrapped = false;
     }
     if (bootstrapped) {
@@ -1591,6 +1599,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   try {
     cfg = await loadConfig(destDir);
   } catch {
+    // discern-best-effort: setup-skeleton-config-fallback
     cfg = undefined;
   }
   // Prefer the fresh scaffold's project name, then the persisted [project].name —
@@ -1689,6 +1698,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     instructions = rendered.text;
     firstPage = rendered.firstPage;
   } catch {
+    // discern-best-effort: setup-brief-render-fallback
     // Keep `instructions` as the rendered brief — the agent still gets the full text.
   }
 
@@ -2133,12 +2143,9 @@ async function commitProvenMachinery(
   if (!commit.success) {
     return { state: "failed", detail: gitFailureLine(commit.stderr) };
   }
-  try {
+  await bestEffort("setup-machinery-evidence-clear", async () => {
     await clearSetupMachineryCommitEvidence(root);
-  } catch {
-    // The commit is durable. Its recorded HEAD and index tree cannot authorize
-    // a second commit.
-  }
+  });
   return { state: "committed" };
 }
 
@@ -2212,6 +2219,7 @@ export async function runSetupStep(
       todoRel = cfg.project.todo;
       instructionRel = instructionSeedRel(cfg.instructions.sources);
     } catch {
+      // discern-best-effort: setup-step-paths-fallback
       // A broken config is diagnosed by strict verbs; keep the default paths here.
     }
   }
@@ -2421,6 +2429,7 @@ async function unmetSetupChecks(root: string): Promise<SetupCheckResult[]> {
   try {
     config = await loadConfig(root);
   } catch {
+    // discern-best-effort: setup-unmet-checks-config-fallback
     return [];
   }
   const results = await evaluateSetupCompletion({ root, config });
@@ -2499,6 +2508,7 @@ async function uncommittedSetupWork(root: string): Promise<string[]> {
     todoRel = cfg.project.todo;
     instructionRel = instructionSeedRel(cfg.instructions.sources);
   } catch {
+    // discern-best-effort: setup-uncommitted-footprint-fallback
     // Keep the defaults.
   }
   const footprint = [

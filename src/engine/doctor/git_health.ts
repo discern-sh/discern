@@ -7,7 +7,6 @@
  */
 
 import { basename, join } from "@std/path";
-import { bestEffortFs } from "../../shared/fs_presence.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import {
   commandExists,
@@ -142,11 +141,7 @@ async function repositoryProbe(root: string): Promise<GitRepositoryProbe> {
   if (result.success && toplevel !== "") {
     return {
       kind: "repository",
-      toplevel: await bestEffortFs(() => Deno.realPath(toplevel), {
-        onFailure: toplevel,
-        reason:
-          "Git health can retain Git's absolute repository path when canonicalization is unavailable.",
-      }),
+      toplevel: await Deno.realPath(toplevel),
     };
   }
   const reason = gitReason(result);
@@ -302,11 +297,7 @@ async function checkoutInventory(
   ];
   const snapshots: CheckoutSnapshot[] = [];
   for (const path of paths) {
-    const canonical = await bestEffortFs(() => Deno.realPath(path), {
-      onFailure: path,
-      reason:
-        "Checkout inventory can label an unreadable row with Git's registered path.",
-    });
+    const canonical = await Deno.realPath(path);
     const label = canonical === toplevel ? "main checkout" : basename(path);
     snapshots.push({
       path,
@@ -778,11 +769,7 @@ export async function inspectGitHealth(root: string): Promise<GitHealthReport> {
   const repository = await repositoryProbe(root);
   if (repository.kind !== "repository") {
     if (repository.kind === "dubious-ownership") {
-      const canonical = await bestEffortFs(() => Deno.realPath(root), {
-        onFailure: root,
-        reason:
-          "The ownership recovery can quote the requested path when canonicalization is unavailable.",
-      });
+      const canonical = await Deno.realPath(root);
       return {
         repository,
         checks: [

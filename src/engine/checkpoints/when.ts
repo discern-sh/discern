@@ -155,6 +155,7 @@ export async function runWhenCommand(
       try {
         await Deno.remove(inputPath);
       } catch (error) {
+        // discern-best-effort: checkpoint-when-input-cleanup-outcome
         if (!(error instanceof Deno.errors.NotFound)) cleanupFailed = true;
       }
     }

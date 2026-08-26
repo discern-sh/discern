@@ -673,7 +673,8 @@ function decodeDsseBase64(value: string): Uint8Array | undefined {
   const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
   try {
     return decodeBase64(normalized);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
     return undefined;
   }
 }
@@ -689,13 +690,15 @@ function parseProofNotePayload(
   let content: string;
   try {
     content = UTF8_DECODER.decode(bytes);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
     return undefined;
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
   const payload = TolerantProofNotePayloadSchema.safeParse(parsed);
@@ -711,7 +714,8 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {

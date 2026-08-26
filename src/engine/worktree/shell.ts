@@ -25,6 +25,7 @@
 import { byteWriter } from "../output.ts";
 import type { Logger } from "../../lib/log.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
+import { bestEffort } from "../../shared/best_effort.ts";
 import { selfShimPath, SPAWN_FAILED } from "../../shared/subprocess.ts";
 import { superviseSpawn } from "../owned_child.ts";
 import {
@@ -69,8 +70,8 @@ async function settleCaptured(
   const boundDrains = (): void => {
     pipeGraceTimer ??= setTimeout(() => {
       for (const reader of readers) {
-        reader.cancel().catch(() => {
-          // Already closed or errored — the drain has settled either way.
+        void bestEffort("worktree-shell-drain-cancel", async () => {
+          await reader.cancel();
         });
       }
     }, KILLED_PIPE_GRACE_MS);

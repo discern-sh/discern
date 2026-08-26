@@ -20,7 +20,7 @@
  */
 
 import { join } from "@std/path";
-import { bestEffortFs, pathExists } from "../shared/fs_presence.ts";
+import { pathExists, statIfExists } from "../shared/fs_presence.ts";
 import { AGENT_NAMES, DEFAULT_AGENTS } from "../shared/config_schema.ts";
 import type { EnvReader } from "../shared/env.ts";
 import type { ConsentAgentSet } from "../shared/setup_messages.ts";
@@ -76,11 +76,7 @@ async function binaryOnPath(
 ): Promise<boolean> {
   for (const dir of pathDirs) {
     for (const candidate of executableCandidates(binary, os, pathExtensions)) {
-      const info = await bestEffortFs(() => Deno.stat(join(dir, candidate)), {
-        onFailure: undefined,
-        reason:
-          "Agent discovery may skip one missing or unreadable PATH candidate and continue searching.",
-      });
+      const info = await statIfExists(join(dir, candidate));
       if (info === undefined || !info.isFile) {
         continue;
       }

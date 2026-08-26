@@ -9,6 +9,7 @@
  */
 
 import { join } from "@std/path";
+import { bestEffort, bestEffortSync } from "../../src/shared/best_effort.ts";
 import { REPO_ROOT } from "./root.ts";
 import { openInIde } from "./locate.ts";
 import {
@@ -389,6 +390,7 @@ export async function startCanonEditor(
         .filter((line) => line.trim() !== "")
         .map((line) => line.slice(3));
     } catch {
+      // discern-best-effort: canon-editor-git-dirty-fallback
       return [];
     }
   };
@@ -777,13 +779,15 @@ export async function startCanonEditor(
     refresh,
     close: async (): Promise<void> => {
       watcher?.close();
-      await watchLoop?.catch(() => undefined);
+      if (watchLoop !== undefined) {
+        await bestEffort("canon-editor-watch-loop-settlement", async () => {
+          await watchLoop;
+        });
+      }
       for (const controller of sse) {
-        try {
+        bestEffortSync("canon-editor-sse-controller-close", () => {
           controller.close();
-        } catch {
-          // Already closed by the client.
-        }
+        });
       }
       sse.clear();
       await server?.shutdown();

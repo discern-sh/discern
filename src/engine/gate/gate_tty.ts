@@ -15,6 +15,7 @@ import type {
 } from "../../lib/terminal.ts";
 import { terminalLine } from "../../lib/terminal.ts";
 import { createTerminalIO } from "../../lib/terminal_painter.ts";
+import { bestEffortSync } from "../../shared/best_effort.ts";
 import type { StepResult } from "../../shared/result.ts";
 import type { GateStandard } from "../../shared/result_schemas.ts";
 import type { JobRunObserver } from "../jobs/runner.ts";
@@ -107,6 +108,7 @@ function liveViewport(
   try {
     observation = options.terminal.observeViewport();
   } catch {
+    // discern-best-effort: gate-tty-observer-open-fallback
     observation = undefined;
   }
   return {
@@ -114,16 +116,15 @@ function liveViewport(
       try {
         current = observation?.sample() ?? current;
       } catch {
+        // discern-best-effort: gate-tty-observer-sample-fallback
         observation = undefined;
       }
       return current;
     },
     close: (): void => {
-      try {
+      bestEffortSync("gate-tty-observer-close", () => {
         observation?.close();
-      } catch {
-        // Presentation cleanup cannot change the Gate result.
-      }
+      });
       observation = undefined;
     },
   };
@@ -252,6 +253,7 @@ export async function createGateTtyProgress(
     try {
       write(value);
     } catch {
+      // discern-best-effort: gate-tty-write-outcome
       presentationFailed = true;
     }
   };

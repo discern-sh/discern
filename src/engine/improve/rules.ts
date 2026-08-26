@@ -147,6 +147,7 @@ async function variedCheckpointEvidence(
       ),
     );
   } catch {
+    // discern-best-effort: improve-checkpoint-observations-fallback
     return [];
   }
 }

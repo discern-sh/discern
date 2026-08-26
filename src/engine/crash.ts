@@ -33,6 +33,7 @@
 
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
+import { bestEffort, bestEffortSync } from "../shared/best_effort.ts";
 import { ISSUES_URL, KIT_VERSION } from "../lib/version.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
@@ -62,6 +63,7 @@ export function throwIfCrashProbe(
   try {
     probe = env.get(CRASH_PROBE_ENV);
   } catch {
+    // discern-best-effort: crash-probe-env-fallback
     return; // no env permission — nothing to probe
   }
   if (probe !== undefined && probe !== "") {
@@ -98,6 +100,7 @@ function isInspectableError(value: unknown): value is Error {
   try {
     return value instanceof Error;
   } catch {
+    // discern-best-effort: crash-error-instanceof-fallback
     return false;
   }
 }
@@ -110,6 +113,7 @@ function errorField(
   try {
     return Reflect.get(error, field);
   } catch {
+    // discern-best-effort: crash-error-field-fallback
     return undefined;
   }
 }
@@ -120,6 +124,7 @@ function thrownValueText(value: unknown): string {
   try {
     return String(value);
   } catch {
+    // discern-best-effort: crash-thrown-value-text-fallback
     return UNINSPECTABLE_THROWN_VALUE;
   }
 }
@@ -293,16 +298,12 @@ async function createCrashFile(
     file.close();
     return path;
   } catch (error) {
-    try {
+    bestEffortSync("crash-write-error-close", () => {
       file.close();
-    } catch {
-      // Preserve the original write error.
-    }
-    try {
+    });
+    await bestEffort("crash-write-error-remove", async () => {
       await Deno.remove(path);
-    } catch {
-      // Best-effort cleanup while the outer crash path is already failing.
-    }
+    });
     throw error;
   }
 }
@@ -344,7 +345,7 @@ export async function writeCrashArtifact(
       return path;
     }
   } catch {
-    // fall through to the temp-file fallback
+    // discern-best-effort: crash-git-artifact-fallback
   }
   try {
     // The registered temp-artifact family, so the reaper's coverage stays
@@ -353,6 +354,7 @@ export async function writeCrashArtifact(
     await Deno.writeTextFile(path, body);
     return path;
   } catch {
+    // discern-best-effort: crash-temp-artifact-unavailable
     return undefined;
   }
 }

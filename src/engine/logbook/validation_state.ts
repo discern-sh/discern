@@ -8,7 +8,6 @@
  */
 
 import { isAbsolute, resolve } from "@std/path";
-import { bestEffortFs } from "../../shared/fs_presence.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
@@ -299,6 +298,7 @@ function safeElapsed(rt: CaptureRuntime | undefined): number {
   try {
     return elapsed(rt);
   } catch {
+    // discern-best-effort: logbook-validation-elapsed-fallback
     return 0;
   }
 }
@@ -467,7 +467,8 @@ function parseIndex(
     let header: string;
     try {
       header = strictDecoder.decode(record.slice(0, tab));
-    } catch {
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
       return undefined;
     }
     const match = /^([^ ]+) (\d{6}) ([0-9a-fA-F]+) ([0-3])$/.exec(header);
@@ -480,7 +481,8 @@ function parseIndex(
     let path: string | undefined;
     try {
       path = strictDecoder.decode(pathBytes);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
       // The semantic index remains hashable byte-for-byte. Filesystem coverage
       // will fail closed if this entry later needs a JS-addressable path.
     }
@@ -519,7 +521,8 @@ function decodedPathFields(
     }
     try {
       paths.push({ path: strictDecoder.decode(pathBytes), pathBytes });
-    } catch {
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
       return undefined;
     }
   }
@@ -871,16 +874,15 @@ async function inspectSubmodule(
   );
   let intendedRepository = false;
   if (identity !== undefined) {
-    intendedRepository = await bestEffortFs(
-      async () =>
-        await Deno.realPath(identity.stdout.trim()) ===
-          await Deno.realPath(cwd),
-      {
-        onFailure: false,
-        reason:
-          "A missing, deinitialized, or unreadable submodule cannot establish repository identity.",
-      },
-    );
+    try {
+      intendedRepository = await Deno.realPath(identity.stdout.trim()) ===
+        await Deno.realPath(cwd);
+    } catch {
+      addIncomplete(incomplete, {
+        category: "submodules",
+        reason: "unavailable",
+      });
+    }
   }
   if (!intendedRepository) {
     addIncomplete(incomplete, {

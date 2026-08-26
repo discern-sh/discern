@@ -22,7 +22,7 @@ import {
   type SetupAssurance,
 } from "./setup_assurance.ts";
 import { runGit } from "./subprocess.ts";
-import { bestEffortFs, pathExists, readTextIfExists } from "./fs_presence.ts";
+import { pathExists, readTextIfExists } from "./fs_presence.ts";
 
 /** The branch a fresh `discern setup` isolates its work on, so its several
  * commits never land on — or pollute — the user's current branch (ADR 0065). */
@@ -189,6 +189,7 @@ export async function findSkeletonMarkers(
     try {
       resolved = await loadConfig(root);
     } catch {
+      // discern-best-effort: setup-skeleton-marker-config-fallback
       // A missing/broken config is diagnosed elsewhere; inspect the default tree.
     }
   }
@@ -201,11 +202,7 @@ export async function findSkeletonMarkers(
     for await (
       const entry of walk(docsDir, { includeDirs: false, exts: [".md"] })
     ) {
-      const text = await bestEffortFs(() => readTextIfExists(entry.path), {
-        onFailure: undefined,
-        reason:
-          "An unreadable setup document cannot be asserted as retaining a skeleton marker.",
-      });
+      const text = await readTextIfExists(entry.path);
       if (
         text !== undefined && SKELETON_MARKERS.some((m) => text.includes(m))
       ) {
@@ -216,11 +213,7 @@ export async function findSkeletonMarkers(
 
   const instructions = join(root, instructionRel);
   if (await pathExists(instructions)) {
-    const text = await bestEffortFs(() => readTextIfExists(instructions), {
-      onFailure: undefined,
-      reason:
-        "An unreadable instruction source cannot be asserted as retaining its setup marker.",
-    });
+    const text = await readTextIfExists(instructions);
     if (text?.includes("setup fills this")) {
       leftover.push(instructionRel);
     }

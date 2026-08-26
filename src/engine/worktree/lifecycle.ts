@@ -32,10 +32,10 @@ import {
   plainModeEnabled,
 } from "../../lib/terminal_interaction.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { bestEffort } from "../../shared/best_effort.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
-  bestEffortFs,
   directoryExists,
   fileExists,
   pathExists,
@@ -834,9 +834,9 @@ async function discernSourceEntrypoint(
   if (Deno.build.standalone) {
     return undefined;
   }
-  return await bestEffortFs(async () => {
-    const raw = await readTextIfExists(join(root, "deno.json"));
-    if (raw === undefined) return undefined;
+  const raw = await readTextIfExists(join(root, "deno.json"));
+  if (raw === undefined) return undefined;
+  try {
     const manifest: unknown = JSON.parse(raw);
     if (
       typeof manifest !== "object" ||
@@ -854,11 +854,11 @@ async function discernSourceEntrypoint(
         !(await pathExists(entrypoint))
       ? undefined
       : entrypoint;
-  }, {
-    onFailure: undefined,
-    reason:
-      "Source-entrypoint detection is optional outside a readable discern development checkout.",
-  });
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    // discern-best-effort: lifecycle-source-manifest-decode-fallback
+    return undefined;
+  }
 }
 
 interface LifecycleRefreshRun {
@@ -1179,12 +1179,20 @@ export async function worktreeSetup(
   // mark this worktree configured
   const marker = await readySentinelPath(ctx.cwd);
   if (marker !== undefined) {
-    try {
-      await Deno.mkdir(dirname(marker), { recursive: true });
-      await Deno.writeTextFile(marker, "");
-    } catch {
-      // best-effort sentinel — a failure here must not fail setup
-    }
+    await bestEffort(
+      "lifecycle-ready-sentinel-write",
+      async () => {
+        await Deno.mkdir(dirname(marker), { recursive: true });
+        await Deno.writeTextFile(marker, "");
+      },
+      (error) => {
+        ctx.log.warn(
+          `Worktree setup could not record its automatic-cleanup ownership marker: ${
+            error instanceof Error ? error.message : String(error)
+          }. Setup remains complete, but later automatic cleanup will preserve this worktree.`,
+        );
+      },
+    );
   }
 
   ctx.log.ok("Worktree setup complete.");
@@ -1564,7 +1572,10 @@ async function buildDropPlan(
   const wantedAbs = isAbsolute(wanted) || wanted.includes("/")
     ? await realPathIfExists(resolvedWanted) ?? resolvedWanted
     : undefined;
-  const settings = await loadIdentitySettings(ctx.root).catch(() => undefined);
+  const settings = await loadIdentitySettings(ctx.root).catch(() => {
+    // discern-best-effort: lifecycle-drop-identity-settings-fallback
+    return undefined;
+  });
   const matches: Array<(typeof fleet)[number]> = [];
   for (const row of fleet) {
     if (wantedAbs !== undefined) {
@@ -1578,9 +1589,10 @@ async function buildDropPlan(
       continue;
     }
     if (settings !== undefined) {
-      const id = await resolveWorktreeId(settings, row.path).catch(() =>
-        undefined
-      );
+      const id = await resolveWorktreeId(settings, row.path).catch(() => {
+        // discern-best-effort: lifecycle-drop-row-identity-fallback
+        return undefined;
+      });
       if (id === wanted) {
         matches.push(row);
       }
@@ -3232,6 +3244,7 @@ async function executeAcceptPlan(
     trackedDirtyAfterLanding = await hasUncommittedTrackedChanges(mainRepo) ??
       undefined;
   } catch {
+    // discern-best-effort: lifecycle-post-landing-dirty-baseline-fallback
     trackedDirtyAfterLanding = undefined;
   }
 
@@ -3449,6 +3462,7 @@ async function executeAcceptPlan(
     try {
       checkoutClean = !(await hasUncommittedTrackedChanges(mainRepo) ?? true);
     } catch {
+      // discern-best-effort: lifecycle-post-convergence-clean-check-fallback
       checkoutClean = false;
     }
   }
@@ -4027,23 +4041,20 @@ async function postLandingLocalTemplatesDir(
   worktreePath: string,
   mainRepo: string,
 ): Promise<string | undefined> {
-  const templatesDir = await bestEffortFs(() => resolveTemplatesDir(), {
-    onFailure: undefined,
-    reason:
-      "Post-landing local refresh is optional once tracked landing has completed.",
-  });
+  let templatesDir: string | undefined;
+  try {
+    templatesDir = await resolveTemplatesDir();
+  } catch {
+    // discern-best-effort: lifecycle-post-landing-templates-fallback
+    return undefined;
+  }
   if (templatesDir === undefined) return undefined;
   const remapped = remapWorktreeLocalTemplatesDir(
     templatesDir,
     worktreePath,
     mainRepo,
   );
-  const available = remapped !== undefined &&
-    await bestEffortFs(() => directoryExists(remapped), {
-      onFailure: false,
-      reason:
-        "Post-landing local refresh is optional once tracked landing has completed.",
-    });
+  const available = remapped !== undefined && await directoryExists(remapped);
   return available ? remapped : undefined;
 }
 
@@ -4301,6 +4312,7 @@ async function updateRefreshCompiledPaths(
   try {
     paths.push(...(await renderAgentFiles(ctx.root, ctx.config)).keys());
   } catch {
+    // discern-best-effort: lifecycle-refresh-agent-targets-fallback
     // The later refresh step reports the compiler failure. Conflict policy
     // fails closed meanwhile: an unknown target is not safe to auto-resolve.
   }
@@ -4310,6 +4322,7 @@ async function updateRefreshCompiledPaths(
       paths.push(index.path);
     }
   } catch {
+    // discern-best-effort: lifecycle-refresh-adr-target-fallback
     // Same fail-closed rule as the agent renderer above.
   }
   return [...new Set(paths)];
@@ -5052,9 +5065,10 @@ export async function livePortsInUse(
     if (row.isMain) {
       continue;
     }
-    const id = await resolveWorktreeId(settings, row.path).catch(() =>
-      undefined
-    );
+    const id = await resolveWorktreeId(settings, row.path).catch(() => {
+      // discern-best-effort: lifecycle-live-port-identity-fallback
+      return undefined;
+    });
     if (id !== undefined) {
       ports.add(deriveIdentity(id, settings).port);
     }
@@ -6219,6 +6233,7 @@ async function liveResourceIdentitySet(
   try {
     settings = await loadIdentitySettings(ctx.root);
   } catch {
+    // discern-best-effort: lifecycle-resource-identity-settings-fallback
     // This handle guard is ONE of three independent GC liveness checks (git_key,
     // path, identity) — and the git_key + path guards are re-validated against disk
     // before each destroy. So returning an empty set here only narrows this third
@@ -6232,6 +6247,7 @@ async function liveResourceIdentitySet(
         set.add(resourceForId(settings.slug, id, spec.name));
       }
     } catch {
+      // discern-best-effort: lifecycle-resource-row-identity-fallback
       // a worktree whose id can't be resolved — skip (it just isn't a guard)
     }
   }

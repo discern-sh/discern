@@ -34,6 +34,7 @@ async function gitQuery(args: string[]): Promise<string | undefined> {
     if (!output.success) return undefined;
     return output.stdout.trim();
   } catch {
+    // discern-best-effort: private-docs-git-query-fallback
     return undefined;
   }
 }

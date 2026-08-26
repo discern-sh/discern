@@ -153,6 +153,7 @@ function stripTemplateContribution(
   try {
     template = JSON.parse(templateText);
   } catch {
+    // discern-best-effort: settings-template-decode-fallback
     return;
   }
   if (!isObject(template)) {

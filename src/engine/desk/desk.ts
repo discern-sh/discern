@@ -18,6 +18,7 @@
  */
 
 import { basename } from "@std/path";
+import { bestEffort } from "../../shared/best_effort.ts";
 import { DISCERN_DOCS_URL, DISCERN_WORDMARK } from "../../shared/brand.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -367,6 +368,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     try {
       return await listProjectScriptsWithConfig(root, config);
     } catch {
+      // discern-best-effort: desk-project-scripts-fallback
       // A branch-local scripts directory can be unreadable even while the main
       // checkout's fleet survey remains healthy. In that state no script is
       // safely available, so the conditional action stays hidden.
@@ -409,6 +411,7 @@ async function loadWorktreeConfig(
   try {
     return await runtime.loadConfig(path);
   } catch {
+    // discern-best-effort: desk-worktree-config-fallback
     return undefined;
   }
 }
@@ -1281,6 +1284,7 @@ export async function runDesk(
     );
     return 0;
   }
+  const initialData = first.data;
 
   // The session's tip (ADR 0234): chosen once from the first survey, held
   // stable across every redraw, and marked shown exactly once — the
@@ -1288,9 +1292,9 @@ export async function runDesk(
   // redraw. Tip state must never cost a session, so any failure in the seams
   // degrades to a tipless header.
   let tipLine: string | undefined;
-  try {
+  await bestEffort("desk-tip-presentation", async () => {
     const tipState = await runtime.readTipState(root);
-    const selected = selectTip(TIPS, { data: first.data, config }, tipState);
+    const selected = selectTip(TIPS, { data: initialData, config }, tipState);
     if (selected !== undefined) {
       tipLine = renderTipLine(selected);
       await runtime.writeTipState(
@@ -1303,11 +1307,9 @@ export async function runDesk(
       );
       runtime.recordTipShown(selected.tip.id);
     }
-  } catch {
-    tipLine = undefined;
-  }
+  });
 
-  let data: StatusData = first.data;
+  let data: StatusData = initialData;
   let focusPath: string | undefined;
   while (true) {
     clearBoard(out);

@@ -1,7 +1,6 @@
-import { assertEquals, assertRejects, assertThrows } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import {
-  bestEffortFs,
   directoryExists,
   fileExists,
   lstatIfExists,
@@ -118,26 +117,4 @@ Deno.test("presence reads rethrow permission failures", async (t) => {
       await Deno.chmod(protectedDir, 0o700);
     }
   });
-});
-
-Deno.test("best-effort reads require a reason and expose their fallback", async () => {
-  assertThrows(
-    () =>
-      bestEffortFs(
-        () => Promise.reject(new Deno.errors.PermissionDenied("denied")),
-        { onFailure: false, reason: "" },
-      ),
-    TypeError,
-    "requires a reason",
-  );
-  assertEquals(
-    await bestEffortFs(
-      () => Promise.reject(new Deno.errors.PermissionDenied("denied")),
-      {
-        onFailure: "unavailable",
-        reason: "This test proves the caller-visible suppression boundary.",
-      },
-    ),
-    "unavailable",
-  );
 });

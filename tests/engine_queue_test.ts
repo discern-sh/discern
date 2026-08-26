@@ -22,7 +22,11 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
-import { bestEffortFs, pathExists } from "../src/shared/fs_presence.ts";
+import {
+  pathExists,
+  readDirIfExists,
+  readTextIfExists,
+} from "../src/shared/fs_presence.ts";
 import { logbookEventSchema } from "../src/engine/logbook/schema.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
@@ -218,29 +222,26 @@ interface QueueEvent {
 
 /** Read every logbook event whose verb is `queue`. */
 async function queueEvents(root: string): Promise<QueueEvent[]> {
-  return await bestEffortFs(async () => {
-    const events: QueueEvent[] = [];
-    const dir = join(root, ".git", GIT_ADMIN_STATE.logbook.path);
-    for await (const entry of Deno.readDir(dir)) {
-      if (!entry.isFile || !entry.name.endsWith(".jsonl")) continue;
-      const text = await Deno.readTextFile(join(dir, entry.name));
-      for (const line of text.split("\n")) {
-        if (line === "") continue;
-        const event = decodeWith(logbookEventSchema, line);
-        if (
-          event.verb === "queue" &&
-          (event.kind === "begin" || event.kind === "verb")
-        ) {
-          events.push(event);
-        }
+  const events: QueueEvent[] = [];
+  const dir = join(root, ".git", GIT_ADMIN_STATE.logbook.path);
+  const entries = await readDirIfExists(dir);
+  if (entries === undefined) return events;
+  for (const entry of entries) {
+    if (!entry.isFile || !entry.name.endsWith(".jsonl")) continue;
+    const text = await readTextIfExists(join(dir, entry.name));
+    if (text === undefined) continue;
+    for (const line of text.split("\n")) {
+      if (line === "") continue;
+      const event = decodeWith(logbookEventSchema, line);
+      if (
+        event.verb === "queue" &&
+        (event.kind === "begin" || event.kind === "verb")
+      ) {
+        events.push(event);
       }
     }
-    return events;
-  }, {
-    onFailure: [],
-    reason:
-      "This test helper treats an absent, malformed, or unreadable logbook as no queue events.",
-  });
+  }
+  return events;
 }
 
 Deno.test("queue serializes two wrapped commands at cap 1 and narrates only on stderr", async () => {

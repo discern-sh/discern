@@ -13,7 +13,6 @@
 import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
-import { bestEffortFs } from "../../src/shared/fs_presence.ts";
 import { markerAnnotator, setProseAnnotator, slugify } from "./annotation.ts";
 import { REPO_ROOT } from "./root.ts";
 import {
@@ -695,30 +694,24 @@ async function buildStandards(): Promise<StandardReading[]> {
   const readings: StandardReading[] = [
     { name: "plain_reading_grade", value: plainReadingGrade() },
   ];
-  await bestEffortFs(async () => {
-    const config = parseToml(
-      await Deno.readTextFile(join(REPO_ROOT, "discern.toml")),
-    ) as Record<string, unknown>;
-    const standards = config["standards"] as
-      | Record<string, Record<string, unknown>>
-      | undefined;
-    for (const reading of readings) {
-      const declared = standards?.[reading.name];
-      if (declared === undefined) continue;
-      const limit = declared["limit"];
-      const direction = declared["direction"];
-      if (typeof limit === "number") {
-        Object.assign(reading, { limit });
-      }
-      if (typeof direction === "string") {
-        Object.assign(reading, { direction });
-      }
+  const config = parseToml(
+    await Deno.readTextFile(join(REPO_ROOT, "discern.toml")),
+  ) as Record<string, unknown>;
+  const standards = config["standards"] as
+    | Record<string, Record<string, unknown>>
+    | undefined;
+  for (const reading of readings) {
+    const declared = standards?.[reading.name];
+    if (declared === undefined) continue;
+    const limit = declared["limit"];
+    const direction = declared["direction"];
+    if (typeof limit === "number") {
+      Object.assign(reading, { limit });
     }
-  }, {
-    onFailure: undefined,
-    reason:
-      "The editor can still render its snapshot without advisory standard limits.",
-  });
+    if (typeof direction === "string") {
+      Object.assign(reading, { direction });
+    }
+  }
   return readings;
 }
 

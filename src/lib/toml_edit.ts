@@ -187,6 +187,7 @@ function isTomlNumberLiteral(literal: string): boolean {
     const parsed = parseToml(`v = ${literal}`) as { v?: unknown };
     return typeof parsed.v === "number" && Number.isFinite(parsed.v);
   } catch {
+    // discern-best-effort: toml-number-probe-fallback
     return false;
   }
 }

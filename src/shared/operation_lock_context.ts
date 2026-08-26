@@ -96,6 +96,7 @@ export function inheritedOperationLockLease(
       DISCERN_ENVIRONMENT_VARIABLES.operationLockDelegation,
     );
   } catch {
+    // discern-best-effort: operation-lock-delegation-decode-fallback
     return undefined;
   }
   for (const lease of decoded.leases) {

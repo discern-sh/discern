@@ -32,7 +32,7 @@ import type { SetupAssurance } from "./setup_assurance.ts";
 import type { SetupCompletionInventory } from "./setup_inventory.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { runGit } from "./subprocess.ts";
-import { bestEffortFs, pathExists } from "./fs_presence.ts";
+import { lstatIfExists, pathExists, readTextIfExists } from "./fs_presence.ts";
 import { type CommandRef, discernCommand, flag } from "./command_reference.ts";
 import {
   assertSetupHumanSurfaceConsumption,
@@ -142,6 +142,7 @@ async function deriveProjectNameRecommendation(
         }
       }
     } catch {
+      // discern-best-effort: setup-project-metadata-decode-fallback
       // Invalid project metadata is reported by its own toolchain; it is not identity evidence.
     }
   }
@@ -159,15 +160,9 @@ async function readProjectMetadataFile(
   relativePath: string,
 ): Promise<string | undefined> {
   const path = join(destDir, relativePath);
-  return await bestEffortFs(async () => {
-    const stat = await Deno.lstat(path);
-    if (!stat.isFile || stat.isSymlink) return undefined;
-    return await Deno.readTextFile(path);
-  }, {
-    onFailure: undefined,
-    reason:
-      "Setup naming may omit one missing, linked, or unreadable optional metadata source.",
-  });
+  const stat = await lstatIfExists(path);
+  if (stat === undefined || !stat.isFile || stat.isSymlink) return undefined;
+  return await readTextIfExists(path);
 }
 
 /**

@@ -2116,7 +2116,10 @@ export async function reportUnknownOrSuggest(
   const root = await findRoot();
   const cfg = root === undefined
     ? undefined
-    : await loadConfig(root).catch(() => undefined);
+    : await loadConfig(root).catch(() => {
+      // discern-best-effort: dispatch-command-suggestion-config-fallback
+      return undefined;
+    });
   const scripts = root !== undefined && cfg !== undefined
     ? scriptsDirOf(root, cfg)
     : undefined;

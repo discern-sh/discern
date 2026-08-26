@@ -26,6 +26,7 @@ import {
   selfShimPath as resolveSelfShimPath,
 } from "./self_shim.ts";
 import { quiesceProcessGroup, signalProcessGroup } from "./process_group.ts";
+import { bestEffort, bestEffortSync } from "./best_effort.ts";
 
 /** Bind Git-admin path queries to the canonical generic Git subprocess runner. */
 const selfShimGitRunner: GitAdminPathRunner = async (cwd, args) =>
@@ -302,7 +303,9 @@ async function readBoundedStream(
   let retained = 0;
   const reader = stream.getReader();
   const cancel = (): void => {
-    void reader.cancel().catch(() => undefined);
+    void bestEffort("subprocess-output-reader-cancel", async () => {
+      await reader.cancel();
+    });
   };
   signal.addEventListener("abort", cancel, { once: true });
   if (signal.aborted) cancel();
@@ -347,11 +350,9 @@ async function writeChildInput(
     await writer.close();
     return undefined;
   } catch (error) {
-    try {
+    await bestEffort("subprocess-input-abort", async () => {
       await writer.abort(error);
-    } catch {
-      // The process may already have closed stdin with a more specific result.
-    }
+    });
     return error;
   } finally {
     writer.releaseLock();
@@ -383,11 +384,9 @@ async function boundedChildOutput(
     if (
       !(opts.quiesceDescendants && signalProcessGroup(child.pid, "SIGKILL"))
     ) {
-      try {
+      bestEffortSync("subprocess-bounded-child-kill", () => {
         child.kill("SIGKILL");
-      } catch {
-        // The process may have exited at the same instant as the boundary fired.
-      }
+      });
     }
     // Closing the two capture pipes prevents an escaped descendant that
     // inherited them from turning a killed producer into an unbounded drain.
@@ -599,11 +598,9 @@ export async function runGit(
           output = winner.value;
         } else {
           timedOut = true;
-          try {
+          bestEffortSync("subprocess-timeout-child-kill", () => {
             child.kill("SIGKILL");
-          } catch {
-            // It may have exited at the same instant the timer won.
-          }
+          });
           output = await outputPromise;
         }
       }
@@ -617,12 +614,9 @@ export async function runGit(
         await writer.close();
       } catch (error) {
         inputError = error;
-        try {
+        await bestEffort("subprocess-stdin-abort", async () => {
           await writer.abort(error);
-        } catch {
-          // The child may already have closed its input after reporting its own
-          // more specific failure. Preserve that process result below.
-        }
+        });
       } finally {
         writer.releaseLock();
       }
@@ -855,6 +849,7 @@ export async function commandExists(
     }).output();
     return out.success;
   } catch {
+    // discern-best-effort: subprocess-command-probe-fallback
     return false;
   }
 }

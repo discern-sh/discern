@@ -17,6 +17,7 @@
  */
 
 import { join } from "@std/path";
+import { bestEffort } from "../../shared/best_effort.ts";
 import { constants as FS_CONSTANTS } from "fs";
 import { type FileHandle, open } from "fs/promises";
 import { runGit } from "../../shared/subprocess.ts";
@@ -171,16 +172,23 @@ async function openUntrackedRegular(
   try {
     file = await open(path, UNTRACKED_OPEN_FLAGS);
   } catch {
+    // discern-best-effort: checkpoint-untracked-open-fallback
     return undefined;
   }
   try {
     if (!(await file.stat()).isFile()) {
-      await file.close().catch(() => undefined);
+      await bestEffort(
+        "checkpoint-untracked-nonregular-close",
+        async () => await file.close(),
+      );
       return undefined;
     }
     return file;
   } catch {
-    await file.close().catch(() => undefined);
+    await bestEffort(
+      "checkpoint-untracked-stat-error-close",
+      async () => await file.close(),
+    );
     return undefined;
   }
 }
@@ -332,7 +340,10 @@ async function inspectUntracked(
   } catch {
     return { insertions: 0, binary: "unknown", contentReason: "unreadable" };
   } finally {
-    await file.close().catch(() => undefined);
+    await bestEffort(
+      "checkpoint-untracked-inspection-close",
+      async () => await file.close(),
+    );
   }
 }
 

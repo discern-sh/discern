@@ -302,6 +302,7 @@ async function computeUninstallPlan(
   try {
     templatesDir = await resolveTemplatesDir();
   } catch {
+    // discern-best-effort: uninstall-template-resolution-fallback
     templatesDir = undefined;
     plan.templatesAvailable = false;
   }

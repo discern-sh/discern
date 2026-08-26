@@ -2047,6 +2047,7 @@ async function activeStandardLimitProposalSet(
       left.standard.localeCompare(right.standard)
     );
   } catch {
+    // discern-best-effort: gate-active-standard-proposals-fallback
     return undefined;
   }
 }
