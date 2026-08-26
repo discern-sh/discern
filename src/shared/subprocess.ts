@@ -27,6 +27,7 @@ import {
 } from "./self_shim.ts";
 import { quiesceProcessGroup, signalProcessGroup } from "./process_group.ts";
 import { bestEffort, bestEffortSync } from "./best_effort.ts";
+import { detachPromise } from "./promise_effects.ts";
 
 /** Bind Git-admin path queries to the canonical generic Git subprocess runner. */
 const selfShimGitRunner: GitAdminPathRunner = async (cwd, args) =>
@@ -303,9 +304,14 @@ async function readBoundedStream(
   let retained = 0;
   const reader = stream.getReader();
   const cancel = (): void => {
-    void bestEffort("subprocess-output-reader-cancel", async () => {
-      await reader.cancel();
-    });
+    detachPromise(
+      "subprocess-output-reader-cancel-detach",
+      () =>
+        bestEffort("subprocess-output-reader-cancel", async () => {
+          await reader.cancel();
+        }),
+      globalThis.reportError,
+    );
   };
   signal.addEventListener("abort", cancel, { once: true });
   if (signal.aborted) cancel();

@@ -2988,6 +2988,34 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "detached-promise-boundaries",
+    title: "Detached promise boundaries",
+    what:
+      "Every registered promise effect transferred beyond its caller's sequence, with its exact module, enclosing function, operation, lifecycle owner, rejection policy, cancellation ownership, and reason.",
+    source: {
+      kind: "module",
+      module: "src/shared/promise_effects.ts",
+      exportName: "DETACHED_PROMISE_BOUNDARIES",
+    },
+    guards: ["tests/promise_effects_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "promise-effect ownership is an internal reliability policy rather than user-facing product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the detachment boundary supports asynchronous feature lifecycles rather than adding a separately selectable capability",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/promise_effects.ts"))
+          .DETACHED_PROMISE_BOUNDARIES,
+      ),
+  },
+  {
     id: "tool-temp-directory-kinds",
     title: "Tool temp-directory kinds",
     what:

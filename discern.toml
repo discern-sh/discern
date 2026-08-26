@@ -217,6 +217,12 @@
     run = "project/scripts/project-control"
     provides = "repository planning, TODO, and documenter control-document integrity"
 
+  [jobs.promise-effects]
+    stage = "check"
+    run = "deno task promise-effects"
+    provides = "type-aware promise-effect ownership and exact deliberate-detachment enrollment"
+    timeout = 120
+
 # Setup assurance counts every known job as applicable unless its lifecycle is
 # explicitly absent here. This declaration never changes Gate scheduling.
 # Author changes with `discern config set-job <known-name> --not-applicable`
@@ -963,6 +969,24 @@
       "*.jsx",
       "*.mjs",
       "*.cjs",
+      "deno.json",
+      "deno.lock",
+    ]
+
+  # Deliberate promise-detachment standard — every ignored promise-like
+  # expression fails the type-aware check, including imported, union, generic,
+  # and custom thenable values. The remaining intentional concurrency sites
+  # consume one exact registry row naming lifecycle, rejection, and shutdown
+  # ownership before this complete population reaches the falling ceiling.
+  [standards.detached_promise_boundaries]
+    direction = "down"
+    limit = 10
+    run = "deno task promise-effects"
+    inputs = [
+      "*.ts",
+      "*.tsx",
+      "*.mts",
+      "*.cts",
       "deno.json",
       "deno.lock",
     ]

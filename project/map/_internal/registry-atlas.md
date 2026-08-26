@@ -88,7 +88,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 334     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 335     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -107,11 +107,12 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 26      | —                | —                           |
 | [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 190     | —                | —                           |
+| [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 8       | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 98      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 99      | —                | node `canonical-sets`       |
 
-98 sets · 155 guard tests · 58 committed artifacts.
+99 sets · 156 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -241,6 +242,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/patterns_test.ts`                           | [`hints`](#hints--hints), [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                           |
 | `tests/practice_canon_enrolment_test.ts`           | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon), [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/process_boundaries_test.ts`                 | [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries), [`process-exit-boundaries`](#process-exit-boundaries--process-exit-boundaries)                                                                                                                                                                                                                                                                                                                  |
+| `tests/promise_effects_test.ts`                    | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/providers_test.ts`                          | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/public_doc_parity_test.ts`                  | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/public_schema_compatibility_guard_test.ts`  | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                    |
@@ -2651,7 +2653,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 334
+- Members: 335
   - `0003`
   - `0005`
   - `0006`
@@ -2964,6 +2966,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0342`
   - `0343`
   - `0344`
+  - `0345`
   - `0001`
   - `0002`
   - `0004`
@@ -3234,7 +3237,7 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `src/shared/subprocess.ts#runShell`
   - `src/shared/subprocess.ts#commandExists`
   - `src/shared/discern_commit.ts#commitDiscernChanges`
-  - `src/shared/third_party_codegen.ts#denoInfoJson`
+  - `src/shared/deno_metadata.ts#denoMetadata`
   - `src/commands/docs.ts#pageThrough`
   - `src/lib/open_browser.ts#runBrowserCommand`
   - `src/engine/owned_child.ts#runOwnedChild`
@@ -3584,6 +3587,26 @@ Every named production error discard, with its exact module, enclosing function,
 - Glossary: not enrolled — error-discard enrollment is an internal reliability policy rather than user-facing product vocabulary
 - Feature canon: not enrolled — the boundary registry supports every feature's error semantics rather than adding a separately selectable capability
 
+## `detached-promise-boundaries` — Detached promise boundaries
+
+Every registered promise effect transferred beyond its caller's sequence, with its exact module, enclosing function, operation, lifecycle owner, rejection policy, cancellation ownership, and reason.
+
+- Source: `src/shared/promise_effects.ts` — `DETACHED_PROMISE_BOUNDARIES`
+- Members: 10
+  - `canon-editor-guard-run`
+  - `canon-editor-watch-refresh`
+  - `job-output-reader-cancel-detach`
+  - `main-error-event-crash`
+  - `main-unhandled-rejection-crash`
+  - `mcp-stdin-transport-close`
+  - `site-preview-control-shutdown`
+  - `site-watch-rebuild`
+  - `subprocess-output-reader-cancel-detach`
+  - `worktree-shell-drain-cancel-detach`
+- Guards: `tests/promise_effects_test.ts`
+- Glossary: not enrolled — promise-effect ownership is an internal reliability policy rather than user-facing product vocabulary
+- Feature canon: not enrolled — the detachment boundary supports asynchronous feature lifecycles rather than adding a separately selectable capability
+
 ## `tool-temp-directory-kinds` — Tool temp-directory kinds
 
 Every callback-scoped scratch directory used by a standalone repository tool, with its stable id, secure prefix, purpose, and cleanup policy.
@@ -3619,7 +3642,7 @@ Every supported lifetime for a temporary directory created by tests or executabl
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 98
+- Members: 99
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -3715,6 +3738,7 @@ This meta-registry: the closed set of closed sets.
   - `temp-directory-creator-authorities`
   - `test-real-delay-boundaries`
   - `best-effort-boundaries`
+  - `detached-promise-boundaries`
   - `tool-temp-directory-kinds`
   - `test-temp-directory-ownership-modes`
   - `canonical-sets`

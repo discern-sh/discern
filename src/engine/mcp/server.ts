@@ -36,6 +36,7 @@ import {
 } from "../../shared/env.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { pathExists } from "../../shared/fs_presence.ts";
+import { detachPromise } from "../../shared/promise_effects.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { serializeResult } from "../../shared/result_serialization.ts";
 import { resultPresenterForVerb } from "../../shared/result_contracts.ts";
@@ -2273,7 +2274,11 @@ export async function runMcpServer(
   });
   process.stdin.once("end", () => {
     shutdown.abort();
-    void transport.close();
+    detachPromise(
+      "mcp-stdin-transport-close",
+      () => transport.close(),
+      globalThis.reportError,
+    );
   });
   await server.connect(transport);
   await closed;

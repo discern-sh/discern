@@ -35,6 +35,7 @@ import { createFromBuffer } from "@dprint/formatter";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
+import { denoMetadata } from "./deno_metadata.ts";
 import { readDirIfExists, readTextIfExists } from "./fs_presence.ts";
 import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
 import {
@@ -167,23 +168,10 @@ async function denoInfoJson<Schema extends z.ZodType>(
   extraArgs: readonly string[],
   schema: Schema,
 ): Promise<z.output<Schema>> {
-  const out = await new Deno.Command("deno", {
-    args: ["info", "--json", ...extraArgs],
-    cwd: repoRoot,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  if (!out.success) {
-    throw new Error(
-      `\`deno info --json ${extraArgs.join(" ")}\` failed: ${
-        new TextDecoder().decode(out.stderr)
-      }`,
-    );
-  }
   const command = `deno info --json ${extraArgs.join(" ")}`.trimEnd();
   return decodeJson(
     schema,
-    new TextDecoder().decode(out.stdout),
+    await denoMetadata(repoRoot, ["info", "--json", ...extraArgs]),
     `\`${command}\` output`,
   );
 }
