@@ -175,6 +175,33 @@ function serializedResultRequested(): boolean {
   );
 }
 
+/** Quote one raw CLI argument for a copyable POSIX-shell retry. */
+function shellQuoteArgument(value: string): string {
+  return /^[A-Za-z0-9_./:@%+=,-]+$/u.test(value)
+    ? value
+    : `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+/** Preserve the invoked command while omitting presentation-only global flags. */
+function cliReproduceCommand(): string {
+  const args: string[] = [];
+  for (let index = 0; index < Deno.args.length; index++) {
+    const argument = Deno.args[index] ?? "";
+    if (
+      ["--json", "--markdown", "--render", "--no-color", "--plain"].includes(
+        argument,
+      )
+    ) continue;
+    if (argument === "--theme") {
+      index++;
+      continue;
+    }
+    if (argument.startsWith("--theme=")) continue;
+    args.push(argument);
+  }
+  return ["discern", ...args].map(shellQuoteArgument).join(" ");
+}
+
 /** Render a lock refusal through the same CLI result boundary as the verb. */
 async function routeOperationLockRefusal(
   error: import("../operation_lock.ts").OperationLockError,
@@ -208,6 +235,7 @@ async function runClassifiedCliOperation(
       Deno.cwd(),
       {
         command: verb,
+        reproduceCmd: cliReproduceCommand(),
         ...(options.flags === undefined ? {} : { flags: options.flags }),
         ...(options.hasOperands === undefined
           ? {}

@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **[ADR 0335](0335-operation-policy-enrolls-faithful-previews.md) — enforced preview obligations:** `OPERATION_EFFECTS.preview` now enrolls required CLI previews and their fidelity probes in both directions. The registry remains the live authority; project-authored command internals stay outside discern's predictive boundary.
+> - **[ADR 0338](0338-operation-policy-enrolls-git-write-authority.md) — enforced Git-write authority:** `OPERATION_EFFECTS` classifies discern-owned Git mutation separately and enrolls every applied member in the shared real-operation preflight. Exact effect plans supplement rather than bypass that boundary; observations, dry runs, file-only writers, and opaque project effects stay outside it.
 
 **Status**: accepted. Extends the canonical-set forcing function in [ADR 0051](0051-canonical-set-parity.md), keeps the Logbook recording concern from [ADR 0210](0210-effectful-verb-starts-are-paired-logbook-events.md) separate, and supplies policy metadata beside the plan/apply model in [ADR 0027](0027-plan-apply-engine-execution.md).
 

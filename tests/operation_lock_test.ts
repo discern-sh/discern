@@ -6,13 +6,14 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import {
   OperationLockError,
   withOperationLock,
 } from "../src/engine/operation_lock.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { currentOperationLocks } from "../src/shared/operation_lock_context.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
@@ -30,8 +31,107 @@ function heldOperation(
 /** Initialize the repository helper with one authored file to commit. */
 async function initializeRepo(dir: string): Promise<void> {
   await Deno.writeTextFile(`${dir}/seed.txt`, "seed\n");
+  await Deno.writeTextFile(
+    join(dir, "discern.toml"),
+    [
+      "[meta]",
+      "bootstrapped = true",
+      "",
+      "[project]",
+      'slug = "operation-lock"',
+      "",
+    ].join("\n"),
+  );
   await gitInit(dir);
 }
+
+/** Make one directory deny entry creation and always restore its mode. */
+async function withUnwritableDirectory(
+  dir: string,
+  operation: () => Promise<void>,
+): Promise<void> {
+  const mode = (await Deno.stat(dir)).mode;
+  assert(mode !== null, `could not read mode for ${dir}`);
+  await Deno.chmod(dir, 0o555);
+  try {
+    await operation();
+  } finally {
+    await Deno.chmod(dir, mode & 0o777);
+  }
+}
+
+Deno.test("a Git writer probes Git administration without enrolling file-only writers", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    let gitWriterRan = false;
+    let fileWriterRan = false;
+    const gitAdmin = join(dir, ".git");
+
+    await withUnwritableDirectory(gitAdmin, async () => {
+      const refusal = await assertRejects(
+        () =>
+          withOperationLock(dir, { command: "update" }, () => {
+            gitWriterRan = true;
+            return Promise.resolve();
+          }),
+        OperationLockError,
+      );
+      assertEquals(refusal.result.error, "write_access");
+      assertEquals(refusal.result.diagnostics?.[0]?.tool, "write-access");
+      assertEquals(
+        refusal.result.diagnostics?.[0]?.reproduce_cmd,
+        "discern update",
+      );
+      assertStringIncludes(refusal.message, gitAdmin);
+
+      const updateTool = TOOLS.find((tool) => tool.name === "discern_update");
+      assert(updateTool !== undefined);
+      const routed = await runTool(
+        updateTool,
+        new WorkingRoot(dir),
+        {},
+        undefined,
+        () => Promise.resolve(undefined),
+      );
+      assertEquals(routed.structuredContent.error, "write_access");
+      const routedMessage = routed.structuredContent.message;
+      assert(typeof routedMessage === "string");
+      assertStringIncludes(routedMessage, gitAdmin);
+
+      await withOperationLock(dir, { command: "refresh" }, () => {
+        fileWriterRan = true;
+        return Promise.resolve();
+      });
+    });
+
+    assertEquals(gitWriterRan, false);
+    assertEquals(fileWriterRan, true);
+  });
+});
+
+Deno.test("common-only Git writers do not demand linked-checkout administration", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    const worktree = await addWorktree(dir, "common-only-authority");
+    const anchor = await gitAdminStatePath(worktree, "gateProof");
+    assert(anchor !== undefined);
+    const checkoutAdmin = dirname(dirname(anchor));
+    let ran = false;
+
+    await withUnwritableDirectory(checkoutAdmin, async () => {
+      await withOperationLock(
+        worktree,
+        { command: "patterns reset" },
+        () => {
+          ran = true;
+          return Promise.resolve();
+        },
+      );
+    });
+
+    assertEquals(ran, true);
+  });
+});
 
 Deno.test("acceptance from two worktrees shares one common-repository exclusion", async () => {
   await withTempDir(async (dir) => {

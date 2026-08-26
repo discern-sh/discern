@@ -354,17 +354,17 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       },
       {
         id: "write-preflight",
-        title: "Write authority proven first",
+        title: "Git write authority proven first",
         what:
-          "Before project work, the gate performs the smallest real write of each class it will later need — a create/rename/remove round-trip in the Git admin area, an open-for-write on an existing marker — because sandbox permission metadata can approve an operation the sandbox then denies. A denial is a structured failure naming the blocked path, with a reproduce command.",
+          "Before an applied command performs a discern-owned Git write, the shared CLI and MCP boundary performs a create/write/rename/remove round trip in the common Git administration directory and any checkout surface that command may mutate. Gate, setup, Standards, and worktree creation supplement that broad proof with their exact planned targets. Read-only commands and dry runs never probe. A denial is a structured `write_access` failure naming the blocked path and reproducing the invocation.",
         why:
-          "A sandbox denial costs a few filesystem operations up front instead of a discarded gate run at the end.",
+          "A sandbox denial costs a few filesystem operations up front instead of partial lifecycle state or a discarded slow run.",
         plain: {
-          title: "Proving permission to write first",
+          title: "Proving Git permission before changing anything",
           what:
-            "Before the real work, the check tries the smallest genuine example of every kind of file change it will later need — briefly creating, renaming, and removing something in the version history's housekeeping area, and opening an existing marker file for writing — because a permission list can say yes and the computer can still say no. A refusal becomes a clear failure naming the blocked place, with an instruction that reproduces it.",
+            "Before a command changes Git-managed project state, discern briefly creates, writes, renames, and removes a temporary entry in each version-history housekeeping area that command may need. Commands that know narrower later writes check those places too. Read-only checks and previews stay read-only. A refusal names the blocked place and includes the instruction to retry.",
           why:
-            "A denied permission costs a few tiny file actions up front instead of a whole thrown-away run at the end.",
+            "A denied permission costs a few tiny file actions up front instead of a half-finished project change or a whole thrown-away run.",
         },
       },
       {
@@ -3369,8 +3369,8 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "An agent or integration can call discern knowing that the operation must prove it is allowed to write where it intends. The person retains a visible boundary around effects that change the project or machine.",
         whyItFollows:
-          "Effectful verbs verify placement and transcript consent before writing, and an architectural test keeps destructive operations outside locations that have not licensed them.",
-        drawsOn: ["placement-consent"],
+          "Effectful verbs verify placement and transcript consent before writing, an architectural test keeps destructive operations outside locations that have not licensed them, and discern-owned Git writers prove the process can write their declared Git boundary before entering the command body.",
+        drawsOn: ["placement-consent", "write-preflight"],
       },
     ],
   },
@@ -3641,7 +3641,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent receives a failure that names usable evidence and a recovery appropriate to the actual error family, so it can correct the condition instead of guessing or retrying blindly.",
         whyItFollows:
-          "Diagnostics carry a reproducing command, the error-slug registry classifies generic versus tailored recovery, and the public boundary rejects a failed result that does not satisfy that classification.",
+          "Diagnostics carry a reproducing command, the error-slug registry classifies generic versus tailored recovery, the public boundary rejects a failed result that does not satisfy that classification, and a denied Git-write probe stops the command with the blocked path before its body runs.",
         boundary:
           "The contract identifies the next valid workflow action; it does not diagnose arbitrary failures inside the project's own commands beyond the evidence those commands return.",
         drawsOn: [
@@ -3649,6 +3649,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "gotchas-pointer",
           "failure-recovery-contract",
           "forgiving-cli",
+          "write-preflight",
         ],
       },
       {

@@ -18,15 +18,16 @@ _A command path declares what it can affect before its command-line interface (C
 
 [`OPERATION_EFFECTS`](../../../src/shared/operation_effects.ts) is total over the live CLI command tree. Each command path declares one or more effect classes:
 
-| Effect class                       | Meaning                                                                                       |
-| ---------------------------------- | --------------------------------------------------------------------------------------------- |
-| observation                        | Reads and reports state without a discern-owned mutation.                                     |
-| discern-owned checkout mutation    | Changes files or Git-admin evidence scoped to one checkout.                                   |
-| discern-owned common mutation      | Changes common Git state, a trunk ref, the main checkout, or another repository-wide record.  |
-| Project-authored command execution | Runs a configured project command whose reachable effects belong to that command.             |
-| External setup or resource effects | Runs setup, provider, resource, or lifecycle work that may change state outside the checkout. |
+| Effect class                       | Meaning                                                                                        |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------- |
+| observation                        | Reads and reports state without a discern-owned mutation.                                      |
+| discern-owned checkout mutation    | Changes files or Git-admin evidence scoped to one checkout.                                    |
+| discern-owned common mutation      | Changes common Git state, a trunk ref, the main checkout, or another repository-wide record.   |
+| discern-owned Git mutation         | Writes Git administration, refs, indexes, objects, notes, worktrees, or discern's Git records. |
+| Project-authored command execution | Runs a configured project command whose reachable effects belong to that command.              |
+| External setup or resource effects | Runs setup, provider, resource, or lifecycle work that may change state outside the checkout.  |
 
-The same entry declares a lock boundary and a preview obligation. Mixed paths carry conditions for the flags or operands that activate their writer form. Dry runs acquire no writer lock. The registry does not treat a project-authored command as side-effect-free. Classification and exclusion remain distinct: `queue` uses its own concurrency authority, while Project Script execution holds the checkout boundary.
+The same entry declares a lock boundary, a Git-write-authority strategy, and a preview obligation. Mixed paths carry conditions for the flags or operands that activate their writer form. Dry runs acquire no writer lock. The registry does not treat a project-authored command as side-effect-free. Classification and exclusion remain distinct: `queue` uses its own concurrency authority, while Project Script execution holds the checkout boundary.
 
 The preview field has 3 obligations:
 
@@ -42,6 +43,16 @@ The mixed Gate path `done` remains `required`: its plan lists work owned by disc
 
 [`scripts/canonical_sets.ts`](../../../scripts/canonical_sets.ts) enrolls the registry as a canonical set. Logbook routing has a separate recording concern and does not supply effect policy ([ADR 0330](../_adr/0330-every-command-path-declares-its-operation-effects.md)).
 
+## Git writers prove authority at the shared boundary
+
+Every applied path carrying `discern-git-mutation` crosses the same real-operation preflight while its operation lock is held. [`withOperationLock`](../../../src/engine/operation_lock.ts) derives the common Git-administration directory from Git, then creates, writes, renames, and removes a random temporary entry there. A command that also mutates the checkout probes its Git-administration directory and project root. Failure returns `write_access` with the denied path and a caller-preserving retry command; the command body does not run.
+
+`gitWriteAuthority` records whether a path uses the broad boundary plan alone or supplements it with an exact effect plan. Gate and Standards add their registered validation-state targets. Setup adds the writes carried by its typed effects. Worktree creation adds branch references, reference logs, linked-worktree administration, and the dynamic destination tree before `git worktree add`. Exact probes do not replace the shared boundary: every Git writer remains enrolled even when a later plan knows narrower paths.
+
+Observations, dry runs, and file-only discern writers do not probe Git. Project-authored commands and external resource effects remain opaque unless the same operation separately declares a discern-owned Git mutation. Probe success is point-in-time evidence, so every real writer still reports a later operating-system or Git failure normally.
+
+[`tests/operation_effects_test.ts`](../../../tests/operation_effects_test.ts) holds Git-effect membership and preflight enrollment equal in each direction. Its unrelated future Git writer proves new command containers auto-enroll; an unrelated file writer proves the registry cannot impose Git authority without the Git effect. [`operation_lock_test.ts`](../../../tests/operation_lock_test.ts) denies Git-administration writes and proves CLI and MCP routing stop before the body while a file-only writer remains callable ([ADR 0338](../_adr/0338-operation-policy-enrolls-git-write-authority.md)).
+
 ## Lock boundaries follow shared state
 
 | Boundary            | Scope                                                                                               |
@@ -51,9 +62,9 @@ The mixed Gate path `done` remains `required`: its plan lists work owned by disc
 | Common repository   | Linked worktrees exclude operations that share refs, the main checkout, or common Git-admin state.  |
 | Common and checkout | The operation acquires the common boundary first, then the selected checkout boundary.              |
 
-[`withOperationLock`](../../../src/engine/operation_lock.ts) resolves common or checkout identity from Git administration, hashes that identity into discern's fixed POSIX runtime namespace, and uses a non-blocking operating-system file lock there. The namespace does not follow caller-controlled temporary-directory variables, so parent and child processes cannot resolve different locks for the same Git boundary. Lock setup therefore does not consume the repository-write authority that Gate and setup write checks must prove independently. A standing path becomes inert when its process releases the file lock. A conflict refuses before the command body, names the held boundary, states that the call made no change, and routes the caller to retry after the active operation finishes.
+[`withOperationLock`](../../../src/engine/operation_lock.ts) resolves common or checkout identity from Git administration, hashes that identity into discern's fixed POSIX runtime namespace, and uses a non-blocking operating-system file lock there. The namespace does not follow caller-controlled temporary-directory variables, so parent and child processes cannot resolve different locks for the same Git boundary. Lock setup therefore consumes no repository-write authority; the separate real-operation probe proves it only for classified Git writers after exclusion is held. A standing path becomes inert when its process releases the file lock. A conflict refuses before the command body, names the held boundary, states that the call made no change, and routes the caller to retry after the active operation finishes.
 
-Acceptance uses the combined boundary before it inspects or recovers its transaction. `done`, `prepare`, `refresh`, and other checkout writers hold the checkout boundary while mutable state and evidence must stay coherent. A discovered project without Git administration paths uses a host-temporary boundary keyed by its root. Explicit pre-project writers such as `setup` use the canonical current directory; other commands retain their ordinary not-initialized result ([ADR 0331](../_adr/0331-common-repository-locks-precede-checkout-locks.md)).
+Acceptance uses the combined boundary before it inspects or recovers its transaction. `done`, `prepare`, `refresh`, and other checkout writers hold the checkout boundary while mutable state and evidence must stay coherent. A discovered project without Git administration paths uses a host-temporary boundary keyed by its root. Explicit pre-project writers such as `setup` use the canonical current directory; other commands retain their ordinary not-initialized result ([ADR 0331](../_adr/0331-common-repository-locks-precede-checkout-locks.md)). The lock boundary governs exclusion; `discern-git-mutation` independently governs whether the invocation performs a write probe.
 
 ## Nested commands reuse authenticated leases
 
@@ -63,12 +74,13 @@ A nested operation can reuse a lease its parent holds. It cannot acquire common 
 
 ## Where it lives in code
 
-| Concern                 | Source                                                                                                                                             |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Effect policy           | [`operation_effects.ts`](../../../src/shared/operation_effects.ts)                                                                                 |
-| Lock acquisition        | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)                                                                                       |
-| Nested and child leases | [`operation_lock_context.ts`](../../../src/shared/operation_lock_context.ts)                                                                       |
-| Git-admin identity      | [`git_admin_state.ts`](../../../src/shared/git_admin_state.ts)                                                                                     |
-| CLI interception        | [`main.ts`](../../../src/main.ts)                                                                                                                  |
-| MCP interception        | [`server.ts`](../../../src/engine/mcp/server.ts)                                                                                                   |
-| Preview parity          | [`operation_effects_test.ts`](../../../tests/operation_effects_test.ts), [`engine_plan_parity_test.ts`](../../../tests/engine_plan_parity_test.ts) |
+| Concern                   | Source                                                                                                                                             |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Effect policy             | [`operation_effects.ts`](../../../src/shared/operation_effects.ts)                                                                                 |
+| Lock and broad preflight  | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)                                                                                       |
+| Real write probes         | [`write_preflight.ts`](../../../src/shared/write_preflight.ts), [`setup_effects.ts`](../../../src/shared/setup_effects.ts)                         |
+| Nested and child leases   | [`operation_lock_context.ts`](../../../src/shared/operation_lock_context.ts)                                                                       |
+| Git-admin identity        | [`git_admin_state.ts`](../../../src/shared/git_admin_state.ts)                                                                                     |
+| CLI interception          | [`main.ts`](../../../src/main.ts)                                                                                                                  |
+| MCP interception          | [`server.ts`](../../../src/engine/mcp/server.ts)                                                                                                   |
+| Policy and preview parity | [`operation_effects_test.ts`](../../../tests/operation_effects_test.ts), [`engine_plan_parity_test.ts`](../../../tests/engine_plan_parity_test.ts) |

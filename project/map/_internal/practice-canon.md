@@ -168,7 +168,7 @@ Every effectful verb computes a plan a thin executor applies, so a dry run is a 
 
 - **Arc:** conduct
 - **Upheld:** enforced via `done` · automated via `worktree`
-- **Mechanisms:** Plan and apply · Placement is consent · Write authority proven first · Strand detection · Crash-safe provisioning · Bounded drop recovery · Owned worktree reclamation · Clean under interruption · Ignored-file drift.
+- **Mechanisms:** Plan and apply · Placement is consent · Git write authority proven first · Strand detection · Crash-safe provisioning · Bounded drop recovery · Owned worktree reclamation · Clean under interruption · Ignored-file drift.
 - **Human value:** Keep control of the project.
 - **Agent outcomes:** Resume after interruption · Preview and retry effects safely.
 

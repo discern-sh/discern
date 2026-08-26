@@ -323,6 +323,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0335 — Operation policy enrolls faithful previews](0335-operation-policy-enrolls-faithful-previews.md)
 - [0336 — Ambient process state resolves at host boundaries](0336-ambient-process-state-resolves-at-boundaries.md)
 - [0337 — Vale self-provisions from tracked release integrity](0337-vale-self-provisions-from-tracked-release-integrity.md)
+- [0338 — Operation policy enrolls every discern-owned Git writer in preflight](0338-operation-policy-enrolls-git-write-authority.md)
 
 <!-- END GENERATED: current ADR records -->
 

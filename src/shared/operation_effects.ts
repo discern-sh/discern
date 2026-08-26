@@ -2,9 +2,10 @@
  * Effect policy for built-in command paths.
  *
  * This registry answers a different question from Logbook recording: it names
- * what an invocation can affect, which exclusion boundary it must hold, and
- * what preview contract applies. The live CLI-tree parity guard makes this
- * total over top-level, nested, and hidden command paths.
+ * what an invocation can affect, which exclusion boundary it must hold, which
+ * Git-write authority it must prove, and what preview contract applies. The
+ * live CLI-tree parity guard makes this total over top-level, nested, and hidden
+ * command paths.
  */
 
 /** The semantic kinds of work a command may perform. */
@@ -12,6 +13,7 @@ export const OPERATION_EFFECT_CLASSES = [
   "observation",
   "discern-checkout-mutation",
   "discern-common-mutation",
+  "discern-git-mutation",
   "project-command",
   "external-setup",
 ] as const;
@@ -31,6 +33,13 @@ export type OperationPreviewObligation =
   | "none"
   | "disclose"
   | "required";
+
+/** How one invocation proves the predictable Git writes discern itself owns. */
+export type OperationGitWriteAuthority =
+  | "none"
+  | "opaque"
+  | "boundary-plan"
+  | "boundary-plus-effect-plan";
 
 /** Invocation facts that can select the effectful form of a mixed command. */
 export interface OperationInvocationFacts {
@@ -61,6 +70,8 @@ export interface OperationEffectPolicy {
   /** This command may write before a discern project root exists. */
   readonly lockWithoutProject?: boolean;
   readonly preview: OperationPreviewObligation;
+  /** Centrally boundary-planned, optionally with a command's exact effect plan. */
+  readonly gitWriteAuthority: OperationGitWriteAuthority;
 }
 
 /** Build one immutable policy while preserving literal field types. */
@@ -68,12 +79,29 @@ function policy(
   effects: readonly OperationEffectClass[],
   lock: OperationLockBoundary,
   preview: OperationPreviewObligation,
-  options: Pick<
-    OperationEffectPolicy,
-    "lockWhen" | "lockWithoutProject"
+  options: Partial<
+    Pick<
+      OperationEffectPolicy,
+      "lockWhen" | "lockWithoutProject" | "gitWriteAuthority"
+    >
   > = {},
 ): OperationEffectPolicy {
-  return { effects, lock, preview, ...options };
+  const ownsGitWrites = effects.includes("discern-git-mutation");
+  const hasOpaqueEffects = effects.some((effect) =>
+    effect === "project-command" || effect === "external-setup"
+  );
+  const gitWriteAuthority: OperationGitWriteAuthority = ownsGitWrites
+    ? "boundary-plan"
+    : hasOpaqueEffects
+    ? "opaque"
+    : "none";
+  return {
+    effects,
+    lock,
+    preview,
+    ...options,
+    gitWriteAuthority: options.gitWriteAuthority ?? gitWriteAuthority,
+  };
 }
 
 const OBSERVATION = policy(["observation"], "none", "none");
@@ -92,22 +120,6 @@ const EXTERNAL_CHECKOUT_REQUIRED = policy(
   "checkout",
   "required",
 );
-const EXTERNAL_CHECKOUT_DISCLOSE = policy(
-  ["discern-checkout-mutation", "project-command", "external-setup"],
-  "checkout",
-  "disclose",
-);
-const COMMON_REQUIRED = policy(
-  ["discern-common-mutation"],
-  "common",
-  "required",
-);
-const EXTERNAL_COMMON_REQUIRED = policy(
-  ["discern-common-mutation", "external-setup"],
-  "common",
-  "required",
-);
-
 /**
  * Every registered CLI command path. Command groups are present because their
  * bare invocations are live behavior too. Mixed paths keep every possible
@@ -119,6 +131,7 @@ export const OPERATION_EFFECTS = {
     [
       "discern-checkout-mutation",
       "discern-common-mutation",
+      "discern-git-mutation",
       "project-command",
       "external-setup",
     ],
@@ -150,9 +163,14 @@ export const OPERATION_EFFECTS = {
   ),
   doctor: OBSERVATION,
   done: policy(
-    ["discern-checkout-mutation", "project-command"],
+    [
+      "discern-checkout-mutation",
+      "discern-git-mutation",
+      "project-command",
+    ],
     "checkout",
     "required",
+    { gitWriteAuthority: "boundary-plus-effect-plan" },
   ),
   help: OBSERVATION,
   identity: OBSERVATION,
@@ -167,9 +185,17 @@ export const OPERATION_EFFECTS = {
   ),
   mcp: OBSERVATION,
   patterns: OBSERVATION,
-  "patterns archive": COMMON_REQUIRED,
+  "patterns archive": policy(
+    ["discern-common-mutation", "discern-git-mutation"],
+    "common",
+    "required",
+  ),
   "patterns archives": OBSERVATION,
-  "patterns reset": COMMON_REQUIRED,
+  "patterns reset": policy(
+    ["discern-common-mutation", "discern-git-mutation"],
+    "common",
+    "required",
+  ),
   prepare: policy(
     ["discern-checkout-mutation", "project-command", "external-setup"],
     "checkout",
@@ -201,40 +227,52 @@ export const OPERATION_EFFECTS = {
       "observation",
       "discern-checkout-mutation",
       "discern-common-mutation",
+      "discern-git-mutation",
       "external-setup",
     ],
     "common-and-checkout",
     "required",
-    { lockWithoutProject: true },
+    {
+      lockWithoutProject: true,
+      gitWriteAuthority: "boundary-plus-effect-plan",
+    },
   ),
   "setup accept": policy(
     [
       "discern-checkout-mutation",
       "discern-common-mutation",
+      "discern-git-mutation",
       "external-setup",
     ],
     "common-and-checkout",
     "required",
+    { gitWriteAuthority: "boundary-plus-effect-plan" },
   ),
   "setup begin": policy(
     [
       "discern-checkout-mutation",
       "discern-common-mutation",
+      "discern-git-mutation",
       "external-setup",
     ],
     "common-and-checkout",
     "required",
-    { lockWithoutProject: true },
+    {
+      lockWithoutProject: true,
+      gitWriteAuthority: "boundary-plus-effect-plan",
+    },
   ),
   "setup done": policy(
     [
       "discern-checkout-mutation",
       "discern-common-mutation",
+      "discern-git-mutation",
       "project-command",
       "external-setup",
     ],
     "common-and-checkout",
     "disclose",
+    { gitWriteAuthority: "boundary-plus-effect-plan" },
   ),
   "setup step": OBSERVATION,
   "setup verify": OBSERVATION,
@@ -242,14 +280,25 @@ export const OPERATION_EFFECTS = {
   "skills eject": EXTERNAL_CHECKOUT_REQUIRED,
   "skills list": OBSERVATION,
   standards: policy(
-    ["discern-checkout-mutation", "project-command"],
+    [
+      "discern-checkout-mutation",
+      "discern-git-mutation",
+      "project-command",
+    ],
     "checkout",
     "required",
+    { gitWriteAuthority: "boundary-plus-effect-plan" },
   ),
   start: policy(
-    ["discern-common-mutation", "project-command", "external-setup"],
+    [
+      "discern-common-mutation",
+      "discern-git-mutation",
+      "project-command",
+      "external-setup",
+    ],
     "common",
     "required",
+    { gitWriteAuthority: "boundary-plus-effect-plan" },
   ),
   status: OBSERVATION,
   test: PROJECT_COMMAND,
@@ -263,13 +312,19 @@ export const OPERATION_EFFECTS = {
     [
       "discern-checkout-mutation",
       "discern-common-mutation",
+      "discern-git-mutation",
       "external-setup",
     ],
     "common-and-checkout",
     "required",
   ),
   update: policy(
-    ["discern-checkout-mutation", "project-command", "external-setup"],
+    [
+      "discern-checkout-mutation",
+      "discern-git-mutation",
+      "project-command",
+      "external-setup",
+    ],
     "checkout",
     "required",
   ),
@@ -280,18 +335,67 @@ export const OPERATION_EFFECTS = {
     { lockWhen: { unlessFlags: ["check"] } },
   ),
   worktree: OBSERVATION,
-  "worktree drop": EXTERNAL_COMMON_REQUIRED,
-  "worktree ensure": EXTERNAL_CHECKOUT_DISCLOSE,
+  "worktree drop": policy(
+    ["discern-common-mutation", "discern-git-mutation", "external-setup"],
+    "common",
+    "required",
+  ),
+  "worktree ensure": policy(
+    [
+      "discern-checkout-mutation",
+      "discern-git-mutation",
+      "project-command",
+      "external-setup",
+    ],
+    "checkout",
+    "disclose",
+  ),
   "worktree hook": OBSERVATION,
-  "worktree hook create": EXTERNAL_CHECKOUT_DISCLOSE,
-  "worktree hook remove": EXTERNAL_CHECKOUT_DISCLOSE,
-  "worktree prune": EXTERNAL_COMMON_REQUIRED,
+  "worktree hook create": policy(
+    [
+      "discern-checkout-mutation",
+      "discern-git-mutation",
+      "project-command",
+      "external-setup",
+    ],
+    "checkout",
+    "disclose",
+    { gitWriteAuthority: "boundary-plus-effect-plan" },
+  ),
+  "worktree hook remove": policy(
+    [
+      "discern-checkout-mutation",
+      "discern-git-mutation",
+      "project-command",
+      "external-setup",
+    ],
+    "checkout",
+    "disclose",
+  ),
+  "worktree prune": policy(
+    ["discern-common-mutation", "discern-git-mutation", "external-setup"],
+    "common",
+    "required",
+  ),
   "worktree setup": policy(
-    ["discern-checkout-mutation", "project-command", "external-setup"],
+    [
+      "discern-checkout-mutation",
+      "discern-git-mutation",
+      "project-command",
+      "external-setup",
+    ],
     "checkout",
     "required",
   ),
-  "worktree teardown": EXTERNAL_CHECKOUT_REQUIRED,
+  "worktree teardown": policy(
+    [
+      "discern-checkout-mutation",
+      "discern-git-mutation",
+      "external-setup",
+    ],
+    "checkout",
+    "required",
+  ),
   worktrees: OBSERVATION,
 } as const satisfies Readonly<Record<string, OperationEffectPolicy>>;
 

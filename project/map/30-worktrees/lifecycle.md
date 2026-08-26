@@ -21,6 +21,8 @@ _Keep the same worktree from the first edit through review feedback and resumed 
 
 From the main checkout, `discern start` creates and readies a worktree for an effort that has none, then returns its path. Keep that path for review feedback, requested fixes, and resumed sessions. If a later session opens in the main checkout, continue at the recorded path and pass `path` to discern tools. Ask the owner when the path is unavailable. Calling `start` again creates a separate sibling worktree. New worktrees start from the configured trunk unless `--from <ref>` names unlanded or experimental work ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md), [ADR 0110](../_adr/0110-the-landing-model.md)).
 
+Before `git worktree add`, `start` proves the shared Git-administration boundary and its planned branch references, reference logs, linked-worktree administration, and destination directory with temporary real writes. A denial returns `write_access` before Git creates a branch or checkout. If Git fails after the probe, cleanup still runs, but resource teardown begins only after worktree creation succeeded; a failed add never claims resources from a checkout that did not exist ([ADR 0338](../_adr/0338-operation-policy-enrolls-git-write-authority.md)).
+
 An optional name becomes a branch-safe slug; otherwise discern generates a codename. It checks the directory, branch, and port for collisions first ([ADR 0109](../_adr/0109-worktree-start-optional-name.md)).
 
 The default is `<repo>.worktrees/<id>` beside the repository; `[worktree].root` overrides it. Nested worktrees confuse recursive tools and root discovery ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).

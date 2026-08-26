@@ -87,6 +87,21 @@ async function withUnwritableGitAdmin(
   }
 }
 
+/** Make one existing directory read-only for an operation and always restore it. */
+async function withUnwritableDirectory(
+  dir: string,
+  fn: () => Promise<void>,
+): Promise<void> {
+  const originalMode = (await Deno.stat(dir)).mode;
+  assert(originalMode !== null, `could not read mode for ${dir}`);
+  await Deno.chmod(dir, 0o555);
+  try {
+    await fn();
+  } finally {
+    await Deno.chmod(dir, originalMode & 0o777);
+  }
+}
+
 /** Render a measurement job whose marker proves whether preflight failed before gate execution. */
 function slowStandardConfig(marker: string): string {
   return [
@@ -133,6 +148,142 @@ Deno.test("done fails before any gate job when its later Git-admin write is unav
       assertEquals(obj.diagnostics?.[0]?.tool, "write-access");
       assertStringIncludes(obj.diagnostics?.[0]?.message ?? "", ".git");
       assertEquals(await pathExists(join(dir, marker)), false);
+    });
+  });
+});
+
+Deno.test("start proves its complete write plan before Git creates a branch or worktree", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const refs = join(dir, ".git", "refs", "heads");
+    const branchesBefore = await gitOut(
+      dir,
+      "for-each-ref",
+      "--format=%(refname)",
+      "refs/heads",
+    );
+    const worktreesBefore = await gitOut(
+      dir,
+      "worktree",
+      "list",
+      "--porcelain",
+    );
+
+    await withUnwritableDirectory(refs, async () => {
+      const run = await runAgent(dir, [
+        "start",
+        "--name",
+        "denied-authority",
+        "--json",
+      ]);
+      assertEquals(run.code, 1, run.output);
+      const envelope = parseJson(run.stdout, "start");
+      assertEquals(envelope.error, "write_access");
+      assertEquals(envelope.diagnostics?.[0]?.tool, "write-access");
+      assertEquals(
+        envelope.diagnostics?.[0]?.reproduce_cmd,
+        "discern start --name denied-authority",
+      );
+      assertStringIncludes(envelope.message ?? "", refs);
+      assert(
+        !(envelope.message ?? "").includes("teardown"),
+        `a pre-creation denial must not claim teardown failed\n${run.output}`,
+      );
+    });
+
+    assertEquals(
+      await gitOut(
+        dir,
+        "for-each-ref",
+        "--format=%(refname)",
+        "refs/heads",
+      ),
+      branchesBefore,
+    );
+    assertEquals(
+      await gitOut(dir, "worktree", "list", "--porcelain"),
+      worktreesBefore,
+    );
+    assertEquals(await pathExists(`${dir}.worktrees`), false);
+  });
+});
+
+Deno.test("start proves the dynamic destination tree before creating its branch", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const worktreeRoot = `${dir}.worktrees`;
+    await Deno.mkdir(worktreeRoot);
+
+    await withUnwritableDirectory(worktreeRoot, async () => {
+      const run = await runAgent(dir, [
+        "start",
+        "--name",
+        "denied-destination",
+        "--json",
+      ]);
+      assertEquals(run.code, 1, run.output);
+      const envelope = parseJson(run.stdout, "start");
+      assertEquals(envelope.error, "write_access");
+      assertEquals(
+        envelope.diagnostics?.[0]?.reproduce_cmd,
+        "discern start --name denied-destination",
+      );
+      assertStringIncludes(envelope.message ?? "", worktreeRoot);
+    });
+
+    assertEquals(
+      await gitOut(
+        dir,
+        "for-each-ref",
+        "--format=%(refname)",
+        "refs/heads/agent/denied-destination",
+      ),
+      "",
+    );
+    assertEquals(
+      await pathExists(join(worktreeRoot, "denied-destination")),
+      false,
+    );
+  });
+});
+
+Deno.test("a Git repository without discern keeps the command's not-initialized refusal", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const gitAdmin = join(dir, ".git");
+
+    await withUnwritableDirectory(gitAdmin, async () => {
+      const run = await runAgent(dir, ["update", "--json"]);
+      assertEquals(run.code, 1, run.output);
+      const envelope = parseJson(run.stdout, "update");
+      assertEquals(envelope.error, "not_initialized");
+    });
+  });
+});
+
+Deno.test("the CLI Git boundary preserves the invoked retry and omits presentation flags", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const gitAdmin = join(dir, ".git");
+
+    await withUnwritableDirectory(gitAdmin, async () => {
+      const run = await runAgent(dir, [
+        "update",
+        "--from",
+        "HEAD",
+        "--json",
+      ]);
+      assertEquals(run.code, 1, run.output);
+      const envelope = parseJson(run.stdout, "update");
+      assertEquals(envelope.error, "write_access");
+      assertEquals(
+        envelope.diagnostics?.[0]?.reproduce_cmd,
+        "discern update --from HEAD",
+      );
     });
   });
 });

@@ -73,6 +73,10 @@ const NON_SKILL_TOKENS = new Map<string, string>([
     "discern-common-mutation",
     "the operation-effect registry class for a common-repository mutation",
   ],
+  [
+    "discern-git-mutation",
+    "the operation-effect registry class for a discern-owned Git mutation",
+  ],
 ]);
 
 const EXEMPT_SEGMENTS = ["/_adr/", "/_private/"] as const;

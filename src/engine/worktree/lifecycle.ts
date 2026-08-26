@@ -155,6 +155,11 @@ import {
   type StepResult,
   verbatimStepLabel,
 } from "../../shared/result.ts";
+import { plannedGitMutationWrites } from "../../shared/setup_effects.ts";
+import {
+  preflightPlannedWrites,
+  writePreflightFailureResult,
+} from "../../shared/write_preflight.ts";
 import {
   observeCheckpointActivity,
   observeResult,
@@ -1218,9 +1223,12 @@ export async function worktreeSetup(
  * gitignored materialized skills to build.
  *
  * Fails CLOSED and CLEAN: an unborn repo (no first commit) is refused up front in
- * plain language, and any failure after the worktree was created here discards the
- * partial worktree (directory, registration, branch) before rethrowing — a failed
- * create must never leave debris that `status` then lists as a healthy worktree.
+ * plain language; a fresh creation proves its ref, worktree-administration, and
+ * destination-path writes before `git worktree add`; and any failure after the
+ * worktree was created here discards the partial worktree (directory,
+ * registration, branch) before rethrowing. Resource teardown starts only when
+ * creation succeeded, so a failed add never reports recovery work for a checkout
+ * that did not exist.
  */
 export async function createAndSetupWorktree(
   mainRepo: string,
@@ -1229,6 +1237,10 @@ export async function createAndSetupWorktree(
   log: Logger,
   ownership: { id: string; settings: IdentitySettings },
   startPoint?: string,
+  invocation: {
+    verb: string;
+    reproduceCmd: string;
+  } = { verb: "start", reproduceCmd: "discern start" },
 ): Promise<void> {
   if (!(await hasAnyCommit(mainRepo))) {
     throw new WorktreeGitError(
@@ -1251,8 +1263,38 @@ export async function createAndSetupWorktree(
         `(git log ${branch}) and land or delete it yourself, then re-run.`,
     );
   }
+  if (!preExisting) {
+    const writePreflight = await preflightPlannedWrites([
+      ...await plannedGitMutationWrites(
+        mainRepo,
+        "worktree creation",
+        [
+          "branch-refs",
+          "branch-reflogs",
+          "linked-worktrees",
+        ],
+      ),
+      {
+        kind: "directory-tree",
+        path: dir,
+        description: "the planned worktree path",
+      },
+    ]);
+    if (!writePreflight.ok) {
+      const result = writePreflightFailureResult(
+        invocation.verb,
+        writePreflight,
+        invocation.reproduceCmd,
+      );
+      throw new WorktreeResultError(
+        result.message ?? "Write access denied.",
+        result,
+      );
+    }
+  }
   // True once `git worktree add -b` has succeeded — the moment the branch (and
-  // the checkout) became THIS call's creation, and so its to discard on failure.
+  // the checkout) became THIS call's creation, and so it is ours to discard on
+  // failure.
   let createdWorktree = false;
   try {
     await addWorktree(mainRepo, dir, branch, startPoint);
@@ -1287,7 +1329,10 @@ export async function createAndSetupWorktree(
           branch,
           log,
           ownership,
-          { deleteBranch: createdWorktree },
+          {
+            deleteBranch: createdWorktree,
+            teardownResources: createdWorktree,
+          },
         );
       } catch (cleanupError) {
         const original = e instanceof Error ? e.message : String(e);
@@ -1317,24 +1362,26 @@ async function discardCreatedWorktree(
   branch: string,
   log: Logger,
   ownership: { id: string; settings: IdentitySettings },
-  opts: { deleteBranch: boolean },
+  opts: { deleteBranch: boolean; teardownResources?: boolean },
 ): Promise<void> {
   const failures: string[] = [];
-  try {
-    const resources = await teardownResources(
-      await lifecycleContext(dir, log, dir),
-    );
-    if (resources.failed.length > 0) {
+  if (opts.teardownResources ?? true) {
+    try {
+      const resources = await teardownResources(
+        await lifecycleContext(dir, log, dir),
+      );
+      if (resources.failed.length > 0) {
+        failures.push(
+          `resources kept for recovery: ${resources.failed.join(", ")}`,
+        );
+      }
+    } catch (error) {
       failures.push(
-        `resources kept for recovery: ${resources.failed.join(", ")}`,
+        `resource teardown could not run: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
     }
-  } catch (error) {
-    failures.push(
-      `resource teardown could not run: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
   }
   const tip = opts.deleteBranch
     ? await runGit(
@@ -4975,6 +5022,16 @@ export async function startResult(
     ctx.log,
     { id, settings },
     startPoint,
+    {
+      verb: "start",
+      reproduceCmd: [
+        "discern start",
+        ...(opts.name === undefined || opts.name === ""
+          ? []
+          : ["--name", opts.name]),
+        ...(opts.from === undefined ? [] : ["--from", opts.from]),
+      ].join(" "),
+    },
   );
   ctx.log.ok(`Worktree '${id}' is ready at ${dir} (from ${startPoint}).`);
 

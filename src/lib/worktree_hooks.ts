@@ -174,6 +174,10 @@ export async function worktreeCreateHook(): Promise<number> {
       log,
       { id: name, settings: ownershipSettings },
       startPoint,
+      {
+        verb: "worktree hook create",
+        reproduceCmd: "discern worktree hook create",
+      },
     );
     if (usedPorts !== undefined && settings !== undefined) {
       try {

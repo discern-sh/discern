@@ -1,15 +1,18 @@
 /**
- * Shared exclusion capability for classified Discern operations.
+ * Shared exclusion and Git-write capability for classified discern operations.
  *
  * A common-repository lock is always acquired before a checkout lock. Nested
  * calls may reuse a lock already held by their async call chain, but may not
  * widen from checkout-only to common or acquire a second checkout. That rule,
  * plus non-blocking OS locks, prevents nested deadlock while preserving
- * parallelism across linked worktrees.
+ * parallelism across linked worktrees. While the lock is held, every classified
+ * discern-owned Git writer also proves its broad Git-admin boundary before its
+ * command body runs; commands with exact effect plans supplement that probe.
  */
 
 import { dirname, join, resolve } from "@std/path";
 import {
+  type OperationEffectPolicy,
   operationEffectPolicy,
   type OperationInvocationFacts,
   type OperationLockBoundary,
@@ -27,10 +30,17 @@ import {
 } from "../shared/operation_lock_context.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import { sha256Hex } from "../shared/sha256.ts";
+import {
+  type PlannedWriteTarget,
+  preflightPlannedWrites,
+  writePreflightFailureResult,
+} from "../shared/write_preflight.ts";
 
 /** One classified operation invocation. */
 export interface OperationInvocation extends OperationInvocationFacts {
   readonly command: string;
+  /** Copyable retry preserving the caller's invocation when that surface has it. */
+  readonly reproduceCmd?: string;
 }
 
 /** A routed refusal produced before an operation body runs. */
@@ -109,9 +119,7 @@ async function resolveLockSpecs(
     );
     if (anchor === undefined) return undefined;
     const adminDirectory = dirname(dirname(anchor));
-    specs.push(
-      await hostLockSpec(concrete, `git-admin:${adminDirectory}`),
-    );
+    specs.push(await hostLockSpec(concrete, `git-admin:${adminDirectory}`));
   }
   return specs;
 }
@@ -150,6 +158,68 @@ async function resolvePreRepositoryLockSpecs(
   return await Promise.all(
     concreteBoundaries(boundary).map((concrete) =>
       hostLockSpec(concrete, `project-root:${canonicalRoot}`)
+    ),
+  );
+}
+
+/** Derive the broad real Git-admin surfaces for one classified invocation. */
+async function operationBoundaryWrites(
+  cwd: string,
+  policy: OperationEffectPolicy,
+  projectRoot: string | undefined,
+): Promise<PlannedWriteTarget[]> {
+  const [commonAnchor, checkoutAnchor] = await Promise.all([
+    gitAdminStatePath(cwd, "resources"),
+    gitAdminStatePath(cwd, "gateProof"),
+  ]);
+  if (commonAnchor === undefined || checkoutAnchor === undefined) {
+    return [];
+  }
+  const targets: PlannedWriteTarget[] = [
+    {
+      kind: "directory-entry",
+      path: dirname(dirname(commonAnchor)),
+      description: "this discern operation's common Git administration",
+    },
+  ];
+  if (
+    policy.effects.includes("discern-checkout-mutation")
+  ) {
+    targets.push({
+      kind: "directory-entry",
+      path: dirname(dirname(checkoutAnchor)),
+      description: "this discern operation's checkout Git administration",
+    });
+    targets.push({
+      kind: "directory-entry",
+      path: projectRoot ?? cwd,
+      description: "the checkout containing its planned discern-owned writes",
+    });
+  }
+  return targets;
+}
+
+/** Fail before the command body when its classified write boundary is denied. */
+async function preflightOperationBoundary(
+  cwd: string,
+  invocation: OperationInvocation,
+  policy: OperationEffectPolicy,
+): Promise<void> {
+  if (
+    policy.gitWriteAuthority !== "boundary-plan" &&
+    policy.gitWriteAuthority !== "boundary-plus-effect-plan"
+  ) return;
+  const projectRoot = await findRoot(cwd);
+  if (projectRoot === undefined && policy.lockWithoutProject !== true) return;
+  const preflight = await preflightPlannedWrites(
+    await operationBoundaryWrites(cwd, policy, projectRoot),
+  );
+  if (preflight.ok) return;
+  throw new OperationLockError(
+    writePreflightFailureResult(
+      invocation.command,
+      preflight,
+      invocation.reproduceCmd ?? `discern ${invocation.command}`,
     ),
   );
 }
@@ -205,7 +275,7 @@ async function acquireLock(
   } catch (error) {
     throw refusal(
       command,
-      `Discern could not open the ${boundaryName(spec.boundary)} for ${cwd}. ` +
+      `discern could not open the ${boundaryName(spec.boundary)} for ${cwd}. ` +
         `This call made no change. Retry after the boundary is writable. ${
           error instanceof Error ? error.message : String(error)
         }`,
@@ -218,7 +288,7 @@ async function acquireLock(
     file.close();
     throw refusal(
       command,
-      `Discern could not check the ${
+      `discern could not check the ${
         boundaryName(spec.boundary)
       } for ${cwd}. ` +
         `This call made no change. Retry after Git's administrative area is readable. ${
@@ -248,7 +318,7 @@ async function acquireLock(
     file.close();
     throw refusal(
       command,
-      `Another Discern operation holds the ${
+      `Another discern operation holds the ${
         boundaryName(spec.boundary)
       } for ${cwd}. ` +
         "This call made no change. Retry after that operation finishes.",
@@ -261,7 +331,7 @@ async function acquireLock(
     file.close();
     throw refusal(
       command,
-      `Discern could not read the ${boundaryName(spec.boundary)} for ${cwd}. ` +
+      `discern could not read the ${boundaryName(spec.boundary)} for ${cwd}. ` +
         `This call made no change. Retry after the boundary is readable. ${
           error instanceof Error ? error.message : String(error)
         }`,
@@ -289,7 +359,7 @@ async function acquireLock(
     file.close();
     throw refusal(
       command,
-      `Discern could not record the ${
+      `discern could not record the ${
         boundaryName(spec.boundary)
       } lease for ${cwd}. ` +
         `This call made no change. Retry after the boundary is writable. ${
@@ -301,7 +371,8 @@ async function acquireLock(
 }
 
 /**
- * Run one classified operation while holding its policy boundary.
+ * Run one classified operation while holding its policy boundary and proving
+ * any registry-declared Git-write authority.
  *
  * Lock files contain no owner claim. Only the operating-system lock on an open
  * handle establishes ownership; an orphaned path is inert and reusable.
@@ -315,7 +386,7 @@ export async function withOperationLock<T>(
   if (policy === undefined) {
     throw refusal(
       invocation.command,
-      `Discern has no operation-effect policy for \`${invocation.command}\`. ` +
+      `discern has no operation-effect policy for \`${invocation.command}\`. ` +
         "This call made no change. Retry after the command is classified.",
     );
   }
@@ -335,7 +406,10 @@ export async function withOperationLock<T>(
 
   const held = currentOperationLocks();
   const missing = specs.filter((spec) => !held?.leases.has(spec.key));
-  if (missing.length === 0) return await operation();
+  if (missing.length === 0) {
+    await preflightOperationBoundary(cwd, invocation, policy);
+    return await operation();
+  }
 
   const heldCheckout = held?.boundaries.has("checkout") === true;
   const acquiringCommon = missing.some((spec) => spec.boundary === "common");
@@ -345,7 +419,7 @@ export async function withOperationLock<T>(
   if (heldCheckout && acquiringCommon) {
     throw refusal(
       invocation.command,
-      "Discern refused a nested operation that would acquire the common repository boundary after a checkout boundary. " +
+      "discern refused a nested operation that would acquire the common repository boundary after a checkout boundary. " +
         "This call made no change. Retry from the outer operation so it acquires common before checkout.",
     );
   }
@@ -361,7 +435,7 @@ export async function withOperationLock<T>(
     if (inheritedCheckout !== undefined && inheritedCommon === undefined) {
       throw refusal(
         invocation.command,
-        "Discern refused a child operation that would acquire the common repository boundary after its parent delegated only a checkout boundary. " +
+        "discern refused a child operation that would acquire the common repository boundary after its parent delegated only a checkout boundary. " +
           "This call made no change. Retry from an outer operation classified to acquire common before checkout.",
       );
     }
@@ -369,7 +443,7 @@ export async function withOperationLock<T>(
   if (heldCheckout && acquiringCheckout) {
     throw refusal(
       invocation.command,
-      "Discern refused a nested operation that would hold two checkout boundaries. " +
+      "discern refused a nested operation that would hold two checkout boundaries. " +
         "This call made no change. Retry each checkout operation independently.",
     );
   }
@@ -389,7 +463,10 @@ export async function withOperationLock<T>(
       boundaries.add(lease.boundary);
     }
     const next: HeldOperationLocks = { leases, boundaries };
-    return await runWithOperationLocks(next, operation);
+    return await runWithOperationLocks(next, async () => {
+      await preflightOperationBoundary(cwd, invocation, policy);
+      return await operation();
+    });
   } finally {
     await releaseLocks(acquiredLocks);
   }

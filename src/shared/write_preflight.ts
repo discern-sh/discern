@@ -1,6 +1,7 @@
 /**
- * Tiny, effect-representative probes for writes Discern itself plans to perform
- * after potentially slow project commands.
+ * Tiny, effect-representative probes for writes discern itself plans to perform.
+ * The shared operation boundary uses broad Git-admin targets; Gate, setup, and
+ * lifecycle plans add exact targets before slow work or partial effects.
  *
  * Permission metadata is not authoritative under sandboxes: `access(W_OK)` can
  * say yes while the actual open/create is denied. These probes therefore perform
@@ -9,7 +10,7 @@
  */
 
 import { dirname, join } from "@std/path";
-import type { Diagnostic } from "./result.ts";
+import type { Diagnostic, DiscernResult } from "./result.ts";
 
 /** One predictable write surface a workflow will need later. */
 export type PlannedWriteTarget =
@@ -238,7 +239,7 @@ export async function preflightPlannedWrites(
 export function writePreflightFailureMessage(
   failure: WritePreflightFailure,
 ): string {
-  return `Discern cannot write ${failure.description} at ${failure.path}: ${failure.reason}. Allow this invocation to write that path, then retry. A successful probe confirms only that the representative write worked at that moment in that invocation.`;
+  return `discern cannot write ${failure.description} at ${failure.path}: ${failure.reason}. Allow this invocation to write that path, then retry. A successful probe confirms only that the representative write worked at that moment in that invocation.`;
 }
 
 /** Tier-0 diagnostic for a built-in write-authority denial. */
@@ -251,5 +252,20 @@ export function writePreflightDiagnostic(
     severity: "error",
     message: writePreflightFailureMessage(failure),
     reproduce_cmd: reproduceCmd,
+  };
+}
+
+/** One uniform refusal for a command whose planned writes were denied. */
+export function writePreflightFailureResult<T>(
+  verb: string,
+  failure: WritePreflightFailure,
+  reproduceCmd: string,
+): DiscernResult<T> {
+  return {
+    ok: false,
+    verb,
+    error: "write_access",
+    message: writePreflightFailureMessage(failure),
+    diagnostics: [writePreflightDiagnostic(failure, reproduceCmd)],
   };
 }

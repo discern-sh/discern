@@ -40,9 +40,9 @@ A coding agent can orient from one bounded result and continue from an evidence-
 ### Recover from a truthful refusal
 
 - **Agent value:** A coding agent receives a failure that names usable evidence and a recovery appropriate to the actual error family, so it can correct the condition instead of guessing or retrying blindly.
-- **Why it follows:** Diagnostics carry a reproducing command, the error-slug registry classifies generic versus tailored recovery, and the public boundary rejects a failed result that does not satisfy that classification.
+- **Why it follows:** Diagnostics carry a reproducing command, the error-slug registry classifies generic versus tailored recovery, the public boundary rejects a failed result that does not satisfy that classification, and a denied Git-write probe stops the command with the blocked path before its body runs.
 - **Boundary:** The contract identifies the next valid workflow action; it does not diagnose arbitrary failures inside the project's own commands beyond the evidence those commands return.
-- **Direct product basis:** Normalized diagnostics · The gotchas pointer · Failure-recovery contract · A forgiving command line.
+- **Direct product basis:** Normalized diagnostics · The gotchas pointer · Failure-recovery contract · A forgiving command line · Git write authority proven first.
 
 ### See the change discern sees
 
@@ -97,7 +97,7 @@ A coding agent can spend its attention on the changed behavior while discern sch
 - **Agent value:** A coding agent can fix generated or formatting drift, exercise targeted tests, and discover final-gate preconditions before paying for the complete Gate.
 - **Why it follows:** Prepare runs the fix and check stages, the test verb exposes project tests, tidy removes declared waste, generated declarations provide regeneration authority, and preflight checks report worktree and write conditions early.
 - **Boundary:** Prepare and targeted tests accelerate iteration but do not produce the exact-tree Proof required for completion.
-- **Direct product basis:** Canonical formatting for discern surfaces · Fail-fast preconditions · Write authority proven first · Generated artifact declarations · The fast inner loop · Tests on their own.
+- **Direct product basis:** Canonical formatting for discern surfaces · Fail-fast preconditions · Git write authority proven first · Generated artifact declarations · The fast inner loop · Tests on their own.
 
 ### Load only the context needed
 

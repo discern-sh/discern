@@ -324,6 +324,52 @@ Deno.test("a start whose setup fails discards the partial worktree (no debris)",
   });
 });
 
+Deno.test("a Git add failure before creation skips impossible resource teardown", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const gitWrapper = join(dir, "fail-worktree-add-git");
+    await Deno.writeTextFile(
+      gitWrapper,
+      [
+        "#!/bin/sh",
+        'previous=""',
+        'for argument in "$@"; do',
+        '  if [ "$previous" = "worktree" ] && [ "$argument" = "add" ]; then',
+        '    echo "synthetic worktree-add failure" >&2',
+        "    exit 1",
+        "  fi",
+        '  previous="$argument"',
+        "done",
+        'exec git "$@"',
+        "",
+      ].join("\n"),
+    );
+    await Deno.chmod(gitWrapper, 0o755);
+
+    const run = await runAgent(
+      dir,
+      ["start", "--name", "failed-before-create", "--json"],
+      { env: { GIT_BIN: gitWrapper } },
+    );
+    assertEquals(run.code, 1, run.output);
+    const result = decodeCliResult(run.stdout, "start");
+    assertStringIncludes(
+      result.message ?? "",
+      "synthetic worktree-add failure",
+    );
+    assert(
+      !(result.message ?? "").includes("resource teardown"),
+      `no checkout existed from which resources could be loaded\n${run.output}`,
+    );
+    assert(
+      !(result.message ?? "").includes("worktree prune"),
+      `a clean failed add must not prescribe cleanup\n${run.output}`,
+    );
+    await assertNoStartDebris(dir, run.output);
+  });
+});
+
 // ── the dirty-main advisory ──────────────────────────────────────────────────────
 
 Deno.test("start on a dirty main checkout says the changes stay behind", async () => {

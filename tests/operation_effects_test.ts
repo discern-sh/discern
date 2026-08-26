@@ -57,10 +57,106 @@ export function operationPreviewParity(
   };
 }
 
+/** Bidirectional parity between Git effects and planned write authority. */
+export function operationGitWriteAuthorityParity(
+  policies: Readonly<
+    Record<
+      string,
+      | OperationEffectPolicy
+      | (Omit<OperationEffectPolicy, "gitWriteAuthority"> & {
+        gitWriteAuthority?: undefined;
+      })
+    >
+  >,
+): { missing: string[]; overEnrolled: string[] } {
+  const entries = Object.entries(policies).map(([path, policy]) => ({
+    path,
+    ownsGitWrites: policy.effects.includes("discern-git-mutation"),
+    crossesBoundary: ["boundary-plan", "boundary-plus-effect-plan"].includes(
+      (policy as OperationEffectPolicy & { gitWriteAuthority?: string })
+        .gitWriteAuthority ?? "",
+    ) && policy.lock !== "none",
+  }));
+  return {
+    missing: entries.filter((entry) =>
+      entry.ownsGitWrites && !entry.crossesBoundary
+    ).map((entry) => entry.path).sort(),
+    overEnrolled: entries.filter((entry) =>
+      !entry.ownsGitWrites && entry.crossesBoundary
+    ).map((entry) => entry.path).sort(),
+  };
+}
+
 Deno.test("every live CLI command path has exactly one operation-effect policy", () => {
   assertEquals(
     operationEffectParity(liveCommandPaths(), OPERATION_EFFECTS),
     { missing: [], stale: [] },
+  );
+});
+
+Deno.test("every discern-owned Git writer requires plan-derived write authority", () => {
+  assertEquals(operationGitWriteAuthorityParity(OPERATION_EFFECTS), {
+    missing: [],
+    overEnrolled: [],
+  });
+});
+
+Deno.test("an unrelated future Git writer auto-enrols in write-authority policy", () => {
+  const future = {
+    effects: [
+      "discern-checkout-mutation",
+      "discern-git-mutation",
+    ] as const,
+    lock: "checkout",
+    preview: "required",
+  } as const;
+  assertEquals(
+    operationGitWriteAuthorityParity({
+      ...OPERATION_EFFECTS,
+      "future-container unrelated-writer": future,
+    }),
+    {
+      missing: ["future-container unrelated-writer"],
+      overEnrolled: [],
+    },
+  );
+});
+
+Deno.test("an unrelated future file writer cannot demand Git authority", () => {
+  const future: OperationEffectPolicy = {
+    effects: ["discern-checkout-mutation"],
+    lock: "checkout",
+    preview: "required",
+    gitWriteAuthority: "boundary-plan",
+  };
+  assertEquals(
+    operationGitWriteAuthorityParity({
+      ...OPERATION_EFFECTS,
+      "future-container file-writer": future,
+    }),
+    {
+      missing: [],
+      overEnrolled: ["future-container file-writer"],
+    },
+  );
+});
+
+Deno.test("a Git writer cannot bypass preflight with an unlocked policy", () => {
+  const future: OperationEffectPolicy = {
+    effects: ["discern-git-mutation"],
+    lock: "none",
+    preview: "required",
+    gitWriteAuthority: "boundary-plan",
+  };
+  assertEquals(
+    operationGitWriteAuthorityParity({
+      ...OPERATION_EFFECTS,
+      "future-container unlocked-writer": future,
+    }),
+    {
+      missing: ["future-container unlocked-writer"],
+      overEnrolled: [],
+    },
   );
 });
 
@@ -107,6 +203,7 @@ Deno.test("a classified future writer without --dry-run fails preview parity", (
     effects: ["discern-checkout-mutation"],
     lock: "checkout",
     preview: "required",
+    gitWriteAuthority: "none",
   };
   assertEquals(operationEffectParity([path], { [path]: policy }), {
     missing: [],
@@ -124,6 +221,7 @@ Deno.test("a dry-run flag without required preview policy fails parity", () => {
     effects: ["observation"],
     lock: "none",
     preview: "none",
+    gitWriteAuthority: "none",
   };
   assertEquals(operationPreviewParity([path], [path], { [path]: policy }), {
     required_without_flag: [],
@@ -143,6 +241,7 @@ Deno.test("preview exemptions stay bounded while mixed Gate work is required", (
   assertEquals(OPERATION_EFFECTS.done.preview, "required");
   assertEquals(OPERATION_EFFECTS.done.effects, [
     "discern-checkout-mutation",
+    "discern-git-mutation",
     "project-command",
   ]);
 });

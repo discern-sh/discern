@@ -101,7 +101,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** When work is not ready, the agent receives a focused failure, the relevant output, and a reproducing command as early as the pipeline can provide them. Shorter feedback loops mean less time waiting on doomed runs and less context lost to diagnosis.
 - **Mechanism:** `discern prepare` supplies the fast fix-and-check loop; staging, cancellation, time budgets, strand detection, write preflight, captured diagnostics, live output, focused tests, and explicit reruns stop or explain failed work at the earliest reliable point.
-- **Product basis:** The fast inner loop · Tests on their own · The staged pipeline · Fail-fast cancellation · Job time budgets · The capture environment · Live frame and static transcript · Strand detection · Normalized diagnostics · Failure-recovery contract · Current green Proof composes; red reruns stay explicit · Write authority proven first.
+- **Product basis:** The fast inner loop · Tests on their own · The staged pipeline · Fail-fast cancellation · Job time budgets · The capture environment · Live frame and static transcript · Strand detection · Normalized diagnostics · Failure-recovery contract · Current green Proof composes; red reruns stay explicit · Git write authority proven first.
 
 ### Catch related files before the change closes
 
@@ -358,8 +358,8 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Make write authority explicit
 
 - **Value:** An agent or integration can call discern knowing that the operation must prove it is allowed to write where it intends. The person retains a visible boundary around effects that change the project or machine.
-- **Mechanism:** Effectful verbs verify placement and transcript consent before writing, and an architectural test keeps destructive operations outside locations that have not licensed them.
-- **Product basis:** Placement is consent.
+- **Mechanism:** Effectful verbs verify placement and transcript consent before writing, an architectural test keeps destructive operations outside locations that have not licensed them, and discern-owned Git writers prove the process can write their declared Git boundary before entering the command body.
+- **Product basis:** Placement is consent · Git write authority proven first.
 
 ## Coverage and claim traceability
 

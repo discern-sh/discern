@@ -39,6 +39,21 @@ export const SETUP_REQUIRED_EFFECT_KINDS = [
 export type SetupRequiredEffectKind =
   (typeof SETUP_REQUIRED_EFFECT_KINDS)[number];
 
+/** Predictable Git-admin surfaces a planned Git operation may require. */
+export const GIT_MUTATION_WRITE_SURFACES = [
+  "common-directory",
+  "checkout-directory",
+  "head",
+  "index",
+  "objects",
+  "branch-refs",
+  "proof-note-refs",
+  "branch-reflogs",
+  "linked-worktrees",
+] as const;
+export type GitMutationWriteSurface =
+  (typeof GIT_MUTATION_WRITE_SURFACES)[number];
+
 /** A non-empty target set makes omission impossible at construction time. */
 export type RequiredWriteTargets = readonly [
   PlannedWriteTarget,
@@ -148,18 +163,23 @@ async function checkoutGitDir(root: string): Promise<string | undefined> {
 export async function plannedGitMutationWrites(
   root: string,
   description: string,
+  surfaces: readonly GitMutationWriteSurface[] = GIT_MUTATION_WRITE_SURFACES,
 ): Promise<PlannedWriteTarget[]> {
   const [common, checkout] = await Promise.all([
     resolveCommonGitDir(root),
     checkoutGitDir(root),
   ]);
   if (common === undefined || checkout === undefined) return [];
-  const targets: PlannedWriteTarget[] = [{
-    kind: "directory-entry",
-    path: common,
-    description: `${description} Git common directory`,
-  }];
-  if (checkout !== common) {
+  const selected = new Set(surfaces);
+  const targets: PlannedWriteTarget[] = [];
+  if (selected.has("common-directory")) {
+    targets.push({
+      kind: "directory-entry",
+      path: common,
+      description: `${description} Git common directory`,
+    });
+  }
+  if (selected.has("checkout-directory") && checkout !== common) {
     targets.push({
       kind: "directory-entry",
       path: checkout,
@@ -167,16 +187,25 @@ export async function plannedGitMutationWrites(
     });
   }
   for (
-    const [path, label] of [
-      [join(checkout, "HEAD"), "HEAD"],
-      [join(checkout, "index"), "index"],
-      [join(common, "objects"), "object database"],
-      [join(common, "refs", "heads"), "branch refs"],
-      [join(common, "refs", "notes"), "Proof-note refs"],
-      [join(common, "logs", "refs", "heads"), "branch reflogs"],
-      [join(common, "worktrees"), "linked-worktree administration"],
+    const [surface, path, label] of [
+      ["head", join(checkout, "HEAD"), "HEAD"],
+      ["index", join(checkout, "index"), "index"],
+      ["objects", join(common, "objects"), "object database"],
+      ["branch-refs", join(common, "refs", "heads"), "branch refs"],
+      ["proof-note-refs", join(common, "refs", "notes"), "Proof-note refs"],
+      [
+        "branch-reflogs",
+        join(common, "logs", "refs", "heads"),
+        "branch reflogs",
+      ],
+      [
+        "linked-worktrees",
+        join(common, "worktrees"),
+        "linked-worktree administration",
+      ],
     ] as const
   ) {
+    if (!selected.has(surface)) continue;
     targets.push(
       ...await plannedFilesystemWrites(
         path,
