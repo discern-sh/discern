@@ -42,10 +42,7 @@ import {
   type assertOpSide,
   readySentinelPath,
 } from "../src/engine/worktree/git.ts";
-import {
-  cliRefusalCases,
-  SIDE_RESTRICTED_OPS,
-} from "../src/engine/worktree/side_restrictions.ts";
+import { cliRefusalCases } from "../src/engine/worktree/side_restrictions.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
@@ -947,7 +944,7 @@ Deno.test("every CLI-reachable side-restricted op maps a wrong-side refusal to e
   // a CLI surface enrols here without a test edit, and can't silently degrade
   // to a bare exit-1. Every refusal fires read-only before the op acts, so one
   // shared main+worktree fixture serves all of them.
-  const cases = cliRefusalCases(SIDE_RESTRICTED_OPS);
+  const cases = cliRefusalCases();
   assert(cases.length >= 7, "the registry lost its CLI-reachable members");
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "refusals");

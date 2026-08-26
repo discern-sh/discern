@@ -860,6 +860,22 @@
       "src/shared/agent_catalogue.ts",
     ]
 
+  # Unsafe TypeScript assertion standard — hold only deterministic escape-hatch
+  # syntax (`as any` and chains through `unknown` or `any`) under a falling
+  # ceiling. The same command emits the broad `type_assertions` inventory for
+  # advisory context; ordinary typed assertions and `as const` do not spend the
+  # blocking budget. At zero, keep the syntax detector as an always-on guard.
+  [standards.unsafe_type_assertions]
+    direction = "down"
+    limit = 103
+    run = "deno task cast-census"
+    inputs = [
+      "*.ts",
+      "*.tsx",
+      "deno.json",
+      "deno.lock",
+    ]
+
   # Deno-lint suppression standard — hold the raw count of both recognized
   # comment directives (`deno-lint-ignore` and `deno-lint-ignore-file`) at or
   # below a falling ceiling. The structural detector scans every authored
@@ -882,6 +898,43 @@
       "*.mjs",
       "*.cjs",
       "deno.json",
+    ]
+
+  # Deno-lint source-exclusion standard — hold the configured path/pattern
+  # entries that actually remove a Git-derived authored source from lint. The
+  # metric shares the suppression command but remains a separate risk class:
+  # ignored build products and inert fixture paths do not spend this budget.
+  [standards.lint_exclusions]
+    metric = "lint_exclusions"
+    direction = "down"
+    limit = 2
+    run = "deno task lint-suppressions"
+    inputs = [
+      "*.ts",
+      "*.tsx",
+      "*.mts",
+      "*.cts",
+      "*.js",
+      "*.jsx",
+      "*.mjs",
+      "*.cjs",
+      "deno.json",
+    ]
+
+  # Direct subprocess construction standard — every production/tooling
+  # constructor is either one of the shared subprocess capability's own sites
+  # or an exact registered boundary naming its path, enclosing function,
+  # operation, and reason. The census validates unknown and stale entries before
+  # emitting the registered-boundary population held by this falling ceiling.
+  [standards.subprocess_spawn_boundaries]
+    direction = "down"
+    limit = 28
+    run = "deno task subprocess-spawn-boundaries"
+    inputs = [
+      "*.ts",
+      "*.tsx",
+      "deno.json",
+      "deno.lock",
     ]
 
   # Real test-delay boundary standard — every genuine elapsed-time dependency
