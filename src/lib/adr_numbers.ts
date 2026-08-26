@@ -58,6 +58,7 @@ export async function duplicateAdrNumbers(
       byNumber.set(number, paths);
     }
   } catch {
+    // discern-best-effort: adr-duplicate-scan-fallback
     return [];
   }
   return [...byNumber.entries()]

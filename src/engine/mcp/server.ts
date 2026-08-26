@@ -1509,6 +1509,7 @@ async function mcpDriverFacts(
     const marker = Deno.env.get("CI");
     ci = marker !== undefined && marker !== "" && marker !== "false";
   } catch {
+    // discern-best-effort: mcp-ci-marker-fallback
     // No env permission reads as not-CI.
   }
   let agentSignals: AgentSignal[] | undefined;
@@ -1517,6 +1518,7 @@ async function mcpDriverFacts(
       mcpClient === undefined ? {} : { mcpClient },
     );
   } catch {
+    // discern-best-effort: mcp-agent-signals-fallback
     // Driver enrichment is best-effort and must never affect the tool result.
   }
   return {
@@ -1889,6 +1891,7 @@ async function setupGatePasses(root: string): Promise<boolean> {
   try {
     return (await loadConfig(root)).meta.bootstrapped;
   } catch {
+    // discern-best-effort: mcp-setup-gate-config-fallback
     return true;
   }
 }
@@ -1908,6 +1911,7 @@ async function resolveServerConfig(
     try {
       return await loadConfig(root);
     } catch {
+      // discern-best-effort: mcp-server-config-fallback
       // A missing / mid-edit / invalid config falls through to the defaults below;
       // the verb cores still surface the real config error when actually invoked.
     }

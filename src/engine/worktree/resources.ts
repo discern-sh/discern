@@ -31,10 +31,11 @@ import { ensureDir } from "@std/fs";
 import { z } from "@zod/zod";
 import type { Logger } from "../../lib/log.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
+import { bestEffort } from "../../shared/best_effort.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
-import { bestEffortFs, readTextIfExists } from "../../shared/fs_presence.ts";
+import { readTextIfExists } from "../../shared/fs_presence.ts";
 import {
   type IdentitySettings,
   resourceForId,
@@ -221,17 +222,17 @@ export async function writeEntry(
 export async function readEntry(
   path: string,
 ): Promise<ResourceEntry | undefined> {
-  return await bestEffortFs(async () => {
-    const text = await readTextIfExists(path);
-    if (text === undefined) return undefined;
+  const text = await readTextIfExists(path);
+  if (text === undefined) return undefined;
+  try {
     const parsed: unknown = JSON.parse(text);
     const result = resourceEntrySchema.safeParse(parsed);
     return result.success ? result.data : undefined;
-  }, {
-    onFailure: undefined,
-    reason:
-      "Resource garbage collection skips a missing, corrupt, foreign, or unreadable ledger entry.",
-  });
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    // discern-best-effort: resource-ledger-decode-fallback
+    return undefined;
+  }
 }
 
 /** Every ledger entry for this repo (skipping unreadable/foreign files). */
@@ -263,11 +264,9 @@ export async function listEntries(
 
 /** Remove an entry file, idempotently (a no-op when already gone). */
 async function removeEntryFile(path: string): Promise<void> {
-  try {
+  await bestEffort("resource-ledger-entry-remove", async () => {
     await Deno.remove(path);
-  } catch {
-    // already gone — fine
-  }
+  });
 }
 
 /**

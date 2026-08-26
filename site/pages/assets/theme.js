@@ -11,6 +11,7 @@
       const value = localStorage.getItem("discern-theme");
       return value === "light" || value === "dark" ? value : null;
     } catch {
+      // discern-best-effort: site-theme-read-fallback
       return null;
     }
   };
@@ -40,6 +41,7 @@
     try {
       localStorage.setItem("discern-theme", next);
     } catch {
+      // discern-best-effort: site-theme-write-fallback
       /* Storage is optional; the current page still changes. */
     }
     apply(next);

@@ -197,6 +197,7 @@ async function discoverManagedSitePreview(
     if (!response.ok) return "unknown";
     return managedSitePreviewIdentity(await response.json()) ?? "unknown";
   } catch {
+    // discern-best-effort: site-preview-probe-fallback
     return undefined;
   }
 }

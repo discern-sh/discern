@@ -3,8 +3,9 @@
  * semantics, privacy boundary, MCP protocol bridge, and native-provider tie.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
+import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
 import {
   AGENT_CATALOGUE,
   AGENT_NAMES,
@@ -51,6 +52,57 @@ const RAW_IDENTITY_FIELD_OWNERS = new Set([
   "src/shared/agent_catalogue.ts",
 ]);
 
+/** Parse one production module without resolving its dependency graph. */
+function parseModule(path: string, source: string): SourceFile {
+  const project = new Project({
+    useInMemoryFileSystem: true,
+    skipAddingFilesFromTsConfig: true,
+  });
+  return project.createSourceFile(path, source, { overwrite: true });
+}
+
+/** Whether executable syntax imports the agent-signal detector module. */
+function importsAgentSignalDetector(path: string, source: string): boolean {
+  const parsed = parseModule(path, source);
+  if (
+    parsed.getImportDeclarations().some((declaration) =>
+      declaration.getModuleSpecifierValue().endsWith("/agent_signals.ts")
+    )
+  ) return true;
+  return parsed.getDescendantsOfKind(SyntaxKind.CallExpression).some((call) => {
+    if (call.getExpression().getKind() !== SyntaxKind.ImportKeyword) {
+      return false;
+    }
+    const target = call.getArguments()[0];
+    return target !== undefined && Node.isStringLiteral(target) &&
+      target.getLiteralValue().endsWith("/agent_signals.ts");
+  });
+}
+
+/** Whether executable syntax reads the stored raw identity field. */
+function readsRawIdentityField(path: string, source: string): boolean {
+  const parsed = parseModule(path, source);
+  if (
+    parsed.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)
+      .some((access) => access.getName() === "agent_signals")
+  ) return true;
+  if (
+    parsed.getDescendantsOfKind(SyntaxKind.ElementAccessExpression)
+      .some((access) => {
+        const key = access.getArgumentExpression();
+        return key !== undefined && Node.isStringLiteral(key) &&
+          key.getLiteralValue() === "agent_signals";
+      })
+  ) return true;
+  return parsed.getDescendantsOfKind(SyntaxKind.BindingElement)
+    .some((binding) => {
+      const field = binding.getPropertyNameNode() ?? binding.getNameNode();
+      return field.getText() === "agent_signals" ||
+        Node.isStringLiteral(field) &&
+          field.getLiteralValue() === "agent_signals";
+    });
+}
+
 /** Production files that bypass the canonical effective identity view. */
 function rawIdentityBypasses(
   sources: Iterable<readonly [string, string]>,
@@ -58,7 +110,7 @@ function rawIdentityBypasses(
   const bypasses: string[] = [];
   for (const [path, source] of sources) {
     if (
-      source.includes("agent_signals") &&
+      readsRawIdentityField(path, source) &&
       !RAW_IDENTITY_FIELD_OWNERS.has(path)
     ) {
       bypasses.push(path);
@@ -199,7 +251,7 @@ Deno.test("agent detection is imported only by the two logbook recording chokepo
   const consumers: string[] = [];
   for (const rel of AGENT_SIGNAL_SOURCE_FILES) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
-    if (/["'][^"'\n]*agent_signals\.ts["']/.test(source)) {
+    if (importsAgentSignalDetector(rel, source)) {
       consumers.push(rel);
     }
   }
@@ -210,6 +262,28 @@ Deno.test("agent detection is imported only by the two logbook recording chokepo
       "src/engine/mcp/server.ts",
     ],
     "agent detection must remain logbook-only and never steer product behaviour",
+  );
+});
+
+Deno.test("agent-signal guards distinguish executable syntax from registry metadata", () => {
+  const metadata = `const boundary = {
+  path: "src/engine/logbook/agent_signals.ts",
+  operation: "record agent_signals as advisory evidence",
+};\n`;
+  assertEquals(
+    importsAgentSignalDetector("src/shared/registry.ts", metadata),
+    false,
+  );
+  assertEquals(
+    rawIdentityBypasses([["src/shared/registry.ts", metadata]]),
+    [],
+  );
+  assertEquals(
+    importsAgentSignalDetector(
+      "src/engine/logbook/new_writer.ts",
+      'import { detectAgentSignals } from "./agent_signals.ts";',
+    ),
+    true,
   );
 });
 
@@ -556,15 +630,27 @@ Deno.test("MCP client info: request metadata wins, malformed metadata falls back
   assertEquals(parseMcpClientInfo({ name: "client" }), undefined);
 });
 
-Deno.test("agent signals: denied environment and host reads degrade to no evidence", async () => {
+Deno.test("agent signals: denied environment reads remain failures", async () => {
+  await assertRejects(
+    () =>
+      detectAgentSignals({
+        env: {
+          get: () => {
+            throw new Error("denied environment read");
+          },
+        },
+        pathExists: NO_HOST_MARKERS,
+      }),
+    Error,
+    "denied environment read",
+  );
+});
+
+Deno.test("agent signals: denied host-marker reads degrade to no evidence", async () => {
   assertEquals(
     await detectAgentSignals({
-      env: {
-        get: () => {
-          throw new Error("denied");
-        },
-      },
-      pathExists: () => Promise.reject(new Error("denied")),
+      env: fakeEnv({}),
+      pathExists: () => Promise.reject(new Error("denied host read")),
     }),
     [],
   );

@@ -48,6 +48,7 @@
     "ambient-boundaries": "deno run scripts/ambient_state_boundary_counts.ts",
     "cast-census": "deno run --allow-read --allow-run=git scripts/cast_census.ts",
     "lint-suppressions": "deno run --allow-read --allow-run=git scripts/lint_suppressions.ts",
+    "silent-error-boundaries": "deno run --allow-read --allow-run=git scripts/silent_error_boundaries.ts",
     "subprocess-spawn-boundaries": "deno run --allow-read --allow-run=git scripts/subprocess_spawn_boundaries.ts",
     "test-real-delay-boundaries": "deno run --allow-read --allow-run=git scripts/test_real_delay_boundaries.ts",
     "coverage": "deno run --allow-read --allow-write --allow-env --allow-run scripts/coverage.ts",
@@ -137,7 +138,8 @@
     "plugins": [
       "./scripts/ambient_state_lint.ts",
       "./scripts/error_cause_lint.ts",
-      "./scripts/function_docblock_lint.ts"
+      "./scripts/function_docblock_lint.ts",
+      "./scripts/silent_catch_lint.ts"
     ],
     "rules": {
       "include": [

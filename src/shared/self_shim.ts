@@ -43,6 +43,7 @@ import {
 import { sha256Hex } from "./sha256.ts";
 import { makeTempArtifactDir } from "./temp_artifacts.ts";
 import { fileExists, readTextIfExists } from "./fs_presence.ts";
+import { bestEffort } from "./best_effort.ts";
 
 /** Single-quote `value` for literal embedding in the shim script. */
 function shellQuote(value: string): string {
@@ -81,8 +82,8 @@ async function identityName(text: string): Promise<string> {
  * on a fallback shim. Harmless on a git-admin shim, which no reaper visits. */
 async function touch(dir: string): Promise<void> {
   const now = new Date();
-  await Deno.utime(dir, now, now).catch(() => {
-    // Keep-alive is hygiene; a raced or unwritable touch never blocks a spawn.
+  await bestEffort("self-shim-keepalive-touch", async () => {
+    await Deno.utime(dir, now, now);
   });
 }
 
@@ -100,7 +101,9 @@ async function writeShimAside(target: string, content: string): Promise<void> {
   try {
     await Deno.rename(aside, target);
   } catch (error) {
-    await Deno.remove(aside).catch(() => undefined);
+    await bestEffort("self-shim-aside-cleanup", async () => {
+      await Deno.remove(aside);
+    });
     // A concurrent process of the SAME identity renames identical bytes, so
     // losing that race (Windows refuses to replace an existing target) is
     // success — anything else propagates to the fallback path.
@@ -165,6 +168,7 @@ export async function selfShimDir(
         resolved.set(key, dir);
         return dir;
       } catch {
+        // discern-best-effort: self-shim-admin-store-fallback
         // An unusable admin directory must never block a spawn — a
         // per-process temp artifact dir serves instead.
       }

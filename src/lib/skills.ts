@@ -48,12 +48,12 @@ import {
   renderInstructionTemplate,
 } from "../engine/instruction_template.ts";
 import {
-  bestEffortFs,
   lstatIfExists,
   readDirIfExists,
   readTextIfExists,
   targetExists,
 } from "../shared/fs_presence.ts";
+import { bestEffort } from "../shared/best_effort.ts";
 
 /** Where a skill in the effective set comes from. */
 export type SkillSource = "authored" | "bundled";
@@ -429,21 +429,21 @@ async function removeAny(path: string, isDir: boolean): Promise<void> {
 async function readMaterializedNames(
   claudeSkillsDir: string,
 ): Promise<Set<string>> {
-  return await bestEffortFs(async () => {
-    const text = await readTextIfExists(
-      join(claudeSkillsDir, MATERIALIZED_MANIFEST),
-    );
-    if (text === undefined) return new Set<string>();
+  const text = await readTextIfExists(
+    join(claudeSkillsDir, MATERIALIZED_MANIFEST),
+  );
+  if (text === undefined) return new Set<string>();
+  try {
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed)) {
       return new Set(parsed.filter((n): n is string => typeof n === "string"));
     }
     return new Set<string>();
-  }, {
-    onFailure: new Set<string>(),
-    reason:
-      "A missing, corrupt, or unreadable ownership record disables orphan pruning for this run.",
-  });
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    // discern-best-effort: skills-materialized-manifest-decode-fallback
+    return new Set<string>();
+  }
 }
 
 /**
@@ -846,7 +846,7 @@ export async function ejectSkill(
 
 /** Best-effort: ensure a freshly-copied tree is writable (recursively). */
 async function chmodWritable(dir: string): Promise<void> {
-  await bestEffortFs(async () => {
+  await bestEffort("skills-ejected-tree-chmod", async () => {
     await Deno.chmod(dir, 0o755);
     for (const entry of await readDirIfExists(dir) ?? []) {
       const path = join(dir, entry.name);
@@ -856,10 +856,6 @@ async function chmodWritable(dir: string): Promise<void> {
         await Deno.chmod(path, 0o644);
       }
     }
-  }, {
-    onFailure: undefined,
-    reason:
-      "An un-chmod-able ejected skill remains readable or editable on most hosts.",
   });
 }
 

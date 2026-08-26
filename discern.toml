@@ -921,6 +921,28 @@
       "deno.json",
     ]
 
+  # Deliberate error-discard boundary standard — every synchronous catch,
+  # promise rejection handler, or side-effect-only best-effort call is a stable
+  # registry member bound one-to-one to its exact production site. The census
+  # validates both directions before emitting the complete authority population,
+  # so a shared wrapper cannot hide unlimited new discards behind one call.
+  [standards.silent_error_boundaries]
+    direction = "down"
+    limit = 190
+    run = "deno task silent-error-boundaries"
+    inputs = [
+      "*.ts",
+      "*.tsx",
+      "*.mts",
+      "*.cts",
+      "*.js",
+      "*.jsx",
+      "*.mjs",
+      "*.cjs",
+      "deno.json",
+      "deno.lock",
+    ]
+
   # Direct subprocess construction standard — every production/tooling
   # constructor is either one of the shared subprocess capability's own sites
   # or an exact registered boundary naming its path, enclosing function,

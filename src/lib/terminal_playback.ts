@@ -6,6 +6,7 @@
 
 import type { TerminalCapabilities } from "discern-design-system/cli";
 import { displayWidth, type TerminalSize } from "./text.ts";
+import { bestEffortSync } from "../shared/best_effort.ts";
 import { terminalCapabilitiesAtWidth } from "./terminal.ts";
 import {
   createInlineFramePainter,
@@ -216,6 +217,7 @@ function playbackStillFits(
       plan.maxHeight,
     );
   } catch {
+    // discern-best-effort: terminal-playback-fit-fallback
     return false;
   }
 }
@@ -322,11 +324,9 @@ export async function applyTerminalPlayback(
       !painterWriteFailed && painter.currentFrame !== "" &&
       playbackStillFits(plan, port)
     ) {
-      try {
+      bestEffortSync("terminal-playback-failure-clear", () => {
         painter.clear();
-      } catch {
-        // Cleanup is best effort and never replaces the original failure.
-      }
+      });
     }
   }
 

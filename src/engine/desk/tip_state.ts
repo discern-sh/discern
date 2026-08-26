@@ -15,6 +15,7 @@
  */
 
 import { dirname, join } from "@std/path";
+import { bestEffort } from "../../shared/best_effort.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
@@ -39,7 +40,8 @@ function parseState(text: string): TipSeenState | undefined {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
   if (typeof raw !== "object" || raw === null) {
@@ -108,7 +110,7 @@ export async function writeTipSeenState(
   root: string,
   state: TipSeenState,
 ): Promise<void> {
-  try {
+  await bestEffort("desk-tip-state-record", async () => {
     const path = await tipStatePath(root);
     if (path === undefined) {
       return;
@@ -120,7 +122,5 @@ export async function writeTipSeenState(
       space: 2,
       trailingNewline: true,
     });
-  } catch {
-    // Tip state must never cost a session.
-  }
+  });
 }

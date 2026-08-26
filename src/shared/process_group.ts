@@ -12,6 +12,7 @@ export function signalProcessGroup(
     Deno.kill(-pid, signal);
     return true;
   } catch {
+    // discern-best-effort: process-group-signal-outcome
     return false;
   }
 }

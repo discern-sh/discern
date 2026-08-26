@@ -11,6 +11,7 @@
  */
 
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
+import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
 import { activeInvocationId } from "../logbook/invocation_context.ts";
 import type { Job, JobOutputObserver, JobResult } from "./types.ts";
@@ -216,11 +217,9 @@ class JobOutputFeed {
   }
 
   private emit(kind: "line" | "partial", text: string): void {
-    try {
+    bestEffortSync("job-output-observer-notify", () => {
       this.observer?.output({ kind, label: this.label, text });
-    } catch {
-      // Presentation failure cannot change child capture or the job verdict.
-    }
+    });
   }
 }
 
@@ -279,8 +278,8 @@ export async function spawnJob(
     // first deadline.
     pipeGraceTimer ??= setTimeout(() => {
       for (const reader of readers) {
-        reader.cancel().catch(() => {
-          // Already closed or errored — the drain has settled either way.
+        void bestEffort("job-output-reader-cancel", async () => {
+          await reader.cancel();
         });
       }
     }, KILLED_PIPE_GRACE_MS);

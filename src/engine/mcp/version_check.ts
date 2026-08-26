@@ -29,7 +29,6 @@
 
 import { KIT_VERSION } from "../../lib/version.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
-import { bestEffortFs } from "../../shared/fs_presence.ts";
 
 /**
  * Build the restart hint when the running server's version and the on-disk
@@ -114,14 +113,13 @@ export function createInstalledVersionResolver(
 
 /** Real stat-key: inode/mtime/size, the components a file replace changes. */
 function defaultStatKey(path: string): string | undefined {
-  return bestEffortFs(() => {
+  try {
     const info = Deno.statSync(path);
     return `${info.ino ?? 0}:${info.mtime?.getTime() ?? 0}:${info.size}`;
-  }, {
-    onFailure: undefined,
-    reason:
-      "The MCP version hint stays silent when its advisory executable key is unreadable.",
-  });
+  } catch {
+    // discern-best-effort: mcp-version-stat-fallback
+    return undefined;
+  }
 }
 
 // A control character in a literal regex trips `no-control-regex`; build it from
@@ -156,6 +154,7 @@ async function defaultProbeVersion(
     }
     return parseDiscernVersion(new TextDecoder().decode(output.stdout));
   } catch {
+    // discern-best-effort: mcp-version-probe-fallback
     return undefined;
   }
 }

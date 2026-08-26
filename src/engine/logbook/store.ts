@@ -31,13 +31,13 @@
  */
 
 import { dirname, join } from "@std/path";
+import { bestEffort } from "../../shared/best_effort.ts";
 import { ensureDir } from "@std/fs";
 import { z } from "@zod/zod";
 import { KIT_VERSION } from "../../lib/version.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
-  bestEffortFs,
   pathExists,
   readDirIfExists,
   readTextIfExists,
@@ -303,17 +303,17 @@ export function epochStatePath(commonGitDir: string): string {
 export async function readEpochState(
   commonGitDir: string,
 ): Promise<EpochState | undefined> {
-  return await bestEffortFs(async () => {
-    const text = await readTextIfExists(epochStatePath(commonGitDir));
-    if (text === undefined) return undefined;
+  const text = await readTextIfExists(epochStatePath(commonGitDir));
+  if (text === undefined) return undefined;
+  try {
     const parsed: unknown = JSON.parse(text);
     const result = epochStateSchema.safeParse(parsed);
     return result.success ? result.data : undefined;
-  }, {
-    onFailure: undefined,
-    reason:
-      "A missing, corrupt, foreign, or unreadable epoch sidecar disables advisory reuse.",
-  });
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    // discern-best-effort: logbook-epoch-state-decode-fallback
+    return undefined;
+  }
 }
 
 /** Write the epoch sidecar atomically (temp-in-dir + rename). */
@@ -595,14 +595,10 @@ export async function archiveLogbook(
     return { file: filename, path: finalPath, bytes };
   } catch (error) {
     if (!published) {
-      try {
-        await Deno.remove(tempPath);
-      } catch (cleanupError) {
-        if (!(cleanupError instanceof Deno.errors.NotFound)) {
-          // The detached snapshot remains the recovery authority even when a
-          // best-effort partial-temp cleanup also fails.
-        }
-      }
+      await bestEffort(
+        "logbook-snapshot-temp-remove",
+        async () => await Deno.remove(tempPath),
+      );
     }
     if (error instanceof LogbookLifecycleError) {
       throw error;

@@ -19,6 +19,7 @@ import {
   StandardLimitProposalSchema,
 } from "../../shared/result_schemas.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { bestEffort } from "../../shared/best_effort.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
   claimEffortGrant,
@@ -485,14 +486,9 @@ async function writeAcceptanceTransaction(
       { cause: error },
     );
   } finally {
-    try {
+    await bestEffort("acceptance-transaction-temp-cleanup", async () => {
       await Deno.remove(temp);
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) {
-        // Publishing the hard link already decided whether mutation may
-        // proceed. A same-directory temp is inert, so cleanup cannot blur it.
-      }
-    }
+    });
   }
   return { path: current.path, transaction };
 }

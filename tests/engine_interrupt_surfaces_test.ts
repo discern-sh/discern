@@ -25,11 +25,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { z } from "@zod/zod";
-import { bestEffortFs } from "../src/shared/fs_presence.ts";
 import {
   INTERRUPT_SIGNALS,
   SIGNAL_EXIT_CODES,
 } from "../src/engine/process_signals.ts";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import type { InterruptSurface } from "./spawn_surfaces.ts";
 import {
   addWorktree,
@@ -68,7 +68,7 @@ const EARLY_EXIT_DIAGNOSTIC_CEILING_MS = 10_000;
  * exit immediately with its output instead of spending the whole startup
  * allowance and misdiagnosing the result as a timeout. */
 async function waitForSurfaceStart(
-  check: () => boolean,
+  check: () => boolean | Promise<boolean>,
   statusPromise: Promise<Deno.CommandStatus>,
   drained: Promise<[string, string]>,
 ): Promise<void> {
@@ -253,26 +253,25 @@ async function assertInterruptStopsTree(
       ]);
 
       await waitForSurfaceStart(
-        () => {
-          return bestEffortFs(() => {
-            leaderPid = Number(
-              Deno.readTextFileSync(run.leaderPidFile).trim(),
-            );
-            descendantPid = Number(
-              Deno.readTextFileSync(run.descendantPidFile).trim(),
-            );
-            if (run.portFile !== undefined) {
-              serverPort = Number(Deno.readTextFileSync(run.portFile).trim());
-            }
-            return Number.isFinite(leaderPid) && leaderPid > 0 &&
-              Number.isFinite(descendantPid) && descendantPid > 0 &&
-              (run.portFile === undefined ||
-                (Number.isFinite(serverPort) && (serverPort ?? 0) > 0));
-          }, {
-            onFailure: false,
-            reason:
-              "The readiness poll retries until its child-process marker files are complete.",
-          });
+        async () => {
+          const [leaderText, descendantText, portText] = await Promise.all([
+            readTextIfExists(run.leaderPidFile),
+            readTextIfExists(run.descendantPidFile),
+            run.portFile === undefined
+              ? Promise.resolve(undefined)
+              : readTextIfExists(run.portFile),
+          ]);
+          if (
+            leaderText === undefined || descendantText === undefined ||
+            (run.portFile !== undefined && portText === undefined)
+          ) return false;
+          leaderPid = Number(leaderText.trim());
+          descendantPid = Number(descendantText.trim());
+          if (portText !== undefined) serverPort = Number(portText.trim());
+          return Number.isFinite(leaderPid) && leaderPid > 0 &&
+            Number.isFinite(descendantPid) && descendantPid > 0 &&
+            (run.portFile === undefined ||
+              (Number.isFinite(serverPort) && (serverPort ?? 0) > 0));
         },
         statusPromise,
         drained,

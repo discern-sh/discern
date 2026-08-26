@@ -50,7 +50,6 @@ import type {
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
-import { bestEffortFs } from "../../shared/fs_presence.ts";
 import {
   isPositiveGitCount,
   UNKNOWN_GIT_COUNT,
@@ -470,12 +469,16 @@ export async function statusResult(
   if (includeFleet) {
     // Canonicalize the invocation root once so each row's is_current compares like
     // for like against row.path (also canonical).
-    const here = await bestEffortFs(() => Deno.realPath(root), {
-      onFailure: root,
-      reason:
-        "Fleet status can compare the lexical invocation root when canonicalization is unavailable.",
+    let here = root;
+    try {
+      here = await Deno.realPath(root);
+    } catch {
+      // discern-best-effort: status-root-canonicalization-fallback
+    }
+    const settings = await loadIdentitySettings(root).catch(() => {
+      // discern-best-effort: status-identity-settings-fallback
+      return undefined;
     });
-    const settings = await loadIdentitySettings(root).catch(() => undefined);
     let logbookActivity: FleetLogbookActivity | undefined;
     if (cfg.project.logbook) {
       const commonGitDir = await resolveCommonGitDir(root);
@@ -809,9 +812,10 @@ async function fleetEntryFor(
   // deterministic port).
   if (!row.isMain && settings !== undefined) {
     if (entry.id === undefined || entry.port === undefined) {
-      const id = await resolveWorktreeId(settings, row.path).catch(() =>
-        undefined
-      );
+      const id = await resolveWorktreeId(settings, row.path).catch(() => {
+        // discern-best-effort: status-worktree-id-fallback
+        return undefined;
+      });
       if (id !== undefined) {
         entry.id ??= id;
         if (entry.port === undefined && cfg.worktree.port) {

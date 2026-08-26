@@ -34,6 +34,10 @@ const CITATION = SKILL_CITATION_BARE;
  * never silently absorb a real name. */
 const NON_SKILL_TOKENS = new Map<string, string>([
   [
+    "discern-best-effort",
+    "the exact error-discard boundary marker, not a callable skill citation",
+  ],
+  [
     "discern-allow-retrospective",
     "the comment-currency escape marker, quoted wherever the guard is explained",
   ],

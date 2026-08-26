@@ -73,8 +73,9 @@ import {
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { stripAdrCitations } from "../lib/adr_citations.ts";
 import { pathMatchesPattern } from "../engine/scopes/glob.ts";
+import { bestEffort } from "../shared/best_effort.ts";
 import { loadConfig } from "../shared/config_schema.ts";
-import { bestEffortFs, directoryExists } from "../shared/fs_presence.ts";
+import { directoryExists } from "../shared/fs_presence.ts";
 import { expandSourcePathReferences } from "../shared/source_path_references.ts";
 import { observeVerbTarget } from "../shared/result_capture.ts";
 import {
@@ -171,7 +172,8 @@ export function approvedDocsExternalUrl(
     return parsed.protocol === "http:" || parsed.protocol === "https:"
       ? destination
       : undefined;
-  } catch {
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
     return undefined;
   }
 }
@@ -194,7 +196,8 @@ function decodedDocsLinkComponent(value: string): string | undefined {
   try {
     const decoded = decodeURIComponent(value);
     return /[\p{Cc}\p{Cf}]/u.test(decoded) ? undefined : decoded;
-  } catch {
+  } catch (error) {
+    if (!(error instanceof URIError)) throw error;
     return undefined;
   }
 }
@@ -736,14 +739,7 @@ async function searchData(
     tree.entries.map((entry) => [canonicalDocTarget(entry), entry]),
   );
   const pages = await Promise.all(tree.entries.map(async (entry) => {
-    const source = await bestEffortFs(
-      () => Deno.readTextFile(entry.absPath),
-      {
-        onFailure: "",
-        reason:
-          "Search keeps an unreadable leaf discoverable by metadata while omitting its body terms.",
-      },
-    );
+    const source = await Deno.readTextFile(entry.absPath);
     const content = renderableBody(desc, source);
     return searchPageFromMarkdown({
       route: canonicalDocTarget(entry),
@@ -868,7 +864,13 @@ function docsTerminal(noColor: boolean): TerminalContext {
  * colour). Honours `$PAGER`, defaulting to `less -R`. Returns false if the pager
  * cannot run successfully, so the caller can fall back to a plain print.
  */
-async function pageThrough(text: string): Promise<boolean> {
+interface PagerResult {
+  readonly shown: boolean;
+  readonly error?: unknown;
+}
+
+/** Send rendered documentation through the configured pager when it succeeds. */
+async function pageThrough(text: string): Promise<PagerResult> {
   const pager = Deno.env.get("PAGER")?.trim();
   const cmd = pager ? "sh" : "less";
   const args = pager ? ["-c", pager] : ["-R"];
@@ -880,17 +882,17 @@ async function pageThrough(text: string): Promise<boolean> {
       stderr: "inherit",
     }).spawn();
     const writer = child.stdin.getWriter();
-    try {
+    await bestEffort("docs-pager-input-close", async () => {
       await writer.write(new TextEncoder().encode(text + "\n"));
       await writer.close();
-    } catch {
-      // The pager exited before reading everything (e.g. the user pressed q on
-      // a short doc) — a broken pipe here is expected, not an error.
-    }
+    });
     const status = await child.status;
-    return status.success;
-  } catch {
-    return false;
+    return status.success ? { shown: true } : {
+      shown: false,
+      error: new Error(`pager exited with status ${status.code}`),
+    };
+  } catch (error) {
+    return { shown: false, error };
   }
 }
 
@@ -903,8 +905,12 @@ async function present(
   log: Logger,
 ): Promise<PresentationDisposition> {
   if (pager) {
-    if (await pageThrough(text)) return "pager";
-    log.warn("The pager failed. Showing the document in discern.");
+    const result = await pageThrough(text);
+    if (result.shown) return "pager";
+    const detail = result.error instanceof Error
+      ? result.error.message
+      : String(result.error);
+    log.warn(`The pager failed (${detail}). Showing the document in discern.`);
   }
   console.log(text);
   return "internal";

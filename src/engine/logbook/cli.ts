@@ -73,6 +73,7 @@ async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
   try {
     tty = Deno.stdout.isTerminal();
   } catch {
+    // discern-best-effort: logbook-cli-tty-fallback
     // A closed stdout reads as not-a-terminal.
   }
   let ci = false;
@@ -80,6 +81,7 @@ async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
     const marker = Deno.env.get("CI");
     ci = marker !== undefined && marker !== "" && marker !== "false";
   } catch {
+    // discern-best-effort: logbook-cli-ci-fallback
     // No env permission reads as not-CI.
   }
   let spawnedBy: string | undefined;
@@ -88,6 +90,7 @@ async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
       .get(DISCERN_ENVIRONMENT_VARIABLES.spawnedBy)?.trim();
     spawnedBy = marker === undefined || marker === "" ? undefined : marker;
   } catch {
+    // discern-best-effort: logbook-cli-spawned-by-fallback
     // No env permission reads as not-spawned.
   }
   let agentSignals: AgentSignal[] | undefined;
@@ -97,6 +100,7 @@ async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
     const { detectAgentSignals } = await import("./agent_signals.ts");
     agentSignals = await detectAgentSignals();
   } catch {
+    // discern-best-effort: logbook-cli-agent-signals-fallback
     // Driver enrichment is best-effort and must never affect the verb.
   }
   return {

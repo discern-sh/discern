@@ -161,6 +161,7 @@ export async function worktreeCreateHook(): Promise<number> {
           settings,
         );
       } catch {
+        // discern-best-effort: worktree-hook-live-ports-fallback
         // identity unavailable (e.g. empty slug) — the warning is best-effort
       }
     }
@@ -192,6 +193,7 @@ export async function worktreeCreateHook(): Promise<number> {
           );
         }
       } catch {
+        // discern-best-effort: worktree-hook-port-warning-fallback
         // advisory only
       }
     }

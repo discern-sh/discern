@@ -346,6 +346,7 @@ export async function resolveBundledDocsDir(
         return checkout;
       }
     } catch {
+      // discern-best-effort: paths-bundled-docs-config-fallback
       // A non-project ancestor is not a checkout candidate; keep walking.
     }
     const parent = dirname(dir);

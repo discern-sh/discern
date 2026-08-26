@@ -226,6 +226,7 @@ export function buildTestRunSlotAcquirer(
       try {
         await Deno.mkdir(dir, { recursive: true });
       } catch {
+        // discern-best-effort: test-slot-directory-fallback
         return undefined;
       }
       return dir;

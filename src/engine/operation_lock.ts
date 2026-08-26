@@ -11,13 +11,14 @@
  */
 
 import { dirname, join, resolve } from "@std/path";
+import { bestEffort } from "../shared/best_effort.ts";
 import {
   type OperationEffectPolicy,
   operationEffectPolicy,
   type OperationInvocationFacts,
   type OperationLockBoundary,
 } from "../shared/operation_effects.ts";
-import { bestEffortFs, readTextIfExists } from "../shared/fs_presence.ts";
+import { readTextIfExists } from "../shared/fs_presence.ts";
 import { findRoot } from "../shared/env.ts";
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import {
@@ -257,14 +258,10 @@ async function releaseLocks(locks: AcquiredLock[]): Promise<void> {
   for (const lock of locks.reverse()) {
     const file = lock.file;
     if (file === undefined) continue;
-    try {
+    await bestEffort("operation-lock-record-restore", async () => {
       await replaceLockRecord(file, lock.previousContents ?? new Uint8Array());
-    } catch {
-      // The OS lock remains the sole ownership authority. A stale lease record
-      // after cleanup failure is inert once this handle closes.
-    } finally {
-      file.close();
-    }
+    });
+    file.close();
   }
 }
 
@@ -309,14 +306,7 @@ async function acquireLock(
   if (!acquired) {
     const inherited = inheritedOperationLockLease(spec.key, spec.path);
     if (inherited !== undefined) {
-      const record = await bestEffortFs(
-        () => readTextIfExists(spec.path),
-        {
-          onFailure: undefined,
-          reason:
-            "A child-lock delegation that cannot read its live lock record must fail authentication.",
-        },
-      );
+      const record = await readTextIfExists(spec.path);
       const token = record?.match(/^discern-operation-lock-v1 ([^\n]+)\n?$/)
         ?.[1];
       const recordedToken = token === "" ? undefined : token;
@@ -361,11 +351,9 @@ async function acquireLock(
       ),
     );
   } catch (error) {
-    try {
+    await bestEffort("operation-lock-acquire-rollback", async () => {
       await replaceLockRecord(file, previousContents);
-    } catch {
-      // The refusal still closes the OS authority; standing bytes never own it.
-    }
+    });
     file.close();
     throw refusal(
       invocation,

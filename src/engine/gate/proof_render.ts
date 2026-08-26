@@ -568,6 +568,7 @@ export async function buildGateProof(
   try {
     delta = await diffFiles(root, `${trunk}...HEAD`, 0);
   } catch {
+    // discern-best-effort: proof-render-diff-fallback
     return undefined;
   }
   const facts: ProofFacts = {

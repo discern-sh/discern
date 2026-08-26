@@ -54,7 +54,8 @@ import {
   type ValidationAdminStateKey,
 } from "../../shared/git_admin_state.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
-import { bestEffortFs, readTextIfExists } from "../../shared/fs_presence.ts";
+import { bestEffort } from "../../shared/best_effort.ts";
+import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { decodeJson } from "../../shared/runtime_decode.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
@@ -513,7 +514,7 @@ export async function recordLastGateRun(
     return;
   }
   const identity = await currentTreeIdentity(cwd);
-  try {
+  await bestEffort("proof-last-gate-run-record", async () => {
     if (identity === undefined) {
       await Deno.remove(path);
       return;
@@ -529,9 +530,7 @@ export async function recordLastGateRun(
         })
       }\n`,
     );
-  } catch {
-    // Best-effort by design; the precondition fails open without a marker.
-  }
+  });
 }
 
 /**
@@ -547,16 +546,13 @@ export async function inspectLastGateRun(
   if (path === undefined) {
     return undefined;
   }
-  const raw = await bestEffortFs(() => readTextIfExists(path), {
-    onFailure: undefined,
-    reason:
-      "An unreadable last-run marker cannot safely trigger the optional rerun shortcut.",
-  });
+  const raw = await readTextIfExists(path);
   if (raw === undefined) return undefined;
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
   if (parsed === null || typeof parsed !== "object") {
@@ -640,7 +636,8 @@ export async function inspectGateProof(
         if (validated.success) {
           proofData = canonicalProof(validated.data);
         }
-      } catch {
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
         // A malformed structured component does not invalidate the validation
         // vouch. Acceptance honors the commit and reports that no structured
         // proof was available to publish.
@@ -896,7 +893,8 @@ export async function recordStandardMeasurements(
   ) {
     return false;
   }
-  return await bestEffortFs(async () => {
+  let written = false;
+  await bestEffort("proof-standard-measurements-record", async () => {
     const existing = parseMeasurements(
       await readTextIfExists(path) ?? "",
     );
@@ -910,12 +908,9 @@ export async function recordStandardMeasurements(
       path,
       `${JSON.stringify({ head: pin.head, ...merged })}\n`,
     );
-    return true;
-  }, {
-    onFailure: false,
-    reason:
-      "Standard measurements are a replay cache; failing to record them cannot invalidate the completed gate run.",
+    written = true;
   });
+  return written;
 }
 
 /**
@@ -932,11 +927,9 @@ export async function clearStandardMeasurements(
   if (path === undefined) {
     return;
   }
-  try {
+  await bestEffort("proof-standard-measurements-clear", async () => {
     await Deno.remove(path);
-  } catch {
-    // NotFound or any other hiccup: the proof is an optimization, never load-bearing.
-  }
+  });
 }
 
 // ── fresh Standard measurement evidence ────────────────────────────────────
@@ -1006,7 +999,8 @@ export async function recordFreshStandardMeasurementEvidence(
       values[reading.name] = reading.value;
     }
   }
-  return await bestEffortFs(async () => {
+  let written = false;
+  await bestEffort("proof-fresh-standard-evidence-record", async () => {
     await atomicReplaceJson(
       path,
       {
@@ -1017,12 +1011,9 @@ export async function recordFreshStandardMeasurementEvidence(
       } satisfies FreshStandardMeasurementEvidence,
       { mode: 0o600, sync: false, trailingNewline: true },
     );
-    return true;
-  }, {
-    onFailure: false,
-    reason:
-      "Fresh Standard evidence is an input to an optional proposal transaction; a failed write leaves ordinary enforcement in force.",
+    written = true;
   });
+  return written;
 }
 
 /** Parse the small proposal-evidence record without trusting persisted JSON. */
@@ -1036,6 +1027,7 @@ function parseFreshStandardMeasurementEvidence(
       "fresh Standard measurement evidence",
     );
   } catch {
+    // discern-best-effort: proof-fresh-standard-evidence-decode-fallback
     return undefined;
   }
 }
@@ -1143,7 +1135,8 @@ function parseMeasurements(
   let data: unknown;
   try {
     data = JSON.parse(raw);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
   if (typeof data !== "object" || data === null) {
@@ -1199,11 +1192,7 @@ export async function measurementBaselines(
       continue; // the main checkout: its own admin file IS the common-dir file
     }
     seen.add(path);
-    const raw = await bestEffortFs(() => readTextIfExists(path), {
-      onFailure: undefined,
-      reason:
-        "Unavailable measurement baselines disable replay and force a fresh measurement.",
-    });
+    const raw = await readTextIfExists(path);
     if (raw === undefined) {
       continue;
     }

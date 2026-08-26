@@ -73,6 +73,7 @@ import { searchPages } from "./search.js";
     try {
       sessionStorage.setItem(navScrollKey, String(navScroll.scrollTop));
     } catch {
+      // discern-best-effort: site-docs-scroll-write-fallback
       // Storage can be disabled without making documentation navigation fail.
     }
   };
@@ -93,6 +94,7 @@ import { searchPages } from "./search.js";
       const saved = Number(sessionStorage.getItem(navScrollKey));
       if (Number.isFinite(saved) && saved >= 0) navScroll.scrollTop = saved;
     } catch {
+      // discern-best-effort: site-docs-scroll-read-fallback
       // Storage can be disabled without making documentation navigation fail.
     }
     queueMicrotask(revealCurrentNavItem);
@@ -444,6 +446,7 @@ import { searchPages } from "./search.js";
         pages = (await response.json()).pages;
         loadState = "ready";
       } catch {
+        // discern-best-effort: site-docs-search-load-fallback
         pages = [];
         loadState = "error";
       }

@@ -1,4 +1,5 @@
 import { normalizeCapturedOutput } from "../../shared/result.ts";
+import { bestEffortSync } from "../../shared/best_effort.ts";
 import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
 
 export interface JobOutputSummary {
@@ -56,6 +57,7 @@ export class JobOutputRecorder {
       });
       return new JobOutputRecorder(path, file);
     } catch {
+      // discern-best-effort: job-output-record-create-fallback
       return new JobOutputRecorder(undefined, undefined);
     }
   }
@@ -66,14 +68,13 @@ export class JobOutputRecorder {
       if (this.file === undefined) {
         return;
       }
+      const file = this.file;
       try {
-        await writeAll(this.file, chunk);
+        await writeAll(file, chunk);
       } catch {
-        try {
-          this.file.close();
-        } catch {
-          // Best-effort artifact writing must never decide the job outcome.
-        }
+        bestEffortSync("job-output-record-error-close", () => {
+          file.close();
+        });
         this.file = undefined;
         this.path = undefined;
       }
@@ -95,6 +96,7 @@ export class JobOutputRecorder {
       try {
         this.file.close();
       } catch {
+        // discern-best-effort: job-output-record-finish-close
         this.path = undefined;
       }
       this.file = undefined;

@@ -24,6 +24,7 @@
 
 import { copy, ensureDir, walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
+import { bestEffort } from "../src/shared/best_effort.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { discoverDocs, isPublicDoc } from "../src/lib/docs.ts";
 import {
@@ -174,9 +175,9 @@ export async function stageBundledDocs(
 /** Prepare the repo-relative include tree consumed by `deno compile`. */
 async function prepareBundledDocs(): Promise<string> {
   const stageDir = join(REPO_ROOT, BUNDLED_DOCS_STAGE_DIR);
-  await Deno.remove(stageDir, { recursive: true }).catch(
-    () => {},
-  );
+  await bestEffort("build-bundled-doc-stage-reset", async () => {
+    await Deno.remove(stageDir, { recursive: true });
+  });
   const stagedDocs = join(stageDir, "docs");
   const mapDir = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
   await stageBundledDocs(mapDir, stagedDocs);
@@ -309,7 +310,9 @@ async function main(): Promise<void> {
   } finally {
     // The staged docs are a transient embed input — never leave them behind to
     // dirty the tree or shadow the live map in a later `deno task dev docs`.
-    await Deno.remove(docsStageDir, { recursive: true }).catch(() => {});
+    await bestEffort("build-bundled-doc-stage-cleanup", async () => {
+      await Deno.remove(docsStageDir, { recursive: true });
+    });
   }
   console.log(`✓ built ${targets.length} binary/binaries into ${distDir}/`);
 }

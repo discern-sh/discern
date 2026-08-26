@@ -25,6 +25,7 @@
  */
 
 import { fromFileUrl, join } from "@std/path";
+import { bestEffortSync } from "../src/shared/best_effort.ts";
 import {
   installExecutable,
   renderShim,
@@ -119,11 +120,9 @@ export function holdCompiledLease(opts: {
   // SIGINT covers Ctrl+C everywhere; SIGTERM/SIGHUP cover `kill` and a closing
   // terminal. Guard each registration so an unsupported signal can't abort setup.
   for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as Deno.Signal[]) {
-    try {
+    bestEffortSync("compiled-lease-signal-registration", () => {
       Deno.addSignalListener(sig, () => restoreAndExit(sig));
-    } catch {
-      // Signal unsupported on this platform; the others still cover the exits.
-    }
+    });
   }
 
   printLiveBanner(opts.dest, opts.triple);

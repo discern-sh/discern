@@ -1054,6 +1054,7 @@ export async function couplingGateHints(
       false,
     );
   } catch {
+    // discern-best-effort: coupling-gate-hints-fallback
     return [];
   }
 }

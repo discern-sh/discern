@@ -160,6 +160,7 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
       config = await loadConfig(root);
       bootstrapped = config.meta.bootstrapped;
     } catch {
+      // discern-best-effort: setup-welcome-config-fallback
       // Unparseable config — keep the welcome alive; the strict verbs report the error.
     }
   }
