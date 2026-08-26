@@ -90,7 +90,7 @@ function coverageMetricCommand(): string {
   return "printf x >> .git/shared-runs; " +
     "echo DISCERN_METRIC coverage 92; " +
     "echo DISCERN_METRIC module_coverage_failures 0; " +
-    "echo DISCERN_METRIC module_coverage_exceptions 16";
+    "echo DISCERN_METRIC module_coverage_exceptions 14";
 }
 
 Deno.test("coverage Standards: aggregate, module floor, and exceptions share one run in Standards and Gate", async () => {
@@ -119,7 +119,7 @@ Deno.test("coverage Standards: aggregate, module floor, and exceptions share one
           name: "module_coverage_exceptions",
           metric: "module_coverage_exceptions",
           direction: "down",
-          limit: 16,
+          limit: 14,
           run: command,
           timeout: 1200,
         },

@@ -79,9 +79,9 @@ await withToolTempDir("coverage-profile", async (profile) => {
 
   // 2. The single report pass. Anchor the URL filter to this checkout's src/
   //    tree so fixture and site paths never enter the report; the join remains
-  //    authoritative for membership inside that boundary. Override Deno's
-  //    default test.ts exclusion because src/engine/gate/test.ts is product
-  //    code, not a test file.
+  //    authoritative for membership inside that boundary. Product modules use
+  //    non-test basenames so Deno's test-source exclusion stays semantically
+  //    aligned with the source-module convention.
   const lcov = await deno(
     lcovReportArgs(profile, repoRoot),
     { capture: true },

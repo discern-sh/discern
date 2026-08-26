@@ -3,10 +3,7 @@
 import { join } from "@std/path";
 import { REPO_ROOT } from "../tests/repo_authored_paths.ts";
 import { structuralGuardScope } from "../tests/structural_guard_scope.ts";
-import {
-  classifyModuleSource,
-  type SourceModule,
-} from "./coverage_lib.ts";
+import { classifyModuleSource, type SourceModule } from "./coverage_lib.ts";
 
 /** Return every authored module under the product runtime's src/ boundary. */
 export async function sourceModuleUniverse(

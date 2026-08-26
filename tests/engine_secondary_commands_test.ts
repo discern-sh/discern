@@ -17,7 +17,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
-import { testResult } from "../src/engine/gate/test.ts";
+import { testResult } from "../src/engine/gate/test_job.ts";
 
 // --- prepare / test (entry points, not only transitively via finish) ------
 

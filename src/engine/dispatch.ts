@@ -410,7 +410,7 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("test", async (o) => {
-        const { runTestJob } = await import("./gate/test.ts");
+        const { runTestJob } = await import("./gate/test_job.ts");
         return await runTestJob(await requireRoot("test", o.json ?? false), {
           json: o.json ?? false,
           plain: plainModeEnabled(),

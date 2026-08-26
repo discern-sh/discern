@@ -79,7 +79,7 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Build the sole LCOV report pass without Deno's basename exclusions. */
+/** Build the sole LCOV report pass over this checkout's product source tree. */
 export function lcovReportArgs(
   profile: string,
   repoRoot: string,
@@ -90,9 +90,6 @@ export function lcovReportArgs(
     profile,
     "--lcov",
     `--include=^${escapeRegExp(srcUrl)}`,
-    // Deno otherwise excludes every basename matching test.ts, including the
-    // product module src/engine/gate/test.ts.
-    "--exclude=^$",
   ];
 }
 
@@ -104,7 +101,9 @@ function percentage(hit: number, found: number): number {
 
 /** Tell whether a declaration is erased from the emitted module. */
 function hasDeclareModifier(node: ts.Node): boolean {
-  const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
+  const modifiers = ts.canHaveModifiers(node)
+    ? ts.getModifiers(node)
+    : undefined;
   return modifiers?.some((modifier) =>
     modifier.kind === ts.SyntaxKind.DeclareKeyword
   ) ?? false;
@@ -130,7 +129,9 @@ function statementKind(
     if (clause.isTypeOnly) return "type";
     if (clause.name !== undefined) return "runtime";
     const bindings = clause.namedBindings;
-    if (bindings === undefined || ts.isNamespaceImport(bindings)) return "runtime";
+    if (bindings === undefined || ts.isNamespaceImport(bindings)) {
+      return "runtime";
+    }
     if (bindings.elements.length === 0) return "runtime";
     return bindings.elements.every((element) => element.isTypeOnly)
       ? "type"
@@ -143,7 +144,9 @@ function statementKind(
     if (statement.isTypeOnly) return "type";
     const clause = statement.exportClause;
     if (clause !== undefined && ts.isNamedExports(clause)) {
-      if (clause.elements.length === 0 && statement.moduleSpecifier === undefined) {
+      if (
+        clause.elements.length === 0 && statement.moduleSpecifier === undefined
+      ) {
         return "empty";
       }
       if (
@@ -199,7 +202,9 @@ function parseLcov(lcov: string): {
   let found: number | undefined;
   let hit: number | undefined;
   const finish = (terminated: boolean): void => {
-    if (source === undefined && found === undefined && hit === undefined) return;
+    if (source === undefined && found === undefined && hit === undefined) {
+      return;
+    }
     if (
       source === undefined || found === undefined || hit === undefined ||
       !Number.isSafeInteger(found) || !Number.isSafeInteger(hit) ||
@@ -208,7 +213,9 @@ function parseLcov(lcov: string): {
       issues.push({
         kind: "invalid-lcov",
         source: source ?? "<missing SF>",
-        message: `LCOV record '${source ?? "<missing SF>"}' is incomplete or invalid`,
+        message: `LCOV record '${
+          source ?? "<missing SF>"
+        }' is incomplete or invalid`,
       });
     } else {
       records.push({ source, found, hit });
@@ -240,7 +247,8 @@ function canonicalSource(
       issue: {
         kind: "lcov-path-mismatch",
         source,
-        message: `LCOV source '${source}' is not a valid file URL or absolute path`,
+        message:
+          `LCOV source '${source}' is not a valid file URL or absolute path`,
       },
     };
   }
@@ -249,7 +257,8 @@ function canonicalSource(
       issue: {
         kind: "lcov-path-mismatch",
         source,
-        message: `LCOV source '${source}' must be an absolute path for canonical matching`,
+        message:
+          `LCOV source '${source}' must be an absolute path for canonical matching`,
       },
     };
   }
@@ -260,7 +269,8 @@ function canonicalSource(
       issue: {
         kind: "lcov-outside-universe",
         source,
-        message: `LCOV source '${source}' is outside the elected repository module universe`,
+        message:
+          `LCOV source '${source}' is outside the elected repository module universe`,
       },
     };
   }
@@ -288,7 +298,9 @@ export function srcLineCoverage(
       issues.push({
         kind: "lcov-outside-universe",
         source: record.source,
-        message: `LCOV source '${record.source}' resolves to '${path ?? "<unknown>"}', which is outside the elected module universe`,
+        message: `LCOV source '${record.source}' resolves to '${
+          path ?? "<unknown>"
+        }', which is outside the elected module universe`,
       });
       continue;
     }
@@ -307,7 +319,8 @@ export function srcLineCoverage(
           issues.push({
             kind: "lcov-kind-mismatch",
             source: module.path,
-            message: `LCOV reports executable lines for ${module.kind} module '${module.path}'`,
+            message:
+              `LCOV reports executable lines for ${module.kind} module '${module.path}'`,
           });
         }
         return {
@@ -331,7 +344,8 @@ export function srcLineCoverage(
         issues.push({
           kind: "lcov-kind-mismatch",
           source: module.path,
-          message: `Executable module '${module.path}' emitted an LCOV record with no executable lines`,
+          message:
+            `Executable module '${module.path}' emitted an LCOV record with no executable lines`,
         });
       }
       return {
@@ -355,11 +369,13 @@ function exceptionMetadataFailure(
   if (!Number.isFinite(exception.measuredPct) || exception.measuredPct < 0) {
     return `Module coverage exception '${exception.path}' has an invalid measured value`;
   }
-  for (const [name, value] of [
-    ["owner", exception.owner],
-    ["reason", exception.reason],
-    ["recovery", exception.recovery],
-  ] as const) {
+  for (
+    const [name, value] of [
+      ["owner", exception.owner],
+      ["reason", exception.reason],
+      ["recovery", exception.recovery],
+    ] as const
+  ) {
     if (value.trim().length < 8 || /[\r\n]/.test(value)) {
       return `Module coverage exception '${exception.path}' needs a specific one-line ${name}`;
     }
@@ -379,7 +395,9 @@ export function evaluateModuleCoverage(
     const metadataFailure = exceptionMetadataFailure(exception);
     if (metadataFailure !== undefined) failures.push(metadataFailure);
     if (exceptionByPath.has(exception.path)) {
-      failures.push(`Module coverage exception '${exception.path}' is duplicated`);
+      failures.push(
+        `Module coverage exception '${exception.path}' is duplicated`,
+      );
     } else {
       exceptionByPath.set(exception.path, exception);
     }
@@ -410,18 +428,26 @@ export function evaluateModuleCoverage(
     if (file.pct >= floor) {
       if (exception !== undefined) {
         failures.push(
-          `Module coverage exception '${file.path}' is stale: ${file.pct.toFixed(1)}% now meets the ${floor.toFixed(1)}% floor`,
+          `Module coverage exception '${file.path}' is stale: ${
+            file.pct.toFixed(1)
+          }% now meets the ${floor.toFixed(1)}% floor`,
         );
       }
       continue;
     }
     if (exception === undefined) {
       failures.push(
-        `Module '${file.path}' is newly below the ${floor.toFixed(1)}% line floor at ${file.pct.toFixed(1)}%; add behavioral coverage or register reviewed legacy debt`,
+        `Module '${file.path}' is newly below the ${
+          floor.toFixed(1)
+        }% line floor at ${
+          file.pct.toFixed(1)
+        }%; add behavioral coverage or register reviewed legacy debt`,
       );
     } else if (file.pct < exception.measuredPct) {
       failures.push(
-        `Module '${file.path}' regressed from its ${exception.measuredPct.toFixed(1)}% exception baseline to ${file.pct.toFixed(1)}%`,
+        `Module '${file.path}' regressed from its ${
+          exception.measuredPct.toFixed(1)
+        }% exception baseline to ${file.pct.toFixed(1)}%`,
       );
     }
   }

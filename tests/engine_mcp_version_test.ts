@@ -103,6 +103,20 @@ Deno.test("createInstalledVersionResolver: an unreadable binary resolves to unde
   assertEquals(probes, 0);
 });
 
+Deno.test("createInstalledVersionResolver: real defaults keep a stable process and reject a replaced non-discern executable", async () => {
+  const stable = createInstalledVersionResolver();
+  assertEquals(await stable(), KIT_VERSION);
+
+  let statKey = "running";
+  const replaced = createInstalledVersionResolver({
+    serverVersion: KIT_VERSION,
+    execPath: Deno.execPath(),
+    statKey: () => statKey,
+  });
+  statKey = "replaced";
+  assertEquals(await replaced(), undefined);
+});
+
 Deno.test("runTool: a stale on-disk version leads every result with the restart hint", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: true });

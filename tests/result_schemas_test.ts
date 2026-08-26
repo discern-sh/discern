@@ -71,7 +71,7 @@ import {
 } from "../src/shared/result_contracts.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
-import { testResult } from "../src/engine/gate/test.ts";
+import { testResult } from "../src/engine/gate/test_job.ts";
 import { standardsResult } from "../src/engine/gate/standards.ts";
 import { standardsProposeResult } from "../src/engine/gate/standard_proposals.ts";
 import { doctorResult } from "../src/commands/doctor.ts";

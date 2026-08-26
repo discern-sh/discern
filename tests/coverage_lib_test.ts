@@ -13,8 +13,8 @@ import {
   evaluateModuleCoverage,
   lcovReportArgs,
   renderTable,
-  srcLineCoverage,
   type SourceModule,
+  srcLineCoverage,
 } from "../scripts/coverage_lib.ts";
 import { fromFileUrl, join, toFileUrl } from "@std/path";
 
@@ -61,20 +61,22 @@ Deno.test("module syntax distinguishes runtime, erased type-only, and no-line mo
   );
 });
 
-Deno.test("the LCOV report filter admits only this src tree and keeps product test.ts files", () => {
+Deno.test("the LCOV report filter admits only this checkout's src tree", () => {
   const repoRoot = fromFileUrl(new URL("../", import.meta.url));
   const args = lcovReportArgs("profile-dir", repoRoot);
   const include = args.find((arg) => arg.startsWith("--include="));
   const pattern = new RegExp(include?.slice("--include=".length) ?? "(?!)");
   assertEquals(
-    pattern.test(toFileUrl(join(repoRoot, "src", "engine", "gate", "test.ts")).href),
+    pattern.test(
+      toFileUrl(join(repoRoot, "src", "engine", "gate", "test_job.ts")).href,
+    ),
     true,
   );
   assertEquals(
     pattern.test(toFileUrl(join(repoRoot, "site", "page-src", "page.ts")).href),
     false,
   );
-  assertEquals(args.includes("--exclude=^$"), true);
+  assertEquals(args.some((arg) => arg.startsWith("--exclude=")), false);
   assertEquals(args.slice(0, 3), ["coverage", "profile-dir", "--lcov"]);
 });
 
