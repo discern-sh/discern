@@ -524,6 +524,12 @@ function canonicalProofClaim(proof: Proof): DurableProofClaim {
     ...(proof.checkpoint_drops === undefined ? {} : {
       checkpoint_drops: proof.checkpoint_drops.map((drop) => ({ ...drop })),
     }),
+    ...(proof.standard_proposals === undefined ? {} : {
+      standard_proposals: proof.standard_proposals.map((proposal) => ({
+        ...proposal,
+        evidence_paths: [...proposal.evidence_paths],
+      })),
+    }),
   };
 }
 
@@ -553,6 +559,10 @@ function canonicalAcceptanceEvidence(
       definition_hash: variance.definition_hash,
       subject: variance.subject,
       why: variance.why,
+    })),
+    standard_proposals: acceptance.standard_proposals.map((proposal) => ({
+      ...proposal,
+      evidence_paths: [...proposal.evidence_paths],
     })),
   };
 }

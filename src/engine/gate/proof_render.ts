@@ -35,6 +35,7 @@ import type {
   GateStandard,
   Proof,
   ProofCheckpointsData,
+  StandardGrowthProposalData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
 import {
@@ -126,6 +127,12 @@ function standardsSection(
         limits.reason ?? "unknown"
       }):`,
     );
+  } else if (limits.status === "proposed") {
+    lines.push(
+      `Standards (limits verified against ${
+        code(limits.trunk)
+      } with exact owner-decision proposal evidence):`,
+    );
   } else {
     lines.push(
       `Standards (limit verification FAILED against ${code(limits.trunk)}):`,
@@ -147,7 +154,7 @@ function lineStandardsSegment(
   standards: GateStandard[],
   limits: StandardsLimitsData | undefined,
 ): string | undefined {
-  if (limits !== undefined && limits.status !== "verified") {
+  if (limits?.status === "unverified") {
     return "standards UNVERIFIED";
   }
   if (standards.length === 0) {
@@ -167,6 +174,49 @@ function lineStandardsSegment(
   return counts.length > 0
     ? `standards held, ${counts.join(", ")}`
     : "standards held";
+}
+
+/** Proposal-bearing Proof is intentionally loud: the exact value and verbatim
+ * reason appear before routine results, together with the narrower landing
+ * decision that remains outstanding. */
+function standardProposalsSection(
+  proposals: readonly StandardGrowthProposalData[] | undefined,
+): string[] {
+  if (proposals === undefined || proposals.length === 0) {
+    return [];
+  }
+  const lines = [
+    "",
+    "Standard growth proposals — exact owner approval required before landing:",
+    "",
+  ];
+  for (const proposal of proposals) {
+    lines.push(
+      `- ${
+        code(proposal.standard)
+      }: ${proposal.trunk_limit} → ${proposal.proposed_limit} (measured ${proposal.measurement}; delta ${
+        proposal.delta >= 0 ? "+" : ""
+      }${proposal.delta})`,
+      `  - Reason: ${proposal.reason}`,
+      `  - Evidence: ${proposal.evidence_paths.map(code).join(", ")}`,
+      `  - Bound to ${
+        code(proposal.commit.slice(0, 12))
+      }; generic landing grants and checkpoint variances do not approve it.`,
+    );
+  }
+  return lines;
+}
+
+/** Compact proposal count and owner boundary for the one-line Proof. */
+function lineStandardProposalsSegment(
+  proposals: readonly StandardGrowthProposalData[] | undefined,
+): string | undefined {
+  const count = proposals?.length ?? 0;
+  return count === 0
+    ? undefined
+    : `${count} Standard growth proposal${
+      count === 1 ? "" : "s"
+    } — exact owner approval required to land`;
 }
 
 /**
@@ -325,11 +375,15 @@ export function renderProofLine(
   limits?: StandardsLimitsData,
 ): string {
   const standardsSegment = lineStandardsSegment(standards, limits);
+  const proposalsSegment = lineStandardProposalsSegment(
+    facts.standard_proposals,
+  );
   const checkpointsSegment = lineCheckpointsSegment(facts.checkpoints);
   const segments = [
     `gate passed on ${facts.branch} @ ${facts.head}`,
     `${diffstat(facts)} vs ${facts.trunk}`,
     ...(standardsSegment !== undefined ? [standardsSegment] : []),
+    ...(proposalsSegment !== undefined ? [proposalsSegment] : []),
     ...(checkpointsSegment !== undefined ? [checkpointsSegment] : []),
     "full proof: discern status --verbose",
   ];
@@ -347,21 +401,27 @@ export function renderLandingProofLine(
   proofLine: string,
   consent: LandingConsent,
   varianceCount = 0,
+  standardProposalCount = 0,
 ): string {
   const varianceSegment = varianceCount > 0
     ? ` · ${varianceCount} variance${
       varianceCount === 1 ? "" : "s"
     } authorized by the owner`
     : "";
+  const standardProposalSegment = standardProposalCount > 0
+    ? ` · ${standardProposalCount} Standard growth proposal${
+      standardProposalCount === 1 ? "" : "s"
+    } approved by the owner`
+    : "";
   switch (consent.source) {
     case "conversation":
-      return `${proofLine} · landed with conversation consent${varianceSegment}`;
+      return `${proofLine} · landed with conversation consent${varianceSegment}${standardProposalSegment}`;
     case "effort-grant":
-      return `${proofLine} · landed under effort grant${varianceSegment}`;
+      return `${proofLine} · landed under effort grant${varianceSegment}${standardProposalSegment}`;
     case "standing-grant":
       return `${proofLine} · landed under standing grant: ${
         consent.scopes?.join(", ") ?? "(none)"
-      }${varianceSegment}`;
+      }${varianceSegment}${standardProposalSegment}`;
   }
 }
 
@@ -383,6 +443,7 @@ export function renderProofMarkdown(
     `diff vs ${code(facts.trunk)}: ${diffstat(facts)}`,
   ];
 
+  lines.push(...standardProposalsSection(facts.standard_proposals));
   lines.push(...standardsSection(standards, limits));
   lines.push(...checkpointsSection(facts.checkpoints));
 
@@ -432,6 +493,7 @@ export async function buildGateProof(
   checkpoints?: ProofCheckpointsData,
   mode: GateMode = "strict",
   drops: readonly CheckpointDropData[] = [],
+  standardProposals: readonly StandardGrowthProposalData[] = [],
 ): Promise<Proof | undefined> {
   if (!(await isWorktreeFullyClean(root))) {
     return undefined;
@@ -473,6 +535,11 @@ export async function buildGateProof(
       ? {}
       : { checkpoint_drops: drops.map((drop) => ({ ...drop })) }),
     ...(checkpoints === undefined ? {} : { checkpoints }),
+    ...(standardProposals.length === 0 ? {} : {
+      standard_proposals: [...standardProposals].sort((left, right) =>
+        left.standard.localeCompare(right.standard)
+      ),
+    }),
   };
   return {
     ...facts,
