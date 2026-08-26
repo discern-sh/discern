@@ -406,16 +406,20 @@ Deno.test("accept: the owner's complete decision lands, binding the variance int
     assertEquals(env.data.variances?.[0]?.why, RATIONALE);
     assert((env.data.variances?.[0]?.definition_hash.length ?? 0) > 0);
     assert((env.data.variances?.[0]?.subject.length ?? 0) > 0);
-    // …and on the landing proof line, separate from consent.
+    // …and on the landing proof line the unmet segment resolves in place,
+    // separate from consent — no "required to land" demand survives landing.
     assertStringIncludes(
       env.data.proof_line ?? "",
       "landed with conversation consent",
     );
     assertStringIncludes(
       env.data.proof_line ?? "",
-      "1 variance authorized by the owner",
+      "1 declared unmet — variance authorized by the owner",
     );
-    assertStringIncludes(env.data.proof_line ?? "", "declared unmet");
+    assertEquals(
+      (env.data.proof_line ?? "").includes("required to land"),
+      false,
+    );
 
     // The landing happened.
     assertEquals(await targetExists(wt), false, r.output);
