@@ -124,7 +124,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/last-gate-run`                            | worktree   | Last gate verdict.                                                                                                    |
 | `discern/standard-measurements`                    | worktree   | Reusable measurements.                                                                                                |
 | `discern/standard-measurement-evidence.json`       | worktree   | Fresh clean-commit measurements, including failures, used only to propose a new limit.                                |
-| `discern/standard-limit-proposals.json`            | worktree   | Pending commit-bound proposed Standard limits.                                                                        |
+| `discern/standard-limit-proposals.json`            | worktree   | Pending commit-bound Standard limit proposals.                                                                        |
 | `discern/standard-limit-proposal-transaction.json` | worktree   | Interruption recovery for one proposed-limit config edit, commit, and record transition.                              |
 | `discern/ignored-baseline`                         | worktree   | Ignored-file baseline.                                                                                                |
 | `discern/effort-grant`                             | worktree   | Desk landing grant.                                                                                                   |
