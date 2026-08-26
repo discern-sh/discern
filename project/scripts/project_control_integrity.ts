@@ -1284,17 +1284,17 @@ async function pageShapeAuthority(
     /^Default budget: (?:\d[\d,]*[–-]\d[\d,]* words|unbudgeted; keep it scannable)\.$/;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
-    if (!line.includes("discern-page-shape")) continue;
+    if (!line.includes("project-page-shape")) continue;
     const match = line.match(
-      /^<!-- discern-page-shape: ([a-z][a-z0-9-]*) -->$/,
+      /^<!-- project-page-shape: ([a-z][a-z0-9-]*) -->$/,
     );
     if (match === null) {
       findings.push(finding(
         PAGE_TEMPLATES_REL,
         index + 1,
         "budget-authority",
-        "malformed discern-page-shape declaration",
-        "Use exactly <!-- discern-page-shape: stable-name --> directly before its budgeted level-two heading.",
+        "malformed project-page-shape declaration",
+        "Use exactly <!-- project-page-shape: stable-name --> directly before its budgeted level-two heading.",
       ));
       continue;
     }
@@ -1351,7 +1351,7 @@ async function pageShapeAuthority(
         PAGE_TEMPLATES_REL,
         index + 1,
         "budget-authority",
-        "Default budget line has no discern-page-shape declaration",
+        "Default budget line has no project-page-shape declaration",
         "Bind the budget to one stable shape declaration and level-two heading.",
       ));
     }
@@ -1402,7 +1402,7 @@ async function checkBudgetCopies(
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index] ?? "";
       const exception = isManifest &&
-        /^<!-- discern-page-budget-exception: .+ -->$/.test(line);
+        /^<!-- project-page-budget-exception: .+ -->$/.test(line);
       if (range.test(line) && !exception) {
         findings.push(finding(
           source.rel,
@@ -1479,17 +1479,17 @@ async function checkManifestBudgets(
   const lines = manifest.text.split("\n");
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
-    if (!line.includes("discern-page-budget-exception")) continue;
+    if (!line.includes("project-page-budget-exception")) continue;
     const match = line.match(
-      /^<!-- discern-page-budget-exception: ([^|<>]+\.md) \| (\d[\d,]*)[–-](\d[\d,]*) words \| (.{15,}) -->$/,
+      /^<!-- project-page-budget-exception: ([^|<>]+\.md) \| (\d[\d,]*)[–-](\d[\d,]*) words \| (.{15,}) -->$/,
     );
     if (match === null) {
       findings.push(finding(
         manifest.rel,
         index + 1,
         "budget-exception",
-        "malformed discern-page-budget-exception declaration",
-        "Use exactly <!-- discern-page-budget-exception: file.md | lower–upper words | durable reason -->.",
+        "malformed project-page-budget-exception declaration",
+        "Use exactly <!-- project-page-budget-exception: file.md | lower–upper words | durable reason -->.",
       ));
       continue;
     }
@@ -1529,18 +1529,18 @@ async function checkDocumenterShapeUses(
   let declarations = 0;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
-    if (!line.includes("discern-page-shape-use")) continue;
+    if (!line.includes("project-page-shape-use")) continue;
     declarations += 1;
     const match = line.match(
-      /^<!-- discern-page-shape-use: ([^|<>]{2,80}) \| ([a-z][a-z0-9-]*) -->$/,
+      /^<!-- project-page-shape-use: ([^|<>]{2,80}) \| ([a-z][a-z0-9-]*) -->$/,
     );
     if (match === null) {
       findings.push(finding(
         DOCUMENTER_BRIEF_REL,
         index + 1,
         "page-shape",
-        "malformed discern-page-shape-use declaration",
-        "Use exactly <!-- discern-page-shape-use: page role | declared-shape --> directly before its linked instruction.",
+        "malformed project-page-shape-use declaration",
+        "Use exactly <!-- project-page-shape-use: page role | declared-shape --> directly before its linked instruction.",
       ));
       continue;
     }

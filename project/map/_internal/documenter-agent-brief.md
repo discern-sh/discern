@@ -45,9 +45,12 @@ The maintained Map includes published public tiers, contributor tiers, and opera
 
 Your subtree serves a layered audience:
 
-<!-- discern-page-shape-use: subtree README | overview -->
+<!-- project-page-shape-use: subtree README | overview -->
+
 - **`README.md` in your subtree** — newcomers and visitors. Use the [overview shape](page-templates.md#overview), plain language, and the canonical capitalized nouns from `concepts.md`. End with a table of the leaves, one line each.
-<!-- discern-page-shape-use: numbered-subtree leaf | guide -->
+
+<!-- project-page-shape-use: numbered-subtree leaf | guide -->
+
 - **Child docs (leaves)** — users reading the published docs, returning maintainers, and coding agents grounding a change. Use the shape named by the scope manifest; the [guide shape](page-templates.md#guide--concept) is the default. Use precise paths and state invariants that the code does not make obvious.
 
 If your subtree's audience contract differs (e.g. an existing plain-English deep-dive the project values), your scope manifest will say so.
@@ -137,7 +140,7 @@ Cite decision records as freely as the reasoning requires; rendering handles the
 5. **Cross-link within your subtree.** Leave inter-subtree links to the orchestrator integration pass.
 6. **Put glossary additions in your summary.** If you find a term that ought to be glossary-defined, list it in your summary and leave the leaf's section set unchanged.
 7. **Stop at scope overlap.** If code belongs to another subtree, leave it unchanged and describe the overlap in your summary for the orchestrator.
-8. **Page shape and budget.** Follow the shape linked by the scope manifest; [`page-templates.md`](page-templates.md) is the sole default-budget authority. Split a page that cannot perform one job within its selected shape and report the split. A scope-specific numeric exception is valid only when its manifest declares `<!-- discern-page-budget-exception: <file.md> | <lower>–<upper> words | <durable reason> -->`; do not copy a default range into the brief or manifest prose.
+8. **Page shape and budget.** Follow the shape linked by the scope manifest; [`page-templates.md`](page-templates.md) is the sole default-budget authority. Split a page that cannot perform one job within its selected shape and report the split. A scope-specific numeric exception is valid only when its manifest declares `<!-- project-page-budget-exception: <file.md> | <lower>–<upper> words | <durable reason> -->`; do not copy a default range into the brief or manifest prose.
 9. **Use code samples only when they clarify what a path cannot.** A `[file](path)` link usually suffices. Reserve code blocks for a small grammar (a config shape) or a genuinely tricky interface.
 10. **Apply the product voice Skill.** Hold its voice behaviors and banned moves. The Gate blocks every `Discern*` alert, including warning and suggestion findings, across every maintained non-private Map page. Third-party warnings and suggestions remain advisory through the prose-density Standard; ADRs retain their reduced style set. Before handoff, run `discern scripts prose-page <page…>` on every page you wrote or rewrote. The required result is zero `Discern*` alerts, matching the reference corpus.
 

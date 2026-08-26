@@ -4,7 +4,8 @@ These page shapes cover the Map's published tiers: overview, quickstart, guide, 
 
 Each skeleton shows the full frontmatter that its page shape typically carries. Keep only keys permitted by the brief's frontmatter table. Word budgets count body prose and exclude frontmatter and code fences.
 
-<!-- discern-page-shape: overview -->
+<!-- project-page-shape: overview -->
+
 ## Overview
 
 Default budget: 200–350 words.
@@ -27,7 +28,8 @@ What this is and why it exists, in 2–3 short paragraphs a newcomer can read in
 | [<leaf>](x.md) | One line each. |
 ```
 
-<!-- discern-page-shape: quickstart -->
+<!-- project-page-shape: quickstart -->
+
 ## Quickstart
 
 Default budget: 600–1,000 words.
@@ -59,7 +61,8 @@ The command, fenced and copyable. What success looks like — the actual output 
 You now have <the outcome>. Next: [<the deeper page>](x.md).
 ```
 
-<!-- discern-page-shape: guide -->
+<!-- project-page-shape: guide -->
+
 ## Guide / concept
 
 Default budget: 500–900 words.
@@ -96,7 +99,8 @@ Give one recommendation and the alternative for cases it does not cover.
 The surprises: half-built corners, known traps, and stated limitations.
 ```
 
-<!-- discern-page-shape: reference -->
+<!-- project-page-shape: reference -->
+
 ## Reference
 
 Default budget: unbudgeted; keep it scannable.
@@ -122,7 +126,8 @@ _What this page enumerates, in one line._
 | --- | ---- | ------- | ------------ |
 ```
 
-<!-- discern-page-shape: troubleshooting -->
+<!-- project-page-shape: troubleshooting -->
+
 ## Troubleshooting
 
 Default budget: 300–700 words.

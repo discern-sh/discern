@@ -22,10 +22,10 @@ frontmatter the page must carry beyond the brief's baseline
 (a specific `order`, `publish: false`, a `redirect_from` claim). Keep the set
 small enough for each page to perform one job. -->
 
-| File        | Shape                                                  | Topic                                                          |
-| ----------- | ------------------------------------------------------ | -------------------------------------------------------------- |
-| `README.md` | [overview](../page-templates.md#overview)              | Public front door and reading order through the subtree.       |
-| `<leaf>.md` | [guide](../page-templates.md#guide--concept)           | _Topic and boundary._                                          |
+| File        | Shape                                        | Topic                                                    |
+| ----------- | -------------------------------------------- | -------------------------------------------------------- |
+| `README.md` | [overview](../page-templates.md#overview)    | Public front door and reading order through the subtree. |
+| `<leaf>.md` | [guide](../page-templates.md#guide--concept) | _Topic and boundary._                                    |
 
 ## Source files to read
 
@@ -60,12 +60,12 @@ authority. -->
 ## Length-budget note
 
 <!-- Every inventory row already links its default budget. State only grouping or
-split guidance here. Remove this comment before handoff. -->
+split instructions here. Remove this comment before handoff. -->
 
 The linked page shapes apply; no local budget exception is declared.
 
 For a genuine local numeric exception, replace that sentence with:
 
 ```markdown
-<!-- discern-page-budget-exception: <file.md> | <lower>–<upper> words | <durable reason> -->
+<!-- project-page-budget-exception: <file.md> | <lower>–<upper> words | <durable reason> -->
 ```

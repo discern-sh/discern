@@ -25,12 +25,12 @@ function pageAuthority(): Readonly<Record<string, string>> {
     [PAGE_TEMPLATES]: [
       "# Page templates",
       "",
-      "<!-- discern-page-shape: overview -->",
+      "<!-- project-page-shape: overview -->",
       "## Overview",
       "",
       "Default budget: 100–200 words.",
       "",
-      "<!-- discern-page-shape: guide -->",
+      "<!-- project-page-shape: guide -->",
       "## Guide",
       "",
       "Default budget: 200–300 words.",
@@ -210,7 +210,7 @@ Deno.test("page budgets have one authority and explicit local exceptions", async
     "project/map/_internal/documenter-agent-brief.md": [
       "# Documenter brief",
       "",
-      "<!-- discern-page-shape-use: numbered leaf | guide -->",
+      "<!-- project-page-shape-use: numbered leaf | guide -->",
       "Use the [guide shape](page-templates.md#guide).",
       "",
     ].join("\n"),
@@ -226,7 +226,7 @@ Deno.test("page budgets have one authority and explicit local exceptions", async
       "| `README.md` | [overview](../page-templates.md#overview) | Overview and reading order. |",
       "| `live.md` | [guide](../page-templates.md#guide) | Durable behavior of the live page. |",
       "",
-      "<!-- discern-page-budget-exception: live.md | 250–350 words | Existing exemplar retains required safety detail. -->",
+      "<!-- project-page-budget-exception: live.md | 250–350 words | Existing exemplar retains required safety detail. -->",
       "",
     ].join("\n"),
   };
