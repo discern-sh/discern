@@ -4,7 +4,7 @@
  * caller goes through the version-checking wrapper.
  */
 
-import { dirname, join } from "@std/path";
+import { dirname, isAbsolute, join } from "@std/path";
 import {
   assert,
   assertEquals,
@@ -284,6 +284,33 @@ async function fakeValeFixture(
     archive,
   };
 }
+
+Deno.test("the default Vale cache is project state shared through Git", async () => {
+  const result = await new Deno.Command("git", {
+    args: ["rev-parse", "--git-common-dir"],
+    cwd: REPO_ROOT,
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assert(result.success, new TextDecoder().decode(result.stderr));
+  const rawCommonDir = new TextDecoder().decode(result.stdout).trim();
+  const commonDir = isAbsolute(rawCommonDir)
+    ? rawCommonDir
+    : join(REPO_ROOT, rawCommonDir);
+  const toolchain = await valeToolchain(REPO_ROOT);
+  assertEquals(
+    toolchain.cacheDir,
+    join(
+      commonDir,
+      "discern-development",
+      "toolchains",
+      "vale",
+      toolchain.version,
+      toolchain.platform,
+      toolchain.asset.sha256,
+    ),
+  );
+});
 
 Deno.test("a newer Vale on PATH cannot replace the pinned measuring binary", async () => {
   await withTempDir(async (dir) => {

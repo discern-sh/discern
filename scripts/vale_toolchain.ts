@@ -2,15 +2,15 @@
  * Content-verified Vale provisioning for discern's own prose toolchain.
  *
  * `.vale-version` owns the version and `.vale-assets.json` owns each supported
- * release asset's checksum. The installed binary lives in repository-lifetime
- * Git-admin state, so main and every linked worktree share it without trusting
- * a same-named executable on PATH.
+ * release asset's checksum. The installed binary lives in a project-owned area
+ * of the Git common directory, so main and every linked worktree share it
+ * without trusting a same-named executable on PATH.
  */
 
 import { dirname, join } from "@std/path";
 import { z } from "@zod/zod";
 import { pathExists } from "../src/shared/fs_presence.ts";
-import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { gitReportedAdminPath } from "../src/shared/git_admin_paths.ts";
 
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
@@ -18,6 +18,7 @@ const VALE_RELEASES = "https://github.com/vale-cli/vale/releases/download";
 const INSTALL_LOCK_WAIT_MS = 60_000;
 const INSTALL_LOCK_STALE_MS = 10 * 60_000;
 const INSTALL_LOCK_POLL_MS = 100;
+const PROJECT_TOOLCHAIN_CACHE = "discern-development/toolchains";
 
 const ValeAssetSchema = z.object({
   release: z.string().regex(/^[A-Za-z0-9_-]+$/u),
@@ -47,7 +48,7 @@ export interface ValePlatform {
 }
 
 export interface ValeToolchainOptions {
-  /** Test seam; production derives the shared root from Git-admin state. */
+  /** Test seam; production derives the shared root from Git's common dir. */
   readonly cacheRoot?: string;
   /** Test seam; production uses the current Deno platform. */
   readonly platform?: ValePlatform;
@@ -132,13 +133,28 @@ async function resolveCacheRoot(
   options: ValeToolchainOptions,
 ): Promise<string> {
   if (options.cacheRoot !== undefined) return options.cacheRoot;
-  const cache = await gitAdminStatePath(repoRoot, "repositoryToolchains");
-  if (cache === undefined) {
+  const commonDir = await gitReportedAdminPath(
+    repoRoot,
+    ["rev-parse", "--git-common-dir"],
+    async (cwd, args) => {
+      const result = await new Deno.Command("git", {
+        args,
+        cwd,
+        stdout: "piped",
+        stderr: "null",
+      }).output();
+      return {
+        success: result.success,
+        stdout: decoder.decode(result.stdout),
+      };
+    },
+  );
+  if (commonDir === undefined) {
     throw new Error(
       "Vale provisioning requires a Git repository with a resolvable common directory",
     );
   }
-  return cache;
+  return join(commonDir, PROJECT_TOOLCHAIN_CACHE);
 }
 
 /** Derive the immutable release name and content-addressed cache target. */

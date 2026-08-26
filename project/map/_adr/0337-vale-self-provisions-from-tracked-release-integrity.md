@@ -4,29 +4,29 @@
 
 ## Context
 
-The prose standard pins Vale 3.15.2 because its alert count is a comparative measurement, not merely a lint opinion. The wrapper checked that pin but still launched `vale` from `PATH`. A Homebrew upgrade replaced the local executable with 3.18.0, so the wrapper correctly refused the measurement and left no repository-owned way to obtain the required version. Hosted lanes had the opposite half of the contract: each downloaded the pinned archive independently, without checking its content, extracted it into a system directory, and repeated its platform-specific URL in workflow text.
+The prose standard pins Vale 3.15.2 because its alert count is a comparative measurement. The wrapper checked that pin but launched `vale` from `PATH`. A Homebrew upgrade replaced the local executable with 3.18.0, so the wrapper correctly refused and exposed the missing installer. Hosted lanes instead repeated versioned downloads without verifying their content.
 
-Using the newer binary would not be a harmless local convenience. Vale 3.17 changed which scoped and inline rules fire over the existing corpus, materially changing this repository's alert count without a prose change. The exact binary is part of the standard's measuring instrument. Its version and bytes therefore need tracked authorities, while installation must work on macOS, Linux, and Linux inside Windows Subsystem for Linux without depending on a package manager's current formula.
+Using the newer binary is not harmless: Vale 3.17 changed which scoped and inline rules fire, altering this repository's alert count without a prose change. The binary's version and bytes therefore need tracked authorities across macOS, Linux, and Linux inside Windows Subsystem for Linux.
 
-Linked worktrees add a placement trade-off. A cache inside each checkout is isolated but downloads the same immutable bytes for every task. A user-level cache shares bytes across unrelated repositories and makes ownership and cleanup ambiguous. Git's common administration directory already provides a repository lifetime shared by main and every linked worktree.
+Per-worktree caches duplicate immutable bytes; a user cache crosses repository ownership. Git's common administration directory already provides the required shared repository lifetime.
 
 ## Decision
 
-`.vale-version` remains the sole version authority. `.vale-assets.json` maps every native release platform to its Vale release-asset suffix and SHA-256 checksum without repeating the version. The platform set stays coupled to the native build-target registry, so a future supported target must provide its measuring binary too.
+`.vale-version` remains the sole version authority. `.vale-assets.json` maps each native release platform to its asset suffix and SHA-256 checksum without repeating the version. The platform set is coupled to the native build-target registry.
 
-`deno task vale:sync` is the only provisioning path. It derives the immutable release URL from the two tracked authorities, verifies the archive before extracting only the `vale` executable, checks the version reported by that executable, and records its installed digest. It publishes under the content-addressed `discern/repository-toolchains/` entry in the Git common directory. A per-content directory lock makes concurrent worktree setup converge; an invalid binary or marker is repaired from verified release bytes.
+`deno task vale:sync` is the only provisioning path. It derives the release URL, verifies the archive before extracting `vale`, checks its reported version, and records its installed digest. It publishes under the content-addressed project-development cache `discern-development/toolchains/` in the Git common directory. A per-content lock converges concurrent setup; invalid cache state is repaired from verified bytes.
 
-Authored prose callers resolve that exact cache path and validate its marker, digest, and reported version before execution. They never resolve a same-named binary from `PATH`. `[repository].ensure` and every hosted Gate or Standards lane call the same task. The Homebrew dependency manifest does not install Vale, and hosted lanes do not write it into a system directory. Native Windows remains unsupported; the WSL lane resolves the Linux asset inside WSL.
+Prose callers validate that cache's marker, digest, and version; they never resolve Vale from `PATH`. `[repository].ensure` and every hosted Gate or Standards lane call the same task. Homebrew and hosted system directories do not install Vale. Native Windows remains unsupported; WSL resolves the Linux asset.
 
-Structural guards scan executable configuration for raw synchronization, release downloads, version variables, or a Homebrew Vale dependency. A separate automation guard requires one pinned setup for every hosted `done` or `standards` run. Behavioral tests place a deliberately newer fake Vale on `PATH`, corrupt a valid cache, race two installers, and supply a bad archive checksum.
+Guards reject raw provisioning and require one pinned setup per hosted measurement. Tests exercise a newer fake Vale on `PATH`, corrupt cache state, concurrent installers, and a bad archive checksum.
 
 ## Consequences
 
-Homebrew upgrades no longer affect the prose instrument, and a machine needs no separately managed Vale installation. Local setup and CI execute the same verified bytes without `sudo`; worktrees reuse the repository cache after the first download.
+Homebrew upgrades no longer affect the prose instrument. Local setup and CI execute the same verified bytes without `sudo`; worktrees reuse the first download.
 
-The first provisioning of a version and platform needs GitHub release access and a POSIX `tar`. A checksum error fails closed. Updating `.vale-version` without the matching asset checksums cannot silently run old metadata against a new release.
+First provisioning needs GitHub release access and POSIX `tar`. A checksum error fails closed, including a version change without matching asset metadata.
 
-Content-addressed placement lets worktrees on different pins coexist, but old pinned binaries remain until `discern uninstall` removes the Git-admin namespace or a maintainer clears the owned cache. Vale releases are infrequent and each cache entry contains only the executable and a small marker, so eager pruning is not added.
+Different pins can coexist, but old binaries remain until explicit cache cleanup. Each entry contains only the executable and marker, so no eager pruning is added.
 
 ## Alternatives considered
 
