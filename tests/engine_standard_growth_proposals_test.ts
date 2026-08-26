@@ -2,6 +2,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
+import { statIfExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   addWorktree,
@@ -12,7 +13,8 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 /** Minimal falling ceiling whose metric grows with tracked source files. */
 function proposalConfig(): string {
@@ -46,11 +48,6 @@ async function growthWorktree(dir: string): Promise<string> {
   return worktree;
 }
 
-/** Decode one CLI JSON envelope for focused field assertions. */
-function parseJson(stdout: string): Record<string, unknown> {
-  return JSON.parse(stdout) as Record<string, unknown>;
-}
-
 interface ApprovalChallenge {
   readonly token: string;
   readonly proposal: {
@@ -62,7 +59,7 @@ interface ApprovalChallenge {
 
 /** Read the exact structured approval challenge from an accept refusal. */
 function approvalChallenge(stdout: string): ApprovalChallenge {
-  const challenge = (parseJson(stdout).data as {
+  const challenge = (decodeCliResult(stdout, "accept").data as {
     standard_approvals_required?: ApprovalChallenge[];
   }).standard_approvals_required?.[0];
   assert(challenge !== undefined);
@@ -74,7 +71,7 @@ Deno.test("standards propose records the breached value in one config-only commi
     const worktree = await growthWorktree(dir);
     const measured = await runAgent(worktree, ["standards", "--json"]);
     assertEquals(measured.code, 1, measured.output);
-    const measuredData = parseJson(measured.stdout).data as {
+    const measuredData = decodeCliResult(measured.stdout, "standards").data as {
       standards?: { name: string; value?: number; verdict?: string }[];
     };
     assertEquals(measuredData.standards?.[0]?.value, 2);
@@ -90,7 +87,7 @@ Deno.test("standards propose records the breached value in one config-only commi
       "--json",
     ]);
     assertEquals(proposed.code, 0, proposed.output);
-    const envelope = parseJson(proposed.stdout);
+    const envelope = decodeCliResult(proposed.stdout, "standards propose");
     assertEquals(envelope.verb, "standards propose");
     const proposalResult = (envelope.data as {
       proposal: {
@@ -137,7 +134,7 @@ Deno.test("standards propose records the breached value in one config-only commi
     ]);
     assertEquals(repeated.code, 0, repeated.output);
     assertEquals(
-      (parseJson(repeated.stdout).data as {
+      (decodeCliResult(repeated.stdout, "standards propose").data as {
         proposal: { status: string };
       }).proposal.status,
       "unchanged",
@@ -153,9 +150,10 @@ Deno.test("standards propose records the breached value in one config-only commi
       "--json",
     ]);
     assertEquals(replaced.code, 0, replaced.output);
-    const replacement = (parseJson(replaced.stdout).data as {
-      proposal: { status: string; proposal: { reason: string } };
-    }).proposal;
+    const replacement = (decodeCliResult(replaced.stdout, "standards propose")
+      .data as {
+        proposal: { status: string; proposal: { reason: string } };
+      }).proposal;
     assertEquals(replacement.status, "replaced");
     assertEquals(
       replacement.proposal.reason,
@@ -181,7 +179,7 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
 
     const done = await runAgent(worktree, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const doneData = parseJson(done.stdout).data as {
+    const doneData = decodeCliResult(done.stdout, "done").data as {
       proof?: {
         line: string;
         standard_proposals?: { standard: string; reason: string }[];
@@ -200,15 +198,18 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
       "--rerun",
     ]);
     assertEquals(markdown.code, 0, markdown.output);
-    assertStringIncludes(markdown.stdout, "Standard growth proposal `sources`");
-    assertStringIncludes(
+    assertTerminalTextIncludes(
+      markdown.stdout,
+      "Standard growth proposal `sources`",
+    );
+    assertTerminalTextIncludes(
       markdown.stdout,
       "The feature adds one source file required by the product.",
     );
 
     const refused = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
-    const refusal = parseJson(refused.stdout);
+    const refusal = decodeCliResult(refused.stdout, "accept");
     assertEquals(refusal.error, "awaiting_standard_approval");
     const approval = approvalChallenge(refused.stdout);
     assertEquals(approval.proposal.standard, "sources");
@@ -234,7 +235,10 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
       "--json",
     ]);
     assertEquals(wrong.code, 1, wrong.output);
-    assertEquals(parseJson(wrong.stdout).error, "invalid_value");
+    assertEquals(
+      decodeCliResult(wrong.stdout, "accept").error,
+      "invalid_value",
+    );
 
     const proposalPath = await gitAdminStatePath(
       worktree,
@@ -276,7 +280,7 @@ Deno.test("accept lands the already-proved proposal commit after exact approval"
       "--json",
     ]);
     assertEquals(accepted.code, 0, accepted.output);
-    const data = parseJson(accepted.stdout).data as {
+    const data = decodeCliResult(accepted.stdout, "accept").data as {
       standard_approvals?: {
         standard: string;
         proposed_limit: number;
@@ -300,13 +304,7 @@ Deno.test("accept lands the already-proved proposal commit after exact approval"
 
 /** Assert that a transaction-owned path was removed. */
 async function assertRejectsNotFound(path: string): Promise<void> {
-  try {
-    await Deno.stat(path);
-  } catch (error) {
-    assert(error instanceof Deno.errors.NotFound);
-    return;
-  }
-  throw new Error(`expected ${path} to be removed`);
+  assertEquals(await statIfExists(path), undefined);
 }
 
 Deno.test("standards propose refuses trunk, unknown, absent-evidence, and dirty states read-only", async () => {
@@ -326,8 +324,8 @@ Deno.test("standards propose refuses trunk, unknown, absent-evidence, and dirty 
       "--json",
     ]);
     assertEquals(trunk.code, 1, trunk.output);
-    assertStringIncludes(
-      String(parseJson(trunk.stdout).message),
+    assertTerminalTextIncludes(
+      String(decodeCliResult(trunk.stdout, "standards propose").message),
       "never edit the trunk",
     );
 
@@ -346,7 +344,10 @@ Deno.test("standards propose refuses trunk, unknown, absent-evidence, and dirty 
       "--json",
     ]);
     assertEquals(unknown.code, 1, unknown.output);
-    assertEquals(parseJson(unknown.stdout).error, "unknown_standard");
+    assertEquals(
+      decodeCliResult(unknown.stdout, "standards propose").error,
+      "unknown_standard",
+    );
 
     const absent = await runAgent(worktree, [
       "standards",
@@ -357,8 +358,8 @@ Deno.test("standards propose refuses trunk, unknown, absent-evidence, and dirty 
       "--json",
     ]);
     assertEquals(absent.code, 1, absent.output);
-    assertStringIncludes(
-      String(parseJson(absent.stdout).message),
+    assertTerminalTextIncludes(
+      String(decodeCliResult(absent.stdout, "standards propose").message),
       "no fresh measured breach",
     );
 
@@ -372,7 +373,10 @@ Deno.test("standards propose refuses trunk, unknown, absent-evidence, and dirty 
       "--json",
     ]);
     assertEquals(dirty.code, 1, dirty.output);
-    assertEquals(parseJson(dirty.stdout).error, "dirty_worktree");
+    assertEquals(
+      decodeCliResult(dirty.stdout, "standards propose").error,
+      "dirty_worktree",
+    );
     assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), head);
     assertStringIncludes(
       await Deno.readTextFile(join(worktree, "discern.toml")),
@@ -398,7 +402,10 @@ Deno.test("standards propose refuses stale and failed fresh measurements", async
       "--json",
     ]);
     assertEquals(stale.code, 1, stale.output);
-    assertStringIncludes(String(parseJson(stale.stdout).message), "(stale)");
+    assertStringIncludes(
+      String(decodeCliResult(stale.stdout, "standards propose").message),
+      "(stale)",
+    );
   });
 
   await withTempDir(async (dir) => {
@@ -427,8 +434,8 @@ Deno.test("standards propose refuses stale and failed fresh measurements", async
       "--json",
     ]);
     assertEquals(failed.code, 1, failed.output);
-    assertStringIncludes(
-      String(parseJson(failed.stdout).message),
+    assertTerminalTextIncludes(
+      String(decodeCliResult(failed.stdout, "standards propose").message),
       "did not yield a numeric metric",
     );
   });
@@ -459,7 +466,10 @@ Deno.test("a deleted Standard and an unproposed simultaneous breach remain ordin
       "--json",
     ]);
     assertEquals(deleted.code, 1, deleted.output);
-    assertEquals(parseJson(deleted.stdout).error, "unknown_standard");
+    assertEquals(
+      decodeCliResult(deleted.stdout, "standards propose").error,
+      "unknown_standard",
+    );
   });
 
   await withTempDir(async (dir) => {
@@ -510,7 +520,7 @@ Deno.test("a deleted Standard and an unproposed simultaneous breach remain ordin
     assertEquals(proposed.code, 0, proposed.output);
     const done = await runAgent(worktree, ["done", "--json"]);
     assertEquals(done.code, 1, done.output);
-    const diagnostics = parseJson(done.stdout).diagnostics as {
+    const diagnostics = decodeCliResult(done.stdout, "done").diagnostics as {
       tool: string;
       message: string;
     }[];
@@ -541,9 +551,10 @@ Deno.test("trunk movement and changed fresh measurement stale a proposal", async
     await git(dir, "commit", "-m", "Move trunk");
     const stale = await runAgent(worktree, ["standards", "--json"]);
     assertEquals(stale.code, 1, stale.output);
-    const diagnostics = parseJson(stale.stdout).diagnostics as {
-      message: string;
-    }[];
+    const diagnostics = decodeCliResult(stale.stdout, "standards")
+      .diagnostics as {
+        message: string;
+      }[];
     assert(
       diagnostics.some((diagnostic) =>
         diagnostic.message.includes("trunk moved or changed identity")
@@ -582,13 +593,16 @@ Deno.test("trunk movement and changed fresh measurement stale a proposal", async
     await git(worktree, "config", "test.metric", "3");
     const changed = await runAgent(worktree, ["standards", "--json"]);
     assertEquals(changed.code, 1, changed.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       changed.stdout,
       "growth proposal records 2",
     );
     const stale = await runAgent(worktree, ["standards", "--json"]);
     assertEquals(stale.code, 1, stale.output);
-    assertStringIncludes(stale.stdout, "latest fresh measurement is 3");
+    assertTerminalTextIncludes(
+      stale.stdout,
+      "latest fresh measurement is 3",
+    );
   });
 });
 
@@ -629,7 +643,10 @@ Deno.test("reason changes rotate exact approval tokens and revocation blocks lan
       "--json",
     ]);
     assertEquals(staleApproval.code, 1, staleApproval.output);
-    assertEquals(parseJson(staleApproval.stdout).error, "invalid_value");
+    assertEquals(
+      decodeCliResult(staleApproval.stdout, "accept").error,
+      "invalid_value",
+    );
     const secondStop = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(secondStop.code, 1, secondStop.output);
     const secondToken = approvalChallenge(secondStop.stdout).token;
@@ -649,7 +666,10 @@ Deno.test("reason changes rotate exact approval tokens and revocation blocks lan
       "--json",
     ]);
     assertEquals(revoked.code, 1, revoked.output);
-    assertEquals(parseJson(revoked.stdout).error, "proposal_stale");
+    assertEquals(
+      decodeCliResult(revoked.stdout, "accept").error,
+      "proposal_stale",
+    );
     assertEquals(
       await gitOut(dir, "rev-parse", "main"),
       await gitOut(dir, "rev-parse", "HEAD"),
@@ -710,7 +730,10 @@ Deno.test("proposal recovery unwinds a pre-commit edit and finalizes a post-comm
       "--json",
     ]);
     assertEquals(resumed.code, 0, resumed.output);
-    const resumedProposal = (parseJson(resumed.stdout).data as {
+    const resumedProposal = (decodeCliResult(
+      resumed.stdout,
+      "standards propose",
+    ).data as {
       proposal: {
         status: string;
         proposal: Record<string, unknown> & {
@@ -753,7 +776,10 @@ Deno.test("proposal recovery unwinds a pre-commit edit and finalizes a post-comm
       "--json",
     ]);
     assertEquals(finalized.code, 0, finalized.output);
-    const finalizedProposal = (parseJson(finalized.stdout).data as {
+    const finalizedProposal = (decodeCliResult(
+      finalized.stdout,
+      "standards propose",
+    ).data as {
       proposal: { status: string; proposal: { commit: string } };
     }).proposal;
     assertEquals(finalizedProposal.status, "recovered");

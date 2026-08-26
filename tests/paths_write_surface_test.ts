@@ -156,6 +156,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "the gate proof — .git-internal, outside the project tree",
   ],
   [
+    "src/engine/gate/standard_proposals.ts",
+    "the config-only Standard proposal commit plus registry-resolved worktree-local proposal and recovery state",
+  ],
+  [
     "src/engine/test_run_slots.ts",
     "the fleet test-run slot files — registry-resolved .git-internal state outside the project tree",
   ],

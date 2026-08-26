@@ -1,7 +1,7 @@
 /** Focused coverage for one process serving multiple Standard metrics. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   git,
   gitInit,
@@ -127,8 +127,8 @@ Deno.test("shared Standard measurement: standalone runs once and keeps separate 
     const markdown = await runAgent(dir, ["standards", "--markdown"]);
     assertEquals(markdown.code, 1, markdown.output);
     assertEquals(await invocationCount(dir), 2);
-    assertStringIncludes(markdown.stdout, "`floor`: measured 5");
-    assertStringIncludes(markdown.stdout, "`ceiling`: measured 20");
+    assertTerminalTextIncludes(markdown.stdout, "`floor`: measured 5");
+    assertTerminalTextIncludes(markdown.stdout, "`ceiling`: measured 20");
   });
 });
 

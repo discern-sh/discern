@@ -15,6 +15,7 @@ import {
 } from "../../shared/discern_commit.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
+import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import type {
   Diagnostic,
@@ -504,7 +505,7 @@ export async function inspectActiveStandardGrowthProposals(
 }
 
 /** A stale proposal is a focused diagnostic only when its Standard still needs
- * the never-loosen exception; otherwise it is inert historical admin state. */
+ * the never-loosen exception; otherwise it is inert persisted admin state. */
 export function staleProposalDiagnostic(
   standard: string,
   reason: string,
@@ -578,15 +579,8 @@ async function removeTransaction(path: string): Promise<void> {
 async function recoverProposalTransaction(
   authority: StandardProposalWriteAuthority,
 ): Promise<StandardGrowthProposalData | undefined> {
-  let raw: string;
-  try {
-    raw = await Deno.readTextFile(authority.transactionPath);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
-    throw error;
-  }
+  const raw = await readTextIfExists(authority.transactionPath);
+  if (raw === undefined) return undefined;
   const transaction = parseProposalTransaction(raw);
   if (transaction === undefined) {
     throw new Error(

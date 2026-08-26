@@ -986,8 +986,8 @@ export function attachEngineCommands(
       "--approve-standard <token:string>",
       "Record that the owner approved the exact Standard/value/reason growth " +
         "tuple carried by the current Proof (repeatable; requires --confirmed). " +
-        "Use the proposal-bound token served by the read-only refusal; the tokens " +
-        "must equal the proposal set exactly. Standing, effort, and " +
+        "Use the proposal-bound token served by the read-only refusal; the token " +
+        "set must equal the current proposal set. Standing, effort, and " +
         "generic landing grants never authorize Standard growth.",
       { collect: true },
     )

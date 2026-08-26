@@ -353,7 +353,7 @@ export interface TrunkLimitsVerification {
 /** The next step a loosening diagnostic tells an agent to take. */
 const LOOSENING_NEXT_STEP =
   "If this branch intrinsically changed the metric, take a fresh clean-HEAD " +
-  "measurement and run `discern standards propose <name> --reason \"…\"`; " +
+  'measurement and run `discern standards propose <name> --reason "…"`; ' +
   "otherwise move the metric the right way. Only an exact proposal and exact " +
   "owner approval can move the held limit.";
 

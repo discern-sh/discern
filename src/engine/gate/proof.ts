@@ -68,8 +68,8 @@ import {
 import {
   canonicalProof,
   type GateData,
-  type GateStandard,
   type GateProofCheckData,
+  type GateStandard,
   type Proof,
   TolerantProofSchema,
 } from "../../shared/result_schemas.ts";
@@ -951,7 +951,10 @@ export interface FreshStandardMeasurementEvidence {
 }
 
 export type FreshStandardMeasurementEvidenceCheck =
-  | { readonly status: "honored"; readonly evidence: FreshStandardMeasurementEvidence }
+  | {
+    readonly status: "honored";
+    readonly evidence: FreshStandardMeasurementEvidence;
+  }
   | {
     readonly status:
       | "missing"
