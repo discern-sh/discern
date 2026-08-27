@@ -15,12 +15,15 @@ import {
   chooseWorktreeName,
   dbNameForId,
   deriveIdentity,
+  deriveTrunkIdentity,
   fitSiteId,
   generateWorktreeId,
   type IdentitySettings,
   NAME_SLUG_MAX,
   portForId,
+  resolveIdentity,
   resolveWorktreeId,
+  seedForBranch,
   siteForId,
   validateOverrideId,
 } from "../src/engine/worktree/identity.ts";
@@ -41,6 +44,7 @@ interface IdentityCase {
   site: string;
   db: string;
   branch: string;
+  seed: number;
 }
 
 interface ParityFixture {
@@ -67,6 +71,7 @@ const PARITY_FIXTURE_SCHEMA = z.object({
       site: z.string(),
       db: z.string(),
       branch: z.string(),
+      seed: z.number().int().nonnegative(),
     })),
   }),
 }).passthrough();
@@ -103,6 +108,7 @@ Deno.test("deriveIdentity reproduces the shell engine's identity vectors", () =>
     assertEquals(got.site, c.site, `site for '${c.id}'`);
     assertEquals(got.db, c.db, `db for '${c.id}'`);
     assertEquals(got.branch, c.branch, `branch for '${c.id}'`);
+    assertEquals(got.seed, c.seed, `seed for '${c.id}'`);
   }
 });
 
@@ -112,7 +118,47 @@ Deno.test("the pure derivation helpers match the vectors", () => {
     assertEquals(portForId(c.id), c.port, `portForId('${c.id}')`);
     assertEquals(siteForId(slug, c.id), c.site, `siteForId('${c.id}')`);
     assertEquals(dbNameForId(slug, c.id), c.db, `dbNameForId('${c.id}')`);
+    assertEquals(
+      seedForBranch(c.branch),
+      c.seed,
+      `seedForBranch('${c.branch}')`,
+    );
   }
+});
+
+Deno.test("the trunk identity is branch-derived and constant for one configuration", () => {
+  const settings: IdentitySettings = {
+    slug: "discern",
+    branchPrefix: "agent/",
+    trunk: "release/stable",
+  };
+  const first = deriveTrunkIdentity(settings);
+  const second = deriveTrunkIdentity(settings);
+  assertEquals(first, second);
+  assertEquals(first.id, "release-stable");
+  assertEquals(first.branch, "release/stable");
+  assertEquals(first.seed, seedForBranch("release/stable"));
+  assertEquals(first.port, portForId("release-stable"));
+});
+
+Deno.test("resolveIdentity gives the main checkout and linked worktree first-class values", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '[project]\nslug = "discern"\n\n[repository]\ntrunk = "main"\n',
+    );
+    await gitInit(dir);
+    const main = await resolveIdentity(dir, dir);
+    assertEquals(main.id, "main");
+    assertEquals(main.branch, "main");
+    assertEquals(main.seed, seedForBranch("main"));
+
+    const worktree = await addWorktree(dir, "resolved-identity");
+    const linked = await resolveIdentity(dir, worktree);
+    assertEquals(linked.id, "resolved-identity");
+    assertEquals(linked.branch, "agent/resolved-identity");
+    assertEquals(linked.seed, seedForBranch("agent/resolved-identity"));
+  });
 });
 
 Deno.test("generateWorktreeId mints a readable, valid, unique id (the discern start basis)", () => {

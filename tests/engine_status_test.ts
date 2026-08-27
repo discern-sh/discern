@@ -50,6 +50,7 @@ import {
   type CliResultForCommand,
   decodeCliResult,
 } from "./decode_cli_result.ts";
+import { seedForBranch } from "../src/engine/worktree/identity.ts";
 
 const STATUS_ESCAPE = String.fromCharCode(27);
 
@@ -295,7 +296,10 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
     assertEquals(obj.data.location, "main");
     assertEquals(obj.data.projection.mode, "orientation");
     assertEquals(obj.data.project, "engine-test");
-    assertEquals(obj.data.worktree, null);
+    assertExists(obj.data.worktree);
+    assertEquals(obj.data.worktree.id, "main");
+    assertEquals(obj.data.worktree.branch, "main");
+    assertEquals(obj.data.worktree.seed, seedForBranch("main"));
     assert(Array.isArray(obj.data.fleet), `expected a fleet: ${r.stdout}`);
     assertExists(obj.data.fleet);
     assertEquals(obj.data.fleet_total, 1);
@@ -965,6 +969,10 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     // The local view carries the worktree identity + the heavy blocks.
     assert(obj.data.worktree, `expected a worktree block: ${r.stdout}`);
     assertEquals(obj.data.worktree.id, "alpha");
+    assertEquals(
+      obj.data.worktree.seed,
+      seedForBranch("agent/alpha"),
+    );
     assertExists(obj.data.git);
     assertEquals(obj.data.git.branch, "agent/alpha");
     assert(obj.data.gate);

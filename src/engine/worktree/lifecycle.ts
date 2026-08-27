@@ -56,10 +56,12 @@ import {
 } from "../../shared/generated_artifacts.ts";
 import {
   deriveIdentity,
+  deriveTrunkIdentity,
   generateWorktreeId,
   IdentityError,
   type IdentitySettings,
   loadIdentitySettings,
+  resolveIdentity,
   resolveWorktreeId,
   resourceForId,
   worktreeBase,
@@ -5110,11 +5112,11 @@ export async function updateResult(
 // ── start (create a fresh worktree to inhabit, from the main checkout) ──────────
 
 /**
- * The deterministic dev-server ports currently claimed by LIVE worktrees — each
- * derived from the worktree's own resolved id, so no registry or env file is
- * needed. Used at mint time to re-roll an id whose port would collide with a
- * live sibling's (two worktrees hashing to the same port would otherwise fight
- * over it, unexplained). Empty when `[worktree].port` is off. Fails open per row.
+ * The deterministic dev-server ports currently claimed by the trunk and LIVE
+ * worktrees — each derived from checkout identity, so no registry or env file
+ * is needed. Used at mint time to re-roll an id whose port would collide with
+ * either the trunk or a live sibling. Empty when `[worktree].port` is off. Fails
+ * open per linked-worktree row.
  */
 export async function livePortsInUse(
   ctx: LifecycleContext,
@@ -5128,6 +5130,7 @@ export async function livePortsInUse(
     ctx.cwd,
     ctx.config.repository.trunk,
   );
+  ports.add(deriveTrunkIdentity(settings).port);
   for (const row of fleet) {
     if (row.isMain) {
       continue;
@@ -6333,8 +6336,7 @@ export async function identityField(
   target: string = Deno.cwd(),
 ): Promise<string> {
   const settings = await loadIdentitySettings(root);
-  const id = await resolveWorktreeId(settings, target);
-  const identity = deriveIdentity(id, settings);
+  const identity = await resolveIdentity(root, target);
   // No `default`: the switch is total over WorktreeField, so a field added to
   // WORKTREE_FIELDS makes this fail `deno check` ("not all code paths return") until
   // it is handled here — the compile-time tie back to the SSOT.
@@ -6349,6 +6351,8 @@ export async function identityField(
       return String(identity.port);
     case "db":
       return identity.db;
+    case "seed":
+      return String(identity.seed);
     case "worktree":
       return worktreeBase(settings.slug, identity.id);
   }
@@ -6365,8 +6369,8 @@ export async function identityResourceHandle(
   target: string = Deno.cwd(),
 ): Promise<string> {
   const settings = await loadIdentitySettings(root);
-  const id = await resolveWorktreeId(settings, target);
-  return resourceForId(settings.slug, id, name);
+  const identity = await resolveIdentity(root, target);
+  return resourceForId(settings.slug, identity.id, name);
 }
 
 /**
@@ -6379,12 +6383,12 @@ export async function identityResources(
   target: string = Deno.cwd(),
 ): Promise<Record<string, string>> {
   const settings = await loadIdentitySettings(root);
-  const id = await resolveWorktreeId(settings, target);
+  const identity = await resolveIdentity(root, target);
   const config = await loadConfig(root);
   return Object.fromEntries(
     readResourceSpecs(config).map((spec) => [
       spec.name,
-      resourceForId(settings.slug, id, spec.name),
+      resourceForId(settings.slug, identity.id, spec.name),
     ]),
   );
 }

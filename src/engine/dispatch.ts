@@ -1036,14 +1036,15 @@ export function attachEngineCommands(
   root
     .command("identity")
     .description(
-      "Print stable values that keep each worktree's branch, development host, port, " +
+      "Print stable values that keep each checkout's branch, development host, port, " +
         "database, and external resources separate.",
     )
-    .option("--id", "Print the safe base name for this worktree (default).")
+    .option("--id", "Print the safe base name for this checkout (default).")
     .option("--site", "Print its development server's host name.")
     .option("--branch", "Print its branch name.")
     .option("--port", "Print its stable development-server port.")
     .option("--db", "Print its database-safe name.")
+    .option("--seed", "Print its stable test-order seed.")
     .option(
       "--worktree",
       "Print its base resource handle — a stable project-prefixed external name.",

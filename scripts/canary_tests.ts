@@ -8,7 +8,12 @@
  */
 
 import { canaryTestFiles } from "./canary_registry.ts";
-import { testCommandArgs } from "./run_tests.ts";
+import {
+  effectiveTestSeed,
+  testCommandArgs,
+  testIdentitySeed,
+  testSeedAnnouncement,
+} from "./run_tests.ts";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 
 /** Repo-relative paths of every test module directly under `dir`. */
@@ -24,10 +29,23 @@ export async function listTestModules(
   return modules;
 }
 
+/** Build the canary invocation while preserving every caller argument. */
+export function canaryCommandArgs(
+  identitySeed: number,
+  files: readonly string[],
+  forwarded: readonly string[],
+): string[] {
+  return testCommandArgs(identitySeed, [...forwarded, ...files]);
+}
+
 if (import.meta.main) {
   const files = canaryTestFiles(await listTestModules());
+  const identitySeed = await testIdentitySeed();
+  console.error(
+    testSeedAnnouncement(effectiveTestSeed(identitySeed, Deno.args)),
+  );
   const child = await runOwnedChild(Deno.execPath(), {
-    args: testCommandArgs(files),
+    args: canaryCommandArgs(identitySeed, files, Deno.args),
   });
   Deno.exit(child.status.code);
 }

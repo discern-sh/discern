@@ -1,7 +1,9 @@
 /**
- * Resolve a linked git worktree's stable, agent-agnostic identity. Every derived
- * value (id / site / branch / port / db) comes from structured state, not
- * filesystem shape, so it survives wherever an agent keeps the checkout.
+ * Resolve a checkout's stable, agent-agnostic identity. Every derived value
+ * (id / site / branch / port / db / seed) comes from structured state, not
+ * filesystem shape, so it survives wherever an agent keeps the checkout. A
+ * linked worktree resolves from its worktree state; the main checkout resolves
+ * from the configured trunk branch.
  *
  * Identity sources, in order:
  *   1. `DISCERN_WORKTREE_ID` from the environment, when valid — and only when
@@ -9,8 +11,7 @@
  *      THIS process's worktree is, never what some other inspected path is.
  *   2. `DISCERN_WORKTREE_ID` recorded in the target's `[worktree].env_files`
  *      (last listed wins), when valid.
- *   3. Git's linked-worktree admin-directory basename (refusing the main
- *      checkout, where `--absolute-git-dir` == `--git-common-dir`).
+ *   3. Git's linked-worktree admin-directory basename.
  *
  * LOAD-BEARING (Risk R1): a worktree's port, site tail hash, and db name derive
  * from the POSIX `cksum` of the id (see `shared/crc.ts`). The derivation is
@@ -39,6 +40,20 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
+import { integrationBranch } from "./trunk.ts";
+import {
+  WORKTREE_FIELDS,
+  WORKTREE_IDENTITY_FIELDS,
+  type WorktreeField,
+  type WorktreeIdentityField,
+} from "../../shared/worktree_identity_fields.ts";
+
+export {
+  WORKTREE_FIELDS,
+  WORKTREE_IDENTITY_FIELDS,
+  type WorktreeField,
+  type WorktreeIdentityField,
+};
 
 /**
  * The dev-server port band: 17290–19289, clear of common local services and
@@ -66,6 +81,8 @@ export interface WorktreeIdentity {
   port: number;
   /** The database-name-safe identity, e.g. `my_app_wt_feature`. */
   db: string;
+  /** The explicit deterministic Deno test shuffle seed. */
+  seed: number;
 }
 
 /**
@@ -81,24 +98,14 @@ export interface WorktreeIdentity {
  * the `@…@` placeholders a resource command expands (db/site/port/project_slug/dir/
  * worktree/resource), not the identity fields a user queries.
  */
-export const WORKTREE_FIELDS = [
-  "id",
-  "site",
-  "branch",
-  "port",
-  "db",
-  "worktree",
-] as const;
-
-/** One resolvable identity field ({@link WORKTREE_FIELDS}). */
-export type WorktreeField = (typeof WORKTREE_FIELDS)[number];
-
 /** The project-level inputs identity derivation needs (slug + branch prefix). */
 export interface IdentitySettings {
   /** The sanitized project slug (site/db/id prefix). Never empty. */
   slug: string;
   /** The branch prefix prepended to the id (default `agent/`). */
   branchPrefix: string;
+  /** The effective trunk branch (default `main`). */
+  trunk?: string;
   /** The `[worktree].env_files` a recorded id override is read across, in
    * precedence order (last wins). Defaults to {@link DEFAULT_ENV_FILES} when a
    * caller has no config in hand. */
@@ -149,6 +156,15 @@ export function dbNameForId(slug: string, id: string): string {
  */
 export function portForId(id: string): number {
   return PORT_BASE + (cksumString(id) % PORT_SPAN);
+}
+
+/**
+ * Derive the explicit test-order seed from the full branch name. The POSIX
+ * `cksum` family is the same frozen structured-state hash used by the port
+ * band; unlike worktree-id minting, this consumes neither clock nor entropy.
+ */
+export function seedForBranch(branch: string): number {
+  return cksumString(branch);
 }
 
 /**
@@ -217,17 +233,47 @@ export function validateOverrideId(raw: string): string {
  * settings. Pure — no I/O — so the parity tests can drive it directly with a
  * known id, slug, and branch prefix.
  */
-export function deriveIdentity(
+function deriveIdentityForBranch(
   id: string,
   settings: IdentitySettings,
+  branch: string,
 ): WorktreeIdentity {
   return {
     id,
     site: siteForId(settings.slug, id),
-    branch: `${settings.branchPrefix}${id}`,
+    branch,
     port: portForId(id),
     db: dbNameForId(settings.slug, id),
+    seed: seedForBranch(branch),
   };
+}
+
+/** Build the derived identity values for a linked worktree id. */
+export function deriveIdentity(
+  id: string,
+  settings: IdentitySettings,
+): WorktreeIdentity {
+  return deriveIdentityForBranch(
+    id,
+    settings,
+    `${settings.branchPrefix}${id}`,
+  );
+}
+
+/** Build the main checkout's identity from its effective trunk branch. */
+export function deriveTrunkIdentity(
+  settings: IdentitySettings,
+): WorktreeIdentity {
+  const branch = settings.trunk ?? "main";
+  const id = sanitizeSlug(branch);
+  if (id === "") {
+    throw new IdentityError(
+      `The trunk branch '${branch}' contains no safe identity characters. Set ` +
+        "[repository].trunk to a branch with letters or numbers, then re-run " +
+        "`discern identity`.",
+    );
+  }
+  return deriveIdentityForBranch(id, settings, branch);
 }
 
 /**
@@ -501,10 +547,10 @@ export async function loadIdentitySettings(
     DISCERN_ENVIRONMENT_VARIABLES.worktreeBranchPrefix,
   );
   let envFiles: readonly string[] | undefined;
+  let config: DiscernConfig | undefined;
   {
     // Tolerant config read: a missing or invalid toml just leaves the defaults in
     // place (worktree naming must work even when the config is mid-edit).
-    let config: DiscernConfig | undefined;
     try {
       config = await loadConfig(root);
     } catch {
@@ -528,6 +574,7 @@ export async function loadIdentitySettings(
   return {
     slug,
     branchPrefix,
+    trunk: integrationBranch(config?.repository.trunk, env),
     ...(envFiles === undefined ? {} : { envFiles }),
   };
 }
@@ -590,6 +637,31 @@ async function normalizeCommonGitDir(
   return await realPathIfExists(abs) ?? abs;
 }
 
+interface GitCheckoutDirs {
+  /** Checkout-specific Git administration directory. */
+  readonly gitDir: string;
+  /** Repository-wide Git administration directory. */
+  readonly commonGitDir: string;
+}
+
+/** Resolve Git's checkout/common administration pair for an existing path. */
+async function gitCheckoutDirs(
+  path: string,
+): Promise<GitCheckoutDirs | undefined> {
+  if (!((await statIfExists(path))?.isDirectory ?? false)) {
+    return undefined;
+  }
+  const gitDir = await gitOut(path, ["rev-parse", "--absolute-git-dir"]);
+  const commonRaw = await gitOut(path, ["rev-parse", "--git-common-dir"]);
+  if (gitDir === undefined || commonRaw === undefined) {
+    return undefined;
+  }
+  return {
+    gitDir,
+    commonGitDir: await normalizeCommonGitDir(path, commonRaw),
+  };
+}
+
 /**
  * Derive the id from git's linked-worktree admin directory name. Refuses the
  * main checkout (where the absolute and common git dirs are the same path).
@@ -597,21 +669,15 @@ async function normalizeCommonGitDir(
  * `IdentityError` when no linked-worktree metadata can be resolved.
  */
 async function metadataIdFromGit(path: string): Promise<string> {
-  const isDir = (await statIfExists(path))?.isDirectory ?? false;
-
-  if (isDir) {
-    const gitDir = await gitOut(path, ["rev-parse", "--absolute-git-dir"]);
-    if (gitDir !== undefined) {
-      const commonRaw = await gitOut(path, ["rev-parse", "--git-common-dir"]);
-      const commonGitDir = await normalizeCommonGitDir(path, commonRaw ?? "");
-      if (gitDir === commonGitDir) {
-        throw new IdentityError(
-          "The target is the main checkout, not a worktree. Pass a worktree path " +
-            "shown by `discern status`, then re-run `discern identity`.",
-        );
-      }
-      return basename(gitDir);
+  const dirs = await gitCheckoutDirs(path);
+  if (dirs !== undefined) {
+    if (dirs.gitDir === dirs.commonGitDir) {
+      throw new IdentityError(
+        "The target is the main checkout, not a worktree. Pass a worktree path " +
+          "shown by `discern status`, then re-run `discern identity`.",
+      );
     }
+    return basename(dirs.gitDir);
   }
 
   // Fall back to a `.git` gitlink file (a worktree whose checkout git cannot run
@@ -688,6 +754,11 @@ export async function resolveIdentity(
   target: string = Deno.cwd(),
 ): Promise<WorktreeIdentity> {
   const settings = await loadIdentitySettings(root);
-  const id = await resolveWorktreeId(settings, target);
+  const canonical = await canonicalizeTarget(target);
+  const dirs = await gitCheckoutDirs(canonical);
+  if (dirs !== undefined && dirs.gitDir === dirs.commonGitDir) {
+    return deriveTrunkIdentity(settings);
+  }
+  const id = await resolveWorktreeId(settings, canonical);
   return deriveIdentity(id, settings);
 }

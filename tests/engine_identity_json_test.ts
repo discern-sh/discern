@@ -12,12 +12,41 @@ import {
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import {
+  seedForBranch,
+  WORKTREE_FIELDS,
+} from "../src/engine/worktree/identity.ts";
 
 Deno.test("identity preserves bare output and publishes structured JSON values", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     const worktree = await addWorktree(dir, "identity-json");
+
+    for (const target of [dir, worktree]) {
+      for (const identityField of WORKTREE_FIELDS) {
+        const resolved = await runAgent(target, [
+          "identity",
+          `--${identityField}`,
+        ]);
+        assertEquals(resolved.code, 0, resolved.output);
+        assert(resolved.stdout.trim() !== "", `${identityField} was empty`);
+      }
+    }
+
+    const mainSeed = await runAgent(dir, ["identity", "--seed"]);
+    assertEquals(mainSeed.stdout, `${seedForBranch("main")}\n`);
+    const worktreeSeed = await runAgent(worktree, ["identity", "--seed"]);
+    assertEquals(
+      worktreeSeed.stdout,
+      `${seedForBranch("agent/identity-json")}\n`,
+    );
+    const mainResource = await runAgent(dir, [
+      "identity",
+      "--resource",
+      "cache",
+    ]);
+    assertEquals(mainResource.stdout, "engine-test-main-cache\n");
 
     const raw = await runAgent(worktree, ["identity", "--id"]);
     assertEquals(raw.code, 0, raw.output);
@@ -70,7 +99,6 @@ Deno.test("identity preserves bare output and publishes structured JSON values",
 Deno.test("identity JSON failures distinguish resolution from malformed arguments", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await gitInit(dir);
 
     const humanResolution = await runAgent(dir, ["identity"]);
     assert(humanResolution.code !== 0, humanResolution.output);

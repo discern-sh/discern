@@ -901,6 +901,7 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
       site: "voyager-alpha",
       port: 17123,
       db: "voyager_alpha",
+      seed: 3223225200,
       resources: { cache: "voyager-alpha-cache" },
     },
     scopes: ["code", "previewable", "web"],

@@ -1278,7 +1278,7 @@ function renderChecks(
   })];
 }
 
-/** Worktree-local runtime coordinates, separate from quality checks. */
+/** Checkout-local runtime coordinates, separate from quality checks. */
 function renderLocalEnvironment(
   data: StatusData,
   width: number,
@@ -1289,12 +1289,18 @@ function renderLocalEnvironment(
     return [c.presenter.present(renderResultSummaryCli, {
       state: "unchanged",
       fact: terminalLine(
-        `${data.worktree.id} has a provisioned local environment.`,
+        data.location === "main"
+          ? `${data.worktree.id} is the trunk checkout identity.`
+          : `${data.worktree.id} has a provisioned local environment.`,
       ),
       counts: [
         {
           label: terminalLine("Port"),
           value: terminalLine(String(data.worktree.port)),
+        },
+        {
+          label: terminalLine("Test seed"),
+          value: terminalLine(String(data.worktree.seed)),
         },
         ...(resources.length === 0 ? [] : [{
           label: terminalLine("Resources"),

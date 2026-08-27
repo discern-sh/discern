@@ -40,6 +40,7 @@ import { waitUntil } from "./waiting.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import { z } from "@zod/zod";
 import { assertResultDataKey, decodeWith } from "./decode_cli_result.ts";
+import { seedForBranch } from "../src/engine/worktree/identity.ts";
 import {
   buildInstructions,
   MCP_CORE_LIFECYCLE,
@@ -3827,6 +3828,9 @@ Deno.test("discern mcp: status carries project identity and compact fleet proof 
     const parsed = StatusOutputSchema.parse(result.structuredContent);
     assertResultDataKey(parsed, "location");
     assertEquals(parsed.data.project, "engine-test");
+    assertExists(parsed.data.worktree);
+    assertEquals(parsed.data.worktree.id, "main");
+    assertEquals(parsed.data.worktree.seed, seedForBranch("main"));
     assertEquals(parsed.data.projection.mode, "orientation");
     assertEquals(parsed.data.fleet_total, 1);
     const alpha = parsed.data.fleet?.find((row) =>
@@ -4218,6 +4222,9 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     assertEquals(statusPart.uri, "discern://status");
     const statusData = decodeWith(StatusWireDataSchema, statusPart.text);
     assertEquals(statusData.location, "main");
+    assertExists(statusData.worktree);
+    assertEquals(statusData.worktree.id, "main");
+    assertEquals(statusData.worktree.seed, seedForBranch("main"));
     assert(
       Array.isArray(statusData.standards),
       "the status resource carries the configured standards",

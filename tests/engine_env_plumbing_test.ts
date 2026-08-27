@@ -358,7 +358,7 @@ Deno.test("mint re-rolls an id whose derived port collides with a live worktree'
   });
 });
 
-Deno.test("livePortsInUse enumerates real sibling ports — one per worktree's own identity", async () => {
+Deno.test("livePortsInUse enumerates the trunk and every sibling's own port", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -374,16 +374,20 @@ Deno.test("livePortsInUse enumerates real sibling ports — one per worktree's o
     const settings = await loadIdentitySettings(dir);
     const ports = await livePortsInUse(ctx, settings);
     assert(
+      ports.has(portForId("main")),
+      `the trunk's derived port must be enumerated: ${[...ports].join(",")}`,
+    );
+    assert(
       ports.has(portForId(basename(sibling))),
       `the sibling's derived port must be enumerated: ${[...ports].join(",")}`,
     );
-    // One port per sibling: the enumeration reads each row's OWN identity, so
+    // One port per checkout: the enumeration reads each row's OWN identity, so
     // it can never collapse the fleet onto a single id (the env-override
     // poisoning defect) — a second sibling must add a second port.
     const other = await addWorktree(dir, "merry-heron-0b12cd");
     const both = await livePortsInUse(ctx, settings);
     assert(both.has(portForId(basename(other))));
-    assertEquals(both.size, 2, [...both].join(","));
+    assertEquals(both.size, 3, [...both].join(","));
   });
 });
 

@@ -14,16 +14,17 @@
     "port_band": { "base": 17290, "span": 2000 },
     "site_dns_label_limit": 63,
     "cases": [
-      { "id": "a", "port": 18056, "site": "discern-a", "db": "discern_a", "branch": "agent/a" },
-      { "id": "wt-feature", "port": 18490, "site": "discern-wt-feature", "db": "discern_wt_feature", "branch": "agent/wt-feature" },
-      { "id": "feature-x", "port": 19257, "site": "discern-feature-x", "db": "discern_feature_x", "branch": "agent/feature-x" },
+      { "id": "a", "port": 18056, "site": "discern-a", "db": "discern_a", "branch": "agent/a", "seed": 3852205873 },
+      { "id": "wt-feature", "port": 18490, "site": "discern-wt-feature", "db": "discern_wt_feature", "branch": "agent/wt-feature", "seed": 488982301 },
+      { "id": "feature-x", "port": 19257, "site": "discern-feature-x", "db": "discern_feature_x", "branch": "agent/feature-x", "seed": 2899216191 },
       {
         "id": "this-is-a-very-long-worktree-id-that-exceeds-the-site-label-limit-x",
         "_note": "len 67 > max_id_len 55 (=63-7-1) triggers fit_site_id: keep id[0:45] + '-' + crc; the id[0:44] tail '-' yields the double dash 'exceeds--316377843'. db does NOT clamp.",
         "port": 19133,
         "site": "discern-this-is-a-very-long-worktree-id-that-exceeds--316377843",
         "db": "discern_this_is_a_very_long_worktree_id_that_exceeds_the_site_label_limit_x",
-        "branch": "agent/this-is-a-very-long-worktree-id-that-exceeds-the-site-label-limit-x"
+        "branch": "agent/this-is-a-very-long-worktree-id-that-exceeds-the-site-label-limit-x",
+        "seed": 3987455337
       }
     ]
   }

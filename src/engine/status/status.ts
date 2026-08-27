@@ -288,10 +288,10 @@ export async function statusResult(
     };
   }
 
-  // The worktree identity block — only inside a linked worktree.
-  const worktree = location === "worktree"
-    ? await buildWorktreeBlock(root, cfg)
-    : null;
+  // The checkout identity block. The trunk is a first-class checkout too; its
+  // identity derives from the configured trunk branch rather than worktree
+  // metadata.
+  const worktree = await buildCheckoutIdentityBlock(root, cfg);
 
   // Fleet decision. The fleet is only worth surveying from the main checkout (the
   // supervisor view) or when a worktree explicitly asks via --all — so a plain
@@ -684,9 +684,9 @@ export async function statusResult(
   return result;
 }
 
-/** Resolve a worktree's identity block, degrading to null if identity can't be
+/** Resolve a checkout's identity block, degrading to null if identity can't be
  * resolved (e.g. an empty slug) rather than crashing the read-only verb. */
-async function buildWorktreeBlock(
+async function buildCheckoutIdentityBlock(
   root: string,
   cfg: DiscernConfig,
 ): Promise<StatusWorktree | null> {
@@ -705,6 +705,7 @@ async function buildWorktreeBlock(
     site: identity.site,
     port: identity.port,
     db: identity.db,
+    seed: identity.seed,
     resources: await readWorktreeResources(root, cfg),
   };
 }

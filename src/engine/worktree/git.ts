@@ -27,8 +27,6 @@ import {
 import type { Logger } from "../../lib/log.ts";
 import { padDisplayEnd } from "../../lib/text.ts";
 import { adrNumberOf } from "../../lib/adr_numbers.ts";
-import type { EnvReader } from "../../shared/env.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import {
@@ -65,6 +63,8 @@ import {
   worktreeIdFromGitKey,
   worktreeIdFromGitMetadata,
 } from "./identity.ts";
+import { integrationBranch } from "./trunk.ts";
+export { integrationBranch } from "./trunk.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
   directoryExists,
@@ -115,26 +115,6 @@ export async function writeWorktreeEnvVar(
       { cause: error },
     );
   }
-}
-
-/**
- * The integration branch: `DISCERN_TRUNK` env wins (the dispatcher exports it from
- * `[repository].trunk`); otherwise `fallback` (a config-derived value the
- * lifecycle layer passes when calling outside a dispatched env); otherwise
- * `main`.
- */
-export function integrationBranch(
-  fallback?: string,
-  envReader: EnvReader = Deno.env,
-): string {
-  const env = envReader.get(DISCERN_ENVIRONMENT_VARIABLES.trunk);
-  if (env !== undefined && env !== "") {
-    return env;
-  }
-  if (fallback !== undefined && fallback !== "") {
-    return fallback;
-  }
-  return "main";
 }
 
 /** One-line warning when the configured integration branch cannot be checked. */

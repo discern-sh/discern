@@ -1,9 +1,21 @@
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { z } from "@zod/zod";
 import { fromFileUrl, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
-import { testCommandArgs } from "../scripts/run_tests.ts";
+import { canaryCommandArgs } from "../scripts/canary_tests.ts";
+import {
+  effectiveTestSeed,
+  explicitShuffleSeed,
+  testCommandArgs,
+  testSeedAnnouncement,
+} from "../scripts/run_tests.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { withTempDir } from "./helpers.ts";
 
 const DenoTasksSchema = z.object({
   tasks: z.record(z.string(), z.string()).optional(),
@@ -47,7 +59,63 @@ Deno.test("the repository admits parallel suites without partitioning Deno worke
   );
 
   const forwarded = ["--filter", "probe"];
-  const args = testCommandArgs(forwarded);
+  const identitySeed = 314159;
+  const args = testCommandArgs(identitySeed, forwarded);
   assert(args.includes("--parallel"), "Deno test files must run in parallel");
+  assert(args.includes(`--shuffle=${identitySeed}`));
   assertEquals(args.slice(-forwarded.length), forwarded);
+
+  const overridden = testCommandArgs(identitySeed, [
+    "--shuffle=271828",
+    ...forwarded,
+  ]);
+  assertEquals(overridden.filter((arg) => arg.startsWith("--shuffle=")), [
+    "--shuffle=271828",
+  ]);
+  assertEquals(explicitShuffleSeed(["--shuffle=271828"]), 271828);
+  assertEquals(effectiveTestSeed(identitySeed, ["--shuffle=271828"]), 271828);
+  assertEquals(testSeedAnnouncement(271828), "Test shuffle seed: 271828");
+  assertThrows(
+    () => testCommandArgs(identitySeed, ["--shuffle"]),
+    TypeError,
+    "cannot be replayed",
+  );
+
+  const canaryFiles = ["tests/a_test.ts", "tests/b_test.ts"];
+  const canary = canaryCommandArgs(identitySeed, canaryFiles, forwarded);
+  assertEquals(
+    canary.slice(-(forwarded.length + canaryFiles.length)),
+    [...forwarded, ...canaryFiles],
+    "the canary must forward caller arguments before its derived file set",
+  );
+});
+
+Deno.test("seeded shuffle rejects a planted order-dependent fixture", async () => {
+  await withTempDir(async (dir) => {
+    const planted = join(REPO_ROOT, "tests/fixtures/order_dependent.ts");
+    const fixture = join(dir, "order_dependent_test.ts");
+    await Deno.writeTextFile(fixture, await Deno.readTextFile(planted));
+    const ordered = await new Deno.Command(Deno.execPath(), {
+      args: ["test", fixture],
+      cwd: dir,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert(ordered.success, new TextDecoder().decode(ordered.stderr));
+
+    const shuffled = await new Deno.Command(Deno.execPath(), {
+      args: ["test", "--shuffle=2", fixture],
+      cwd: dir,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert(!shuffled.success, "the unsafe fixture must fail under seed 2");
+    const diagnostic = [shuffled.stdout, shuffled.stderr]
+      .map((bytes) => new TextDecoder().decode(bytes))
+      .join("\n");
+    assertStringIncludes(
+      diagnostic,
+      "order-dependent fixture ran its reader before its writer",
+    );
+  });
 });

@@ -67,6 +67,10 @@ import {
 import { CONFIG_ISSUE_KINDS } from "./config_issues.ts";
 import { CONFIG_RECONCILE_OPERATION_KINDS } from "./config_reconcile.ts";
 import { TRUST_ACTION_KINDS, TRUST_FACT_KINDS } from "./provider_trust.ts";
+import {
+  WORKTREE_FIELDS,
+  type WorktreeIdentityField,
+} from "./worktree_identity_fields.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -1625,13 +1629,22 @@ export const LOCATIONS = ["main", "worktree"] as const;
 /** One status location ({@link LOCATIONS}). */
 export type Location = (typeof LOCATIONS)[number];
 
-/** This worktree's derived identity + the resources recorded in its `.env`. */
-const statusWorktreeSchema = z.strictObject({
+/**
+ * One checkout's derived identity. `satisfies` makes every stored identity
+ * field join the CLI/MCP/resource schema when it joins the shared vocabulary.
+ */
+const statusIdentityShape = {
   id: z.string(),
   branch: z.string(),
   site: z.string(),
   port: z.number(),
   db: z.string(),
+  seed: z.number().int().nonnegative(),
+} satisfies Record<WorktreeIdentityField, z.ZodType>;
+
+/** This checkout's derived identity + resources recorded in its `.env`. */
+const statusWorktreeSchema = z.strictObject({
+  ...statusIdentityShape,
   resources: z.record(z.string(), z.string()),
 });
 export type StatusWorktree = z.infer<typeof statusWorktreeSchema>;
@@ -2842,7 +2855,7 @@ export type ScriptsData = z.infer<typeof ScriptsDataSchema>;
 
 const identityFieldDataSchema = z.strictObject({
   kind: z.literal("field"),
-  field: z.string(),
+  field: z.enum(WORKTREE_FIELDS),
   value: z.string(),
 });
 
