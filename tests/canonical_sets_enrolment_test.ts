@@ -27,12 +27,14 @@ import {
   codegenWriteTargets,
   CONVENTIONAL_GUARD_SUFFIXES,
   type GeneratedArtifact,
+  inventoryProjectionOffenders,
   REGISTRY_ATLAS_PAGE_REL,
   renderRegistryAtlasDoc,
   resolveSetMembers,
   UNAFFILIATED_CODEGEN_TARGETS,
   UNAFFILIATED_GUARDS,
 } from "../scripts/canonical_sets.ts";
+import { GENERATED_INVENTORY_POLICIES } from "../src/shared/generated_inventory_policy.ts";
 import { generatedBrandDocuments } from "../scripts/brand_registry.ts";
 import { REGISTERS } from "../scripts/brand/model.ts";
 import { valeStyleFiles } from "../scripts/brand/vale.ts";
@@ -513,6 +515,52 @@ Deno.test("the meta-registry enrols itself", () => {
       artifact.path.endsWith(REGISTRY_ATLAS_PAGE_REL)
     ),
     "the self entry must declare the registry atlas as its artifact",
+  );
+});
+
+Deno.test("every generated inventory declares its framing, renderer, documentation, and tests", () => {
+  assertEquals(
+    inventoryProjectionOffenders(CANONICAL_SETS, GENERATED_INVENTORY_POLICIES),
+    [],
+  );
+});
+
+Deno.test("every generated inventory policy resolves its renderer, documentation, and tests", async () => {
+  for (const [id, policy] of Object.entries(GENERATED_INVENTORY_POLICIES)) {
+    const renderer = await fileText(policy.renderer.module);
+    assert(
+      renderer?.includes(policy.renderer.exportName),
+      `${id}: renderer ${policy.renderer.module} does not expose ${policy.renderer.exportName}`,
+    );
+    assert(
+      await fileText(policy.documentation) !== undefined,
+      `${id}: documentation ${policy.documentation} is not committed`,
+    );
+    for (const test of policy.tests) {
+      assert(
+        await fileText(test) !== undefined,
+        `${id}: projection test ${test} does not exist`,
+      );
+    }
+  }
+});
+
+Deno.test("control: a future inventory without a renderer policy fails enrollment", () => {
+  const future: CanonicalSetEntry = {
+    ...CONTROL_ENTRY,
+    id: "future",
+    artifacts: [{
+      path: "project/map/_internal/future-inventory.md",
+      kind: "generated-file",
+      banner: true,
+    }],
+  };
+  assert(
+    inventoryProjectionOffenders([future], GENERATED_INVENTORY_POLICIES).some(
+      (offender) =>
+        offender.includes("future-inventory.md") &&
+        offender.includes("no declared framing policy"),
+    ),
   );
 });
 

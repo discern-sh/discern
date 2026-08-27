@@ -568,16 +568,22 @@ export async function runConfigSetJob(
   return await applyEdits(edits, opts, `Set job "${name}".`);
 }
 
-/** `config set-scope <name> <glob>... [--neutral] [--previewable] [--gate <cmd>]` */
+/** `config set-scope <name> <glob>... [--neutral] [--preview <cmd>] [--gate <cmd>]` */
 export async function runConfigSetScope(
   name: string,
   globs: string[],
   opts: ConfigOptions & {
     neutral?: boolean | undefined;
-    previewable?: boolean | undefined;
+    preview?: string | undefined;
     gate?: string | undefined;
   },
 ): Promise<number> {
+  if (globs.includes("--previewable")) {
+    return fail(
+      opts,
+      "--previewable was replaced by --preview <cmd>; name the read-only command an agent can run.",
+    );
+  }
   if (!NAME_RE.test(name)) {
     return fail(
       opts,
@@ -593,8 +599,11 @@ export async function runConfigSetScope(
   if (opts.neutral) {
     edits.push({ key: `scopes.${name}.neutral`, literal: tomlBool(true) });
   }
-  if (opts.previewable) {
-    edits.push({ key: `scopes.${name}.previewable`, literal: tomlBool(true) });
+  if (opts.preview !== undefined) {
+    edits.push({
+      key: `scopes.${name}.preview`,
+      literal: tomlString(opts.preview),
+    });
   }
   if (opts.gate !== undefined) {
     edits.push({ key: `scopes.${name}.gate`, literal: tomlString(opts.gate) });

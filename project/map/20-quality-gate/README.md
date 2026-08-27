@@ -15,6 +15,8 @@ If `discern done` failed, go to [When the Gate fails](when-the-gate-fails.md). E
 
 The Gate defines done. It requires latest trunk, non-weakened Standards, current [generated artifacts](../00-orientation/glossary.md#generated-artifact), and consistent Map and instructions. Its integrity check rejects broken references, metadata, and Skills ([ADR 0202](../_adr/0202-the-gate-ships-the-map-integrity-preflight.md)). It runs fix serially; build, check, test, Standards, and changed-scope gates follow. Undeclared generated output fails ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)), as does changing a tracked file that began clean ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).
 
+A scope with `preview = "<command>"` declares the read-only action an agent can run from its worktree. `impact`, `status`, Gate plans, and successful Gate results carry the same typed scope-and-command record and state that discern did not run it. The action remains advice outside the Gate. Changing the command once changes terminal, JSON, Markdown, and Model Context Protocol (MCP) projections together ([ADR 0346](../_adr/0346-machine-facts-are-typed-advisories.md)).
+
 Use `discern prepare` before the final commit. It runs fix and generated jobs, then the complete refresh and checks. Green means tracked agent files are canonical; incomplete provider or Skill refresh is red.
 
 `discern done` reruns the test stage. For a red test, use its diagnostic's reproduce command; use `discern test` only for standalone runs.

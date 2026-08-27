@@ -1248,6 +1248,12 @@ function renderChecks(
   if (changedScopes.length > 0) {
     counts.push({ label: "Changed scopes", value: changedScopes.join(", ") });
   }
+  for (const action of data.preview_actions ?? []) {
+    counts.push({
+      label: `Preview ${action.scope}`,
+      value: `${action.command} (not run)`,
+    });
+  }
   if (data.gate !== undefined) {
     const jobs = data.gate.jobs.length === 0
       ? "no jobs configured"

@@ -429,7 +429,7 @@ Deno.test("every known agent declares trust metadata, naming the action when tru
     assert(p !== undefined, `no provider for ${name}`);
     if (p.trust.required) {
       assert(
-        p.trust.hint.trim().length > 0,
+        p.trust.actions.length > 0,
         `${name}: a required trust must name the user-facing action/bypass`,
       );
     }
@@ -584,7 +584,7 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
     // 6. Trust metadata: present, and naming the action when trust is required
     // (deliverable 5).
     assert(
-      !p.trust.required || p.trust.hint.trim().length > 0,
+      !p.trust.required || p.trust.actions.length > 0,
       `${name}: a required trust must name the user-facing action`,
     );
 

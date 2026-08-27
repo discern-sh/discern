@@ -65,6 +65,7 @@ import {
 } from "./continuation_handle.ts";
 import { CONFIG_ISSUE_KINDS } from "./config_issues.ts";
 import { CONFIG_RECONCILE_OPERATION_KINDS } from "./config_reconcile.ts";
+import { TRUST_ACTION_KINDS, TRUST_FACT_KINDS } from "./provider_trust.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -1145,6 +1146,13 @@ export const CheckpointsDataSchema = z.strictObject({
 });
 export type CheckpointsData = z.infer<typeof CheckpointsDataSchema>;
 
+/** One configured, read-only next action for previewing a changed scope. */
+export const PreviewActionDataSchema = z.strictObject({
+  scope: z.string(),
+  command: z.string(),
+});
+export type PreviewActionData = z.infer<typeof PreviewActionDataSchema>;
+
 /** `done` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
  * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
  * hand-listed), so the wire enum and the engine's `FailedStage` type can never drift.
@@ -1160,6 +1168,7 @@ export const GateDataSchema = z.strictObject({
   gate_ran: z.boolean().optional(),
   failed_stage: z.enum(FAILED_STAGES).nullable(),
   scopes_changed: z.array(z.string()),
+  preview_actions: z.array(PreviewActionDataSchema).optional(),
   standards: z.array(GateStandardSchema).optional(),
   standards_limits: StandardsLimitsSchema.optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
@@ -1277,6 +1286,7 @@ const scopeMembershipDataSchema = z.strictObject({
 /** `impact` — the classified scope/marker list and optional membership query. */
 export const ScopesDataSchema = z.strictObject({
   scopes: z.array(z.string()),
+  preview_actions: z.array(PreviewActionDataSchema).optional(),
   membership: scopeMembershipDataSchema.optional(),
 });
 export type ScopesData = z.infer<typeof ScopesDataSchema>;
@@ -1780,6 +1790,7 @@ export const StatusDataSchema = z.strictObject({
   worktree: statusWorktreeSchema.nullable(),
   git: statusGitSchema.nullable(),
   scopes: z.array(z.string()).optional(),
+  preview_actions: z.array(PreviewActionDataSchema).optional(),
   gate: statusGateSchema.optional(),
   standards: z.array(z.string()),
   gate_proof: GateProofCheckSchema.optional(),
@@ -1955,12 +1966,28 @@ export const VerbPlanSchema = z.strictObject({
 });
 export type VerbPlan = z.infer<typeof VerbPlanSchema>;
 
+/** Typed provider trust guidance: prose is separate from literal machine facts. */
+export const ProviderTrustDataSchema = z.strictObject({
+  provider: z.string(),
+  required: z.boolean(),
+  explanation: z.string(),
+  actions: z.array(z.strictObject({
+    kind: z.enum(TRUST_ACTION_KINDS),
+    instruction: z.string(),
+    facts: z.array(z.strictObject({
+      kind: z.enum(TRUST_FACT_KINDS),
+      value: z.string(),
+    })),
+  })),
+});
+
 /** `doctor` — the install-verification payload. `execution_model` is the per-verb
  * ordered step list (optional: omitted only when no config can be read at all). */
 export const DoctorDataSchema = z.strictObject({
   kit_version: z.string(),
   environment: DoctorEnvironmentSchema,
   checks: z.array(CheckSchema),
+  provider_trust: z.array(ProviderTrustDataSchema).optional(),
   execution_model: z.array(VerbPlanSchema).optional(),
 });
 export type DoctorData = z.infer<typeof DoctorDataSchema>;
@@ -2369,6 +2396,7 @@ export const ReactivationSchema = z.strictObject({
       check: z.string(),
       recovery: z.string(),
       cli_fallback: z.string(),
+      trust: ProviderTrustDataSchema,
     }),
   ),
 });

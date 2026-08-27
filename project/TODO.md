@@ -38,12 +38,6 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 
 - [ ] **Reconcile the contributor documentation with its live authorities.** Enrol the Canonical sets leaf, reconcile the documented test layers and build ownership, and align the generated ownership inventory with its live registry. Evidence: `project/map/80-development/README.md`; `project/map/80-development/testing.md`; `project/map/80-development/code-conventions.md`; `discern.toml`; `src/shared/paths_registry.ts`.
 
-- [ ] **Declare every prose authority behind generated inventories.** Extend generated hint and tip ownership to include renderer framing and shared policy prose, or co-locate those literals with the registries their banners already name. Evidence: `src/shared/hint_inventory_codegen.ts`; `src/shared/tip_inventory_codegen.ts`; `src/shared/operating_policies.ts`; `scripts/canonical_sets.ts`.
-
-- [ ] **Give previewable scopes an executable preview contract.** Replace or complement the Boolean marker with a configured action or guarded executable workflow so preview diagnostics can offer a concrete next step. Evidence: `src/shared/config_schema.ts`; `src/shared/hints.ts`; `project/map/70-reference/config-reference.md`.
-
-- [ ] **Structure provider trust hints for every presentation surface.** Separate prose from literal paths, keys, values, and flags so terminal, JSON, and generated Markdown render one authority without embedded presentation punctuation. Evidence: `src/lib/providers.ts`; `scripts/agent_integration_registry.ts`; `project/map/_internal/agent-integration-coverage.md`.
-
 - [ ] **Provide a supported recovery for main-checkout divergence.** Add a declared operation or bounded workflow that transfers owned tracked and untracked changes into the assigned worktree without guessing ownership. Evidence: `src/shared/hints.ts`; `src/engine/dispatch.ts`.
 
 - [ ] **Complete Canon Editor's remaining structural rung.** Use real launch-copy mileage to choose scaffolded add, retire, and reorder forms, a stage-and-commit composer, and the agent-brief escape hatch for campaign-sized changes. Evidence: `scripts/canon_editor/fields.ts`; `project/map/80-development/canon-editor.md`.

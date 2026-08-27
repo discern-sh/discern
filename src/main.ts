@@ -972,7 +972,10 @@ export function buildCli(
     )
     .arguments("<name:string> <globs...:string>")
     .option("--neutral", "Changes here need no gate.")
-    .option("--previewable", "A person could see changes here.")
+    .option(
+      "--preview <cmd:string>",
+      "A read-only command an agent can run to preview changes here.",
+    )
     .option("--gate <cmd:string>", "A command to run when this scope changed.")
     .option("--dry-run", "Print the edit and write nothing.")
     .action(recordedExit(
@@ -983,7 +986,7 @@ export function buildCli(
           ...globalFlags(options),
           dryRun: options.dryRun ?? false,
           neutral: options.neutral ?? false,
-          previewable: options.previewable ?? false,
+          preview: options.preview,
           gate: options.gate,
         });
       },

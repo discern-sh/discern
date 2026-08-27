@@ -30,6 +30,10 @@ import {
   wireProviderProjectRules as wireProviderProjectRulesFromRegistry,
   wireProviderWorktreeApp as wireProviderWorktreeAppFromRegistry,
 } from "../src/lib/providers.ts";
+import {
+  providerTrustData,
+  renderProviderTrustMarkdown,
+} from "../src/shared/provider_trust.ts";
 import { parse as parseToml } from "@std/toml";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
@@ -338,14 +342,64 @@ Deno.test("Cursor & Copilot are reuse-canonical: read AGENTS.md natively, no dup
     assertEquals(p.skillsDir?.path, ".agents/skills");
     // Committed MCP/hooks are inert until a one-time trust, and the action is named.
     assertEquals(p.trust.required, true);
-    assert(
-      p.trust.hint.trim().length > 0,
-      `${name}: trust hint must name the action`,
-    );
+    assert(p.trust.actions.length > 0, `${name}: trust must name an action`);
   }
   // A reuse-canonical provider leaks no duplicate AGENTS.md into the emitted set.
   const emitted = allInstructionFilePaths();
   assertEquals(emitted.filter((p) => p === "AGENTS.md").length, 1);
+});
+
+Deno.test("provider trust projections preserve typed future literals without prose parsing", () => {
+  const trust = {
+    required: true,
+    explanation: "A synthetic provider keeps committed setup inactive.",
+    actions: [{
+      kind: "trust-directory" as const,
+      instruction: "Enable the committed setup",
+      facts: [
+        { kind: "path" as const, value: ".future/settings.json" },
+        { kind: "config-key" as const, value: "workspace.trust" },
+        { kind: "config-value" as const, value: "enabled" },
+        { kind: "flag" as const, value: "--future-trust" },
+      ],
+    }],
+  };
+
+  const data = providerTrustData("future", trust);
+  assertEquals(data.provider, "future");
+  assertEquals(data.actions[0]?.facts, trust.actions[0]?.facts);
+  const markdown = renderProviderTrustMarkdown(trust);
+  for (
+    const literal of trust.actions[0]?.facts.map((fact) => fact.value) ?? []
+  ) {
+    assertStringIncludes(markdown, `\`${literal}\``);
+  }
+  assertStringIncludes(markdown, "key `workspace.trust` = `enabled`");
+  assert(!markdown.includes(".codex/"));
+});
+
+Deno.test("every provider trust action declares typed literal facts", () => {
+  for (const name of AGENT_NAMES) {
+    const provider = providerFor(name);
+    assert(provider !== undefined, `no provider for ${name}`);
+    assert(provider.trust.actions.length > 0, `${name}: no trust actions`);
+    for (const action of provider.trust.actions) {
+      assert(
+        action.instruction.trim().length > 0,
+        `${name}: empty trust action`,
+      );
+      assert(
+        action.facts.length > 0,
+        `${name}: trust action has no typed facts`,
+      );
+      for (const fact of action.facts) {
+        assert(
+          fact.value.trim().length > 0,
+          `${name}: empty ${fact.kind} fact`,
+        );
+      }
+    }
+  }
 });
 
 Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempotently", async () => {

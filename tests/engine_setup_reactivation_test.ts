@@ -27,6 +27,7 @@ import {
   providerFor,
   reactivationStep,
 } from "../src/lib/providers.ts";
+import { renderProviderTrustCli } from "../src/shared/provider_trust.ts";
 
 Deno.test("every provider's setup reactivation step follows from its wiring", () => {
   for (const name of AGENT_NAMES) {
@@ -97,11 +98,11 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
           "recovery, and the canonical CLI fallback without inferring activation",
       );
       // A vendor that gates committed config behind a one-time trust must carry that
-      // action in its step (the same trust.hint doctor surfaces), so the user isn't left
+      // action in its step (the same structured trust projection doctor surfaces), so the user isn't left
       // with inert config and no idea why the tools never appeared.
       if (provider.trust.required) {
         assert(
-          step.includes(provider.trust.hint),
+          step.includes(renderProviderTrustCli(provider.trust)),
           `"${name}" requires a one-time trust, but its reactivation step omits the ` +
             `trust action — the wired config would stay inert with no explanation`,
         );

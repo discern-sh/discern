@@ -16,6 +16,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import {
+  classifyScopeImpact,
   classifyScopes,
   CODE_MARKER,
   isScopeMarker,
@@ -60,6 +61,47 @@ Deno.test("impact --json: emits the DiscernResult envelope, not a bare array", a
   });
 });
 
+Deno.test("impact projects each changed scope's configured preview action", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[map]",
+        'dir = "docs/map/"',
+        "",
+        "[scopes.web]",
+        'paths = ["web/**"]',
+        'preview = "deno task preview:web --docs ${map.dir}"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    await writeExecutable(join(dir, "web/x.txt"), "x");
+
+    const impact = await classifyScopeImpact(dir);
+    assertEquals(impact.previewActions, [{
+      scope: "web",
+      command: "deno task preview:web --docs docs/map/",
+    }]);
+
+    const result = await runAgent(dir, ["impact", "--json"]);
+    assertEquals(result.code, 0, result.output);
+    const parsed = decodeCliResult(result.stdout, "impact");
+    assertResultDataKey(parsed, "preview_actions");
+    assertEquals(parsed.data.preview_actions, [{
+      scope: "web",
+      command: "deno task preview:web --docs docs/map/",
+    }]);
+  });
+});
+
 Deno.test("impact emits ONLY declared SCOPE_MARKERS alongside the configured scope names", async () => {
   // The producer's marker pushes go through the SCOPE_MARKERS SSOT; this pins that
   // behaviourally. A previewable scope change fires both derived markers, and EVERY
@@ -78,7 +120,7 @@ Deno.test("impact emits ONLY declared SCOPE_MARKERS alongside the configured sco
         "",
         "[scopes.web]",
         'paths = ["web/**"]',
-        "previewable = true",
+        'preview = "deno task preview:web"',
         "",
       ].join("\n"),
     );
@@ -169,7 +211,7 @@ Deno.test("previewable marker tracks the previewable flag at every neutral setti
             "[scopes.zone]",
             'paths = ["zone/**"]',
             ...(c.neutral ? ["neutral = true"] : []),
-            ...(c.previewable ? ["previewable = true"] : []),
+            ...(c.previewable ? ['preview = "deno task preview:zone"'] : []),
             "",
           ].join("\n"),
         );
@@ -247,7 +289,7 @@ Deno.test("impact fails open when git cannot diff against the main branch", asyn
         "",
         "[scopes.widget]",
         'paths = ["widget/**"]',
-        "previewable = true",
+        'preview = "deno task preview:widget"',
         "",
         "[scopes.api]",
         'paths = ["api/**"]',
@@ -267,6 +309,10 @@ Deno.test("impact fails open when git cannot diff against the main branch", asyn
       "widget",
       "api",
     ]);
+    assertEquals(obj.data.preview_actions, [{
+      scope: "widget",
+      command: "deno task preview:widget",
+    }]);
   });
 });
 

@@ -371,13 +371,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "scope-gates",
         title: "Scopes",
         what:
-          "`[scopes.<name>]` names a region of the repository by path globs. A scope can be `neutral` (changes there need no gate), `previewable` (worth a preview link), or carry its own `gate` command that runs only when the region changed.",
+          "`[scopes.<name>]` names a region of the repository by path globs. A scope can be `neutral` (changes there need no gate), declare a read-only `preview` command an agent can run from the worktree, or carry its own `gate` command that runs only when the region changed.",
         why:
           "A docs edit doesn't pay for a compile, and a sub-component's own checks fire only when it moved.",
         plain: {
           title: "Areas of the project",
           what:
-            "`[scopes.<name>]` names one part of the project by the file locations it covers. An area can be `neutral` (changes there need no check), `previewable` (a person could usefully preview it), or carry its own `gate` instruction that runs only when that area changed.",
+            "`[scopes.<name>]` names one part of the project by the file locations it covers. An area can be `neutral` (changes there need no check), declare a read-only `preview` instruction a coding agent can run from the working copy, or carry its own `gate` instruction that runs only when that area changed.",
           why:
             "A change to written instructions does not pay the cost of preparing the whole app, and a smaller part's private checks run only when that part moved.",
         },

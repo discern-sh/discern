@@ -455,12 +455,12 @@ Set a scope — a named region of the repository a change can touch.
 
 Usage: `discern config set-scope <name> <globs...> [options]`
 
-| Option          | Description                               |
-| --------------- | ----------------------------------------- |
-| `--neutral`     | Changes here need no gate.                |
-| `--previewable` | A person could see changes here.          |
-| `--gate <cmd>`  | A command to run when this scope changed. |
-| `--dry-run`     | Print the edit and write nothing.         |
+| Option            | Description                                                   |
+| ----------------- | ------------------------------------------------------------- |
+| `--neutral`       | Changes here need no gate.                                    |
+| `--preview <cmd>` | A read-only command an agent can run to preview changes here. |
+| `--gate <cmd>`    | A command to run when this scope changed.                     |
+| `--dry-run`       | Print the edit and write nothing.                             |
 
 #### `discern config set-standard`
 

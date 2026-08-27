@@ -411,10 +411,19 @@
             "description": "true: changes here need no gate (docs, agent instructions).",
             "type": "boolean"
           },
-          "previewable": {
-            "default": false,
-            "description": "true: a person could see changes here — worth a preview link.",
-            "type": "boolean"
+          "preview": {
+            "description": "A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes it. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
           },
           "gate": {
             "description": "A command discern done runs when this scope changed (a sub-component with its own self-contained gate). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
