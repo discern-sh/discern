@@ -8,6 +8,7 @@
 
 import { join } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
+import { commandEvidence } from "../shared/command_evidence.ts";
 import { emitResult } from "../shared/emit.ts";
 import {
   CONFIG_REL,
@@ -36,6 +37,30 @@ import {
 
 /** One executable Project Script surfaced by discovery. */
 export type ProjectScript = ScriptsData["scripts"][number];
+
+/**
+ * One Project Script as the Desk must present it before execution.
+ *
+ * Discovery retains regular files that are not executable so the action can
+ * explain the exact recovery instead of making a configured capability vanish.
+ * Execution still uses {@link runProjectScriptAt}, which revalidates the same
+ * executable predicate immediately before it spawns the file.
+ */
+export interface DeskProjectScript extends ProjectScript {
+  readonly path?: string;
+  readonly workingDirectory?: string;
+  readonly availability?: "enabled" | "disabled";
+  readonly reason?: string;
+  readonly confirmation?: "required";
+  readonly destructive?: "undeclared";
+}
+
+/** Complete Desk discovery, including why no script can currently run. */
+export interface DeskProjectScriptInventory {
+  readonly directory: string;
+  readonly scripts: readonly DeskProjectScript[];
+  readonly unavailableReason?: string;
+}
 
 /** Read a Project Script's first `# desc:` line, or undefined when absent. */
 async function firstDescLine(file: string): Promise<string | undefined> {
@@ -88,6 +113,62 @@ export async function listProjectScriptsWithConfig(
   config: DiscernConfig,
 ): Promise<ProjectScript[]> {
   return await discoverProjectScripts(resolveScriptsDir(root, config).abs);
+}
+
+/**
+ * Inspect every regular file in the configured Project Scripts directory.
+ *
+ * This is deliberately additive to the CLI's executable-only listing: existing
+ * `scripts --json` consumers retain their wire contract while the interactive
+ * Desk can keep unavailable project-authored commands visible and actionable.
+ */
+export async function inspectDeskProjectScriptsWithConfig(
+  root: string,
+  config: DiscernConfig,
+): Promise<DeskProjectScriptInventory> {
+  const directory = resolveScriptsDir(root, config);
+  const entries = await readDirIfExists(directory.abs);
+  if (entries === undefined) {
+    return {
+      directory: directory.abs,
+      scripts: [],
+      unavailableReason:
+        `Project Scripts directory ${directory.abs} does not exist. Create it and add an executable script.`,
+    };
+  }
+  const scripts: DeskProjectScript[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile) continue;
+    const path = join(directory.abs, entry.name);
+    const executable = await isExecutable(path);
+    const description = await firstDescLine(path);
+    scripts.push({
+      name: entry.name,
+      ...(description === undefined ? {} : { description }),
+      path,
+      workingDirectory: root,
+      availability: executable ? "enabled" : "disabled",
+      ...(executable ? {} : {
+        reason: `Project Script ${path} is not executable. Run: ${
+          commandEvidence(["chmod", "+x", path])
+        }`,
+      }),
+      confirmation: "required",
+      destructive: "undeclared",
+    });
+  }
+  scripts.sort((left, right) => left.name.localeCompare(right.name));
+  const enabled = scripts.filter((script) => script.availability === "enabled");
+  return {
+    directory: directory.abs,
+    scripts,
+    ...(enabled.length > 0 ? {} : {
+      unavailableReason: scripts.length === 0
+        ? `No Project Script files exist in ${directory.abs}. Add an executable script.`
+        : scripts[0]?.reason ??
+          `No executable Project Scripts exist in ${directory.abs}.`,
+    }),
+  };
 }
 
 /** Discover the Project Scripts configured by the checkout rooted at `root`. */

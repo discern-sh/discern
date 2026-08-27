@@ -30,7 +30,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`acceptance-transaction-boundaries`](#acceptance-transaction-boundaries--acceptance-transaction-boundaries)          | `src/engine/worktree/acceptance_transaction.ts#ACCEPTANCE_TRANSACTION_BOUNDARIES` | 2       | —                | node `worktrees`            |
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
-| [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 10      | —                | node `desk`                 |
+| [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 11      | —                | node `desk`                 |
 | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 28      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
@@ -92,7 +92,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 342     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 343     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -803,16 +803,17 @@ The Worktree lifecycle verbs that require `discern.toml` at the Git repository r
 The Desk's per-Worktree action vocabulary and menu order. The legality table exercises every member, and the runtime test checks each interactive effect boundary.
 
 - Source: `src/engine/desk/model.ts` — `DESK_ACTIONS`
-- Members: 10
+- Members: 11
+  - `done`
   - `accept`
-  - `grant`
-  - `revoke_grant`
   - `update`
-  - `reclaim`
-  - `scripts`
   - `agent`
+  - `scripts`
   - `jump`
   - `inspect`
+  - `grant`
+  - `revoke_grant`
+  - `reclaim`
   - `drop`
 - Guards: `tests/engine_desk_model_test.ts`, `tests/engine_desk_runtime_test.ts`
 - Glossary: not enrolled — the Desk reference documents these menu actions in context
@@ -2786,7 +2787,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 342
+- Members: 343
   - `0003`
   - `0005`
   - `0006`
@@ -3107,6 +3108,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0350`
   - `0351`
   - `0352`
+  - `0353`
   - `0001`
   - `0002`
   - `0004`

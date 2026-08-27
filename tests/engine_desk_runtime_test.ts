@@ -32,6 +32,8 @@ import {
   runDeskInteractiveChild,
   runDeskProjectScript,
 } from "../src/engine/desk/desk.ts";
+import { DESK_REVIEW_ROUTES } from "../src/engine/desk/view.ts";
+import { DESK_ACTIONS, type DeskAction } from "../src/engine/desk/model.ts";
 import {
   DESK_SESSION_ENV,
   deskSessionEnv,
@@ -156,12 +158,22 @@ function scriptedRuntime(
     loadConfig: () => CONFIG,
     status: () => ({ ok: true, data }),
     mainRepoPath: () => ROOT,
+    grantEffortPlan: () => ({
+      title: "Landing pre-authorization plan",
+      details: [],
+      steps: [],
+    }),
     grantEffort: (_path, branch) => ({
       status: "granted",
       grant: {
         branch,
         granted_at: "2026-07-11T12:00:00.000Z",
       },
+    }),
+    clearEffortGrantPlan: () => ({
+      title: "Landing pre-authorization revocation plan",
+      details: [],
+      steps: [],
     }),
     clearEffortGrant: () => true,
     makeOut: () => output.out,
@@ -171,11 +183,21 @@ function scriptedRuntime(
     input: () => "",
     pause: () => {},
     lifecycle: () => CONTEXT,
+    done: () => ({ ok: true, verb: "done" }),
+    donePlan: () => ({ ok: true, verb: "done" }),
+    acceptPlan: () => ({ ok: true, verb: "accept" }),
     accept: () => {},
     update: () => {},
+    updatePlan: () => ({ ok: true, verb: "update" }),
     drop: () => {},
+    dropPlan: () => ({ title: "Drop plan", details: [], steps: [] }),
     reclaim: () => {},
+    reclaimPlan: () => ({ title: "Reclaim plan", details: [], steps: [] }),
     git: () => ({ success: true, stdout: "", stderr: "" }),
+    proof: () => ({ status: "missing" }),
+    pager: () => ({ shown: true }),
+    editor: () => ({ reason: "No editor configured." }),
+    openEditor: () => 0,
     interactive: () => 0,
     detectAgents: () => [],
     start: () => ({
@@ -400,8 +422,8 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   const choices = [
     effort.path,
     "grant",
-    effort.path,
     "revoke_grant",
+    BACK,
     QUIT,
   ];
   const menus: string[] = [];
@@ -411,6 +433,8 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   }> = [];
   const grants: Array<{ path: string; branch: string }> = [];
   const revokes: string[] = [];
+  const grantPlans: Array<{ path: string; branch: string }> = [];
+  const revokePlans: string[] = [];
   let granted = false;
   let pauses = 0;
   const runtime = scriptedRuntime(output, {
@@ -433,6 +457,14 @@ Deno.test("desk grants and revokes one effort only through its human action", as
       confirmations.push({ message, options });
       return true;
     },
+    grantEffortPlan: (path, branch) => {
+      grantPlans.push({ path, branch });
+      return {
+        title: "Landing pre-authorization plan",
+        details: [],
+        steps: [],
+      };
+    },
     grantEffort: (path, branch) => {
       grants.push({ path, branch });
       granted = true;
@@ -442,6 +474,14 @@ Deno.test("desk grants and revokes one effort only through its human action", as
           branch,
           granted_at: "2026-07-11T12:00:00.000Z",
         },
+      };
+    },
+    clearEffortGrantPlan: (path) => {
+      revokePlans.push(path);
+      return {
+        title: "Landing pre-authorization revocation plan",
+        details: [],
+        steps: [],
       };
     },
     clearEffortGrant: (path) => {
@@ -457,6 +497,8 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(grants, [{ path: effort.path, branch: effort.branch }]);
   assertEquals(revokes, [effort.path]);
+  assertEquals(grantPlans, [{ path: effort.path, branch: effort.branch }]);
+  assertEquals(revokePlans, [effort.path]);
   assertEquals(pauses, 2);
   assertEquals(confirmations, [
     {
@@ -727,7 +769,7 @@ Deno.test("desk leaves the start name unset when the optional request is blank",
   assert(!joined(output).includes("--name="));
 });
 
-Deno.test("desk offers only configured agents detected on PATH and launches argv in the worktree", async () => {
+Deno.test("desk explains missing configured agents and launches available argv in the worktree", async () => {
   const output = transcript();
   const effort = fleetEntry("agent/agents", "/worktrees/agents");
   const data = statusData([
@@ -742,9 +784,11 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
     effort.path,
     "agent",
     "claude_code:open",
+    BACK,
     effort.path,
     "agent",
     "claude_code:continue",
+    BACK,
     QUIT,
   ];
   const menus: Array<{
@@ -812,7 +856,7 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
     (actionMenu.reservedRows ?? 0) > 4,
     "the action menu must reserve the complete task-detail frame",
   );
-  assertStringIncludes(actionMenu.options, "Open with an agent");
+  assertStringIncludes(actionMenu.options, "Continue with an agent");
   assertStringIncludes(
     agentMenu.options,
     '"kind":"group-heading","id":"agent-claude_code","name":"Claude Code"',
@@ -827,10 +871,10 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
   );
   assertStringIncludes(agentMenu.options, "Open in Claude Code");
   assertStringIncludes(agentMenu.options, "Continue in Claude Code");
-  assert(
-    !agentMenu.options.includes("Codex"),
-    "configured but absent stays hidden",
-  );
+  assertStringIncludes(agentMenu.options, "Codex");
+  assertStringIncludes(agentMenu.options, "Codex is configured");
+  assertStringIncludes(agentMenu.options, "not on PATH");
+  assertStringIncludes(agentMenu.options, '"disabled":true');
   assert(
     !agentMenu.options.includes("Gemini"),
     "detected but unconfigured stays hidden",
@@ -847,16 +891,27 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
     ahead: 2,
     behind: 1,
     proof_honored: true,
+    gate_proof: { status: "honored" },
   });
   const data = statusData([
     fleetEntry("main", ROOT, { is_main: true, is_current: true }),
     effort,
   ]);
-  const choices = [effort.path, "inspect", "jump", QUIT];
+  const choices = [
+    effort.path,
+    "inspect",
+    DESK_REVIEW_ROUTES.diff,
+    DESK_REVIEW_ROUTES.back,
+    "jump",
+    BACK,
+    QUIT,
+  ];
   const menus: string[] = [];
   const gitResults = [
     { success: true, stdout: "abc123 Explain the change\n", stderr: "" },
     { success: true, stdout: "", stderr: "" },
+    { success: true, stdout: "M\tsrc/desk.ts\n", stderr: "" },
+    { success: true, stdout: " M src/desk.ts\n", stderr: "" },
     { success: false, stdout: "", stderr: "diff unavailable\n" },
   ];
   const shellCalls: Array<{
@@ -892,19 +947,16 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   assert((shellCalls[0]?.command ?? "").length > 0);
   const text = joined(output);
   assertStringIncludes(text, "abc123 Explain the change");
-  assertStringIncludes(text, "(none)");
   assertStringIncludes(text, "diff unavailable");
-  assertStringIncludes(
-    text,
-    "gate proof: this clean HEAD holds a recorded pass",
-  );
+  assertStringIncludes(text, "Proof honored for this commit");
   const actionMenu = menus.join("\n");
   for (
     const group of [
-      '"kind":"group-heading","id":"actions-landing","name":"Landing"',
-      '"kind":"group-heading","id":"actions-work","name":"Work in this task"',
+      '"kind":"group-heading","id":"actions-recommended","name":"Recommended"',
+      '"kind":"group-heading","id":"actions-work","name":"Work"',
       '"kind":"group-heading","id":"actions-review","name":"Review"',
-      '"kind":"group-heading","id":"actions-worktree","name":"Worktree"',
+      '"kind":"group-heading","id":"actions-manage","name":"Manage"',
+      '"kind":"group-heading","id":"actions-danger","name":"Danger"',
       '"kind":"group-heading","id":"task-navigation","name":"Task"',
     ]
   ) {
@@ -914,20 +966,16 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
     const label of [
       "Update branch",
       "Open a shell",
-      "Inspect commits",
+      "Review Proof and changes",
       "Drop worktree",
     ]
   ) {
     assertStringIncludes(actionMenu, label);
   }
-  assert(
-    !actionMenu.includes("Accept and land"),
-    "a branch behind main must not advertise an Accept action",
-  );
-  assert(
-    !actionMenu.includes("Run a Project Script"),
-    "a worktree without executable scripts must not offer a Project Script action",
-  );
+  assertStringIncludes(actionMenu, "Review and land on main");
+  assertStringIncludes(actionMenu, "1 commit behind main.");
+  assertStringIncludes(actionMenu, "Run a Project Script");
+  assertStringIncludes(actionMenu, "No Project Scripts are available");
 });
 
 Deno.test("desk offers and runs only the selected worktree's Project Scripts", async () => {
@@ -939,7 +987,16 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
     empty,
     scripted,
   ]);
-  const choices = [empty.path, BACK, scripted.path, "scripts", "deploy", QUIT];
+  const choices = [
+    empty.path,
+    BACK,
+    scripted.path,
+    "scripts",
+    "deploy",
+    "run",
+    BACK,
+    QUIT,
+  ];
   const menus: Array<{ message: string; options: string }> = [];
   const discoveryRoots: string[] = [];
   const runs: Array<{
@@ -988,7 +1045,7 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
     menu.message === "Choose an action"
   );
   const emptyMenu = actionMenus.find((menu) =>
-    !menu.options.includes("Run a Project Script")
+    menu.options.includes("No Project Scripts are available")
   );
   const scriptedMenu = actionMenus.find((menu) =>
     menu.options.includes("Run a Project Script")
@@ -999,7 +1056,11 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   assert(emptyMenu !== undefined);
   assert(scriptedMenu !== undefined);
   assert(scriptMenu !== undefined);
-  assert(!emptyMenu.options.includes("Run a Project Script"));
+  assertStringIncludes(emptyMenu.options, "Run a Project Script");
+  assertStringIncludes(
+    emptyMenu.options,
+    "No Project Scripts are available in this task.",
+  );
   assertStringIncludes(scriptedMenu.options, "Run a Project Script");
   assertStringIncludes(scriptMenu.options, "deploy");
   assertStringIncludes(scriptMenu.options, "deploy this checkout");
@@ -1011,7 +1072,7 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
 
 Deno.test("desk offers and runs Project Scripts from the project root", async () => {
   const output = transcript();
-  const choices = [RUN_PROJECT_SCRIPT, "health", QUIT];
+  const choices = [RUN_PROJECT_SCRIPT, "health", "run", QUIT];
   const menus: Array<{ message: string; options: string }> = [];
   const runs: Array<{
     root: string;
@@ -1019,6 +1080,7 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
     env: Record<string, string>;
   }> = [];
   let pauses = 0;
+  const confirmations: ConfirmationRequestOptions[] = [];
   const runtime = scriptedRuntime(output, {
     scripts: (root) =>
       root === ROOT
@@ -1035,6 +1097,10 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
       runs.push({ root, name, env });
       return 0;
     },
+    confirm: (_message, options) => {
+      confirmations.push(options);
+      return true;
+    },
     pause: () => {
       pauses++;
     },
@@ -1047,6 +1113,11 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
     env: { [DESK_SESSION_ENV]: "1" },
   }]);
   assertEquals(pauses, 1);
+  assertEquals(confirmations, [{
+    defaultTo: false,
+    noLabel: "Cancel",
+    yesLabel: "Run",
+  }]);
 
   const rootMenu = menus[0]?.options ?? "";
   const startAt = rootMenu.indexOf("Start a task");
@@ -1067,6 +1138,9 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
     joined(output),
     "discern scripts health  (in project root)",
   );
+  assertStringIncludes(joined(output), "Executable");
+  assertStringIncludes(joined(output), "Working directory");
+  assertStringIncludes(joined(output), "Destructive policy: undeclared");
 });
 
 Deno.test("desk opens discern's online docs from the root menu", async () => {
@@ -1099,6 +1173,274 @@ Deno.test("desk opens discern's online docs from the root menu", async () => {
   assertStringIncludes(joined(output), `Opened ${DISCERN_DOCS_URL}.`);
 });
 
+Deno.test("desk final checks use the shared core and return to refreshed Proof", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
+  const effort = fleetEntry("agent/final-checks", "/worktrees/final-checks", {
+    ahead: 2,
+    gate_proof: { status: "missing" },
+  });
+  const data = statusData([main, effort]);
+  const choices = [effort.path, "done", BACK, QUIT];
+  let finished = false;
+  let planCalls = 0;
+  let doneCalls = 0;
+  let planWasVisibleAtConfirmation = false;
+  const confirmations: ConfirmationRequestOptions[] = [];
+  const runtime = scriptedRuntime(output, {
+    status: () => {
+      if (finished) {
+        effort.proof_honored = true;
+        effort.proof_line =
+          "Proof: agent/final-checks abc1234 · gate passed in 1m";
+        effort.gate_proof = {
+          status: "honored",
+          proof_line: effort.proof_line,
+        };
+      }
+      return { ok: true, data };
+    },
+    select: () => choices.shift() ?? QUIT,
+    donePlan: () => {
+      planCalls++;
+      return {
+        ok: true,
+        verb: "done",
+        plan: { title: "Final checks plan", details: [], steps: [] },
+      };
+    },
+    confirm: (_message, options) => {
+      confirmations.push(options);
+      planWasVisibleAtConfirmation = joined(output).includes(
+        "Final checks plan",
+      );
+      return true;
+    },
+    done: () => {
+      doneCalls++;
+      finished = true;
+      return {
+        ok: true,
+        verb: "done",
+        message: "Final checks passed and Proof was refreshed.",
+      };
+    },
+  });
+
+  assertEquals(
+    await runDesk({ cliModel: TEST_CLI_MODEL }, runtime),
+    0,
+  );
+  assertEquals(planCalls, 1);
+  assertEquals(doneCalls, 1);
+  assert(planWasVisibleAtConfirmation);
+  assertEquals(confirmations, [{
+    defaultTo: false,
+    noLabel: "Cancel",
+    yesLabel: "Run",
+  }]);
+  const text = joined(output);
+  assertStringIncludes(text, "Final checks passed and Proof was refreshed.");
+  assertStringIncludes(
+    text,
+    "Proof: agent/final-checks abc1234 · gate passed in 1m",
+  );
+  assertStringIncludes(text, "Review and land on main");
+
+  const cancelledOutput = transcript();
+  const cancelledChoices = [effort.path, "done", BACK, QUIT];
+  let cancelledDoneCalls = 0;
+  assertEquals(
+    await runDesk(
+      { cliModel: TEST_CLI_MODEL },
+      scriptedRuntime(cancelledOutput, {
+        status: () => ({ ok: true, data }),
+        select: () => cancelledChoices.shift() ?? QUIT,
+        confirm: () => false,
+        done: () => {
+          cancelledDoneCalls++;
+          return { ok: true, verb: "done" };
+        },
+      }),
+    ),
+    0,
+  );
+  assertEquals(cancelledDoneCalls, 0);
+});
+
+Deno.test("every registered Desk action reaches its shared runtime effect", async () => {
+  interface RuntimeActionCase {
+    readonly entry?: Partial<StatusFleetEntry>;
+    readonly choices: readonly string[];
+    readonly needsCliModel?: boolean;
+    readonly runtime: (
+      effects: DeskAction[],
+    ) => Partial<DeskRuntime>;
+  }
+  const cases: Readonly<Record<DeskAction, RuntimeActionCase>> = {
+    done: {
+      entry: { ahead: 1, gate_proof: { status: "missing" } },
+      choices: ["done", BACK, QUIT],
+      needsCliModel: true,
+      runtime: (effects: DeskAction[]) => ({
+        done: () => {
+          effects.push("done");
+          return { ok: true, verb: "done" };
+        },
+      }),
+    },
+    accept: {
+      entry: {
+        ahead: 1,
+        proof_honored: true,
+        gate_proof: { status: "honored" },
+      },
+      choices: ["accept", BACK, QUIT],
+      needsCliModel: true,
+      runtime: (effects: DeskAction[]) => ({
+        accept: () => {
+          effects.push("accept");
+        },
+      }),
+    },
+    update: {
+      entry: { ahead: 1, behind: 1 },
+      choices: ["update", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        update: () => {
+          effects.push("update");
+        },
+      }),
+    },
+    agent: {
+      choices: ["agent", "claude_code:open", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        loadConfig: () =>
+          configSchema.parse({
+            project: { slug: "demo", agents: ["claude_code"] },
+            repository: { trunk: "main" },
+          }),
+        detectAgents: () => [{ name: "claude_code", binary: "claude" }],
+        interactive: () => {
+          effects.push("agent");
+          return 0;
+        },
+      }),
+    },
+    scripts: {
+      choices: ["scripts", "verify", "run", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        scripts: () => [{
+          name: "verify",
+          path: "/worktrees/action-class/discern/scripts/verify",
+          workingDirectory: "/worktrees/action-class",
+          availability: "enabled",
+        }],
+        runScript: () => {
+          effects.push("scripts");
+          return 0;
+        },
+      }),
+    },
+    jump: {
+      choices: ["jump", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        interactive: () => {
+          effects.push("jump");
+          return 0;
+        },
+      }),
+    },
+    inspect: {
+      choices: ["inspect", DESK_REVIEW_ROUTES.back, BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        git: () => {
+          effects.push("inspect");
+          return { success: true, stdout: "", stderr: "" };
+        },
+      }),
+    },
+    grant: {
+      choices: ["grant", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        grantEffort: (_path, branch) => {
+          effects.push("grant");
+          return {
+            status: "granted",
+            grant: { branch, granted_at: "2026-07-11T12:00:00.000Z" },
+          };
+        },
+      }),
+    },
+    revoke_grant: {
+      entry: {
+        landing_authority: { kind: "authorized", source: "effort-grant" },
+      },
+      choices: ["revoke_grant", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        clearEffortGrant: () => {
+          effects.push("revoke_grant");
+          return true;
+        },
+      }),
+    },
+    reclaim: {
+      entry: { ahead: 1, contained_in: "agent/later" },
+      choices: ["reclaim", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        reclaim: () => {
+          effects.push("reclaim");
+        },
+      }),
+    },
+    drop: {
+      entry: { broken: true },
+      choices: ["drop", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        drop: () => {
+          effects.push("drop");
+        },
+      }),
+    },
+  };
+  assertEquals(Object.keys(cases), [...DESK_ACTIONS]);
+
+  for (const action of DESK_ACTIONS) {
+    const output = transcript();
+    const effort = fleetEntry(
+      `agent/action-${action}`,
+      "/worktrees/action-class",
+      cases[action].entry ?? {},
+    );
+    const data = statusData([
+      fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+      effort,
+    ]);
+    const choices = [effort.path, ...cases[action].choices];
+    const effects: DeskAction[] = [];
+    const opts = cases[action].needsCliModel === true
+      ? { cliModel: TEST_CLI_MODEL }
+      : {};
+    assertEquals(
+      await runDesk(
+        opts,
+        scriptedRuntime(output, {
+          status: () => ({ ok: true, data }),
+          select: () => choices.shift() ?? QUIT,
+          confirm: () => true,
+          ...cases[action].runtime(effects),
+        }),
+      ),
+      0,
+      action,
+    );
+    assert(
+      effects.includes(action),
+      `${action} did not reach its shared runtime effect`,
+    );
+  }
+});
+
 Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals", async () => {
   const effort = fleetEntry("agent/actions", "/worktrees/actions", {
     ahead: 2,
@@ -1108,10 +1450,9 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   const data = statusData([main, effort]);
 
   const updateOutput = transcript();
-  const updateChoices = [effort.path, "accept", "update", QUIT];
-  const confirmations = [false, true];
+  const updateChoices = [effort.path, "update", BACK, QUIT];
   const confirmationOptions: ConfirmationRequestOptions[] = [];
-  const acceptCalls: Array<Parameters<DeskRuntime["accept"]>[1]> = [];
+  let updatePlanCalls = 0;
   const updateCalls: Array<{ dryRun?: boolean }> = [];
   let updatePauses = 0;
   assertEquals(
@@ -1122,10 +1463,11 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
         select: () => updateChoices.shift() ?? QUIT,
         confirm: (_message, options) => {
           confirmationOptions.push(options);
-          return confirmations.shift() ?? false;
+          return true;
         },
-        accept: (_ctx, opts) => {
-          acceptCalls.push(opts);
+        updatePlan: () => {
+          updatePlanCalls++;
+          return { ok: true, verb: "update" };
         },
         update: (_ctx, opts) => {
           updateCalls.push(opts);
@@ -1137,27 +1479,37 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     ),
     0,
   );
-  assertEquals(acceptCalls, [{
-    dryRun: true,
-    cliModel: TEST_CLI_MODEL,
-  }]);
-  assertEquals(updateCalls, [{ dryRun: true }, {}]);
+  assertEquals(updatePlanCalls, 1);
+  assertEquals(updateCalls, [{}]);
   assertEquals(updatePauses, 1);
-  assertEquals(confirmationOptions, [
-    { defaultTo: true, noLabel: "Keep", yesLabel: "Land" },
-    { defaultTo: true, noLabel: "Keep", yesLabel: "Merge" },
-  ]);
+  assertEquals(confirmationOptions, [{
+    defaultTo: false,
+    noLabel: "Keep",
+    yesLabel: "Update",
+  }]);
 
   const acceptOutput = transcript();
-  const acceptChoices = [effort.path, "accept", QUIT];
+  const ready = fleetEntry("agent/ready", "/worktrees/ready", {
+    ahead: 2,
+    behind: 0,
+    proof_honored: true,
+    gate_proof: { status: "honored" },
+  });
+  const readyData = statusData([main, ready]);
+  const acceptChoices = [ready.path, "accept", BACK, QUIT];
+  let acceptPlanCalls = 0;
   const appliedAccept: Array<Parameters<DeskRuntime["accept"]>[1]> = [];
   let acceptPauses = 0;
   assertEquals(
     await runDesk(
       { cliModel: TEST_CLI_MODEL },
       scriptedRuntime(acceptOutput, {
-        status: () => ({ ok: true, data }),
+        status: () => ({ ok: true, data: readyData }),
         select: () => acceptChoices.shift() ?? QUIT,
+        acceptPlan: () => {
+          acceptPlanCalls++;
+          return { ok: true, verb: "accept" };
+        },
         accept: (_ctx, opts) => {
           appliedAccept.push(opts);
         },
@@ -1170,10 +1522,11 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   );
   // The desk's interactive confirm IS the acceptance, so the apply carries the
   // attestation (ADR 0134) — never a bare, consent-less landing.
-  assertEquals(appliedAccept, [
-    { dryRun: true, cliModel: TEST_CLI_MODEL },
-    { confirmed: true, cliModel: TEST_CLI_MODEL },
-  ]);
+  assertEquals(acceptPlanCalls, 1);
+  assertEquals(appliedAccept, [{
+    confirmed: true,
+    cliModel: TEST_CLI_MODEL,
+  }]);
   assertEquals(acceptPauses, 1);
 
   const dropOutput = transcript();
@@ -1181,8 +1534,9 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     broken: true,
   });
   const dropData = statusData([main, abandoned]);
-  const dropChoices = [abandoned.path, "drop", QUIT];
+  const dropChoices = [abandoned.path, "drop", BACK, QUIT];
   const dropCalls: Array<{ dryRun?: boolean; force?: boolean }> = [];
+  const dropPlans: string[] = [];
   const dropTargets: string[] = [];
   const dropConfirmations: ConfirmationRequestOptions[] = [];
   let dropPauses = 0;
@@ -1197,6 +1551,10 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
           return true;
         },
         input: () => abandoned.branch,
+        dropPlan: (_ctx, target) => {
+          dropPlans.push(target);
+          return { title: "Drop plan", details: [], steps: [] };
+        },
         drop: (_ctx, target, opts) => {
           dropTargets.push(target);
           dropCalls.push(opts);
@@ -1211,9 +1569,9 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     ),
     0,
   );
-  assertEquals(dropCalls, [{ dryRun: true }, {}, { force: true }]);
+  assertEquals(dropPlans, [abandoned.path]);
+  assertEquals(dropCalls, [{}, { force: true }]);
   assertEquals(dropTargets, [
-    abandoned.path,
     abandoned.path,
     abandoned.path,
   ]);
@@ -1234,7 +1592,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   const refusalChoices = [effort.path, "accept", BACK, QUIT];
   assertEquals(
     await runDesk(
-      {},
+      { cliModel: TEST_CLI_MODEL },
       scriptedRuntime(refusalOutput, {
         status: () => ({ ok: true, data }),
         select: () => refusalChoices.shift() ?? QUIT,
@@ -1301,7 +1659,7 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   // Confirmed: the validated core runs against the selected worktree, and the
   // action menu offered the reclaim with its containing branch named.
   const output = transcript();
-  const choices = [spent.path, "reclaim", QUIT];
+  const choices = [spent.path, "reclaim", BACK, QUIT];
   const reclaims: string[] = [];
   let pauses = 0;
   assertEquals(

@@ -15,9 +15,15 @@ import {
 import {
   deskActionGroups,
   deskCompositionReserveRows,
+  type DeskReview,
+  deskReviewGroups,
   deskRootSelectionGroups,
   deskRowLayout,
+  renderDeskActionFailure,
+  renderDeskActionPlan,
   renderDeskBoard,
+  renderDeskProjectScriptPlan,
+  renderDeskReview,
   renderDeskTaskDetail,
 } from "../src/engine/desk/view.ts";
 import {
@@ -290,9 +296,214 @@ Deno.test("only the model-recommended action receives recommendation copy", () =
   assert(row.decision.recommendedAction !== undefined);
   const items = deskActionGroups(row).flatMap((group) => group.items);
   assertEquals(
-    items.filter((item) => item.description !== undefined).map((item) =>
-      item.value
-    ),
+    items.filter((item) =>
+      item.description === "This action best fits the current task state."
+    ).map((item) => item.value),
     [row.decision.recommendedAction],
   );
+});
+
+Deno.test("action menus retain disabled offers with factual recovery", () => {
+  const task = entry("blocked-capabilities-a1b2c3", {
+    clean: false,
+    changed_files: 1,
+    gate_proof: { status: "dirty" },
+  });
+  const [row] = buildDeskRows(
+    [task],
+    new Map([[task.path, []]]),
+    new Map([[task.path, [{
+      ...AGENT,
+      availability: "disabled" as const,
+      reason:
+        "Codex is configured, but `codex` is not on PATH. Install Codex or remove it from [project].agents in discern.toml.",
+    }]]]),
+    {
+      trunk: "main",
+      nowMs: NOW,
+      scriptsUnavailableReasons: new Map([[
+        task.path,
+        "Project Scripts directory /tmp/scripts does not exist. Create it and add an executable script.",
+      ]]),
+    },
+  );
+  assert(row !== undefined);
+  const groups = deskActionGroups(row);
+  assertEquals(groups.map((group) => group.label), [
+    "Work",
+    "Review",
+    "Manage",
+    "Danger",
+  ]);
+  const items = groups.flatMap((group) => group.items);
+  const agent = items.find((item) => item.value === "agent");
+  const scripts = items.find((item) => item.value === "scripts");
+  assert(agent !== undefined && agent.disabled === true);
+  assertStringIncludes(agent.description ?? "", "not on PATH");
+  assert(scripts !== undefined && scripts.disabled === true);
+  assertStringIncludes(
+    scripts.description ?? "",
+    "Create it and add an executable script",
+  );
+});
+
+Deno.test("action plans use package command, procedure, consequence, and warning frames", () => {
+  const [row] = rows([entry("plan-a1b2c3")]);
+  assert(row !== undefined);
+  const offer = row.decision.actions.find((candidate) =>
+    candidate.action === "done"
+  );
+  assert(offer !== undefined);
+  const size = { columns: 80, rows: 40 };
+  const rendered = renderDeskActionPlan(
+    row,
+    offer,
+    {
+      title: "Final checks plan",
+      details: ["The shared gate core produced this plan."],
+      steps: [],
+    },
+    size,
+    terminal(size),
+  );
+  const plain = stripAnsi(rendered.text);
+  for (
+    const expected of [
+      "Run: discern done",
+      "Final checks plan",
+      "Consequence account",
+      "Keeps",
+      "Changes",
+      "Removes",
+      "Recoverable",
+      "Expected result",
+    ]
+  ) {
+    assertStringIncludes(plain, expected);
+  }
+  assertBounded(rendered.text, size.columns);
+
+  const script = renderDeskProjectScriptPlan(
+    {
+      name: "release",
+      description: "Publish the current checkout",
+      path: "/tmp/project scripts/$release",
+      workingDirectory: "/tmp/project",
+      availability: "enabled",
+      confirmation: "required",
+      destructive: "undeclared",
+    },
+    "/tmp/project",
+    size,
+    terminal(size),
+  );
+  const scriptText = stripAnsi(script.text).replaceAll(/\s+/gu, " ");
+  assertStringIncludes(scriptText, "'/tmp/project scripts/$release'");
+  assertStringIncludes(scriptText, "Publish the current checkout");
+  assertStringIncludes(scriptText, "Confirmation policy: required");
+  assertStringIncludes(scriptText, "Destructive policy: undeclared");
+  assertStringIncludes(scriptText, "Human confirmation in the Desk");
+});
+
+Deno.test("Proof-first review renders stored Markdown and every review evidence class", () => {
+  const proofLine = "Proof: agent/review-a1b2c3 abc1234 · gate passed in 1m";
+  const proofPage =
+    "# Gate Proof\n\n## Checks\n\n- test passed\n\n## Standards\n\n- coverage held";
+  const [row] = rows([entry("review-a1b2c3", {
+    gate_proof: { status: "honored", proof_line: proofLine },
+    landing_authority: {
+      kind: "conversation-required",
+      uncovered: [{ path: "src/review.ts", scopes: ["source"] }],
+    },
+  })]);
+  assert(row !== undefined);
+  const review: DeskReview = {
+    trunk: "main",
+    proof: {
+      status: "honored",
+      head: "abc1234",
+      recorded: "abc1234",
+      proof: proofPage,
+      proof_line: proofLine,
+      proof_data: {
+        branch: row.entry.branch,
+        trunk: "main",
+        head: "abc1234",
+        files_total: 2,
+        insertions: 12,
+        deletions: 3,
+        line: proofLine,
+        markdown: proofPage,
+      },
+    },
+    commits: "abc1234 Add Proof review\ndef5678 Map package frames",
+    files: [{
+      path: "src/review.ts",
+      disposition: "updated",
+      added: 12,
+      removed: 3,
+      uncommitted: true,
+    }],
+    insertions: 12,
+    deletions: 3,
+    failures: [{
+      title: "Pager failed",
+      command: "$PAGER",
+      detail: "pager exited with status 1",
+      nextAction: "Set $PAGER to a working command, then retry.",
+      safeToRetry: true,
+    }],
+    diffCommand: "git diff --no-ext-diff --color=always main...HEAD",
+    editorUnavailableReason: "No editor configured in $VISUAL or $EDITOR.",
+  };
+  const size = { columns: 100, rows: 80 };
+  const rendered = renderDeskReview(row, review, size, terminal(size));
+  const plain = stripAnsi(rendered.text);
+  for (
+    const expected of [
+      proofLine,
+      "Gate Proof",
+      "Checks",
+      "test passed",
+      "Standards",
+      "+12 −3",
+      "abc1234 Add Proof review",
+      "src/review.ts",
+      "Uncommitted paths",
+      "Owner approval remains for src/review.ts",
+      "Pager failed",
+      "pager exited with status 1",
+      "Safe to retry",
+    ]
+  ) {
+    assertStringIncludes(plain, expected);
+  }
+  const editor = deskReviewGroups(review).flatMap((group) => group.items)
+    .find((item) => item.value === "\x00review-editor");
+  assert(editor !== undefined && editor.disabled === true);
+  assertStringIncludes(editor.description ?? "", "$VISUAL");
+  assertBounded(rendered.text, size.columns);
+});
+
+Deno.test("lifecycle refusals use the shared diagnostic and retry contract", () => {
+  const [row] = rows([entry("failure-a1b2c3")]);
+  assert(row !== undefined);
+  const offer = row.decision.actions.find((candidate) =>
+    candidate.action === "done"
+  );
+  assert(offer !== undefined);
+  const size = { columns: 80, rows: 30 };
+  const rendered = renderDeskActionFailure(
+    row,
+    offer,
+    "The branch moved. Run discern status, then retry.",
+    size,
+    terminal(size),
+  );
+  const plain = stripAnsi(rendered.text);
+  assertStringIncludes(plain, "Run final checks was refused");
+  assertStringIncludes(plain, "Reproduce: $ discern done");
+  assertStringIncludes(plain, "Safe to retry");
+  assertStringIncludes(plain, "The branch moved");
+  assertBounded(rendered.text, size.columns);
 });

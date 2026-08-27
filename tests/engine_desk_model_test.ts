@@ -19,7 +19,8 @@ import {
   buildDeskDecision,
   buildDeskRows,
   decisionSummary,
-  DESK_ACTION_METADATA,
+  DESK_ACTION_GROUPS,
+  DESK_ACTION_REGISTRY,
   DESK_ACTIONS,
   DESK_STATE_BY_STATUS_KIND,
   DESK_STATES,
@@ -639,19 +640,19 @@ const ACTION_CASES: ReadonlyArray<{
   {
     name: "broken checkout",
     decision: () => decide({ broken: true }),
-    enabled: ["drop"],
+    enabled: ["jump", "inspect", "drop"],
   },
   {
     name: "unreadable checkout",
     decision: () =>
       decide({ git_unavailable: true, clean: undefined, ahead: undefined }),
-    enabled: ["drop"],
+    enabled: ["jump", "drop"],
   },
   {
     name: "clean committed work awaiting final checks",
     decision: () => decide({ ahead: 2 }),
-    enabled: ["accept", "grant", "jump", "inspect", "drop"],
-    recommended: "jump",
+    enabled: ["done", "accept", "jump", "inspect", "grant", "drop"],
+    recommended: "done",
   },
   {
     name: "ready work with an effort grant",
@@ -661,19 +662,27 @@ const ACTION_CASES: ReadonlyArray<{
         gate_proof: { status: "honored" },
         landing_authority: { kind: "authorized", source: "effort-grant" },
       }),
-    enabled: ["accept", "revoke_grant", "jump", "inspect", "drop"],
+    enabled: ["done", "accept", "jump", "inspect", "revoke_grant", "drop"],
     recommended: "accept",
   },
   {
     name: "branch behind main",
     decision: () => decide({ ahead: 2, behind: 1 }),
-    enabled: ["grant", "update", "jump", "inspect", "drop"],
+    enabled: ["update", "jump", "inspect", "grant", "drop"],
     recommended: "update",
   },
   {
     name: "contained branch",
     decision: () => decide({ ahead: 2, contained_in: "agent/next" }),
-    enabled: ["accept", "grant", "reclaim", "jump", "inspect", "drop"],
+    enabled: [
+      "done",
+      "accept",
+      "jump",
+      "inspect",
+      "grant",
+      "reclaim",
+      "drop",
+    ],
     recommended: "reclaim",
   },
   {
@@ -687,8 +696,8 @@ const ACTION_CASES: ReadonlyArray<{
         scripts: [{ name: "verify" }],
         agentLaunches: [AGENT_LAUNCH],
       }),
-    enabled: ["grant", "scripts", "agent", "jump", "inspect", "drop"],
-    recommended: "jump",
+    enabled: ["agent", "scripts", "jump", "inspect", "grant", "drop"],
+    recommended: "agent",
   },
   {
     name: "live discern operation",
@@ -702,7 +711,7 @@ const ACTION_CASES: ReadonlyArray<{
   {
     name: "empty task",
     decision: () => decide(),
-    enabled: ["grant", "jump", "inspect", "drop"],
+    enabled: ["jump", "inspect", "grant", "drop"],
   },
 ];
 
@@ -729,6 +738,34 @@ Deno.test("every action is offered once with closed metadata and concrete availa
     );
     for (const candidate of decision.actions) {
       assert(candidate.label.trim().length > 0, `${candidate.action}: label`);
+      assert(
+        DESK_ACTION_GROUPS.includes(candidate.group),
+        `${candidate.action}: canonical group`,
+      );
+      assert(candidate.command.argv.length > 0, `${candidate.action}: command`);
+      assert(
+        candidate.command.argv.every((argument) => argument.trim().length > 0),
+        `${candidate.action}: command argument`,
+      );
+      for (
+        const consequence of [
+          candidate.consequence.keeps,
+          candidate.consequence.changes,
+          candidate.consequence.removes,
+          candidate.consequence.recoverable,
+        ]
+      ) {
+        assert(Array.isArray(consequence), `${candidate.action}: consequence`);
+      }
+      if (candidate.confirmation.kind !== "none") {
+        assertEquals(
+          candidate.confirmation.defaultTo,
+          false,
+          `${candidate.action}: safe confirmation default`,
+        );
+        assert(candidate.confirmation.yesLabel.trim().length > 0);
+        assert(candidate.confirmation.noLabel.trim().length > 0);
+      }
       if (candidate.availability === "disabled") {
         disabledPopulation.add(candidate.action);
         assert(
@@ -742,9 +779,13 @@ Deno.test("every action is offered once with closed metadata and concrete availa
     }
   }
   assertEquals([...enabledPopulation].sort(), [...DESK_ACTIONS].sort());
-  assertEquals([...disabledPopulation].sort(), [...DESK_ACTIONS].sort());
   assertEquals(
-    Object.keys(DESK_ACTION_METADATA).sort(),
+    [...disabledPopulation].sort(),
+    DESK_ACTIONS.filter((action) => action !== "jump").sort(),
+    "every conditionally available action must have a refusal case",
+  );
+  assertEquals(
+    Object.keys(DESK_ACTION_REGISTRY).sort(),
     [...DESK_ACTIONS].sort(),
     "a new action must add label and group metadata",
   );
@@ -1017,7 +1058,7 @@ Deno.test("taskLabel keeps task identity separate from its disambiguator", () =>
 
 // ── configured agent × live PATH intersection ──────────────────────────────
 
-Deno.test("buildAgentLaunches follows configured order and hides detected-only agents", () => {
+Deno.test("buildAgentLaunches preserves configured agents and explains missing binaries", () => {
   const config = configSchema.parse({
     project: { slug: "demo", agents: ["gemini", "claude_code", "codex"] },
     repository: { trunk: TRUNK },
@@ -1035,9 +1076,15 @@ Deno.test("buildAgentLaunches follows configured order and hides detected-only a
       "gemini:continue",
       "claude_code:open",
       "claude_code:continue",
+      "codex:open",
+      "codex:continue",
     ],
   );
   assertEquals(launches[1]?.args, ["--resume", "latest"]);
+  assertEquals(launches[4]?.availability, "disabled");
+  assertStringIncludes(launches[4]?.reason ?? "", "Codex is configured");
+  assertStringIncludes(launches[4]?.reason ?? "", "not on PATH");
+  assertStringIncludes(launches[4]?.reason ?? "", "discern.toml");
 });
 
 Deno.test("buildAgentLaunches respects an explicitly empty agent set", () => {

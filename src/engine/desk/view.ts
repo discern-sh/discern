@@ -11,13 +11,29 @@ import {
   layoutColumns,
   renderBadgeCli,
   renderClusterCli,
+  renderCommandCli,
+  renderDestructiveActionNoticeCli,
+  renderDiagnosticCli,
+  renderDiffstatCli,
+  renderExpectedResultCli,
+  renderFileChangeCli,
   renderHeadingCli,
+  renderProcedureCli,
+  renderProcedureStepCli,
+  renderRawOutputCli,
   renderReceiptCli,
   renderResultSummaryCli,
+  renderRetryNoticeCli,
+  renderStandardMeterCli,
   renderTableCli,
   wrapInlineCluster,
 } from "discern-design-system/cli";
 import { DISCERN_WORDMARK } from "../../shared/brand.ts";
+import { commandEvidence } from "../../shared/command_evidence.ts";
+import type { EnginePlan } from "../../shared/result.ts";
+import type { GateProofCheckData } from "../../shared/result_schemas.ts";
+import { renderMarkdown } from "../../lib/markdown.ts";
+import type { DeskProjectScript } from "../project_scripts.ts";
 import type {
   SelectionGroup,
   SelectionOption,
@@ -25,6 +41,7 @@ import type {
 import {
   type TerminalContext,
   terminalLine,
+  terminalMultiline,
   type TerminalSize,
 } from "../../lib/terminal.ts";
 import { truncateText } from "../../lib/text.ts";
@@ -51,6 +68,13 @@ export const DESK_ROUTES = {
   readDocs: "\x00read-docs",
 } as const;
 
+/** Routes available inside the Proof-first review drill-down. */
+export const DESK_REVIEW_ROUTES = {
+  diff: "\x00review-diff",
+  editor: "\x00review-editor",
+  back: "\x00review-back",
+} as const;
+
 /** A short fleet is faster to scan directly; larger fleets gain filtering. */
 export const DESK_FILTER_THRESHOLD = 8;
 
@@ -72,6 +96,289 @@ type ResultState =
 export interface DeskRenderedFrame {
   readonly text: string;
   readonly rows: number;
+}
+
+/** One path in the review's committed or uncommitted change set. */
+export interface DeskReviewFile {
+  readonly path: string;
+  readonly disposition: "added" | "updated" | "removed";
+  readonly added?: number;
+  readonly removed?: number;
+  readonly uncommitted: boolean;
+}
+
+/** A failed read that must remain a failure rather than an empty section. */
+export interface DeskReviewFailure {
+  readonly title: string;
+  readonly command: string;
+  readonly detail: string;
+  readonly nextAction: string;
+  readonly safeToRetry: boolean;
+}
+
+/** Configured editor evidence available to the review drill-down. */
+export interface DeskEditorCommand {
+  readonly command: string;
+  readonly program: string;
+  readonly args: readonly string[];
+}
+
+/** All observations used by the pure Proof-first review composition. */
+export interface DeskReview {
+  readonly trunk: string;
+  readonly proof: GateProofCheckData;
+  readonly commits: string;
+  readonly files: readonly DeskReviewFile[];
+  readonly insertions: number;
+  readonly deletions: number;
+  readonly failures: readonly DeskReviewFailure[];
+  readonly diffCommand: string;
+  readonly editor?: DeskEditorCommand;
+  readonly editorUnavailableReason?: string;
+}
+
+/** Map the shared plan disposition onto the package's sequential-step state. */
+function plannedStepStatus(
+  disposition: EnginePlan["steps"][number]["disposition"],
+): "pending" | "cancelled" {
+  return disposition === "skip" ? "cancelled" : "pending";
+}
+
+/**
+ * Compose one action's real core plan, command, and consequence account before
+ * the dispatcher asks for authority.
+ */
+export function renderDeskActionPlan(
+  row: DeskRow,
+  offer: DeskActionOffer,
+  plan: EnginePlan | undefined,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const workingDirectory = offer.command.workingDirectory === "task"
+    ? row.entry.path
+    : "main checkout";
+  return renderActionPlan(
+    offer,
+    plan,
+    workingDirectory,
+    `${row.entry.branch}\n${row.entry.path}`,
+    viewport,
+    terminal,
+  );
+}
+
+type ActionPlanOffer = Pick<
+  DeskActionOffer,
+  "action" | "group" | "label" | "command" | "consequence"
+>;
+
+/** Compose one command/plan/consequence account through package Components. */
+function renderActionPlan(
+  offer: ActionPlanOffer,
+  plan: EnginePlan | undefined,
+  workingDirectory: string,
+  scope: string,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const width = viewportDimension(viewport.columns);
+  const presenter = terminal.presenter;
+  const plannedSteps: readonly {
+    readonly label: string;
+    readonly disposition: EnginePlan["steps"][number]["disposition"];
+  }[] = plan === undefined || plan.steps.length === 0
+    ? [{
+      label: offer.action,
+      disposition: "run",
+    }]
+    : plan.steps;
+  const command = presenter.present(renderCommandCli, {
+    command: terminalLine(commandEvidence(offer.command.argv)),
+    workingDirectory: terminalLine(workingDirectory),
+    explanation: terminalMultiline(offer.label),
+    expectedResult: terminalMultiline(
+      offer.consequence.changes[0] ?? "The task state remains unchanged.",
+    ),
+    expectedResultLabel: terminalLine("Expected effect"),
+    expectedResultVariant: "state",
+    failureNote: terminalMultiline(
+      "The lifecycle core revalidates the task after confirmation and refuses stale state.",
+    ),
+    maxWidth: width,
+  });
+  const procedure = presenter.present(renderProcedureCli, {
+    title: terminalLine(plan?.title ?? `${offer.label} plan`),
+    ...(plan === undefined || plan.details.length === 0
+      ? {}
+      : { description: terminalMultiline(plan.details.join("\n")) }),
+    steps: plannedSteps.map((step) => ({
+      title: terminalLine(String(step.label)),
+      status: plannedStepStatus(step.disposition),
+    })),
+    completion: terminalMultiline(
+      offer.consequence.changes.join("; ") || "No mutation is applied.",
+    ),
+    completionLabel: terminalLine("Complete when"),
+    register: "brand",
+    maxWidth: width,
+  });
+  const steps =
+    plan?.steps.map((step) =>
+      presenter.present(renderProcedureStepCli, {
+        title: terminalLine(String(step.label)),
+        status: plannedStepStatus(step.disposition),
+        action: terminalMultiline(step.note ?? `Run the ${step.kind} step.`),
+        expectedResult: {
+          value: terminalMultiline(
+            step.disposition === "skip"
+              ? "This step remains unchanged."
+              : "The step completes or the action stops before later effects.",
+          ),
+          variant: "state",
+        },
+        completionCriterion: terminalMultiline(
+          step.disposition === "gate"
+            ? "The precondition is satisfied."
+            : "The lifecycle core reports the step outcome.",
+        ),
+        register: "brand",
+        maxWidth: width,
+      })
+    ) ?? [];
+  const consequence = presenter.present(renderTableCli, {
+    caption: terminalLine("Consequence account"),
+    layout: "responsive",
+    columns: [
+      { header: terminalLine("Effect") },
+      { header: terminalLine("Evidence") },
+    ],
+    rows: [
+      ["Keeps", offer.consequence.keeps],
+      ["Changes", offer.consequence.changes],
+      ["Removes", offer.consequence.removes],
+      ["Recoverable", offer.consequence.recoverable],
+    ].map(([label, facts]) => [
+      terminalLine(label as string),
+      terminalMultiline(
+        (facts as readonly string[]).length === 0
+          ? "Nothing"
+          : (facts as readonly string[]).join("; "),
+      ),
+    ]),
+    width,
+  });
+  const expected = presenter.present(renderExpectedResultCli, {
+    value: terminalMultiline(
+      offer.consequence.changes.join("; ") || "The task remains unchanged.",
+    ),
+    label: terminalLine("Expected result"),
+    variant: "state",
+    maxWidth: width,
+  });
+  const notice = offer.consequence.removes.length === 0
+    ? undefined
+    : presenter.present(renderDestructiveActionNoticeCli, {
+      label: terminalLine(offer.label),
+      scope: terminalMultiline(scope),
+      impact: terminalMultiline(offer.consequence.removes.join("; ")),
+      recovery: terminalMultiline(
+        offer.consequence.recoverable.join("; ") || "No automatic recovery.",
+      ),
+      authority: terminalLine("Human confirmation in the Desk"),
+      tone: offer.group === "danger" ? "danger" : "warning",
+      maxWidth: width,
+    });
+  const text = composeFrames(
+    [
+      command,
+      procedure,
+      ...steps,
+      consequence,
+      expected,
+      ...(notice === undefined ? [] : [notice]),
+    ],
+    viewportDimension(viewport.rows),
+  );
+  return { text, rows: frameRows(text) };
+}
+
+/** Render complete executable evidence for one project-authored script. */
+export function renderDeskProjectScriptPlan(
+  script: DeskProjectScript,
+  fallbackWorkingDirectory: string,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const executable = script.path ?? script.name;
+  const workingDirectory = script.workingDirectory ?? fallbackWorkingDirectory;
+  const description = script.description ?? "No description declared";
+  const offer: ActionPlanOffer = {
+    action: "scripts",
+    group: "danger",
+    label: `Project Script ${script.name}`,
+    command: { argv: [executable], workingDirectory: "task" },
+    consequence: {
+      keeps: ["Desk session"],
+      changes: [
+        `Run project-authored script ${script.name}`,
+        `Description: ${description}`,
+        `Executable: ${executable}`,
+        `Working directory: ${workingDirectory}`,
+        "Confirmation policy: required",
+        "Destructive policy: undeclared",
+      ],
+      removes: [
+        "The script may remove project state; no destructive policy is declared",
+      ],
+      recoverable: ["Recovery is project-defined and not declared"],
+    },
+  };
+  return renderActionPlan(
+    offer,
+    undefined,
+    workingDirectory,
+    `${script.name}\n${workingDirectory}`,
+    viewport,
+    terminal,
+  );
+}
+
+/** Render one lifecycle refusal inside the selected task's product frame. */
+export function renderDeskActionFailure(
+  row: DeskRow,
+  offer: DeskActionOffer,
+  message: string,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const width = viewportDimension(viewport.columns);
+  const presenter = terminal.presenter;
+  const cwd = offer.command.workingDirectory === "task"
+    ? row.entry.path
+    : "main checkout";
+  const diagnostic = presenter.present(renderDiagnosticCli, {
+    title: terminalLine(`${offer.label} was refused`),
+    impact: terminalMultiline("The selected action did not complete."),
+    correction: terminalMultiline(message),
+    reproductionCommand: terminalLine(commandEvidence(offer.command.argv)),
+    workingDirectory: terminalLine(cwd),
+    severity: "failure",
+    maxWidth: width,
+  });
+  const retry = presenter.present(renderRetryNoticeCli, {
+    safeToRetry: true,
+    reason: terminalMultiline(
+      "Retry only after the lifecycle result's next step succeeds.",
+    ),
+    label: terminalLine(offer.label),
+    maxWidth: width,
+  });
+  const text = composeFrames(
+    [diagnostic, retry],
+    viewportDimension(viewport.rows),
+  );
+  return { text, rows: frameRows(text) };
 }
 
 /** Inputs needed to compose the root board without observing project state. */
@@ -122,10 +429,11 @@ const ACTION_GROUPS: readonly {
   readonly id: DeskActionGroupId;
   readonly label: string;
 }[] = [
-  { id: "landing", label: "Landing" },
-  { id: "work", label: "Work in this task" },
+  { id: "recommended", label: "Recommended" },
+  { id: "work", label: "Work" },
   { id: "review", label: "Review" },
-  { id: "worktree", label: "Worktree" },
+  { id: "manage", label: "Manage" },
+  { id: "danger", label: "Danger" },
 ];
 
 /** Bound an explicit viewport dimension to a safe integer. */
@@ -549,7 +857,15 @@ function taskEvidence(row: DeskRow): EvidenceRow[] {
       label: "Agents",
       value: availability(
         actionOffer(row, "agent"),
-        [...new Set(row.agentLaunches.map((launch) => launch.label))],
+        [
+          ...new Set(
+            row.agentLaunches.map((launch) =>
+              launch.availability === "disabled" && launch.reason !== undefined
+                ? `${launch.providerLabel} unavailable: ${launch.reason}`
+                : launch.label
+            ),
+          ),
+        ],
       ),
     },
     {
@@ -557,7 +873,11 @@ function taskEvidence(row: DeskRow): EvidenceRow[] {
       label: "Project Scripts",
       value: availability(
         actionOffer(row, "scripts"),
-        row.scripts.map((script) => script.name),
+        row.scripts.map((script) =>
+          script.availability === "disabled" && script.reason !== undefined
+            ? `${script.name} unavailable: ${script.reason}`
+            : script.name
+        ),
       ),
     },
   ];
@@ -627,21 +947,231 @@ export function renderDeskTaskDetail(
   return { text, rows: frameRows(text) };
 }
 
-/** Map enabled action offers into their semantic picker groups. */
+/** Proof-first review composed only from package Components and stored evidence. */
+export function renderDeskReview(
+  row: DeskRow,
+  review: DeskReview,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const width = viewportDimension(viewport.columns);
+  const presenter = terminal.presenter;
+  const proof = review.proof;
+  const proofPage = proof.proof ?? proof.proof_data?.markdown;
+  const proofLine = proof.proof_line ?? proof.proof_data?.line;
+  const heading = presenter.present(renderHeadingCli, {
+    text: terminalLine(`Review ${row.task.name}`),
+    level: 1,
+    leadingBlankLines: 0,
+    overflow: "wrap",
+    maxWidth: width,
+  });
+  const receipt = presenter.present(renderReceiptCli, {
+    title: terminalLine("Proof"),
+    ...(proof.status === "honored" ? { stamp: "pass" as const } : {}),
+    checks: [{
+      label: terminalLine("Currency"),
+      state: PROOF_RECEIPT_STATE[proof.status],
+      stateLabel: terminalLine(row.decision.proof.summary),
+      ...(proof.reason === undefined
+        ? {}
+        : { value: terminalMultiline(proof.reason) }),
+    }, {
+      label: terminalLine("Stored page"),
+      state: proofPage === undefined ? "skip" : "pass",
+      stateLabel: terminalLine(
+        proofPage === undefined ? "not recorded" : "available",
+      ),
+    }],
+    meta: [
+      ...(proofLine === undefined ? [] : [{
+        label: terminalLine("Proof line"),
+        value: terminalMultiline(proofLine),
+      }]),
+      ...(proof.head === undefined ? [] : [{
+        label: terminalLine("Current commit"),
+        value: terminalLine(proof.head),
+      }]),
+      ...(proof.recorded === undefined ? [] : [{
+        label: terminalLine("Recorded commit"),
+        value: terminalLine(proof.recorded),
+      }]),
+    ],
+    maxWidth: width,
+  });
+  const diffstat = presenter.present(renderDiffstatCli, {
+    added: review.insertions,
+    removed: review.deletions,
+    maxWidth: width,
+  });
+  const files = review.files.map((file) =>
+    presenter.present(renderFileChangeCli, {
+      path: terminalLine(file.path),
+      disposition: file.disposition,
+      ...(file.added === undefined || file.removed === undefined
+        ? {}
+        : { magnitude: { added: file.added, removed: file.removed } }),
+      maxWidth: width,
+    })
+  );
+  const uncommittedPaths = review.files.filter((file) => file.uncommitted);
+  const uncommitted = uncommittedPaths.length === 0
+    ? []
+    : [presenter.present(renderRawOutputCli, {
+      output: terminalMultiline(
+        uncommittedPaths.map((file) => file.path).join("\n"),
+      ),
+      label: terminalLine("Uncommitted paths"),
+      expanded: true,
+      maxWidth: width,
+    })];
+  const commits = presenter.present(renderRawOutputCli, {
+    output: terminalMultiline(
+      review.commits === "" ? "(none)" : review.commits,
+    ),
+    label: terminalLine(`Commits not on ${review.trunk}`),
+    expanded: true,
+    maxWidth: width,
+  });
+  const authority = presenter.present(renderResultSummaryCli, {
+    state: row.decision.authority.status === "granted"
+      ? "passed"
+      : row.decision.authority.status === "unknown"
+      ? "blocked"
+      : "declared",
+    fact: terminalMultiline(row.decision.authority.summary),
+    ...(row.decision.authority.uncoveredPaths.length === 0 ? {} : {
+      nextAction: terminalMultiline(
+        `Owner approval remains for ${
+          row.decision.authority.uncoveredPaths.join(", ")
+        }`,
+      ),
+    }),
+    maxWidth: width,
+  });
+  const collisions = row.decision.collisions.length === 0
+    ? []
+    : [presenter.present(renderRawOutputCli, {
+      output: terminalMultiline(
+        row.decision.collisions.map((collision) =>
+          collision.kind === "changed_files"
+            ? `${collision.otherBranch}: ${
+              collision.paths.join(", ") ||
+              `${collision.total} overlapping files`
+            }`
+            : `ADR ${collision.number}: ${collision.otherBranches.join(", ")}`
+        ).join("\n"),
+      ),
+      label: terminalLine("Collision context"),
+      expanded: true,
+      maxWidth: width,
+    })];
+  const meters = (proof.proof_data?.standard_proposals ?? []).map((proposal) =>
+    presenter.present(renderStandardMeterCli, {
+      label: terminalLine(`${proposal.standard} · proposal evidence`),
+      value: proposal.measurement,
+      limit: proposal.proposed_limit,
+      direction: proposal.direction === "up" ? "floor" : "ceiling",
+      trend: "drifting",
+      register: "brand",
+      maxWidth: width,
+    })
+  );
+  const page = proofPage === undefined ? [] : [renderMarkdown(proofPage, {
+    color: terminal.color,
+    width,
+    terminal,
+  })];
+  const failures = review.failures.flatMap((failure) => [
+    presenter.present(renderDiagnosticCli, {
+      title: terminalLine(failure.title),
+      impact: terminalMultiline(
+        "This review fact is unavailable; no empty-state claim was substituted.",
+      ),
+      correction: terminalMultiline(failure.nextAction),
+      reproductionCommand: terminalLine(failure.command),
+      workingDirectory: terminalLine(row.entry.path),
+      rawDetail: terminalMultiline(failure.detail),
+      rawLabel: terminalLine("Git output"),
+      severity: "failure",
+      maxWidth: width,
+    }),
+    presenter.present(renderRetryNoticeCli, {
+      safeToRetry: failure.safeToRetry,
+      reason: terminalMultiline("Retry after completing the next step above."),
+      label: terminalLine(failure.title),
+      maxWidth: width,
+    }),
+  ]);
+  const text = composeFrames(
+    [
+      heading,
+      receipt,
+      ...page,
+      diffstat,
+      ...meters,
+      commits,
+      ...files,
+      ...uncommitted,
+      ...collisions,
+      authority,
+      ...failures,
+    ],
+    viewportDimension(viewport.rows),
+  );
+  return { text, rows: frameRows(text) };
+}
+
+/** Review routes retain unavailable editor evidence instead of hiding it. */
+export function deskReviewGroups(
+  review: DeskReview,
+): SelectionGroup<string>[] {
+  return [{
+    id: "review-actions",
+    label: "Review",
+    items: [{
+      name: "View actual diff",
+      description: "Open the complete diff in the configured external pager.",
+      value: DESK_REVIEW_ROUTES.diff,
+    }, {
+      name: "Open in editor",
+      ...(review.editor === undefined
+        ? {
+          disabled: true,
+          description: review.editorUnavailableReason ??
+            "No available editor command is configured in $VISUAL or $EDITOR.",
+        }
+        : {
+          description: `Run ${review.editor.command} in the task checkout.`,
+        }),
+      value: DESK_REVIEW_ROUTES.editor,
+    }],
+  }, {
+    id: "review-navigation",
+    label: "Task",
+    items: [{ name: "Back", value: DESK_REVIEW_ROUTES.back }],
+  }];
+}
+
+/** Map every action offer into its semantic picker group, including refusals. */
 export function deskActionGroups(row: DeskRow): SelectionGroup<string>[] {
-  return ACTION_GROUPS.map((group) => ({
-    id: `actions-${group.id}`,
-    label: group.label,
-    items: row.decision.actions
-      .filter((offer) =>
-        offer.availability === "enabled" && offer.group === group.id
-      )
-      .map((offer) => ({
+  return ACTION_GROUPS.flatMap((group) => {
+    const offers = row.decision.actions.filter((offer) =>
+      offer.group === group.id
+    );
+    if (offers.length === 0) return [];
+    return [{
+      id: `actions-${group.id}`,
+      label: group.label,
+      items: offers.map((offer) => ({
         name: offer.label,
-        ...(offer.recommended
-          ? { description: "Recommended for the current state." }
+        ...(offer.availability === "disabled"
+          ? { description: offer.reason, disabled: true }
+          : offer.recommended
+          ? { description: "This action best fits the current task state." }
           : {}),
         value: offer.action as string,
       })),
-  }));
+    }];
+  });
 }

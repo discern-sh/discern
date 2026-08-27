@@ -41,15 +41,60 @@ Within groups, recent worktrees appear first. The root board shows project and m
 
 Rows adapt at 96 and 56 columns ([ADR 0352](../_adr/0352-desk-decisions-cross-a-pure-responsive-presentation-boundary.md)): wide rows separate task, state, and activity or action; medium rows keep task and state together; narrow rows put state and detail below the task. Every row has an independent width, and task detail preserves a truncated title. Static content retains at most one third of the terminal height; the interaction fitter owns the rest. Search begins at 9 tasks. One result receives active focus; the query field receives it during typing.
 
-## Choose an action
+## Choose one contextual action
 
-Task detail precedes the action picker. It groups the full title and headline, location, activity, Git facts, landing authority, collisions, containment, agent and Project Script availability, and Proof currency and line. Empty groups disappear. Short screens keep the action picker coherent by moving earlier evidence into terminal history.
+Task detail precedes the action picker. It groups the full title and headline, location, activity, Git facts, landing authority, collisions, containment, agent and Project Script availability, and Proof currency and line. Empty evidence groups disappear. Short screens keep the action picker coherent by moving earlier evidence into terminal history.
 
-The decision carries every action once, its availability reason, and at most one recommendation; the picker shows enabled actions only. Landing, work, review, and worktree groups cover Accept and its grant, Update, scripts, agents, shell, Inspect, Reclaim, and Drop. Each action echoes its CLI command and calls the same lifecycle core, which rechecks before effects.
+The decision carries every task action once. One available action may move into **Recommended**; every other action remains in **Work**, **Review**, **Manage**, or **Danger**. An action the current facts would refuse stays visible and disabled with the observed reason and recovery. The lifecycle core rechecks those facts after confirmation.
 
-Accept requires clean committed work ahead of the trunk without known branch lag. Grants belong to one task. Reclaim appears only for [contained work](reclaiming-contained-worktrees.md), keeps the branch, and removes the checkout and its per-worktree state after confirmation.
+The recommendation follows the task state:
 
-Project Scripts, agent CLIs, and shells inherit the selected checkout's terminal and return to a fresh survey. Root scripts run from main. Agent launch also requires a configured provider and an available binary; discern does not inspect vendor session state. Owned process groups stop on Ctrl-C, SIGTERM, or SIGHUP ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)).
+- a branch behind the trunk recommends Update;
+- a current failure recommends an available configured agent, or Proof review when no agent command can run;
+- active or stale work recommends an available configured agent;
+- clean commits without current Proof recommend final checks;
+- honored Proof recommends review and landing;
+- an empty task recommends the preferred available agent action;
+- collision evidence recommends review;
+- contained work recommends Reclaim.
+
+Broken or unreadable tasks receive no destructive recommendation. Drop remains a separate Danger action while the task keeps its factual recovery evidence.
+
+<!-- BEGIN DESK ACTION REGISTRY -->
+
+| Id             | Group  | Contextual label                                                                | Command evidence                     | Confirmation                                                     |
+| -------------- | ------ | ------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
+| `done`         | Work   | Run final checks                                                                | `discern done`                       | No by default; Run                                               |
+| `accept`       | Review | Run final checks, then land on &lt;trunk&gt; / Review and land on &lt;trunk&gt; | `discern accept`                     | No by default; Land                                              |
+| `update`       | Manage | Update branch from &lt;trunk&gt;                                                | `discern update`                     | No by default; Update                                            |
+| `agent`        | Work   | Continue with an agent                                                          | `<configured-agent>`                 | None                                                             |
+| `scripts`      | Work   | Run a Project Script                                                            | `discern scripts <name>`             | No by default; Run                                               |
+| `jump`         | Work   | Open a shell                                                                    | `<user-shell>`                       | None                                                             |
+| `inspect`      | Review | Review Proof and changes                                                        | `git diff`                           | None                                                             |
+| `grant`        | Manage | Pre-authorize landing once green                                                | `discern desk`                       | No by default; Allow                                             |
+| `revoke_grant` | Manage | Revoke landing pre-authorization                                                | `discern desk`                       | No by default; Revoke                                            |
+| `reclaim`      | Manage | Reclaim checkout, keep branch (work contained in &lt;later-branch&gt;)          | `discern worktree prune --contained` | No by default; Reclaim                                           |
+| `drop`         | Danger | Drop worktree and branch                                                        | `discern worktree drop <path>`       | No by default; Drop, then type the branch before discarding work |
+
+<!-- END DESK ACTION REGISTRY -->
+
+The table is held to [`DESK_ACTION_REGISTRY`](../../../src/engine/desk/model.ts) by a parity test. Grant and revoke remain human-only actions inside `discern desk`; their command evidence names that interactive entry point.
+
+## Run final checks and review Proof
+
+`Run final checks` invokes the same Gate core as `discern done`. A clean committed task without Proof presents `Run final checks, then land on <trunk>`; honored Proof changes the landing label to `Review and land on <trunk>`. A running Gate carries its elapsed and typical duration when status knows them. A passing Gate returns to a fresh task view with the new Proof.
+
+`Review Proof and changes` opens a Proof-first composition. It renders Proof currency, the stored line, and the stored Markdown page through the shared Markdown renderer. The same view carries all commit subjects, Diffstat and changed-file Components, uncommitted paths, collision context, landing authority, and any structured Standard proposal evidence. Git read failures remain failures through Diagnostic and RetryNotice Components.
+
+`View actual diff` sends `git diff --no-ext-diff --color=always <trunk>...HEAD` through the [shared explicit pager boundary](../../../src/lib/pager.ts). The review returns after the pager exits. `Open in editor` runs the exact command and arguments declared by `$VISUAL` or `$EDITOR` when the command is available; unavailable or unsafe shell-shaped editor values stay disabled with a reason.
+
+## Review effects before confirming
+
+Every lifecycle mutation presents its live read-only plan and command evidence through the design system's Command, Procedure, ProcedureStep, ExpectedResult, and DestructiveActionNotice Components where applicable. The same composition gives a structured **Keeps**, **Changes**, **Removes**, and **Recoverable** account. Landing, Update, grant, revoke, Reclaim, and Drop apply through their authoritative cores, which revalidate after confirmation. Mutation confirmations default to No. Drop additionally requires the branch name before a refused safe drop may discard work.
+
+Project Scripts show their canonical name, description, resolved executable path, working directory, required confirmation, and undeclared destructive policy before they run. `Show command` prints the exact executable command and arguments and the corresponding `discern scripts <name>` spelling without running either. Missing directories and non-executable files remain disabled with exact recovery. Root scripts use the same review and No-default confirmation from main.
+
+Configured agent actions remain visible when a provider binary is missing from `PATH`. One available action can launch directly; several retain provider-owned labels and exact command arguments in a provider-owned choice. Provider session state stays outside discern, and resume arguments come only from the provider registry. Project Scripts, agent CLIs, and shells inherit the selected checkout's terminal and return to a fresh survey. Owned process groups stop on Ctrl-C, SIGTERM, or SIGHUP ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)).
 
 ## Know when the Desk stays closed
 
@@ -66,4 +111,4 @@ Start with [`model.ts`](../../../src/engine/desk/model.ts) for decisions and act
 - The first release of agent launching is CLI-only. Desktop-app integrations for Codex and Claude are a recorded follow-up: they need an official, lifecycle-aware handoff whose status stays accurate when discern later accepts or drops the worktree.
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A row's menu is advisory. The invoked lifecycle core rechecks every precondition before changing state.
-- Broken or unreadable checkouts offer only drop. Without explicit force, drop refuses when discern cannot verify the work.
+- Broken or unreadable checkouts keep shell, review when Git is readable, and Drop as separate offers. They never recommend Drop. Without explicit force, Drop refuses when discern cannot verify the work.
