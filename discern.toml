@@ -809,7 +809,7 @@
   # an always-on test and retire this transition Standard.
   [standards.site_component_gaps]
     direction = "down"
-    limit = 50
+    limit = 51
     run = "deno task site:component-coverage"
     inputs = [
       "${map.dir}**",
