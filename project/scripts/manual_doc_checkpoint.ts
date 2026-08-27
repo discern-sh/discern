@@ -27,6 +27,7 @@ import {
   REPOSITORY_MANUAL_REL,
 } from "../../src/shared/manual.ts";
 import {
+  checkpointInvocationRoot,
   checkpointWhenInputFromEnvironment,
   parseCheckpointWhenInput,
 } from "./checkpoint_when_input.ts";
@@ -275,7 +276,10 @@ async function main(checkpointId: string): Promise<number> {
     maxInputBytes: MANUAL_CHECKPOINT_INPUT_MAX_BYTES,
     maxChangedFiles: MANUAL_CHECKPOINT_MAX_CHANGED_FILES,
   });
-  const matches = await matchingManualChanges(Deno.cwd(), input);
+  const matches = await matchingManualChanges(
+    checkpointInvocationRoot(),
+    input,
+  );
   for (const path of matches) console.log(`DISCERN_MATCH ${path}`);
   return matches.length > 0 ? 0 : 1;
 }

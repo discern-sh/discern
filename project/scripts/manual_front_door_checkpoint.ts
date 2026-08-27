@@ -12,7 +12,10 @@ import {
   manualFrontDoorDestinations,
 } from "../../src/lib/manual.ts";
 import { REPOSITORY_MANUAL_REL } from "../../src/shared/manual.ts";
-import { checkpointWhenInputFromEnvironment } from "./checkpoint_when_input.ts";
+import {
+  checkpointInvocationRoot,
+  checkpointWhenInputFromEnvironment,
+} from "./checkpoint_when_input.ts";
 
 export const MANUAL_FRONT_DOOR_CHECKPOINT_ID = "manual-front-door-promotion";
 export const MANUAL_FRONT_DOOR_PATH = `${REPOSITORY_MANUAL_REL}/README.md`;
@@ -140,7 +143,7 @@ async function main(): Promise<number> {
     id: MANUAL_FRONT_DOOR_CHECKPOINT_ID,
     mode: "stop",
   });
-  if (!(await promotionChanged(Deno.cwd(), input))) return 1;
+  if (!(await promotionChanged(checkpointInvocationRoot(), input))) return 1;
   console.log(`DISCERN_MATCH ${MANUAL_FRONT_DOOR_PATH}`);
   return 0;
 }

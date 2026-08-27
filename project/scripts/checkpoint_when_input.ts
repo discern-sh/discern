@@ -225,6 +225,11 @@ function exactUtf8(bytes: Uint8Array): string {
   }
 }
 
+/** Resolve the invoking checkout once at the shared checkpoint host boundary. */
+export function checkpointInvocationRoot(): string {
+  return Deno.cwd();
+}
+
 /** Read and validate the Engine-authored input named by its environment key. */
 export async function checkpointWhenInputFromEnvironment(
   contract: CheckpointWhenInputContract,

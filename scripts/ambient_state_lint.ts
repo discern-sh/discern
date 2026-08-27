@@ -81,6 +81,14 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     reason:
       "The executable checkpoint adapter reads the Gate-provided path to its invocation payload.",
   },
+  "checkpoint-invocation-root": {
+    path: "project/scripts/checkpoint_when_input.ts",
+    enclosingFunction: "checkpointInvocationRoot",
+    primitive: "cwd",
+    operation: "resolve the invoking checkout for project checkpoint matchers",
+    reason:
+      "The shared checkpoint adapter composes one host root for every project-authored matcher.",
+  },
   "cli-install-home": {
     path: "scripts/cli_install.ts",
     enclosingFunction: "resolveCliDest",
@@ -225,14 +233,6 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     reason:
       "The setup-page integration test evaluates its real command from the test process cwd.",
   },
-  "feature-benefit-checkpoint-cwd": {
-    path: "project/scripts/feature_benefit_currency_checkpoint.ts",
-    enclosingFunction: "main",
-    primitive: "cwd",
-    operation: "anchor the feature-benefit Git inspection",
-    reason:
-      "The executable checkpoint runs its Git inspection against the invoking checkout cwd.",
-  },
   "gate-execute-cwd": {
     path: "tests/gate_execute_test.ts",
     enclosingFunction: "<module>",
@@ -288,22 +288,6 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     operation: "locate the crash artifact from the failed process",
     reason:
       "The executable crash boundary resolves the invoking cwd before attempting its bounded artifact write.",
-  },
-  "manual-doc-checkpoint-cwd": {
-    path: "project/scripts/manual_doc_checkpoint.ts",
-    enclosingFunction: "main",
-    primitive: "cwd",
-    operation: "anchor the changed-manual-page query",
-    reason:
-      "The executable checkpoint resolves changed manual pages from the invoking checkout cwd.",
-  },
-  "manual-front-door-checkpoint-cwd": {
-    path: "project/scripts/manual_front_door_checkpoint.ts",
-    enclosingFunction: "main",
-    primitive: "cwd",
-    operation: "anchor the promoted-manual-journey comparison",
-    reason:
-      "The executable checkpoint compares the governing and current manual front doors in the invoking checkout.",
   },
   "mcp-ci-marker": {
     path: "src/engine/mcp/server.ts",

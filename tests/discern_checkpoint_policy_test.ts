@@ -16,6 +16,7 @@ import type {
 } from "../src/engine/checkpoints/types.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
+import { AMBIENT_READ_BOUNDARIES } from "../scripts/ambient_state_lint.ts";
 import {
   MANUAL_FRONT_DOOR_CHECKPOINT_ID,
   MANUAL_KIND_REGISTRY,
@@ -183,6 +184,37 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
     "Remove stale material, link the authority, and cut mechanically derivable prose.",
   );
   assertFalse(Object.hasOwn(CONFIG.checkpoints, "map-conventions"));
+});
+
+Deno.test("project checkpoint matchers share the invocation-root boundary", () => {
+  const matcherPaths = new Set<string>();
+  for (const definition of RESOLUTION.checkpoints) {
+    for (
+      const match of definition.when?.matchAll(
+        /(?:^|[\s"'])(project\/scripts\/[A-Za-z0-9_./-]+\.ts)(?=$|[\s"'])/gu,
+      ) ?? []
+    ) {
+      const path = match[1];
+      if (path !== undefined) matcherPaths.add(path);
+    }
+  }
+  assert(matcherPaths.size > 0);
+
+  const directRoots = Object.values(AMBIENT_READ_BOUNDARIES)
+    .filter((boundary) =>
+      boundary.primitive === "cwd" && matcherPaths.has(boundary.path)
+    )
+    .map((boundary) => boundary.path)
+    .sort();
+  assertEquals(directRoots, []);
+  assertEquals(AMBIENT_READ_BOUNDARIES["checkpoint-invocation-root"], {
+    path: "project/scripts/checkpoint_when_input.ts",
+    enclosingFunction: "checkpointInvocationRoot",
+    primitive: "cwd",
+    operation: "resolve the invoking checkout for project checkpoint matchers",
+    reason:
+      "The shared checkpoint adapter composes one host root for every project-authored matcher.",
+  });
 });
 
 Deno.test("boundary checkpoints exclude generated subjects by default", () => {

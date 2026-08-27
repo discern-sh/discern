@@ -15,7 +15,10 @@ import type { CheckpointWhenInput } from "../../src/shared/checkpoints.ts";
 import { resolveContainedProjectReadPath } from "../../src/shared/project_path.ts";
 import { lstatIfExists } from "../../src/shared/fs_presence.ts";
 import { type GitResult, runGit } from "../../src/shared/subprocess.ts";
-import { checkpointWhenInputFromEnvironment } from "./checkpoint_when_input.ts";
+import {
+  checkpointInvocationRoot,
+  checkpointWhenInputFromEnvironment,
+} from "./checkpoint_when_input.ts";
 
 /** The one checkpoint this command is safe to serve. */
 export const FEATURE_BENEFIT_CURRENCY_CHECKPOINT_ID =
@@ -218,7 +221,7 @@ async function main(): Promise<number> {
     mode: "advise",
   });
   const matches = await matchingFeatureBenefitCurrencyChanges(
-    Deno.cwd(),
+    checkpointInvocationRoot(),
     input,
   );
   for (const path of matches) console.log(`DISCERN_MATCH ${path}`);
