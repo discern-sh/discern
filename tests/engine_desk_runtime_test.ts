@@ -48,7 +48,7 @@ import {
 import { renderTipCli, TIPS } from "../src/shared/tips.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { displayWidth, stripAnsi } from "../src/lib/text.ts";
-import { fakeEnv, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 
@@ -1383,7 +1383,7 @@ Deno.test("desk renders tips through the package note cue", async () => {
   const output = transcript(terminal);
 
   assertEquals(await runDesk({}, scriptedRuntime(output)), 0);
-  assertStringIncludes(stripAnsi(output.stdout.join("")), "▸ Tip:");
+  assertTerminalTextIncludes(stripAnsi(output.stdout.join("")), "▸ Tip:");
   assertStringIncludes(output.stdout.join(""), "\x1b[");
 });
 

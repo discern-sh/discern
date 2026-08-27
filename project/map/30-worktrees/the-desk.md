@@ -41,7 +41,7 @@ Within groups, recent worktrees appear first. The root board names the project a
 
 Each root row carries the display title, decision headline, one relevant factual detail, and the recommended action when space permits. The root is a triage queue; selecting a task opens its complete evidence. A collision can move a row into **Needs attention** without hiding what the task is doing. A ready task with a landing grant does not claim to need the same owner decision as one that still needs approval.
 
-The row posture follows the live terminal width ([ADR 0351](../_adr/0351-desk-decisions-cross-a-pure-responsive-presentation-boundary.md)):
+The row layout follows the live terminal width ([ADR 0351](../_adr/0351-desk-decisions-cross-a-pure-responsive-presentation-boundary.md)):
 
 - At 96 columns and wider, task, state, and current activity or next action use separate columns.
 - From 56 through 95 columns, task and state share the line; relevant detail and the next action use the selection description.
@@ -51,7 +51,7 @@ One title never widens every row. A bounded row may truncate identity, and the s
 
 ## Choose an action
 
-Selecting a task first shows its full title and decision headline. The evidence table then groups branch and path, running or last action, changed-file and commit facts, landing authority, collisions, containment, and available agents or Project Scripts with unavailable reasons. A Proof receipt names currency and preserves the recorded Proof line. Empty evidence blocks are omitted. On a short terminal the preamble may enter scrollback so the action picker remains coherent; every fact is emitted before the picker.
+Selecting a task first shows its full title and decision headline. The evidence table then groups branch and path, running or last action, changed-file and commit facts, landing authority, collisions, containment, and available agents or Project Scripts with unavailable reasons. The Proof section names currency and preserves the recorded Proof line. Empty evidence blocks are omitted. On a short terminal the preamble may enter terminal history so the action picker remains coherent; every fact is emitted before the picker.
 
 The decision represents each canonical action once. An action is enabled or disabled with one observed reason, and at most one enabled action is recommended. The current menu shows the enabled offers only:
 
@@ -86,18 +86,18 @@ Before setup completes, bare `discern` keeps showing the setup welcome. From ins
 
 ## Where it lives in code
 
-| Responsibility                     | Source                                                                                  |
-| ---------------------------------- | --------------------------------------------------------------------------------------- |
-| Interactive loop and dispatch      | [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts)                           |
-| Decision and action-offer model    | [`src/engine/desk/model.ts`](../../../src/engine/desk/model.ts)                         |
-| Product mapping and composition    | [`src/engine/desk/view.ts`](../../../src/engine/desk/view.ts)                           |
-| Provider-owned CLI actions         | [`src/lib/providers.ts`](../../../src/lib/providers.ts)                                 |
-| System-browser handoff             | [`src/lib/open_browser.ts`](../../../src/lib/open_browser.ts)                           |
-| Model decision table tests         | [`tests/engine_desk_model_test.ts`](../../../tests/engine_desk_model_test.ts)           |
-| Pure responsive view tests         | [`tests/engine_desk_view_test.ts`](../../../tests/engine_desk_view_test.ts)             |
-| Interactive dispatch tests         | [`tests/engine_desk_runtime_test.ts`](../../../tests/engine_desk_runtime_test.ts)       |
-| Real terminal journeys and harness | [`tests/engine_desk_tty_test.ts`](../../../tests/engine_desk_tty_test.ts)               |
-| Non-interactive boundary tests     | [`tests/engine_non_interactive_test.ts`](../../../tests/engine_non_interactive_test.ts) |
+| Responsibility                  | Source                                                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------- |
+| Interactive loop and dispatch   | [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts)                           |
+| Decision and action-offer model | [`src/engine/desk/model.ts`](../../../src/engine/desk/model.ts)                         |
+| Product mapping and composition | [`src/engine/desk/view.ts`](../../../src/engine/desk/view.ts)                           |
+| Provider-owned CLI actions      | [`src/lib/providers.ts`](../../../src/lib/providers.ts)                                 |
+| System-browser handoff          | [`src/lib/open_browser.ts`](../../../src/lib/open_browser.ts)                           |
+| Model decision table tests      | [`tests/engine_desk_model_test.ts`](../../../tests/engine_desk_model_test.ts)           |
+| Pure responsive view tests      | [`tests/engine_desk_view_test.ts`](../../../tests/engine_desk_view_test.ts)             |
+| Interactive dispatch tests      | [`tests/engine_desk_runtime_test.ts`](../../../tests/engine_desk_runtime_test.ts)       |
+| Real terminal journeys          | [`tests/engine_desk_tty_test.ts`](../../../tests/engine_desk_tty_test.ts)               |
+| Non-interactive boundary tests  | [`tests/engine_non_interactive_test.ts`](../../../tests/engine_non_interactive_test.ts) |
 
 ## Current state and gotchas
 

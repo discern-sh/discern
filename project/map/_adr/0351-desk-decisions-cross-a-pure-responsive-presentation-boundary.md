@@ -28,8 +28,8 @@ A worktree path may preserve display characters that Git's internal worktree key
 
 - A view change can alter hierarchy or breakpoints without changing orchestration or lifecycle effects. A model change must supply any new meaning before the view can present it.
 - Discern contains no second ANSI palette, Unicode-width implementation, wrapping algorithm, or copied Component frame for the Desk.
-- Very long titles remain bounded even on wide boards because state and next action retain their columns. Task detail preserves the complete identity.
-- Short task-detail screens place earlier evidence in terminal scrollback. The current package-backed prompt flow remains unchanged; pinned headers and a custom input loop remain separate work.
+- Long titles remain bounded even on wide boards because state and next action retain their columns. Task detail preserves the complete identity.
+- Short task-detail screens place earlier evidence in terminal history. The current package-backed prompt flow remains unchanged; pinned headers and a custom input loop remain separate work.
 - Real-terminal journeys cover 40, 60, 80, and 120 columns; short and tall heights; 0, 1, 9, and 50 tasks; long ASCII and Unicode display; live resize; color, no-color, and ASCII output; unique focus; and width after ANSI projection.
 - The presentation boundary adds one module and focused tests. That indirection is intentional because it prevents product composition, process observation, and semantic classification from recombining in the interactive loop.
 
@@ -39,4 +39,4 @@ A worktree path may preserve display characters that Git's internal worktree key
 - **Render every status fact in every root row.** Rejected because routine fleet scans become a wall of repeated evidence. Selection supplies the complete-detail route.
 - **Align every row to the fleet's longest title.** Rejected because one member would continue to determine every other member's available state width.
 - **Maintain local ANSI styles and width helpers.** Rejected because those capabilities already belong to the adopted package and would drift across terminal modes.
-- **Reserve every static preamble row.** Rejected because a wrapped detail frame can leave too little height for a coherent interaction. The bounded retention policy preserves both evidence and a usable picker through the terminal's native scrollback.
+- **Reserve every static preamble row.** Rejected because a wrapped detail frame can leave too little height for a coherent interaction. The bounded retention policy preserves both evidence and a usable picker through the terminal's native history.

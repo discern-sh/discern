@@ -11,7 +11,7 @@ aliases:
 
 _Each Desk session puts a teaching line directly below the root status._
 
-Most of discern's surfaces address coding agents. The Desk is the person's surface, so it carries an ambient teaching line below the root status. The Desk selects the line when the session opens and holds it until the session ends ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The design system's semantic Note cue keeps the line secondary in color, reduced ANSI, no-color, and ASCII terminals. It wraps at the terminal width. Narrow terminals keep the complete text, using scrollback when the board and interaction cannot remain visible together.
+Most of discern's surfaces address coding agents. The Desk is the person's surface, so it carries an ambient teaching line below the root status. The Desk selects the line when the session opens and holds it until the session ends ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The design system's semantic Note cue keeps the line secondary in color, reduced ANSI, no-color, and ASCII terminals. It wraps at the terminal width. Narrow terminals keep the complete text, using terminal history when the board and interaction cannot remain visible together.
 
 ## How the tip is chosen
 
