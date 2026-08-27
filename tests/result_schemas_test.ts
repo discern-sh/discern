@@ -117,21 +117,15 @@ function expectValid(
   );
 }
 
-/** Contract ids `expectFaithful` actually exercised this run — the evidence the
- * file's final test reconciles against FAITHFULNESS_COVERED. */
-const FAITHFULNESS_EXERCISED = new Set<string>();
-
 /** Validate a real verb result against the PUBLISHED schema of the contract it
  * claims — looked up in the registry, so the id and the schema cannot be
- * mismatched — and record the id as faithfulness evidence. The id is recorded
- * before the validity assertion: a currently-failing faithfulness test is
- * still coverage (its assertion is what reports the drift). */
-function expectFaithful(
+ * mismatched. */
+function validateFaithful(
   contractId: string,
   result: DiscernResult,
   label: string,
 ): void {
-  expectSerializedFaithful(
+  validateSerializedFaithful(
     contractId,
     serializeResult(result),
     label,
@@ -139,7 +133,7 @@ function expectFaithful(
 }
 
 /** Validate an already serialized real CLI envelope against its contract. */
-function expectSerializedFaithful(
+function validateSerializedFaithful(
   contractId: string,
   serialized: unknown,
   label: string,
@@ -147,9 +141,8 @@ function expectSerializedFaithful(
   const contract = CLI_JSON_RESULT_CONTRACTS.find((c) => c.id === contractId);
   assert(
     contract !== undefined,
-    `expectFaithful("${contractId}") names no published contract`,
+    `validateFaithful("${contractId}") names no published contract`,
   );
-  FAITHFULNESS_EXERCISED.add(contractId);
   const parsed = contract.schema.safeParse(serialized);
   assert(
     parsed.success,
@@ -157,6 +150,42 @@ function expectSerializedFaithful(
       JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
     }\n--- serialized result ---\n${JSON.stringify(serialized, null, 2)}`,
   );
+}
+
+interface FaithfulnessAssertions {
+  /** Validate a real core result and record the contract in this case only. */
+  readonly expectFaithful: (
+    contractId: string,
+    result: DiscernResult,
+    label: string,
+  ) => void;
+  /** Validate a serialized CLI result and record the contract in this case only. */
+  readonly expectSerializedFaithful: (
+    contractId: string,
+    serialized: unknown,
+    label: string,
+  ) => void;
+}
+
+interface FaithfulnessCase {
+  /** Stable test name shown by Deno. */
+  readonly name: string;
+  /** Contracts this case declares it exercises. */
+  readonly contractIds: readonly string[];
+  /** Real result exercises for the declared contracts. */
+  readonly run: (
+    assertions: FaithfulnessAssertions,
+  ) => void | Promise<void>;
+}
+
+/** Declare one faithfulness case without registering or executing it yet. */
+function defineFaithfulnessCase(
+  name: string,
+  contractIds: readonly string[],
+): (
+  run: FaithfulnessCase["run"],
+) => FaithfulnessCase {
+  return (run) => ({ name, contractIds, run });
 }
 
 Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
@@ -622,54 +651,10 @@ Deno.test("every canonical error slug has a production source anchor", async () 
 // ── contract-coverage enrollment (the forcing function for NEW contracts) ────
 // The `skills list` contract drifted for days because nothing tied the registry
 // to this suite: the verb emitted a field its published schema rejected, and no
-// test here ever ran it. These two sets close that gap the way the repo's other
-// parity guards do (ADR 0051): every contract in CLI_JSON_RESULT_CONTRACTS must
-// be enrolled below, so registering a new one fails this file until its
-// faithfulness test exists — or its absence is recorded as explicit, reviewable
-// debt. Membership in the covered set is not taken on trust: the file's FINAL
-// test reconciles it against the ids `expectFaithful` actually exercised, so an
-// id added here without its test (the drift incident's dishonest-enrolment
-// variant) fails the reconciliation.
-
-/** Contract ids whose REAL core output a test in this file validates via
- * `expectFaithful`. Enrolment is evidence-checked: the final test asserts this
- * set EQUALS the ids exercised, so the only way in is writing the test. */
-const FAITHFULNESS_COVERED = new Set<string>([
-  "await",
-  "config",
-  "coupling",
-  "desk",
-  "worktrees",
-  "discern",
-  "map",
-  "checkpoints",
-  "doctor",
-  "done",
-  "accept",
-  "docs",
-  "improvement",
-  "update",
-  "patterns",
-  "patternsArchive",
-  "patternsArchives",
-  "patternsReset",
-  "prepare",
-  "standards",
-  "standardsPropose",
-  "refresh",
-  "tidy",
-  "impact",
-  "identity",
-  "licenses",
-  "scripts",
-  "skills",
-  "skillsList",
-  "start",
-  "status",
-  "test",
-  "triangle",
-  "worktree",
-]);
+// test here ever ran it. FAITHFULNESS_CASES is the declaration both the real
+// result tests and these audits iterate. Each case also reconciles its declared
+// ids against its own calls, so an id cannot be enrolled without that same test
+// exercising it, and no evidence crosses a Deno.test boundary.
 
 /** Published contracts still awaiting a faithfulness test — explicit debt, not
  * silence. Shrink this set; never grow it for an MCP-exposed contract (the SDK
@@ -739,7 +724,21 @@ Deno.test("DatalessEnvelopeSchema forbids a data payload (the data-less SSOT gua
   assert(EnvelopeSchema.safeParse({ ...base, data: { x: 1 } }).success);
 });
 
-Deno.test("root, utility, read, and command-group CLI results are faithful", async () => {
+const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "root, utility, read, and command-group CLI results are faithful",
+  [
+    "discern",
+    "licenses",
+    "triangle",
+    "scripts",
+    "desk",
+    "worktrees",
+    "worktree",
+    "skills",
+    "config",
+    "identity",
+  ],
+)(async ({ expectSerializedFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -913,7 +912,10 @@ Deno.test("current-facing prose keeps fail-fast cancellation distinct from skipp
   );
 });
 
-Deno.test("done result is faithful to FinishOutputSchema (preview, clean, failing)", async () => {
+const DONE_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "done result is faithful to FinishOutputSchema (preview, clean, failing)",
+  ["done"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -957,7 +959,10 @@ Deno.test("done result is faithful to FinishOutputSchema (preview, clean, failin
   });
 });
 
-Deno.test("prepare/test results are faithful (clean and failing)", async () => {
+const PREPARE_TEST_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "prepare/test results are faithful (clean and failing)",
+  ["prepare", "test"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1005,7 +1010,10 @@ Deno.test("prepare/test results are faithful (clean and failing)", async () => {
   });
 });
 
-Deno.test("refresh result is faithful to RefreshOutputSchema (clean and partial)", async () => {
+const REFRESH_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "refresh result is faithful to RefreshOutputSchema (clean and partial)",
+  ["refresh"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1030,7 +1038,10 @@ Deno.test("refresh result is faithful to RefreshOutputSchema (clean and partial)
   });
 });
 
-Deno.test("tidy result is faithful in preview and apply modes", async () => {
+const TIDY_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "tidy result is faithful in preview and apply modes",
+  ["tidy"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     expectFaithful(
@@ -1042,7 +1053,10 @@ Deno.test("tidy result is faithful in preview and apply modes", async () => {
   });
 });
 
-Deno.test("doctor result is faithful (healthy and failing)", async () => {
+const DOCTOR_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "doctor result is faithful (healthy and failing)",
+  ["doctor"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1064,7 +1078,10 @@ Deno.test("doctor result is faithful (healthy and failing)", async () => {
   });
 });
 
-Deno.test("doctor execution_model is faithful across a rich config (resources, standards, scopes)", async () => {
+const DOCTOR_EXECUTION_MODEL_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "doctor execution_model is faithful across a rich config (resources, standards, scopes)",
+  ["doctor"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1114,7 +1131,10 @@ Deno.test("doctor execution_model is faithful across a rich config (resources, s
   });
 });
 
-Deno.test("impact result is faithful", async () => {
+const IMPACT_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "impact result is faithful",
+  ["impact"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1122,7 +1142,10 @@ Deno.test("impact result is faithful", async () => {
   });
 });
 
-Deno.test("coupling result is faithful (diff-aware, query, and a real partner edge)", async () => {
+const COUPLING_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "coupling result is faithful (diff-aware, query, and a real partner edge)",
+  ["coupling"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1176,7 +1199,10 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
   });
 });
 
-Deno.test("await result is faithful (refusals, not-yet, and both met shapes)", async () => {
+const AWAIT_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "await result is faithful (refusals, not-yet, and both met shapes)",
+  ["await"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1233,7 +1259,10 @@ Deno.test("await result is faithful (refusals, not-yet, and both met shapes)", a
   });
 });
 
-Deno.test("patterns result and its reset are faithful (empty, seeded, dry-run, applied)", async () => {
+const PATTERNS_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "patterns result and its reset are faithful (empty, seeded, dry-run, applied)",
+  ["patterns", "patternsReset", "patternsArchive", "patternsArchives"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1323,7 +1352,10 @@ Deno.test("patterns result and its reset are faithful (empty, seeded, dry-run, a
   });
 });
 
-Deno.test("status result is faithful across modes (main, fleet, worktree, unset-up)", async () => {
+const STATUS_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "status result is faithful across modes (main, fleet, worktree, unset-up)",
+  ["status"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1378,7 +1410,10 @@ Deno.test("status result is faithful across modes (main, fleet, worktree, unset-
   });
 });
 
-Deno.test("improvement result is faithful (full, category, below-min, unknown)", async () => {
+const IMPROVEMENT_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "improvement result is faithful (full, category, below-min, unknown)",
+  ["improvement"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1403,7 +1438,10 @@ Deno.test("improvement result is faithful (full, category, below-min, unknown)",
   });
 });
 
-Deno.test("checkpoints result is faithful (empty, fired, ungoverned open question)", async () => {
+const CHECKPOINTS_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "checkpoints result is faithful (empty, fired, ungoverned open question)",
+  ["checkpoints"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -1448,7 +1486,10 @@ Deno.test("checkpoints result is faithful (empty, fired, ungoverned open questio
   });
 });
 
-Deno.test("map/docs results are faithful (index, single doc, not-found, no-tree)", async () => {
+const MAP_DOCS_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "map/docs results are faithful (index, single doc, not-found, no-tree)",
+  ["map", "docs"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1505,7 +1546,10 @@ Deno.test("map/docs results are faithful (index, single doc, not-found, no-tree)
   });
 });
 
-Deno.test("standards result is faithful (dry-run plan and applied steps)", async () => {
+const STANDARDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "standards result is faithful (dry-run plan and applied steps)",
+  ["standards"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1540,7 +1584,10 @@ Deno.test("standards result is faithful (dry-run plan and applied steps)", async
   });
 });
 
-Deno.test("standards propose result is faithful (preview and recorded proposal)", async () => {
+const STANDARDS_PROPOSE_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "standards propose result is faithful (preview and recorded proposal)",
+  ["standardsPropose"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -1598,7 +1645,10 @@ async function commitFiles(
   await git(dir, "commit", "-q", "-m", message, "--no-gpg-sign");
 }
 
-Deno.test("update result is faithful (dry-run prediction and applied data-bearing merge)", async () => {
+const UPDATE_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "update result is faithful (dry-run prediction and applied data-bearing merge)",
+  ["update"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1623,7 +1673,10 @@ Deno.test("update result is faithful (dry-run prediction and applied data-bearin
   });
 });
 
-Deno.test("accept result is faithful (dry-run plan and applied gate-validation data)", async () => {
+const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "accept result is faithful (dry-run plan and applied gate-validation data)",
+  ["accept"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -1713,7 +1766,10 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
   });
 });
 
-Deno.test("skills list result is faithful (bundled, authored override, and excluded rows)", async () => {
+const SKILLS_LIST_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "skills list result is faithful (bundled, authored override, and excluded rows)",
+  ["skillsList"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1756,7 +1812,10 @@ Deno.test("skills list result is faithful (bundled, authored override, and exclu
   });
 });
 
-Deno.test("start result is faithful (dry-run preview and applied worktree)", async () => {
+const START_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "start result is faithful (dry-run preview and applied worktree)",
+  ["start"],
+)(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1795,16 +1854,82 @@ Deno.test("start result is faithful (dry-run preview and applied worktree)", asy
   });
 });
 
-// Keep this test LAST in the file: it reconciles the declared covered set
-// against the evidence the tests above accumulated while running. Deno runs a
-// module's tests in registration order, so by the time this executes every
-// faithfulness test has fired its expectFaithful calls.
-Deno.test("FAITHFULNESS_COVERED is evidence-derived: it equals the ids expectFaithful exercised", () => {
+/**
+ * The declaration every faithfulness test and coverage audit consumes. A new
+ * case is registered by the loop below and enrolled in FAITHFULNESS_COVERED by
+ * the same entry; each running case reconciles only its own local calls.
+ */
+const FAITHFULNESS_CASES: readonly FaithfulnessCase[] = [
+  ROOT_COMMANDS_FAITHFULNESS_CASE,
+  DONE_FAITHFULNESS_CASE,
+  PREPARE_TEST_FAITHFULNESS_CASE,
+  REFRESH_FAITHFULNESS_CASE,
+  TIDY_FAITHFULNESS_CASE,
+  DOCTOR_FAITHFULNESS_CASE,
+  DOCTOR_EXECUTION_MODEL_FAITHFULNESS_CASE,
+  IMPACT_FAITHFULNESS_CASE,
+  COUPLING_FAITHFULNESS_CASE,
+  AWAIT_FAITHFULNESS_CASE,
+  PATTERNS_FAITHFULNESS_CASE,
+  STATUS_FAITHFULNESS_CASE,
+  IMPROVEMENT_FAITHFULNESS_CASE,
+  CHECKPOINTS_FAITHFULNESS_CASE,
+  MAP_DOCS_FAITHFULNESS_CASE,
+  STANDARDS_FAITHFULNESS_CASE,
+  STANDARDS_PROPOSE_FAITHFULNESS_CASE,
+  UPDATE_FAITHFULNESS_CASE,
+  ACCEPT_FAITHFULNESS_CASE,
+  SKILLS_LIST_FAITHFULNESS_CASE,
+  START_FAITHFULNESS_CASE,
+];
+
+/** Contract ids backed by declared, self-reconciling real-result cases. */
+const FAITHFULNESS_COVERED = new Set(
+  FAITHFULNESS_CASES.flatMap((testCase) => testCase.contractIds),
+);
+
+for (const testCase of FAITHFULNESS_CASES) {
+  Deno.test(testCase.name, async () => {
+    const declaredIds: readonly string[] = testCase.contractIds;
+    const exercised = new Set<string>();
+    const record = (contractId: string): void => {
+      assert(
+        declaredIds.includes(contractId),
+        `${testCase.name} exercised undeclared contract "${contractId}"`,
+      );
+      exercised.add(contractId);
+    };
+    const assertions: FaithfulnessAssertions = {
+      expectFaithful: (contractId, result, label) => {
+        record(contractId);
+        validateFaithful(contractId, result, label);
+      },
+      expectSerializedFaithful: (contractId, serialized, label) => {
+        record(contractId);
+        validateSerializedFaithful(contractId, serialized, label);
+      },
+    };
+
+    await testCase.run(assertions);
+    assertEquals(
+      [...exercised].sort(),
+      [...new Set(declaredIds)].sort(),
+      `${testCase.name} must exercise every contract it declares`,
+    );
+  });
+}
+
+Deno.test("faithfulness case declarations are unique within their own authority", () => {
   assertEquals(
-    [...FAITHFULNESS_COVERED].sort(),
-    [...FAITHFULNESS_EXERCISED].sort(),
-    "FAITHFULNESS_COVERED must equal the contract ids exercised through " +
-      "expectFaithful — enrol a contract by writing its faithfulness test, " +
-      "never by editing the set",
+    new Set(FAITHFULNESS_CASES.map((testCase) => testCase.name)).size,
+    FAITHFULNESS_CASES.length,
+    "faithfulness case names must be unique",
   );
+  for (const testCase of FAITHFULNESS_CASES) {
+    assertEquals(
+      new Set(testCase.contractIds).size,
+      testCase.contractIds.length,
+      `${testCase.name} declares a contract more than once`,
+    );
+  }
 });

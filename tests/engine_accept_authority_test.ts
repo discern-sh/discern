@@ -60,8 +60,46 @@ const INTERRUPTION_FIXTURES = {
   "trunk-ref": "post-CAS checkout convergence, local edits, and ABA movement",
 } as const satisfies Record<AcceptanceTransactionBoundary, string>;
 
-/** Runtime evidence accumulated by the three successful authority fixtures. */
-const SUCCESSFUL_LANDING_SOURCES_EXERCISED = new Set<LandingConsentSource>();
+interface SuccessfulLandingCase {
+  /** The canonical authority source this real landing exercises. */
+  readonly source: LandingConsentSource;
+  /** The consent payload the envelope and Logbook must agree on. */
+  readonly consent: LandingConsent;
+  /** The authority wording the landing Proof must carry. */
+  readonly proofPhrase: string;
+}
+
+/**
+ * The successful landing cases. Tests take their expectations from this
+ * declaration, and the coverage audit iterates the same declaration, so test
+ * execution order carries no evidence.
+ */
+const SUCCESSFUL_LANDING_CASES = [
+  {
+    source: "conversation",
+    consent: { source: "conversation" },
+    proofPhrase: "landed with conversation consent",
+  },
+  {
+    source: "effort-grant",
+    consent: { source: "effort-grant" },
+    proofPhrase: "landed under effort grant",
+  },
+  {
+    source: "standing-grant",
+    consent: { source: "standing-grant", scopes: ["map"] },
+    proofPhrase: "landed under standing grant: map",
+  },
+] as const satisfies readonly SuccessfulLandingCase[];
+
+/** Resolve one declared successful landing case by its canonical source. */
+function successfulLandingCase(
+  source: LandingConsentSource,
+): SuccessfulLandingCase {
+  const testCase = SUCCESSFUL_LANDING_CASES.find((c) => c.source === source);
+  assert(testCase !== undefined, `no successful landing case for ${source}`);
+  return testCase;
+}
 
 /** Hold a successful envelope, Proof line, and Logbook event to one authority fact. */
 function assertSuccessfulLandingEvidence(
@@ -71,23 +109,23 @@ function assertSuccessfulLandingEvidence(
   },
   proofLine: string,
   event: LogbookEvent | undefined,
-  expected: LandingConsent,
-  proofPhrase: string,
+  testCase: SuccessfulLandingCase,
 ): void {
   assertEquals(
     {
       source: consent.source,
       ...(consent.scopes === undefined ? {} : { scopes: consent.scopes }),
     },
-    expected,
+    testCase.consent,
   );
-  assertStringIncludes(proofLine, proofPhrase);
+  assertStringIncludes(proofLine, testCase.proofPhrase);
   assert(event?.kind === "verb");
   assertEquals(event.consent, {
-    source: expected.source,
-    ...(expected.scopes === undefined ? {} : { scopes: [...expected.scopes] }),
+    source: testCase.consent.source,
+    ...(testCase.consent.scopes === undefined
+      ? {}
+      : { scopes: [...testCase.consent.scopes] }),
   });
-  SUCCESSFUL_LANDING_SOURCES_EXERCISED.add(expected.source);
 }
 
 Deno.test("every acceptance transaction boundary has interruption fixtures", () => {
@@ -318,8 +356,7 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
       envelope.data.consent,
       envelope.data.proof_line,
       event,
-      { source: "standing-grant", scopes: ["map"] },
-      "landed under standing grant: map",
+      successfulLandingCase("standing-grant"),
     );
     assert(event?.kind === "verb");
     assertEquals(event.scopes, ["map"]);
@@ -1141,8 +1178,7 @@ Deno.test("accept records confirmed conversation consent in its proof and logboo
       envelope.data.consent,
       envelope.data.proof_line,
       event,
-      { source: "conversation" },
-      "landed with conversation consent",
+      successfulLandingCase("conversation"),
     );
     assert(event?.kind === "verb");
     assertEquals(event.scopes, ["map"]);
@@ -1194,8 +1230,7 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
       envelope.data.consent,
       envelope.data.proof_line,
       event,
-      { source: "effort-grant" },
-      "landed under effort grant",
+      successfulLandingCase("effort-grant"),
     );
   });
 });
@@ -1759,11 +1794,9 @@ Deno.test("accept dry-run reports standing authority without landing", async () 
   });
 });
 
-// Keep this reconciliation last: the successful fixtures above provide the
-// evidence, and a new source must add a real landing case before this can pass.
 Deno.test("successful acceptance evidence covers every canonical landing-consent source", () => {
   assertEquals(
-    [...SUCCESSFUL_LANDING_SOURCES_EXERCISED].sort(),
+    SUCCESSFUL_LANDING_CASES.map((testCase) => testCase.source).sort(),
     [...LANDING_CONSENT_SOURCES].sort(),
   );
 });
