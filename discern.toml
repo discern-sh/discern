@@ -1219,24 +1219,21 @@
     run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
 
   # Public-manual density standard — hold the strict published projection at or
-  # above the existing 10.7 floor of navigable reading units per 10,000 prose
-  # words. A file-only numerator gives 41 leaves / 78,128 raw words = 5.25 and
-  # does not represent the consolidated corpus's navigable destinations.
-  # A reading unit is now a non-index page or a searchable level-two topic;
-  # frontmatter and code enter neither side. This comparable projection measures
-  # The replacement preserves the inherited floor without treating metadata or
-  # code as reader-facing prose.
+  # above a rising floor of navigable reading units per 10,000 prose words. A
+  # reading unit is a non-index page or a searchable level-two topic; frontmatter
+  # and code enter neither side. The 35.88 floor holds the measured baseline of
+  # 228 units across 63,544 words without treating metadata or code as prose.
   [standards.public_doc_leaf_density]
     metric = "public_doc_leaves"
     direction = "up"
     per = "public_doc_words"
     scale = 10000
-    limit = 10.7
+    limit = 35.88
     # Deepening an existing page is legitimate growth: at the current corpus size
     # the margin keeps roughly a thousand words of room for it before a new leaf
     # is due, and re-pins leave the same headroom.
     margin = 0.5
-    run = "deno run --allow-read scripts/public_doc_density.ts project/manual"
+    run = "deno run --allow-read scripts/public_doc_density.ts"
     inputs = [
       "project/manual/**",
       "scripts/public_doc_density.ts",
