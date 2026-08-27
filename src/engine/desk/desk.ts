@@ -28,6 +28,7 @@ import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { parsePorcelainZ, splitNulRecords } from "../../shared/git_paths.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import type { DiscernResult, EnginePlan } from "../../shared/result.ts";
 import type {
@@ -721,19 +722,16 @@ interface NumstatMagnitude {
 /** Parse Git's tab-delimited numstat without inventing counts for binary files. */
 function parseNumstat(output: string): Map<string, NumstatMagnitude> {
   const magnitudes = new Map<string, NumstatMagnitude>();
-  for (const line of output.split("\n")) {
-    if (line === "") continue;
-    const fields = line.split("\t");
-    const addedRaw = fields[0];
-    const removedRaw = fields[1];
-    const path = fields.slice(2).at(-1);
-    if (path === undefined || path === "") continue;
-    const added = addedRaw === undefined || addedRaw === "-"
-      ? undefined
-      : Number.parseInt(addedRaw, 10);
-    const removed = removedRaw === undefined || removedRaw === "-"
-      ? undefined
-      : Number.parseInt(removedRaw, 10);
+  for (const record of splitNulRecords(output)) {
+    const first = record.indexOf("\t");
+    const second = first === -1 ? -1 : record.indexOf("\t", first + 1);
+    if (first === -1 || second === -1) continue;
+    const addedRaw = record.slice(0, first);
+    const removedRaw = record.slice(first + 1, second);
+    const path = record.slice(second + 1);
+    if (path === "") continue;
+    const added = /^\d+$/.test(addedRaw) ? Number(addedRaw) : undefined;
+    const removed = /^\d+$/.test(removedRaw) ? Number(removedRaw) : undefined;
     magnitudes.set(path, {
       ...(added === undefined || !Number.isSafeInteger(added) ? {} : { added }),
       ...(removed === undefined || !Number.isSafeInteger(removed)
@@ -760,11 +758,10 @@ function reviewFiles(
   numstat: Map<string, NumstatMagnitude>,
 ): DeskReviewFile[] {
   const files = new Map<string, DeskReviewFile>();
-  for (const line of nameStatus.split("\n")) {
-    if (line === "") continue;
-    const fields = line.split("\t");
-    const token = fields[0] ?? "M";
-    const path = fields.at(-1);
+  const nameStatusFields = splitNulRecords(nameStatus);
+  for (let index = 0; index + 1 < nameStatusFields.length; index += 2) {
+    const token = nameStatusFields[index] ?? "M";
+    const path = nameStatusFields[index + 1];
     if (path === undefined || path === "") continue;
     const magnitude = numstat.get(path);
     files.set(path, {
@@ -777,11 +774,9 @@ function reviewFiles(
       uncommitted: false,
     });
   }
-  for (const line of porcelain.split("\n")) {
-    if (line.length < 4) continue;
-    const token = line.slice(0, 2);
-    const path = line.slice(3).split(" -> ").at(-1)?.trim();
-    if (path === undefined || path === "") continue;
+  for (const entry of parsePorcelainZ(porcelain)) {
+    const token = entry.status;
+    const path = entry.path;
     const previous = files.get(path);
     files.set(path, {
       path,
@@ -816,19 +811,25 @@ async function gatherDeskReview(
       reviewGitRead(
         runtime,
         cwd,
-        ["diff", "--numstat", `${trunk}...HEAD`],
+        ["diff", "--numstat", "-z", "--no-renames", `${trunk}...HEAD`],
         "Diffstat could not be read",
       ),
       reviewGitRead(
         runtime,
         cwd,
-        ["diff", "--name-status", `${trunk}...HEAD`],
+        [
+          "diff",
+          "--name-status",
+          "-z",
+          "--no-renames",
+          `${trunk}...HEAD`,
+        ],
         "Changed paths could not be read",
       ),
       reviewGitRead(
         runtime,
         cwd,
-        ["status", "--porcelain=v1"],
+        ["status", "--porcelain=v1", "-z"],
         "Uncommitted paths could not be read",
       ),
     ]);

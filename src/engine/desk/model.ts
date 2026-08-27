@@ -959,7 +959,10 @@ export const DESK_ACTION_REGISTRY = {
         ["Exit the shell to return to the Desk"],
       ),
     confirmation: NO_CONFIRMATION,
-    availability: (_facts: DeskActionFacts): string | undefined => undefined,
+    availability: (facts: DeskActionFacts): string | undefined =>
+      facts.entry.git_unavailable === true
+        ? "Git state is unreadable. Repair Git before opening a shell."
+        : undefined,
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
   inspect: {

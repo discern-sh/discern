@@ -6,6 +6,7 @@
  */
 
 import { join } from "@std/path";
+import { lstatIfExists } from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { type EnginePlan, verbatimStepLabel } from "../../shared/result.ts";
 import {
@@ -18,7 +19,6 @@ import {
   effortGrantFailureReason,
   type EffortGrantRead,
   parseEffortGrant,
-  readEffortGrant,
 } from "./effort_grant.ts";
 
 /** An effort grant atomically removed from the desk-visible marker while one
@@ -38,9 +38,9 @@ const CLAIM_ID =
 
 /** Preview grant revocation while leaving the apply path to revalidate it. */
 export async function clearEffortGrantPlan(cwd: string): Promise<EnginePlan> {
-  const current = await readEffortGrant(cwd);
   const path = await gitAdminStatePath(cwd, "effortGrant");
-  const removable = path !== undefined && current.status !== "missing";
+  const removable = path !== undefined &&
+    await lstatIfExists(path) !== undefined;
   return {
     title: "Landing pre-authorization revocation plan",
     details: [
@@ -52,10 +52,10 @@ export async function clearEffortGrantPlan(cwd: string): Promise<EnginePlan> {
       label: verbatimStepLabel("remove landing pre-authorization"),
       disposition: removable ? "run" : "skip",
       note: removable
-        ? `remove the ${current.status} authority record`
-        : current.status === "missing"
-        ? "no landing pre-authorization is recorded"
-        : "Git could not resolve the authority record path",
+        ? "remove the authority record"
+        : path === undefined
+        ? "Git could not resolve the authority record path"
+        : "no landing pre-authorization is recorded",
     }],
   };
 }

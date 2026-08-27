@@ -909,9 +909,9 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   const menus: string[] = [];
   const gitResults = [
     { success: true, stdout: "abc123 Explain the change\n", stderr: "" },
-    { success: true, stdout: "", stderr: "" },
-    { success: true, stdout: "M\tsrc/desk.ts\n", stderr: "" },
-    { success: true, stdout: " M src/desk.ts\n", stderr: "" },
+    { success: true, stdout: '3\t1\tsrc/café"desk.ts\0', stderr: "" },
+    { success: true, stdout: 'M\0src/café"desk.ts\0', stderr: "" },
+    { success: true, stdout: ' M src/café"desk.ts\0', stderr: "" },
     { success: false, stdout: "", stderr: "diff unavailable\n" },
   ];
   const shellCalls: Array<{
@@ -947,6 +947,7 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   assert((shellCalls[0]?.command ?? "").length > 0);
   const text = joined(output);
   assertStringIncludes(text, "abc123 Explain the change");
+  assertStringIncludes(text, 'src/café"desk.ts');
   assertStringIncludes(text, "diff unavailable");
   assertStringIncludes(text, "Proof honored for this commit");
   const actionMenu = menus.join("\n");
