@@ -36,6 +36,7 @@ Deno.test("Desk compositions leave two thirds of the viewport for package frame 
   assertEquals(deskCompositionReserveRows(-1, 24), 0);
 });
 
+/** Resolve one deterministic terminal context for a view fixture. */
 function terminal(
   size: TerminalSize,
   options: { readonly color?: boolean; readonly unicode?: boolean } = {},
@@ -51,6 +52,7 @@ function terminal(
   });
 }
 
+/** Build one non-main status entry with stable Desk defaults. */
 function entry(
   name: string,
   patch: Partial<StatusFleetEntry> = {},
@@ -80,6 +82,7 @@ const AGENT: DeskAgentLaunch = {
   args: [],
 };
 
+/** Adapt status entries into complete Desk rows for view assertions. */
 function rows(entries: readonly StatusFleetEntry[]): DeskRow[] {
   return buildDeskRows(
     entries,
@@ -89,6 +92,7 @@ function rows(entries: readonly StatusFleetEntry[]): DeskRow[] {
   );
 }
 
+/** Require every ANSI-stripped physical line to fit its viewport. */
 function assertBounded(frame: string, width: number): void {
   for (const line of stripAnsi(frame).split("\n")) {
     assert(
