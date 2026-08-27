@@ -1228,13 +1228,18 @@
     # the margin keeps roughly a thousand words of room for it before a new leaf
     # is due, and re-pins leave the same headroom.
     margin = 0.5
-    run = "deno run --allow-read scripts/public_doc_density.ts \"${map.dir}\""
+    # The repository-owned default is the definition boundary. On this transition
+    # commit it still resolves the current Map projection; manual 2A replaces that
+    # implementation with the dedicated manual projection after updating from main.
+    run = "deno run --allow-read scripts/public_doc_density.ts"
     inputs = [
-      "${map.dir}**",
+      "project/manual/**",
       "scripts/public_doc_density.ts",
       "scripts/public_doc_density_lib.ts",
+      "scripts/manual_prose_lib.ts",
       "src/lib/frontmatter.ts",
       "src/lib/docs.ts",
+      "src/lib/manual.ts",
       "src/lib/paths.ts",
     ]
 
