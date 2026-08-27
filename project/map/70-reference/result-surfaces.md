@@ -13,7 +13,7 @@ aliases:
 
 # Result formats and delivery
 
-_One prepared `DiscernResult` can be presented in the terminal, as authored Markdown, as compact JSON, or through MCP._
+_One policy-evaluated `DiscernResult` can be presented in the terminal, as authored Markdown, as compact JSON, or through MCP._
 
 | Surface               | Result                                                                                      |
 | --------------------- | ------------------------------------------------------------------------------------------- |
@@ -27,6 +27,8 @@ _One prepared `DiscernResult` can be presented in the terminal, as authored Mark
 Choose by task and consumer. Markdown offers prioritized prose for reading and quoting; JSON offers exact fields for selection, validation, scripts, and durable integrations. Either may suit people or agents.
 
 MCP carries both representations because hosts expose channels differently. Either `content[0].text` or `structuredContent` explains the current state and next action; together they remain complementary rather than duplicate JSON.
+
+All surfaces preserve one completion verdict. `ok: true` means every required outcome declared for the verb holds. Optional degradation stays successful only as a typed `advisories[]` item with a kind, evidence, and next action. A required late failure remains false even when its steps or data show earlier effects, and MCP `isError` is the inverse of `structuredContent.ok`. Renderers select and arrange facts; they never reinterpret success ([ADR 0349](../_adr/0349-top-level-success-follows-completion-policies.md)).
 
 `--markdown`, `--json`, and `--render` are mutually exclusive. All suppress surrounding terminal decoration and subprocess narration; `--md` is not an alias. The convenience-only `--render` passes authored Markdown through discern's terminal renderer. It never prompts or pages, follows width, theme, color, and character support, and redirects without control sequences. JSON and Markdown remain the primary result formats.
 

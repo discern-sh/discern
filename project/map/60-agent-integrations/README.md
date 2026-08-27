@@ -16,6 +16,8 @@ The MCP call-duration policy covers the same native set in [`src/shared/mcp_time
 
 `discern setup`, `discern refresh`, and `discern upgrade` use the provider registry to restore integration artifacts. The [Desk](../30-worktrees/the-desk.md) uses its CLI declarations to open a configured, PATH-available agent in the selected worktree.
 
+An agent consuming a discern result can treat top-level `ok` as the truth of that verb's completion contract. It does not need to inspect incidental lists or parse prose to discover a required failure. A successful degradation appears only in typed `advisories`, with evidence and a next action; a false result can still contain completed effects and the exact safe recovery. Terminal, JSON, Markdown, and MCP preserve that same verdict ([ADR 0349](../_adr/0349-top-level-success-follows-completion-policies.md)).
+
 Each native provider also declares a compact mark and horizontal logo lockup with first-party provenance. The parity guard checks the directory in both directions, so missing and unregistered scalable vector graphics (SVG) files fail. Each vector file contains its own assets, so the site does not depend on a vendor asset host.
 
 Each provider page lists the files discern writes or co-manages, what stays with the user, and the provider-specific gotchas.

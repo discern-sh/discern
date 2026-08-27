@@ -13,7 +13,7 @@ aliases:
 
 _Every verb builds one result object. Types, runtime validation, generated contracts, and protocol adapters converge on it._
 
-[`result.ts`](../../../src/shared/result.ts) defines plans, executed steps, diagnostics, and `DiscernResult<TData>`. Terminal, JSON, Markdown, and Model Context Protocol (MCP) presentations render that one object ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
+[`result.ts`](../../../src/shared/result.ts) defines plans, executed steps, diagnostics, advisories, and `DiscernResult<TData>`. [`result_completion.ts`](../../../src/shared/result_completion.ts) defines what each verb must accomplish before that object can be successful. Terminal, JSON, Markdown, and Model Context Protocol (MCP) presentations render the evaluated object ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md), [ADR 0349](../_adr/0349-top-level-success-follows-completion-policies.md)).
 
 Projection ownership extends to the process edge. A verb does not print state and ask a caller to recover structure from text. It returns a result; [`emitResult`](../../../src/shared/emit.ts) owns quiet CLI projection, while the MCP adapter serializes the same object inside the SDK transport. Shell-facing scalars and raw document bodies remain explicit raw contracts behind the engine output adapter. The exact output and exit registries prevent another direct process primitive from bypassing those authorities ([ADR 0344](../_adr/0344-process-egress-and-termination-have-exact-boundaries.md)).
 
@@ -43,13 +43,32 @@ Configured job, scope, standard, resource, command, and path identifiers stay ou
 
 | Field              | Role                                                                                                                                      |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `ok`, `verb`       | Universal success flag and verb discriminator.                                                                                            |
+| `ok`, `verb`       | Completion-policy verdict and verb discriminator.                                                                                         |
 | `dry_run`, `plan`  | A preview and the steps it would apply.                                                                                                   |
 | `steps`            | Applied steps with outcomes, duration, and output metadata.                                                                               |
 | `diagnostics`      | Normalized failures with a reproduce command and captured output.                                                                         |
 | `data`             | The schema-backed payload for one verb.                                                                                                   |
+| `advisories`       | Policy-permitted successful degradations, each with a typed kind, evidence, and next action.                                              |
 | `hints`            | Advisory next actions that never decide success; failures carry at least one ([ADR 0172](../_adr/0172-hints-compile-from-a-registry.md)). |
-| `error`, `message` | A stable refusal slug and human explanation.                                                                                              |
+| `error`, `message` | A stable classified-failure slug and human explanation on evaluated failures.                                                             |
+
+## Completion semantics
+
+`ok: true` answers one question: did this verb satisfy every required outcome in its completion policy? [`RESULT_COMPLETION_POLICIES`](../../../src/shared/result_completion.ts) holds one state table per public result verb. Each entry declares required outcomes, permitted advisory kinds, refusal and cancellation meaning, partial-effect and no-op behavior, and the owner of recovery.
+
+The evaluator consumes typed fields and executed-step outcomes. It never parses messages. A required failed or cancelled step is false; an explicitly optional failed step carries a structured advisory and remains successful only when the verb policy permits its kind. A no-op is successful only where elected. A required late failure remains false even after earlier effects succeeded, and the payload retains the exact partial state and safe recovery instead of implying rollback.
+
+| State                | Top-level meaning                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------------------- |
+| Required success     | `ok: true`; every required typed outcome holds.                                                          |
+| No-op                | `ok: true` only where the policy admits idempotent completion.                                           |
+| Optional degradation | `ok: true` with `advisories[]`; each item carries `kind`, non-empty `evidence`, and `next_action`.       |
+| Required failure     | `ok: false` with classified failure and recovery.                                                        |
+| Partial effect       | `ok: false`; steps and typed data preserve what changed and what remains.                                |
+| Refusal              | `ok: false`; no earlier success can override the unmet precondition or owner decision.                   |
+| Cancellation         | Policy-selected; fail-fast cancellation fails, while elected user cancellation can be no-effect success. |
+
+Result capture evaluates before human presentation. Quiet emission, serialization, MCP adaptation, and the Logbook CLI wrapper evaluate at their own process boundaries as a defensive invariant. They all project the same core verdict; MCP `isError` is its inverse.
 
 ## Error disposition
 
@@ -69,22 +88,22 @@ A runnable discern command inside a hint uses a typed reference ([ADR 0217](../_
 
 [`result_schemas.ts`](../../../src/shared/result_schemas.ts) owns the strict envelope and each verb's data and output schemas. Verb cores infer payload types from it; MCP validates `structuredContent` against it ([ADR 0041](../_adr/0041-self-describing-mcp-surface.md)).
 
-[`result_contracts.ts`](../../../src/shared/result_contracts.ts) maps command paths, literal verbs, and MCP tools to output schemas. Faithfulness tests execute real cores. Every entry needs coverage or explicit debt; MCP debt is forbidden.
+[`result_contracts.ts`](../../../src/shared/result_contracts.ts) maps command paths, literal verbs, and MCP tools to output schemas. It also proves one-to-one coverage between the literal completion-policy keys and the registered result verbs. Faithfulness tests execute real cores. Every entry needs coverage or explicit debt; MCP debt is forbidden.
 
 ## Generated consumer contracts
 
-`deno task codegen` projects the registry into:
+`deno task codegen` projects the registry and each contract's completion policy into:
 
 - [`schema/discern-results.schema.json`](../../../schema/discern-results.schema.json), whose entry points cover CLI results and MCP tool wrappers;
 - [`types/discern-json.d.ts`](../../../types/discern-json.d.ts), including lookup maps by verb, command, and MCP tool.
 
-Runtime schemas stay strict. The generated schema admits additive fields and publishes current error slugs as metadata, so an older version-1 consumer accepts a compatible release ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)). [`result_codegen_test.ts`](../../../tests/result_codegen_test.ts) fails when committed artifacts or command enrollment drift ([ADR 0097](../_adr/0097-publish-json-result-contracts.md)).
+Runtime schemas stay strict. The generated schema admits additive fields and publishes current error slugs and completion-policy state tables as metadata, so an older version-1 consumer accepts a compatible release ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)). [`result_codegen_test.ts`](../../../tests/result_codegen_test.ts) fails when committed artifacts, policy metadata, or command enrollment drift ([ADR 0097](../_adr/0097-publish-json-result-contracts.md)).
 
 Git divergence fields use a non-negative integer for a verified count and the literal `"unknown"` for a failed or malformed count read. A factual zero remains numeric; status fields that accept `null` reserve it for a missing comparison target. This is a pre-release correction to the live version-1 result publication, with consumer migration required for code that previously assumed every present value was numeric ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)).
 
 ## Protocol adapters
 
-[`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. `MCP_SHELL_ONLY_VERBS`, declared beside `TOOLS` with a reason per member, records the verbs without a tool. The parity guard reconciles the registries against the verb vocabulary. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
+[`server.ts`](../../../src/engine/mcp/server.ts) adapts evaluated result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. `isError` is the inverse of the serialized core verdict. Parity tests bind tools, schemas, verbs, and completion policies. `MCP_SHELL_ONLY_VERBS`, declared beside `TOOLS` with a reason per member, records the verbs without a tool. The parity guard reconciles the registries against the verb vocabulary. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 The stdio transport alone owns MCP stdout. Tool cores construct quiet `Logger` and runner instances, so an operational log or successful project-command write cannot become an unframed protocol line. A live transport test plants that attempt and requires the next line to decode as the requested JSON-RPC response.
 
@@ -92,21 +111,22 @@ The MCP instructions render the policies required on that surface from the opera
 
 ## Where it lives in code
 
-| Concern                           | Source                                                                                                                                                                                                            |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Result and renderer vocabulary    | [`result.ts`](../../../src/shared/result.ts)                                                                                                                                                                      |
-| Terminal presentation adapters    | [`output.ts`](../../../src/engine/output.ts), [`log.ts`](../../../src/lib/log.ts), [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts)                                                          |
-| Envelope serialization            | [`result_serialization.ts`](../../../src/shared/result_serialization.ts)                                                                                                                                          |
-| Command references and renderers  | [`command_reference.ts`](../../../src/shared/command_reference.ts), guarded by [`hint_surface_rendering_test.ts`](../../../tests/hint_surface_rendering_test.ts)                                                  |
-| Strict runtime schemas            | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                                                                                                                                                      |
-| Command and MCP contract registry | [`result_contracts.ts`](../../../src/shared/result_contracts.ts)                                                                                                                                                  |
-| Generated contract builder        | [`result_codegen.ts`](../../../src/shared/result_codegen.ts)                                                                                                                                                      |
-| MCP adapters                      | [`server.ts`](../../../src/engine/mcp/server.ts)                                                                                                                                                                  |
-| Operating policy registry         | [`operating_policies.ts`](../../../src/shared/operating_policies.ts)                                                                                                                                              |
-| Contract and policy faithfulness  | [`result_schemas_test.ts`](../../../tests/result_schemas_test.ts), [`result_codegen_test.ts`](../../../tests/result_codegen_test.ts), [`agent_policy_parity_test.ts`](../../../tests/agent_policy_parity_test.ts) |
+| Concern                           | Source                                                                                                                                                                                                                                                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Result and renderer vocabulary    | [`result.ts`](../../../src/shared/result.ts)                                                                                                                                                                                                                                                             |
+| Completion policy and evaluation  | [`result_completion.ts`](../../../src/shared/result_completion.ts)                                                                                                                                                                                                                                       |
+| Terminal presentation adapters    | [`output.ts`](../../../src/engine/output.ts), [`log.ts`](../../../src/lib/log.ts), [`terminal_interaction.ts`](../../../src/lib/terminal_interaction.ts)                                                                                                                                                 |
+| Envelope serialization            | [`result_serialization.ts`](../../../src/shared/result_serialization.ts)                                                                                                                                                                                                                                 |
+| Command references and renderers  | [`command_reference.ts`](../../../src/shared/command_reference.ts), guarded by [`hint_surface_rendering_test.ts`](../../../tests/hint_surface_rendering_test.ts)                                                                                                                                         |
+| Strict runtime schemas            | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                                                                                                                                                                                                                                             |
+| Command and MCP contract registry | [`result_contracts.ts`](../../../src/shared/result_contracts.ts)                                                                                                                                                                                                                                         |
+| Generated contract builder        | [`result_codegen.ts`](../../../src/shared/result_codegen.ts)                                                                                                                                                                                                                                             |
+| MCP adapters                      | [`server.ts`](../../../src/engine/mcp/server.ts)                                                                                                                                                                                                                                                         |
+| Operating policy registry         | [`operating_policies.ts`](../../../src/shared/operating_policies.ts)                                                                                                                                                                                                                                     |
+| Contract and policy faithfulness  | [`result_schemas_test.ts`](../../../tests/result_schemas_test.ts), [`result_codegen_test.ts`](../../../tests/result_codegen_test.ts), [`result_completion_policy_test.ts`](../../../tests/result_completion_policy_test.ts), [`agent_policy_parity_test.ts`](../../../tests/agent_policy_parity_test.ts) |
 
 ## Current state & gotchas
 
-- `steps` and `plan` are mutually exclusive. A fail-fast sibling is `cancelled`; a configured step that did not run is `skipped`.
+- `steps` and `plan` are mutually exclusive. A fail-fast sibling is `cancelled` and fails required completion; a configured step that did not run is `skipped`. Only a policy-elected no-effect cancellation is successful.
 - Full job output is a best-effort OS temporary artifact. Registered artifacts become eligible for removal after 24 hours. One repository-shared sweep runs at most hourly, inspects and removes at most 500 entries per page, and carries a cursor across pages; failure to write or reap an artifact cannot change a job's result ([ADR 0117](../_adr/0117-temp-output-artifacts-are-reaped-by-age.md), [ADR 0216](../_adr/0216-temp-retention-is-repository-throttled-and-inspection-bounded.md)).
 - A new JSON-emitting command needs registry enrollment, a per-verb schema, faithfulness coverage, and regenerated artifacts. MCP exposure also needs the server adapter and surface-parity coverage.

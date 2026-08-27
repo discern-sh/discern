@@ -97,18 +97,21 @@ Map search includes `publish: false`. Docs search covers the public manual. Both
 
 | Field         | Presence               | Caller-visible meaning                                                                                     |
 | ------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `ok`          | Always                 | Literal success (`true`) or failure (`false`) discriminator.                                               |
+| `ok`          | Always                 | Completion-policy success (`true`) or failure (`false`) discriminator.                                     |
 | `verb`        | Always                 | Producing command.                                                                                         |
 | `dry_run`     | Preview                | `true` for a preview.                                                                                      |
 | `plan`        | Preview or review plan | Context and steps that would run. Never present with `steps`.                                              |
 | `steps`       | Applied calls          | Attempted operations and outcomes. Never present with `plan` or `dry_run: true`.                           |
 | `diagnostics` | Failures               | Failure details and reproduce command.                                                                     |
 | `data`        | Verb-specific          | The verb's payload.                                                                                        |
+| `advisories`  | Optional degradation   | Successful degradation records with a typed kind, evidence, and next action.                               |
 | `hints`       | Advisory               | Notices, boundaries, owner attention, and next actions. Failures carry an action. Hints never change `ok`. |
-| `error`       | Some failures          | Stable refusal slug. Forbidden when `ok` is `true`; optional when `ok` is `false`.                         |
-| `message`     | Refusals               | Explanatory refusal.                                                                                       |
+| `error`       | Evaluated failures     | Stable classified-failure slug. Forbidden when `ok` is `true`.                                             |
+| `message`     | Evaluated failures     | Explanatory failure or refusal.                                                                            |
 
-`ok` and the execution state form independent discriminated contracts. A failed Gate run can carry diagnostics and completed steps without an `error` slug. A refusal can carry a review `plan` without claiming `dry_run: true`. Serialization omits undefined fields. Branch on `ok`, then `verb`, before reading `data` ([ADR 0334](../_adr/0334-result-envelopes-encode-valid-structural-states.md)).
+`ok: true` means every required outcome in the producing verb's completion policy holds. Required writes, validation, compilation, cleanup, and final checks cannot fail under a successful envelope. An explicitly optional degradation remains successful only when `advisories[]` carries its permitted `kind`, non-empty `evidence`, and `next_action`. Hints do not waive required work ([ADR 0349](../_adr/0349-top-level-success-follows-completion-policies.md)).
+
+`ok` and the execution state form independent discriminated contracts. A failed Gate run can carry diagnostics and completed steps beside its classified error. A required late failure can carry typed partial-effect data and recovery because `ok: false` does not imply rollback. A refusal can carry a review `plan` without claiming `dry_run: true`. Serialization omits undefined fields. Branch on `ok`, then `verb`, before reading `data` ([ADR 0334](../_adr/0334-result-envelopes-encode-valid-structural-states.md)).
 
 A failed JSON, Markdown, or MCP result always includes a registered next action. JSON and `structuredContent` carry it in `hints`; Markdown places it at the end of the presentation. Owner decisions occupy a separate Owner attention section before caller actions. When `message` or the first `diagnostics` entry explains the correction, the hint points there. When recovery depends on a choice or reported state, the hint names the relevant state and action. Consent, partial operations, incomplete setup, document lookup, and improvement thresholds use these specific instructions. A caller therefore does not have to infer whether to retry, review, choose, or complete cleanup ([ADR 0266](../_adr/0266-public-failure-recovery-is-classified-by-error-family.md)).
 
@@ -128,21 +131,24 @@ An unlanded successful `setup done` carries Proof, canonical completion inventor
 
 `setup done` failures carry data for unfinished authoring, uncommitted paths, or compensation. `ok`, `error`, and `message` discriminate the refusal.
 
+Applied `setup` and `upgrade` results carry `data.instruction_refresh`. `status: "complete"` means the required instruction refresh completed, even when `compiled` is empty because every artifact was current. `status: "partial"` makes top-level `ok` false and carries the completed artifacts, non-empty failure evidence, `effects_preserved: true`, and `recovery: { command: "discern refresh", safe_to_retry: true }`. The partial result reports prior scaffold or migration effects rather than pretending they rolled back.
+
 A successful `accept` reports the permission it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. The terminal proof line and `data.proof_line` repeat that evidence.
 
 ### Plans and executed steps
 
-| Field              | Meaning                                                                                |
-| ------------------ | -------------------------------------------------------------------------------------- |
-| `kind`             | Operation category such as `job`, `git`, `refresh`, `standard`, or `resource-destroy`. |
-| `label`            | Stable name for the command, scope, resource, or lifecycle operation.                  |
-| `disposition`      | `run`, `skip`, or `gate` for a read-only precondition.                                 |
-| `note` / `group`   | Optional explanation and display group.                                                |
-| `outcome`          | `ok`, `failed`, `skipped`, or `cancelled` on an executed step.                         |
-| `duration_s`       | Whole-second duration when measured.                                                   |
-| `output_path`      | Best-effort path to the full combined output artifact.                                 |
-| `output_lines`     | Number of captured output lines.                                                       |
-| `error_like_lines` | Number of lines shaped like compiler or linter diagnostics.                            |
+| Field              | Meaning                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| `kind`             | Operation category such as `job`, `git`, `refresh`, `standard`, or `resource-destroy`.  |
+| `label`            | Stable name for the command, scope, resource, or lifecycle operation.                   |
+| `disposition`      | `run`, `skip`, or `gate` for a read-only precondition.                                  |
+| `note` / `group`   | Optional explanation and display group.                                                 |
+| `outcome`          | `ok`, `failed`, `skipped`, or `cancelled` on an executed step.                          |
+| `advisory`         | Present on an explicitly optional failed step; carries kind, evidence, and next action. |
+| `duration_s`       | Whole-second duration when measured.                                                    |
+| `output_path`      | Best-effort path to the full combined output artifact.                                  |
+| `output_lines`     | Number of captured output lines.                                                        |
+| `error_like_lines` | Number of lines shaped like compiler or linter diagnostics.                             |
 
 Output metadata is advisory. A configured command's exit status decides the job verdict, except for Standards. Their `DISCERN_METRIC` value is the measurement contract.
 
@@ -150,7 +156,7 @@ Gate and standalone Standards results carry each Standard's `direction`, `limit`
 
 Patterns results always carry `data.investigations`. Each entry cites source ids that remain present in `data.findings`, repeats their observations and denominators with numerical provenance, and states the shared evidence boundary, bounded interpretation, diagnostic action, and falsifier. An empty array means no registered relationship cleared its evidence requirements. Terminal, JSON, Model Context Protocol, and sealed-archive reads use the same synthesis arithmetic ([ADR 0277](../_adr/0277-patterns-investigations-preserve-source-findings.md)).
 
-`cancelled` marks a fail-fast sibling; `skipped` marks a configured step that did not run.
+`cancelled` marks a fail-fast sibling and fails required completion. `skipped` marks a configured step that did not run. A policy can separately elect a user cancellation as successful no-effect completion.
 
 ### Diagnostics
 
@@ -178,7 +184,7 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 | Project Script's own code    | `discern scripts <name>` passes through the script's exit code because the script owns its result contract.  |
 | Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.           |
 
-Quiet result modes map exit `0` to `ok: true` and controlled nonzero to `ok: false`. Predicates using `--json` or `--markdown` always exit `0`; their boolean is in `data`. Bare `config has` and `impact --has` stay silent, exiting `0` or `1`. `identity` and config reads are bare unless `--json` or `--markdown` requests a result.
+Quiet result modes map exit `0` to evaluated `ok: true` and controlled nonzero to evaluated `ok: false`; a verb's manually reported zero cannot override a failed completion contract. Predicates using `--json` or `--markdown` always exit `0`; their boolean is in `data`. Bare `config has` and `impact --has` stay silent, exiting `0` or `1`. `identity` and config reads are bare unless `--json` or `--markdown` requests a result.
 
 ## Published schemas and types
 
@@ -194,7 +200,7 @@ Quiet result modes map exit `0` to `ok: true` and controlled nonzero to `ok: fal
 
 <!-- END GENERATED: public schema publications -->
 
-[`types/discern-json.d.ts`](../../../types/discern-json.d.ts) provides standalone TypeScript types indexed by verb, command path, and MCP tool name. Each per-verb type intersects with `DiscernResultState`, so narrowing `ok` also narrows `error`, and planned and completed steps cannot coexist.
+[`types/discern-json.d.ts`](../../../types/discern-json.d.ts) provides standalone TypeScript types indexed by verb, command path, and MCP tool name. Each per-verb type intersects with `DiscernResultState`, so narrowing `ok` also narrows `error`, and planned and completed steps cannot coexist. The result schema's `x-discern-contracts` metadata publishes each registered verb's required outcomes, optional advisory kinds, refusal, cancellation, partial-effect, no-op, and recovery-owner policy.
 
 ### Compatibility by schema version
 
@@ -202,7 +208,7 @@ Package releases do not change public schema `$id`s; breaks require a new major.
 
 The append-only compatibility promise begins at the first release tag. Before that tag, a publication may still be corrected. Afterward, every registered path and identity remains covered on the trunk. Every generated artifact and trunk baseline must compile as JSON Schema Draft 2020-12. The artifact records its compatibility policy, and same-major comparisons use the policy from the trunk artifact. A breaking major adds a publication, artifact, and route while retaining the earlier major.
 
-The v1 result publication uses the pre-release correction rule for its discriminated envelope contract. Copies made before that correction must refresh the schema and generated declarations. Contradictory fixtures do not remain valid through a compatibility alternative ([ADR 0334](../_adr/0334-result-envelopes-encode-valid-structural-states.md)).
+The v1 result publication uses the pre-release correction rule for its discriminated envelope and completion contracts. Copies made before those corrections must refresh the schema and generated declarations. Setup and upgrade consumers replace ambiguous compilation Booleans and lists with `data.instruction_refresh`; a partial required refresh is a failed command even though its payload preserves completed effects. Contradictory fixtures and lying success states do not remain valid through a compatibility alternative ([ADR 0334](../_adr/0334-result-envelopes-encode-valid-structural-states.md), [ADR 0349](../_adr/0349-top-level-success-follows-completion-policies.md)).
 
 The comparison permits the table's additions, reordered contract unions, and the first MCP exposure of an existing CLI contract. In config schemas, a new named property must accept every value admitted for that name by the trunk object's `additionalProperties` schema. Its named schema may add members to the catchall's `type` set; `oneOf` stays under structural comparison. Tuple schemas compare `prefixItems` by position.
 

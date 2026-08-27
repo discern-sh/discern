@@ -46,8 +46,6 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 
 - [ ] **Revisit generated-artifact preservation only with a non-inference design.** Reopen ignored-artifact rescue only when authorship can be established without mistaking stale generated prose for meaningful user edits, or when real incidents justify that trade-off. Evidence: `project/map/_adr/_superseded/0091-rescue-generated-content-before-overwrite.md`; `src/engine/instructions.ts`; `src/lib/skills.ts`.
 
-- [ ] **Define top-level success when instruction compilation fails.** Decide whether setup and upgrade JSON success covers secondary agent-instruction compilation, then apply that result-envelope rule consistently across every affected verb. Evidence: `src/commands/setup.ts`; `src/commands/upgrade.ts`; `src/shared/result.ts`.
-
 - [ ] **Keep HTML comments out of human Map projections.** Strip structural comments from search excerpts and terminal rendering while preserving byte-identical raw Markdown, MCP, and negotiated-text routes. Evidence: `src/lib/docs_search.ts:359`; `src/commands/docs.ts`; `src/lib/markdown.ts`; `project/map/_adr/0205-browser-workflow-semantics-are-explicit-markdown-projections.md`.
 
 - [ ] **Add the next auto-detected Tier-1 diagnostic formats.** Implement GitHub Actions annotations, TeamCity service messages, and Checkstyle XML in leverage order, with parser fixtures and a failed-job end-to-end guard for each format. Evidence: `src/engine/gate/diagnostics.ts`; `tests/gate_diagnostics_test.ts`; `tests/engine_done_json_test.ts`.
