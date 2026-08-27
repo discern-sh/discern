@@ -6,7 +6,9 @@
  */
 
 import { join } from "@std/path";
+import { lstatIfExists } from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { type EnginePlan, verbatimStepLabel } from "../../shared/result.ts";
 import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
@@ -33,6 +35,30 @@ export type EffortGrantClaimRead =
 
 const CLAIM_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Preview grant revocation while leaving the apply path to revalidate it. */
+export async function clearEffortGrantPlan(cwd: string): Promise<EnginePlan> {
+  const path = await gitAdminStatePath(cwd, "effortGrant");
+  const removable = path !== undefined &&
+    await lstatIfExists(path) !== undefined;
+  return {
+    title: "Landing pre-authorization revocation plan",
+    details: [
+      `Task: ${cwd}`,
+      `Authority record: ${path ?? "Git could not resolve the record path"}`,
+    ],
+    steps: [{
+      kind: "git",
+      label: verbatimStepLabel("remove landing pre-authorization"),
+      disposition: removable ? "run" : "skip",
+      note: removable
+        ? "remove the authority record"
+        : path === undefined
+        ? "Git could not resolve the authority record path"
+        : "no landing pre-authorization is recorded",
+    }],
+  };
+}
 
 /** Resolve a transaction-owned claim path only for a valid UUID. */
 async function effortGrantClaimPath(

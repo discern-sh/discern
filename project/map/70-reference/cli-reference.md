@@ -89,7 +89,7 @@ Interactive task supervision and worktree entry.
 
 ### `discern desk`
 
-Open the interactive task list: start a task, open its worktree, update it, land it, or drop it. Bare `discern` opens the desk.
+Open the interactive task list: follow one recommended action, review Proof and changes, run final checks, or preview a lifecycle effect before confirming it. Bare `discern` opens the desk.
 
 Usage: `discern desk [options]`
 

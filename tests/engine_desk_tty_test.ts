@@ -201,6 +201,196 @@ Deno.test({
 
 Deno.test({
   name:
+    "Desk PTY: final-check cancellation defaults to No and keeps disabled recovery visible",
+  ignore: PTY_UNAVAILABLE,
+  fn: async () => {
+    const fixture = deskFleetFixture([
+      deskFleetEntry("safe-default-a1b2c3", { aheadCommits: 1 }),
+    ]);
+    await withDeskTtyProject(fixture, async (project) => {
+      const result = await runDeskTty(project, {
+        geometry: { columns: 110, rows: 50 },
+        colorMode: "no-color-env",
+        input: [{
+          waitFor: TASK_ROOT_READY,
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: ["Choose an action", "Run final checks"],
+          captureAs: "action-with-disabled-reasons",
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: [
+            "Run final checks for agent/safe-default-a1b2c3?",
+            "Cancel",
+            "Run",
+          ],
+          captureAs: "safe-confirmation",
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: TASK_ACTION_READY,
+          captureAs: "cancelled-action",
+          chunks: [{ keys: ["end", "enter"] }],
+        }, {
+          waitFor: TASK_ROOT_READY,
+          chunks: [{ keys: ["end", "enter"] }],
+        }],
+      });
+
+      assertHealthySession(result);
+      assertStringIncludes(
+        frame(result, "safe-confirmation").text,
+        "› Cancel",
+      );
+      assertStringIncludes(result.transcript, "Run: discern done");
+      assertStringIncludes(result.transcript, "Consequence account");
+      assertStringIncludes(result.transcript, "not on PATH");
+      assertStringIncludes(result.transcript, "Project Scripts directory");
+      assertEquals(
+        result.transcript.includes("Final checks passed"),
+        false,
+        result.transcript,
+      );
+    });
+  },
+});
+
+Deno.test({
+  name:
+    "Desk PTY: Run final checks records Proof and returns to Proof-led review",
+  ignore: PTY_UNAVAILABLE,
+  fn: async () => {
+    const fixture = deskFleetFixture([
+      deskFleetEntry("run-checks-d4e5f6", { aheadCommits: 1 }),
+    ]);
+    await withDeskTtyProject(fixture, async (project) => {
+      const result = await runDeskTty(project, {
+        geometry: { columns: 110, rows: 50 },
+        colorMode: "no-color-env",
+        input: [{
+          waitFor: TASK_ROOT_READY,
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: ["Choose an action", "Run final checks"],
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: [
+            "Run final checks for agent/run-checks-d4e5f6?",
+            "Cancel",
+            "Run",
+          ],
+          chunks: [{ keys: ["right", "enter"] }],
+        }, {
+          waitFor: [
+            "Final checks passed and Proof was refreshed.",
+            "press ↵ to return to the desk",
+          ],
+          captureAs: "gate-result",
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: [
+            "Proof honored for this commit",
+            "Choose an action",
+            "Review and land on main",
+          ],
+          captureAs: "proof-led-action",
+          chunks: [{ keys: ["end", "enter"] }],
+        }, {
+          waitFor: TASK_ROOT_READY,
+          chunks: [{ keys: ["end", "enter"] }],
+        }],
+        timeoutMs: 120_000,
+      });
+
+      assertHealthySession(result);
+      assertStringIncludes(
+        frame(result, "gate-result").text,
+        "Final checks passed and Proof was refreshed.",
+      );
+      assertStringIncludes(
+        frame(result, "proof-led-action").text,
+        "Proof honored for this commit",
+      );
+      assertStringIncludes(
+        frame(result, "proof-led-action").text,
+        "Review and land on main",
+      );
+      assertStringIncludes(result.transcript, "Run: discern done");
+    });
+  },
+});
+
+Deno.test({
+  name:
+    "Desk PTY: Proof review opens the actual diff through the pager and returns",
+  ignore: PTY_UNAVAILABLE,
+  fn: async () => {
+    const name = "review-pager-a1b2c3";
+    const fixture = deskFleetFixture([
+      deskFleetEntry(name, {
+        committedFiles: [{
+          path: "review.txt",
+          contents: "review through the repository pager\n",
+        }],
+        proof: deskProof({
+          line: "Proof: review pager fixture",
+          markdown:
+            "# Stored Proof\n\n## Checks\n\n- fixture passed\n\n## Standards\n\n- held",
+        }),
+      }),
+    ]);
+    await withDeskTtyProject(fixture, async (project) => {
+      const result = await runDeskTty(project, {
+        geometry: { columns: 110, rows: 50 },
+        colorMode: "no-color-env",
+        env: {
+          PAGER: "perl -pe 's/\\e\\[[0-9;]*m//g'",
+          VISUAL: "",
+          EDITOR: "",
+        },
+        input: [{
+          waitFor: TASK_ROOT_READY,
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: ["Choose an action", "Review Proof and changes"],
+          chunks: [{ keys: ["down", "down", "down", "enter"] }],
+        }, {
+          waitFor: [
+            "Review Review pager",
+            "Stored Proof",
+            "View actual diff",
+          ],
+          captureAs: "proof-review",
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: ["Review Review pager", "View actual diff"],
+          captureAs: "pager-return",
+          chunks: [{ keys: ["end", "enter"] }],
+        }, {
+          waitFor: TASK_ACTION_READY,
+          chunks: [{ keys: ["end", "enter"] }],
+        }, {
+          waitFor: TASK_ROOT_READY,
+          chunks: [{ keys: ["end", "enter"] }],
+        }],
+        timeoutMs: 60_000,
+      });
+
+      assertHealthySession(result);
+      const review = frame(result, "proof-review");
+      const returned = frame(result, "pager-return");
+      assertStringIncludes(review.text, "Proof: review pager fixture");
+      assertStringIncludes(review.text, "Stored Proof");
+      assertStringIncludes(review.text, "Open in editor");
+      assertStringIncludes(review.text, "$VISUAL or $EDITOR");
+      assertStringIncludes(result.transcript, "diff --git");
+      assertStringIncludes(result.transcript, "review.txt");
+      assertStringIncludes(returned.text, "View actual diff");
+    });
+  },
+});
+
+Deno.test({
+  name:
     "Desk PTY: Escape and Ctrl-C retain their current root and action semantics",
   ignore: PTY_UNAVAILABLE,
   fn: async () => {

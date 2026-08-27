@@ -263,11 +263,11 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
     role: "registered-boundary",
   },
   {
-    path: "src/commands/docs.ts",
+    path: "src/lib/pager.ts",
     enclosingFunction: "pageThrough",
-    operation: "run the selected documentation pager",
+    operation: "run the selected external pager",
     reason:
-      "the interactive pager inherits the terminal and may be a user-selected executable rather than a buffered command",
+      "the explicitly selected pager inherits the terminal and may be a user-selected executable rather than a buffered command",
     may: ["sh", "other"],
     role: "registered-boundary",
   },
@@ -337,7 +337,7 @@ export const SPAWN_INTERRUPT_CONTRACTS = {
     exempt:
       "Deno's info and types queries are bounded engine-authored metadata reads that exit on their own",
   },
-  "src/commands/docs.ts": {
+  "src/lib/pager.ts": {
     exempt:
       "the pager runs in the terminal foreground process group and lives exactly as long as its reader chooses",
   },

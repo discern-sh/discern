@@ -543,9 +543,9 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "Discovery keeps the leaf addressable from directory structure while strict fetch and integrity surfaces report failures when content is required.",
   },
   "docs-pager-input-close": {
-    path: "src/commands/docs.ts",
+    path: "src/lib/pager.ts",
     enclosingFunction: "pageThrough",
-    operation: "finish writing rendered documentation to the external pager",
+    operation: "finish writing rendered content to the external pager",
     kind: "capability",
     shape: "async",
     observability: { kind: "unobservable" },

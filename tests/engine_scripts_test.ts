@@ -12,7 +12,11 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import { runProjectScriptAt } from "../src/engine/project_scripts.ts";
+import {
+  inspectDeskProjectScriptsWithConfig,
+  runProjectScriptAt,
+} from "../src/engine/project_scripts.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
@@ -66,6 +70,31 @@ Deno.test("Project Script core runs in an explicitly selected worktree", async (
     const recorded = (await Deno.readTextFile(join(dir, "ran-from-here.txt")))
       .trim();
     assertEquals(await Deno.realPath(recorded), await Deno.realPath(dir));
+  });
+});
+
+Deno.test("Desk script discovery retains a non-executable command with safely quoted recovery", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const config = await loadConfig(dir);
+    const initial = await inspectDeskProjectScriptsWithConfig(dir, config);
+    await Deno.mkdir(initial.directory, { recursive: true });
+    const path = join(initial.directory, "$release task");
+    await Deno.writeTextFile(path, "#!/usr/bin/env sh\n");
+
+    const inventory = await inspectDeskProjectScriptsWithConfig(
+      dir,
+      config,
+    );
+    const script = inventory.scripts.find((candidate) =>
+      candidate.name === "$release task"
+    );
+    assert(script !== undefined);
+    assertEquals(script.availability, "disabled");
+    assertStringIncludes(
+      script.reason ?? "",
+      `chmod +x '${path}'`,
+    );
   });
 });
 

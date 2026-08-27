@@ -38,6 +38,7 @@ import {
 } from "@std/path";
 import { Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
+import { pageThrough } from "../lib/pager.ts";
 import { renderAlignedRows, truncateText } from "../lib/text.ts";
 import {
   type TerminalContext,
@@ -72,7 +73,6 @@ import {
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { stripAdrCitations } from "../lib/adr_citations.ts";
 import { pathMatchesPattern } from "../engine/scopes/glob.ts";
-import { bestEffort } from "../shared/best_effort.ts";
 import { loadConfig } from "../shared/config_schema.ts";
 import { expandSourcePathReferences } from "../shared/source_path_references.ts";
 import { observeVerbTarget } from "../shared/result_capture.ts";
@@ -857,38 +857,6 @@ function docsTerminal(noColor: boolean): TerminalContext {
  * colour). Honours `$PAGER`, defaulting to `less -R`. Returns false if the pager
  * cannot run successfully, so the caller can fall back to a plain print.
  */
-interface PagerResult {
-  readonly shown: boolean;
-  readonly error?: unknown;
-}
-
-/** Send rendered documentation through the configured pager when it succeeds. */
-async function pageThrough(text: string): Promise<PagerResult> {
-  const pager = Deno.env.get("PAGER")?.trim();
-  const cmd = pager ? "sh" : "less";
-  const args = pager ? ["-c", pager] : ["-R"];
-  try {
-    const child = new Deno.Command(cmd, {
-      args,
-      stdin: "piped",
-      stdout: "inherit",
-      stderr: "inherit",
-    }).spawn();
-    const writer = child.stdin.getWriter();
-    await bestEffort("docs-pager-input-close", async () => {
-      await writer.write(new TextEncoder().encode(text + "\n"));
-      await writer.close();
-    });
-    const status = await child.status;
-    return status.success ? { shown: true } : {
-      shown: false,
-      error: new Error(`pager exited with status ${status.code}`),
-    };
-  } catch (error) {
-    return { shown: false, error };
-  }
-}
-
 type PresentationDisposition = "pager" | "internal";
 
 /** Show rendered text internally unless the validated pager opt-in succeeds. */

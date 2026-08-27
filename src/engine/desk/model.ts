@@ -24,7 +24,7 @@ import type { DetectedAgentBinary } from "../../lib/detect_agents.ts";
 import type { AgentName } from "../../lib/config.ts";
 import { providerFor } from "../../lib/providers.ts";
 import { compactDuration } from "../output.ts";
-import type { ProjectScript } from "../project_scripts.ts";
+import type { DeskProjectScript } from "../project_scripts.ts";
 import {
   type FleetRowStatusKind,
   presentFleetRow,
@@ -72,88 +72,88 @@ export const DESK_STATE_BY_STATUS_KIND = {
 
 /** Every action the desk can represent, in menu order. */
 export const DESK_ACTIONS = [
+  "done",
   "accept",
-  "grant",
-  "revoke_grant",
   "update",
-  "reclaim",
-  "scripts",
   "agent",
+  "scripts",
   "jump",
   "inspect",
+  "grant",
+  "revoke_grant",
+  "reclaim",
   "drop",
 ] as const;
 export type DeskAction = (typeof DESK_ACTIONS)[number];
 
-export type DeskActionGroupId = "landing" | "work" | "review" | "worktree";
+/** Product groups in their fixed presentation order. */
+export const DESK_ACTION_GROUPS = [
+  "recommended",
+  "work",
+  "review",
+  "manage",
+  "danger",
+] as const;
+export type DeskActionGroupId = (typeof DESK_ACTION_GROUPS)[number];
+type DeskBaseActionGroupId = Exclude<DeskActionGroupId, "recommended">;
+
+/** Confirmation behavior belongs to the action, not its dispatcher branch. */
+export type DeskConfirmationPolicy =
+  | { readonly kind: "none" }
+  | {
+    readonly kind: "confirm";
+    readonly defaultTo: false;
+    readonly yesLabel: string;
+    readonly noLabel: string;
+  }
+  | {
+    readonly kind: "typed-branch";
+    readonly defaultTo: false;
+    readonly yesLabel: string;
+    readonly noLabel: string;
+  };
+
+/** The CLI evidence a person can copy before authorizing an action. */
+export interface DeskCommandEvidence {
+  readonly argv: readonly string[];
+  readonly workingDirectory: "task" | "main";
+}
+
+/** The consequence account every material action presents before it runs. */
+export interface DeskConsequence {
+  readonly keeps: readonly string[];
+  readonly changes: readonly string[];
+  readonly removes: readonly string[];
+  readonly recoverable: readonly string[];
+}
 
 interface DeskActionLabelContext {
   readonly trunk: string;
+  readonly branch: string;
+  readonly path: string;
+  readonly proofHonored: boolean;
   readonly containedIn?: string;
 }
 
-interface DeskActionMetadata {
-  readonly group: DeskActionGroupId;
+export interface DeskActionMetadata {
+  readonly group: DeskBaseActionGroupId;
   readonly label: (context: DeskActionLabelContext) => string;
+  readonly command: (context: DeskActionLabelContext) => DeskCommandEvidence;
+  readonly consequence: (
+    context: DeskActionLabelContext,
+  ) => DeskConsequence;
+  readonly confirmation: DeskConfirmationPolicy;
+  readonly availability: (facts: DeskActionFacts) => string | undefined;
+  readonly recommended: (facts: DeskActionFacts) => boolean;
 }
-
-/** Action labels and menu placement share one exhaustive metadata table. */
-export const DESK_ACTION_METADATA = {
-  accept: {
-    group: "landing",
-    label: ({ trunk }: DeskActionLabelContext): string =>
-      `Accept and land on ${trunk}`,
-  },
-  grant: {
-    group: "landing",
-    label: (_context: DeskActionLabelContext): string =>
-      "Pre-authorize landing once green",
-  },
-  revoke_grant: {
-    group: "landing",
-    label: (_context: DeskActionLabelContext): string =>
-      "Revoke landing pre-authorization",
-  },
-  update: {
-    group: "landing",
-    label: ({ trunk }: DeskActionLabelContext): string =>
-      `Update branch from ${trunk}`,
-  },
-  reclaim: {
-    group: "worktree",
-    label: ({ containedIn }: DeskActionLabelContext): string =>
-      `Reclaim checkout, keep branch (work contained in ${
-        containedIn ?? "another live task"
-      })`,
-  },
-  scripts: {
-    group: "work",
-    label: (_context: DeskActionLabelContext): string => "Run a Project Script",
-  },
-  agent: {
-    group: "work",
-    label: (_context: DeskActionLabelContext): string => "Open with an agent",
-  },
-  jump: {
-    group: "work",
-    label: (_context: DeskActionLabelContext): string => "Open a shell",
-  },
-  inspect: {
-    group: "review",
-    label: (_context: DeskActionLabelContext): string =>
-      "Inspect commits and changes",
-  },
-  drop: {
-    group: "worktree",
-    label: (_context: DeskActionLabelContext): string =>
-      "Drop worktree and branch",
-  },
-} as const satisfies Readonly<Record<DeskAction, DeskActionMetadata>>;
 
 interface DeskActionOfferBase {
   readonly action: DeskAction;
   readonly group: DeskActionGroupId;
   readonly label: string;
+  readonly command: DeskCommandEvidence;
+  readonly consequence: DeskConsequence;
+  readonly confirmation: DeskConfirmationPolicy;
 }
 
 export interface EnabledDeskAction extends DeskActionOfferBase {
@@ -179,6 +179,8 @@ export interface DeskAgentLaunch {
   readonly kind: "open" | "continue";
   readonly label: string;
   readonly args: readonly string[];
+  readonly availability?: "enabled" | "disabled";
+  readonly reason?: string;
 }
 
 /** The human task name plus an optional minted-id disambiguator. */
@@ -261,8 +263,9 @@ export interface DeskDecision {
 export interface DeskRow {
   readonly entry: StatusFleetEntry;
   readonly task: DeskTaskLabel;
-  readonly scripts: readonly ProjectScript[];
+  readonly scripts: readonly DeskProjectScript[];
   readonly agentLaunches: readonly DeskAgentLaunch[];
+  readonly capabilityError?: string;
   readonly decision: DeskDecision;
 }
 
@@ -664,149 +667,488 @@ function nextConditionDetail(
 }
 
 const ACTION_ALLOWED_WHILE_RUNNING = {
+  done: false,
   accept: false,
-  grant: false,
-  revoke_grant: false,
   update: false,
-  reclaim: false,
-  scripts: false,
   agent: false,
+  scripts: false,
   jump: true,
   inspect: true,
+  grant: false,
+  revoke_grant: false,
+  reclaim: false,
   drop: false,
 } as const satisfies Readonly<Record<DeskAction, boolean>>;
 
-interface ActionFacts {
+/** All observed facts available to the action registry's pure predicates. */
+export interface DeskActionFacts {
   readonly entry: StatusFleetEntry;
   readonly effortGranted: boolean;
-  readonly scripts: readonly ProjectScript[];
+  readonly scripts: readonly DeskProjectScript[];
+  readonly scriptsUnavailableReason?: string;
   readonly agentLaunches: readonly DeskAgentLaunch[];
+  readonly capabilityError?: string;
+  readonly statusKind: FleetRowStatusKind;
+  readonly collisions: readonly DeskCollision[];
   readonly trunk: string;
 }
 
-/** Undefined means enabled; a string is the observed reason it is disabled. */
-function disabledReason(
+/** A shared running-operation refusal for actions that cannot safely overlap. */
+function runningReason(
   action: DeskAction,
-  facts: ActionFacts,
+  facts: DeskActionFacts,
 ): string | undefined {
-  const { entry } = facts;
-  if (isUnhealthy(entry) && action !== "drop") {
-    return entry.broken === true
-      ? "Setup is incomplete."
-      : "Git state is unreadable.";
-  }
-  if (entry.running !== undefined && !ACTION_ALLOWED_WHILE_RUNNING[action]) {
-    return `${discernCommand(entry.running.verb)} is running.`;
-  }
-  switch (action) {
-    case "accept":
-      if (entry.behind === UNKNOWN_GIT_COUNT) {
-        return `Git divergence from ${facts.trunk} is unknown.`;
-      }
-      if (entry.behind !== undefined && isPositiveGitCount(entry.behind)) {
-        return `${plural(entry.behind, "commit")} behind ${facts.trunk}.`;
-      }
-      if (entry.clean !== true) {
-        return entry.clean === false
-          ? "The worktree has uncommitted changes."
-          : "Worktree cleanliness is unknown.";
-      }
-      if (entry.ahead === UNKNOWN_GIT_COUNT) {
-        return `Git divergence from ${facts.trunk} is unknown.`;
-      }
-      return entry.ahead !== undefined && isPositiveGitCount(entry.ahead)
-        ? undefined
-        : `No commits are ahead of ${facts.trunk}.`;
-    case "grant":
-      return facts.effortGranted
-        ? "This task already has landing pre-authorization."
-        : undefined;
-    case "revoke_grant":
-      return facts.effortGranted
-        ? undefined
-        : "No task landing pre-authorization is recorded.";
-    case "update":
-      if (entry.behind === UNKNOWN_GIT_COUNT) {
-        return `Git divergence from ${facts.trunk} is unknown.`;
-      }
-      return entry.behind !== undefined && isPositiveGitCount(entry.behind)
-        ? undefined
-        : `The branch is not behind ${facts.trunk}.`;
-    case "reclaim":
-      return entry.contained_in === undefined
-        ? "This checkout is not contained in another live task."
-        : undefined;
-    case "scripts":
-      return facts.scripts.length > 0
-        ? undefined
-        : "No Project Scripts are available in this task.";
-    case "agent":
-      return facts.agentLaunches.length > 0
-        ? undefined
-        : "No configured agent is available on PATH for this task.";
-    case "jump":
-    case "inspect":
-    case "drop":
-      return undefined;
-  }
+  return facts.entry.running !== undefined &&
+      !ACTION_ALLOWED_WHILE_RUNNING[action]
+    ? `${discernCommand(facts.entry.running.verb)} is running.${
+      facts.entry.running.typical_duration_ms === undefined
+        ? ""
+        : ` It usually takes ${
+          compactDuration(facts.entry.running.typical_duration_ms)
+        }.`
+    }`
+    : undefined;
 }
 
-/** Choose the action that addresses the highest-priority observed condition. */
-function recommendedActionFor(
-  statusKind: FleetRowStatusKind,
-  entry: StatusFleetEntry,
-  collisions: readonly DeskCollision[],
-): DeskAction | undefined {
-  if (entry.running !== undefined) return undefined;
-  if (collisions.length > 0) return "inspect";
-  if (entry.contained_in !== undefined) return "reclaim";
-  switch (statusKind) {
-    case "behind":
-      return "update";
-    case "ready":
-      return "accept";
-    case "failed":
-    case "blocked":
-    case "in-progress":
-    case "proof-unreadable":
-    case "proof-unavailable":
-    case "proof-stale":
-    case "needs-gate":
-      return "jump";
-    case "broken":
-    case "unreadable":
-    case "running":
-    case "stale":
-    case "idle":
-      return undefined;
+/** Shared clean, committed, ahead-of-trunk preconditions for review actions. */
+function committedWorkReason(facts: DeskActionFacts): string | undefined {
+  const { entry } = facts;
+  if (entry.behind === UNKNOWN_GIT_COUNT || entry.ahead === UNKNOWN_GIT_COUNT) {
+    return `Git divergence from ${facts.trunk} is unknown.`;
   }
+  if (entry.behind !== undefined && isPositiveGitCount(entry.behind)) {
+    return `${plural(entry.behind, "commit")} behind ${facts.trunk}.`;
+  }
+  if (entry.clean !== true) {
+    return entry.clean === false
+      ? "Commit or discard the uncommitted changes first."
+      : "Worktree cleanliness is unknown.";
+  }
+  return entry.ahead !== undefined && isPositiveGitCount(entry.ahead)
+    ? undefined
+    : `No commits are ahead of ${facts.trunk}.`;
+}
+
+/** The first exact configured capability failure, when there is one. */
+function capabilityReason(facts: DeskActionFacts): string | undefined {
+  return facts.capabilityError;
+}
+
+/** Whether at least one configured agent command can run. */
+function hasAvailableAgent(facts: DeskActionFacts): boolean {
+  return facts.agentLaunches.some((launch) =>
+    launch.availability !== "disabled"
+  );
+}
+
+/** Whether at least one project-authored script can run. */
+function hasAvailableScript(facts: DeskActionFacts): boolean {
+  return facts.scripts.some((script) => script.availability !== "disabled");
+}
+
+/** One static consequence record without repeated mutable arrays. */
+function consequences(
+  keeps: readonly string[],
+  changes: readonly string[],
+  removes: readonly string[],
+  recoverable: readonly string[],
+): DeskConsequence {
+  return { keeps, changes, removes, recoverable };
+}
+
+const NO_CONFIRMATION = { kind: "none" } as const;
+
+/**
+ * The single action-fact authority. Menu labels, command evidence, availability,
+ * recommendations, consequence accounts, and confirmation defaults all derive
+ * from this exhaustive registry.
+ */
+export const DESK_ACTION_REGISTRY = {
+  done: {
+    group: "work",
+    label: (_context: DeskActionLabelContext): string => "Run final checks",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "done"],
+      workingDirectory: "task",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Branch and checkout"],
+        [
+          "Generated or formatted files may change",
+          "A passing run records Proof",
+        ],
+        [],
+        ["Review any changed files before committing"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Cancel",
+      yesLabel: "Run",
+    },
+    availability: (facts: DeskActionFacts): string | undefined =>
+      runningReason("done", facts) ??
+        (isUnhealthy(facts.entry)
+          ? facts.entry.broken === true
+            ? "Setup is incomplete. Finish or repair setup before final checks."
+            : "Git state is unreadable. Repair Git before final checks."
+          : committedWorkReason(facts)),
+    recommended: (facts: DeskActionFacts): boolean =>
+      facts.entry.running === undefined && facts.collisions.length === 0 &&
+      facts.entry.contained_in === undefined &&
+      [
+        "needs-gate",
+        "proof-unreadable",
+        "proof-unavailable",
+        "proof-stale",
+      ].includes(facts.statusKind),
+  },
+  accept: {
+    group: "review",
+    label: (context: DeskActionLabelContext): string =>
+      context.proofHonored
+        ? `Review and land on ${context.trunk}`
+        : `Run final checks, then land on ${context.trunk}`,
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "accept"],
+      workingDirectory: "task",
+    }),
+    consequence: (context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Committed history on the trunk"],
+        [`Fast-forward ${context.trunk} and converge its checkout`],
+        ["Task checkout", `Branch ${context.branch}`, "Task-local resources"],
+        ["Landing records Proof in Git notes before cleanup"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Land",
+    },
+    availability: (facts: DeskActionFacts): string | undefined =>
+      runningReason("accept", facts) ??
+        (isUnhealthy(facts.entry)
+          ? "The task is not healthy enough to land. Follow its recovery steps first."
+          : committedWorkReason(facts)),
+    recommended: (facts: DeskActionFacts): boolean =>
+      facts.entry.running === undefined && facts.collisions.length === 0 &&
+      facts.entry.contained_in === undefined &&
+      facts.statusKind === "ready" &&
+      facts.entry.gate_proof?.status === "honored",
+  },
+  update: {
+    group: "manage",
+    label: ({ trunk }: DeskActionLabelContext): string =>
+      `Update branch from ${trunk}`,
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "update"],
+      workingDirectory: "task",
+    }),
+    consequence: (context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Task branch and checkout"],
+        [
+          `Merge ${context.trunk} into ${context.branch}`,
+          "Refresh generated files",
+        ],
+        [],
+        ["A merge conflict is aborted before the task is returned"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Update",
+    },
+    availability: (facts: DeskActionFacts): string | undefined => {
+      const running = runningReason("update", facts);
+      if (running !== undefined) return running;
+      if (isUnhealthy(facts.entry)) {
+        return "Git state is not healthy enough to update. Follow the task's recovery steps first.";
+      }
+      if (facts.entry.behind === UNKNOWN_GIT_COUNT) {
+        return `Git divergence from ${facts.trunk} is unknown.`;
+      }
+      return facts.entry.behind !== undefined &&
+          isPositiveGitCount(facts.entry.behind)
+        ? undefined
+        : `The branch is not behind ${facts.trunk}.`;
+    },
+    recommended: (facts: DeskActionFacts): boolean =>
+      facts.entry.running === undefined && facts.statusKind === "behind",
+  },
+  agent: {
+    group: "work",
+    label: (_context: DeskActionLabelContext): string =>
+      "Continue with an agent",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["<configured-agent>"],
+      workingDirectory: "task",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Desk session and task state"],
+        ["The selected agent may change files in this task"],
+        [],
+        ["Exit the agent to return to the Desk"],
+      ),
+    confirmation: NO_CONFIRMATION,
+    availability: (facts: DeskActionFacts): string | undefined => {
+      const running = runningReason("agent", facts);
+      if (running !== undefined) return running;
+      const capability = capabilityReason(facts);
+      if (capability !== undefined) return capability;
+      if (hasAvailableAgent(facts)) return undefined;
+      const reason = facts.agentLaunches.find((launch) =>
+        launch.availability === "disabled"
+      )?.reason;
+      return reason ??
+        "No agent is configured for this task. Add one under [project].agents in discern.toml.";
+    },
+    recommended: (facts: DeskActionFacts): boolean => {
+      if (facts.entry.running !== undefined || facts.collisions.length > 0) {
+        return false;
+      }
+      return ["failed", "blocked", "in-progress", "stale", "idle"].includes(
+        facts.statusKind,
+      );
+    },
+  },
+  scripts: {
+    group: "work",
+    label: (_context: DeskActionLabelContext): string => "Run a Project Script",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "scripts", "<name>"],
+      workingDirectory: "task",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Desk session"],
+        ["The selected project-authored script may change project state"],
+        [],
+        ["The Desk re-surveys the task after the script exits"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Cancel",
+      yesLabel: "Run",
+    },
+    availability: (facts: DeskActionFacts): string | undefined =>
+      runningReason("scripts", facts) ?? capabilityReason(facts) ??
+        (hasAvailableScript(facts)
+          ? undefined
+          : facts.scriptsUnavailableReason ??
+            "No Project Scripts are available in this task."),
+    recommended: (_facts: DeskActionFacts): boolean => false,
+  },
+  jump: {
+    group: "work",
+    label: (_context: DeskActionLabelContext): string => "Open a shell",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["<user-shell>"],
+      workingDirectory: "task",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Desk session and task state"],
+        ["Shell commands may change this task"],
+        [],
+        ["Exit the shell to return to the Desk"],
+      ),
+    confirmation: NO_CONFIRMATION,
+    availability: (facts: DeskActionFacts): string | undefined =>
+      facts.entry.git_unavailable === true
+        ? "Git state is unreadable. Repair Git before opening a shell."
+        : undefined,
+    recommended: (_facts: DeskActionFacts): boolean => false,
+  },
+  inspect: {
+    group: "review",
+    label: (_context: DeskActionLabelContext): string =>
+      "Review Proof and changes",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["git", "diff"],
+      workingDirectory: "task",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["All task state"],
+        [],
+        [],
+        ["Review is read-only"],
+      ),
+    confirmation: NO_CONFIRMATION,
+    availability: (facts: DeskActionFacts): string | undefined =>
+      facts.entry.git_unavailable === true
+        ? "Git state is unreadable. Repair Git before reviewing the diff."
+        : undefined,
+    recommended: (facts: DeskActionFacts): boolean =>
+      facts.entry.running === undefined &&
+      (facts.collisions.length > 0 ||
+        (["failed", "blocked"].includes(facts.statusKind) &&
+          !hasAvailableAgent(facts))),
+  },
+  grant: {
+    group: "manage",
+    label: (_context: DeskActionLabelContext): string =>
+      "Pre-authorize landing once green",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "desk"],
+      workingDirectory: "main",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Task and branch"],
+        ["Record human landing authority for this task"],
+        [],
+        ["Revoke the grant from this task before it lands"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Allow",
+    },
+    availability: (facts: DeskActionFacts): string | undefined =>
+      runningReason("grant", facts) ??
+        (isUnhealthy(facts.entry)
+          ? "The task is not healthy enough to receive landing authority."
+          : facts.effortGranted
+          ? "This task already has landing pre-authorization."
+          : undefined),
+    recommended: (_facts: DeskActionFacts): boolean => false,
+  },
+  revoke_grant: {
+    group: "manage",
+    label: (_context: DeskActionLabelContext): string =>
+      "Revoke landing pre-authorization",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "desk"],
+      workingDirectory: "main",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Task and branch"],
+        ["Remove this task's landing authority"],
+        ["Task landing grant"],
+        ["A later Desk session can grant authority again"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Revoke",
+    },
+    availability: (facts: DeskActionFacts): string | undefined =>
+      runningReason("revoke_grant", facts) ??
+        (facts.effortGranted
+          ? undefined
+          : "No task landing pre-authorization is recorded."),
+    recommended: (_facts: DeskActionFacts): boolean => false,
+  },
+  reclaim: {
+    group: "manage",
+    label: ({ containedIn }: DeskActionLabelContext): string =>
+      `Reclaim checkout, keep branch (work contained in ${
+        containedIn ?? "another live task"
+      })`,
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "worktree", "prune", "--contained"],
+      workingDirectory: "main",
+    }),
+    consequence: (context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        [`Branch ${context.branch}`, "Commits contained in the later task"],
+        ["Reclaim task-local resources"],
+        ["Task checkout", "Task-local Proof and state"],
+        ["The retained branch self-cleans after its containing work lands"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Reclaim",
+    },
+    availability: (facts: DeskActionFacts): string | undefined =>
+      runningReason("reclaim", facts) ??
+        (facts.entry.contained_in === undefined
+          ? "This checkout is not contained in another live task."
+          : undefined),
+    recommended: (facts: DeskActionFacts): boolean =>
+      facts.entry.running === undefined &&
+      facts.entry.contained_in !== undefined,
+  },
+  drop: {
+    group: "danger",
+    label: (_context: DeskActionLabelContext): string =>
+      "Drop worktree and branch",
+    command: (context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "worktree", "drop", context.path],
+      workingDirectory: "main",
+    }),
+    consequence: (context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Trunk and other tasks"],
+        ["Reclaim task-local resources"],
+        ["Task checkout", `Branch ${context.branch}`, "Unlanded task state"],
+        ["Committed branch tips receive a bounded recovery ref before removal"],
+      ),
+    confirmation: {
+      kind: "typed-branch",
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Drop",
+    },
+    availability: (facts: DeskActionFacts): string | undefined =>
+      runningReason("drop", facts),
+    recommended: (_facts: DeskActionFacts): boolean => false,
+  },
+} as const satisfies Readonly<Record<DeskAction, DeskActionMetadata>>;
+
+/** Choose the first registry recommendation that is also honestly available. */
+function recommendedActionFor(facts: DeskActionFacts): DeskAction | undefined {
+  return DESK_ACTIONS.find((action) =>
+    DESK_ACTION_REGISTRY[action].recommended(facts) &&
+    DESK_ACTION_REGISTRY[action].availability(facts) === undefined
+  );
 }
 
 /** Represent every action once and retain only an enabled recommendation. */
 function actionOffers(
-  facts: ActionFacts,
-  candidate: DeskAction | undefined,
+  facts: DeskActionFacts,
 ): { actions: DeskActionOffer[]; recommendedAction?: DeskAction } {
+  const candidate = recommendedActionFor(facts);
   const actions = DESK_ACTIONS.map((action): DeskActionOffer => {
-    const metadata = DESK_ACTION_METADATA[action];
+    const metadata = DESK_ACTION_REGISTRY[action];
+    const context: DeskActionLabelContext = {
+      trunk: facts.trunk,
+      branch: facts.entry.branch,
+      path: facts.entry.path,
+      proofHonored: facts.entry.gate_proof?.status === "honored",
+      ...(facts.entry.contained_in === undefined
+        ? {}
+        : { containedIn: facts.entry.contained_in }),
+    };
+    const recommended = action === candidate;
     const base: DeskActionOfferBase = {
       action,
-      group: metadata.group,
-      label: metadata.label({
-        trunk: facts.trunk,
-        ...(facts.entry.contained_in === undefined
-          ? {}
-          : { containedIn: facts.entry.contained_in }),
-      }),
+      group: recommended ? "recommended" : metadata.group,
+      label: metadata.label(context),
+      command: metadata.command(context),
+      consequence: metadata.consequence(context),
+      confirmation: metadata.confirmation,
     };
-    const reason = disabledReason(action, facts);
+    const reason = metadata.availability(facts);
     if (reason !== undefined) {
       return { ...base, availability: "disabled", recommended: false, reason };
     }
     return {
       ...base,
       availability: "enabled",
-      recommended: action === candidate,
+      recommended,
     };
   });
   const recommended = actions.find((offer) => offer.recommended);
@@ -823,8 +1165,10 @@ export interface DeskDecisionOptions {
   readonly nowMs: number;
   readonly fleetCollisions?: readonly StatusFleetCollision[];
   readonly adrCollisions?: readonly StatusAdrCollision[];
-  readonly scripts?: readonly ProjectScript[];
+  readonly scripts?: readonly DeskProjectScript[];
+  readonly scriptsUnavailableReason?: string;
   readonly agentLaunches?: readonly DeskAgentLaunch[];
+  readonly capabilityError?: string;
 }
 
 /** Build one complete decision from the status survey and desk capabilities. */
@@ -862,18 +1206,21 @@ export function buildDeskDecision(
     : DESK_STATE_BY_STATUS_KIND[presentation.kind];
   const effortGranted = authority.source === "effort-grant" &&
     authority.status === "granted";
-  const candidate = recommendedActionFor(
-    presentation.kind,
-    entry,
-    collisions,
-  );
   const offers = actionOffers({
     entry,
     effortGranted,
     scripts,
+    ...(options.scriptsUnavailableReason === undefined
+      ? {}
+      : { scriptsUnavailableReason: options.scriptsUnavailableReason }),
     agentLaunches,
+    ...(options.capabilityError === undefined
+      ? {}
+      : { capabilityError: options.capabilityError }),
+    statusKind: presentation.kind,
+    collisions,
     trunk: options.trunk,
-  }, candidate);
+  });
   const details: DeskDetail[] = [];
   if (entry.running !== undefined) {
     details.push({ kind: "activity", text: "active now" });
@@ -1041,16 +1388,23 @@ export function buildAgentLaunches(
     const provider = providerFor(configuredAgent);
     if (provider === undefined) continue;
     const found = detectedByName.get(provider.name);
-    if (found === undefined) continue;
+    const binary = found?.binary ?? provider.binaries[0] ?? provider.name;
+    const reason = found === undefined
+      ? `${provider.label} is configured, but ${
+        provider.binaries.map((candidate) => `\`${candidate}\``).join(" or ")
+      } is not on PATH. Install ${provider.label} or remove it from [project].agents in discern.toml.`
+      : undefined;
     for (const action of provider.cli.actions) {
       launches.push({
         id: `${provider.name}:${action.kind}`,
         agent: provider.name,
         providerLabel: provider.label,
-        binary: found.binary,
+        binary,
         kind: action.kind,
         label: action.label,
         args: action.args,
+        availability: found === undefined ? "disabled" : "enabled",
+        ...(reason === undefined ? {} : { reason }),
       });
     }
   }
@@ -1069,12 +1423,14 @@ export interface BuildDeskRowsOptions {
   readonly nowMs: number;
   readonly fleetCollisions?: readonly StatusFleetCollision[];
   readonly adrCollisions?: readonly StatusAdrCollision[];
+  readonly scriptsUnavailableReasons?: ReadonlyMap<string, string>;
+  readonly capabilityErrors?: ReadonlyMap<string, string>;
 }
 
 /** Build and decision-sort every non-main fleet row. */
 export function buildDeskRows(
   fleet: readonly StatusFleetEntry[],
-  scriptsByPath: ReadonlyMap<string, readonly ProjectScript[]>,
+  scriptsByPath: ReadonlyMap<string, readonly DeskProjectScript[]>,
   agentLaunchesByPath: ReadonlyMap<string, readonly DeskAgentLaunch[]>,
   options: BuildDeskRowsOptions,
 ): DeskRow[] {
@@ -1083,11 +1439,16 @@ export function buildDeskRows(
     .map((entry): DeskRow => {
       const scripts = scriptsByPath.get(entry.path) ?? [];
       const agentLaunches = agentLaunchesByPath.get(entry.path) ?? [];
+      const scriptsUnavailableReason = options.scriptsUnavailableReasons?.get(
+        entry.path,
+      );
+      const capabilityError = options.capabilityErrors?.get(entry.path);
       return {
         entry,
         task: taskLabel(entry),
         scripts,
         agentLaunches,
+        ...(capabilityError === undefined ? {} : { capabilityError }),
         decision: buildDeskDecision(entry, {
           trunk: options.trunk,
           nowMs: options.nowMs,
@@ -1098,7 +1459,11 @@ export function buildDeskRows(
             ? {}
             : { adrCollisions: options.adrCollisions }),
           scripts,
+          ...(scriptsUnavailableReason === undefined
+            ? {}
+            : { scriptsUnavailableReason }),
           agentLaunches,
+          ...(capabilityError === undefined ? {} : { capabilityError }),
         }),
       };
     });
