@@ -333,6 +333,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0345 — Promise effects have typed owners](0345-promise-effects-have-typed-owners.md)
 - [0346 — Machine facts are typed advisories](0346-machine-facts-are-typed-advisories.md)
 - [0347 — Clock, scheduler, and jitter are explicit capabilities](0347-clock-scheduler-and-jitter-are-explicit-capabilities.md)
+- [0348 — Secure entropy is a WebCrypto-backed capability](0348-secure-entropy-is-a-webcrypto-capability.md)
 
 <!-- END GENERATED: current ADR records -->
 

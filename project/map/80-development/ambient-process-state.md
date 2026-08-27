@@ -24,14 +24,20 @@ Wall time, monotonic time, timer lifecycle, and non-security scheduling variatio
 
 `JitterFn` chooses bounded scheduling variation. `SYSTEM_JITTER` is the only direct `Math.random` reader for that purpose. It is not an entropy source: identifiers, keys, single-use values, uniqueness, and random bytes require the separate secure-entropy authority.
 
+## Secure entropy
+
+[`SecureEntropy`](../../../src/shared/entropy.ts) exposes identifier generation and caller-owned byte filling, with no float-valued random function. Host-facing seams default to the WebCrypto-backed `SYSTEM_SECURE_ENTROPY` and pass the selected capability inward. Tests may inject deterministic values for formats, collisions, retries, and key creation ([ADR 0348](../_adr/0348-secure-entropy-is-a-webcrypto-capability.md)).
+
+Secure entropy and `JitterFn` remain separate types. Identifiers, nonce values, key material, continuation handles, and secure names use entropy. Scheduling variation uses its pseudo-random policy.
+
 ## One authority for the trunk branch
 
 [`integrationBranch`](../../../src/engine/worktree/git.ts) owns the `DISCERN_TRUNK` precedence contract and is its only environment reader. Call it at the boundary or pass its resolved branch name. Do not reproduce the environment lookup in a consumer.
 
 ## Enforcement and recovery
 
-The ambient-state plugin in [`ambient_state_lint.ts`](../../../scripts/ambient_state_lint.ts) runs under `deno lint`. It recognizes environment and cwd reads, environment mutations, wall and monotonic clock reads, timeout and interval scheduling or cancellation, and scheduling jitter through their bare, `globalThis`, and Deno forms. Argument-taking `new Date(value)` remains a conversion and does not read the clock.
+The ambient-state plugin in [`ambient_state_lint.ts`](../../../scripts/ambient_state_lint.ts) runs under `deno lint`. It recognizes environment and cwd reads, environment mutations, wall and monotonic clock reads, timeout and interval scheduling or cancellation, scheduling jitter, and secure WebCrypto entropy through their bare, `globalThis`, and Deno forms. Argument-taking `new Date(value)` remains a conversion and does not read the clock.
 
-[`ambient_state_lint_test.ts`](../../../tests/ambient_state_lint_test.ts) applies the rules to the full Git-derived `authored-deno` universe. It binds every registry row to one live operation in both directions and rejects unknown, duplicate, moved, or stale entries. The `ambient_read_boundaries` Standard retains the earlier module-population ceiling; `ambient_read_operations` holds the exact operation population; and `ambient_mutation_boundaries`, `clock_primitive_boundaries`, `scheduler_primitive_boundaries`, and `scheduling_jitter_boundaries` hold the remaining registries under down-only limits in [`discern.toml`](../../../discern.toml).
+[`ambient_state_lint_test.ts`](../../../tests/ambient_state_lint_test.ts) binds every row to one live operation across the Git-derived source universe and rejects unknown, duplicate, moved, or stale entries. The secure-entropy rule covers authored production code, and each row states its required security property. [`discern.toml`](../../../discern.toml) holds every boundary population under a down-only limit, including `secure_entropy_primitive_boundaries`.
 
-When a rule finds a primitive, first pass the already-resolved value or capability from the nearest composition root. A direct default is appropriate when the function itself is the public seam. Add a registry row only when the named operation owns a genuine host interaction and further threading would conceal that boundary. For timers, preserve the callback's lifecycle and cancellation semantics; for duration measurements, keep monotonic time distinct from wall time.
+When a rule finds a primitive, first pass the already-resolved value or capability from the nearest composition root. A direct default is appropriate when the function itself is the public seam. Add a registry row only when the named operation owns a genuine host interaction and further threading would conceal that boundary. For timers, preserve the callback's lifecycle and cancellation semantics; for duration measurements, keep monotonic time distinct from wall time. For entropy, keep the WebCrypto call inside `SYSTEM_SECURE_ENTROPY` and pass `SecureEntropy` inward.

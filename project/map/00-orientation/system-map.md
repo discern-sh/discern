@@ -1,7 +1,7 @@
 ---
 title: System map
 description: "The architecture as one picture: how the binary, an install, and the run-time verbs relate."
-order: 50
+order: 60
 aliases:
   - architecture
   - system map

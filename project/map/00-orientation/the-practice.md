@@ -1,7 +1,7 @@
 ---
 title: The practice
 description: The tenets discern holds for every change, numbered and citable.
-order: 40
+order: 50
 aliases:
   - the practice
   - practice

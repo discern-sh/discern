@@ -1,7 +1,7 @@
 ---
 title: Glossary
 description: Every discern term, defined once — the canonical names the rest of the manual uses identically everywhere.
-order: 60
+order: 70
 aliases:
   - terms
   - definitions

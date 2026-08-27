@@ -29,6 +29,10 @@ With recording on and the project's `discern.toml` readable, discern records one
 
 The Logbook never leaves the machine. An architectural test keeps network interfaces out of its code path, so adding one would fail discern's own Gate. [The Logbook](../70-reference/the-logbook.md) reference lists every recorded field.
 
+## Secure random values come from WebCrypto
+
+discern routes identifiers, nonce values, key material, continuation handles, and secure names through a WebCrypto-backed capability separate from scheduling jitter. Tests can inject deterministic values without changing the production default. [Secure entropy](secure-entropy.md) records the preserved formats, file modes, and structural enforcement.
+
 ## Proof notes: local record, optional transport
 
 A green landing records a DSSE-compatible Proof note under `refs/notes/discern`. Its Base64 payload separates structured result facts from human presentation and excludes runtime telemetry ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)). `signatures: []` records no signature. discern performs no signing or identity verification today. A future policy will decide which signing keys to trust.
