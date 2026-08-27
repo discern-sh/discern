@@ -43,22 +43,19 @@ Rows adapt at 96 and 56 columns ([ADR 0352](../_adr/0352-desk-decisions-cross-a-
 
 ## Choose one contextual action
 
-Task detail precedes the action picker. It groups the full title and headline, location, activity, Git facts, landing authority, collisions, containment, agent and Project Script availability, and Proof currency and line. Empty evidence groups disappear. Short screens keep the action picker coherent by moving earlier evidence into terminal history.
+Task detail shows the full title, location, activity, Git and Proof facts, landing authority, collisions, containment, and available agents and Project Scripts. Short screens move earlier evidence into terminal history.
 
-The decision carries every task action once. One available action may move into **Recommended**; every other action remains in **Work**, **Review**, **Manage**, or **Danger**. An action the current facts would refuse stays visible and disabled with the observed reason and recovery. The lifecycle core rechecks those facts after confirmation.
+Every action remains visible in **Work**, **Review**, **Manage**, or **Danger**. Known refusals are disabled with a reason and recovery. At most one available action moves into **Recommended**:
 
-The recommendation follows the task state:
+- behind trunk: Update;
+- failed: an available agent, otherwise Proof review;
+- active, stale, or empty: the preferred available agent;
+- clean commits without current Proof: final checks;
+- honored Proof: review and landing;
+- collisions: review;
+- contained work: Reclaim.
 
-- a branch behind the trunk recommends Update;
-- a current failure recommends an available configured agent, or Proof review when no agent command can run;
-- active or stale work recommends an available configured agent;
-- clean commits without current Proof recommend final checks;
-- honored Proof recommends review and landing;
-- an empty task recommends the preferred available agent action;
-- collision evidence recommends review;
-- contained work recommends Reclaim.
-
-Broken or unreadable tasks receive no destructive recommendation. Drop remains a separate Danger action while the task keeps its factual recovery evidence.
+Broken or unreadable tasks never recommend Drop.
 
 <!-- BEGIN DESK ACTION REGISTRY -->
 
@@ -78,23 +75,23 @@ Broken or unreadable tasks receive no destructive recommendation. Drop remains a
 
 <!-- END DESK ACTION REGISTRY -->
 
-The table is held to [`DESK_ACTION_REGISTRY`](../../../src/engine/desk/model.ts) by a parity test. Grant and revoke remain human-only actions inside `discern desk`; their command evidence names that interactive entry point.
+Grant and revoke remain human-only actions inside `discern desk`.
 
 ## Run final checks and review Proof
 
-`Run final checks` invokes the same Gate core as `discern done`. A clean committed task without Proof presents `Run final checks, then land on <trunk>`; honored Proof changes the landing label to `Review and land on <trunk>`. A running Gate carries its elapsed and typical duration when status knows them. A passing Gate returns to a fresh task view with the new Proof.
+`Run final checks` calls the same Gate core as `discern done`. Without Proof, landing reads `Run final checks, then land on <trunk>`; honored Proof changes it to `Review and land on <trunk>`. Status shows a typical duration when known. A pass refreshes the task with its new Proof.
 
-`Review Proof and changes` opens a Proof-first composition. It renders Proof currency, the stored line, and the stored Markdown page through the shared Markdown renderer. The same view carries all commit subjects, Diffstat and changed-file Components, uncommitted paths, collision context, landing authority, and any structured Standard proposal evidence. Git read failures remain failures through Diagnostic and RetryNotice Components.
+`Review Proof and changes` shows Proof currency, its stored line and Markdown page, checks and Standards, every commit subject, Diffstat, changed and uncommitted paths, collisions, and landing authority. Failed reads remain failures with one next step.
 
-`View actual diff` sends `git diff --no-ext-diff --color=always <trunk>...HEAD` through the [shared explicit pager boundary](../../../src/lib/pager.ts). The review returns after the pager exits. `Open in editor` runs the exact command and arguments declared by `$VISUAL` or `$EDITOR` when the command is available; unavailable or unsafe shell-shaped editor values stay disabled with a reason.
+`View actual diff` opens `git diff --no-ext-diff --color=always <trunk>...HEAD` in the [shared pager](../../../src/lib/pager.ts), then returns to review. `Open in editor` runs an available simple command from `$VISUAL` or `$EDITOR`; unsafe values stay disabled with a reason.
 
 ## Review effects before confirming
 
-Every lifecycle mutation presents its live read-only plan and command evidence through the design system's Command, Procedure, ProcedureStep, ExpectedResult, and DestructiveActionNotice Components where applicable. The same composition gives a structured **Keeps**, **Changes**, **Removes**, and **Recoverable** account. Landing, Update, grant, revoke, Reclaim, and Drop apply through their authoritative cores, which revalidate after confirmation. Mutation confirmations default to No. Drop additionally requires the branch name before a refused safe drop may discard work.
+Before a lifecycle mutation, the Desk renders its live plan and command in design-system Components with **Keeps**, **Changes**, **Removes**, and **Recoverable** facts. The authoritative core checks current state again after confirmation. Confirmations default to No; discarding work also requires the branch name.
 
-Project Scripts show their canonical name, description, resolved executable path, working directory, required confirmation, and undeclared destructive policy before they run. `Show command` prints the exact executable command and arguments and the corresponding `discern scripts <name>` spelling without running either. Missing directories and non-executable files remain disabled with exact recovery. Root scripts use the same review and No-default confirmation from main.
+Project Scripts show their name, description, executable, working directory, required confirmation, and undeclared destructive policy. `Show command` copies the exact executable and `discern scripts <name>` command without running either. Missing or non-executable scripts stay disabled with recovery.
 
-Configured agent actions remain visible when a provider binary is missing from `PATH`. One available action can launch directly; several retain provider-owned labels and exact command arguments in a provider-owned choice. Provider session state stays outside discern, and resume arguments come only from the provider registry. Project Scripts, agent CLIs, and shells inherit the selected checkout's terminal and return to a fresh survey. Owned process groups stop on Ctrl-C, SIGTERM, or SIGHUP ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)).
+Configured agents also remain visible when their binary is missing from `PATH`. One available action launches directly; several keep provider-owned labels and commands. Session state stays outside discern, and resume arguments come only from the provider registry. Scripts, agents, and shells inherit the selected checkout's terminal and return to a fresh survey. Their process groups stop with the Desk ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)).
 
 ## Know when the Desk stays closed
 
