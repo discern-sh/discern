@@ -398,13 +398,16 @@ function envelopeEvidence(
       "No diagnostic message was recorded.";
     const file = text(diagnostic.file);
     const line = number(diagnostic.line);
+    const rule = text(diagnostic.rule);
     const location = file === undefined
       ? ""
       : ` at ${code(`${file}${line === undefined ? "" : `:${line}`}`)}`;
     const reproduce = text(diagnostic.reproduce_cmd);
     const outputPath = text(diagnostic.output_path);
     facts.push(
-      `${code(tool)}${location}: ${message}${
+      `${code(tool)}${location}${
+        rule === undefined ? "" : ` [rule ${code(rule)}]`
+      }: ${message}${
         reproduce === undefined ? "" : ` Reproduce with ${code(reproduce)}.`
       }${outputPath === undefined ? "" : ` Full output: ${code(outputPath)}.`}`,
     );

@@ -2474,6 +2474,15 @@ export type SetupCompletionInventory = z.infer<
   typeof SetupCompletionInventorySchema
 >;
 
+/** How one successful `setup done` invocation reached the completed state. */
+export const SETUP_DONE_SUCCESS_KINDS = [
+  "created",
+  "replayed",
+  "validated",
+  "forced",
+] as const;
+export type SetupDoneSuccessKind = typeof SETUP_DONE_SUCCESS_KINDS[number];
+
 /**
  * `setup done` — the completion payload (ADR 0065/0078/0086). The structured fields
  * carry assurance, landing, inventory, and phase-appropriate activation facts. The `instructions` prose is
@@ -2482,6 +2491,13 @@ export type SetupCompletionInventory = z.infer<
  */
 export const SetupDoneDataSchema = z.strictObject({
   bootstrapped: z.literal(true),
+  /** Whether this invocation created, replayed, validated, or forcibly recorded
+   * the marker-bearing completion state. */
+  completion: z.enum(SETUP_DONE_SUCCESS_KINDS),
+  /** True only when this invocation crossed a write boundary. */
+  effects_performed: z.boolean(),
+  /** True only when this invocation executed the main-checkout Gate. */
+  gate_ran: z.boolean(),
   forced: z.boolean(),
   gate_proven: z.boolean(),
   /** Whether the required worktree-viability probe ran green. False only on
@@ -2570,12 +2586,18 @@ const SetupDoneUncommittedDataSchema = z.strictObject({
 
 const SetupDoneGateFailureDataSchema = z.strictObject({
   stage: z.enum(SETUP_DONE_COMPLETION_STAGES),
-  compensation: z.enum([
+  /** What happened to the exact marker commit this invocation owned. */
+  rollback: z.enum([
     "not_needed",
-    "committed",
-    "working_tree",
-    "failed",
+    "owned_commit_removed",
+    "retained",
   ]),
+  /** A concise description of the state left on disk and in Git. */
+  state: z.string().trim().min(1),
+  /** The one supported next command or edit boundary. */
+  next_action: z.string().trim().min(1),
+  /** Self-contained recovery that never requires raw ref movement or broad cleanup. */
+  recovery: z.string().trim().min(1),
 });
 
 /** Every structured refusal payload emitted by `setup done`. */

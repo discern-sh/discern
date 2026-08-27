@@ -377,7 +377,7 @@ async function adrNumbersDiagnostic(
  */
 async function mapIntegrityDiagnostic(
   findings: DocsIntegrityFinding[],
-): Promise<Diagnostic> {
+): Promise<Diagnostic[]> {
   const byRule = new Map<DocsIntegrityRule, DocsIntegrityFinding[]>();
   for (const finding of findings) {
     byRule.set(finding.rule, [...(byRule.get(finding.rule) ?? []), finding]);
@@ -387,19 +387,21 @@ async function mapIntegrityDiagnostic(
     group.map((f) => `  ${f.file}:${f.line} ${f.detail}`).join("\n") +
     `\n  fix: ${DOCS_INTEGRITY_REMEDIES[rule]}`
   );
-  const files = [...new Set(findings.map((f) => f.file))];
   const outputFields = await diagnosticOutputFields(
     "The map or instructions references things a reader cannot follow:\n\n" +
       sections.join("\n\n"),
   );
-  return {
+  return findings.map((finding) => ({
     tool: "map-integrity",
     severity: "error",
-    message: `map or instructions integrity: ${findings.length} finding(s) ` +
-      `across ${files.length} file(s)`,
+    message:
+      `map or instructions integrity (${finding.rule}): ${finding.detail}`,
     reproduce_cmd: "discern done",
+    file: finding.file,
+    line: finding.line,
+    rule: finding.rule,
     ...outputFields,
-  };
+  }));
 }
 
 /**
@@ -770,7 +772,7 @@ async function runGate(
   //     The CLI model comes from the fully attached entry-point command tree
   //     through an explicit provider, so this lower-level preflight never
   //     imports the binary entry point that consumes it.
-  let mapIntegrityDiag: Diagnostic | undefined;
+  let mapIntegrityDiagnostics: Diagnostic[] = [];
   if (failedStage === null) {
     const findings = await checkDocsIntegrity(
       root,
@@ -779,7 +781,7 @@ async function runGate(
     );
     if (findings.length > 0) {
       failedStage = "map_integrity";
-      mapIntegrityDiag = await mapIntegrityDiagnostic(findings);
+      mapIntegrityDiagnostics = await mapIntegrityDiagnostic(findings);
     }
   }
 
@@ -1137,8 +1139,11 @@ async function runGate(
   if (trackedRefreshDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), trackedRefreshDiag];
   }
-  if (mapIntegrityDiag !== undefined) {
-    result.diagnostics = [...(result.diagnostics ?? []), mapIntegrityDiag];
+  if (mapIntegrityDiagnostics.length > 0) {
+    result.diagnostics = [
+      ...(result.diagnostics ?? []),
+      ...mapIntegrityDiagnostics,
+    ];
   }
   if (writeAccessDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), writeAccessDiag];

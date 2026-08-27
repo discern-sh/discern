@@ -598,6 +598,7 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
         "- [x] **Finished item.** remove me\n" +
         "- [ ] Plain unresolved decision\n",
     );
+    await gitInit(dir);
     const done = await runAgent(dir, ["setup", "done", "--force", "--json"]);
     assertEquals(done.code, 0, done.output);
     const envelope = decodeCliResult(done.stdout, "setup done");

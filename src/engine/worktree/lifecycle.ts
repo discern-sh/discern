@@ -124,6 +124,7 @@ import {
   listEntries,
   readResourceSpecs,
   recordResourceEnv,
+  WorktreeResourceError,
 } from "./resources.ts";
 import {
   type AcceptPlan,
@@ -5515,10 +5516,20 @@ export type WorktreeProbeOutcome =
   /** The worktree was created but readying it (resources, one-shot `steps`, the
    * fresh-creation `ensure`) FAILED — the project cannot set itself up in a copy. A
    * genuine red the caller blocks on. */
-  | { kind: "setup_failed"; reason: string }
+  | {
+    kind: "setup_failed";
+    reason: string;
+    diagnostics?: Diagnostic[] | undefined;
+  }
   /** The probe ran inside the readied worktree; `ok` is the caller's verdict, `detail`
    * its note. */
-  | { kind: "probed"; ok: boolean; detail?: string };
+  | {
+    kind: "probed";
+    ok: boolean;
+    detail?: string | undefined;
+    diagnostics?: Diagnostic[] | undefined;
+    remedy?: "content" | "worktree" | undefined;
+  };
 
 /**
  * Prove the project is viable inside a linked worktree — the copy every future task
@@ -5538,7 +5549,12 @@ export type WorktreeProbeOutcome =
 export async function probeWorktreeViability(
   ctx: LifecycleContext,
   worktreeRoot: string,
-  probe: (probeDir: string) => Promise<{ ok: boolean; detail?: string }>,
+  probe: (probeDir: string) => Promise<{
+    ok: boolean;
+    detail?: string | undefined;
+    diagnostics?: Diagnostic[] | undefined;
+    remedy?: "content" | "worktree" | undefined;
+  }>,
 ): Promise<WorktreeProbeOutcome> {
   const asMsg = (e: unknown): string =>
     e instanceof Error ? e.message : String(e);
@@ -5580,16 +5596,52 @@ export async function probeWorktreeViability(
       await worktreeSetup(await lifecycleContext(dir, ctx.log, dir));
       setupReady = true;
     } catch (e) {
-      outcome = { kind: "setup_failed", reason: asMsg(e) };
+      const reason = asMsg(e);
+      const resource = e instanceof WorktreeResourceError;
+      outcome = {
+        kind: "setup_failed",
+        reason,
+        diagnostics: [{
+          tool: resource ? "worktree-resource" : "worktree-setup",
+          severity: "error",
+          message: reason,
+          reproduce_cmd: "discern worktree setup",
+          file: "discern.toml",
+          rule: resource
+            ? `worktree.resources.${e.resourceName}.${e.operation}`
+            : "worktree-setup",
+        }],
+      };
     }
     if (setupReady) {
       const verdict = await probe(dir);
-      outcome = verdict.detail !== undefined
-        ? { kind: "probed", ok: verdict.ok, detail: verdict.detail }
-        : { kind: "probed", ok: verdict.ok };
+      outcome = {
+        kind: "probed",
+        ok: verdict.ok,
+        ...(verdict.detail === undefined ? {} : { detail: verdict.detail }),
+        ...(verdict.diagnostics === undefined
+          ? {}
+          : { diagnostics: verdict.diagnostics }),
+        ...(verdict.remedy === undefined ? {} : { remedy: verdict.remedy }),
+      };
     }
   } catch (error) {
-    outcome = { kind: "setup_failed", reason: asMsg(error) };
+    const reason = asMsg(error);
+    const resource = error instanceof WorktreeResourceError;
+    outcome = {
+      kind: "setup_failed",
+      reason,
+      diagnostics: [{
+        tool: resource ? "worktree-resource" : "worktree-setup",
+        severity: "error",
+        message: reason,
+        reproduce_cmd: "discern worktree setup",
+        file: "discern.toml",
+        rule: resource
+          ? `worktree.resources.${error.resourceName}.${error.operation}`
+          : "worktree-setup",
+      }],
+    };
   }
   try {
     await discardCreatedWorktree(
@@ -5603,11 +5655,26 @@ export async function probeWorktreeViability(
       },
     );
   } catch (error) {
+    const reason =
+      `The structural probe ran, but its teardown did not complete: ${
+        asMsg(error)
+      }`;
+    const resource = reason.toLocaleLowerCase().includes("resource");
     return {
       kind: "setup_failed",
-      reason: `The structural probe ran, but its teardown did not complete: ${
-        asMsg(error)
-      }`,
+      reason,
+      diagnostics: [{
+        tool: resource ? "worktree-resource" : "worktree-teardown",
+        severity: "error",
+        message: reason,
+        reproduce_cmd: "discern worktree prune",
+        ...(resource
+          ? {
+            file: "discern.toml",
+            rule: "worktree.resources.destroy",
+          }
+          : { rule: "worktree-teardown" }),
+      }],
     };
   }
   return outcome;

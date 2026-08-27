@@ -77,9 +77,14 @@ import {
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
 import {
-  clearGateProof,
+  currentTreeIdentity,
+  type GateProofSnapshot,
   inspectGateProof,
+  inspectLastGateRun,
   pinValidatedTree,
+  restoreGateProofAfterOwnedRollback,
+  sameTreeIdentity,
+  snapshotGateProof,
 } from "../engine/gate/proof.ts";
 import {
   lifecycleContext,
@@ -118,6 +123,7 @@ import {
 } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
 import {
+  type Diagnostic,
   type DiscernResult,
   type ErrorSlug,
   type HumanOutputGroup,
@@ -139,6 +145,8 @@ import { runGit } from "../shared/subprocess.ts";
 import {
   commitDiscernChanges,
   DISCERN_AUTHORED_COMMIT_SITES,
+  type DiscernOwnedCommit,
+  rollbackDiscernOwnedCommit,
 } from "../shared/discern_commit.ts";
 import { parsePorcelainZ } from "../shared/git_paths.ts";
 import { writeDiscernToml } from "../lib/tidy_format.ts";
@@ -162,6 +170,7 @@ import {
   type SetupDoneCompletionStage,
   type SetupDoneData,
   type SetupDoneFailureData,
+  type SetupDoneSuccessKind,
 } from "../shared/result_schemas.ts";
 import {
   ACCEPT_COMMAND,
@@ -1289,24 +1298,31 @@ async function doneRequiredEffects(
   root: string,
   config: DiscernConfig,
   force: boolean,
+  includeMarker: boolean,
 ): Promise<SetupRequiredEffect[]> {
   const configPath = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
-  const configWrites = await plannedFilesystemWrites(
-    configPath,
-    "setup completion config rewrite",
-  );
   const gitWrites = await plannedGitMutationWrites(
     root,
-    "setup completion commit and evidence",
+    includeMarker
+      ? "setup completion commit and evidence"
+      : "setup completion validation evidence",
   );
-  const effects: SetupRequiredEffect[] = [
-    setupRequiredEffect(
+  const effects: SetupRequiredEffect[] = [];
+  if (includeMarker) {
+    const configWrites = await plannedFilesystemWrites(
+      configPath,
+      "setup completion config rewrite",
+    );
+    effects.push(setupRequiredEffect(
       "done-completion-config",
       configWrites[0],
       ...configWrites.slice(1),
-    ),
-  ];
-  const commitEffect = requiredEffect("done-commit", gitWrites);
+    ));
+  }
+  const commitEffect = requiredEffect(
+    includeMarker ? "done-commit" : "done-validation-evidence",
+    gitWrites,
+  );
   if (commitEffect !== undefined) effects.push(commitEffect);
 
   if (!force) {
@@ -2182,16 +2198,26 @@ type AutoCommitOutcome =
 /** The completion-marker commit's outcome. A committed marker carries the exact
  * resulting HEAD so every later completion check can be tied to that transaction. */
 type MarkerCommitOutcome =
-  | { state: "committed"; head: string }
+  | {
+    state: "committed";
+    head: string;
+    owned: DiscernOwnedCommit;
+  }
   | { state: "skipped" }
-  | { state: "failed"; detail: string; markerCommitted?: true }
+  | { state: "failed"; detail: string }
   | { state: "no-git" };
 
-/** How a failed non-forced completion restored the pre-completion config state. */
-type MarkerRestoreOutcome =
-  | { state: "committed" }
-  | { state: "working_tree"; detail: string }
-  | { state: "failed"; detail: string };
+/** The marker fact rendered for a completed state, whether new or replayed. */
+type CompletionMarkerView = MarkerCommitOutcome | {
+  state: "existing";
+  head: string;
+};
+
+/** How a failed final-tree transaction left its owned marker commit. */
+type MarkerRollbackOutcome =
+  | { state: "owned_commit_removed"; detail?: string | undefined }
+  | { state: "not_needed" }
+  | { state: "retained"; detail: string };
 
 /**
  * The one git stderr line worth relaying from a failed auto-commit: the last
@@ -2341,85 +2367,106 @@ async function commitCompletionMarker(
   if (!commit.success) {
     return { state: "failed", detail: gitFailureLine(commit.stderr) };
   }
-  const head = await runGit(["rev-parse", "--verify", "HEAD"], { cwd: root });
-  if (!head.success || head.stdout.trim() === "") {
+  if (commit.owned === undefined) {
     return {
       state: "failed",
-      markerCommitted: true,
-      detail: head.success
-        ? "Git returned an empty HEAD after the completion commit"
-        : gitFailureLine(head.stderr),
+      detail:
+        "Git created the completion commit without returning discern ownership evidence",
     };
   }
-  return { state: "committed", head: head.stdout.trim() };
+  return {
+    state: "committed",
+    head: commit.owned.head,
+    owned: commit.owned,
+  };
 }
 
 /**
- * Restore the config bytes that preceded a non-forced completion transaction.
- * The working file is restored before Git is asked to commit the compensation, so
- * a hook or signing failure leaves setup observably incomplete and the recovery
- * remains an ordinary config commit. When the marker commit never landed, restoring
- * the file and index is enough and creates no history.
+ * Restore an uncommitted marker only while HEAD remains the sampled predecessor
+ * and the config is the sole tracked difference. This covers a hook/signing
+ * refusal before a marker commit exists without touching an advanced branch.
  */
-async function restoreCompletionMarker(
+async function restorePendingCompletionMarker(
   root: string,
   configPath: string,
   originalConfig: string,
-  markerCommitted: boolean,
-): Promise<MarkerRestoreOutcome> {
+  predecessor: string,
+): Promise<MarkerRollbackOutcome> {
+  const current = await runGit(["rev-parse", "--verify", "HEAD"], {
+    cwd: root,
+  });
+  if (!current.success || current.stdout.trim() !== predecessor) {
+    return {
+      state: "retained",
+      detail:
+        "HEAD moved after the marker write, so discern retained the exact branch and checkout state",
+    };
+  }
+  const configRel = relative(root, configPath);
+  const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
+  if (!status.success) {
+    return {
+      state: "retained",
+      detail: "Git could not prove which tracked paths changed",
+    };
+  }
+  const changed = parsePorcelainZ(status.stdout);
+  if (
+    changed.some((entry) =>
+      entry.path !== configRel || entry.origPath !== undefined
+    )
+  ) {
+    return {
+      state: "retained",
+      detail:
+        "the checkout changed outside discern.toml after the marker write",
+    };
+  }
   try {
     await Deno.writeTextFile(configPath, originalConfig);
   } catch (error) {
     return {
-      state: "failed",
+      state: "retained",
       detail: `could not restore discern.toml (${errMsg(error)})`,
     };
   }
 
-  const configRel = relative(root, configPath);
-  if (!markerCommitted) {
-    const unstaged = await runGit(
-      ["restore", "--staged", "--", configRel],
-      { cwd: root },
-    );
-    return unstaged.success ? { state: "committed" } : {
-      state: "working_tree",
-      detail:
-        `discern.toml reports setup incomplete, but Git could not restore its index: ${
-          gitFailureLine(unstaged.stderr)
-        }`,
-    };
-  }
-
-  const add = await runGit(["add", "--", configRel], { cwd: root });
-  if (!add.success) {
+  const unstaged = await runGit(
+    ["restore", "--staged", "--", configRel],
+    { cwd: root },
+  );
+  if (!unstaged.success) {
     return {
-      state: "working_tree",
-      detail:
-        `discern.toml reports setup incomplete, but Git could not stage the recovery: ${
-          gitFailureLine(add.stderr)
-        }`,
+      state: "retained",
+      detail: `discern.toml is restored, but Git could not restore its index (${
+        gitFailureLine(unstaged.stderr)
+      })`,
     };
   }
-  const commit = await commitDiscernChanges({
-    site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
-    cwd: root,
-    subject: "Restore incomplete discern setup",
-    body:
-      "A required completion check failed after the marker commit, so setup remains incomplete until the final tree passes again.",
-    pathspecs: [configRel],
-  });
-  if (commit.success) {
-    return { state: "committed" };
-  }
-  await runGit(["restore", "--staged", "--", configRel], { cwd: root });
-  return {
-    state: "working_tree",
+  const clean = await runGit(["status", "--porcelain", "-z"], { cwd: root });
+  return clean.success && clean.stdout === "" ? { state: "not_needed" } : {
+    state: "retained",
     detail:
-      `discern.toml reports setup incomplete, but the recovery commit failed: ${
-        gitFailureLine(commit.stderr)
-      }`,
+      "discern.toml is restored, but the checkout no longer matches the sampled predecessor",
   };
+}
+
+/** Remove the exact marker commit this invocation owns and restore prior Proof. */
+async function rollbackCompletionMarker(
+  marker: Extract<MarkerCommitOutcome, { state: "committed" }>,
+  proofBefore: GateProofSnapshot,
+): Promise<MarkerRollbackOutcome> {
+  const rollback = await rollbackDiscernOwnedCommit(marker.owned);
+  if (rollback.kind !== "rolled-back") {
+    return { state: "retained", detail: rollback.detail };
+  }
+  const proof = await restoreGateProofAfterOwnedRollback(
+    proofBefore,
+    marker.head,
+  );
+  return proof.kind === "restored"
+    ? { state: "owned_commit_removed" }
+    : { state: "owned_commit_removed", detail: proof.detail };
 }
 
 /** Explain why a non-forced setup could not establish its final marker commit. */
@@ -2644,9 +2691,10 @@ function emitSetupFinalTreeDirty(
 /** The view `printDoneSuccess` renders — the celebrate/assure/land/onboard pieces of a
  * completed `setup done`, computed once and shared with the `--json` envelope. */
 interface DoneSuccessView {
+  completion: SetupDoneSuccessKind;
   forced: boolean;
   leftover: string[];
-  markerCommit: MarkerCommitOutcome;
+  markerCommit: CompletionMarkerView;
   assurance: SetupAssurance;
   inventory: SetupCompletionInventory;
   landing: LandingSummary;
@@ -2788,6 +2836,7 @@ function landStep(landing: LandingSummary, n: number): string[] {
  * pieces, so the two surfaces can't drift (ADR 0028). */
 function printDoneSuccess(view: DoneSuccessView): void {
   const {
+    completion,
     forced,
     leftover,
     markerCommit,
@@ -2815,12 +2864,21 @@ function printDoneSuccess(view: DoneSuccessView): void {
       ? "Land it or leave the proved branch for review. Do not restart or begin improvement work before landing and activation verification."
       : "The one-time authoring work is finished; verify activation from a fresh provider session before optional improvement work.",
   ];
+  if (completion === "replayed") {
+    completionLines.push(
+      "This exact clean commit already has current Proof; no write, worktree probe, or Gate job ran.",
+    );
+  } else if (completion === "validated") {
+    completionLines.push(
+      "Validated the existing completion marker and recorded current Proof without another marker commit.",
+    );
+  }
   if (forced) {
     completionLines.push(
       `(Marked complete with --force despite ${leftover.length} file(s) still carrying skeleton markers.)`,
     );
   }
-  if (markerCommit.state === "committed") {
+  if (completion === "created" && markerCommit.state === "committed") {
     completionLines.push("Committed the completion marker (discern.toml).");
   } else if (markerCommit.state === "skipped") {
     completionLines.push(
@@ -2908,167 +2966,23 @@ function inventoryLabel(items: readonly string[]): string {
   return items.length === 0 ? "none" : items.join(", ");
 }
 
-/**
- * `discern setup done` validates structural completeness, commits
- * `[meta].bootstrapped = true`, and proves that exact final tree (ADR 0065/0078).
- * Completeness is two layers: no skeleton
- * marker may remain, AND every derived per-step completion check must pass (ADR
- * 0078) — the latter catches a skeleton whose marker was deleted without the file
- * being meaningfully filled (the shallow-compliance failure). The marker-bearing
- * commit then runs refresh, doctor, the linked-worktree probe, and the final Gate.
- * A failed check restores the incomplete marker before returning. `--force` is the
- * manual-setup escape hatch: it skips the completeness checks and Proof.
- */
-export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
-  const root = await rootOrError(opts.json, "setup done");
-  if (root === undefined) {
-    return 1;
-  }
-
-  // Structural completeness: no scaffolded doc (or the instruction source) may still
-  // carry a marker, AND every derived per-step check must pass (ADR 0078). The
-  // checks SUPPLEMENT the marker walk — they catch a skeleton whose marker was
-  // cleared without the file being filled. `--force` skips both.
-  const leftover = await findSkeletonMarkers(root);
-  const unmet = opts.force ? [] : await unmetSetupChecks(root);
-
-  if (!opts.force && (leftover.length > 0 || unmet.length > 0)) {
-    emitSetupIncomplete(opts.json, leftover, unmet);
-    return 1;
-  }
-
-  // The clean-tree precondition: the completion proof runs on committed history
-  // (the worktree probe branches from HEAD), and the completion story — "the
-  // branch keeps every commit", `setup accept` — is only true of commits. Refuse
-  // while authored setup sits uncommitted, naming exactly what to commit, AFTER
-  // the completeness checks (fill first, then commit, then prove). `--force`
-  // skips it along with the rest of the proof.
-  if (!opts.force) {
-    const uncommitted = await uncommittedSetupWork(root);
-    if (uncommitted.length > 0) {
-      emitSetupUncommitted(opts.json, uncommitted);
-      return 1;
-    }
-  }
-
-  // The config must load and any prior Gate Proof must be cleared before a
-  // completion preparation can fail. No failed attempt may leave earlier
-  // evidence looking current.
-  let doneCfg: DiscernConfig;
-  try {
-    doneCfg = await loadConfig(root);
-  } catch (error) {
-    emitDoneUnreadableConfig(opts.json, errMsg(error));
-    return 1;
-  }
-  const writeAuthority = await preflightSetupEffects(
-    setupEffectPlan(
-      "done",
-      await doneRequiredEffects(root, doneCfg, opts.force),
-    ),
-  );
-  if (!writeAuthority.ok) {
-    return emitSetupWriteAccessRefusal(
-      new Logger({ json: opts.json, noColor: false }),
-      opts.json,
-      "setup done",
-      writeAuthority,
-      `discern setup done${opts.force ? " --force" : ""}`,
-    );
-  }
-  const proofClearFailure = await clearSetupCompletionProof(root);
-  if (!opts.force && proofClearFailure !== undefined) {
-    return emitDonePreMarkerFailure(opts.json, "proof", proofClearFailure);
-  }
-
-  if (!opts.force) {
-    // Converge tracked instruction artifacts before the final-tree transaction.
-    // When this preparation changes tracked files, the caller reviews and commits
-    // them first. The required refresh still runs again against the marker-bearing
-    // commit, where any further change is a transaction failure.
-    const refreshFailure = await refreshSetupInstructions(root, opts.json);
-    if (refreshFailure !== undefined) {
-      return emitDonePreMarkerFailure(
-        opts.json,
-        "refresh",
-        refreshFailure,
-      );
-    }
-    const refreshChanges = await uncommittedSetupWork(root);
-    if (refreshChanges.length > 0) {
-      emitSetupRefreshUncommitted(opts.json, refreshChanges);
-      return 1;
-    }
-    const finalPin = await pinValidatedTree(root);
-    if (!finalPin.clean) {
-      emitSetupFinalTreeDirty(opts.json, finalPin.dirtyPaths);
-      return 1;
-    }
-  }
-
-  // The final-tree transaction starts here. Preserve the original bytes so every
-  // failed non-forced attempt can restore an observable incomplete state. The marker
-  // is written and committed BEFORE refresh, doctor, the structural worktree probe,
-  // and the final Gate. The Gate runs last, so no successful tracked effect follows
-  // the Proof it records.
+/** Build and render the one canonical completion projection from current state. */
+async function emitSetupDoneSuccess(
+  root: string,
+  cfg: DiscernConfig,
+  opts: SetupDoneOptions,
+  state: {
+    completion: SetupDoneSuccessKind;
+    leftover: string[];
+    markerCommit: CompletionMarkerView;
+    proof?: GateProofCheckData | undefined;
+    worktreeProven: boolean;
+    effectsPerformed: boolean;
+    gateRan: boolean;
+  },
+): Promise<number> {
+  const forced = state.completion === "forced";
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
-  const originalConfig = await Deno.readTextFile(path);
-  const editor = new TomlEditor(originalConfig);
-  editor.setBool(BOOTSTRAPPED_KEY, true);
-  await writeDiscernToml(path, editor.toString());
-
-  // Forced completion remains an explicit unproved escape hatch and retains the
-  // established best-effort marker commit. A normal completion requires the exact
-  // marker-only commit; without it there is no committed final tree to prove.
-  const markerCommit = await commitCompletionMarker(root, path);
-  let worktreeProven = false;
-  let proof: GateProofCheckData | undefined;
-  if (!opts.force) {
-    if (markerCommit.state !== "committed") {
-      const restore = await restoreCompletionMarker(
-        root,
-        path,
-        originalConfig,
-        markerCommit.state === "failed" &&
-          markerCommit.markerCommitted === true,
-      );
-      return emitDoneGateFailure(
-        opts.json,
-        "marker_commit",
-        markerCommitFailureDetail(markerCommit),
-        restore,
-      );
-    }
-    const completion = await proveFinalSetupTree(
-      root,
-      opts.json,
-      markerCommit.head,
-      opts.cliModel,
-    );
-    if (!completion.ok) {
-      const restore = await restoreCompletionMarker(
-        root,
-        path,
-        originalConfig,
-        true,
-      );
-      return emitDoneGateFailure(
-        opts.json,
-        completion.stage,
-        completion.detail,
-        restore,
-      );
-    }
-    worktreeProven = true;
-    proof = completion.proof;
-  }
-
-  const forced = opts.force;
-
-  // Report Proof, assurance, the mechanically derived closing inventory, and one
-  // phase-correct next action. Provider activation is withheld until setup already
-  // lives on the trunk; improvement remains optional after activation.
-  const cfg = doneCfg;
   const rawToml = await Deno.readTextFile(path);
   const assurance = assessSetupAssurance(cfg, rawToml);
   const landing = await landingSummary(root, cfg);
@@ -3077,29 +2991,32 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const reactivation = readyForActivation
     ? reactivationHandoff(cfg)
     : undefined;
-  // The closing relay block — the ready-to-relay "message to your human" a courier agent
-  // hands over, composed from the same pieces the structured surface carries (ADR 0086),
-  // and rendered identically on both surfaces.
   const instructions = completionMessage({
     assurance,
     inventory,
     landing,
     reactivation,
-    proofLine: proof?.proof_line,
+    proofLine: state.proof?.proof_line,
     forced,
   });
 
   const data: SetupDoneData = {
     bootstrapped: true,
+    completion: state.completion,
+    effects_performed: state.effectsPerformed,
+    gate_ran: state.gateRan,
     forced,
-    gate_proven: !opts.force,
-    worktree_proven: worktreeProven,
-    marker_committed: markerCommit.state === "committed",
-    ...(markerCommit.state === "failed"
-      ? { marker_commit_error: markerCommit.detail }
+    gate_proven: !forced && state.proof?.status === "honored",
+    worktree_proven: state.worktreeProven,
+    marker_committed: state.markerCommit.state === "committed" ||
+      state.markerCommit.state === "existing",
+    ...(state.markerCommit.state === "failed"
+      ? { marker_commit_error: state.markerCommit.detail }
       : {}),
-    ...(proof === undefined ? {} : { proof, proof_line: proof.proof_line }),
-    leftover,
+    ...(state.proof === undefined
+      ? {}
+      : { proof: state.proof, proof_line: state.proof.proof_line }),
+    leftover: state.leftover,
     assurance,
     inventory,
     landing: {
@@ -3133,33 +3050,441 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     emitResult(result);
     return 0;
   }
-
   printDoneSuccess({
+    completion: state.completion,
     forced,
-    leftover,
-    markerCommit,
+    leftover: state.leftover,
+    markerCommit: state.markerCommit,
     assurance,
     inventory,
     landing,
     reactivation,
     instructions,
-    worktreeProven,
-    proofLine: proof?.proof_line,
+    worktreeProven: state.worktreeProven,
+    proofLine: state.proof?.proof_line,
   });
   return 0;
+}
+
+/** Whether inspected Proof carries every canonical completion projection field. */
+function isCanonicalCompletionProof(
+  proof: GateProofCheckData,
+): proof is GateProofCheckData & {
+  status: "honored";
+  proof_data: NonNullable<GateProofCheckData["proof_data"]>;
+  proof_line: string;
+} {
+  return proof.status === "honored" && proof.proof_data !== undefined &&
+    proof.proof_line !== undefined;
+}
+
+/** Detect wave 3's unchanged-red guard before a validation probe can run. */
+async function unchangedRecordedSetupFailure(root: string): Promise<boolean> {
+  const [last, current] = await Promise.all([
+    inspectLastGateRun(root),
+    currentTreeIdentity(root),
+  ]);
+  return last !== undefined && current !== undefined && !last.passed &&
+    sameTreeIdentity(last, current);
+}
+
+/**
+ * Handle a marker-bearing project before any effect is planned or Proof is
+ * touched: replay current evidence, refuse dirty state, or validate the existing
+ * marker commit without trying to create a second one.
+ */
+async function runExistingSetupCompletion(
+  root: string,
+  cfg: DiscernConfig,
+  opts: SetupDoneOptions,
+): Promise<number> {
+  const [pin, proof] = await Promise.all([
+    pinValidatedTree(root),
+    inspectGateProof(root),
+  ]);
+  const markerHead = pin.head ?? proof.head ?? proof.recorded ?? "unavailable";
+  const marker: CompletionMarkerView = {
+    state: "existing",
+    head: markerHead,
+  };
+
+  if (!pin.clean) {
+    const named = pin.dirtyPaths.length === 0
+      ? "Git could not prove the checkout clean"
+      : `the marker-bearing checkout is dirty: ${pin.dirtyPaths.join(", ")}`;
+    return emitDoneGateFailure(
+      opts.json,
+      "proof",
+      named,
+      { state: "not_needed" },
+      {
+        state: "The existing completion marker and Proof bytes were retained.",
+        nextAction:
+          "Restore a clean checkout without discarding the reported paths, then run `discern setup done` again.",
+        recovery:
+          "Commit, stash, ignore, or remove only the reported paths. The next clean call will replay current Proof or validate this marker commit.",
+        diagnostics: [{
+          tool: "setup-completion-state",
+          severity: "error",
+          message: named,
+          reproduce_cmd: "discern setup done",
+          output: pin.dirtyPaths.join("\n"),
+        }],
+      },
+    );
+  }
+
+  if (isCanonicalCompletionProof(proof)) {
+    return await emitSetupDoneSuccess(root, cfg, opts, {
+      completion: "replayed",
+      leftover: [],
+      markerCommit: marker,
+      proof,
+      worktreeProven: true,
+      effectsPerformed: false,
+      gateRan: false,
+    });
+  }
+
+  const leftover = await findSkeletonMarkers(root, cfg);
+  const unmet = opts.force ? [] : await unmetSetupChecks(root);
+  if (!opts.force && (leftover.length > 0 || unmet.length > 0)) {
+    emitSetupIncomplete(opts.json, leftover, unmet);
+    return 1;
+  }
+  if (opts.force) {
+    return await emitSetupDoneSuccess(root, cfg, opts, {
+      completion: "forced",
+      leftover,
+      markerCommit: marker,
+      worktreeProven: false,
+      effectsPerformed: false,
+      gateRan: false,
+    });
+  }
+  if (pin.head === undefined) {
+    return emitDoneGateFailure(
+      opts.json,
+      "proof",
+      "Git could not identify the existing marker commit",
+      { state: "not_needed" },
+      {
+        state: "The existing marker and any prior evidence were retained.",
+        nextAction: "Repair the Git checkout, then run `discern setup done`.",
+        recovery:
+          "Make HEAD readable on the setup branch. Discern will validate that existing marker instead of creating another commit.",
+      },
+    );
+  }
+  if (await unchangedRecordedSetupFailure(root)) {
+    return emitDoneGateFailure(
+      opts.json,
+      "proof",
+      "the Gate already judged this exact marker-bearing tree red and nothing has changed",
+      { state: "not_needed" },
+      {
+        error: "unchanged_tree_rerun",
+        hints: hintTexts([fire(HINTS["done-unchanged-tree-red"])]),
+        state:
+          "The marker remains present and unproved; the recorded failure was retained.",
+        nextAction:
+          "Fix the recorded failure, or run `discern done --rerun` for one deliberate flake probe before retrying `discern setup done`.",
+        recovery:
+          "Change the failing input, or explicitly re-run the Gate once. Repeating setup completion alone will not retry until green.",
+      },
+    );
+  }
+
+  const writeAuthority = await preflightSetupEffects(
+    setupEffectPlan(
+      "done",
+      await doneRequiredEffects(root, cfg, false, false),
+    ),
+  );
+  if (!writeAuthority.ok) {
+    return emitSetupWriteAccessRefusal(
+      new Logger({ json: opts.json, noColor: false }),
+      opts.json,
+      "setup done",
+      writeAuthority,
+      "discern setup done",
+    );
+  }
+  const completion = await proveFinalSetupTree(
+    root,
+    opts.json,
+    pin.head,
+    opts.cliModel,
+    true,
+  );
+  if (!completion.ok) {
+    return emitDoneGateFailure(
+      opts.json,
+      completion.stage,
+      completion.detail,
+      { state: "not_needed" },
+      {
+        state:
+          "The existing completion marker remains present and unproved; no marker commit was attempted.",
+        nextAction: completion.nextAction,
+        recovery: completion.recovery,
+        diagnostics: completion.diagnostics,
+      },
+    );
+  }
+  return await emitSetupDoneSuccess(root, cfg, opts, {
+    completion: "validated",
+    leftover,
+    markerCommit: marker,
+    proof: completion.proof,
+    worktreeProven: true,
+    effectsPerformed: true,
+    gateRan: true,
+  });
+}
+
+/**
+ * `discern setup done` validates structural completeness, commits
+ * `[meta].bootstrapped = true`, and proves that exact final tree (ADR 0065/0078).
+ * Completeness is two layers: no skeleton
+ * marker may remain, AND every derived per-step completion check must pass (ADR
+ * 0078) — the latter catches a skeleton whose marker was deleted without the file
+ * being meaningfully filled (the shallow-compliance failure). The marker-bearing
+ * commit then runs refresh, doctor, the linked-worktree probe, and the final Gate.
+ * A failed check restores the incomplete marker before returning. `--force` is the
+ * manual-setup escape hatch: it skips the completeness checks and Proof.
+ */
+export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
+  const root = await rootOrError(opts.json, "setup done");
+  if (root === undefined) {
+    return 1;
+  }
+
+  // Marker-bearing state is classified before completeness checks, effect
+  // planning, or Proof mutation. A proved clean HEAD is a read-only replay;
+  // missing/stale evidence enters the one validation route for that SAME marker.
+  let doneCfg: DiscernConfig;
+  try {
+    doneCfg = await loadConfig(root);
+  } catch (error) {
+    emitDoneUnreadableConfig(opts.json, errMsg(error));
+    return 1;
+  }
+  if (doneCfg.meta.bootstrapped) {
+    return await runExistingSetupCompletion(root, doneCfg, opts);
+  }
+
+  // Structural completeness: no scaffolded doc (or the instruction source) may still
+  // carry a marker, AND every derived per-step check must pass (ADR 0078). The
+  // checks SUPPLEMENT the marker walk — they catch a skeleton whose marker was
+  // cleared without the file being filled. `--force` skips both.
+  const leftover = await findSkeletonMarkers(root);
+  const unmet = opts.force ? [] : await unmetSetupChecks(root);
+
+  if (!opts.force && (leftover.length > 0 || unmet.length > 0)) {
+    emitSetupIncomplete(opts.json, leftover, unmet);
+    return 1;
+  }
+
+  // The clean-tree precondition: the completion proof runs on committed history
+  // (the worktree probe branches from HEAD), and the completion story — "the
+  // branch keeps every commit", `setup accept` — is only true of commits. Refuse
+  // while authored setup sits uncommitted, naming exactly what to commit, AFTER
+  // the completeness checks (fill first, then commit, then prove). `--force`
+  // skips it along with the rest of the proof.
+  let predecessorHead: string | undefined;
+  if (!opts.force) {
+    const uncommitted = await uncommittedSetupWork(root);
+    if (uncommitted.length > 0) {
+      emitSetupUncommitted(opts.json, uncommitted);
+      return 1;
+    }
+  }
+
+  const writeAuthority = await preflightSetupEffects(
+    setupEffectPlan(
+      "done",
+      await doneRequiredEffects(root, doneCfg, opts.force, true),
+    ),
+  );
+  if (!writeAuthority.ok) {
+    return emitSetupWriteAccessRefusal(
+      new Logger({ json: opts.json, noColor: false }),
+      opts.json,
+      "setup done",
+      writeAuthority,
+      `discern setup done${opts.force ? " --force" : ""}`,
+    );
+  }
+  if (!opts.force) {
+    // Converge tracked instruction artifacts before the final-tree transaction.
+    // When this preparation changes tracked files, the caller reviews and commits
+    // them first. The required refresh still runs again against the marker-bearing
+    // commit, where any further change is a transaction failure.
+    const refreshFailure = await refreshSetupInstructions(root, opts.json);
+    if (refreshFailure !== undefined) {
+      return emitDonePreMarkerFailure(
+        opts.json,
+        "refresh",
+        refreshFailure,
+      );
+    }
+    const refreshChanges = await uncommittedSetupWork(root);
+    if (refreshChanges.length > 0) {
+      emitSetupRefreshUncommitted(opts.json, refreshChanges);
+      return 1;
+    }
+    const finalPin = await pinValidatedTree(root);
+    if (!finalPin.clean) {
+      emitSetupFinalTreeDirty(opts.json, finalPin.dirtyPaths);
+      return 1;
+    }
+    if (finalPin.head === undefined) {
+      return emitDonePreMarkerFailure(
+        opts.json,
+        "marker_commit",
+        "Git could not identify the clean setup commit",
+      );
+    }
+    predecessorHead = finalPin.head;
+  }
+
+  // The final-tree transaction starts here. Preserve the original bytes so every
+  // failed non-forced attempt can restore an observable incomplete state. The marker
+  // is written and committed BEFORE refresh, doctor, the structural worktree probe,
+  // and the final Gate. The Gate runs last, so no successful tracked effect follows
+  // the Proof it records.
+  const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
+  const originalConfig = await Deno.readTextFile(path);
+  const proofBefore = await snapshotGateProof(root);
+  const editor = new TomlEditor(originalConfig);
+  editor.setBool(BOOTSTRAPPED_KEY, true);
+  await writeDiscernToml(path, editor.toString());
+
+  // Forced completion remains an explicit unproved escape hatch and retains the
+  // established best-effort marker commit. A normal completion requires the exact
+  // marker-only commit; without it there is no committed final tree to prove.
+  const markerCommit = await commitCompletionMarker(root, path);
+  if (opts.force) {
+    return await emitSetupDoneSuccess(root, await loadConfig(root), opts, {
+      completion: "forced",
+      leftover,
+      markerCommit,
+      worktreeProven: false,
+      effectsPerformed: true,
+      gateRan: false,
+    });
+  }
+
+  if (markerCommit.state !== "committed") {
+    const rollback = predecessorHead === undefined
+      ? { state: "retained" as const, detail: "the predecessor is unavailable" }
+      : await restorePendingCompletionMarker(
+        root,
+        path,
+        originalConfig,
+        predecessorHead,
+      );
+    return emitDoneGateFailure(
+      opts.json,
+      "marker_commit",
+      markerCommitFailureDetail(markerCommit),
+      rollback,
+      {
+        state: rollback.state === "not_needed"
+          ? "The uncommitted marker was removed; the predecessor commit and checkout are current."
+          : "The marker state was retained because discern could not prove a safe rollback.",
+        nextAction:
+          "Fix the reported Git failure, then run `discern setup done`.",
+        recovery: rollback.state === "retained"
+          ? `${rollback.detail}. Re-run \`discern setup done\`; it will inspect and validate any retained marker instead of creating a duplicate.`
+          : "The setup branch is back at its sampled predecessor. Correct the Git hook, signing, or identity failure and retry.",
+      },
+    );
+  }
+  const completion = await proveFinalSetupTree(
+    root,
+    opts.json,
+    markerCommit.head,
+    opts.cliModel,
+    false,
+  );
+  if (!completion.ok) {
+    const rollback = await rollbackCompletionMarker(markerCommit, proofBefore);
+    return emitDoneGateFailure(
+      opts.json,
+      completion.stage,
+      completion.detail,
+      rollback,
+      {
+        state: rollback.state === "owned_commit_removed"
+          ? "The transaction-owned marker commit was removed and the sampled predecessor is current."
+          : "Discern retained the exact marker-bearing state because safe ownership or preservation could not be proved.",
+        nextAction: completion.nextAction,
+        recovery: rollback.state === "retained"
+          ? `${rollback.detail}. ${completion.recovery}`
+          : completion.recovery,
+        diagnostics: completion.diagnostics,
+      },
+    );
+  }
+  return await emitSetupDoneSuccess(root, await loadConfig(root), opts, {
+    completion: "created",
+    leftover,
+    markerCommit,
+    proof: completion.proof,
+    worktreeProven: true,
+    effectsPerformed: true,
+    gateRan: true,
+  });
 }
 
 /** The final-tree transaction either returns the canonical honored Proof or the
  * completion stage whose failure requires marker compensation. */
 type FinalSetupProof =
-  | { ok: false; stage: SetupDoneCompletionStage; detail: string }
+  | {
+    ok: false;
+    stage: SetupDoneCompletionStage;
+    detail: string;
+    diagnostics?: Diagnostic[] | undefined;
+    nextAction: string;
+    recovery: string;
+  }
   | { ok: true; proof: GateProofCheckData };
 
 /** The structural linked-worktree leg has no durable Proof of its own; the
  * throwaway worktree is removed after returning this bounded outcome. */
 type WorktreeProbeProof =
-  | { ok: false; stage: "worktree_probe"; detail: string }
+  | {
+    ok: false;
+    stage: "worktree_probe";
+    detail: string;
+    diagnostics?: Diagnostic[] | undefined;
+    nextAction: string;
+    recovery: string;
+  }
   | { ok: true };
+
+/** Render a file-specific correction from a nested structured diagnostic. */
+function nestedDiagnosticRecovery(
+  diagnostics: readonly Diagnostic[],
+): { nextAction: string; recovery: string } | undefined {
+  const actionable = diagnostics.find((diagnostic) =>
+    diagnostic.file !== undefined || diagnostic.rule !== undefined
+  );
+  if (actionable === undefined) return undefined;
+  const location = actionable.file === undefined
+    ? "the reported source"
+    : `${actionable.file}${
+      actionable.line === undefined ? "" : `:${actionable.line}`
+    }`;
+  const rule = actionable.rule === undefined ? "" : ` (${actionable.rule})`;
+  return {
+    nextAction: `Edit ${location}, then run \`${actionable.reproduce_cmd}\`.`,
+    recovery:
+      `Fix ${location}${rule}: ${actionable.message}. Run \`${actionable.reproduce_cmd}\` to verify the content correction, then run \`discern setup done\` again.`,
+  };
+}
 
 /** Confirm that completion still points at the clean marker commit pinned before
  * checks began, using the same tree sampler the canonical Gate Proof writer uses. */
@@ -3202,18 +3527,6 @@ async function refreshSetupInstructions(
   }
 }
 
-/** Clear any pre-completion Gate Proof through the canonical proof authority. */
-async function clearSetupCompletionProof(
-  root: string,
-): Promise<string | undefined> {
-  const cleared = await clearGateProof(root);
-  return cleared.status === "cleared"
-    ? undefined
-    : `the prior Gate Proof could not be invalidated${
-      cleared.reason === undefined ? "" : `: ${cleared.reason}`
-    }`;
-}
-
 /**
  * Prove setup's committed final tree. Refresh and doctor inspect the marker-bearing
  * commit, the structural probe branches from it, and the main-checkout Gate runs
@@ -3224,6 +3537,7 @@ async function proveFinalSetupTree(
   json: boolean,
   markerHead: string,
   cliModel: CliModelProvider,
+  rerunMainGate: boolean,
 ): Promise<FinalSetupProof> {
   const refreshFailure = await refreshSetupInstructions(root, json);
   if (refreshFailure !== undefined) {
@@ -3231,11 +3545,21 @@ async function proveFinalSetupTree(
       ok: false,
       stage: "refresh",
       detail: refreshFailure,
+      nextAction: "Fix the named refresh input, then run `discern refresh`.",
+      recovery:
+        "Correct the reported generated-integration or instruction source problem, run `discern refresh`, and retry `discern setup done`.",
     };
   }
   const refreshDrift = await finalSetupTreeDrift(root, markerHead);
   if (refreshDrift !== undefined) {
-    return { ok: false, stage: "refresh", detail: refreshDrift };
+    return {
+      ok: false,
+      stage: "refresh",
+      detail: refreshDrift,
+      nextAction: "Review and commit the named refresh drift.",
+      recovery:
+        "Preserve the changed paths, review and commit the intended refresh output, then retry `discern setup done`.",
+    };
   }
 
   if (!(await doctorResult(root)).ok) {
@@ -3244,11 +3568,21 @@ async function proveFinalSetupTree(
       stage: "doctor",
       detail:
         "the install has problems; run `discern doctor` and fix what it flags",
+      nextAction: "Run `discern doctor` and fix its named diagnostic.",
+      recovery:
+        "Use the doctor's exact file or config correction, then retry `discern setup done`.",
     };
   }
   const doctorDrift = await finalSetupTreeDrift(root, markerHead);
   if (doctorDrift !== undefined) {
-    return { ok: false, stage: "doctor", detail: doctorDrift };
+    return {
+      ok: false,
+      stage: "doctor",
+      detail: doctorDrift,
+      nextAction: "Review the named changed paths.",
+      recovery:
+        "Preserve and reconcile the changed paths, return the marker-bearing tree to clean state, then retry `discern setup done`.",
+    };
   }
 
   const probe = await proveWorktreeViable(root, json, markerHead, cliModel);
@@ -3257,21 +3591,39 @@ async function proveFinalSetupTree(
   }
   const probeDrift = await finalSetupTreeDrift(root, markerHead);
   if (probeDrift !== undefined) {
-    return { ok: false, stage: "worktree_probe", detail: probeDrift };
+    return {
+      ok: false,
+      stage: "worktree_probe",
+      detail: probeDrift,
+      nextAction: "Review the named changed paths.",
+      recovery:
+        "Preserve and reconcile the changed paths, then retry `discern setup done` from a clean tree.",
+    };
   }
 
   const gate = await finishResult(root, {
     cliModel,
+    ...(rerunMainGate ? { rerun: true } : {}),
     surface: json
       ? { kind: "quiet" }
       : { kind: "human", plain: plainModeEnabled() },
   });
   if (!gate.ok) {
+    const diagnosticRecovery = nestedDiagnosticRecovery(
+      gate.diagnostics ?? [],
+    );
     return {
       ok: false,
       stage: "done",
       detail:
         "the quality gate is not green; fix the failures, then run `discern setup done` again",
+      ...(gate.diagnostics === undefined
+        ? {}
+        : { diagnostics: gate.diagnostics }),
+      nextAction: diagnosticRecovery?.nextAction ??
+        "Fix the first Gate diagnostic, then run its reproduce command.",
+      recovery: diagnosticRecovery?.recovery ??
+        "Use the Gate's first diagnostic and reproduce command, correct that failure, then retry `discern setup done`.",
     };
   }
   const proof = await inspectGateProof(root);
@@ -3286,6 +3638,9 @@ async function proveFinalSetupTree(
         `the final Gate did not record a complete current Proof (${proof.status}${
           proof.reason === undefined ? "" : `: ${proof.reason}`
         })`,
+      nextAction: "Run `discern setup done` to validate the retained marker.",
+      recovery:
+        "The marker is not accepted without canonical Proof. Repair the reported Proof write/read condition, then use `discern setup done`; it will validate the existing marker without another marker commit.",
     };
   }
   return { ok: true, proof };
@@ -3315,6 +3670,7 @@ async function proveWorktreeViable(
           ok: false,
           detail:
             "the structural probe did not start from the clean completion-marker commit",
+          remedy: "worktree" as const,
         };
       }
       const r = await finishResult(probeDir, {
@@ -3332,11 +3688,20 @@ async function proveWorktreeViable(
           ok: false,
           detail:
             `the structural probe did not retain current Gate evidence for the completion-marker commit (${proof.status})`,
+          remedy: "worktree" as const,
         };
       }
-      const detail = r.diagnostics?.[0]?.message ??
+      const diagnostics = r.diagnostics ?? [];
+      const detail = diagnostics[0]?.message ??
         "the quality gate was red in the copy";
-      return { ok: false, detail };
+      return {
+        ok: false,
+        detail,
+        ...(diagnostics.length === 0 ? {} : { diagnostics }),
+        remedy: nestedDiagnosticRecovery(diagnostics) === undefined
+          ? "worktree" as const
+          : "content" as const,
+      };
     },
   );
 
@@ -3345,19 +3710,54 @@ async function proveWorktreeViable(
       if (outcome.ok) {
         return { ok: true };
       }
+      if (outcome.remedy === "content") {
+        const correction = nestedDiagnosticRecovery(outcome.diagnostics ?? []);
+        return {
+          ok: false,
+          stage: "worktree_probe",
+          detail:
+            `the Gate found a content or integrity error inside the fresh worktree: ${
+              outcome.detail ?? "the copy is not viable"
+            }`,
+          ...(outcome.diagnostics === undefined
+            ? {}
+            : { diagnostics: outcome.diagnostics }),
+          nextAction: correction?.nextAction ??
+            "Edit the source named by the nested diagnostic.",
+          recovery: correction?.recovery ??
+            "Correct the source content named by the nested diagnostic, run its reproduce command, then retry `discern setup done`.",
+        };
+      }
       return {
         ok: false,
         stage: "worktree_probe",
         detail: `the gate is not green inside a fresh worktree: ${
           outcome.detail ?? "the copy is not viable"
-        }. Something the app needs does not survive into a copy; wire [worktree].steps, [worktree].ensure, or [worktree.resources], then run \`discern setup done\` again`,
+        }`,
+        ...(outcome.diagnostics === undefined
+          ? {}
+          : { diagnostics: outcome.diagnostics }),
+        nextAction:
+          "Wire the missing copy-time dependency through the applicable worktree authority.",
+        recovery:
+          "Something the project needs does not survive into a copy. Use `[repository].ensure` for shared dependencies, `[worktree.setup]` for copy-specific convergence, or `[worktree.resources]` for external lifecycle state, then retry `discern setup done`.",
       };
     case "setup_failed":
       return {
         ok: false,
         stage: "worktree_probe",
         detail:
-          `the project could not set itself up in a fresh worktree: ${outcome.reason}. Fix its [worktree].steps, [worktree].ensure, or [worktree.resources], then run \`discern setup done\` again`,
+          `the project could not set itself up in a fresh worktree: ${outcome.reason}`,
+        ...(outcome.diagnostics === undefined
+          ? {}
+          : { diagnostics: outcome.diagnostics }),
+        nextAction: outcome.diagnostics?.[0]?.reproduce_cmd ===
+            "discern worktree prune"
+          ? "Run `discern worktree prune` after fixing the named teardown failure."
+          : "Fix the named worktree setup or resource command, then run `discern worktree setup`.",
+        recovery: outcome.reason.toLocaleLowerCase().includes("resource")
+          ? "Fix the named `[worktree.resources]` create or destroy command and its prerequisites. Run `discern worktree prune` when retained resource cleanup is named, then retry `discern setup done`."
+          : "Fix the named `[repository].ensure` or `[worktree.setup]` command and its prerequisites, then retry `discern setup done`.",
       };
     case "uncreatable":
       return {
@@ -3365,6 +3765,10 @@ async function proveWorktreeViable(
         stage: "worktree_probe",
         detail:
           `discern could not create the required linked-worktree probe: ${outcome.reason}`,
+        nextAction:
+          "Fix the named Git worktree creation state, then run `discern setup done`.",
+        recovery:
+          "Restore a normal committed branch and writable configured worktree root. The next call creates and retires one owned probe through the production lifecycle.",
       };
   }
 }
@@ -3399,9 +3803,14 @@ function emitDonePreMarkerFailure(
   stage: SetupDoneCompletionStage,
   detail: string,
 ): number {
+  const state =
+    "No completion marker was written; existing Git and Proof state were retained.";
+  const nextAction =
+    "Fix the reported failure, then run `discern setup done` again.";
+  const recovery =
+    "Use the named stage's diagnostic or command to make the correction. The next call starts from the same incomplete setup commit.";
   const message =
-    `Setup is incomplete because ${detail}. No completion marker was written. ` +
-    "Fix the failure, then run `discern setup done` again.";
+    `Setup completion stopped because ${detail}. ${state} ${nextAction}`;
   if (json) {
     emitResult({
       ok: false,
@@ -3410,7 +3819,10 @@ function emitDonePreMarkerFailure(
       message,
       data: {
         stage,
-        compensation: "not_needed",
+        rollback: "not_needed",
+        state,
+        next_action: nextAction,
+        recovery,
       } satisfies SetupDoneFailureData,
     });
   } else {
@@ -3419,30 +3831,41 @@ function emitDonePreMarkerFailure(
   return 1;
 }
 
-/**
- * Emit a failed final-tree transaction after marker compensation has run.
- */
+interface SetupDoneFailureProjection {
+  readonly error?: ErrorSlug | undefined;
+  readonly hints?: string[] | undefined;
+  readonly state: string;
+  readonly nextAction: string;
+  readonly recovery: string;
+  readonly diagnostics?: Diagnostic[] | undefined;
+}
+
+/** Emit one truthful failed transaction after its owned rollback decision. */
 function emitDoneGateFailure(
   json: boolean,
   stage: SetupDoneCompletionStage,
   detail: string,
-  restore: MarkerRestoreOutcome,
+  rollback: MarkerRollbackOutcome,
+  projection: SetupDoneFailureProjection,
 ): number {
-  const recovery = restore.state === "committed"
-    ? "The completion marker was restored to the incomplete state. Fix the failure, then run `discern setup done` again."
-    : restore.state === "working_tree"
-    ? `${restore.detail} Commit that recovery, fix the failure, then run \`discern setup done\` again.`
-    : `${restore.detail} Restore [meta].bootstrapped to false before running another lifecycle command.`;
-  const message = `Setup is incomplete because ${detail}. ${recovery}`;
+  const message =
+    `Setup completion stopped because ${detail}. ${projection.state} ${projection.nextAction}`;
   if (json) {
     emitResult({
       ok: false,
       verb: "setup done",
-      error: "gate_failed",
+      error: projection.error ?? "gate_failed",
       message,
+      ...(projection.hints === undefined ? {} : { hints: projection.hints }),
+      ...(projection.diagnostics === undefined
+        ? {}
+        : { diagnostics: projection.diagnostics }),
       data: {
         stage,
-        compensation: restore.state,
+        rollback: rollback.state,
+        state: projection.state,
+        next_action: projection.nextAction,
+        recovery: projection.recovery,
       } satisfies SetupDoneFailureData,
     });
   } else {
@@ -3453,7 +3876,19 @@ function emitDoneGateFailure(
       `  The final-tree transaction is marker commit → refresh → doctor → linked-worktree probe → Gate → Proof. The ${stage} step failed.`,
     );
     log.group("recovery");
-    log.humanLine(`  ${recovery}`);
+    log.humanLine(`  ${projection.recovery}`);
+    for (const diagnostic of projection.diagnostics ?? []) {
+      const location = diagnostic.file === undefined
+        ? ""
+        : ` ${diagnostic.file}${
+          diagnostic.line === undefined ? "" : `:${diagnostic.line}`
+        }`;
+      const rule = diagnostic.rule === undefined ? "" : ` [${diagnostic.rule}]`;
+      log.humanLine(
+        `  ${diagnostic.tool}${location}${rule}: ${diagnostic.message}`,
+      );
+      log.humanLine(`  Reproduce: ${diagnostic.reproduce_cmd}`);
+    }
     log.humanLine(
       "  Use --force only when you intend to record an unproved completion that setup acceptance will refuse.",
     );

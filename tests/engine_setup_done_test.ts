@@ -275,13 +275,15 @@ Deno.test("setup done doctor and marker-commit failures leave setup incomplete w
     await readyForDone(dir, "discern-test-command-that-does-not-exist");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    const headBefore = await gitOut(dir, "rev-parse", "HEAD");
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
     const result = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(result, "compensation");
+    assertResultDataKey(result, "rollback");
     assertEquals(result.data.stage, "doctor");
-    assertEquals(result.data.compensation, "committed");
+    assertEquals(result.data.rollback, "owned_commit_removed");
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), headBefore);
     await assertIncompleteWithoutProof(dir, "doctor failure");
   });
 
@@ -289,6 +291,7 @@ Deno.test("setup done doctor and marker-commit failures leave setup incomplete w
     await readyForDone(dir, "true");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    const headBefore = await gitOut(dir, "rev-parse", "HEAD");
     await writeExecutable(
       join(dir, ".git", "hooks", "pre-commit"),
       "#!/bin/sh\nexit 1\n",
@@ -297,19 +300,21 @@ Deno.test("setup done doctor and marker-commit failures leave setup incomplete w
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
     const result = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(result, "compensation");
+    assertResultDataKey(result, "rollback");
     assertEquals(result.data.stage, "marker_commit");
-    assertEquals(result.data.compensation, "committed");
+    assertEquals(result.data.rollback, "not_needed");
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), headBefore);
     assertEquals(await gitOut(dir, "status", "--porcelain"), "");
     await assertIncompleteWithoutProof(dir, "marker-commit failure");
   });
 });
 
-Deno.test("setup done leaves an explicit incomplete working-tree recovery when compensation commit fails", async () => {
+Deno.test("setup done rollback bypasses commit hooks and leaves no transaction history", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "false");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    const headBefore = await gitOut(dir, "rev-parse", "HEAD");
     await writeExecutable(
       join(dir, ".git", "hooks", "pre-commit"),
       "#!/bin/sh\nif test -f .git/setup-completion-hook-ran; then exit 1; fi\ntouch .git/setup-completion-hook-ran\n",
@@ -318,16 +323,18 @@ Deno.test("setup done leaves an explicit incomplete working-tree recovery when c
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
     const result = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(result, "compensation");
-    assert(result.message !== undefined);
+    assertResultDataKey(result, "rollback");
     assertEquals(result.data.stage, "worktree_probe");
-    assertEquals(result.data.compensation, "working_tree");
-    assertStringIncludes(result.message, "Commit that recovery");
-    assertStringIncludes(
-      await gitOut(dir, "status", "--porcelain"),
-      "discern.toml",
+    assertEquals(result.data.rollback, "owned_commit_removed");
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), headBefore);
+    assertEquals(await gitOut(dir, "status", "--porcelain"), "");
+    assertEquals(
+      (await gitOut(dir, "log", "--format=%s")).includes(
+        "Restore incomplete discern setup",
+      ),
+      false,
     );
-    await assertIncompleteWithoutProof(dir, "compensation-commit failure");
+    await assertIncompleteWithoutProof(dir, "owned rollback");
   });
 });
 
