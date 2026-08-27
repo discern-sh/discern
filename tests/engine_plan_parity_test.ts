@@ -154,6 +154,13 @@ interface TreeSnapshot {
   logbook: Map<string, string>;
 }
 
+type BeforeSnapshotEntryRead = (
+  absolutePath: string,
+  relativePath: string,
+) => Promise<void>;
+
+const SNAPSHOT_ATTEMPTS = 3;
+
 /** Render a file's SHA-256 digest for byte-exact tree snapshots. */
 async function hashBytes(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest(
@@ -170,15 +177,17 @@ async function walkInto(
   snapshot: TreeSnapshot,
   absRoot: string,
   relPrefix: string,
+  beforeEntryRead?: BeforeSnapshotEntryRead,
 ): Promise<void> {
   for await (const entry of Deno.readDir(absRoot)) {
     const abs = join(absRoot, entry.name);
     const rel = `${relPrefix}${entry.name}`;
+    await beforeEntryRead?.(abs, rel);
     if (entry.isDirectory) {
       if (!isLogbookContainer(`${rel}/`)) {
         snapshot.exact.set(`${rel}/`, "dir");
       }
-      await walkInto(snapshot, abs, `${rel}/`);
+      await walkInto(snapshot, abs, `${rel}/`, beforeEntryRead);
     } else if (entry.isSymlink) {
       snapshot.exact.set(rel, `link:${await Deno.readLink(abs)}`);
     } else if (isGitIndex(rel)) {
@@ -194,19 +203,80 @@ async function walkInto(
 /** Snapshot the whole fixture: the main checkout AND its sibling worktree
  * root (`<dir>.worktrees`), so a dry run that touches a linked worktree — or
  * mints one — cannot escape the comparison. */
-async function snapshotTree(mainDir: string): Promise<TreeSnapshot> {
-  const snapshot: TreeSnapshot = { exact: new Map(), logbook: new Map() };
-  await walkInto(snapshot, mainDir, "main/");
+async function snapshotTree(
+  mainDir: string,
+  beforeEntryRead?: BeforeSnapshotEntryRead,
+): Promise<TreeSnapshot> {
   const worktreeRoot = dirname(worktreePath(mainDir, "any"));
-  try {
-    await walkInto(snapshot, worktreeRoot, "worktrees/");
-  } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) {
-      throw error;
+  for (let attempt = 1; attempt <= SNAPSHOT_ATTEMPTS; attempt++) {
+    const snapshot: TreeSnapshot = { exact: new Map(), logbook: new Map() };
+    try {
+      await walkInto(snapshot, mainDir, "main/", beforeEntryRead);
+
+      let worktreeRootExists = true;
+      try {
+        await Deno.lstat(worktreeRoot);
+      } catch (error) {
+        if (!(error instanceof Deno.errors.NotFound)) {
+          throw error;
+        }
+        worktreeRootExists = false;
+      }
+      if (worktreeRootExists) {
+        await walkInto(
+          snapshot,
+          worktreeRoot,
+          "worktrees/",
+          beforeEntryRead,
+        );
+      }
+      return snapshot;
+    } catch (error) {
+      if (
+        !(error instanceof Deno.errors.NotFound) ||
+        attempt === SNAPSHOT_ATTEMPTS
+      ) {
+        throw error;
+      }
+      // A background Git maintenance process can retire an administrative
+      // file after readDir yields it. Discard the partial observation: keeping
+      // it would turn one filesystem moment into a synthetic tree that never
+      // existed, while ignoring the path would hide a stable leftover.
+      continue;
     }
   }
-  return snapshot;
+
+  throw new Error("snapshot attempts exhausted without returning or throwing");
 }
+
+Deno.test("fixture snapshots survive a fresh-named entry vanishing after enumeration", async () => {
+  await withTempDir(async (dir) => {
+    const transientDir = join(dir, "unrelated-state");
+    const transientPath = join(transientDir, "future-sibling.pending");
+    await Deno.mkdir(transientDir);
+    await Deno.writeTextFile(transientPath, "transient\n");
+    let removed = false;
+
+    const snapshot = await snapshotTree(
+      dir,
+      async (absolutePath, relativePath) => {
+        if (
+          !removed &&
+          relativePath === "main/unrelated-state/future-sibling.pending"
+        ) {
+          removed = true;
+          await Deno.remove(absolutePath);
+        }
+      },
+    );
+
+    assert(removed, "the adversarial entry was never observed");
+    assertEquals(
+      snapshot.exact.has("main/unrelated-state/future-sibling.pending"),
+      false,
+    );
+  });
+});
 
 /** Assert `after` equals `before` up to the two principled exceptions. */
 function assertTreeUnchanged(
