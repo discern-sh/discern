@@ -14,6 +14,8 @@ _The trunk holds the project's agreed state while other branches remain in fligh
 
 The trunk is the shared branch accepted work lands on: `[repository].trunk` in `discern.toml`, usually `main`. The main checkout keeps it checked out, every worktree forks from it, and the Gate's merge check requires a branch to contain the current trunk before `discern done` can pass ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)).
 
+The main checkout derives every [identity field](identity-and-env.md) from the configured trunk. Its seed stays constant until that setting changes; worktree branches provide effort-stable fleet rotation ([ADR 0350](../_adr/0350-checkout-identity-supplies-test-order-seeds.md)).
+
 ## What moves it
 
 `discern accept` advances the trunk only after conversation consent or a machine-verified standing or effort grant. It fast-forwards to the worktree's validated commit, then converges the main checkout and removes the landed worktree ([ADR 0110](../_adr/0110-the-landing-model.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)). Fast-forward-only landing keeps trunk history as a sequence of accepted branches. Owner decisions that belong to the shared state, such as moving a Standard's limit or changing `discern.toml` policy, are made on the trunk by the owner. Agent work lands only through acceptance.

@@ -13,7 +13,7 @@ _Each discern task uses an isolated workspace (a Git worktree) with its own chec
 
 `discern start` creates a separate checkout and `agent/…` branch for one task. The main checkout remains the fleet's shared view.
 
-Each worktree gets a stable identity, development port, and declared resources. Setup prepares the checkout and converges it after the trunk changes.
+Every checkout has a stable identity, development port, and test-order seed. Linked worktrees additionally receive their declared resources and isolated setup. The main checkout derives its constant identity from the configured trunk branch.
 
 The lifecycle starts from the main checkout. Commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` moves the validated commit to the trunk and tears down the worktree. `--confirmed` attests only to consent in the current conversation. Automatic cleanup requires recorded fleet ownership; merge status alone never authorizes deletion.
 

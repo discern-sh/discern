@@ -6836,6 +6836,7 @@ export type DiscernStatusResult = DiscernResultState & {
       site: string;
       port: number;
       db: string;
+      seed: number;
       resources: {
         [key: string]: string;
       };
@@ -7895,7 +7896,7 @@ export type DiscernIdentityResult = DiscernResultState & {
   verb: "identity";
   data?: {
     kind: "field";
-    field: string;
+    field: "id" | "site" | "branch" | "port" | "db" | "seed" | "worktree";
     value: string;
   } | {
     kind: "resource";

@@ -21048,6 +21048,11 @@
                         "db": {
                           "type": "string"
                         },
+                        "seed": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
                         "resources": {
                           "type": "object",
                           "propertyNames": {
@@ -21064,6 +21069,7 @@
                         "site",
                         "port",
                         "db",
+                        "seed",
                         "resources"
                       ]
                     },
@@ -24551,7 +24557,16 @@
                       "const": "field"
                     },
                     "field": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "id",
+                        "site",
+                        "branch",
+                        "port",
+                        "db",
+                        "seed",
+                        "worktree"
+                      ]
                     },
                     "value": {
                       "type": "string"

@@ -63,13 +63,14 @@ After installation, discern itself makes no network calls. Project commands rema
 
 ## Worktree identity selectors
 
-Run `discern identity` inside a linked worktree. With no selector it prints the id.
+Run `discern identity` in the main checkout or a linked worktree. With no selector it prints the id.
 
 | Selector            | Value                                                                              |
 | ------------------- | ---------------------------------------------------------------------------------- |
-| `--id`              | Stable worktree id.                                                                |
-| `--branch`          | Branch prefix plus the id.                                                         |
+| `--id`              | Stable checkout id.                                                                |
+| `--branch`          | Full worktree branch name or configured trunk branch.                              |
 | `--port`            | Deterministic development port, `17290 + cksum(id) % 2000`.                        |
+| `--seed`            | Deterministic test-order seed, the POSIX `cksum` of the full branch name.          |
 | `--site`            | Domain Name System (DNS) compatible project slug plus id, fitted to 63 characters. |
 | `--db`              | Database-compatible project slug plus id, using underscores.                       |
 | `--worktree`        | Generic project-slug-plus-id handle.                                               |
@@ -82,7 +83,7 @@ For example:
 discern identity --resource database
 ```
 
-Identity resolution checks the [worktree id override](environment-variables.md#worktree-identity) in the process, then the configured env files, then git's linked-worktree metadata. An explicit path argument inspects another worktree.
+Linked identity checks the [id override](environment-variables.md#worktree-identity), env files, then Git metadata; main identity uses the configured trunk. A path argument inspects either checkout kind.
 
 ## Worktree env files
 

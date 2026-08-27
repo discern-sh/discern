@@ -300,17 +300,18 @@ Usage: `discern worktree prune [options]`
 
 ### `discern identity`
 
-Print stable values that keep each worktree's branch, development host, port, database, and external resources separate.
+Print stable values that keep each checkout's branch, development host, port, database, and external resources separate.
 
 Usage: `discern identity [path] [options]`
 
 | Option              | Description                                                                  |
 | ------------------- | ---------------------------------------------------------------------------- |
-| `--id`              | Print the safe base name for this worktree (default).                        |
+| `--id`              | Print the safe base name for this checkout (default).                        |
 | `--site`            | Print its development server's host name.                                    |
 | `--branch`          | Print its branch name.                                                       |
 | `--port`            | Print its stable development-server port.                                    |
 | `--db`              | Print its database-safe name.                                                |
+| `--seed`            | Print its stable test-order seed.                                            |
 | `--worktree`        | Print its base resource handle — a stable project-prefixed external name.    |
 | `--resource <name>` | Print the stable external name for one declared resource.                    |
 | `--resources`       | Print every declared resource as name=stable-external-name lines.            |

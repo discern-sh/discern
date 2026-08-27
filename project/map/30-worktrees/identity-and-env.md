@@ -1,6 +1,6 @@
 ---
 title: Identity and environment
-description: How a worktree gets stable names, a deterministic port, inherited env values, and discoverable resource handles.
+description: How every checkout gets stable names, a deterministic port and test seed, inherited env values, and discoverable resource handles.
 order: 40
 aliases:
   - worktree identity
@@ -9,30 +9,33 @@ aliases:
   - inherit env
 ---
 
-# Worktree identity and environment
+# Checkout identity and environment
 
-_A stable worktree id determines the branch name, local handles, and development port._
+_Checkout state supplies stable local coordinates and repeatable test order._
 
-Identity lets concurrent worktrees address separate local services without a shared registry. It derives from structured Git and environment state, so moving a checkout does not change its names ([ADR 0025](../_adr/0025-worktree-resources.md)).
+Moving a checkout preserves its identity ([ADR 0025](../_adr/0025-worktree-resources.md), [ADR 0350](../_adr/0350-checkout-identity-supplies-test-order-seeds.md)).
 
 ## Read the derived identity
 
-Run `discern identity` inside a linked worktree and select the value you need:
+Run `discern identity` in the main checkout or a linked worktree and select the value you need:
 
-| Selector            | Value                                                                         |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `--id`              | Stable worktree id.                                                           |
-| `--branch`          | `<branch_prefix><id>`, usually `agent/<id>`.                                  |
-| `--port`            | `17290 + cksum(id) % 2000`.                                                   |
-| `--site`            | Domain Name System (DNS)-safe `<project-slug>-<id>`, fitted to 63 characters. |
-| `--db`              | Database-safe `<project_slug>_<id>`.                                          |
-| `--worktree`        | Generic `<project-slug>-<id>` handle.                                         |
-| `--resource <name>` | `<project-slug>-<id>-<name>` for one declared resource.                       |
-| `--resources`       | Every declared resource as `name=handle`.                                     |
+| Selector            | Value                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------- |
+| `--id`              | Stable checkout id.                                                                   |
+| `--branch`          | Full branch name: `<branch_prefix><id>` for a worktree, the configured trunk on main. |
+| `--port`            | `17290 + cksum(id) % 2000`.                                                           |
+| `--seed`            | POSIX `cksum` of the full branch name, without a trailing newline.                    |
+| `--site`            | Domain Name System (DNS)-safe `<project-slug>-<id>`, fitted to 63 characters.         |
+| `--db`              | Database-safe `<project_slug>_<id>`.                                                  |
+| `--worktree`        | Generic `<project-slug>-<id>` handle.                                                 |
+| `--resource <name>` | `<project-slug>-<id>-<name>` for one declared resource.                               |
+| `--resources`       | Every declared resource as `name=handle`.                                             |
 
-The id resolves from `DISCERN_WORKTREE_ID` in the current process, then from the configured environment files, then from Git's linked-worktree metadata. An explicit override accepts letters, numbers, dots, dashes, and underscores. Record one when a manually named integration worktree needs a different derived identity. This runtime precedence never grants destructive ownership: automatic cleanup derives its id from the exact worktree entry in Git's administrative metadata and requires discern's plain worktree-ready marker as separate evidence.
+A linked worktree resolves its id from `DISCERN_WORKTREE_ID`, configured environment files, then Git metadata. Overrides accept letters, numbers, dots, dashes, and underscores. This read-only precedence never grants destructive ownership: cleanup uses the exact Git worktree entry plus discern's ready marker.
 
-`discern start` checks the port for collisions with live siblings and mints another id when needed. Port selection remains best-effort: a crowded band does not block creation, and simultaneous start processes have no cross-process lock. Record a different `DISCERN_WORKTREE_ID` if 2 live worktrees ever receive the same port.
+Main identity uses the configured trunk and preserves it in `--branch`. Its seed changes only with that setting. Worktree seeds stay stable by branch; branches rotate order. Neither uses the clock nor secure entropy.
+
+`discern start` avoids trunk and live-sibling port collisions when possible. A crowded band or racing starts may collide; change `DISCERN_WORKTREE_ID` then.
 
 ## Inherit selected env values
 
@@ -46,7 +49,7 @@ Reads may follow a symbolic link when its target stays inside the project. A mis
 
 The configured env files can carry the values listed in the [environment-variable reference](../70-reference/environment-variables.md#worktree-environment). `[worktree].port` defaults to `false`; set it to `true` when project tooling reads the development-port value. The lifecycle records that value only when the setting is on and an env file exists. `discern identity --port` and the `@port@` setup token remain available either way. Resource handles are recorded when an env file exists. The id remains an optional override supplied by the project or user.
 
-Identity commands remain available when the project has no env file. `discern status` derives fleet ids and ports from each worktree's own identity rather than inventing values from branch names.
+Identity commands work without an env file. Status, its Model Context Protocol (MCP) projection, and its resource expose the current checkout. Fleet rows derive each checkout's own id and port.
 
 ## Use tokens during setup
 
@@ -65,6 +68,7 @@ Resource and setup commands receive `@worktree@`, `@db@`, `@site@`, `@port@`, `@
 
 ## Current state and gotchas
 
-- The port, site tail, and database name use the frozen Portable Operating System Interface (POSIX) `cksum` derivation. Changing it changes every existing worktree's identity.
+- The port, site tail, database name, and test seed use the frozen Portable Operating System Interface (POSIX) `cksum` derivation. Changing it changes existing checkout coordinates or test order.
 - `@resource@` has no DNS length limit. Use `@site@` for a 63-character DNS label.
 - An env override applies only to the process's own worktree. Inspecting another path still resolves that target's identity.
+- The seed provides deterministic test-order replay. It carries no randomness or security meaning.
