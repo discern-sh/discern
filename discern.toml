@@ -1133,6 +1133,19 @@
       "deno.json",
     ]
 
+  # Secure-entropy authority standard — WebCrypto UUID and byte generation are
+  # retained only inside the typed system adapter; production code injects it.
+  [standards.secure_entropy_primitive_boundaries]
+    direction = "down"
+    limit = 2
+    run = "deno task ambient-boundaries"
+    inputs = [
+      "scripts/ambient_state_lint.ts",
+      "scripts/ambient_state_boundary_counts.ts",
+      "src/shared/entropy.ts",
+      "deno.json",
+    ]
+
   # Instruction-footprint standard — the bundled built-in instructions (templates/instructions/
   # *.md) compiles into every end-user agent's context in every session, so its total
   # word count is a context-window budget we spend on their behalf.

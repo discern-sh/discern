@@ -12,6 +12,7 @@
 
 import { dirname, join } from "@std/path";
 import { bestEffort } from "./best_effort.ts";
+import { type SecureEntropy, SYSTEM_SECURE_ENTROPY } from "./entropy.ts";
 
 const ATOMIC_TEMP_PREFIX = ".discern-atomic-write-";
 const ATOMIC_TEMP_SUFFIX = ".tmp";
@@ -79,10 +80,11 @@ export async function atomicReplaceBytes(
   path: string,
   bytes: Uint8Array,
   options: AtomicReplaceOptions,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<void> {
   const temp = join(
     dirname(path),
-    `${ATOMIC_TEMP_PREFIX}${crypto.randomUUID()}${ATOMIC_TEMP_SUFFIX}`,
+    `${ATOMIC_TEMP_PREFIX}${entropy.uuid()}${ATOMIC_TEMP_SUFFIX}`,
   );
   try {
     const file = await Deno.open(temp, {
@@ -113,8 +115,14 @@ export async function atomicReplaceText(
   path: string,
   text: string,
   options: AtomicReplaceOptions,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<void> {
-  await atomicReplaceBytes(path, new TextEncoder().encode(text), options);
+  await atomicReplaceBytes(
+    path,
+    new TextEncoder().encode(text),
+    options,
+    entropy,
+  );
 }
 
 /** Serialize JSON with the caller's exact layout and replace it atomically. */
@@ -122,6 +130,7 @@ export async function atomicReplaceJson(
   path: string,
   value: unknown,
   options: AtomicReplaceJsonOptions,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<void> {
   const json = JSON.stringify(value, null, options.space);
   if (json === undefined) {
@@ -133,5 +142,6 @@ export async function atomicReplaceJson(
     path,
     options.trailingNewline ? `${json}\n` : json,
     options,
+    entropy,
   );
 }

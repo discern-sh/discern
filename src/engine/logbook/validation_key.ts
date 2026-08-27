@@ -3,6 +3,10 @@
 import { dirname } from "@std/path";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import type { ValidationIncomplete } from "./validation.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../../shared/entropy.ts";
 
 export type ValidationKeyResult =
   | { key: Uint8Array }
@@ -13,6 +17,8 @@ export interface ValidationKeyOptions {
   readonly resolvePath?:
     | ((root: string) => Promise<string | undefined>)
     | undefined;
+  /** Secure byte source for deterministic key-creation tests. */
+  readonly entropy?: SecureEntropy;
 }
 
 type ExistingKey = ValidationKeyResult | { missing: true };
@@ -85,7 +91,8 @@ export async function validationKey(
     if (!("missing" in existing)) return existing;
 
     await Deno.mkdir(dirname(path), { recursive: true, mode: 0o700 });
-    const created = crypto.getRandomValues(new Uint8Array(32));
+    const created = new Uint8Array(32);
+    (options.entropy ?? SYSTEM_SECURE_ENTROPY).fillBytes(created);
     try {
       const file = await Deno.open(path, {
         createNew: true,

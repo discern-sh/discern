@@ -12,6 +12,7 @@
 import { dirname, join } from "@std/path";
 import type { Diagnostic, DiscernResult } from "./result.ts";
 import { bestEffort } from "./best_effort.ts";
+import { type SecureEntropy, SYSTEM_SECURE_ENTROPY } from "./entropy.ts";
 
 /** One predictable write surface a workflow will need later. */
 export type PlannedWriteTarget =
@@ -155,6 +156,7 @@ async function nearestExistingDirectory(path: string): Promise<string> {
  */
 async function probeDirectoryTree(
   target: Extract<PlannedWriteTarget, { kind: "directory-tree" }>,
+  entropy: SecureEntropy,
 ): Promise<WritePreflightResult> {
   try {
     const stat = await Deno.stat(target.path);
@@ -187,7 +189,7 @@ async function probeDirectoryTree(
     const parent = await nearestExistingDirectory(target.path);
     probeRoot = join(
       parent,
-      `.discern-write-tree-probe-${crypto.randomUUID()}`,
+      `.discern-write-tree-probe-${entropy.uuid()}`,
     );
     await Deno.mkdir(probeRoot);
     const representative = join(probeRoot, "nested", "target");
@@ -220,6 +222,7 @@ async function probeDirectoryTree(
 /** Probe each distinct target in order and stop at the first denial. */
 export async function preflightPlannedWrites(
   targets: readonly PlannedWriteTarget[],
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<WritePreflightResult> {
   const seen = new Set<string>();
   for (const target of targets) {
@@ -232,7 +235,7 @@ export async function preflightPlannedWrites(
       ? await probeDirectoryEntry(target)
       : target.kind === "existing-file"
       ? await probeExistingFile(target)
-      : await probeDirectoryTree(target);
+      : await probeDirectoryTree(target, entropy);
     if (!result.ok) {
       return result;
     }

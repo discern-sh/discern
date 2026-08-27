@@ -11,11 +11,12 @@ import {
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { fakeSecureEntropy } from "./fake_secure_entropy.ts";
+import type { SecureEntropy } from "../src/shared/entropy.ts";
 
 /** Create a deterministic entropy source that fills handles with one chosen byte. */
-function bytes(value: number): (length: number) => Uint8Array {
-  return (length: number): Uint8Array =>
-    new Uint8Array(Array.from({ length }, () => value));
+function entropy(value: number): SecureEntropy {
+  return fakeSecureEntropy({ byteFills: [value] });
 }
 
 /** Seed and initialize a repository whose continuation store can be shared by worktrees. */
@@ -33,7 +34,7 @@ Deno.test("continuation records persist across sibling worktrees and update in p
       "await",
       { marker: "first" },
       undefined,
-      { randomBytes: bytes(1) },
+      { entropy: entropy(1) },
     );
     assert(created.kind === "saved");
 
@@ -66,7 +67,7 @@ Deno.test("continuation creation retries a colliding repository-local identity",
       "await",
       { value: 1 },
       undefined,
-      { randomBytes: bytes(2) },
+      { entropy: entropy(2) },
     );
     assert(first.kind === "saved");
     let calls = 0;
@@ -76,9 +77,12 @@ Deno.test("continuation creation retries a colliding repository-local identity",
       { value: 2 },
       undefined,
       {
-        randomBytes: (length): Uint8Array => {
-          calls++;
-          return bytes(calls === 1 ? 2 : 3)(length);
+        entropy: {
+          uuid: (): string => "12345678-1234-4123-8123-123456789abc",
+          fillBytes: (target: Uint8Array): void => {
+            calls++;
+            target.fill(calls === 1 ? 2 : 3);
+          },
         },
       },
     );
@@ -96,7 +100,7 @@ Deno.test("a future continuation kind inherits the same bounded handle store", a
       "review-session",
       { prompt: "x".repeat(8_000) },
       undefined,
-      { randomBytes: bytes(8) },
+      { entropy: entropy(8) },
     );
     assert(saved.kind === "saved");
     assertEquals(saved.handle.length, 15);
@@ -119,7 +123,7 @@ Deno.test("expired continuation records are removed when addressed", async () =>
       "await",
       { value: "old" },
       undefined,
-      { randomBytes: bytes(4), now },
+      { entropy: entropy(4), now },
     );
     assert(created.kind === "saved");
     const directory = await gitAdminStatePath(dir, "continuations");
@@ -155,7 +159,7 @@ Deno.test("continuation creation keeps the repository store within its cap", asy
         "await",
         { value },
         undefined,
-        { randomBytes: bytes(value), maxEntries: 2 },
+        { entropy: entropy(value), maxEntries: 2 },
       );
       assert(saved.kind === "saved");
       created.push(saved.handle);

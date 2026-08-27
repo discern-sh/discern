@@ -40,6 +40,10 @@ import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import { makeTempArtifact } from "../shared/temp_artifacts.ts";
 import { wallTimeIso } from "../shared/clock.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../shared/entropy.ts";
 
 /** The crash exit code: sysexits `EX_SOFTWARE` — an internal software error,
  * distinct from an ordinary failed verb's exit 1 and the re-raised signal
@@ -277,10 +281,11 @@ async function createCrashFile(
   dir: string,
   report: CrashReport,
   body: string,
+  entropy: SecureEntropy,
 ): Promise<string> {
   const path = join(
     dir,
-    `${crashFilePrefix(report)}${crypto.randomUUID()}.txt`,
+    `${crashFilePrefix(report)}${entropy.uuid()}.txt`,
   );
   const file = await Deno.open(path, {
     createNew: true,
@@ -336,13 +341,14 @@ async function pruneCrashDir(dir: string): Promise<void> {
 export async function writeCrashArtifact(
   cwd: string,
   report: CrashReport,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<string | undefined> {
   const body = renderCrashArtifact(report);
   try {
     const dir = await gitAdminStatePath(cwd, "crash");
     if (dir !== undefined) {
       await ensureDir(dir);
-      const path = await createCrashFile(dir, report, body);
+      const path = await createCrashFile(dir, report, body, entropy);
       await pruneCrashDir(dir);
       return path;
     }

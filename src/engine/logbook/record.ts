@@ -50,6 +50,10 @@ import { isKnownGitCount, parseGitCount } from "../../shared/git_count.ts";
 import { treeDiffFingerprint } from "../../shared/tree_identity.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
 import { type Clock, SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../../shared/entropy.ts";
 import type { CrashSignature } from "../crash.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
@@ -558,8 +562,9 @@ export function beginRecording(
   cwd: string,
   begin: BeginReport,
   clock: Clock = SYSTEM_CLOCK,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Recording {
-  const invocation = crypto.randomUUID();
+  const invocation = entropy.uuid();
   setActiveInvocationId(invocation);
   // The checkpoint-observation accumulator is process-local: discard anything a
   // previous invocation in this process left behind (the MCP server serves many

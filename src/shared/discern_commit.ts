@@ -20,6 +20,7 @@ import {
   SPAWN_FAILED,
 } from "./subprocess.ts";
 import { quiesceProcessGroup } from "./process_group.ts";
+import { type SecureEntropy, SYSTEM_SECURE_ENTROPY } from "./entropy.ts";
 
 export interface DiscernAuthoredCommitSiteDefinition {
   readonly id: string;
@@ -80,6 +81,8 @@ interface DiscernCommitBaseOptions {
   readonly pathspecs: readonly string[];
   /** Injectable environment read for parallel-safe attribution tests. */
   readonly env?: EnvReader;
+  /** Cryptographic identity source for the private reflog action. */
+  readonly entropy?: SecureEntropy;
 }
 
 const authoredCommitSites = new Set<DiscernAuthoredCommitSite>(
@@ -550,7 +553,9 @@ export async function commitDiscernChanges(
       indexTreeBefore,
     };
   }
-  const reflogAction = `discern authored commit/${crypto.randomUUID()}`;
+  const reflogAction = `discern authored commit/${
+    (options.entropy ?? SYSTEM_SECURE_ENTROPY).uuid()
+  }`;
   const args = [
     "-c",
     "core.logAllRefUpdates=always",

@@ -9,6 +9,7 @@ import {
   JITTER_PRIMITIVE_BOUNDARIES,
   SCHEDULER_PRIMITIVE_BOUNDARIES,
 } from "../src/shared/scheduler.ts";
+import { SECURE_ENTROPY_PRIMITIVE_BOUNDARIES } from "../src/shared/entropy.ts";
 
 console.log(
   `DISCERN_METRIC ambient_read_boundaries ${
@@ -39,5 +40,10 @@ console.log(
 console.log(
   `DISCERN_METRIC scheduling_jitter_boundaries ${
     Object.keys(JITTER_PRIMITIVE_BOUNDARIES).length
+  }`,
+);
+console.log(
+  `DISCERN_METRIC secure_entropy_primitive_boundaries ${
+    Object.keys(SECURE_ENTROPY_PRIMITIVE_BOUNDARIES).length
   }`,
 );

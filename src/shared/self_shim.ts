@@ -37,6 +37,7 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 import { SYSTEM_CLOCK } from "./clock.ts";
+import { type SecureEntropy, SYSTEM_SECURE_ENTROPY } from "./entropy.ts";
 import {
   type GitAdminPathRunner,
   resolveGitAdminStatePath,
@@ -89,9 +90,15 @@ async function touch(dir: string): Promise<void> {
 }
 
 /** Write `content` beside `target` and rename it into place, executable. */
-async function writeShimAside(target: string, content: string): Promise<void> {
+async function writeShimAside(
+  target: string,
+  content: string,
+  entropy: SecureEntropy,
+): Promise<void> {
+  const bytes = new Uint8Array(8);
+  entropy.fillBytes(bytes);
   const suffix = Array.from(
-    crypto.getRandomValues(new Uint8Array(8)),
+    bytes,
     (byte) => byte.toString(16).padStart(2, "0"),
   ).join("");
   const aside = `${target}.${suffix}`;
@@ -115,14 +122,18 @@ async function writeShimAside(target: string, content: string): Promise<void> {
 }
 
 /** Mint or reuse the identity subdirectory for `content` under `home`. */
-async function ensureShimAt(home: string, content: string): Promise<string> {
+async function ensureShimAt(
+  home: string,
+  content: string,
+  entropy: SecureEntropy,
+): Promise<string> {
   const dir = join(home, await identityName(content));
   const shim = join(dir, "discern");
   if (await readTextIfExists(shim) === content) {
     return dir;
   }
   await Deno.mkdir(dir, { recursive: true });
-  await writeShimAside(shim, content);
+  await writeShimAside(shim, content, entropy);
   return dir;
 }
 
@@ -148,6 +159,7 @@ const resolved = new Map<string, string>();
 export async function selfShimDir(
   root?: string,
   gitRunner?: GitAdminPathRunner,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<string> {
   const key = root ?? "";
   const cached = resolved.get(key);
@@ -165,7 +177,7 @@ export async function selfShimDir(
     const home = await resolveGitAdminStatePath(root, "selfShim", gitRunner);
     if (home !== undefined) {
       try {
-        const dir = await ensureShimAt(home, content);
+        const dir = await ensureShimAt(home, content, entropy);
         resolved.set(key, dir);
         return dir;
       } catch {
@@ -194,7 +206,8 @@ export async function selfShimPath(
   root?: string,
   base: string = Deno.env.get("PATH") ?? "",
   gitRunner?: GitAdminPathRunner,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<string> {
-  const dir = await selfShimDir(root, gitRunner);
+  const dir = await selfShimDir(root, gitRunner, entropy);
   return base === "" ? dir : `${dir}${PATH_DELIMITER}${base}`;
 }

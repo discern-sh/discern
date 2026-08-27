@@ -36,6 +36,10 @@ import {
 } from "../../shared/env.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../../shared/entropy.ts";
 import { pathExists } from "../../shared/fs_presence.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
@@ -1497,7 +1501,13 @@ export class WorkingRoot {
 /** One opaque id per server INSTANCE — the MCP session grouping hint: every
  * invocation this long-lived process serves belongs to one client conversation,
  * which is exactly the grouping a session reader wants. */
-const MCP_SESSION = `mcp:${crypto.randomUUID().slice(0, 8)}`;
+export function mcpSessionId(
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
+): string {
+  return `mcp:${entropy.uuid().slice(0, 8)}`;
+}
+
+const MCP_SESSION = mcpSessionId();
 
 /** The MCP surface's raw driver signals: the per-instance session id, CI marker,
  * advisory catalogue matches, and the bounded protocol client declaration when

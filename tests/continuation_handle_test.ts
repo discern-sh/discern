@@ -8,17 +8,22 @@ import {
   normalizeContinuationHandle,
 } from "../src/shared/continuation_handle.ts";
 import { ContinuationHandleSchema } from "../src/shared/result_schemas.ts";
+import { fakeSecureEntropy } from "./fake_secure_entropy.ts";
+import type { SecureEntropy } from "../src/shared/entropy.ts";
 
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const SYMBOL_POSITIONS = [3, 4, 5, 6, 8, 9, 10, 11, 13, 14] as const;
 
 /** Supply stable entropy so continuation wire-format assertions never depend on randomness. */
-function deterministicBytes(): Uint8Array {
-  return new Uint8Array([1, 7, 12, 18, 23, 27, 29, 31]);
+function deterministicEntropy(): SecureEntropy {
+  return fakeSecureEntropy({
+    byteFills: [new Uint8Array([1, 7, 12, 18, 23, 27, 29, 31])],
+  });
 }
 
 Deno.test("continuation handles have one bounded canonical wire form", () => {
-  const handle = createContinuationHandle(deterministicBytes);
+  const handle = createContinuationHandle(deterministicEntropy());
+  assertEquals(handle, "C1-17CJ-QVXZ-HM");
   assertEquals(handle.length, CONTINUATION_HANDLE_LENGTH);
   assert(CONTINUATION_HANDLE_PATTERN.test(handle));
   assertEquals(normalizeContinuationHandle(handle), handle);
@@ -31,7 +36,7 @@ Deno.test("continuation handles have one bounded canonical wire form", () => {
 });
 
 Deno.test("the continuation checksum rejects every one-symbol substitution", () => {
-  const handle = createContinuationHandle(deterministicBytes);
+  const handle = createContinuationHandle(deterministicEntropy());
   for (const position of SYMBOL_POSITIONS) {
     const original = handle[position];
     assert(original !== undefined);
@@ -50,7 +55,7 @@ Deno.test("the continuation checksum rejects every one-symbol substitution", () 
 });
 
 Deno.test("the continuation checksum rejects every adjacent data transposition", () => {
-  const handle = createContinuationHandle(deterministicBytes);
+  const handle = createContinuationHandle(deterministicEntropy());
   const dataPositions = SYMBOL_POSITIONS.slice(0, 8);
   for (let index = 0; index < dataPositions.length - 1; index++) {
     const left = dataPositions[index];

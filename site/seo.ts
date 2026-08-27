@@ -10,6 +10,10 @@ import { buildRedirectRegistry } from "../src/lib/docs.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { SELF_TITLED_PAGES, SOCIAL_PAGE_METADATA } from "./brand.ts";
 import type { DocsPage, DocsSite } from "./docs.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../src/shared/entropy.ts";
 
 export const SITE_ORIGIN = "https://discern.sh";
 export const OG_IMAGE_PATH = "/assets/og-card.png";
@@ -299,8 +303,11 @@ export function applySecurityHeaders(
 }
 
 /** A per-response nonce. Inline theme bootstraps work without unsafe-inline. */
-export function responseNonce(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(18));
+export function responseNonce(
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
+): string {
+  const bytes = new Uint8Array(18);
+  entropy.fillBytes(bytes);
   return btoa(String.fromCharCode(...bytes));
 }
 

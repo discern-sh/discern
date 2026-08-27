@@ -16,6 +16,10 @@ import {
   SYSTEM_SCHEDULER,
   type TimeoutHandle,
 } from "../src/shared/scheduler.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../src/shared/entropy.ts";
 
 const REPO_ROOT = new URL("../", import.meta.url);
 const REPO_ROOT_PATH = fromFileUrl(REPO_ROOT);
@@ -61,6 +65,8 @@ export interface SiteDevOptions {
   readonly watch: boolean;
   /** Preview replacement and watch-debounce timer lifecycle. */
   readonly scheduler?: Scheduler;
+  /** Secure identity source for preview replacement authority. */
+  readonly entropy?: SecureEntropy;
 }
 
 /** Parse site-runner arguments without letting an unknown option disappear. */
@@ -297,11 +303,12 @@ export function startManagedSiteServer(
   mode: SitePreviewMode,
   previewHandler: (request: Request) => Response | Promise<Response>,
   onListen: (url: string) => void,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Deno.HttpServer<Deno.NetAddr> {
   const identity: ManagedSitePreviewIdentity = {
     mode,
     root: REPO_ROOT_PATH,
-    token: crypto.randomUUID(),
+    token: entropy.uuid(),
     version: SITE_PREVIEW_CONTROL_VERSION,
   };
   let server: Deno.HttpServer<Deno.NetAddr> | undefined;
@@ -429,6 +436,7 @@ export async function runLocalSite(options: SiteDevOptions): Promise<void> {
     mode,
     localHandler,
     (url) => console.log(`Site listening on ${url}`),
+    options.entropy ?? SYSTEM_SECURE_ENTROPY,
   );
   if (options.watch) await watchSiteBuildInputs(options);
   await server.finished;

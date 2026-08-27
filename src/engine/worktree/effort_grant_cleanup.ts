@@ -7,6 +7,10 @@
 
 import { join } from "@std/path";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../../shared/entropy.ts";
 import type { CheckedOutFastForwardResult } from "./git.ts";
 import {
   type EffortGrant,
@@ -117,11 +121,13 @@ export async function clearEffortGrant(cwd: string): Promise<boolean> {
 export async function claimEffortGrant(
   cwd: string,
   branch: string,
-  claimId: string = crypto.randomUUID(),
+  claimId?: string,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<EffortGrantClaimRead> {
+  const resolvedClaimId = claimId ?? entropy.uuid();
   const marker = await gitAdminStatePath(cwd, "effortGrant");
   const claimsDir = await gitAdminStatePath(cwd, "effortGrantClaims");
-  const claimPath = await effortGrantClaimPath(cwd, claimId);
+  const claimPath = await effortGrantClaimPath(cwd, resolvedClaimId);
   if (
     marker === undefined || claimsDir === undefined || claimPath === undefined
   ) {

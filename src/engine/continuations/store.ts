@@ -11,10 +11,13 @@ import { join } from "@std/path";
 import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { statIfExists } from "../../shared/fs_presence.ts";
 import {
-  type ContinuationRandomBytes,
   createContinuationHandle,
   normalizeContinuationHandle,
 } from "../../shared/continuation_handle.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../../shared/entropy.ts";
 import {
   atomicReplaceBytes,
   isAtomicReplaceTempName,
@@ -41,7 +44,7 @@ export interface ContinuationStoreOptions {
   readonly now?: number;
   readonly ttlMs?: number;
   readonly maxEntries?: number;
-  readonly randomBytes?: ContinuationRandomBytes;
+  readonly entropy?: SecureEntropy;
 }
 
 export type ReadContinuationResult =
@@ -249,21 +252,25 @@ async function replaceRecord(
   directory: string,
   handle: string,
   bytes: Uint8Array,
+  entropy: SecureEntropy,
 ): Promise<void> {
   const path = recordPath(directory, handle);
-  await atomicReplaceBytes(path, bytes, { mode: 0o600, sync: false });
+  await atomicReplaceBytes(
+    path,
+    bytes,
+    { mode: 0o600, sync: false },
+    entropy,
+  );
 }
 
 /** Allocate a collision-checked handle and persist its bytes with create-new semantics. */
 async function createRecord(
   directory: string,
   bytes: Uint8Array,
-  randomBytes: ContinuationRandomBytes | undefined,
+  entropy: SecureEntropy,
 ): Promise<string | undefined> {
   for (let attempt = 0; attempt < HANDLE_CREATE_ATTEMPTS; attempt++) {
-    const handle = randomBytes === undefined
-      ? createContinuationHandle()
-      : createContinuationHandle(randomBytes);
+    const handle = createContinuationHandle(entropy);
     const path = recordPath(directory, handle);
     let file: Deno.FsFile;
     try {
@@ -351,6 +358,7 @@ export async function saveContinuation(
   const now = opts.now ?? SYSTEM_CLOCK.wallNow();
   const ttlMs = opts.ttlMs ?? CONTINUATION_TTL_MS;
   const maxEntries = opts.maxEntries ?? CONTINUATION_MAX_ENTRIES;
+  const entropy = opts.entropy ?? SYSTEM_SECURE_ENTROPY;
   if (!Number.isInteger(maxEntries) || maxEntries < 1) {
     return { kind: "unavailable" };
   }
@@ -363,12 +371,12 @@ export async function saveContinuation(
       if (
         (await removeIfExpired(path, now, ttlMs)) === "live"
       ) {
-        await replaceRecord(directory, preferred, bytes);
+        await replaceRecord(directory, preferred, bytes, entropy);
         return preferred;
       }
     }
     await pruneForCreate(directory, now, ttlMs, maxEntries);
-    return await createRecord(directory, bytes, opts.randomBytes);
+    return await createRecord(directory, bytes, entropy);
   });
   return saved === undefined
     ? { kind: "unavailable" }

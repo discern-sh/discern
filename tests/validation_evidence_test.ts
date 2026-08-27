@@ -1,6 +1,11 @@
 /** Class guard for validation-start identity and configured-job verdicts. */
 
-import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertNotEquals,
+} from "@std/assert";
 import { dirname, join } from "@std/path";
 import { configSchema } from "../src/shared/config_schema.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
@@ -32,6 +37,7 @@ import {
   type ValidationKeyResult,
 } from "../src/engine/logbook/validation_key.ts";
 import { realDelay } from "./waiting.ts";
+import { fakeSecureEntropy } from "./fake_secure_entropy.ts";
 
 const cfg = configSchema.parse({});
 const SEMANTIC_CAPTURE_TIMEOUT_MS = 180_000;
@@ -846,12 +852,23 @@ Deno.test("validation keys require a regular 0600 file and creation establishes 
 
   await withTempDir(async (dir) => {
     await seedRepo(dir);
-    const result = await validationKey(dir);
+    const expected = Uint8Array.from(
+      { length: 32 },
+      (_, index) => index + 1,
+    );
+    const result = await validationKey(dir, {
+      entropy: fakeSecureEntropy({ byteFills: [expected] }),
+    });
     assert("key" in result);
+    assertEquals(result.key, expected);
+    assertEquals(await Deno.readFile(resultPath(dir)), expected);
     assertEquals(
       await modeOf(dirname(resultPath(dir)), "validation-hmac-key"),
       0o600,
     );
+    const evidence = await capture(dir);
+    assert(evidence.state.complete);
+    assertMatch(evidence.state.digest ?? "", /^[0-9a-f]{64}$/u);
   });
 });
 

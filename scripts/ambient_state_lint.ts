@@ -15,6 +15,10 @@ import {
   SCHEDULER_PRIMITIVE_BOUNDARIES,
   type SchedulerPrimitiveBoundary,
 } from "../src/shared/scheduler.ts";
+import {
+  SECURE_ENTROPY_PRIMITIVE_BOUNDARIES,
+  type SecureEntropyPrimitiveBoundary,
+} from "../src/shared/entropy.ts";
 
 const PLUGIN_NAME = "discern-ambient-state";
 const READ_RULE_NAME = "no-hidden-ambient-read";
@@ -22,6 +26,7 @@ const MUTATION_RULE_NAME = "no-unregistered-env-mutation";
 const CLOCK_RULE_NAME = "no-unregistered-clock-read";
 const SCHEDULER_RULE_NAME = "no-unregistered-scheduler-operation";
 const JITTER_RULE_NAME = "no-unregistered-scheduling-jitter";
+const SECURE_ENTROPY_RULE_NAME = "no-unregistered-secure-entropy";
 
 /** The exact ambient primitive used by one operation boundary. */
 export type AmbientReadPrimitive = "cwd" | "env" | `env.${string}`;
@@ -520,6 +525,9 @@ export interface AmbientStateRegistries {
   readonly clocks: Readonly<Record<string, ClockPrimitiveBoundary>>;
   readonly schedulers: Readonly<Record<string, SchedulerPrimitiveBoundary>>;
   readonly jitters: Readonly<Record<string, JitterPrimitiveBoundary>>;
+  readonly secureEntropy: Readonly<
+    Record<string, SecureEntropyPrimitiveBoundary>
+  >;
 }
 
 /** Return a statically named property from dot or bracket access. */
@@ -801,6 +809,29 @@ function jitterOperation(
     : undefined;
 }
 
+/** Classify one direct cryptographically secure entropy operation. */
+function secureEntropyOperation(
+  node: Deno.lint.CallExpression,
+): SecureEntropyPrimitiveBoundary["operation"] | undefined {
+  const callee = staticPath(node.callee);
+  for (
+    const operation of [
+      "crypto.getRandomValues",
+      "crypto.randomUUID",
+      "crypto.subtle.generateKey",
+    ] as const
+  ) {
+    if (hostPathMatches(callee, operation)) return operation;
+  }
+  return undefined;
+}
+
+/** Whether the entropy law governs this product or repository-tooling module. */
+function isProductionEntropyFilename(filename: string): boolean {
+  const normalized = normalizedFilename(filename);
+  return !/(?:^|\/)(?:tests|types)\//u.test(normalized);
+}
+
 /** Whether one exact primitive operation is registered. */
 function permitsPrimitive<
   Operation extends string,
@@ -822,6 +853,42 @@ function permitsPrimitive<
   );
 }
 
+/** Build one call-expression rule for an operation-exact primitive registry. */
+function primitiveCallVisitor<
+  Operation extends string,
+  Boundary extends {
+    readonly path: string;
+    readonly enclosingFunction: string;
+    readonly operation: Operation;
+  },
+>(
+  context: Deno.lint.RuleContext,
+  operationOf: (node: Deno.lint.CallExpression) => Operation | undefined,
+  boundaries: Readonly<Record<string, Boundary>>,
+  message: (operation: Operation) => string,
+  governsFilename?: (filename: string) => boolean,
+): Deno.lint.LintVisitor {
+  return {
+    CallExpression(node: Deno.lint.CallExpression): void {
+      if (
+        governsFilename !== undefined &&
+        !governsFilename(context.filename)
+      ) return;
+      const operation = operationOf(node);
+      if (
+        operation === undefined ||
+        permitsPrimitive(
+          context.filename,
+          node,
+          operation,
+          boundaries,
+        )
+      ) return;
+      context.report({ node, message: message(operation) });
+    },
+  };
+}
+
 /** Build the ambient-state plugin against explicit registries for focused tests. */
 export function ambientStatePlugin(
   registries: AmbientStateRegistries = {
@@ -830,6 +897,7 @@ export function ambientStatePlugin(
     clocks: CLOCK_PRIMITIVE_BOUNDARIES,
     schedulers: SCHEDULER_PRIMITIVE_BOUNDARIES,
     jitters: JITTER_PRIMITIVE_BOUNDARIES,
+    secureEntropy: SECURE_ENTROPY_PRIMITIVE_BOUNDARIES,
   },
 ): Deno.lint.Plugin {
   return {
@@ -920,49 +988,38 @@ export function ambientStatePlugin(
       [SCHEDULER_RULE_NAME]: {
         /** Reject host timer calls outside the system scheduler implementation. */
         create(context: Deno.lint.RuleContext): Deno.lint.LintVisitor {
-          return {
-            CallExpression(node: Deno.lint.CallExpression): void {
-              const operation = schedulerOperation(node);
-              if (
-                operation === undefined ||
-                permitsPrimitive(
-                  context.filename,
-                  node,
-                  operation,
-                  registries.schedulers,
-                )
-              ) return;
-              context.report({
-                node,
-                message:
-                  `Direct ${operation} call must stay inside the registered system scheduler; inject Scheduler elsewhere.`,
-              });
-            },
-          };
+          return primitiveCallVisitor(
+            context,
+            schedulerOperation,
+            registries.schedulers,
+            (operation) =>
+              `Direct ${operation} call must stay inside the registered system scheduler; inject Scheduler elsewhere.`,
+          );
         },
       },
       [JITTER_RULE_NAME]: {
         /** Reject Math.random outside the non-security scheduling jitter seam. */
         create(context: Deno.lint.RuleContext): Deno.lint.LintVisitor {
-          return {
-            CallExpression(node: Deno.lint.CallExpression): void {
-              const operation = jitterOperation(node);
-              if (
-                operation === undefined ||
-                permitsPrimitive(
-                  context.filename,
-                  node,
-                  operation,
-                  registries.jitters,
-                )
-              ) return;
-              context.report({
-                node,
-                message:
-                  "Direct Math.random scheduling jitter must stay inside the registered system jitter capability; inject JitterFn elsewhere.",
-              });
-            },
-          };
+          return primitiveCallVisitor(
+            context,
+            jitterOperation,
+            registries.jitters,
+            () =>
+              "Direct Math.random scheduling jitter must stay inside the registered system jitter capability; inject JitterFn elsewhere.",
+          );
+        },
+      },
+      [SECURE_ENTROPY_RULE_NAME]: {
+        /** Reject secure host entropy outside the elected system capability. */
+        create(context: Deno.lint.RuleContext): Deno.lint.LintVisitor {
+          return primitiveCallVisitor(
+            context,
+            secureEntropyOperation,
+            registries.secureEntropy,
+            (operation) =>
+              `Direct ${operation} must stay inside the registered system SecureEntropy capability; inject SecureEntropy elsewhere.`,
+            isProductionEntropyFilename,
+          );
         },
       },
     },

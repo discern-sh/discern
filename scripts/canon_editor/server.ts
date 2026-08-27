@@ -42,6 +42,10 @@ import {
   SYSTEM_SCHEDULER,
   type TimeoutHandle,
 } from "../../src/shared/scheduler.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../../src/shared/entropy.ts";
 
 const BIND_HOST = "127.0.0.1";
 const BROWSER_HOST = "localhost";
@@ -134,6 +138,8 @@ export interface CanonEditorOptions {
   readonly snapshotBuilder?: () => Promise<Snapshot>;
   /** Deterministic request authority for route tests; random in production. */
   readonly requestToken?: string;
+  /** Secure request-authority source when no exact token is supplied. */
+  readonly entropy?: SecureEntropy;
   /** File-watch debounce lifecycle; defaults to the host scheduler. */
   readonly scheduler?: Scheduler;
 }
@@ -226,7 +232,8 @@ export async function startCanonEditor(
   const scheduler = options.scheduler ?? SYSTEM_SCHEDULER;
   const port = options.port ??
     (await resolveCanonEditorPort(Deno.env.get("PORT")));
-  const requestToken = options.requestToken ?? crypto.randomUUID();
+  const requestToken = options.requestToken ??
+    (options.entropy ?? SYSTEM_SECURE_ENTROPY).uuid();
 
   let snapshot: Snapshot | undefined;
   let snapshotError: string | undefined;

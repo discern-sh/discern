@@ -14,6 +14,10 @@ import { gitReportedAdminPath } from "../src/shared/git_admin_paths.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { type Clock, SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../src/shared/scheduler.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../src/shared/entropy.ts";
 
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
@@ -63,6 +67,8 @@ export interface ValeToolchainOptions {
   readonly clock?: Clock;
   /** Timer lifecycle for bounded lock polling. */
   readonly scheduler?: Scheduler;
+  /** Secure identity source for staging and stale-lock paths. */
+  readonly entropy?: SecureEntropy;
 }
 
 export interface ValeToolchain {
@@ -318,6 +324,7 @@ async function waitForInstallLock(scheduler: Scheduler): Promise<void> {
 async function reclaimStaleLock(
   lock: string,
   clock: Clock,
+  entropy: SecureEntropy,
 ): Promise<boolean> {
   let info: Deno.FileInfo;
   try {
@@ -333,7 +340,7 @@ async function reclaimStaleLock(
   ) {
     return false;
   }
-  const stale = `${lock}.stale-${crypto.randomUUID()}`;
+  const stale = `${lock}.stale-${entropy.uuid()}`;
   try {
     await Deno.rename(lock, stale);
   } catch (error) {
@@ -352,6 +359,7 @@ async function acquireInstallLock(
   env?: Record<string, string>,
   clock: Clock = SYSTEM_CLOCK,
   scheduler: Scheduler = SYSTEM_SCHEDULER,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<boolean> {
   const started = clock.monotonicNow();
   while (clock.monotonicNow() - started < INSTALL_LOCK_WAIT_MS) {
@@ -364,7 +372,7 @@ async function acquireInstallLock(
     if (await cacheValidationIssue(toolchain, repoRoot, env) === undefined) {
       return false;
     }
-    if (await reclaimStaleLock(lock, clock)) continue;
+    if (await reclaimStaleLock(lock, clock, entropy)) continue;
     await waitForInstallLock(scheduler);
   }
   throw new Error(
@@ -471,10 +479,13 @@ export async function ensureVale(
     options.env,
     options.clock ?? SYSTEM_CLOCK,
     options.scheduler ?? SYSTEM_SCHEDULER,
+    options.entropy ?? SYSTEM_SECURE_ENTROPY,
   );
   if (!ownsLock) return toolchain.binary;
 
-  const stage = `${toolchain.cacheDir}.install-${crypto.randomUUID()}`;
+  const stage = `${toolchain.cacheDir}.install-${
+    (options.entropy ?? SYSTEM_SECURE_ENTROPY).uuid()
+  }`;
   try {
     if (
       await cacheValidationIssue(toolchain, repoRoot, options.env) === undefined

@@ -16,6 +16,10 @@ import {
   JITTER_PRIMITIVE_BOUNDARIES,
   SCHEDULER_PRIMITIVE_BOUNDARIES,
 } from "../src/shared/scheduler.ts";
+import {
+  SECURE_ENTROPY_PRIMITIVE_BOUNDARIES,
+  type SecureEntropyPrimitiveBoundary,
+} from "../src/shared/entropy.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
@@ -26,6 +30,8 @@ const SCHEDULER_RULE_ID =
   "discern-ambient-state/no-unregistered-scheduler-operation";
 const JITTER_RULE_ID =
   "discern-ambient-state/no-unregistered-scheduling-jitter";
+const SECURE_ENTROPY_RULE_ID =
+  "discern-ambient-state/no-unregistered-secure-entropy";
 
 const EMPTY_REGISTRIES: AmbientStateRegistries = {
   reads: {},
@@ -33,6 +39,7 @@ const EMPTY_REGISTRIES: AmbientStateRegistries = {
   clocks: {},
   schedulers: {},
   jitters: {},
+  secureEntropy: {},
 };
 
 const LIVE_REGISTRIES: AmbientStateRegistries = {
@@ -41,6 +48,7 @@ const LIVE_REGISTRIES: AmbientStateRegistries = {
   clocks: CLOCK_PRIMITIVE_BOUNDARIES,
   schedulers: SCHEDULER_PRIMITIVE_BOUNDARIES,
   jitters: JITTER_PRIMITIVE_BOUNDARIES,
+  secureEntropy: SECURE_ENTROPY_PRIMITIVE_BOUNDARIES,
 };
 
 /**
@@ -241,6 +249,82 @@ Deno.test("Math.random is reserved for registered scheduling jitter", () => {
   );
 });
 
+Deno.test("secure entropy primitives reject bare, globalThis, and Deno forms", () => {
+  const found = diagnostics([
+    "void crypto.randomUUID();",
+    "void globalThis.crypto.randomUUID();",
+    "void Deno.crypto.randomUUID();",
+    "void crypto.getRandomValues(new Uint8Array(1));",
+    "void globalThis.crypto.getRandomValues(new Uint8Array(1));",
+    "void Deno.crypto.getRandomValues(new Uint8Array(1));",
+    "void crypto.subtle.generateKey({}, true, []);",
+    "void globalThis.crypto.subtle.generateKey({}, true, []);",
+    "void Deno.crypto.subtle.generateKey({}, true, []);",
+  ].join("\n"));
+  assertEquals(
+    found.map((diagnostic) => diagnostic.id),
+    Array.from({ length: 9 }, () => SECURE_ENTROPY_RULE_ID),
+  );
+});
+
+Deno.test("a helper wrapping WebCrypto does not evade secure entropy enrollment", () => {
+  const found = diagnostics(
+    [
+      "export function adHocSecureUuid(): string {",
+      "  return crypto.randomUUID();",
+      "}",
+      "export function consumer(): string { return adHocSecureUuid(); }",
+    ].join("\n"),
+    "src/future_entropy_wrapper.ts",
+  );
+  assertEquals(found.map((diagnostic) => diagnostic.id), [
+    SECURE_ENTROPY_RULE_ID,
+  ]);
+});
+
+Deno.test("a planted Math.random entropy downgrade remains illegal", () => {
+  const found = diagnostics(
+    [
+      "export function fillSystemSecureBytes(bytes: Uint8Array): void {",
+      "  bytes.fill(Math.floor(Math.random() * 256));",
+      "}",
+    ].join("\n"),
+    "src/shared/entropy.ts",
+  );
+  assertEquals(found.map((diagnostic) => diagnostic.id), [JITTER_RULE_ID]);
+});
+
+Deno.test("secure entropy registration is exact to operation and owner", () => {
+  const secureEntropy: Readonly<
+    Record<string, SecureEntropyPrimitiveBoundary>
+  > = {
+    "future-secure-uuid": {
+      path: "src/future_entropy.ts",
+      enclosingFunction: "secureUuid",
+      operation: "crypto.randomUUID",
+      requiredSecurityProperty:
+        "cryptographic unpredictability and collision resistance",
+      reason:
+        "The synthetic system adapter exposes one secure UUID source to callers.",
+    },
+  };
+  const found = diagnostics(
+    [
+      "export function secureUuid(): string { return crypto.randomUUID(); }",
+      "export function otherUuid(): string { return crypto.randomUUID(); }",
+      "export function secureBytes(): void {",
+      "  crypto.getRandomValues(new Uint8Array(1));",
+      "}",
+    ].join("\n"),
+    "src/future_entropy.ts",
+    { ...EMPTY_REGISTRIES, secureEntropy },
+  );
+  assertEquals(found.map((diagnostic) => diagnostic.id), [
+    SECURE_ENTROPY_RULE_ID,
+    SECURE_ENTROPY_RULE_ID,
+  ]);
+});
+
 /** Parse one module without resolving its dependency graph. */
 function parseModule(
   path: string,
@@ -420,6 +504,65 @@ async function exactRegistryFindings<Boundary extends ExactBoundary>(
   return findings;
 }
 
+/** Validate security claims that must accompany every entropy exception. */
+function secureEntropyMetadataFindings(
+  boundaries: Readonly<Record<string, SecureEntropyPrimitiveBoundary>>,
+): string[] {
+  const findings: string[] = [];
+  for (const [id, boundary] of Object.entries(boundaries)) {
+    if (
+      boundary.requiredSecurityProperty.trim().length < 30 ||
+      /[\r\n]/u.test(boundary.requiredSecurityProperty)
+    ) {
+      findings.push(
+        `secure entropy:${id}: required security property must be a specific one-line claim`,
+      );
+    }
+  }
+  return findings;
+}
+
+Deno.test("secure entropy rows require a stated security property", () => {
+  const incomplete: Readonly<
+    Record<string, SecureEntropyPrimitiveBoundary>
+  > = {
+    "future-secure-uuid": {
+      path: "src/future_entropy.ts",
+      enclosingFunction: "secureUuid",
+      operation: "crypto.randomUUID",
+      requiredSecurityProperty: "secure",
+      reason:
+        "The synthetic system adapter exposes one secure UUID source to callers.",
+    },
+  };
+  assertEquals(secureEntropyMetadataFindings(incomplete), [
+    "secure entropy:future-secure-uuid: required security property must be a specific one-line claim",
+  ]);
+});
+
+Deno.test("stale secure entropy boundary rows fail reverse parity", async () => {
+  const stale: Readonly<Record<string, SecureEntropyPrimitiveBoundary>> = {
+    "stale-secure-uuid": {
+      path: "src/shared/entropy.ts",
+      enclosingFunction: "removedSystemUuid",
+      operation: "crypto.randomUUID",
+      requiredSecurityProperty:
+        "cryptographic unpredictability and collision resistance",
+      reason:
+        "The deliberately stale fixture names an operation that no longer exists.",
+    },
+  };
+  const findings = await exactRegistryFindings(
+    "secure entropy",
+    SECURE_ENTROPY_RULE_ID,
+    stale,
+    (boundary) => boundary.operation,
+    (source, path, secureEntropy) =>
+      diagnostics(source, path, { ...EMPTY_REGISTRIES, secureEntropy }),
+  );
+  assertEquals(findings.length, 1);
+});
+
 /** Exact registry and whole-repository findings for all host primitives. */
 async function repositoryBoundaryFindings(): Promise<string[]> {
   const findings: string[] = [];
@@ -485,6 +628,19 @@ async function repositoryBoundaryFindings(): Promise<string[]> {
       (boundary) => boundary.operation,
       (source, path, jitters) =>
         diagnostics(source, path, { ...EMPTY_REGISTRIES, jitters }),
+    ),
+  );
+  findings.push(
+    ...secureEntropyMetadataFindings(
+      SECURE_ENTROPY_PRIMITIVE_BOUNDARIES,
+    ),
+    ...await exactRegistryFindings(
+      "secure entropy",
+      SECURE_ENTROPY_RULE_ID,
+      SECURE_ENTROPY_PRIMITIVE_BOUNDARIES,
+      (boundary) => boundary.operation,
+      (source, path, secureEntropy) =>
+        diagnostics(source, path, { ...EMPTY_REGISTRIES, secureEntropy }),
     ),
   );
   return findings;

@@ -40,6 +40,10 @@ import {
   WorktreeGitError,
 } from "./git.ts";
 import { OperationLockError, withOperationLock } from "../operation_lock.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../../shared/entropy.ts";
 
 /** Durable facts that precede a later acceptance phase. */
 export const ACCEPTANCE_TRANSACTION_BOUNDARIES = [
@@ -436,6 +440,7 @@ async function writeAcceptanceTransaction(
     readonly variances: readonly AuthorizedVarianceData[];
     readonly standardProposals: readonly StandardLimitProposalData[];
   },
+  entropy: SecureEntropy,
 ): Promise<RecordedAcceptanceTransaction> {
   const current = await readAcceptanceTransaction(cwd);
   if (current.status !== "missing") {
@@ -449,20 +454,21 @@ async function writeAcceptanceTransaction(
     );
   }
   const { standardProposals, ...transactionInput } = input;
+  const id = entropy.uuid();
   const transaction: AcceptanceTransaction = standardProposals.length === 0
     ? {
       version: 3,
-      id: crypto.randomUUID(),
+      id,
       ...transactionInput,
     }
     : {
       version: 4,
-      id: crypto.randomUUID(),
+      id,
       ...transactionInput,
       standard_proposals: standardProposals,
     };
   await Deno.mkdir(dirname(current.path), { recursive: true });
-  const temp = `${current.path}.tmp-${crypto.randomUUID()}`;
+  const temp = `${current.path}.tmp-${entropy.uuid()}`;
   try {
     const file = await Deno.open(temp, { createNew: true, write: true });
     try {
@@ -520,6 +526,7 @@ export async function performAcceptanceTransition(
     readonly variances: readonly AuthorizedVarianceData[];
     readonly standardProposals: readonly StandardLimitProposalData[];
   },
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<AcceptanceTransitionResult> {
   const recorded = await writeAcceptanceTransaction(cwd, {
     worktree_branch: input.worktreeBranch,
@@ -531,7 +538,7 @@ export async function performAcceptanceTransition(
     consent: input.consent,
     variances: input.variances,
     standardProposals: input.standardProposals,
-  });
+  }, entropy);
   const { transaction } = recorded;
 
   let claim: EffortGrantClaim | undefined;

@@ -6,6 +6,8 @@
  * within the random identity before a damaged handle reaches the filesystem.
  */
 
+import { type SecureEntropy, SYSTEM_SECURE_ENTROPY } from "./entropy.ts";
+
 const CROCKFORD_BASE32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const RANDOM_SYMBOLS = 8;
 const CHECK_SYMBOLS = 2;
@@ -14,9 +16,6 @@ const CHECK_MODULUS = 32 ** CHECK_SYMBOLS;
 export const CONTINUATION_HANDLE_LENGTH = 15;
 export const CONTINUATION_HANDLE_PATTERN =
   /^C1-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{2}$/u;
-
-/** Test seam for deterministic collision and checksum coverage. */
-export type ContinuationRandomBytes = (length: number) => Uint8Array;
 
 /** Fold Crockford symbols into the 2-symbol substitution-and-transposition check. */
 function checksum(data: string): number {
@@ -38,21 +37,12 @@ function encodeChecksum(value: number): string {
   }`;
 }
 
-/** Fill a byte array from the platform cryptographic random source. */
-function systemRandomBytes(length: number): Uint8Array {
-  return crypto.getRandomValues(new Uint8Array(length));
-}
-
 /** Create one canonical handle. The store rejects and retries collisions. */
 export function createContinuationHandle(
-  randomBytes: ContinuationRandomBytes = systemRandomBytes,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): string {
-  const bytes = randomBytes(RANDOM_SYMBOLS);
-  if (bytes.length !== RANDOM_SYMBOLS) {
-    throw new Error(
-      `continuation randomness returned ${bytes.length} bytes; expected ${RANDOM_SYMBOLS}`,
-    );
-  }
+  const bytes = new Uint8Array(RANDOM_SYMBOLS);
+  entropy.fillBytes(bytes);
   let data = "";
   for (const byte of bytes) {
     data += CROCKFORD_BASE32[byte & 31] ?? "";

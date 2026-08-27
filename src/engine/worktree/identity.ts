@@ -35,6 +35,10 @@ import {
   readEnvValueAcross,
   stripQuotes,
 } from "./env_file.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../../shared/entropy.ts";
 
 /**
  * The dev-server port band: 17290–19289, clear of common local services and
@@ -323,11 +327,16 @@ const ID_NOUNS = [
   "willow",
 ] as const;
 
-/** A uniformly-random element of a non-empty word list, from the Web Crypto RNG. */
-function randomChoice(items: readonly string[]): string {
-  const buf = new Uint32Array(1);
-  crypto.getRandomValues(buf);
-  const choice = items[(buf[0] ?? 0) % items.length];
+/** A uniformly-random element of a non-empty word list, from secure entropy. */
+function randomChoice(
+  items: readonly string[],
+  entropy: SecureEntropy,
+): string {
+  const bytes = new Uint8Array(4);
+  entropy.fillBytes(bytes);
+  const sample = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    .getUint32(0);
+  const choice = items[sample % items.length];
   if (choice === undefined) {
     throw new Error("randomChoice: empty word list");
   }
@@ -335,10 +344,10 @@ function randomChoice(items: readonly string[]): string {
 }
 
 /** A short random hex tail (6 chars / 3 bytes) — the uniqueness in a minted id. */
-function randomHexTail(): string {
-  const buf = new Uint8Array(3);
-  crypto.getRandomValues(buf);
-  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
+function randomHexTail(entropy: SecureEntropy): string {
+  const bytes = new Uint8Array(3);
+  entropy.fillBytes(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**
@@ -457,12 +466,17 @@ export interface MintedWorktreeId {
  * the derived branch / directory is actually free before using it; a collision is
  * astronomically unlikely but never assumed.
  */
-export function generateWorktreeId(name?: string): MintedWorktreeId {
+export function generateWorktreeId(
+  name?: string,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
+): MintedWorktreeId {
   const choice = chooseWorktreeName(name);
   const stem = choice.source === "name"
     ? choice.slug
-    : `${randomChoice(ID_ADJECTIVES)}-${randomChoice(ID_NOUNS)}`;
-  const id = sanitizeSlug(`${stem}-${randomHexTail()}`);
+    : `${randomChoice(ID_ADJECTIVES, entropy)}-${
+      randomChoice(ID_NOUNS, entropy)
+    }`;
+  const id = sanitizeSlug(`${stem}-${randomHexTail(entropy)}`);
   return choice.note !== undefined && choice.nameHint !== undefined
     ? {
       id,

@@ -3144,6 +3144,37 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "secure-entropy-primitive-boundaries",
+    title: "Secure-entropy primitive boundaries",
+    what:
+      "Every direct WebCrypto UUID or byte-fill operation retained by the system secure-entropy adapter, with its stable id, exact path, enclosing function, primitive, required security property, and reason.",
+    source: {
+      kind: "module",
+      module: "src/shared/entropy.ts",
+      exportName: "SECURE_ENTROPY_PRIMITIVE_BOUNDARIES",
+    },
+    guards: [
+      "tests/ambient_state_lint_test.ts",
+      "tests/secure_entropy_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "secure-entropy primitive enrollment is an internal security boundary rather than user-facing vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "secure entropy supports identities and secrets rather than adding a separately selectable capability",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/entropy.ts"))
+          .SECURE_ENTROPY_PRIMITIVE_BOUNDARIES,
+      ),
+  },
+  {
     id: "best-effort-boundaries",
     title: "Error-discard boundaries",
     what:

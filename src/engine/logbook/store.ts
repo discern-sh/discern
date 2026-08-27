@@ -49,6 +49,10 @@ import {
   type PruneDigest,
   type PruneEvent,
 } from "./schema.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../../shared/entropy.ts";
 
 /** The logbook directory for a repo: `<common-git-dir>/discern/logbook/`. */
 export function logbookDir(commonGitDir: string): string {
@@ -422,11 +426,12 @@ export async function withLogbookLifecycleLock<T>(
 async function detachLogbook(
   commonGitDir: string,
   action: "reset" | "archive",
+  entropy: SecureEntropy,
 ): Promise<string | undefined> {
   const source = logbookDir(commonGitDir);
   const recovery = logbookRecoveryDir(commonGitDir);
   await ensureDir(recovery);
-  const detached = join(recovery, `${action}-${crypto.randomUUID()}`);
+  const detached = join(recovery, `${action}-${entropy.uuid()}`);
   try {
     await Deno.rename(source, detached);
   } catch (error) {
@@ -439,8 +444,11 @@ async function detachLogbook(
 }
 
 /** Delete only the active Logbook after atomically detaching it for cleanup. */
-export async function removeLogbook(commonGitDir: string): Promise<void> {
-  const detached = await detachLogbook(commonGitDir, "reset");
+export async function removeLogbook(
+  commonGitDir: string,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
+): Promise<void> {
+  const detached = await detachLogbook(commonGitDir, "reset", entropy);
   if (detached === undefined) {
     return;
   }
@@ -516,6 +524,8 @@ export interface ArchiveLogbookOptions {
     detachedPath: string,
     tempPath: string,
   ) => Promise<number>;
+  /** Cryptographic identity source for detached and staging paths. */
+  readonly entropy?: SecureEntropy;
 }
 
 /** The durable artifact created by one successful archive transaction. */
@@ -551,7 +561,8 @@ export async function archiveLogbook(
     }
   }
 
-  const detached = await detachLogbook(commonGitDir, "archive");
+  const entropy = options.entropy ?? SYSTEM_SECURE_ENTROPY;
+  const detached = await detachLogbook(commonGitDir, "archive", entropy);
   if (detached === undefined) {
     throw new Error(
       "the active Logbook disappeared before it could be archived",
@@ -559,7 +570,7 @@ export async function archiveLogbook(
   }
   const tempPath = join(
     archives,
-    `.${filename}.${crypto.randomUUID()}.tmp`,
+    `.${filename}.${entropy.uuid()}.tmp`,
   );
   let published = false;
   try {

@@ -36,6 +36,10 @@ import {
   preflightPlannedWrites,
   writePreflightFailureResult,
 } from "../shared/write_preflight.ts";
+import {
+  type SecureEntropy,
+  SYSTEM_SECURE_ENTROPY,
+} from "../shared/entropy.ts";
 
 /** One classified operation invocation. */
 export interface OperationInvocation extends OperationInvocationFacts {
@@ -215,6 +219,7 @@ async function preflightOperationBoundary(
   cwd: string,
   invocation: OperationInvocation,
   policy: OperationEffectPolicy,
+  entropy: SecureEntropy,
 ): Promise<void> {
   if (
     policy.gitWriteAuthority !== "boundary-plan" &&
@@ -224,6 +229,7 @@ async function preflightOperationBoundary(
   if (projectRoot === undefined && policy.lockWithoutProject !== true) return;
   const preflight = await preflightPlannedWrites(
     await operationBoundaryWrites(cwd, policy, projectRoot),
+    entropy,
   );
   if (preflight.ok) return;
   throw new OperationLockError(
@@ -270,6 +276,7 @@ async function acquireLock(
   invocation: OperationInvocation,
   cwd: string,
   spec: LockSpec,
+  entropy: SecureEntropy,
 ): Promise<AcquiredLock> {
   let file: Deno.FsFile;
   try {
@@ -341,7 +348,7 @@ async function acquireLock(
     boundary: spec.boundary,
     key: spec.key,
     path: spec.path,
-    token: crypto.randomUUID(),
+    token: entropy.uuid(),
   };
   try {
     await replaceLockRecord(
@@ -379,6 +386,7 @@ export async function withOperationLock<T>(
   cwd: string,
   invocation: OperationInvocation,
   operation: () => Promise<T>,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
 ): Promise<T> {
   const policy = operationEffectPolicy(invocation.command, invocation);
   if (policy === undefined) {
@@ -405,7 +413,7 @@ export async function withOperationLock<T>(
   const held = currentOperationLocks();
   const missing = specs.filter((spec) => !held?.leases.has(spec.key));
   if (missing.length === 0) {
-    await preflightOperationBoundary(cwd, invocation, policy);
+    await preflightOperationBoundary(cwd, invocation, policy, entropy);
     return await operation();
   }
 
@@ -450,7 +458,7 @@ export async function withOperationLock<T>(
   const acquiredLeases: OperationLockLease[] = [];
   try {
     for (const spec of missing) {
-      const acquired = await acquireLock(invocation, cwd, spec);
+      const acquired = await acquireLock(invocation, cwd, spec, entropy);
       acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);
     }
@@ -462,7 +470,7 @@ export async function withOperationLock<T>(
     }
     const next: HeldOperationLocks = { leases, boundaries };
     return await runWithOperationLocks(next, async () => {
-      await preflightOperationBoundary(cwd, invocation, policy);
+      await preflightOperationBoundary(cwd, invocation, policy, entropy);
       return await operation();
     });
   } finally {
