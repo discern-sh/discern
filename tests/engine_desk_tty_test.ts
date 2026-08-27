@@ -30,13 +30,17 @@ import { decodeCliResult } from "./decode_cli_result.ts";
 
 const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9:;]*m`, "u");
-const EMPTY_ROOT_READY = ["Choose a desk action", "Quit"] as const;
-const TASK_ROOT_READY = ["Choose a task or action", "Quit"] as const;
+const EMPTY_ROOT_READY = ["Choose a Desk command", "Quit"] as const;
+const TASK_ROOT_READY = ["Choose a task or Desk command", "Quit"] as const;
 const TASK_START_SELECTED = [
-  "Choose a task or action",
+  "Choose a task or Desk command",
   "› [●] Start a task",
 ] as const;
-const TASK_ACTION_READY = ["Choose an action", "Back"] as const;
+const TASK_ACTION_READY = ["Choose an action"] as const;
+const TASK_ACTION_BACK_SELECTED = [
+  "Choose an action",
+  "› [●] Back",
+] as const;
 
 /** Require one named semantic frame and keep failures transcript-oriented. */
 function frame(
@@ -77,6 +81,20 @@ function assertFrameFits(
   }
 }
 
+/** One visible picker frame has exactly one active item. */
+function assertUniqueFocus(value: DeskVisibleFrame): void {
+  assertEquals(
+    value.focusMarkers.length,
+    1,
+    `${value.name} must expose one focus marker\n${value.text}`,
+  );
+  assertEquals(
+    value.lines.filter((row) => row.focused).length,
+    1,
+    `${value.name} must style one focused row\n${value.text}`,
+  );
+}
+
 /** Assert the lifecycle invariants every successful Desk journey shares. */
 function assertHealthySession(
   result: DeskTtyRunResult,
@@ -115,22 +133,29 @@ function rootExitInput(captureAs = "root"): readonly DeskTtyInputPhase[] {
 }
 
 Deno.test({
-  name: "Desk PTY: an empty fleet exposes Start and exits cleanly",
+  name:
+    "Desk PTY: a 40-column short empty fleet exposes Start and exits cleanly",
   ignore: PTY_UNAVAILABLE,
   fn: async () => {
     await withDeskTtyProject(deskFleetFixture(), async (project) => {
       const result = await runDeskTty(project, {
-        geometry: { columns: 80, rows: 24 },
+        geometry: { columns: 40, rows: 16 },
         colorMode: "no-color-env",
-        input: rootExitInput(),
+        input: [{
+          waitFor: ["Choose a Desk command", "Start a task"],
+          captureAs: "root",
+          chunks: [{ keys: ["end", "enter"] }],
+        }],
+        env: { LANG: "C", LC_ALL: "C" },
       });
 
       assertHealthySession(result);
       const root = frame(result, "root");
       assertStringIncludes(root.text, "Start a task");
-      assertStringIncludes(root.text, "Quit");
-      assert(root.focusMarkers.length === 1, root.text);
-      assert(root.lines.some((row) => row.focused), root.text);
+      assertStringIncludes(root.text, "3 more");
+      assertStringIncludes(result.transcript, "Quit");
+      assertStringIncludes(result.transcript, "No tasks");
+      assertUniqueFocus(root);
       assertEquals(SGR.test(result.transcript), false, result.transcript);
     });
   },
@@ -153,8 +178,11 @@ Deno.test({
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: TASK_ACTION_READY,
+          chunks: [{ keys: ["end"] }],
+        }, {
+          waitFor: TASK_ACTION_BACK_SELECTED,
           captureAs: "action",
-          chunks: [{ keys: ["end", "enter"] }],
+          chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: TASK_ROOT_READY,
           captureAs: "back-at-root",
@@ -162,21 +190,11 @@ Deno.test({
         }],
       });
 
-      const actionPreambleOverflow = [{ row: 4, column: 91, text: "w" }];
-      assertHealthySession(result, {
-        action: actionPreambleOverflow,
-        "back-at-root": actionPreambleOverflow,
-        exit: actionPreambleOverflow,
-      });
+      assertHealthySession(result);
       assertStringIncludes(frame(result, "root").text, "Focused task");
       assertStringIncludes(frame(result, "action").text, "Choose an action");
       assertStringIncludes(frame(result, "action").text, "Back");
       assertStringIncludes(frame(result, "back-at-root").text, "Focused task");
-
-      // Characterisation only: the factual task summary is printed as one
-      // product preamble line and wraps one cell beyond a 90-column action
-      // frame. Responsive preamble layout belongs to
-      // `2a-responsive-board.md`; every other overflow remains fatal here.
     });
   },
 });
@@ -239,19 +257,17 @@ Deno.test({
           const dismissedAt = action.message.indexOf("× Dismissed.");
           assert(dismissedAt >= 0, action.message);
           assert(
-            action.message.indexOf("Choose a task or action", dismissedAt) >
+            action.message.indexOf(
+              "Choose a task or Desk command",
+              dismissedAt,
+            ) >
               dismissedAt,
             action.message,
           );
           continue;
         }
         const action = await actionRun();
-        const actionPreambleOverflow = [{ row: 4, column: 87, text: "i" }];
-        assertHealthySession(action, {
-          "ctrl-c-at-action": actionPreambleOverflow,
-          "ctrl-c-returned-to-root": actionPreambleOverflow,
-          exit: actionPreambleOverflow,
-        });
+        assertHealthySession(action);
         assertStringIncludes(
           frame(action, `${key}-returned-to-root`).text,
           "Cancellation task",
@@ -281,24 +297,39 @@ async function thresholdFrame(taskCount: number): Promise<DeskVisibleFrame> {
   return await withDeskTtyProject(
     deskFleetFixture(entries),
     async (project) => {
+      const captureAs = `${taskCount}-tasks`;
+      const input: readonly DeskTtyInputPhase[] = taskCount > 8
+        ? [{
+          waitFor: [
+            "Choose a task or Desk command",
+            "Type to filter",
+            "Threshold task",
+          ],
+          captureAs,
+          chunks: [{ keys: ["ctrl-c"] }],
+        }]
+        : [{
+          waitFor: ["Choose a task or Desk command", "Threshold task"],
+          captureAs,
+          chunks: [{ keys: ["end"] }],
+        }, {
+          waitFor: ["› [●] Quit"],
+          chunks: [{ keys: ["enter"] }],
+        }];
       const result = await runDeskTty(project, {
-        geometry: { columns: 100, rows: 50 },
+        geometry: { columns: 80, rows: 18 },
         colorMode: "no-color-env",
-        input: [{
-          waitFor: taskCount > 8
-            ? ["Choose a task or action", "Type to filter"]
-            : TASK_ROOT_READY,
-          captureAs: `${taskCount}-tasks`,
-          chunks: [{
-            ...(taskCount > 8 ? { input: "Quit" } : { keys: ["end"] }),
-          }, {
-            settleMs: 40,
-            keys: taskCount > 8 ? ["down", "enter"] : ["enter"],
-          }],
-        }],
+        input,
+        timeoutMs: 30_000,
       });
       assertHealthySession(result);
-      return frame(result, `${taskCount}-tasks`);
+      const root = frame(result, captureAs);
+      if (taskCount > 8) {
+        assertEquals(root.focusMarkers.length, 0, root.text);
+      } else {
+        assertUniqueFocus(root);
+      }
+      return root;
     },
   );
 }
@@ -314,8 +345,77 @@ Deno.test({
     assertStringIncludes(nine.text, "filter");
     assertStringIncludes(nine.text, "Type to filter");
 
-    // This pins the current binary threshold, not its suitability. Responsive
-    // filter and viewport treatment belongs to `2a-responsive-board.md`.
+    // The ninth task activates search while a directly scannable fleet does
+    // not spend a row on filter help.
+  },
+});
+
+Deno.test({
+  name:
+    "Desk PTY: a 120-column tall 50-task Unicode fleet stays bounded and recovers its decision",
+  ignore: PTY_UNAVAILABLE,
+  fn: async () => {
+    const unicodeName = "unicode-修复终端布局和证明显示-a1b2c3";
+    const entries = [
+      deskFleetEntry(unicodeName, {
+        aheadCommits: 1,
+        proof: deskProof(),
+        landingAuthority: deskLandingAuthority("conversation-required"),
+      }),
+      ...Array.from(
+        { length: 49 },
+        (_, index) =>
+          deskFleetEntry(
+            `routine-task-${index + 1}-${String(index).padStart(6, "0")}`,
+          ),
+      ),
+    ];
+    await withDeskTtyProject(deskFleetFixture(entries), async (project) => {
+      const result = await runDeskTty(project, {
+        geometry: { columns: 120, rows: 50 },
+        colorMode: "color",
+        input: [{
+          waitFor: [
+            "Choose a task or Desk command",
+            "Unicode 修复终端布局和证明显示",
+            "Proof honored for this commit",
+          ],
+          chunks: [{ keys: ["down"] }],
+        }, {
+          waitFor: [
+            "Choose a task or Desk command",
+            "›",
+            "Unicode 修复终端布局和证明显示",
+          ],
+          captureAs: "50-task-root",
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: TASK_ACTION_READY,
+          captureAs: "50-task-detail",
+          chunks: [{ keys: ["end", "enter"] }],
+        }, {
+          waitFor: [
+            "Choose a task or Desk command",
+            "Unicode 修复终端布局和证明显示",
+          ],
+          chunks: [{ keys: ["ctrl-c"] }],
+        }],
+        timeoutMs: 60_000,
+      });
+
+      assertHealthySession(result);
+      const root = frame(result, "50-task-root");
+      const detail = frame(result, "50-task-detail");
+      assertUniqueFocus(root);
+      assertUniqueFocus(detail);
+      assertStringIncludes(result.transcript, "50 tasks");
+      assertStringIncludes(result.transcript, "1 need you");
+      assertStringIncludes(result.transcript, "1 ready to review");
+      assertStringIncludes(result.transcript, "修复终端布局和证明显示");
+      assertStringIncludes(result.transcript, "Proof honored for this commit");
+      assertStringIncludes(result.transcript, "Landing authority");
+      assertStringIncludes(result.transcript, "Choose an action");
+    });
   },
 });
 
@@ -378,18 +478,28 @@ Deno.test({
       deskFleetFixture([deskFleetEntry(name, { aheadCommits: 1 })]),
       async (project) => {
         const result = await runDeskTty(project, {
-          geometry: { columns: 60, rows: 28 },
+          geometry: { columns: 60, rows: 40 },
           colorMode: "no-color-env",
           input: [{
             waitFor: TASK_ROOT_READY,
             captureAs: "narrow",
-            chunks: [{ resize: { columns: 120, rows: 32 } }, {
+            chunks: [{ resize: { columns: 120, rows: 50 } }, {
               keys: ["down"],
             }],
           }, {
             waitFor: TASK_START_SELECTED,
             captureAs: "wide",
-            chunks: [{ keys: ["escape"], allowLoneEscape: true }],
+            chunks: [{ keys: ["up", "enter"] }],
+          }, {
+            waitFor: TASK_ACTION_READY,
+            captureAs: "full-detail",
+            chunks: [{ keys: ["end"] }],
+          }, {
+            waitFor: TASK_ACTION_BACK_SELECTED,
+            chunks: [{ keys: ["enter"] }],
+          }, {
+            waitFor: TASK_ROOT_READY,
+            chunks: [{ keys: ["end", "enter"] }],
           }],
         });
 
@@ -399,14 +509,23 @@ Deno.test({
         assertEquals(narrow.columns, 60);
         assertEquals(wide.columns, 120);
         assertEquals(narrow.text.includes(friendly), false, narrow.text);
-        assertStringIncludes(wide.text, friendly);
-        assertEquals(result.terminal.initialSize, { columns: 60, rows: 28 });
-        assertEquals(result.terminal.finalSize, { columns: 120, rows: 32 });
-        assertEquals(result.terminal.resizes, [{ columns: 120, rows: 32 }]);
+        assertStringIncludes(wide.text, "Responsive terminal boar");
+        assertStringIncludes(result.transcript, friendly);
+        assertStringIncludes(result.transcript, "Task evidence");
+        assertStringIncludes(
+          frame(result, "full-detail").text,
+          "Choose an action",
+        );
+        assertUniqueFocus(narrow);
+        assertUniqueFocus(wide);
+        assertUniqueFocus(frame(result, "full-detail"));
+        assertEquals(result.terminal.initialSize, { columns: 60, rows: 40 });
+        assertEquals(result.terminal.finalSize, { columns: 120, rows: 50 });
+        assertEquals(result.terminal.resizes, [{ columns: 120, rows: 50 }]);
 
-        // The current board truncates a task identity at narrow widths. Copy,
-        // prioritisation, and responsive layout remain owned by
-        // `2a-responsive-board.md`; this test only requires a bounded redraw.
+        // The narrow queue keeps identity bounded; selecting the task opens
+        // its full title and evidence. The wide queue can expose more identity
+        // without changing the selected task.
       },
     );
   },
@@ -436,6 +555,22 @@ Deno.test("Desk PTY normalisation exposes clears, overflow, and unknown controls
   );
   assertEquals(unsupported.unexpectedControls.length, 1);
   assertEquals(unsupported.unexpectedControls[0]?.raw, "\x1b[999z");
+
+  const styledFocus = normaliseDeskTranscript(
+    "styled-focus",
+    "\x1b[1m› \x1b[0m○ Choice",
+    { columns: 20, rows: 3 },
+  );
+  assertEquals(styledFocus.focusMarkers.length, 1);
+  assertEquals(styledFocus.lines[0]?.focused, true);
+
+  const asciiFocus = normaliseDeskTranscript(
+    "ascii-focus",
+    "> [*] Choice",
+    { columns: 20, rows: 3 },
+  );
+  assertEquals(asciiFocus.focusMarkers.length, 1);
+  assertEquals(asciiFocus.lines[0]?.focused, true);
 });
 
 Deno.test("Desk PTY fleet builders materialise later-wave state through real authorities", async () => {

@@ -79,6 +79,7 @@ const SAFE_SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
 const MARKER_OPEN = "\uE000";
 const MARKER_CLOSE = "\uE001";
 const SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+const FOCUS_PREFIXES = ["› [", "› ○ ", "> [", "> o "] as const;
 
 const PTY_GEOMETRY_SCHEMA = z.object({
   columns: z.number().int().positive(),
@@ -1334,15 +1335,17 @@ class DeskScreen {
     while (lines.at(-1)?.text === "") lines.pop();
     const focusMarkers = lines.flatMap((line) => {
       const markers: { row: number; column: number }[] = [];
-      let from = 0;
-      while (true) {
-        const at = line.text.indexOf("› [●]", from);
-        if (at < 0) break;
-        markers.push({
-          row: line.row,
-          column: measureText(line.text.slice(0, at)) + 1,
-        });
-        from = at + 1;
+      for (const prefix of FOCUS_PREFIXES) {
+        let from = 0;
+        while (true) {
+          const at = line.text.indexOf(prefix, from);
+          if (at < 0) break;
+          markers.push({
+            row: line.row,
+            column: measureText(line.text.slice(0, at)) + 1,
+          });
+          from = at + prefix.length;
+        }
       }
       return markers;
     });
@@ -1482,7 +1485,7 @@ function frameRow(cells: readonly MutableCell[], row: number): DeskFrameRow {
     row,
     text,
     columns: measureText(text),
-    focused: text.includes("› [●]"),
+    focused: FOCUS_PREFIXES.some((prefix) => text.includes(prefix)),
     spans,
   };
 }
