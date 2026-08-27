@@ -39,7 +39,10 @@ import {
   SETUP_PAGE_REGISTRY,
   SETUP_RESULT_MAX_CHARS,
 } from "../src/shared/setup_pages.ts";
-import { SETUP_COMPLETION_CHECKS } from "../src/shared/setup_checks.ts";
+import {
+  conventionalSetupGotchasDoc,
+  SETUP_COMPLETION_CHECKS,
+} from "../src/shared/setup_checks.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import {
   configSchema,
@@ -587,6 +590,54 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
     },
   },
 };
+
+Deno.test("the final documentation check binds a conventional gotchas page to its one config pointer", async () => {
+  const check = SETUP_COMPLETION_CHECKS.find((candidate) =>
+    candidate.name === "primary_subsystem_context"
+  );
+  assert(check !== undefined);
+  await withTempDir(async (root) => {
+    const base = baseConfig();
+    await Deno.mkdir(join(root, base.map.dir, "10-runtime"), {
+      recursive: true,
+    });
+    await Deno.mkdir(join(root, base.map.dir, "80-development"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(root, base.map.dir, "README.md"),
+      "# Demo map\n",
+    );
+    await Deno.writeTextFile(
+      join(root, base.map.dir, "10-runtime", "README.md"),
+      "# Runtime\n\n## Start here\n\nBegin here.\n\n" +
+        "## Boundary\n\nOwns execution.\n\n" +
+        "## Non-obvious invariant\n\nPreserve child status.\n",
+    );
+    await Deno.writeTextFile(
+      join(root, base.map.dir, "80-development", "done-gate-gotchas.md"),
+      "# Gate gotchas\n",
+    );
+
+    assertEquals(await check.evaluate({ root, config: base }), false);
+    const wired = baseConfig({
+      project: {
+        slug: "demo",
+        gotchas_doc: conventionalSetupGotchasDoc(base.map.dir),
+      },
+    });
+    assertEquals(await check.evaluate({ root, config: wired }), true);
+
+    await Deno.remove(
+      join(root, base.map.dir, "80-development", "done-gate-gotchas.md"),
+    );
+    assertEquals(
+      await check.evaluate({ root, config: base }),
+      true,
+      "absence of both the conventional page and pointer remains valid",
+    );
+  });
+});
 
 Deno.test("every completion check's evaluate() fails when its step's work is skipped, passes when done", async () => {
   // Coupling: the fixtures name EXACTLY the checks — a new check can't ship without

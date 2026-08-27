@@ -1,6 +1,12 @@
 /** Registry-driven guards for setup's bounded operational journey. */
 
-import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { join } from "@std/path";
 import {
   authorizeSetupExternalInspection,
@@ -79,6 +85,26 @@ Deno.test("setup pages form one sequential numbered journey", () => {
     SETUP_PAGE_REGISTRY.map((entry) => `step-${entry.step}`),
     "every numbered page must enroll in the human-moment surface registry",
   );
+});
+
+Deno.test("the shipped Map seed promises a scope-manifest template, not pre-created manifests", async () => {
+  const mapReadme = await Deno.readTextFile(
+    join(REAL_TEMPLATES, "setup", "skeleton", "docs", "README.md"),
+  );
+  const documenter = await Deno.readTextFile(
+    join(
+      REAL_TEMPLATES,
+      "setup",
+      "skeleton",
+      "docs",
+      "_internal",
+      "documenter-agent-brief.md",
+    ),
+  );
+  assertStringIncludes(mapReadme, "template");
+  assertStringIncludes(mapReadme, "create a scope manifest");
+  assertStringIncludes(documenter, "skill creates or refreshes");
+  assert(!mapReadme.includes("per-subtree scope manifests"));
 });
 
 Deno.test("every setup human moment carries its complete semantic contract", () => {

@@ -29,6 +29,11 @@ import { instructionSeedRel } from "./paths_registry.ts";
 import { deriveSetupPrimarySubsystem } from "./setup_project_context.ts";
 import { readTextIfExists } from "./fs_presence.ts";
 
+/** The conventional Gate-gotchas page the setup skeleton authors. */
+export function conventionalSetupGotchasDoc(mapDir: string): string {
+  return `${normalizeMapDir(mapDir)}80-development/done-gate-gotchas.md`;
+}
+
 /** What a completion predicate reads: the project root and its loaded config. */
 export interface SetupCheckContext {
   root: string;
@@ -135,9 +140,15 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
     step: 8,
     name: "primary_subsystem_context",
     describe:
-      "The final primary-subsystem README has non-empty Start here, Boundary, and Non-obvious invariant sections.",
+      "The final primary-subsystem README has non-empty Start here, Boundary, and Non-obvious invariant sections; an authored conventional gotchas page is wired through [project].gotchas_doc.",
     async evaluate({ root, config }): Promise<boolean> {
-      return (await deriveSetupPrimarySubsystem(root, config.map.dir)) !== null;
+      if ((await deriveSetupPrimarySubsystem(root, config.map.dir)) === null) {
+        return false;
+      }
+      const conventional = conventionalSetupGotchasDoc(config.map.dir);
+      const gotchas = await readFileOr(root, conventional);
+      return gotchas === undefined ||
+        config.project.gotchas_doc.trim() === conventional;
     },
   },
 ];

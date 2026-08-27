@@ -1,6 +1,6 @@
 # Documenter agent brief
 
-This file is read by every documenter agent that produces or refreshes a subtree under the configured documentation root. Each agent also receives a per-subtree **scope manifest** at `_internal/scopes/{subtree}.md` (copy [`scopes/_template.md`](scopes/_template.md) to start one) that complements this brief with the specific files to read, the area the agent owns, and any known overlaps.
+This file is read by every documenter agent that produces or refreshes a subtree under the configured documentation root. The `discern-document-subsystem` skill creates or refreshes that subtree's **scope manifest** at `_internal/scopes/{subtree}.md` from [`scopes/_template.md`](scopes/_template.md). The manifest complements this brief with the specific files to read, the area the agent owns, and any known overlaps.
 
 This brief is the constant; the scope manifest is the variable.
 
