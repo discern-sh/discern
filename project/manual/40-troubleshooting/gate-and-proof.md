@@ -1,0 +1,72 @@
+---
+id: troubleshoot-gate-and-proof
+title: "Gate and proof"
+description: "Diagnose Gate preconditions, jobs, generated drift, strands, Standards, Checkpoints, and stale/withheld Proof from observable evidence."
+order: 30
+publish: true
+kind: troubleshooting
+aliases:
+  - "troubleshoot-gate-and-proof"
+  - "Strand detection"
+  - "tree drift"
+  - "dirty gate"
+  - "stranded changes"
+redirect_from:
+  - "/docs/quality-gate/strand-detection"
+---
+
+# Gate and proof
+
+Diagnose Gate preconditions, jobs, generated drift, strands, Standards, Checkpoints, and stale/withheld Proof from observable evidence.
+
+# Strand detection
+
+_A green final Gate must not leave a tracked file changed when that file was clean at the starting commit._
+
+Gate jobs can write files. Formatters commonly do so. A build may regenerate a manifest, and a test may update a golden file by accident. If `discern done` returned green while those changes remained uncommitted, the result would describe a different tree from the branch eligible to land.
+
+Strand detection turns that situation into a `tree_drift` failure. The diagnostic names each changed file, attributes it to the first gate stage that made it dirty, includes a capped diff, and uses `git diff` as the reproduce command ([ADR 0148](https://discern.sh/docs/decisions/0148-strand-detection-covers-every-gate-stage)).
+
+A path a `[generated.<name>]` group owns fails earlier and more precisely: the build stage attributes it as `generated_drift`, naming the owning group and its regeneration command ([ADR 0247](https://discern.sh/docs/decisions/0247-generated-artifacts-regenerate-never-merge)). Strand detection covers every other file written by a stage.
+
+## What the gate compares
+
+Before any stage runs, discern records the tracked paths that already have staged or uncommitted changes. It records the set again after each successful stage group. A path is stranded when it meets these conditions:
+
+- it was tracked and clean when the gate started;
+- it is dirty in the latest recorded snapshot while the run is otherwise green.
+
+The first successful stage snapshot containing the path identifies its origin. This covers fix, build, the combined check-and-test group, and scope gates. A later stage that restores the file to its committed state leaves no strand, because the final tree is clean.
+
+## When the check runs
+
+A run that starts on a clean, committed tree can earn a Proof, and a strand from the fix or build group forfeits it. Once those groups pass, `done` checks for strands and stops on any it finds. The Standards, check, test, and scope-gate work is skipped and reported as such, and the changed scopes are still classified and listed ([ADR 0262](https://discern.sh/docs/decisions/0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint)). The checkpoint waits for the build group to finish because a build may consume or restore what a fixer wrote; convergence is judged on the combined result.
+
+A run that starts dirty (tracked edits or untracked files) cannot earn a Proof. It skips the checkpoint, runs every stage, and reports strands at the end. Run `done` on a dirty tree when you need feedback from the full Gate.
+
+Either way, a strand from the check, test, or scope-gate stages surfaces at the end of the run: those stages run after the checkpoint.
+
+## Fix the failure
+
+1. Read the diff in the diagnostic.
+2. Decide whether the generated change belongs in the commit or whether the job is misconfigured.
+3. Commit the intended output, or change the command so it verifies without rewriting.
+4. Run `discern done` again on the final commit.
+
+The gate never commits its own output. Only the author can choose the right commit boundary and message ([ADR 0047](https://discern.sh/docs/decisions/0047-fix-stage-strand-detection)).
+
+## Where it lives in code
+
+| Concern                                             | Source                                                                  |
+| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| Dirty-path snapshots and attribution                | [`tree_drift.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/tree_drift.ts)               |
+| Checkpoint and final-pass timing                    | [`finish.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/finish.ts)                       |
+| Pre-checkpoint stage list (`PRE_CHECKPOINT_STAGES`) | [`plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/plan.ts)                           |
+| Cross-stage and checkpoint coverage                 | [`engine_tree_drift_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_tree_drift_test.ts) |
+
+## Current state & gotchas
+
+- Paths already dirty when the gate begins are excluded. This keeps the rule useful during an inner loop where a fixer is expected to rewrite the author's current edits.
+- New untracked files do not trigger strand detection. They remain visible in `git status` and still prevent a clean Proof or acceptance.
+- If Git cannot produce a snapshot, the strand check skips rather than inventing a failure. Other Gate jobs continue to decide the result.
+- The relevant source files contain no unfinished-work markers for strand behavior.

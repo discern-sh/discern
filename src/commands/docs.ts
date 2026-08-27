@@ -32,7 +32,6 @@ import {
   basename,
   dirname,
   isAbsolute,
-  join,
   relative,
   resolve,
   SEPARATOR,
@@ -75,14 +74,17 @@ import { stripAdrCitations } from "../lib/adr_citations.ts";
 import { pathMatchesPattern } from "../engine/scopes/glob.ts";
 import { bestEffort } from "../shared/best_effort.ts";
 import { loadConfig } from "../shared/config_schema.ts";
-import { directoryExists } from "../shared/fs_presence.ts";
 import { expandSourcePathReferences } from "../shared/source_path_references.ts";
 import { observeVerbTarget } from "../shared/result_capture.ts";
 import {
   DOCS_ADR_DOC_DIR,
-  isBundledDocEntry,
-  resolveBundledDocsDir,
+  resolveBundledManualDir,
+  resolveRepositoryDecisionDir,
 } from "../lib/paths.ts";
+import {
+  buildManualProjection,
+  manualFrontDoorEntries,
+} from "../lib/manual.ts";
 import {
   type DiscernResult,
   type ErrorSlug,
@@ -131,6 +133,7 @@ type DocsExportScope = "public" | "all" | "select";
 /** Typed picker values keep navigation actions distinct from real file paths. */
 export type DocsBrowserChoice =
   | { readonly kind: "document"; readonly path: string }
+  | { readonly kind: "promoted-document"; readonly path: string }
   | { readonly kind: "read-online" }
   | { readonly kind: "quit" };
 
@@ -386,7 +389,11 @@ interface DocsVerb {
    * `docs` resolves discern's bundled tree and reports `missing` when a binary
    * was built without it (it must NEVER fall back to a project's `docs/`).
    */
-  resolveDir(opts: { dir?: string | undefined }): Promise<DirResolution>;
+  resolveDir(opts: {
+    dir?: string | undefined;
+    adr?: boolean | undefined;
+    target?: string | undefined;
+  }): Promise<DirResolution>;
   /** The human message when no tree is found (verb-specific wording). */
   missingTree(opts: { dir?: string | undefined }): string;
   /** Export scopes this verb accepts (`docs` is public-only — no internal tree). */
@@ -400,14 +407,20 @@ interface DocsVerb {
  * project root in its place.
  */
 type DirResolution =
-  | { kind: "ok"; dir: string | undefined }
-  | { kind: "missing" };
+  | {
+    kind: "ok";
+    dir: string | undefined;
+    corpus: "map" | "manual" | "decisions";
+  }
+  | { kind: "missing" }
+  | { kind: "external-decisions" };
 
 /** `discern map` — the project's agent-maintained documentation tree. */
 const MAP_VERB: DocsVerb = {
   verb: "map",
   missingError: "no_map",
-  resolveDir: (opts) => Promise.resolve({ kind: "ok", dir: opts.dir }),
+  resolveDir: (opts) =>
+    Promise.resolve({ kind: "ok", dir: opts.dir, corpus: "map" }),
   missingTree: (opts) =>
     opts.dir
       ? `no map directory at "${opts.dir}" — check the path or omit --dir to use [map].dir.`
@@ -419,9 +432,15 @@ const MAP_VERB: DocsVerb = {
 const DOCS_VERB: DocsVerb = {
   verb: "docs",
   missingError: "no_docs",
-  resolveDir: async () => {
-    const dir = await resolveBundledDocsDir();
-    return dir ? { kind: "ok", dir } : { kind: "missing" };
+  resolveDir: async (opts) => {
+    if (opts.adr === true || targetNamesAdrSubtree(opts.target)) {
+      const dir = await resolveRepositoryDecisionDir();
+      return dir === undefined
+        ? { kind: "external-decisions" }
+        : { kind: "ok", dir, corpus: "decisions" };
+    }
+    const dir = await resolveBundledManualDir();
+    return dir ? { kind: "ok", dir, corpus: "manual" } : { kind: "missing" };
   },
   missingTree: () =>
     "discern's bundled documentation is missing from this binary — this is a build defect; please report it.",
@@ -466,7 +485,7 @@ function internalScope(
   desc: DocsVerb,
   options: DocsOptions,
 ): boolean | readonly string[] {
-  return desc.verb === "docs" && options.adr ? [DOCS_ADR_DOC_DIR] : false;
+  return desc.verb === "map" && options.adr ? [DOCS_ADR_DOC_DIR] : false;
 }
 
 /**
@@ -496,43 +515,24 @@ function widenInternalForTarget(
   return list.includes(DOCS_ADR_DOC_DIR) ? list : [...list, DOCS_ADR_DOC_DIR];
 }
 
-/** Whether the resolved source tree actually carries the checkout-only records. */
-async function hasDecisionRecords(dir: string | undefined): Promise<boolean> {
-  return dir !== undefined &&
-    await directoryExists(join(dir, DOCS_ADR_DOC_DIR));
-}
-
 /**
- * The top-level section a documentation entry belongs to. Root Markdown files
- * keep their filename so {@link isBundledDocEntry} can admit the front door.
+ * Apply the corpus-specific publication policy. Product-manual views use the
+ * validated canonical projection; decisions and public Map exports use the
+ * neutral page-level publication predicate.
  */
-function docTopLevel(entry: DocEntry): string {
-  return entry.relToDocs.split("/")[0] ?? entry.relToDocs;
-}
-
-/** Whether a checkout-only docs subtree was explicitly opened for this view. */
-function docsInternalAllowed(
-  entry: DocEntry,
-  internal: boolean | readonly string[] | undefined,
-): boolean {
-  return Array.isArray(internal) && internal.includes(docTopLevel(entry));
-}
-
-/**
- * Apply both publication axes to a public projection. Page publication comes
- * from `isPublicDoc` through {@link publicDocs}; discern docs additionally
- * applies the manual's default-deny section registry. Enforcing both at view
- * time keeps source checkouts, test overrides, and pre-curated binary stages
- * behaviorally identical.
- */
-function publicVerbTree(desc: DocsVerb, tree: DocsTree): DocsTree {
-  const entries = publicDocs(tree.entries);
-  return desc.verb === "docs"
-    ? {
+async function publicVerbTree(
+  desc: DocsVerb,
+  tree: DocsTree,
+  corpus: "map" | "manual" | "decisions",
+): Promise<DocsTree> {
+  if (desc.verb === "docs" && corpus === "manual") {
+    const projection = await buildManualProjection(tree.entries);
+    return {
       ...tree,
-      entries: entries.filter((entry) => isBundledDocEntry(docTopLevel(entry))),
-    }
-    : { ...tree, entries };
+      entries: projection.pages.map((page) => page.entry),
+    };
+  }
+  return { ...tree, entries: publicDocs(tree.entries) };
 }
 
 /**
@@ -540,24 +540,13 @@ function publicVerbTree(desc: DocsVerb, tree: DocsTree): DocsTree {
  * product manual plus an explicitly requested checkout-only subtree such as
  * `--adr`; `map` is the agents' own tree and keeps everything.
  */
-function verbTree(
+async function verbTree(
   desc: DocsVerb,
   tree: DocsTree,
-  internal?: boolean | readonly string[] | undefined,
-): DocsTree {
+  corpus: "map" | "manual" | "decisions",
+): Promise<DocsTree> {
   if (desc.verb === "map") return tree;
-  const published = publicVerbTree(desc, tree);
-  if (!Array.isArray(internal)) return published;
-  const extras = publicDocs(tree.entries).filter((entry) =>
-    docsInternalAllowed(entry, internal)
-  );
-  return {
-    ...published,
-    entries: [
-      ...published.entries,
-      ...extras.filter((entry) => !published.entries.includes(entry)),
-    ],
-  };
+  return await publicVerbTree(desc, tree, corpus);
 }
 
 /**
@@ -639,6 +628,8 @@ function toRecord(e: DocEntry): DocRecord {
     ...(e.publish ? {} : { publish: false }),
     ...(e.order !== undefined ? { order: e.order } : {}),
     ...(e.aliases.length > 0 ? { aliases: e.aliases } : {}),
+    ...(e.pageId !== undefined ? { page_id: e.pageId } : {}),
+    ...(e.manualKind !== undefined ? { manual_kind: e.manualKind } : {}),
   };
 }
 
@@ -970,7 +961,7 @@ function docsHeader(
   );
 }
 
-interface DocsBrowseProjection {
+export interface DocsBrowseProjection {
   readonly groups: readonly SelectionGroup<DocsBrowserChoice>[];
   readonly entriesByPath: ReadonlyMap<string, DocEntry>;
   readonly documentChoice: (path: string) => DocsBrowserChoice;
@@ -982,10 +973,10 @@ interface DocsMarkdownBrowserCorpus {
 }
 
 /** Build the one ordered product projection shared by rich and sequential readers. */
-function docsBrowseProjection(
+export async function docsBrowseProjection(
   verb: "docs" | "map",
   tree: DocsTree,
-): DocsBrowseProjection {
+): Promise<DocsBrowseProjection> {
   const documentChoices = new Map(
     tree.entries.map((entry) => {
       const value: DocsBrowserChoice = {
@@ -1009,11 +1000,27 @@ function docsBrowseProjection(
   const quitActions = navigation.filter((choice) =>
     choice.value.kind === "quit"
   );
+  const promoted = verb === "docs" &&
+      tree.entries.every((entry) =>
+        entry.pageId !== undefined && entry.manualKind !== undefined
+      )
+    ? await manualFrontDoorEntries(tree.entries)
+    : [];
   const groups: SelectionGroup<DocsBrowserChoice>[] = [
     ...(browseActions.length === 0 ? [] : [{
       id: "browse",
       label: "Browse",
       items: browseActions,
+    }]),
+    ...(promoted.length === 0 ? [] : [{
+      id: "start-here",
+      label: "Start here",
+      items: promoted.map((entry) => ({
+        id: `promoted:${entry.pageId ?? entry.relToDocs}`,
+        name: entry.title,
+        description: entry.description,
+        value: { kind: "promoted-document" as const, path: entry.path },
+      })),
     }]),
     ...docBrowseGroups(tree.entries).map((group) => ({
       id: `documents:${group.id}`,
@@ -1329,7 +1336,7 @@ async function browse(
 ): Promise<number> {
   const width = resolveWidth(options.width, terminal);
   const log = new Logger({ json: false, noColor: options.noColor });
-  const projection = docsBrowseProjection(desc.verb, tree);
+  const projection = await docsBrowseProjection(desc.verb, tree);
   if (options.pager) {
     return await browseSequentially(
       desc,
@@ -1599,6 +1606,10 @@ async function exportDocs(
   cwd: string,
 ): Promise<number> {
   const resolved = await desc.resolveDir(options);
+  if (resolved.kind === "external-decisions") {
+    log.line(EXTERNAL_DECISIONS_MESSAGE);
+    return 0;
+  }
   // A configured scope names exactly the documents it wants — spelling a
   // `_`-buried path IS its opt-in, so discovery admits the whole tree and the
   // scope's own patterns decide (the same width `--export all` already has).
@@ -1619,7 +1630,11 @@ async function exportDocs(
   // the wider scopes (`all`, `select`, a configured scope) keep everything,
   // like the map itself.
   const tree = selection.kind === "builtin" && selection.scope === "public"
-    ? publicVerbTree(desc, discovered)
+    ? await publicVerbTree(
+      desc,
+      discovered,
+      resolved.kind === "ok" ? resolved.corpus : "map",
+    )
     : discovered;
 
   let outputPath: string | undefined;
@@ -1759,11 +1774,7 @@ async function treeResult(
   } = {},
 ): Promise<DiscernResult<DocsData>> {
   const resolved = await desc.resolveDir(opts);
-  if (
-    desc.verb === "docs" &&
-    (opts.adr === true || targetNamesAdrSubtree(opts.target)) &&
-    resolved.kind === "ok" && !(await hasDecisionRecords(resolved.dir))
-  ) {
+  if (resolved.kind === "external-decisions") {
     return {
       ok: true,
       verb: desc.verb,
@@ -1778,9 +1789,11 @@ async function treeResult(
       dir: resolved.dir,
       includeInternal: internal,
     });
-  const tree = discovered === undefined
-    ? undefined
-    : verbTree(desc, discovered, internal);
+  const tree = discovered === undefined ? undefined : await verbTree(
+    desc,
+    discovered,
+    resolved.kind === "ok" ? resolved.corpus : "map",
+  );
   if (!tree) {
     return {
       ok: false,
@@ -2168,20 +2181,18 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   }
 
   const resolved = await desc.resolveDir(options);
-  if (
-    desc.verb === "docs" &&
-    (options.adr === true || targetNamesAdrSubtree(options.target)) &&
-    resolved.kind === "ok" && !(await hasDecisionRecords(resolved.dir))
-  ) {
+  if (resolved.kind === "external-decisions") {
     log.line(renderExternalDecisionsNotice(terminal, width));
     return 0;
   }
   const discovered = resolved.kind === "missing"
     ? undefined
     : await discoverDocs({ cwd, dir: resolved.dir, includeInternal: internal });
-  const tree = discovered === undefined
-    ? undefined
-    : verbTree(desc, discovered, internal);
+  const tree = discovered === undefined ? undefined : await verbTree(
+    desc,
+    discovered,
+    resolved.kind === "ok" ? resolved.corpus : "map",
+  );
   if (!tree) {
     log.error(terminalLine(desc.missingTree(options)));
     return 1;

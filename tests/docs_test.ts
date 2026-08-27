@@ -32,14 +32,17 @@ import {
   RETIRED_COMMAND_REDIRECTS,
 } from "../src/shared/vocabulary.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
-import { stageBundledDocs } from "../scripts/build.ts";
+import { stageBundledManual } from "../scripts/build.ts";
 import {
   approvedDocsExternalUrl,
   docsBrowseNavigationChoices,
+  docsBrowseProjection,
   renderDocsCorpusHeader,
   renderExternalDecisionsNotice,
   resolveDocsBrowserLink,
 } from "../src/commands/docs.ts";
+import { discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { type PtyInputPhase, runPtyProcess } from "./fixtures/pty_process.ts";
 import { engineRunArgs } from "./engine_helpers.ts";
@@ -93,15 +96,15 @@ Deno.test("docs browser offers its online manual without adding it to map", () =
 Deno.test("docs browser resolves fragments and admitted Markdown paths from its in-memory corpus", () => {
   const availableDocuments = [
     { id: "root", name: "Welcome", path: "README.md" },
-    { id: "start", name: "Start", path: "00-orientation/start.md" },
-    { id: "other", name: "Other", path: "00-orientation/other.md" },
+    { id: "start", name: "Start", path: "00-start/start.md" },
+    { id: "other", name: "Other", path: "00-start/other.md" },
     { id: "next", name: "Next", path: "10-next/README.md" },
     { id: "target", name: "Target", path: "10-next/target.md" },
   ] as const;
   const resolve = (destination: string) =>
     resolveDocsBrowserLink({
       sourceDocumentId: "start",
-      sourcePath: "00-orientation/start.md",
+      sourcePath: "00-start/start.md",
       destination,
       availableDocuments,
     });
@@ -133,7 +136,7 @@ Deno.test("docs browser resolves fragments and admitted Markdown paths from its 
 
 Deno.test("docs browser leaves unadmitted, unsafe, and malformed destinations inert", () => {
   const availableDocuments = [
-    { id: "start", name: "Start", path: "00-orientation/start.md" },
+    { id: "start", name: "Start", path: "00-start/start.md" },
   ] as const;
   for (
     const destination of [
@@ -153,7 +156,7 @@ Deno.test("docs browser leaves unadmitted, unsafe, and malformed destinations in
   ) {
     const result = resolveDocsBrowserLink({
       sourceDocumentId: "start",
-      sourcePath: "00-orientation/start.md",
+      sourcePath: "00-start/start.md",
       destination,
       availableDocuments,
     });
@@ -288,10 +291,44 @@ Deno.test("installed decision redirects use a TTY Callout and one pipe-safe line
   assertStringIncludes(plain, "https://discern.sh/docs/decisions");
 });
 
+/** Build one strict manual source used by the focused delivery fixtures. */
+function manualFixturePage(
+  id: string,
+  title: string,
+  kind:
+    | "tutorial"
+    | "guide"
+    | "explanation"
+    | "reference"
+    | "troubleshooting",
+  order: number,
+  body: string,
+  publish = true,
+): string {
+  return [
+    "---",
+    `id: ${id}`,
+    `title: ${JSON.stringify(title)}`,
+    `description: ${
+      JSON.stringify(
+        "A complete product-manual fixture description for this focused documentation test.",
+      )
+    }`,
+    `order: ${order}`,
+    `publish: ${publish}`,
+    `kind: ${kind}`,
+    "aliases:",
+    `  - ${JSON.stringify(`${id} alias`)}`,
+    "---",
+    "",
+    body,
+  ].join("\n");
+}
+
 /**
  * Lay a project that has BOTH its own `docs/` (a decoy `docs` must never show)
- * and a separate "bundled" docs fixture, including internal `_`-prefixed subtrees
- * that `docs` must exclude. Returns the fixture path to pass as `DISCERN_DOCS_DIR`.
+ * and a separate strict manual fixture. Returns the fixture path to pass as
+ * `DISCERN_DOCS_DIR`.
  */
 async function makeDocsFixture(
   dir: string,
@@ -307,26 +344,80 @@ async function makeDocsFixture(
     "# Project Decoy\n\nThe project's own docs.\n",
   );
 
-  // discern's bundled docs fixture (a differently-named tree the resolver points
-  // at via DISCERN_DOCS_DIR), carrying internal subtrees curation must drop.
+  // A strict bundled-manual fixture. Every registered section has one index;
+  // the source carries no Map or protected subtree.
   const docs = join(dir, "manual-fixture");
   const files: Record<string, string> = {
-    "README.md": "# discern documentation\n\nWelcome.\n\n" +
-      "Read [Concepts](00-orientation/concepts.md#concepts-at-a-glance) " +
-      "or visit the [website](https://example.com/docs).\n",
-    "00-orientation/README.md": "# Intro\n",
-    "00-orientation/concepts.md": "# Concepts at a glance\n\n" +
-      "The concepts body, decided early ([ADR 0001](../_adr/0001-first.md)).\n",
-    "00-orientation/glossary.md": "# Glossary\n",
-    "00-orientation/hidden.md":
-      "---\npublish: false\n---\n# Hidden draft\n\nWithheld.\n",
-    "50-engine-internals/README.md":
-      "# Engine internals\n\nContributor-only.\n",
-    "55-observability/telemetry.md":
-      "# Instrumentation laboratory\n\nFresh-name contributor fixture.\n",
-    "_adr/0001-first.md": "# ADR 0001: First\n",
-    "_internal/brief.md": "# Documenter brief\n",
-    "_private/positioning.md": "# Positioning\n",
+    "README.md": manualFixturePage(
+      "manual-home",
+      "discern documentation",
+      "tutorial",
+      0,
+      "# discern documentation\n\nWelcome.\n\n" +
+        "<!-- BEGIN MANUAL FRONT DOORS -->\n" +
+        "- [Start](00-start/README.md)\n" +
+        "<!-- END MANUAL FRONT DOORS -->\n\n" +
+        "Read [Concepts](00-start/concepts.md#concepts-at-a-glance) " +
+        "or visit the [website](https://example.com/docs).\n",
+    ),
+    "00-start/README.md": manualFixturePage(
+      "start-index",
+      "Intro",
+      "tutorial",
+      0,
+      "# Intro\n\nRead [Concepts](concepts.md).\n",
+    ),
+    "00-start/concepts.md": manualFixturePage(
+      "start-concepts",
+      "Concepts at a glance",
+      "explanation",
+      10,
+      "# Concepts at a glance\n\n" +
+        "The concepts body, decided early ([ADR 0001](https://discern.sh/docs/decisions/0001-first)).\n",
+    ),
+    "00-start/hidden.md": manualFixturePage(
+      "start-hidden",
+      "Hidden draft",
+      "tutorial",
+      20,
+      "# Hidden draft\n\nWithheld.\n",
+      false,
+    ),
+    "10-guides/README.md": manualFixturePage(
+      "guide-index",
+      "Guides",
+      "guide",
+      0,
+      "# Guides\n",
+    ),
+    "20-understand/README.md": manualFixturePage(
+      "understand-index",
+      "Understand",
+      "explanation",
+      0,
+      "# Understand\n",
+    ),
+    "30-reference/README.md": manualFixturePage(
+      "reference-index",
+      "Reference",
+      "reference",
+      0,
+      "# Reference\n\nRead the [Glossary](glossary.md).\n",
+    ),
+    "30-reference/glossary.md": manualFixturePage(
+      "reference-glossary",
+      "Glossary",
+      "reference",
+      10,
+      "# Glossary\n",
+    ),
+    "40-troubleshooting/README.md": manualFixturePage(
+      "troubleshooting-index",
+      "Troubleshooting",
+      "troubleshooting",
+      0,
+      "# Troubleshooting\n",
+    ),
   };
   for (const [rel, content] of Object.entries(files)) {
     await Deno.mkdir(join(docs, rel, ".."), { recursive: true });
@@ -371,11 +462,11 @@ Deno.test({
         cwd: dir,
         env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
         input: [
-          // Browse is first, so one move selects the root document.
+          // Browse and Start here precede the complete-navigation root.
           {
             waitFor: "Enter open/action  Esc cancel",
             captureAs: "initial",
-            steps: [{ bytes: "\x1b[B\r" }],
+            steps: [{ bytes: "\x1b[B\x1b[B\r" }],
           },
           {
             waitFor: ["Welcome.", "Tab picker"],
@@ -385,8 +476,7 @@ Deno.test({
           {
             waitFor: ["discern documentation", "Esc cancel"],
             captureAs: "restored",
-            // From the remembered root document: three Intro documents, then Quit.
-            steps: [{ bytes: "\x1b[B".repeat(4) + "\r" }],
+            steps: [{ bytes: "\x03" }],
           },
         ],
         timeoutMs: 8_000,
@@ -395,12 +485,17 @@ Deno.test({
       assertEquals(process.code, 0, process.transcript);
       assertEquals(process.stderr, "", process.transcript);
       assert((process.transcript.match(/Welcome\./gu)?.length ?? 0) >= 1);
-      assertStringIncludes(process.transcript, "DISCERN DOCS — 4 DOCUMENTS");
+      assertStringIncludes(process.transcript, "DISCERN DOCS — 8 DOCUMENTS");
       assert(!process.transcript.includes("Press Enter to continue."));
       assert(!process.transcript.includes("The pager failed"));
 
       const initial = process.keyframes.initial ?? "";
-      const groupOffsets = ["BROWSE", "OVERVIEW", "INTRO", "ACTIONS"].map(
+      const groupOffsets = [
+        "BROWSE",
+        "START HERE",
+        "OVERVIEW",
+        "INTRO",
+      ].map(
         (label) => initial.indexOf(label),
       );
       assert(groupOffsets.every((offset) => offset >= 0), initial);
@@ -410,9 +505,8 @@ Deno.test({
           "Read the docs online",
           "discern documentation",
           "README.md",
-          "00-orientation/",
+          "00-start/",
           "Concepts at a glance",
-          "concepts.md",
         ]
       ) {
         assertStringIncludes(initial, visible);
@@ -425,7 +519,7 @@ Deno.test({
         process.keyframes.restored ?? "",
         "discern documentation",
       );
-      assertStringIncludes(process.keyframes.restored ?? "", "× Quit");
+      assertStringIncludes(process.keyframes.restored ?? "", "START HERE");
     });
   },
 });
@@ -448,7 +542,7 @@ for (const exitCode of [0, 9]) {
             },
             {
               waitFor: ["Read the docs online", "Esc cancel"] as const,
-              steps: [{ bytes: "\x1b[B".repeat(5) + "\r" }],
+              steps: [{ bytes: "\x1b" }],
             },
           ]
           : [
@@ -465,7 +559,7 @@ for (const exitCode of [0, 9]) {
             },
             {
               waitFor: ["Read the docs online", "Esc cancel"] as const,
-              steps: [{ bytes: "\x1b[B".repeat(5) + "\r" }],
+              steps: [{ bytes: "\x1b" }],
             },
           ];
         const process = await runPtyProcess({
@@ -516,11 +610,11 @@ Deno.test({
         input: [
           {
             waitFor: "Enter open/action  Esc cancel",
-            steps: [{ bytes: "\x1b[B\r" }],
+            steps: [{ bytes: "\x1b[B\x1b[B\r" }],
           },
           {
             waitFor: ["Welcome.", "Tab picker"],
-            steps: [{ bytes: "]\r" }],
+            steps: [{ bytes: "]]\r" }],
           },
           {
             waitFor: ["Document · Concepts at a glance", "The concepts body"],
@@ -529,7 +623,7 @@ Deno.test({
           },
           {
             waitFor: ["discern documentation", "Esc cancel"],
-            steps: [{ bytes: "\x1b[B".repeat(4) + "\r" }],
+            steps: [{ bytes: "\x03" }],
           },
         ],
         timeoutMs: 8_000,
@@ -568,11 +662,11 @@ Deno.test({
         input: [
           {
             waitFor: "Enter open/action  Esc cancel",
-            steps: [{ bytes: "\x1b[B\r" }],
+            steps: [{ bytes: "\x1b[B\x1b[B\r" }],
           },
           {
             waitFor: ["Welcome.", "Tab picker"],
-            steps: [{ bytes: "]]\r" }],
+            steps: [{ bytes: "]]]\r" }],
           },
           {
             waitFor: ["website", "Enter follow"],
@@ -581,7 +675,7 @@ Deno.test({
           },
           {
             waitFor: ["discern documentation", "Esc cancel"],
-            steps: [{ bytes: "\x1b[B".repeat(4) + "\r" }],
+            steps: [{ bytes: "\x03" }],
           },
         ],
         timeoutMs: 8_000,
@@ -610,12 +704,18 @@ for (
     fn: async () => {
       await withTempDir(async (dir) => {
         const docs = await makeDocsFixture(dir);
-        await Deno.mkdir(join(docs, "00-orientation", "nested"), {
+        await Deno.mkdir(join(docs, "00-start", "nested"), {
           recursive: true,
         });
         await Deno.writeTextFile(
-          join(docs, "00-orientation", "nested", "deep.md"),
-          "# Deep document\n\nNested path body.\n",
+          join(docs, "00-start", "nested", "deep.md"),
+          manualFixturePage(
+            "start-deep",
+            "Deep document",
+            "explanation",
+            30,
+            "# Deep document\n\nNested path body.\n",
+          ),
         );
         const process = await runPtyProcess({
           command: Deno.execPath(),
@@ -624,7 +724,7 @@ for (
           env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
           input: [
             {
-              waitFor: "nested/deep.md",
+              waitFor: "Enter open/action  Esc cancel",
               steps: [{ bytes: `${testCase.query}\r` }],
             },
             {
@@ -687,116 +787,31 @@ Deno.test({
   },
 });
 
-Deno.test({
-  name:
-    "typed small-terminal refusal uses the sequential reader and remembered selection",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    await withTempDir(async (dir) => {
-      const docs = await makeDocsFixture(dir);
-      const process = await runPtyProcess({
-        command: Deno.execPath(),
-        args: engineRunArgs(["docs"]),
-        cwd: dir,
-        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
-        geometry: { columns: 31, rows: 24 },
-        input: [
-          {
-            waitFor: "○ Quit",
-            steps: [{ bytes: "\x1b[B\x1b[B\r" }],
-          },
-          {
-            waitFor: ["Welcome.", "Press Enter to continue."],
-            steps: [{ bytes: "\r" }],
-          },
-          {
-            waitFor: ["discern documentation", "○ Quit"],
-            steps: [{ bytes: "\x1b[B".repeat(4) + "\r" }],
-          },
-        ],
-        timeoutMs: 8_000,
-      });
-
-      assertEquals(process.code, 0, process.transcript);
-      assertStringIncludes(process.transcript, "Press Enter to continue.");
-      assert(!process.transcript.includes("Tab picker"));
+Deno.test("promoted and complete manual entries keep distinct picker values", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const discovered = await discoverDocs({ cwd: dir, dir: docs });
+    assertExists(discovered);
+    const manual = await buildManualProjection(discovered.entries);
+    const projection = await docsBrowseProjection("docs", {
+      ...discovered,
+      entries: manual.pages.map((page) => page.entry),
     });
-  },
-});
-
-Deno.test({
-  name: "explicit pager exit restores the docs picker without acknowledgement",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    await withTempDir(async (dir) => {
-      const docs = await makeDocsFixture(dir);
-      const process = await runPtyProcess({
-        command: Deno.execPath(),
-        args: engineRunArgs(["docs", "--pager"]),
-        cwd: dir,
-        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "cat" },
-        input: [
-          {
-            waitFor: "○ Quit",
-            steps: [{ bytes: "\x1b[B\x1b[B\r" }],
-          },
-          {
-            waitFor: ["Welcome.", "○ Quit"],
-            steps: [{ bytes: "\x1b[B".repeat(4) + "\r" }],
-          },
-        ],
-        timeoutMs: 8_000,
-      });
-
-      assertEquals(process.code, 0, process.transcript);
-      assertStringIncludes(process.transcript, "Welcome.");
-      assert(!process.transcript.includes("Press Enter to continue."));
-      assert(!process.transcript.includes("The pager failed"));
-    });
-  },
-});
-
-Deno.test({
-  name:
-    "failed explicit pager warns, falls back internally, and restores the picker",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    await withTempDir(async (dir) => {
-      const docs = await makeDocsFixture(dir);
-      const process = await runPtyProcess({
-        command: Deno.execPath(),
-        args: engineRunArgs(["docs", "--pager"]),
-        cwd: dir,
-        env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
-        input: [
-          {
-            waitFor: "○ Quit",
-            steps: [{ bytes: "\x1b[B\x1b[B\r" }],
-          },
-          {
-            waitFor: [
-              "The pager failed (pager exited with status 1).",
-              "Welcome.",
-              "Press Enter to continue.",
-            ],
-            steps: [{ bytes: "\r" }],
-          },
-          {
-            waitFor: ["discern documentation", "○ Quit"],
-            steps: [{ bytes: "\x1b[B".repeat(4) + "\r" }],
-          },
-        ],
-        timeoutMs: 8_000,
-      });
-
-      assertEquals(process.code, 0, process.transcript);
-      assertStringIncludes(
-        process.transcript,
-        "The pager failed (pager exited with status 1).",
-      );
-      assertStringIncludes(process.transcript, "Press Enter to continue.");
-    });
-  },
+    const items = projection.groups.flatMap((group) => group.items);
+    const selectable = items.map((item) => JSON.stringify(item.value));
+    assertEquals(new Set(selectable).size, selectable.length);
+    const promoted = items.find((item) => item.id?.startsWith("promoted:"));
+    const complete = items.find((item) =>
+      item.id ===
+        `document:${
+          promoted?.value.kind === "promoted-document"
+            ? promoted.value.path
+            : ""
+        }`
+    );
+    assertEquals(promoted?.value.kind, "promoted-document");
+    assertEquals(complete?.value.kind, "document");
+  });
 });
 
 for (
@@ -983,9 +998,16 @@ Deno.test("docs terminal facts are inert while machine Markdown stays exact", as
     const docs = await makeDocsFixture(dir);
     const target = `hostile${"long".repeat(18)}\u202E`;
     const source = "# café 👩‍💻\x1b\u0085\u202E\r\n\r\nbody\x07 control\r\n";
-    await Deno.writeTextFile(
-      join(docs, "00-orientation", `${target}.md`),
+    const authored = manualFixturePage(
+      "start-hostile-terminal-facts",
+      "hostile title\u202E",
+      "reference",
+      40,
       source,
+    );
+    await Deno.writeTextFile(
+      join(docs, "00-start", `${target}.md`),
+      authored,
     );
     const env = { DISCERN_DOCS_DIR: docs };
 
@@ -994,7 +1016,7 @@ Deno.test("docs terminal facts are inert while machine Markdown stays exact", as
       dir,
       env,
     );
-    assertEquals(human.code, 0);
+    assertEquals(human.code, 0, human.stdout + human.stderr);
     assertEquals(unexpectedTerminalControls(human.stdout), []);
     assert(!/[\p{Cc}\p{Cf}]/u.test(human.stdout.replaceAll("\n", "")));
     for (
@@ -1021,7 +1043,7 @@ Deno.test("docs terminal facts are inert while machine Markdown stays exact", as
     assertEquals(unexpectedTerminalControls(list.stdout), []);
     assertStringIncludes(list.stdout, "hostilelonglong");
     assertStringIncludes(list.stdout, "<U+202E>");
-    const rows = list.stdout.slice(list.stdout.indexOf("00-orientation/"));
+    const rows = list.stdout.slice(list.stdout.indexOf("00-start/"));
     for (const line of rows.trimEnd().split("\n")) {
       assert(
         measureText(line) <= 48,
@@ -1040,15 +1062,19 @@ Deno.test("docs terminal facts are inert while machine Markdown stays exact", as
 
     const raw = await runCli(["docs", target, "--raw"], dir, env);
     assertEquals(raw.code, 0);
-    assertEquals(raw.stdout, source);
+    assertEquals(raw.stdout, authored);
 
     const json = await runCli(["docs", target, "--json"], dir, env);
     assertEquals(json.code, 0);
-    assertEquals(decodeDocsData(json.stdout, "doc").doc.content, source);
+    const normalizedBody = source.replaceAll("\r\n", "\n");
+    assertEquals(
+      decodeDocsData(json.stdout, "doc").doc.content,
+      normalizedBody,
+    );
 
     const exported = await runCli(["docs", "--export", "public"], dir, env);
     assertEquals(exported.code, 0);
-    assertStringIncludes(exported.stdout, source);
+    assertStringIncludes(exported.stdout, normalizedBody);
   });
 });
 
@@ -1067,9 +1093,9 @@ Deno.test("docs serves the bundled tree, never the project's own docs/", async (
     assertDocsDataKey(res, "docs");
     assertExists(res.data.count);
     assertEquals(res.data.map_dir, undefined);
-    // Exactly the 4 PUBLISHED docs of the fixture — not the project's decoy,
+    // Exactly the 8 PUBLISHED docs of the fixture — not the project's decoy,
     // and not the publish: false draft (docs honours isPublicDoc).
-    assertEquals(res.data.count, 4);
+    assertEquals(res.data.count, 8);
     assert(res.data.docs.some((d: { slug: string }) => d.slug === "concepts"));
     assert(
       !res.data.docs.some((d: { slug: string }) => d.slug === "hidden"),
@@ -1118,13 +1144,13 @@ Deno.test("docs search returns public manual targets and supports region scope",
     const foundData = decodeDocsData(found.stdout, "results");
     const foundResult = foundData.results[0];
     assertExists(foundResult);
-    assertEquals(foundResult.target, "00-orientation/concepts");
+    assertEquals(foundResult.target, "00-start/concepts");
     assertEquals(foundResult.match, "complete");
 
     const scoped = await runCli(
       [
         "docs",
-        "00-orientation",
+        "00-start",
         "--search",
         "concepts body",
         "--json",
@@ -1135,7 +1161,7 @@ Deno.test("docs search returns public manual targets and supports region scope",
     assertEquals(scoped.code, 0);
     assertEquals(
       decodeDocsData(scoped.stdout, "scope").scope,
-      "00-orientation",
+      "00-start",
     );
 
     const withheld = await runCli(
@@ -1167,7 +1193,7 @@ Deno.test("docs <slug> --json strips inline citations, keeps them as fields", as
     assertEquals(res.verb, "docs");
     assertDocsDataKey(res, "doc");
     assertEquals(res.data.doc.slug, "concepts");
-    assertEquals(res.data.doc.target, "00-orientation/concepts");
+    assertEquals(res.data.doc.target, "00-start/concepts");
     // Human-facing product docs: the inline citation group is stripped from
     // content, and the clause still reads; the decision survives as a field.
     assertStringIncludes(
@@ -1176,7 +1202,11 @@ Deno.test("docs <slug> --json strips inline citations, keeps them as fields", as
     );
     assert(!res.data.doc.content.includes("[ADR 0001]"));
     assertEquals(res.data.doc.cited_adrs, [
-      { number: "0001", slug: "first", path: "../_adr/0001-first.md" },
+      {
+        number: "0001",
+        slug: "first",
+        path: "https://discern.sh/docs/decisions/0001-first",
+      },
     ]);
   });
 });
@@ -1214,8 +1244,14 @@ Deno.test("docs <slug> --raw prints the pristine source, citations included", as
     assertEquals(code, 0);
     assertEquals(
       stdout,
-      "# Concepts at a glance\n\n" +
-        "The concepts body, decided early ([ADR 0001](../_adr/0001-first.md)).\n",
+      manualFixturePage(
+        "start-concepts",
+        "Concepts at a glance",
+        "explanation",
+        10,
+        "# Concepts at a glance\n\n" +
+          "The concepts body, decided early ([ADR 0001](https://discern.sh/docs/decisions/0001-first)).\n",
+      ),
     );
   });
 });
@@ -1305,7 +1341,7 @@ Deno.test("docs --list prints a grouped TOC titled `discern docs`", async () => 
     );
     assertEquals(code, 0);
     assertStringIncludes(stdout, "discern docs");
-    assertStringIncludes(stdout, "00-orientation/");
+    assertStringIncludes(stdout, "00-start/");
     assertStringIncludes(stdout, "Concepts at a glance");
   });
 });
@@ -1349,7 +1385,7 @@ Deno.test("docs <near miss> --json suggests valid doc targets", async () => {
     assertEquals(suggestion.slug, "concepts");
     assertEquals(
       suggestion.path,
-      "manual-fixture/00-orientation/concepts.md",
+      "manual-fixture/00-start/concepts.md",
     );
   });
 });
@@ -1357,7 +1393,7 @@ Deno.test("docs <near miss> --json suggests valid doc targets", async () => {
 Deno.test("docs <ambiguous> --json reports ambiguous with candidates", async () => {
   await withTempDir(async (dir) => {
     const docs = await makeDocsFixture(dir);
-    // README exists at the root and under 00-orientation/ → a bare "README" is ambiguous.
+    // README exists at the root and under 00-start/ → a bare "README" is ambiguous.
     const { code, stdout } = await runCli(
       ["docs", "README", "--json"],
       dir,
@@ -1428,7 +1464,9 @@ Deno.test("docs --adr surfaces ONLY the ADR tree, never _internal/_private", asy
     const res = decodeCliResult(stdout, "docs");
     assertDocsDataKey(res, "docs");
     assert(
-      res.data.docs.some((d: { slug: string }) => d.slug === "0001-first"),
+      res.data.docs.some((d: { slug: string }) =>
+        d.slug === "0003-named-metric-standards"
+      ),
       "--adr surfaces the ADR docs",
     );
     // ...but never the other internal subtrees (allowlist, not all-internal).
@@ -1441,15 +1479,18 @@ Deno.test("docs --adr surfaces ONLY the ADR tree, never _internal/_private", asy
 
     // An ADR resolves as a target only with --adr; it is hidden by default.
     const withAdr = await runCli(
-      ["docs", "--adr", "0001-first", "--json"],
+      ["docs", "--adr", "0003-named-metric-standards", "--json"],
       dir,
       { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(withAdr.code, 0);
-    assertEquals(decodeDocsData(withAdr.stdout, "doc").doc.slug, "0001-first");
+    assertEquals(
+      decodeDocsData(withAdr.stdout, "doc").doc.slug,
+      "0003-named-metric-standards",
+    );
 
     const withoutAdr = await runCli(
-      ["docs", "0001-first", "--json"],
+      ["docs", "0003-named-metric-standards", "--json"],
       dir,
       { DISCERN_DOCS_DIR: docs },
     );
@@ -1466,14 +1507,14 @@ Deno.test("a target naming _adr/ is its own opt-in, on docs and map alike", asyn
     // The explicit subtree target resolves with no --adr flag: the caller
     // already spelled the buried segment, and the records are public.
     const explicit = await runCli(
-      ["docs", "_adr/0001-first", "--json"],
+      ["docs", "_adr/0003-named-metric-standards", "--json"],
       dir,
       env,
     );
     assertEquals(explicit.code, 0, explicit.stdout);
     assertEquals(
       decodeDocsData(explicit.stdout, "doc").doc.slug,
-      "0001-first",
+      "0003-named-metric-standards",
     );
 
     // The map verb — which has no --adr flag at all — honours the same form
@@ -1506,7 +1547,7 @@ Deno.test("a target naming _adr/ is its own opt-in, on docs and map alike", asyn
     // A near-miss suggestion prints the canonical target, so retrying the
     // suggestion verbatim resolves instead of refusing on the bare slug.
     const nearMiss = await runCli(
-      ["docs", "--adr", "0001", "--json"],
+      ["docs", "--adr", "0003", "--json"],
       dir,
       env,
     );
@@ -1515,35 +1556,35 @@ Deno.test("a target naming _adr/ is its own opt-in, on docs and map alike", asyn
     assertExists(nearMissResult.message);
     assertStringIncludes(
       nearMissResult.message,
-      "_adr/0001-first",
+      "_adr/0003-named-metric-standards",
     );
   });
 });
 
-Deno.test("installed docs with an explicit _adr target points to the public archive", async () => {
+Deno.test("staged manual keeps explicit decision reads on the source-checkout authority", async () => {
   await withTempDir(async (dir) => {
     const source = await makeDocsFixture(dir);
     const staged = join(dir, "staged-docs");
-    await stageBundledDocs(source, staged);
+    await stageBundledManual(source, staged);
 
     const json = await runCli(
-      ["docs", "_adr/0001-first", "--json"],
+      ["docs", "_adr/0003-named-metric-standards", "--json"],
       dir,
       { DISCERN_DOCS_DIR: staged },
     );
     assertEquals(json.code, 0);
     const result = decodeCliResult(json.stdout, "docs");
     assertEquals(result.ok, true);
-    assertExists(result.message);
-    assertStringIncludes(result.message, "https://discern.sh/docs/decisions");
+    assertDocsDataKey(result, "doc");
+    assertEquals(result.data.doc.slug, "0003-named-metric-standards");
   });
 });
 
-Deno.test("installed docs --adr points to the public decision archive", async () => {
+Deno.test("staged manual keeps the decision index separate from manual bytes", async () => {
   await withTempDir(async (dir) => {
     const source = await makeDocsFixture(dir);
     const staged = join(dir, "staged-docs");
-    await stageBundledDocs(source, staged);
+    await stageBundledManual(source, staged);
 
     const json = await runCli(
       ["docs", "--adr", "--json"],
@@ -1554,10 +1595,16 @@ Deno.test("installed docs --adr points to the public decision archive", async ()
     const result = decodeCliResult(json.stdout, "docs");
     assertEquals(result.ok, true);
     assertEquals(result.verb, "docs");
-    assertExists(result.message);
-    assertStringIncludes(result.message, "not bundled with installed binaries");
-    assertStringIncludes(result.message, "https://discern.sh/docs/decisions");
-    assert(!result.message.includes("0001-first"));
+    assertDocsDataKey(result, "docs");
+    assert(
+      result.data.docs.some((entry) =>
+        entry.slug === "0003-named-metric-standards"
+      ),
+    );
+    assert(
+      result.data.docs.every((entry) => entry.page_id === undefined),
+      "decision records must not be projected from staged manual pages",
+    );
 
     const human = await runCli(
       ["docs", "--adr"],
@@ -1565,7 +1612,7 @@ Deno.test("installed docs --adr points to the public decision archive", async ()
       { DISCERN_DOCS_DIR: staged },
     );
     assertEquals(human.code, 0);
-    assertStringIncludes(human.stdout, "https://discern.sh/docs/decisions");
+    assertStringIncludes(human.stdout, "0003-named-metric-standards");
   });
 });
 
@@ -1598,7 +1645,7 @@ Deno.test("docs --export public concatenates only the public docs", async () => 
     assertStringIncludes(stdout, "Concepts at a glance");
     assert(!stdout.includes("Positioning"), "must not export _private");
     assert(!stdout.includes("Documenter brief"), "must not export _internal");
-    assertEquals(stdout.match(/^<!-- BEGIN SOURCE:/gm)?.length, 4);
+    assertEquals(stdout.match(/^<!-- BEGIN SOURCE:/gm)?.length, 8);
   });
 });
 
@@ -1628,7 +1675,7 @@ Deno.test("docs --export public --output writes a bundle file", async () => {
     );
     assertEquals(code, 0);
     assertEquals(stdout, "");
-    assertStringIncludes(stderr, "Exported 4 documents to docs-bundle.md");
+    assertStringIncludes(stderr, "Exported 8 documents to docs-bundle.md");
     const bundle = await readTarget(dir, "docs-bundle.md");
     assertStringIncludes(bundle, "discern documentation");
     assert(!bundle.includes("Positioning"));

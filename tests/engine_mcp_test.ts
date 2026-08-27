@@ -77,7 +77,8 @@ import {
 } from "../src/engine/await/defaults.ts";
 import { withTempDir } from "./helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
-import { stageBundledDocs } from "../scripts/build.ts";
+import { stageBundledManual } from "../scripts/build.ts";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import {
   addWorktree,
@@ -1815,21 +1816,11 @@ Deno.test("discern mcp: docs tool and resources serve exactly the staged public 
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    const source = join(dir, "source-map");
-    const files: Record<string, string> = {
-      "README.md": "# Public front door\n",
-      "00-orientation/README.md": "# Orientation\n",
-      "00-orientation/guide.md": "# Public guide\n\nVisible.\n",
-      "00-orientation/withheld.md": "---\npublish: false\n---\n# Withheld\n",
-      "_adr/0001-internal.md": "# Internal decision\n",
-    };
-    for (const [rel, content] of Object.entries(files)) {
-      const path = join(source, rel);
-      await Deno.mkdir(join(path, ".."), { recursive: true });
-      await Deno.writeTextFile(path, content);
-    }
     const staged = join(dir, "staged-docs");
-    const copied = await stageBundledDocs(source, staged);
+    const copied = await stageBundledManual(
+      REPO_AUTHORED_PATHS.manual,
+      staged,
+    );
     const expectedPaths = copied.map((rel) => `staged-docs/${rel}`);
 
     await using mcp = await spawnMcp(dir, { DISCERN_DOCS_DIR: staged });

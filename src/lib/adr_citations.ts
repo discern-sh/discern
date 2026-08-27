@@ -57,11 +57,13 @@ const CITATION_GROUP = new RegExp(
 const ADR_TOKEN = /\bADR[ \t]*\d{4}\b/g;
 
 /** The number a citation's destination points at, or undefined when the
- * destination is not an `_adr/NNNN-slug.md` record. */
+ * destination is neither a Map record nor its canonical public route. */
 function destParts(
   dest: string,
 ): { number: string; slug: string } | undefined {
-  const m = dest.match(/(?:^|\/)_adr\/(\d{4})-([^/]+)\.md$/);
+  const m = dest.match(
+    /(?:(?:^|\/)_adr\/|https:\/\/discern\.sh\/docs\/decisions\/)(\d{4})-([^/.#]+)(?:\.md)?$/u,
+  );
   const number = m?.[1];
   const slug = m?.[2];
   return number !== undefined && slug !== undefined
@@ -176,7 +178,8 @@ export function findMalformedAdrReferences(md: string): AdrReferenceIssue[] {
         issues.push({
           line: lineOf(masked, index + (c.index ?? 0)),
           text: c[0] ?? "",
-          reason: "citation destination is not an `_adr/NNNN-slug.md` record",
+          reason:
+            "citation destination is neither an `_adr/NNNN-slug.md` record nor its canonical discern.sh decision route",
         });
       } else if (parts.number !== number) {
         issues.push({

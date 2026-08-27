@@ -12,39 +12,30 @@
  * page — or a newly published tier — auto-enrols.
  */
 
-import { join } from "@std/path";
 import { assertEquals } from "@std/assert";
 import { findMalformedAdrReferences } from "../src/lib/adr_citations.ts";
-import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
+import { discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
-import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 Deno.test("published-tier ADR references all take the normalized strippable form", async () => {
   const failures: string[] = [];
 
-  const mapPrefix = `${REPO_AUTHORED_PATHS.mapRel}/`;
-  const files = await structuralGuardScope({
-    guard: "tests/adr_citation_form_test.ts#published-adr-citations",
-    universe: "tracked-markdown",
-    narrow: {
-      reason:
-        "The normalized citation form is a publishing contract for root manual pages and registry-declared public tiers only.",
-      include: (rel) => {
-        if (!rel.startsWith(mapPrefix)) return false;
-        const withinMap = rel.slice(mapPrefix.length);
-        return !withinMap.includes("/") || BUNDLED_PUBLIC_DOC_DIRS.some(
-          (dir) => withinMap.startsWith(`${dir}/`),
-        );
-      },
-    },
+  const tree = await discoverDocs({
+    cwd: REPO_ROOT,
+    dir: REPO_AUTHORED_PATHS.manual,
   });
+  if (tree === undefined) throw new Error("the repository manual is missing");
+  const manual = await buildManualProjection(tree.entries);
 
-  for (const rel of files) {
+  for (const page of manual.pages) {
     const issues = findMalformedAdrReferences(
-      await Deno.readTextFile(join(REPO_ROOT, rel)),
+      await Deno.readTextFile(page.entry.absPath),
     );
     failures.push(
-      ...issues.map((i) => `${rel}:${i.line} ${i.text} — ${i.reason}`),
+      ...issues.map((i) =>
+        `${page.entry.path}:${i.line} ${i.text} — ${i.reason}`
+      ),
     );
   }
   assertEquals(

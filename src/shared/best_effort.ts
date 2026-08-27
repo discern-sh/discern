@@ -166,26 +166,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "A watcher failure hands observation back to the bounded polling loop, which continues to own the condition verdict.",
   },
-  "build-bundled-doc-stage-cleanup": {
-    path: "scripts/build.ts",
-    enclosingFunction: "main",
-    operation: "remove the transient bundled-document stage after compilation",
-    kind: "capability",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "Compilation has already decided its result, and a stale ignored stage is safe to replace on the next build.",
-  },
-  "build-bundled-doc-stage-reset": {
-    path: "scripts/build.ts",
-    enclosingFunction: "prepareBundledDocs",
-    operation: "remove the previous transient bundled-document stage",
-    kind: "capability",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "The following stage creation and copy operations remain authoritative and report any unusable destination.",
-  },
   "canon-editor-git-dirty-fallback": {
     path: "scripts/canon_editor/server.ts",
     enclosingFunction: "gitDirty",
@@ -1196,17 +1176,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     observability: { kind: "unobservable" },
     reason:
       "Process settlement remains authoritative and a raced child exit is already the desired cancellation state.",
-  },
-  "paths-bundled-docs-config-fallback": {
-    path: "src/lib/paths.ts",
-    enclosingFunction: "resolveBundledDocsDir",
-    operation:
-      "skip a non-project ancestor while searching for bundled documentation",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "Each ancestor is only a discovery candidate and the search returns no docs rather than serving an unrelated project map.",
   },
   "private-docs-git-query-fallback": {
     path: "project/scripts/ensure_private_docs.ts",

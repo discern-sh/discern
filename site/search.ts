@@ -4,7 +4,6 @@
  * and the stripped, weighted fields consumed by the client-side matcher.
  */
 
-import { isPublicDoc } from "../src/lib/docs.ts";
 import { stripAdrCitations } from "../src/lib/adr_citations.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import {
@@ -28,7 +27,7 @@ export type ReadSearchSource = (path: string) => Promise<string>;
 
 /** Decision records are history, not launch-search product documentation. */
 export function isSearchableSource(source: SearchSource): boolean {
-  return isPublicDoc(source.entry) && source.entry.section !== "_adr";
+  return source.entry.section !== "_adr";
 }
 
 /** Build one record from the same stripped human projection the page renders. */

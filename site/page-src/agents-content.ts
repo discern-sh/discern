@@ -21,15 +21,15 @@ const CEILING_LABEL = AGENTS_PROSE_WORD_CEILING.toLocaleString("en-US");
 export const AGENTS_ROUTES = {
   home: "/",
   machineGuide: "/llms.txt",
-  quickstart: "/docs/getting-started/quickstart",
+  quickstart: "/docs/start/first-success",
   mcp: "/docs/reference/mcp-and-results",
-  resultSurfaces: "/docs/reference/result-surfaces",
-  map: "/docs/agent-instructions/the-map",
+  resultSurfaces: "/docs/reference/mcp-and-results",
+  map: "/docs/understand/instructions-skills-and-map",
   instructions: "/docs/agent-instructions",
   worktrees: "/docs/worktrees",
-  glossary: "/docs/orientation/glossary",
+  glossary: "/docs/reference/glossary",
   providers: "/docs/agent-integrations",
-  trust: "/docs/orientation/trust-and-data",
+  trust: "/docs/understand/local-control",
   schema: "/schema/v1/discern-results.schema.json",
 } as const;
 

@@ -815,7 +815,7 @@ function V3OutcomesSection() {
           <a href="/docs/worktrees">
             See parallel work in practice <span>↗</span>
           </a>
-          <a href="/docs/quality-gate/the-proof">
+          <a href="/docs/understand/proof">
             Read the Proof model <span>↗</span>
           </a>
           <a href="/docs/agent-instructions">
@@ -999,7 +999,7 @@ function V3ProofSection() {
               </div>
             </article>
             <Button
-              href="/docs/orientation/trust-and-data"
+              href="/docs/understand/local-control"
               variant="secondary"
               className="v3-proof__trust-link"
             >
@@ -1135,7 +1135,7 @@ function V3SetupSection() {
               buttonLabel="Copy setup prompt"
               copiedLabel="Setup prompt copied"
               linkLabel="Read the complete setup guide"
-              linkHref="/docs/getting-started/quickstart"
+              linkHref="/docs/start/first-success"
             />
             <p className="v3-setup__paste-note">
               Paste the prompt into a coding-agent session rooted in the project
@@ -1203,11 +1203,11 @@ function LandingShell({ children }: LandingShellProps) {
           {
             title: "Documentation",
             links: [
-              { label: "Quickstart", href: "/docs/getting-started/quickstart" },
+              { label: "Quickstart", href: "/docs/start/first-success" },
               { label: "The practice", href: "/docs" },
               {
                 label: "Trust & your data",
-                href: "/docs/orientation/trust-and-data",
+                href: "/docs/understand/local-control",
               },
               { label: "Agent integrations", href: "/docs/agent-integrations" },
             ],

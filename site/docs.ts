@@ -2,12 +2,11 @@
  * The /docs section: the same documentation tree `discern docs` serves,
  * rendered for a browser.
  *
- * There is no second content tree and no site-side curation list. Discovery is
- * the engine's own `discoverDocs`, and the instruction boundary is the engine's
- * own `BUNDLED_PUBLIC_DOC_DIRS` — the allowlist that decides which `map/`
- * subtrees ship inside every customer binary. What `discern docs` shows in a
- * terminal, this module shows at discern.sh/docs; numbered ADRs use the same
- * model in a separately labelled project-history route family.
+ * Discovery is the engine's neutral `discoverDocs`; corpus admission, routes,
+ * publication, kinds, and section order come from the shared validated manual
+ * projection. What `discern docs` shows in a terminal, this module shows at
+ * discern.sh/docs. Numbered ADRs remain a separately labelled Map-backed
+ * project-history route family.
  *
  * Reader parity carries through: every page negotiates. A browser gets the
  * rendered shell; a text client (or a `.md` suffix) gets the pristine Markdown
@@ -19,11 +18,15 @@ import {
   adrRecords,
   discoverDocs,
   type DocEntry,
-  isPublicDoc,
   publicDocs,
 } from "../src/lib/docs.ts";
-import { BUNDLED_PUBLIC_DOC_DIRS, resolveMapDir } from "../src/lib/paths.ts";
+import { resolveMapDir, resolveRepositoryManualDir } from "../src/lib/paths.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
+import {
+  buildManualProjection,
+  type ManualProjection,
+} from "../src/lib/manual.ts";
+import type { ManualKind } from "../src/shared/manual.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import {
   type AdrCitation,
@@ -52,11 +55,13 @@ import { renderWorkflowMarkdown } from "./workflow.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
+const MANUAL_DIR = resolveRepositoryManualDir(REPO_ROOT).abs;
 const MAP_DIR = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
 const ADR_DIR = join(MAP_DIR, "_adr");
+const MANUAL_REPO_REL = relative(REPO_ROOT, MANUAL_DIR);
 const MAP_REPO_REL = relative(REPO_ROOT, MAP_DIR);
 const DECISIONS_ROUTE = "/docs/decisions";
-const GLOSSARY_MAP_PATH = "00-orientation/glossary.md";
+const GLOSSARY_SOURCE_PATH = "30-reference/glossary.md";
 const DISCERN_BRAND_FRAGMENT = new URL(
   "pages/fragments/brand.html",
   import.meta.url,
@@ -69,12 +74,14 @@ function discernBrandHtml(): string {
 
 /** One published docs page. */
 export interface DocsPage {
-  kind: "guide";
-  /** Site route, e.g. `/docs/quality-gate/the-proof`. */
+  routeKind: "manual";
+  /** Site route, e.g. `/docs/understand/proof`. */
   route: string;
   entry: DocEntry;
-  /** Map-relative source path that resolves local links. */
-  mapPath: string;
+  /** Manual-relative source path that resolves local links. */
+  sourcePath: string;
+  /** Purpose-specific authoring and presentation metadata. */
+  manualKind: ManualKind;
   /** URL segment for the section, numeric prefix stripped. */
   sectionSlug: string;
   /** True for a section's README — the section landing page. */
@@ -83,11 +90,11 @@ export interface DocsPage {
 
 /** One rendered project-history record outside the product-documentation nav. */
 export interface DecisionPage {
-  kind: "decision";
+  routeKind: "decision";
   route: string;
   entry: DocEntry;
   /** Map-relative source path that resolves local links. */
-  mapPath: string;
+  sourcePath: string;
   number: string;
   superseded: boolean;
 }
@@ -106,11 +113,12 @@ export interface DocsSection {
   pages: DocsPage[];
 }
 
-/** The manual's public front door, backed by the map root README. */
+/** The manual's public front door, backed by its dedicated root README. */
 export interface DocsLanding {
   route: "/docs";
   entry: DocEntry;
-  mapPath: string;
+  sourcePath: string;
+  manualKind: ManualKind;
 }
 
 /** The published docs site, derived once per process. */
@@ -120,9 +128,11 @@ export interface DocsSite {
   /** Every page in linear reading order (section indexes included). */
   pages: DocsPage[];
   byRoute: Map<string, RoutedDocPage>;
-  /** Map-relative source path (`20-quality-gate/the-proof.md`) → page. */
-  byMapPath: Map<string, RoutedDocPage>;
+  /** Corpus-relative source path → page. Decision paths start with `_adr/`. */
+  bySourcePath: Map<string, RoutedDocPage>;
   sections: DocsSection[];
+  /** Scarce journeys promoted by the authored root-README authority. */
+  frontDoors: DocsPage[];
   decisions: {
     route: typeof DECISIONS_ROUTE;
     /** The authored project-history front door. */
@@ -149,8 +159,8 @@ export function sectionSlugOf(dir: string): string {
 
 /** Discover public guides and decisions, then assemble their route and nav indexes. */
 async function buildDocsSite(): Promise<DocsSite> {
-  const tree = await discoverDocs({ cwd: REPO_ROOT, dir: MAP_DIR });
-  if (!tree) throw new Error("docs: no map tree found");
+  const tree = await discoverDocs({ cwd: REPO_ROOT, dir: MANUAL_DIR });
+  if (!tree) throw new Error("docs: no manual tree found");
 
   const adrTree = await discoverDocs({
     cwd: REPO_ROOT,
@@ -159,18 +169,14 @@ async function buildDocsSite(): Promise<DocsSite> {
   });
   if (!adrTree) throw new Error("docs: no ADR tree found");
 
-  const projection = projectDocsPages(tree.entries, BUNDLED_PUBLIC_DOC_DIRS);
-  const landingEntries = publicDocs(tree.entries).filter((entry) =>
-    entry.section === "" && entry.slug.toLowerCase() === "readme"
-  );
-  const landingEntry = landingEntries[0];
-  if (landingEntry === undefined || landingEntries.length !== 1) {
-    throw new Error("docs: the public manual must have one root README");
-  }
+  const manual = await buildManualProjection(tree.entries);
+  const projection = projectManualPages(manual);
+  const landingEntry = manual.landing.entry;
   const landing: DocsLanding = {
     route: "/docs",
     entry: landingEntry,
-    mapPath: landingEntry.relToDocs,
+    sourcePath: landingEntry.relToDocs,
+    manualKind: manual.landing.kind,
   };
   const publicDecisionEntries = publicDocs(adrTree.entries);
   const decisionIndexEntries = publicDecisionEntries.filter((entry) =>
@@ -182,10 +188,10 @@ async function buildDocsSite(): Promise<DocsSite> {
   }
   const decisionPages: DecisionPage[] = adrRecords(publicDecisionEntries)
     .map(({ entry, number, superseded }) => ({
-      kind: "decision",
+      routeKind: "decision",
       route: `${DECISIONS_ROUTE}/${entry.slug}`,
       entry,
-      mapPath: `_adr/${entry.relToDocs}`,
+      sourcePath: `_adr/${entry.relToDocs}`,
       number,
       superseded,
     }));
@@ -202,13 +208,13 @@ async function buildDocsSite(): Promise<DocsSite> {
   }
 
   const byRoute = new Map<string, RoutedDocPage>();
-  const byMapPath = new Map<string, RoutedDocPage>();
+  const bySourcePath = new Map<string, RoutedDocPage>();
   for (const page of [...projection.pages, ...decisionPages]) {
     if (byRoute.has(page.route)) {
       throw new Error(`docs: duplicate route ${page.route}`);
     }
     byRoute.set(page.route, page);
-    byMapPath.set(page.mapPath, page);
+    bySourcePath.set(page.sourcePath, page);
   }
   for (const page of projection.pages) {
     for (const citation of page.entry.citedAdrs) {
@@ -229,7 +235,14 @@ async function buildDocsSite(): Promise<DocsSite> {
     ...projection,
     landing,
     byRoute,
-    byMapPath,
+    bySourcePath,
+    frontDoors: manual.frontDoors.flatMap((frontDoor) => {
+      if (frontDoor.route === "/docs") return [];
+      const page = projection.pages.find((candidate) =>
+        candidate.route === frontDoor.route
+      );
+      return page === undefined ? [] : [page];
+    }),
     decisions: {
       route: DECISIONS_ROUTE,
       index: decisionIndex,
@@ -250,77 +263,39 @@ interface DocsProjection {
   sections: DocsSection[];
 }
 
-/**
- * Project public documentation pages into curated sections. This is also the build
- * guard: configured public sections must have a README, and every public page
- * must belong to exactly one rendered section. The function is exported so a
- * synthetic orphan can exercise the same failure path as the production build.
- */
-export function projectDocsPages(
-  entries: readonly DocEntry[],
-  sectionDirs: readonly string[],
+/** Adapt the canonical manual projection to the site's presentation model. */
+export function projectManualPages(
+  manual: ManualProjection,
 ): DocsProjection {
-  const publicEntries = entries.filter(isPublicDoc);
-  const sectionless = publicEntries.filter((entry) =>
-    entry.section === "" && entry.slug.toLowerCase() !== "readme"
+  const pages: DocsPage[] = manual.pages.flatMap((page) =>
+    page.route === "/docs" ? [] : [{
+      routeKind: "manual" as const,
+      route: page.route,
+      entry: page.entry,
+      sourcePath: page.entry.relToDocs,
+      manualKind: page.kind,
+      sectionSlug: page.sectionSlug,
+      isIndex: page.isIndex,
+    }]
   );
-  if (sectionless.length > 0) {
-    throw new Error(
-      `docs: published page ${sectionless[0]?.relToDocs} has no section`,
+
+  const sections: DocsSection[] = manual.sections.map((section) => {
+    const sectionPages = pages.filter((page) =>
+      page.entry.section === section.dir
     );
-  }
-
-  // Tier-level curation (which subtrees ship) composes with the model's ONE
-  // page-level predicate (publish: false is the sole page withhold).
-  const published = publicEntries.filter((entry) =>
-    sectionDirs.includes(entry.section)
-  );
-
-  const slugs = new Map<string, string>();
-  for (const dir of sectionDirs) {
-    const slug = sectionSlugOf(dir);
-    const clash = slugs.get(slug);
-    if (clash !== undefined && clash !== dir) {
-      throw new Error(`docs: sections ${clash} and ${dir} both map to ${slug}`);
-    }
-    slugs.set(slug, dir);
-  }
-
-  const pages: DocsPage[] = published.map((entry) => {
-    const sectionSlug = sectionSlugOf(entry.section);
-    const isIndex = entry.slug.toLowerCase() === "readme";
-    return {
-      kind: "guide",
-      route: isIndex
-        ? `/docs/${sectionSlug}`
-        : `/docs/${sectionSlug}/${entry.slug}`,
-      entry,
-      mapPath: entry.relToDocs,
-      sectionSlug,
-      isIndex,
-    };
-  });
-
-  const sections: DocsSection[] = [];
-  for (const dir of sectionDirs) {
-    const sectionPages = pages.filter((p) => p.entry.section === dir);
-    const indexes = sectionPages.filter((p) => p.isIndex);
-    const index = indexes[0];
+    const index = sectionPages.find((page) => page.isIndex);
     if (index === undefined) {
-      throw new Error(`docs: published section ${dir} has no public README`);
+      throw new Error(`docs: projected section ${section.dir} has no README`);
     }
-    if (indexes.length > 1) {
-      throw new Error(`docs: published section ${dir} has multiple READMEs`);
-    }
-    sections.push({
-      dir,
-      slug: sectionSlugOf(dir),
+    return {
+      dir: section.dir,
+      slug: section.slug,
       title: index.entry.title,
       description: index.entry.description,
       index,
       pages: sectionPages,
-    });
-  }
+    };
+  });
 
   const reachable = sections.flatMap((section) => section.pages);
   if (
@@ -378,9 +353,9 @@ function stripAuthoredLeafIndexes(
   const siblings = new Set(
     site.sections.find((section) => section.index.route === page.route)?.pages
       .filter((candidate) => !candidate.isIndex)
-      .map((candidate) => candidate.mapPath) ?? [],
+      .map((candidate) => candidate.sourcePath) ?? [],
   );
-  const fromDir = page.mapPath.slice(0, page.mapPath.lastIndexOf("/"));
+  const fromDir = page.sourcePath.slice(0, page.sourcePath.lastIndexOf("/"));
   const isLeafIndex = (block: string): boolean => {
     let siblingLinks = 0;
     for (const match of block.matchAll(/\]\(([^()\s]+)\)/g)) {
@@ -462,28 +437,34 @@ function rewriteDest(
   const frag = hash === -1 ? "" : dest.slice(hash);
   if (pathPart === "") return dest;
 
-  const fromDir = page.mapPath.includes("/")
-    ? page.mapPath.slice(0, page.mapPath.lastIndexOf("/"))
+  const fromDir = page.sourcePath.includes("/")
+    ? page.sourcePath.slice(0, page.sourcePath.lastIndexOf("/"))
     : "";
 
-  // Inside the map? A published leaf (or a directory with a published README)
-  // rewrites to its route.
-  const mapRel = normalizeRel(`${fromDir}/${pathPart}`);
-  if (mapRel !== null) {
-    if (mapRel === "_adr" || mapRel === "_adr/README.md") {
+  // Inside the page's source corpus, a published leaf or section README
+  // rewrites to its canonical route.
+  const sourceRel = normalizeRel(`${fromDir}/${pathPart}`);
+  if (sourceRel !== null) {
+    if (sourceRel === "_adr" || sourceRel === "_adr/README.md") {
       return site.decisions.route + frag;
     }
     for (
-      const candidate of [mapRel, `${mapRel}/README.md`.replace(/^\//, "")]
+      const candidate of [
+        sourceRel,
+        `${sourceRel}/README.md`.replace(/^\//, ""),
+      ]
     ) {
-      const target = site.byMapPath.get(candidate);
+      const target = site.bySourcePath.get(candidate);
       if (target) return target.route + frag;
     }
   }
 
   // Anything else living in the repo — an unpublished tier or source file —
   // points at GitHub.
-  const repoRel = normalizeRel(`${MAP_REPO_REL}/${fromDir}/${pathPart}`);
+  const sourceRoot = page.routeKind === "manual"
+    ? MANUAL_REPO_REL
+    : MAP_REPO_REL;
+  const repoRel = normalizeRel(`${sourceRoot}/${fromDir}/${pathPart}`);
   if (repoRel === null) return dest;
   const isDir = !/\.[A-Za-z0-9]+$/.test(repoRel);
   return `${GITHUB}/${isDir ? "tree" : "blob"}/main/${repoRel}${frag}`;
@@ -573,9 +554,11 @@ function glossarySummaries(site: DocsSite): ReadonlyMap<string, string> {
   const cached = glossarySummariesCache.get(site);
   if (cached !== undefined) return cached;
 
-  const glossaryPage = site.byMapPath.get(GLOSSARY_MAP_PATH);
-  if (glossaryPage === undefined || glossaryPage.kind !== "guide") {
-    throw new Error(`docs: published glossary missing at ${GLOSSARY_MAP_PATH}`);
+  const glossaryPage = site.bySourcePath.get(GLOSSARY_SOURCE_PATH);
+  if (glossaryPage === undefined || glossaryPage.routeKind !== "manual") {
+    throw new Error(
+      `docs: published glossary missing at ${GLOSSARY_SOURCE_PATH}`,
+    );
   }
   const summaries = new Map<string, string>();
   for (const entry of GLOSSARY) {
@@ -610,7 +593,7 @@ function glossaryTermHtml(
       `docs: glossary term has no rendered heading: ${entry.term}`,
     );
   }
-  const glossaryHref = `/docs/orientation/glossary#${heading.id}`;
+  const glossaryHref = `/docs/reference/glossary#${heading.id}`;
   const glossaryLabel = escapeMarkdownHtml(
     `Open ${entry.term} in the glossary`,
   );
@@ -672,13 +655,13 @@ export async function renderDoc(
   const raw = await Deno.readTextFile(page.entry.absPath);
   const { body } = parseFrontmatter(raw);
   const humanBody = stripAdrCitations(body);
-  const projectedBody = page.kind === "guide"
+  const projectedBody = page.routeKind === "manual"
     ? stripAuthoredLeafIndexes(humanBody, page, site)
     : humanBody;
   const { html, headings } = renderWorkflowMarkdown(
     rewriteLinks(projectedBody, page, site),
     { renderProseText: createGlossaryProseRenderer(site) },
-    page.mapPath,
+    page.sourcePath,
   );
   const toc: TocItem[] = headings
     .filter((h) => h.depth === 2 || h.depth === 3)
@@ -778,7 +761,7 @@ function crumbsHtml(site: DocsSite, target: BreadcrumbTarget): string {
       ? [{ label: "Docs", href: "/docs" }]
       : target === null
       ? []
-      : target.kind === "decision"
+      : target.routeKind === "decision"
       ? [
         { label: "Docs", href: "/docs" },
         { label: "Decisions", href: DECISIONS_ROUTE },
@@ -796,7 +779,7 @@ function crumbsHtml(site: DocsSite, target: BreadcrumbTarget): string {
     ? "Decisions"
     : target === null
     ? "Docs"
-    : target.kind === "decision"
+    : target.routeKind === "decision"
     ? target.entry.title
     : target.isIndex
     ? sectionTitle(target.sectionSlug)
@@ -901,7 +884,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 ${navHtml(site, frame.current)}
     </nav>
     <div class="docs-nav-foot discern-mono">
-      <a href="/docs/orientation/glossary">Glossary</a>
+      <a href="/docs/reference/glossary">Glossary</a>
       <a href="/docs/reference/cli-reference">Commands</a>
       <a href="/docs/reference/config-reference">Configuration</a>
     </div>
@@ -952,14 +935,17 @@ function colophonHtml(
 ): string {
   const route = page?.route ??
     (index === "decisions" ? DECISIONS_ROUTE : "/docs");
-  const docsPage = page?.kind === "guide"
+  const docsPage = page?.routeKind === "manual"
     ? esc(page.entry.slug)
     : "&lt;page&gt;";
+  const pageSourceRoot = page?.routeKind === "manual"
+    ? MANUAL_REPO_REL
+    : MAP_REPO_REL;
   const source = page === null
     ? index === "decisions"
       ? `${GITHUB}/tree/main/${MAP_REPO_REL}/_adr`
-      : `${GITHUB}/tree/main/${MAP_REPO_REL}`
-    : `${GITHUB}/blob/main/${MAP_REPO_REL}/${esc(page.mapPath)}`;
+      : `${GITHUB}/tree/main/${MANUAL_REPO_REL}`
+    : `${GITHUB}/blob/main/${pageSourceRoot}/${esc(page.sourcePath)}`;
   return `<footer class="docs-colophon">
       <span>Plain text for agents:
         <a class="discern-mono" href="${route}.md">curl&nbsp;discern.sh${route}.md</a>
@@ -997,7 +983,7 @@ function sectionLeafIndexHtml(site: DocsSite, page: DocsPage): string {
 export function relatedDecisionCitations(
   page: DocsPage,
 ): readonly AdrCitation[] {
-  return page.mapPath === GLOSSARY_MAP_PATH ? [] : page.entry.citedAdrs;
+  return page.sourcePath === GLOSSARY_SOURCE_PATH ? [] : page.entry.citedAdrs;
 }
 
 /** A public page's eligible citations, linked to their on-site records. */
@@ -1052,6 +1038,10 @@ ${sectionLeafIndexHtml(site, page)}
 
 /** The /docs landing page: the manual's cover and table of contents. */
 export function docsIndexShell(site: DocsSite): string {
+  const frontDoors = site.frontDoors.map((page) =>
+    `<li><a href="${page.route}">${esc(page.entry.title)}</a>` +
+    `<span class="docs-leaf-desc">${esc(page.entry.description)}</span></li>`
+  ).join("");
   const chapters = site.sections.map((section) => {
     const leaves = section.pages.filter((p) => !p.isIndex).map((p) =>
       `<li><a href="${p.route}">${esc(p.entry.title)}</a>
@@ -1079,6 +1069,12 @@ export function docsIndexShell(site: DocsSite): string {
     Text readers are first-class: <code>curl</code> any page — or append
     <code>.md</code> — for the pristine Markdown.</p>
   </header>
+  <section class="docs-chapter docs-front-doors" aria-labelledby="start-here">
+    <div class="docs-chapter-body">
+      <h2 id="start-here">Start here</h2>
+      <ul class="docs-chapter-leaves">${frontDoors}</ul>
+    </div>
+  </section>
   <div class="docs-chapters">
   <div class="discern-divider discern-divider--canvas discern-divider--plain"
     role="separator"></div>
@@ -1309,7 +1305,7 @@ export async function serveDocs(
   }
   const rendered = await renderDoc(page, site);
   return respond(
-    page.kind === "decision"
+    page.routeKind === "decision"
       ? decisionShell(site, page, rendered)
       : docsShell(site, page, rendered),
     "text/html; charset=utf-8",

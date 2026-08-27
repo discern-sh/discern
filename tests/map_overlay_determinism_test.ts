@@ -34,11 +34,10 @@ import {
 import { normalizeMapDir } from "../src/shared/map_path.ts";
 import { expandSourcePathReferences } from "../src/shared/source_path_references.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
-import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
+import { MAP_SECTION_REGISTRY } from "../src/lib/paths.ts";
 import { checkDocsIntegrity } from "../src/lib/map_integrity.ts";
 import { measureVocabSignals } from "../scripts/vocab_signals_lib.ts";
 import { withStagedProseInput } from "../scripts/prose_lib.ts";
-import { measurePublicDocs } from "../scripts/public_doc_density_lib.ts";
 import type { GlossaryEntry } from "../scripts/glossary_registry.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -47,7 +46,9 @@ import { TEST_CLI_MODEL } from "./cli_model.ts";
 const MAP = SOURCE_PATHS.map.defaultPath.replace(/\/$/, "");
 
 /** A public-audience section name, from the manual registry it must exist in. */
-const PUBLIC_SECTION = BUNDLED_PUBLIC_DOC_DIRS[0] ?? "";
+const PUBLIC_SECTION =
+  MAP_SECTION_REGISTRY.find((section) => section.audience === "project")?.dir ??
+    "";
 
 /** The fixture glossary: Widget is used by the baseline, Sprocket is dead. */
 const GLOSSARY_FIXTURE = [
@@ -131,9 +132,6 @@ const proseAdapter: OverlayAdapter = async (root) => {
   });
 };
 
-const densityAdapter: OverlayAdapter = async (root) =>
-  await measurePublicDocs(root, join(root, MAP));
-
 const integrityAdapter: OverlayAdapter = async (root) => {
   const findings = await checkDocsIntegrity(
     root,
@@ -151,7 +149,6 @@ const OVERLAY_ADAPTERS: Record<string, OverlayAdapter> = {
   "jobs.prose": proseAdapter,
   "standards.prose": proseAdapter,
   "standards.vocabulary": vocabularyAdapter,
-  "standards.public_doc_leaf_density": densityAdapter,
   "map-integrity-preflight": integrityAdapter,
 };
 

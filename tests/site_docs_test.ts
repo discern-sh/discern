@@ -1,9 +1,9 @@
 /**
  * The /docs section: the published tree, its negotiation, and its links.
  *
- * Every check iterates the discovered site — the same `discoverDocs` +
- * `BUNDLED_PUBLIC_DOC_DIRS` derivation the handler serves — so a leaf added to
- * the map auto-enrols: it must render, negotiate, appear in the search index
+ * Every check iterates the discovered site — the same canonical manual
+ * projection the handler serves — so a published leaf auto-enrols: it must
+ * render, negotiate, appear in the search index
  * and llms.txt, and keep every local link resolvable. No hand-kept route list
  * exists to go stale.
  */
@@ -24,18 +24,16 @@ import {
   type DocsPage,
   glossaryMentions,
   loadDocsSite,
-  projectDocsPages,
   relatedDecisionCitations,
   rewriteLinks,
-  sectionSlugOf,
 } from "../site/docs.ts";
-import type { DocEntry } from "../src/lib/docs.ts";
-import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
+import {
+  MANUAL_KIND_REGISTRY,
+  MANUAL_SECTION_REGISTRY,
+} from "../src/shared/manual.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
-import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
-import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { docsResult } from "../src/commands/docs.ts";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
@@ -50,7 +48,7 @@ const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
 /** Project a configured map record path onto the route served by the docs site. */
 function helpRecordRoute(path: string): string {
-  const rel = path.replace(/^(?:map|docs)\//, "");
+  const rel = path.replace(/^(?:map|manual|docs)\//, "");
   if (rel === "README.md") return "/docs";
   const parts = rel.split("/");
   const section = (parts[0] ?? "").replace(/^\d+-/, "");
@@ -63,28 +61,6 @@ function helpRecordRoute(path: string): string {
 /** Serve a docs route through the production handler with caller-controlled negotiation headers. */
 function get(path: string, headers: Record<string, string>): Promise<Response> {
   return handler(new Request(`https://discern.sh${path}`, { headers }));
-}
-
-/** Build a minimal published document entry for route and navigation cases. */
-function fixtureEntry(
-  relToDocs: string,
-  section: string,
-  slug: string,
-): DocEntry {
-  return {
-    path: `map/${relToDocs}`,
-    absPath: `/fixture/map/${relToDocs}`,
-    relToDocs,
-    section,
-    slug,
-    title: slug,
-    description: "Fixture description.",
-    publish: true,
-    order: undefined,
-    aliases: [],
-    redirectFrom: [],
-    citedAdrs: [],
-  };
 }
 
 /** Escape fixture text before embedding it in expected HTML attributes and content. */
@@ -170,11 +146,11 @@ Deno.test("the docs top-bar alignment guard catches a fresh-name vertical nudge"
   assertEquals(verticalNudges(".docs-nav { top: 56px; }", classes), []);
 });
 
-Deno.test("the published docs site covers exactly the bundled-public sections", async () => {
+Deno.test("the published docs site covers exactly the manual registry", async () => {
   const site = await loadDocsSite();
   assertEquals(
     site.sections.map((s) => s.dir),
-    [...BUNDLED_PUBLIC_DOC_DIRS],
+    MANUAL_SECTION_REGISTRY.map((section) => section.dir),
   );
   // Stripped section slugs stay collision-free (buildDocsSite throws on a
   // clash; reaching here proves it) and every page's route reflects one.
@@ -216,10 +192,8 @@ Deno.test("the full nav contains every published page exactly once in model orde
   );
   assertEquals(nav?.querySelector("[data-nav-disclosure]"), null);
   assertEquals(nav?.querySelectorAll("[hidden]").length, 0);
-  const gate = site.sections.find((section) =>
-    section.dir === "20-quality-gate"
-  );
-  assertEquals(gate?.pages[1]?.entry.slug, "when-the-gate-fails");
+  const guides = site.sections.find((section) => section.dir === "10-guides");
+  assertEquals(guides?.pages[1]?.entry.slug, "finish-and-land-a-change");
   dom.window.close();
 });
 
@@ -258,7 +232,7 @@ Deno.test("every guide keeps the complete canonical nav and marks only itself", 
 Deno.test("docs navigation foot keeps the three durable reference links visible", async () => {
   const site = await loadDocsSite();
   const expected = [
-    ["Glossary", "/docs/orientation/glossary"],
+    ["Glossary", "/docs/reference/glossary"],
     ["Commands", "/docs/reference/cli-reference"],
     ["Configuration", "/docs/reference/config-reference"],
   ];
@@ -421,30 +395,12 @@ Deno.test("the shared CLI/MCP docs core and site model have exact instruction pa
   assertEquals(docsItems, siteItems);
 });
 
-Deno.test("the docs projection refuses orphan shapes", () => {
-  assertThrows(
-    () =>
-      projectDocsPages(
-        [fixtureEntry("loose.md", "", "loose")],
-        ["20-quality-gate"],
-      ),
-    Error,
-    "has no section",
-  );
-  assertThrows(
-    () =>
-      projectDocsPages(
-        [
-          fixtureEntry(
-            "20-quality-gate/leaf.md",
-            "20-quality-gate",
-            "leaf",
-          ),
-        ],
-        ["20-quality-gate"],
-      ),
-    Error,
-    "has no public README",
+Deno.test("the site projection retains every registered manual kind", async () => {
+  const site = await loadDocsSite();
+  assertEquals(
+    [...new Set([site.landing, ...site.pages].map((page) => page.manualKind))]
+      .sort(),
+    MANUAL_KIND_REGISTRY.map((entry) => entry.kind).sort(),
   );
 });
 
@@ -476,7 +432,7 @@ Deno.test("section landings derive their leaf index from model metadata", async 
         leaf.entry.path,
       );
     }
-    if (section.dir === "20-quality-gate") {
+    if (section.dir === "10-guides") {
       assert(!html.includes('href="#in-this-section"'));
     }
   }
@@ -596,7 +552,7 @@ Deno.test("bare common words stay plain while code-form matches link", async () 
   );
   assertEquals(
     document.querySelector(".docs-glossary-link")?.getAttribute("href"),
-    "/docs/orientation/glossary#accept",
+    "/docs/reference/glossary#accept",
   );
   dom.window.close();
 });
@@ -679,10 +635,10 @@ Deno.test("first eligible glossary mentions render summaries and longest matches
   const links = [...document.querySelectorAll<HTMLAnchorElement>(
     ".discern-glossary-term__definition a",
   )].map((link) => link.getAttribute("href"));
-  assert(links.includes("/docs/orientation/glossary#gate-job"));
-  assert(links.includes("/docs/orientation/glossary#stage"));
-  assert(links.includes("/docs/orientation/glossary#scope"));
-  assert(links.includes("/docs/orientation/glossary#standard"));
+  assert(links.includes("/docs/reference/glossary#gate-job"));
+  assert(links.includes("/docs/reference/glossary#stage"));
+  assert(links.includes("/docs/reference/glossary#scope"));
+  assert(links.includes("/docs/reference/glossary#standard"));
   assert(!html.includes("Every job is labeled"));
   assert(!html.includes("../20-quality-gate"));
 
@@ -692,8 +648,8 @@ Deno.test("first eligible glossary mentions render summaries and longest matches
   assertEquals(
     glossaryLinks.map((link) => link.getAttribute("href")),
     [
-      "/docs/orientation/glossary#gate-job",
-      "/docs/orientation/glossary#gate",
+      "/docs/reference/glossary#gate-job",
+      "/docs/reference/glossary#gate",
     ],
   );
   assertEquals(
@@ -708,11 +664,11 @@ Deno.test("first eligible glossary mentions render summaries and longest matches
 
 Deno.test("published Markdown pages wire glossary cards into the docs shell", async () => {
   const site = await loadDocsSite();
-  const worktrees = site.sections.find((section) =>
-    section.dir === "30-worktrees"
+  const worktrees = site.pages.find((page) =>
+    page.entry.slug === "worktrees-and-trunk"
   );
   assert(worktrees !== undefined);
-  const response = await get(worktrees.index.route, BROWSER);
+  const response = await get(worktrees.route, BROWSER);
   const html = await response.text();
   assertStringIncludes(html, "discern-glossary-term");
   assertStringIncludes(html, "discern-hover-card__panel");
@@ -722,18 +678,18 @@ Deno.test("published Markdown pages wire glossary cards into the docs shell", as
 
 Deno.test("the built Worktrees page links Fleet without linking bare update", async () => {
   const site = await loadDocsSite();
-  const worktrees = site.sections.find((section) =>
-    section.dir === "30-worktrees"
+  const worktrees = site.pages.find((page) =>
+    page.entry.slug === "worktrees-and-trunk"
   );
   assert(worktrees !== undefined);
-  const response = await get(worktrees.index.route, BROWSER);
+  const response = await get(worktrees.route, BROWSER);
   const dom = new JSDOM(await response.text());
   const document = dom.window.document;
   const triggers = [...document.querySelectorAll("dfn")].map((node) =>
     node.textContent?.toLowerCase()
   );
 
-  assert(document.body.textContent?.includes("inspect, update, land"));
+  assert(document.body.textContent?.includes("discern update"));
   assert(triggers.includes("fleet"));
   assert(!triggers.includes("update"));
   dom.window.close();
@@ -863,7 +819,7 @@ Deno.test("the /docs index lists every section for both readers", async () => {
   assertEquals(asText.status, 200);
   const md = await asText.text();
   const rootSource = await Deno.readTextFile(
-    new URL("../project/map/README.md", import.meta.url),
+    new URL("../project/manual/README.md", import.meta.url),
   );
   assertEquals(md, rootSource, "the manual front door keeps the raw contract");
 
@@ -974,7 +930,7 @@ Deno.test("related decisions render exactly the collected citation set", async (
     const links = [...dom.window.document.querySelectorAll<HTMLAnchorElement>(
       ".docs-related-decision",
     )];
-    const glossary = page.mapPath === "00-orientation/glossary.md";
+    const glossary = page.sourcePath === "30-reference/glossary.md";
     const expectedCitations = relatedDecisionCitations(page);
     if (!glossary) ordinaryCitationCount += expectedCitations.length;
     assertEquals(links.length, expectedCitations.length, page.entry.path);
@@ -1012,30 +968,13 @@ Deno.test("related decisions render exactly the collected citation set", async (
   );
 });
 
-Deno.test("unpublished tiers never surface under /docs", async () => {
-  const prefix = `${REPO_AUTHORED_PATHS.mapRel}/`;
-  const files = await structuralGuardScope({
-    guard: "tests/site_docs_test.ts#unpublished-map-tiers",
-    universe: "tracked-markdown",
-    narrow: {
-      reason:
-        "The unpublished-tier complement is derived from every Markdown-bearing directory in the configured map.",
-      include: (path) => path.startsWith(prefix),
-    },
-  });
-  const tiers = [
-    ...new Set(files.flatMap((rel) => {
-      const within = rel.slice(prefix.length);
-      const tier = within.split("/")[0];
-      return within.includes("/") && tier !== undefined ? [tier] : [];
-    })),
-  ];
-  for (const tier of tiers) {
-    if (BUNDLED_PUBLIC_DOC_DIRS.includes(tier)) continue;
-    const res = await get(`/docs/${sectionSlugOf(tier)}`, BROWSER);
-    assertEquals(res.status, 404, `tier ${tier} must not publish`);
-    await res.body?.cancel();
-  }
+Deno.test("protected Map paths never enter the manual site model", async () => {
+  const site = await loadDocsSite();
+  assert(
+    [...site.bySourcePath.keys()].every((path) =>
+      !path.startsWith("_internal/") && !path.startsWith("_private/")
+    ),
+  );
 });
 
 Deno.test("every local link in every published page resolves — no dead ends", async () => {

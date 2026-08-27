@@ -9,8 +9,8 @@ import {
   ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
   renderEnvironmentVariableReferenceDoc,
 } from "../scripts/environment_variable_reference.ts";
-import { discoverDocs, isPublicDoc } from "../src/lib/docs.ts";
-import { isBundledDocEntry } from "../src/lib/paths.ts";
+import { discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
 import {
   DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
   DISCERN_ENVIRONMENT_VARIABLE_GROUPS,
@@ -174,19 +174,18 @@ Deno.test("future public definitions auto-render while future internal definitio
   assertEquals(experiments.futurePublic, futurePublicName);
 });
 
-Deno.test("published map pages never name internal environment variables", async () => {
+Deno.test("published manual pages never name internal environment variables", async () => {
   const tree = await discoverDocs({
     cwd: REPO_ROOT,
-    dir: REPO_AUTHORED_PATHS.map,
+    dir: REPO_AUTHORED_PATHS.manual,
     includeInternal: false,
   });
-  assert(tree, "the configured map exists");
+  assert(tree, "the product manual exists");
+  const manual = await buildManualProjection(tree.entries);
   const hidden = Object.values(DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS)
     .filter((definition) => !definition.documentation.public);
   const leaks: string[] = [];
-  for (const entry of tree.entries) {
-    const topLevel = entry.relToDocs.split("/")[0] ?? entry.relToDocs;
-    if (!isBundledDocEntry(topLevel) || !isPublicDoc(entry)) continue;
+  for (const { entry } of manual.pages) {
     const document = await Deno.readTextFile(entry.absPath);
     const documented = documentedEnvironmentNames(document);
     for (const definition of hidden) {

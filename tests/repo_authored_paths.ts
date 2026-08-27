@@ -17,6 +17,7 @@ import { isHostMetadataPath } from "../src/shared/host_metadata.ts";
 import {
   resolveInstructionSources,
   resolveMapDir,
+  resolveRepositoryManualDir,
   resolveScriptsDir,
   resolveSkillsDir,
   resolveTodoPath,
@@ -32,6 +33,8 @@ export interface RepoAuthoredPaths {
   instructions: string[];
   map: string;
   mapRel: string;
+  manual: string;
+  manualRel: string;
   scripts: string;
   skills: string;
   todo: string;
@@ -39,11 +42,14 @@ export interface RepoAuthoredPaths {
 
 const config = await loadConfig(REPO_ROOT);
 const map = resolveMapDir(REPO_ROOT, config).abs;
+const manual = resolveRepositoryManualDir(REPO_ROOT).abs;
 
 export const REPO_AUTHORED_PATHS: RepoAuthoredPaths = {
   instructions: await resolveInstructionSources(REPO_ROOT, config),
   map,
   mapRel: relative(REPO_ROOT, map),
+  manual,
+  manualRel: relative(REPO_ROOT, manual),
   scripts: resolveScriptsDir(REPO_ROOT, config).abs,
   skills: resolveSkillsDir(REPO_ROOT, config).abs,
   todo: resolveTodoPath(REPO_ROOT, config).abs,

@@ -7,11 +7,11 @@
  *    projection: physical entries outside it become `deno compile --exclude`
  *    paths, so ignored machine state cannot enter the artifact and the
  *    installed `discern` needs no Deno or network to scaffold and format; and
- *  - discern's OWN documentation, staged into {@link BUNDLED_DOCS_STAGE_DIR}
- *    first (see {@link stageBundledDocs}) and `--include`d, so `discern docs`
- *    serves it from any install. Only published pages in the public manual
- *    subtrees are staged; internal decision and maintainer trees are never
- *    embedded in a customer binary.
+ *  - discern's own product manual, staged into
+ *    {@link BUNDLED_MANUAL_STAGE_DIR} first (see
+ *    {@link stageBundledManual}) and `--include`d, so `discern docs` serves it
+ *    from any install. The configured Map and protected repository trees are
+ *    never embedded in a customer binary.
  *
  * npm packages are resolved without the workspace's physical `node_modules`
  * and restricted to the product module graph. Dependencies used only by tests,
@@ -24,13 +24,11 @@
 
 import { copy, ensureDir, walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
-import { bestEffort } from "../src/shared/best_effort.ts";
-import { loadConfig } from "../src/shared/config_schema.ts";
-import { discoverDocs, isPublicDoc } from "../src/lib/docs.ts";
+import { discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
 import {
-  BUNDLED_DOCS_STAGE_DIR,
-  isBundledDocEntry,
-  resolveMapDir,
+  BUNDLED_MANUAL_STAGE_DIR,
+  resolveRepositoryManualDir,
 } from "../src/lib/paths.ts";
 import { splitNulRecords } from "../src/shared/git_paths.ts";
 import { runGit } from "../src/shared/subprocess.ts";
@@ -138,52 +136,90 @@ export async function distributionExclusions(
 }
 
 /**
- * Copy the public projection of `mapDir` into `stagedDocs`. The subtree
- * allowlist is the tier-level boundary; {@link isPublicDoc} is the page-level
- * boundary. Walking the document model and copying individual leaves means a
- * `publish: false` page is absent from the binary rather than merely hidden by
- * its views, while internal decision and maintainer trees never enter the stage.
+ * Materialize the validated published manual at `stagedDocs`. The copy is
+ * assembled in a fresh sibling and replaces the destination only after every
+ * planned source is a regular file and its staged bytes match. Prior stage
+ * contents therefore cannot survive a successful run.
  *
  * Exported so the parity suite can drive the exact build seam against fixtures.
  */
-export async function stageBundledDocs(
-  mapDir: string,
+export async function stageBundledManual(
+  manualDir: string,
   stagedDocs: string,
 ): Promise<string[]> {
   const tree = await discoverDocs({
     cwd: REPO_ROOT,
-    dir: mapDir,
+    dir: manualDir,
     includeInternal: false,
   });
   if (tree === undefined) {
-    throw new Error(`could not discover documentation under ${mapDir}`);
+    throw new Error(`could not discover the product manual under ${manualDir}`);
   }
+  const projection = await buildManualProjection(tree.entries);
+  const staged = projection.pages.map((page) => page.entry.relToDocs);
 
-  const staged: string[] = [];
-  await ensureDir(stagedDocs);
-  for (const entry of tree.entries) {
-    const topLevel = entry.relToDocs.split("/")[0] ?? entry.relToDocs;
-    if (!isBundledDocEntry(topLevel) || !isPublicDoc(entry)) continue;
-    const destination = join(stagedDocs, entry.relToDocs);
-    await ensureDir(dirname(destination));
-    await copy(entry.absPath, destination);
-    staged.push(entry.relToDocs);
+  const parent = dirname(stagedDocs);
+  await ensureDir(parent);
+  const fresh = await Deno.makeTempDir({
+    dir: parent,
+    prefix: ".discern-manual-stage-",
+  });
+  try {
+    for (const page of projection.pages) {
+      const source = page.entry.absPath;
+      const info = await Deno.lstat(source);
+      if (!info.isFile || info.isSymlink) {
+        throw new Error(
+          `${page.entry.relToDocs}: bundled manual sources must be regular files`,
+        );
+      }
+      const destination = join(fresh, page.entry.relToDocs);
+      await ensureDir(dirname(destination));
+      await copy(source, destination);
+      const [sourceBytes, stagedBytes] = await Promise.all([
+        Deno.readFile(source),
+        Deno.readFile(destination),
+      ]);
+      if (
+        sourceBytes.length !== stagedBytes.length ||
+        sourceBytes.some((byte, index) => byte !== stagedBytes[index])
+      ) {
+        throw new Error(
+          `${page.entry.relToDocs}: staged manual bytes differ from the source`,
+        );
+      }
+    }
+    try {
+      await Deno.remove(stagedDocs, { recursive: true });
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    await Deno.rename(fresh, stagedDocs);
+  } catch (error) {
+    try {
+      await Deno.remove(fresh, { recursive: true });
+    } catch (cleanupError) {
+      if (!(cleanupError instanceof Deno.errors.NotFound)) throw cleanupError;
+    }
+    throw error;
   }
   return staged;
 }
 
 /** Prepare the repo-relative include tree consumed by `deno compile`. */
-async function prepareBundledDocs(): Promise<string> {
-  const stageDir = join(REPO_ROOT, BUNDLED_DOCS_STAGE_DIR);
-  await bestEffort("build-bundled-doc-stage-reset", async () => {
+async function prepareBundledManual(): Promise<string> {
+  const stageDir = join(REPO_ROOT, BUNDLED_MANUAL_STAGE_DIR);
+  try {
     await Deno.remove(stageDir, { recursive: true });
-  });
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
   const stagedDocs = join(stageDir, "docs");
-  const mapDir = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
-  await stageBundledDocs(mapDir, stagedDocs);
+  const manualDir = resolveRepositoryManualDir(REPO_ROOT).abs;
+  await stageBundledManual(manualDir, stagedDocs);
   // Keep the include path repo-relative, exactly as the compiled resource
   // resolver expects; the filesystem work above stays rooted explicitly.
-  return BUNDLED_DOCS_STAGE_DIR;
+  return BUNDLED_MANUAL_STAGE_DIR;
 }
 
 /**
@@ -291,7 +327,7 @@ async function main(): Promise<void> {
     Deno.exit(1);
   }
 
-  const docsStageDir = await prepareBundledDocs();
+  const docsStageDir = await prepareBundledManual();
   const distributionFiles = await authoredDistributionFiles();
   const exclusions = await distributionExclusions(
     REPO_ROOT,
@@ -308,11 +344,13 @@ async function main(): Promise<void> {
       );
     }
   } finally {
-    // The staged docs are a transient embed input — never leave them behind to
-    // dirty the tree or shadow the live map in a later `deno task dev docs`.
-    await bestEffort("build-bundled-doc-stage-cleanup", async () => {
+    // The staged manual is a transient embed input. Cleanup failures are build
+    // failures because retained bytes could contaminate a later binary.
+    try {
       await Deno.remove(docsStageDir, { recursive: true });
-    });
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
   }
   console.log(`✓ built ${targets.length} binary/binaries into ${distDir}/`);
 }

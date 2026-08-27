@@ -71,7 +71,9 @@ import {
   sameFirstPartyLicenseBundlePayload,
 } from "../src/shared/first_party_license_codegen.ts";
 import { loadConfig, parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { resolveMapDir } from "../src/lib/paths.ts";
+import { resolveMapDir, resolveRepositoryManualDir } from "../src/lib/paths.ts";
+import { discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
 import {
   projectArtifactPaths,
   renderArtifactInventory,
@@ -100,10 +102,12 @@ import {
   valeStyleFiles,
   VOICE_ENFORCEMENT_COVERAGE_PAGE_REL,
 } from "./brand/vale.ts";
+import { renderGeneratedManualDocument } from "./manual_codegen.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
 const mapDir = resolveMapDir(repoRoot, config).abs;
+const manualDir = resolveRepositoryManualDir(repoRoot).abs;
 const configReference = relative(
   repoRoot,
   join(mapDir, "70-reference", "config-reference.md"),
@@ -135,6 +139,30 @@ const voiceEnforcementCoverage = relative(
 const glossary = relative(
   repoRoot,
   join(mapDir, "00-orientation", "glossary.md"),
+);
+const manualConfigReference = relative(
+  repoRoot,
+  join(manualDir, "30-reference", "config-reference.md"),
+);
+const manualCliReference = relative(
+  repoRoot,
+  join(manualDir, "30-reference", "cli-reference.md"),
+);
+const manualEnvironmentVariableReference = relative(
+  repoRoot,
+  join(manualDir, "30-reference", "environment-variables.md"),
+);
+const manualMcpReference = relative(
+  repoRoot,
+  join(manualDir, "30-reference", "mcp-and-results.md"),
+);
+const manualGlossary = relative(
+  repoRoot,
+  join(manualDir, "30-reference", "glossary.md"),
+);
+const manualArtifactOwnership = relative(
+  repoRoot,
+  join(manualDir, "30-reference", "files-and-ownership.md"),
 );
 const featureCanon = relative(
   repoRoot,
@@ -184,6 +212,11 @@ type EquivalentText = (before: string, after: string) => boolean;
 
 /** Every path this script may touch, from the canonical-sets meta-registry. */
 const enrolledTargets = codegenWriteTargets();
+const manualTree = await discoverDocs({ cwd: repoRoot, dir: manualDir });
+if (manualTree === undefined) {
+  throw new Error(`could not discover the repository manual at ${manualDir}`);
+}
+const manualProjection = await buildManualProjection(manualTree.entries);
 
 /** Write `text` unless the committed artifact is equivalent, then report it. */
 async function write(
@@ -217,15 +250,49 @@ await write(
   "schema/discern-setup-config.schema.json",
   renderConfigDocSchemaJson(),
 );
-await write(configReference, renderConfigReferenceDoc());
+const renderedConfigReference = renderConfigReferenceDoc();
+await write(configReference, renderedConfigReference);
+await write(
+  manualConfigReference,
+  renderGeneratedManualDocument(
+    renderedConfigReference,
+    "70-reference/config-reference.md",
+    "30-reference/config-reference.md",
+    { id: "reference-config", order: 30 },
+    manualProjection,
+  ),
+);
 console.log("Regenerating the CLI reference from the live command registry:");
-await write(cliReference, renderCliReferenceDoc(buildCli(false)));
+const renderedCliReference = renderCliReferenceDoc(buildCli(false));
+await write(cliReference, renderedCliReference);
+await write(
+  manualCliReference,
+  renderGeneratedManualDocument(
+    renderedCliReference,
+    "70-reference/cli-reference.md",
+    "30-reference/cli-reference.md",
+    { id: "reference-cli", order: 20 },
+    manualProjection,
+  ),
+);
 console.log(
   "Regenerating the environment-variable reference from its definitions:",
 );
+const renderedEnvironmentVariableReference =
+  renderEnvironmentVariableReferenceDoc();
 await write(
   environmentVariableReference,
-  renderEnvironmentVariableReferenceDoc(),
+  renderedEnvironmentVariableReference,
+);
+await write(
+  manualEnvironmentVariableReference,
+  renderGeneratedManualDocument(
+    renderedEnvironmentVariableReference,
+    "70-reference/environment-variables.md",
+    "30-reference/environment-variables.md",
+    { id: "reference-environment-variables", order: 60 },
+    manualProjection,
+  ),
 );
 console.log(
   "Regenerating the browser docs-search module from its shared source:",
@@ -269,7 +336,22 @@ await write(
   renderVoiceEnforcementCoverageDoc(),
 );
 console.log("Regenerating the glossary from scripts/glossary_registry.ts:");
-await write(glossary, renderGlossaryDoc());
+const renderedGlossary = renderGlossaryDoc();
+await write(glossary, renderedGlossary);
+await write(
+  manualGlossary,
+  renderGeneratedManualDocument(
+    renderedGlossary,
+    "00-orientation/glossary.md",
+    "30-reference/glossary.md",
+    {
+      id: "reference-glossary",
+      order: 120,
+      redirects: ["/docs/orientation/glossary"],
+    },
+    manualProjection,
+  ),
+);
 console.log(
   "Regenerating the feature canon from scripts/feature_registry.ts:",
 );
@@ -330,6 +412,13 @@ await write(
   artifactOwnership,
   replaceArtifactInventory(artifactOwnershipDoc, inventory),
 );
+const manualArtifactOwnershipDoc = await Deno.readTextFile(
+  join(repoRoot, manualArtifactOwnership),
+);
+await write(
+  manualArtifactOwnership,
+  replaceArtifactInventory(manualArtifactOwnershipDoc, inventory),
+);
 const installSurfaceDoc = await Deno.readTextFile(
   join(repoRoot, installSurface),
 );
@@ -357,6 +446,18 @@ await write(
   replacePublicSchemaReference(
     mcpReferenceDoc,
     renderPublicSchemaReference(),
+  ),
+);
+const manualMcpReferenceDoc = await Deno.readTextFile(
+  join(repoRoot, manualMcpReference),
+);
+await write(
+  manualMcpReference,
+  replacePublicSchemaReference(
+    manualMcpReferenceDoc,
+    renderPublicSchemaReference((path) =>
+      `https://github.com/jackwh/discern/blob/main/${path}`
+    ),
   ),
 );
 console.log("Regenerating the hosted CLA Assistant metadata:");
