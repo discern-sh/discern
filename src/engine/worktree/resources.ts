@@ -86,6 +86,18 @@ export interface ResourceSpec {
   gc: boolean;
 }
 
+/** A required resource lifecycle command failed with its config identity intact. */
+export class WorktreeResourceError extends WorktreeGitError {
+  constructor(
+    readonly resourceName: string,
+    readonly operation: "create",
+    message: string,
+  ) {
+    super(message);
+    this.name = "WorktreeResourceError";
+  }
+}
+
 /** The ledger entry shape AND its read-time validator — one source for both. A
  * file under the ledger dir is trusted only if it parses to this exact shape with a
  * recognised `schema` major; anything else (a corrupt write, a hand-edit, a future
@@ -434,7 +446,9 @@ export async function createResources(
       );
       if (!ok) {
         if (spec.required) {
-          throw new WorktreeGitError(
+          throw new WorktreeResourceError(
+            spec.name,
+            "create",
             `Creating required worktree resource '${spec.name}' failed. Fix its ` +
               `configured create command or prerequisites, then re-run ` +
               `\`discern worktree setup\`.`,

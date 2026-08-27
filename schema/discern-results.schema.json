@@ -3291,6 +3291,21 @@
                       "type": "boolean",
                       "const": true
                     },
+                    "completion": {
+                      "type": "string",
+                      "enum": [
+                        "created",
+                        "replayed",
+                        "validated",
+                        "forced"
+                      ]
+                    },
+                    "effects_performed": {
+                      "type": "boolean"
+                    },
+                    "gate_ran": {
+                      "type": "boolean"
+                    },
                     "forced": {
                       "type": "boolean"
                     },
@@ -3883,6 +3898,9 @@
                   },
                   "required": [
                     "bootstrapped",
+                    "completion",
+                    "effects_performed",
+                    "gate_ran",
                     "forced",
                     "gate_proven",
                     "worktree_proven",
@@ -3974,19 +3992,33 @@
                             "proof"
                           ]
                         },
-                        "compensation": {
+                        "rollback": {
                           "type": "string",
                           "enum": [
                             "not_needed",
-                            "committed",
-                            "working_tree",
-                            "failed"
+                            "owned_commit_removed",
+                            "retained"
                           ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "next_action": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "recovery": {
+                          "type": "string",
+                          "minLength": 1
                         }
                       },
                       "required": [
                         "stage",
-                        "compensation"
+                        "rollback",
+                        "state",
+                        "next_action",
+                        "recovery"
                       ]
                     }
                   ]

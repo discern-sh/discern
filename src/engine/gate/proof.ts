@@ -58,7 +58,10 @@ import { bestEffort } from "../../shared/best_effort.ts";
 import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { decodeJson } from "../../shared/runtime_decode.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { atomicReplaceJson } from "../../shared/atomic_write.ts";
+import {
+  atomicReplaceJson,
+  atomicReplaceText,
+} from "../../shared/atomic_write.ts";
 import {
   abbreviatedObjectIdMatches,
   workingStateFingerprint,
@@ -790,6 +793,78 @@ export async function inspectGateProof(
  */
 export async function gateProofHonored(cwd: string): Promise<boolean> {
   return (await inspectGateProof(cwd)).status === "honored";
+}
+
+/** Exact pre-transaction Gate Proof bytes, including an explicitly absent file. */
+export interface GateProofSnapshot {
+  readonly path: string | undefined;
+  readonly content: string | undefined;
+}
+
+/** Sample Gate Proof without interpreting or mutating it. */
+export async function snapshotGateProof(
+  cwd: string,
+): Promise<GateProofSnapshot> {
+  const path = await proofPath(cwd);
+  return {
+    path,
+    content: path === undefined ? undefined : await readTextIfExists(path),
+  };
+}
+
+export type GateProofRestoreOutcome =
+  | { readonly kind: "restored" }
+  | { readonly kind: "retained"; readonly detail: string };
+
+/** The commit identity recorded on the first line of raw Proof bytes. */
+function rawProofHead(content: string): string {
+  const newline = content.indexOf("\n");
+  return (newline < 0 ? content : content.slice(0, newline)).trim();
+}
+
+/**
+ * Restore pre-transaction Proof after an owned marker rollback. A concurrent
+ * writer wins: only absence, the original bytes, or bytes naming the exact
+ * transaction-owned marker may be replaced.
+ */
+export async function restoreGateProofAfterOwnedRollback(
+  snapshot: GateProofSnapshot,
+  ownedMarkerHead: string,
+): Promise<GateProofRestoreOutcome> {
+  if (snapshot.path === undefined) {
+    return { kind: "restored" };
+  }
+  const current = await readTextIfExists(snapshot.path);
+  if (current === snapshot.content) {
+    return { kind: "restored" };
+  }
+  if (current !== undefined && rawProofHead(current) !== ownedMarkerHead) {
+    return {
+      kind: "retained",
+      detail:
+        "Gate Proof changed outside this completion transaction, so discern retained it",
+    };
+  }
+  try {
+    if (snapshot.content === undefined) {
+      try {
+        await Deno.remove(snapshot.path);
+      } catch (error) {
+        if (!(error instanceof Deno.errors.NotFound)) throw error;
+      }
+    } else {
+      await atomicReplaceText(snapshot.path, snapshot.content, {
+        mode: 0o600,
+        sync: false,
+      });
+    }
+    return { kind: "restored" };
+  } catch (error) {
+    return {
+      kind: "retained",
+      detail: `Gate Proof could not be restored (${failureReason(error)})`,
+    };
+  }
 }
 
 /**

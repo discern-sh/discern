@@ -336,7 +336,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0348 — Secure entropy is a WebCrypto-backed capability](0348-secure-entropy-is-a-webcrypto-capability.md)
 - [0349 — Top-level success follows completion policies](0349-top-level-success-follows-completion-policies.md)
 - [0350 — Checkout identity supplies explicit test-order seeds](0350-checkout-identity-supplies-test-order-seeds.md)
-- [0351 — Desk decisions cross a pure responsive presentation boundary](0351-desk-decisions-cross-a-pure-responsive-presentation-boundary.md)
+- [0351 — Setup completion replays Proof and rolls back only owned tips](0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)
 
 <!-- END GENERATED: current ADR records -->
 

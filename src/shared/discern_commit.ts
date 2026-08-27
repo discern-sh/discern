@@ -58,6 +58,34 @@ export type DiscernAuthoredCommitSite = typeof DISCERN_AUTHORED_COMMIT_SITES[
   keyof typeof DISCERN_AUTHORED_COMMIT_SITES
 ];
 
+const DISCERN_OWNED_COMMIT = Symbol("discern owned commit");
+
+/**
+ * In-memory ownership evidence for the exact commit one invocation authored.
+ * The private brand means a caller can retain and return this evidence, but only
+ * this module can mint it from the reflog-bound commit verification below.
+ */
+export interface DiscernOwnedCommit {
+  readonly site: DiscernAuthoredCommitSite;
+  readonly cwd: string;
+  readonly branch: string;
+  readonly parent: string | null;
+  readonly head: string;
+  readonly tree: string;
+  readonly pathspecs: readonly string[];
+  readonly [DISCERN_OWNED_COMMIT]: true;
+}
+
+/** Git's ordinary commit result plus exact ownership on a verified success. */
+export type DiscernCommitResult = GitResult & {
+  readonly owned?: DiscernOwnedCommit | undefined;
+};
+
+/** A safe rollback either removed exactly the owned tip or retained all state. */
+export type DiscernOwnedRollbackOutcome =
+  | { readonly kind: "rolled-back" }
+  | { readonly kind: "retained"; readonly detail: string };
+
 export interface DiscernStagedCommitProof {
   /** Branch whose ref the commit may advance. */
   readonly branch: string;
@@ -463,7 +491,7 @@ export function discernCommitMessage(
 /** Commit one discern-composed diff without changing author or committer identity. */
 export async function commitDiscernChanges(
   options: DiscernCommitOptions,
-): Promise<GitResult> {
+): Promise<DiscernCommitResult> {
   if (!authoredCommitSites.has(options.site)) {
     return {
       success: false,
@@ -676,7 +704,19 @@ export async function commitDiscernChanges(
     committedBranch === proof.branch &&
     branchHead === committedHead
   ) {
-    return commit;
+    return {
+      ...commit,
+      owned: {
+        site: options.site,
+        cwd: options.cwd,
+        branch: proof.branch,
+        parent: proof.head,
+        head: committedHead,
+        tree: object.tree,
+        pathspecs: expectedPaths,
+        [DISCERN_OWNED_COMMIT]: true,
+      },
+    };
   }
   if (mismatch === undefined) {
     mismatch = "did not remain the exact tip of its proven branch";
@@ -713,5 +753,131 @@ export async function commitDiscernChanges(
     stderr: preservationFailure === undefined
       ? `discern-authored commit site '${options.site.id}' ${mismatch}; the exact commit was rolled back with its index and worktree changes preserved`
       : `discern-authored commit site '${options.site.id}' ${mismatch}; the exact commit was rolled back, but its hook-staged index bytes could not be fully restored. The worktree bytes remain`,
+  };
+}
+
+/** Distinguish a clean tracked checkout from dirt or an unreadable Git state. */
+async function trackedCheckoutIsClean(
+  cwd: string,
+): Promise<boolean | undefined> {
+  const status = await runGit(["status", "--porcelain", "-z"], { cwd });
+  return status.success ? status.stdout === "" : undefined;
+}
+
+/** Compare one branch ref with the exact commit named by ownership evidence. */
+async function ownedCommitStillCurrent(
+  owned: DiscernOwnedCommit,
+): Promise<string | undefined> {
+  const [branch, head, object, clean] = await Promise.all([
+    gitValue(owned.cwd, ["branch", "--show-current"]),
+    refValue(owned.cwd, `refs/heads/${owned.branch}`),
+    authoredCommitObject(owned.cwd, owned.head),
+    trackedCheckoutIsClean(owned.cwd),
+  ]);
+  if (branch !== owned.branch) {
+    return `the checkout is no longer on the discern-owned branch '${owned.branch}'`;
+  }
+  if (head !== owned.head) {
+    return `the branch moved after discern authored ${owned.head}`;
+  }
+  if (clean !== true) {
+    return clean === false
+      ? "the checkout changed after the discern-owned commit"
+      : "Git could not prove the checkout remained clean";
+  }
+  if (
+    object === undefined || object.tree !== owned.tree ||
+    object.parents.length !== (owned.parent === null ? 0 : 1) ||
+    (owned.parent !== null && object.parents[0] !== owned.parent)
+  ) {
+    return "the commit object no longer matches discern's ownership evidence";
+  }
+  const paths = await changedPaths(owned.cwd, owned.parent, owned.head);
+  if (
+    paths === undefined || paths.length !== owned.pathspecs.length ||
+    paths.some((path, index) => path !== owned.pathspecs[index])
+  ) {
+    return "the commit's changed paths no longer match discern's owned scope";
+  }
+  return undefined;
+}
+
+/**
+ * Remove one exact discern-authored tip and restore its sampled predecessor.
+ *
+ * This is deliberately narrower than a reset: the branded commit must remain
+ * the clean tip of its original checked-out branch, its parent/tree/path scope
+ * must still match, and the ref move uses an expected-old compare-and-swap. If
+ * any fact changed, every byte and ref stays where it is for explicit recovery.
+ */
+export async function rollbackDiscernOwnedCommit(
+  owned: DiscernOwnedCommit,
+): Promise<DiscernOwnedRollbackOutcome> {
+  if (owned[DISCERN_OWNED_COMMIT] !== true) {
+    return { kind: "retained", detail: "commit ownership is unavailable" };
+  }
+  if (owned.parent === null) {
+    return {
+      kind: "retained",
+      detail: "the owned commit has no predecessor to restore",
+    };
+  }
+  const changed = await ownedCommitStillCurrent(owned);
+  if (changed !== undefined) {
+    return { kind: "retained", detail: changed };
+  }
+
+  const ref = `refs/heads/${owned.branch}`;
+  const moved = await runGit(
+    [
+      "update-ref",
+      "-m",
+      `discern: roll back owned ${owned.site.id}`,
+      ref,
+      owned.parent,
+      owned.head,
+    ],
+    { cwd: owned.cwd },
+  );
+  if (!moved.success) {
+    return {
+      kind: "retained",
+      detail: moved.stderr.trim() || "Git refused the exact branch rollback",
+    };
+  }
+
+  const checkout = await runGit(
+    ["read-tree", "-u", "-m", owned.head, owned.parent],
+    { cwd: owned.cwd },
+  );
+  if (checkout.success) {
+    return { kind: "rolled-back" };
+  }
+
+  const restoredRef = await runGit(
+    [
+      "update-ref",
+      "-m",
+      `discern: retain owned ${owned.site.id}`,
+      ref,
+      owned.head,
+      owned.parent,
+    ],
+    { cwd: owned.cwd },
+  );
+  if (restoredRef.success) {
+    await runGit(["read-tree", "-u", "-m", owned.parent, owned.head], {
+      cwd: owned.cwd,
+    });
+  }
+  return {
+    kind: "retained",
+    detail: restoredRef.success
+      ? `Git could not restore the predecessor checkout (${
+        checkout.stderr.trim() || "read-tree failed"
+      }); the owned commit remains current`
+      : `Git moved the ref to the predecessor but could not restore its checkout, and the exact ref rollback also failed (${
+        restoredRef.stderr.trim() || "update-ref failed"
+      })`,
   };
 }

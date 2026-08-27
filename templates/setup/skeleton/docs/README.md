@@ -32,10 +32,10 @@ The subsystems are numbered subtrees, in the order a newcomer should read them �
 
 ### Reference material
 
-| Path           | What's in it                                                                                                                                                                                                             |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [_adr/](_adr/) | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format.                                                |
-| `_internal/`   | Seeded by `discern setup` — the documenter brief and per-subtree scope manifests the `discern-document-subsystem` skill writes and refreshes this tree from. Not part of the user-facing docs; kept for reproducibility. |
+| Path           | What's in it                                                                                                                                                                                                                      |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [_adr/](_adr/) | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format.                                                         |
+| `_internal/`   | Seeded by `discern setup` — the documenter brief and the template the `discern-document-subsystem` skill uses to create a scope manifest when it refreshes a subtree. Not part of the user-facing docs; kept for reproducibility. |
 
 ---
 

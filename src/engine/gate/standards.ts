@@ -1714,6 +1714,13 @@ export async function standardsResult(
     signal?: AbortSignal;
   } = {},
 ): Promise<DiscernResult> {
+  if (opts.signal?.aborted === true) {
+    return {
+      ok: false,
+      verb: "standards",
+      message: "Standard measurement was cancelled before it started.",
+    };
+  }
   const cfg = await loadConfig(root);
   const plan = buildStandardPlan(cfg);
   let result: DiscernResult;

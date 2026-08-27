@@ -7,6 +7,7 @@ import {
   commitDiscernChanges,
   DISCERN_AUTHORED_COMMIT_SITES,
   discernCommitMessage,
+  rollbackDiscernOwnedCommit,
 } from "../src/shared/discern_commit.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import {
@@ -386,6 +387,52 @@ printf '%s\\n' "$later" > ${laterOidPath}
       await gitOut(dir, "rev-parse", "HEAD"),
       laterTip,
       "tree equality must not make a later commit look like our direct child",
+    );
+  });
+});
+
+Deno.test("owned rollback cannot move a branch after an intervening user commit", async () => {
+  await withTempDir(async (dir) => {
+    const ownedPath = "discern-owned.txt";
+    await Deno.writeTextFile(join(dir, ownedPath), "base\n");
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, ownedPath), "owned\n");
+    const authored = await commitDiscernChanges({
+      site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
+      cwd: dir,
+      subject: "Record owned bytes",
+      pathspecs: [ownedPath],
+      env: fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" }),
+    });
+    assertEquals(authored.success, true, authored.stderr);
+    if (authored.owned === undefined) {
+      throw new Error("successful discern commit did not return ownership");
+    }
+
+    const userPath = "user-follow-up.txt";
+    await Deno.writeTextFile(join(dir, userPath), "later user work\n");
+    await git(dir, "add", "--", userPath);
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "Later user work",
+      "--no-gpg-sign",
+    );
+    const head = await gitOut(dir, "rev-parse", "HEAD");
+    const history = await gitOut(dir, "log", "--format=%H%x00%P%x00%s");
+
+    const rollback = await rollbackDiscernOwnedCommit(authored.owned);
+    assertEquals(rollback.kind, "retained");
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), head);
+    assertEquals(
+      await gitOut(dir, "log", "--format=%H%x00%P%x00%s"),
+      history,
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, userPath)),
+      "later user work\n",
     );
   });
 });

@@ -28,6 +28,7 @@ export const SETUP_REQUIRED_EFFECT_KINDS = [
   "done-refresh",
   "done-completion-config",
   "done-commit",
+  "done-validation-evidence",
   "done-worktree-probe",
   "accept-merge",
   "accept-materialize",

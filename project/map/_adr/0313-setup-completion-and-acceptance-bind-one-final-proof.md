@@ -2,6 +2,8 @@
 
 > **Amendment ([ADR 0322](0322-setup-is-one-bounded-operational-journey.md)).** The completion result derives canonical Map, ledger, and job inventories after Proof. While Proof remains off the trunk, every surface stops at landing choices; acceptance owns the later activation handoff, and improvement is optional only after activation succeeds.
 
+> **Amendment ([ADR 0351](0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).** A clean marker-bearing `HEAD` with honored Proof is a read-only replay. Missing or stale Proof validates the existing marker commit through one non-forced path. A failed new marker transaction removes only the exact commit this invocation can prove it owns; it never adds a compensating commit. If ownership or preservation is no longer provable, discern retains the state and reports recovery.
+
 **Status**: accepted. Revises the completion order in [ADR 0065](0065-setup-keeps-its-promises.md), applies the Proof identity from [ADR 0067](0067-accept-validates-the-landed-tree.md) to the setup landing path in [ADR 0081](0081-setup-accept-command.md), sharpens the worktree probe from [ADR 0090](0090-setup-proves-worktree-viability.md), and extends the receiving-checkout guarantee from [ADR 0098](0098-accept-refreshes-the-landing-checkout.md).
 
 ## Context
@@ -10,7 +12,7 @@
 
 The setup landing path also treated a clean branch and the completion marker as sufficient evidence. A stale, missing, unreadable, or declaration-stale Proof did not block it. When the trunk had moved, setup acceptance produced a merge result without subjecting that new tree to the normal acceptance Proof rule. After landing, the checkout could still carry stale local agent artifacts.
 
-Proof is a statement about one clean commit. Setup needs the same rule as daily work while preserving its dedicated branch and novice-facing command. The transaction must also fail safely when a check or compensating commit fails.
+Proof is a statement about one clean commit. Setup needs the same rule as daily work while preserving its dedicated branch and novice-facing command. The transaction must also fail safely when a check fails or the branch changes while recovery is in progress.
 
 ## Decision
 
@@ -18,7 +20,7 @@ Proof is a statement about one clean commit. Setup needs the same rule as daily 
 
 ### Completion is a final-tree transaction
 
-Before the transaction, `setup done` checks structural completion, requires a fully clean tree, clears any earlier worktree-local Gate Proof, and runs instruction refresh. If refresh changes tracked artifacts, the command stops before the marker and asks the caller to review and commit them.
+At entry, `setup done` classifies an existing completion marker before it plans effects or changes worktree-local Gate Proof. [ADR 0351](0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md) defines read-only replay and validation of an existing marker. For a new transaction, setup checks structural completion, requires a fully clean tree, snapshots earlier Proof, and runs instruction refresh. If refresh changes tracked artifacts, the command stops before the marker and asks the caller to review and commit them.
 
 The transaction then:
 
@@ -30,7 +32,7 @@ The transaction then:
 
 Every leg checks that `HEAD` still names the marker commit and that the tracked tree remains clean. No tracked write follows the final Gate Proof on a successful path.
 
-If a post-marker leg fails, setup restores the pre-transaction `discern.toml` bytes. When the marker commit landed, it records that restoration as a compensating commit. A rejected compensation commit leaves the file reporting setup incomplete as a visible working-tree change. If the bytes themselves cannot be restored, the command stops and names that state before another lifecycle action may continue. The prior Proof was cleared before preparation, so no failed attempt retains current completion evidence.
+If a post-marker leg fails, setup removes the marker commit only while the checkout, branch, `HEAD`, parent, tree, and changed-path set still prove that the current invocation owns the tip. The ref move is an expected-old compare-and-swap to the sampled predecessor; successful rollback restores the predecessor checkout and the prior Proof snapshot without a compensating commit. If any ownership or preservation fact changed, discern moves no ref, retains the exact visible state, and names recovery. An uncommitted marker whose commit failed is restored only while the predecessor remains current and `discern.toml` is the sole tracked difference.
 
 `--force` remains an explicit escape hatch. It may record the marker without the checks, but returns `gate_proven: false`, `worktree_proven: false`, and no Proof or Proof line. Forced completion cannot enter the proved setup-acceptance path.
 
@@ -49,7 +51,7 @@ Before the ref transition, setup acceptance requires an empty current tracked-re
 ## Consequences
 
 - The completion Proof line names the commit that contains the completion marker and the commit setup acceptance is permitted to land.
-- A final check failure adds a traceable compensation commit when Git permits it. A compensation-hook failure leaves setup visibly incomplete instead of claiming success.
+- A final check failure leaves no transaction-owned history when exact rollback remains safe. Intervening work makes rollback refuse visibly instead of being overwritten.
 - A moved trunk costs another Gate run because the merge commit is a new tree. The earlier setup Proof cannot be laundered onto it.
 - Setup acceptance no longer accepts untracked scratch, a forced marker, or a legacy marker without complete structured Proof. The user can ignore machine-local paths deliberately, but a status-reported path prevents a clean Proof.
 - The first status after a successful setup landing sees current tracked and checkout-local artifacts and the landed Proof note.

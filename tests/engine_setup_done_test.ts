@@ -41,6 +41,7 @@ import { inspectGateProof } from "../src/engine/gate/proof.ts";
 import { SETUP_RESULT_MAX_CHARS } from "../src/shared/setup_pages.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { readyForSetupDone } from "./fixtures/setup_completion_harness.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const HIDE_CURSOR = `${CSI}?25l`;
@@ -53,35 +54,7 @@ async function readyForDone(
   cmd: string,
   env: Record<string, string> = {},
 ): Promise<void> {
-  await scaffoldEngine(dir, { bootstrapped: false });
-  await gitInit(dir);
-  await git(dir, "checkout", "-q", "-b", SETUP_BRANCH);
-  await runAgent(dir, ["setup", "begin", "--confirmed"], { env }); // lay the skeletons
-  // Replace the marker-carrying skeletons with real, marker-free content. The
-  // instructions.md carries a real pitch and Conventions section. The Map carries
-  // the qualitative primary-subsystem contract; design-principles stays absent (N/A).
-  await Deno.remove(defaultMapPath(dir), { recursive: true });
-  await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
-  await Deno.writeTextFile(
-    defaultMapPath(dir, "README.md"),
-    "# Real docs\n",
-  );
-  await Deno.writeTextFile(
-    defaultMapPath(dir, "10-runtime", "README.md"),
-    "# Runtime\n\n## Start here\n\nBegin at `main.ts`.\n\n" +
-      "## Boundary\n\nThe runtime owns project execution.\n\n" +
-      "## Non-obvious invariant\n\nPreserve the configured command's exit status.\n",
-  );
-  await Deno.writeTextFile(
-    join(dir, "discern/instructions.md"),
-    "# Project instructions\n\nA real pitch describing the project and who it serves.\n\n## Conventions\n\nReal, project-specific conventions.\n",
-  );
-  const wired = await runAgent(dir, ["config", "set-job", "test", cmd], {
-    env,
-  });
-  assertEquals(wired.code, 0, wired.output);
-  const refreshed = await runAgent(dir, ["refresh"], { env });
-  assertEquals(refreshed.code, 0, refreshed.output);
+  await readyForSetupDone(dir, cmd, env);
 }
 
 /** A failed completion reports setup incomplete and leaves no current Proof. */
@@ -302,13 +275,15 @@ Deno.test("setup done doctor and marker-commit failures leave setup incomplete w
     await readyForDone(dir, "discern-test-command-that-does-not-exist");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    const headBefore = await gitOut(dir, "rev-parse", "HEAD");
 
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
     const result = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(result, "compensation");
+    assertResultDataKey(result, "rollback");
     assertEquals(result.data.stage, "doctor");
-    assertEquals(result.data.compensation, "committed");
+    assertEquals(result.data.rollback, "owned_commit_removed");
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), headBefore);
     await assertIncompleteWithoutProof(dir, "doctor failure");
   });
 
@@ -316,6 +291,7 @@ Deno.test("setup done doctor and marker-commit failures leave setup incomplete w
     await readyForDone(dir, "true");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    const headBefore = await gitOut(dir, "rev-parse", "HEAD");
     await writeExecutable(
       join(dir, ".git", "hooks", "pre-commit"),
       "#!/bin/sh\nexit 1\n",
@@ -324,19 +300,21 @@ Deno.test("setup done doctor and marker-commit failures leave setup incomplete w
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
     const result = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(result, "compensation");
+    assertResultDataKey(result, "rollback");
     assertEquals(result.data.stage, "marker_commit");
-    assertEquals(result.data.compensation, "committed");
+    assertEquals(result.data.rollback, "not_needed");
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), headBefore);
     assertEquals(await gitOut(dir, "status", "--porcelain"), "");
     await assertIncompleteWithoutProof(dir, "marker-commit failure");
   });
 });
 
-Deno.test("setup done leaves an explicit incomplete working-tree recovery when compensation commit fails", async () => {
+Deno.test("setup done rollback bypasses commit hooks and leaves no transaction history", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "false");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+    const headBefore = await gitOut(dir, "rev-parse", "HEAD");
     await writeExecutable(
       join(dir, ".git", "hooks", "pre-commit"),
       "#!/bin/sh\nif test -f .git/setup-completion-hook-ran; then exit 1; fi\ntouch .git/setup-completion-hook-ran\n",
@@ -345,16 +323,18 @@ Deno.test("setup done leaves an explicit incomplete working-tree recovery when c
     const done = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(done.code, 1, done.output);
     const result = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(result, "compensation");
-    assert(result.message !== undefined);
+    assertResultDataKey(result, "rollback");
     assertEquals(result.data.stage, "worktree_probe");
-    assertEquals(result.data.compensation, "working_tree");
-    assertStringIncludes(result.message, "Commit that recovery");
-    assertStringIncludes(
-      await gitOut(dir, "status", "--porcelain"),
-      "discern.toml",
+    assertEquals(result.data.rollback, "owned_commit_removed");
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), headBefore);
+    assertEquals(await gitOut(dir, "status", "--porcelain"), "");
+    assertEquals(
+      (await gitOut(dir, "log", "--format=%s")).includes(
+        "Restore incomplete discern setup",
+      ),
+      false,
     );
-    await assertIncompleteWithoutProof(dir, "compensation-commit failure");
+    await assertIncompleteWithoutProof(dir, "owned rollback");
   });
 });
 

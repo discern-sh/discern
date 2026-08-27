@@ -408,7 +408,7 @@ what_not_to_do = [
   "Do not claim an unverified architecture, ownership, test behavior, or command contract.",
   "Do not add a page or TODO merely to make the setup look comprehensive.",
 ]
-completion_check = "The final primary-subsystem README has non-empty Start here, Boundary, and Non-obvious invariant sections."
+completion_check = "The final primary-subsystem README has non-empty Start here, Boundary, and Non-obvious invariant sections; an authored conventional gotchas page is wired through [project].gotchas_doc."
 stop_conditions = [
   "Stop when a claim remains unverifiable, refresh changes an unexpected authored source, or prepare reports a diagnostic.",
 ]

@@ -445,7 +445,7 @@ Deno.test("verify names a missing git identity with the exact commands, and begi
 });
 
 Deno.test("a failed completion-marker commit explains itself instead of misattributing the cause", async () => {
-  await withTempDir(async (dir) => {
+  const prepare = async (dir: string): Promise<void> => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await git(dir, "init", "-q", "-b", "main");
     await git(dir, "config", "user.useConfigOnly", "true");
@@ -462,18 +462,13 @@ Deno.test("a failed completion-marker commit explains itself instead of misattri
       "-qm",
       "scaffold",
     );
+  };
 
+  await withTempDir(async (dir) => {
+    await prepare(dir);
     // --force skips the completion proof; the marker is written, and its
     // auto-commit fails on the missing identity. The old output misattributed
     // this as "could not prove that was the only discern.toml change".
-    const human = await runAgent(dir, ["setup", "done", "--force"]);
-    assertEquals(human.code, 0, human.output);
-    assertTerminalTextIncludes(human.stdout, "Git said:");
-    assert(
-      !human.stdout.includes("could not prove"),
-      `a failed commit must not be misattributed:\n${human.stdout}`,
-    );
-
     const res = decodeCliResult(
       (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
       "setup done",
@@ -492,6 +487,17 @@ Deno.test("a failed completion-marker commit explains itself instead of misattri
         advisory.next_action.length > 0
       ),
       true,
+    );
+  });
+
+  await withTempDir(async (dir) => {
+    await prepare(dir);
+    const human = await runAgent(dir, ["setup", "done", "--force"]);
+    assertEquals(human.code, 0, human.output);
+    assertTerminalTextIncludes(human.stdout, "Git said:");
+    assert(
+      !human.stdout.includes("could not prove"),
+      `a failed commit must not be misattributed:\n${human.stdout}`,
     );
   });
 });
