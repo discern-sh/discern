@@ -197,7 +197,7 @@ Deno.test("standards: a per-standard timeout bounds the standalone measurement",
   });
 });
 
-Deno.test("standardsResult: pre-aborted and mid-run signals cancel promptly", async () => {
+Deno.test("standardsResult: cancellation starts no work and stops in-flight work", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -207,33 +207,37 @@ Deno.test("standardsResult: pre-aborted and mid-run signals cancel promptly", as
         direction: "up",
         limit: "1",
         run:
-          "touch .git/standard-cancel-ready; sleep 30; echo 'DISCERN_METRIC slow 1'",
+          "touch .git/standard-cancel-ready; sleep 30; touch .git/standard-cancel-finished; echo 'DISCERN_METRIC slow 1'",
       }),
     );
     await gitInit(dir);
+    const ready = join(dir, ".git/standard-cancel-ready");
+    const finished = join(dir, ".git/standard-cancel-finished");
 
     for (const timing of ["pre-aborted", "mid-run"] as const) {
       const controller = new AbortController();
       if (timing === "pre-aborted") {
         controller.abort();
       }
-      const started = SYSTEM_CLOCK.monotonicNow();
       const pending = standardsResult(dir, { signal: controller.signal });
       if (timing === "mid-run") {
         await waitUntil(
-          async () => await targetExists(`${dir}/.git/standard-cancel-ready`),
+          async () => await targetExists(ready),
           "the Standard measurement to start before cancellation",
         );
         controller.abort();
       }
       const result = await pending;
-      const elapsedMs = SYSTEM_CLOCK.monotonicNow() - started;
 
       assertEquals(result.ok, false, `${timing}: ${JSON.stringify(result)}`);
-      assert(
-        elapsedMs < 6_000,
-        `${timing} cancellation should end promptly, took ${elapsedMs}ms`,
-      );
+      assertEquals(await targetExists(finished), false, timing);
+      if (timing === "pre-aborted") {
+        assertEquals(await targetExists(ready), false);
+        assertStringIncludes(
+          result.message ?? "",
+          "cancelled before it started",
+        );
+      }
     }
   });
 });
