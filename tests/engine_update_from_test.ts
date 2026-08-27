@@ -25,8 +25,13 @@ import {
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
-async function mainWithWorktree(dir: string, name: string): Promise<string> {
+async function mainWithWorktree(
+  dir: string,
+  name: string,
+  config?: string,
+): Promise<string> {
   await scaffoldEngine(dir);
+  if (config !== undefined) await writeConfig(dir, config);
   await gitInit(dir);
   return await addWorktree(dir, name);
 }
@@ -176,14 +181,12 @@ Deno.test("update --from refuses an unknown ref in plain language", async () => 
 
 Deno.test("a no-op update still re-converges: refresh + ensure run with nothing to merge", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
+    const wt = await mainWithWorktree(
       dir,
+      "noop-converge",
       '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
         '[worktree.setup]\nensure = ["touch converged.marker"]\n',
     );
-    await gitInit(dir);
-    const wt = await addWorktree(dir, "noop-converge");
     const converged = await runAgent(wt, ["refresh", "--json"]);
     assertEquals(converged.code, 0, converged.output);
     await git(wt, "add", "-A");
