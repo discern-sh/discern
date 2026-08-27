@@ -47,8 +47,8 @@ import {
 } from "../src/engine/desk/tips.ts";
 import { renderTipCli, TIPS } from "../src/shared/tips.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
-import { displayWidth, wrapText } from "../src/lib/text.ts";
-import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
+import { displayWidth, stripAnsi } from "../src/lib/text.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 
@@ -124,6 +124,7 @@ function statusData(
   return {
     location,
     root: ROOT,
+    project: "demo",
     worktree: null,
     git: null,
     standards: [],
@@ -193,7 +194,7 @@ function scriptedRuntime(
     readTipState: () => freshTipSeenState(KIT_VERSION),
     writeTipState: () => {},
     recordTipShown: () => {},
-    width: () => 80,
+    size: () => ({ columns: 80, rows: 24 }),
     ...patch,
   };
 }
@@ -203,21 +204,11 @@ function joined(output: Transcript): string {
   return [...output.stdout, ...output.stderr].join("\n");
 }
 
-const TIP_PREFIX = "  ✦ Tip  ";
-const TIP_INDENT = " ".repeat(TIP_PREFIX.length);
-
 /** The registered tip with `id`, or a failed assertion. */
 function registeredTip(id: string): (typeof TIPS)[number] {
   const tip = TIPS.find((entry) => entry.id === id);
   assert(tip !== undefined, `the shipped registry must carry ${id}`);
   return tip;
-}
-
-/** The exact raw output one board pass emits for `tip` at `width`. */
-function renderedTipBlock(id: string, width: number): string {
-  return wrapText(renderTipCli(registeredTip(id)), width - TIP_PREFIX.length)
-    .map((line, index) => `${index === 0 ? TIP_PREFIX : TIP_INDENT}${line}\n`)
-    .join("");
 }
 
 /** Count overlapping candidate positions to prove a tip is narrated exactly once. */
@@ -338,18 +329,12 @@ Deno.test("desk session renders task-first fleet rows from the survey's own proo
 
   assertEquals(await runDesk({}, runtime), 0);
   const text = joined(output);
-  assertStringIncludes(text, `heading:${DISCERN_WORDMARK} | demo`);
+  assertStringIncludes(text, `${DISCERN_WORDMARK} · demo`);
   assertStringIncludes(text, "4 tasks");
   assertStringIncludes(text, "main has 1 uncommitted change");
   assertStringIncludes(text, "1 branch has no worktree: agent/orphan");
-  assertTerminalTextIncludes(
-    output.stdout.join(""),
-    "main has 1 uncommitted change\n  ✦ Tip",
-  );
-  assertTerminalTextIncludes(
-    output.stdout.join(""),
-    "\n\n  1 branch has no worktree",
-  );
+  assertStringIncludes(text, "Refreshed just now");
+  assertStringIncludes(text, "Tip:");
   const options = optionText.join("\n");
   for (const task of ["Ready to land", "Flying", "Broken", "Unreadable"]) {
     assertStringIncludes(options, task);
@@ -364,8 +349,8 @@ Deno.test("desk session renders task-first fleet rows from the survey's own proo
       '"kind":"group-heading","id":"tasks-needs_attention","name":"Needs attention · 2"',
       '"kind":"group-heading","id":"tasks-ready_to_review","name":"Ready to review · 1"',
       '"kind":"group-heading","id":"tasks-paused","name":"Paused · 1"',
-      '"kind":"group-heading","id":"desk-actions","name":"Desk"',
-      '"kind":"group-heading","id":"session-actions","name":"Session"',
+      '"kind":"group-heading","id":"desk-commands","name":"Desk commands"',
+      '"kind":"group-heading","id":"session-commands","name":"Session"',
     ]
   ) {
     assertStringIncludes(options, section);
@@ -396,10 +381,10 @@ Deno.test("desk reports removed worktree paths that are present again", async ()
 
   assertEquals(await runDesk({}, runtime), 0);
   const text = joined(output);
-  assertStringIncludes(text, "1 removed worktree path is present again.");
+  assertStringIncludes(text, "1 removed worktree path is present again");
   assertStringIncludes(
     text,
-    "Review with `discern worktree prune --dry-run`.",
+    "Review with discern worktree prune --dry-run.",
   );
 });
 
@@ -537,8 +522,8 @@ Deno.test("desk adds filtering for a large fleet and disambiguates duplicate tas
   });
 
   assertEquals(await runDesk({}, runtime), 0);
-  assertStringIncludes(optionText, "Same task  a1b2c3");
-  assertStringIncludes(optionText, "Same task  d4e5f6");
+  assertStringIncludes(optionText, "Same task · a1b2c3");
+  assertStringIncludes(optionText, "Same task · d4e5f6");
 });
 
 Deno.test("desk bootstrap and refresh failures remain actionable", async () => {
@@ -596,7 +581,10 @@ Deno.test("desk bootstrap and refresh failures remain actionable", async () => {
             : { ok: false };
         },
         select: (options) => {
-          assertStringIncludes(String(options.message), "Choose a desk action");
+          assertStringIncludes(
+            String(options.message),
+            "Choose a Desk command",
+          );
           return REFRESH;
         },
       }),
@@ -689,7 +677,7 @@ Deno.test("desk starts a named task and focuses its ready worktree immediately",
   assertStringIncludes(menus[0]?.options ?? "", "Start a task");
   assertStringIncludes(
     menus[0]?.message ?? "",
-    "Choose a desk action",
+    "Choose a Desk command",
   );
   assert(
     menus[1]?.message === "Choose an action",
@@ -811,7 +799,7 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
     menu.message.startsWith("Choose an agent for Agents")
   );
   const boardMenu = menus.find((menu) =>
-    menu.message === "Choose a task or action"
+    menu.message === "Choose a task or Desk command"
   );
   assert(actionMenu !== undefined);
   assert(agentMenu !== undefined);
@@ -820,10 +808,9 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
     (boardMenu.reservedRows ?? 0) >= 4,
     "the board menu must reserve the header rows the desk wrote above it",
   );
-  assertEquals(
-    actionMenu.reservedRows,
-    4,
-    "the action menu must reserve its task preamble rows",
+  assert(
+    (actionMenu.reservedRows ?? 0) > 4,
+    "the action menu must reserve the complete task-detail frame",
   );
   assertStringIncludes(actionMenu.options, "Open with an agent");
   assertStringIncludes(
@@ -1360,11 +1347,15 @@ Deno.test("desk shows one tip below status, stable across redraws, marked once",
   assertEquals(await runDesk({}, runtime), 0);
   // The scripted survey configures no standards, so the contextual
   // standards tip outranks the curriculum opener.
-  const block = renderedTipBlock("standards-first-rule", 80);
+  const plainTranscript = stripAnsi(output.stdout.join(""));
   assertEquals(
-    countOccurrences(output.stdout.join(""), block),
+    countOccurrences(plainTranscript, "Tip:"),
     2,
     "the same tip renders below status on both board passes",
+  );
+  assertEquals(
+    countOccurrences(plainTranscript, "A Standard is a quality measure"),
+    2,
   );
   assertEquals(
     recorded,
@@ -1378,7 +1369,7 @@ Deno.test("desk shows one tip below status, stable across redraws, marked once",
   });
 });
 
-Deno.test("desk renders the Tip label in yellow", async () => {
+Deno.test("desk renders tips through the package note cue", async () => {
   const terminal = resolveTerminalContext({
     noColor: false,
     env: fakeEnv({
@@ -1392,24 +1383,24 @@ Deno.test("desk renders the Tip label in yellow", async () => {
   const output = transcript(terminal);
 
   assertEquals(await runDesk({}, scriptedRuntime(output)), 0);
-  assertTerminalTextIncludes(
-    output.stdout.join(""),
-    `${terminal.role("  ✦ ", "muted")}${terminal.tone("Tip", "warning")}`,
-  );
+  assertStringIncludes(stripAnsi(output.stdout.join("")), "▸ Tip:");
+  assertStringIncludes(output.stdout.join(""), "\x1b[");
 });
 
-Deno.test("desk wraps the tip with a hanging indent at 60 columns and never truncates", async () => {
+Deno.test("desk wraps the complete tip at 60 columns without truncating it", async () => {
   const output = transcript();
-  const runtime = scriptedRuntime(output, { width: () => 60 });
+  const runtime = scriptedRuntime(output, {
+    size: () => ({ columns: 60, rows: 24 }),
+  });
 
   assertEquals(await runDesk({}, runtime), 0);
-  const lines = output.stdout.join("").split("\n");
-  const first = lines.findIndex((line) => line.startsWith(TIP_PREFIX));
+  const lines = stripAnsi(output.stdout.join("")).split("\n");
+  const first = lines.findIndex((line) => line.includes("Tip:"));
   assert(first >= 0, "the tip line must render");
   const block = [lines[first] ?? ""];
   for (
     let index = first + 1;
-    index < lines.length && (lines[index] ?? "").startsWith(TIP_INDENT);
+    index < lines.length && (lines[index] ?? "").startsWith("  ");
     index += 1
   ) {
     block.push(lines[index] ?? "");
@@ -1424,7 +1415,9 @@ Deno.test("desk wraps the tip with a hanging indent at 60 columns and never trun
   assertEquals(
     block
       .map((line, index) =>
-        index === 0 ? line.slice(TIP_PREFIX.length) : line.trimStart()
+        index === 0
+          ? line.slice(line.indexOf("Tip:") + "Tip: ".length)
+          : line.trimStart()
       )
       .join(" "),
     renderTipCli(registeredTip("standards-first-rule")),
@@ -1471,7 +1464,7 @@ Deno.test("desk survives a tip-state failure with a tipless header, no warning",
 
   assertEquals(await runDesk({}, runtime), 0);
   assert(
-    !joined(output).includes("✦ Tip"),
+    !joined(output).includes("Tip:"),
     "a failed tip read renders no tip line",
   );
   assertEquals(output.stderr, [], "and warns about nothing");
@@ -1499,8 +1492,8 @@ Deno.test("desk renders a reclaimed stage ref as a dim fact, not a missing-workt
   );
   const text = joined(output);
   assertStringIncludes(
-    text,
-    "agent/stage-a rides inside agent/stage-c until it lands",
+    text.replaceAll(/\s+/gu, ""),
+    "agent/stage-aremainsinsideagent/stage-cuntilitlands",
   );
   assert(
     !text.includes("has no worktree"),

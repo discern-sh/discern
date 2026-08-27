@@ -631,6 +631,33 @@ export function terminalContextWithColor(
   );
 }
 
+/**
+ * Rebind an explicit live viewport to an existing presentation context.
+ * Capability, theme, motif, and interaction identity are preserved; no process
+ * fact is read. Complete-frame views use this after their orchestration layer
+ * samples the terminal dimensions.
+ */
+export function terminalContextAtSize(
+  context: TerminalContext,
+  size: TerminalSize,
+): TerminalContext {
+  const columns = Number.isFinite(size.columns)
+    ? Math.max(1, Math.floor(size.columns))
+    : 1;
+  const rows = Number.isFinite(size.rows)
+    ? Math.max(1, Math.floor(size.rows))
+    : 1;
+  return contextFromFacts(
+    { ...context.capabilities, columns },
+    { columns, rows },
+    context.environment,
+    context.themeVariant,
+    context.stdoutIsTerminal,
+    context.observeViewport,
+    interactionIoByContext.get(context),
+  );
+}
+
 /** Rebind only the live viewport column for package painters that resize after
  * the process presenter was constructed. Component renderers use the bound
  * presenter and explicit width props instead. */

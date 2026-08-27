@@ -11,7 +11,7 @@ aliases:
 
 _Each Desk session puts a teaching line directly below the root status._
 
-Most of discern's surfaces address coding agents. The Desk is the person's surface, so it carries an ambient teaching line below the root status. The Desk selects the line when the session opens and holds it until the session ends ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). Its `Tip` label is yellow, while the teaching text stays secondary. The line wraps at the terminal width with a hanging indent. Narrow sidebar terminals do not clip it.
+Most of discern's surfaces address coding agents. The Desk is the person's surface, so it carries an ambient teaching line below the root status. The Desk selects the line when the session opens and holds it until the session ends ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The design system's semantic Note cue keeps the line secondary in color, reduced ANSI, no-color, and ASCII terminals. It wraps at the terminal width. Narrow terminals keep the complete text, using scrollback when the board and interaction cannot remain visible together.
 
 ## How the tip is chosen
 
@@ -30,7 +30,7 @@ Seen-state lives at `<git-common-dir>/discern/desk/tips.json`, beside the Logboo
 
 ## What a tip may say
 
-Tips educate about capability; alarms about state belong to the header's own lines and `discern status`. Every action remains available without its tip. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction.
+Tips educate about capability; alarms about state belong to the board's own facts and `discern status`. Every action remains available without its tip. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction. The curriculum opener directs the person to start under **Needs attention**, read the selected task's evidence and recommended next action, then choose **Back** to return to the triage queue.
 
 ## Where it lives in code
 
@@ -39,7 +39,8 @@ Tips educate about capability; alarms about state belong to the header's own lin
 | The registry, in curriculum order       | [`src/shared/tips.ts`](../../../src/shared/tips.ts)                               |
 | Predicates, selection, seen-state shape | [`src/engine/desk/tips.ts`](../../../src/engine/desk/tips.ts)                     |
 | Seen-state file I/O                     | [`src/engine/desk/tip_state.ts`](../../../src/engine/desk/tip_state.ts)           |
-| Header rendering and session flow       | [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts)                     |
+| Header composition                      | [`src/engine/desk/view.ts`](../../../src/engine/desk/view.ts)                     |
+| Session selection and stable placement  | [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts)                     |
 | Engine and store tests                  | [`tests/engine_desk_tips_test.ts`](../../../tests/engine_desk_tips_test.ts)       |
 | Session rendering tests                 | [`tests/engine_desk_runtime_test.ts`](../../../tests/engine_desk_runtime_test.ts) |
 

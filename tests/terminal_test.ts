@@ -11,6 +11,7 @@ import {
   productionTerminalContext,
   resolveTerminalContext,
   TERMINAL_BACKGROUND_TIMEOUT_MS,
+  terminalContextAtSize,
   terminalInteractionIo,
   terminalLine,
   terminalMultiline,
@@ -103,6 +104,32 @@ Deno.test("terminal viewport observation samples live dimensions and closes perm
     "a closed observation never calls the process reader again",
   );
   assertEquals(observations, 2);
+});
+
+Deno.test("terminal viewport rebinding preserves the resolved presentation identity", () => {
+  const context = resolveTerminalContext({
+    noColor: false,
+    env: fakeEnv({
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      LANG: "en_GB.UTF-8",
+    }),
+    isTerminal: () => true,
+    consoleSize: () => ({ columns: 80, rows: 24 }),
+  });
+  const interaction = terminalInteractionIo(context);
+  const rebound = terminalContextAtSize(context, { columns: 40.9, rows: 12.8 });
+
+  assertEquals(rebound.size, { columns: 40, rows: 12 });
+  assertEquals(rebound.capabilities, { ...context.capabilities, columns: 40 });
+  assertEquals(rebound.presenter.capabilities, rebound.capabilities);
+  assertEquals(rebound.themeVariant, context.themeVariant);
+  assertEquals(rebound.color, context.color);
+  assertEquals(rebound.environment, context.environment);
+  assertEquals(rebound.stdoutIsTerminal, context.stdoutIsTerminal);
+  assertEquals(rebound.observeViewport, context.observeViewport);
+  assertEquals(terminalInteractionIo(rebound), interaction);
+  assertEquals(context.size, { columns: 80, rows: 24 });
 });
 
 Deno.test("unsupported live viewport observation retains the initial snapshot", () => {

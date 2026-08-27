@@ -16,6 +16,7 @@ import type {
   GateProofCheckStatus,
   LandingAuthorityData,
   StatusAdrCollision,
+  StatusData,
   StatusFleetCollision,
   StatusFleetEntry,
 } from "../../shared/result_schemas.ts";
@@ -202,6 +203,15 @@ export interface DeskProofFact {
   readonly honored: boolean;
   readonly summary: string;
   readonly detail?: string;
+  /** Stored one-line Proof, present only when the survey reports it. */
+  readonly line?: string;
+}
+
+/** Running or most-recent command evidence, already interpreted for display. */
+export interface DeskActivityFact {
+  readonly status: "running" | "last_action" | "unrecorded";
+  readonly summary: string;
+  readonly detail?: string;
 }
 
 export interface DeskAuthorityFact {
@@ -238,6 +248,7 @@ export interface DeskDecision {
   readonly details: readonly DeskDetail[];
   readonly needsHumanDecision: boolean;
   readonly landingReady: boolean;
+  readonly activity: DeskActivityFact;
   readonly proof: DeskProofFact;
   readonly authority: DeskAuthorityFact;
   readonly collisions: readonly DeskCollision[];
@@ -253,6 +264,33 @@ export interface DeskRow {
   readonly scripts: readonly ProjectScript[];
   readonly agentLaunches: readonly DeskAgentLaunch[];
   readonly decision: DeskDecision;
+}
+
+/** Main-checkout state carried by the board decision. */
+export interface DeskMainDecision {
+  readonly state: "clean" | "changed" | "unknown";
+  readonly headline: string;
+}
+
+/** One bounded root-level fact that is not a selectable task. */
+export interface DeskBoardNotice {
+  readonly id: "unlanded" | "contained" | "reappeared";
+  readonly state: "attention" | "information";
+  readonly headline: string;
+  readonly detail?: string;
+  readonly nextAction?: string;
+}
+
+/** Complete root-board meaning; the view only maps these decisions to Components. */
+export interface DeskBoardDecision {
+  readonly project: string;
+  readonly main: DeskMainDecision;
+  readonly taskCount: number;
+  readonly needsPersonCount: number;
+  readonly readyToReviewCount: number;
+  /** Static in this wave; a later live-refresh stream replaces this value. */
+  readonly refreshedAge: "just now";
+  readonly notices: readonly DeskBoardNotice[];
 }
 
 /** The headings rendered for decision groups. */
@@ -309,6 +347,7 @@ function activeAge(iso: string | undefined, nowMs: number): string {
 function proofFact(
   status: GateProofCheckStatus,
   detail?: string,
+  line?: string,
 ): DeskProofFact {
   const summary = ((): string => {
     switch (status) {
@@ -333,6 +372,52 @@ function proofFact(
     honored: status === "honored",
     summary,
     ...(detail === undefined ? {} : { detail }),
+    ...(line === undefined ? {} : { line }),
+  };
+}
+
+/** Project command activity once so detail views never reinterpret survey rows. */
+function activityFact(
+  entry: StatusFleetEntry,
+  nowMs: number,
+): DeskActivityFact {
+  if (entry.running !== undefined) {
+    const timing = [
+      `Elapsed ${compactDuration(entry.running.elapsed_ms)}`,
+      ...(entry.running.typical_duration_ms === undefined
+        ? []
+        : [`usually ${compactDuration(entry.running.typical_duration_ms)}`]),
+    ].join("; ");
+    return {
+      status: "running",
+      summary: `Running ${discernCommand(entry.running.verb)}`,
+      detail: timing,
+    };
+  }
+  if (entry.last_action !== undefined) {
+    const age = relativeAge(entry.last_action.at, nowMs);
+    const outcome = entry.last_action.outcome === "ok"
+      ? "completed"
+      : entry.last_action.outcome === "partial"
+      ? "completed part of its work"
+      : entry.last_action.outcome === "refused"
+      ? "was refused"
+      : "failed";
+    const detail = [
+      ...(age === "—" ? [] : [`Recorded ${age}`]),
+      ...(entry.last_action.failed_stage === undefined
+        ? []
+        : [`failed check: ${entry.last_action.failed_stage}`]),
+    ].join("; ");
+    return {
+      status: "last_action",
+      summary: `${discernCommand(entry.last_action.verb)} ${outcome}`,
+      ...(detail === "" ? {} : { detail }),
+    };
+  }
+  return {
+    status: "unrecorded",
+    summary: activeAge(entry.last_activity, nowMs),
   };
 }
 
@@ -756,7 +841,12 @@ export function buildDeskDecision(
       ? {}
       : { collisions: options.fleetCollisions }),
   });
-  const proof = proofFact(presentation.proof.status, presentation.proof.detail);
+  const proof = proofFact(
+    presentation.proof.status,
+    presentation.proof.detail,
+    entry.gate_proof?.proof_line ?? entry.proof_line,
+  );
+  const activity = activityFact(entry, options.nowMs);
   const authority = authorityFact(entry.landing_authority);
   const collisions: DeskCollision[] = [
     ...presentation.collisions.map((collision): DeskChangedFileCollision => ({
@@ -843,6 +933,7 @@ export function buildDeskDecision(
     details,
     needsHumanDecision,
     landingReady: presentation.landingReady,
+    activity,
     proof,
     authority,
     collisions,
@@ -850,6 +941,89 @@ export function buildDeskDecision(
     ...(offers.recommendedAction === undefined
       ? {}
       : { recommendedAction: offers.recommendedAction }),
+  };
+}
+
+/** Build the complete root-board decision from one canonical status survey. */
+export function buildDeskBoardDecision(
+  data: StatusData,
+  rows: readonly DeskRow[],
+): DeskBoardDecision {
+  const project = data.project?.trim();
+  const mainEntry = (data.fleet ?? []).find((entry) => entry.is_main);
+  const main: DeskMainDecision = mainEntry === undefined
+    ? {
+      state: "unknown",
+      headline: "Main checkout state was not reported",
+    }
+    : mainEntry.clean === true
+    ? { state: "clean", headline: `${mainEntry.branch} is clean` }
+    : mainEntry.clean === false
+    ? {
+      state: "changed",
+      headline: mainEntry.changed_files === undefined
+        ? `${mainEntry.branch} has uncommitted changes`
+        : `${mainEntry.branch} has ${
+          plural(mainEntry.changed_files, "uncommitted change")
+        }`,
+    }
+    : {
+      state: "unknown",
+      headline: `${mainEntry.branch} state is unavailable`,
+    };
+  const notices: DeskBoardNotice[] = [];
+  const unlanded = data.unlanded_branches ?? [];
+  if (unlanded.length > 0) {
+    const only = unlanded.length === 1 ? unlanded[0] : undefined;
+    notices.push({
+      id: "unlanded",
+      state: "attention",
+      headline: `${plural(unlanded.length, "branch", "branches")} ${
+        unlanded.length === 1 ? "has" : "have"
+      } no worktree`,
+      ...(only === undefined ? {} : { detail: only }),
+      nextAction:
+        "Open a branch with discern start --from <branch> before continuing it.",
+    });
+  }
+  const contained = data.contained_refs ?? [];
+  if (contained.length > 0) {
+    const only = contained.length === 1 ? contained[0] : undefined;
+    notices.push({
+      id: "contained",
+      state: "information",
+      headline: `${
+        plural(contained.length, "reclaimed branch", "reclaimed branches")
+      } ${contained.length === 1 ? "remains" : "remain"} inside live work`,
+      ...(only === undefined ? {} : {
+        detail:
+          `${only.branch} remains inside ${only.contained_in} until it lands`,
+      }),
+    });
+  }
+  const reappeared = data.reappeared_worktree_paths ?? [];
+  if (reappeared.length > 0) {
+    notices.push({
+      id: "reappeared",
+      state: "attention",
+      headline: `${plural(reappeared.length, "removed worktree path")} ${
+        reappeared.length === 1 ? "is" : "are"
+      } present again`,
+      nextAction: "Review with discern worktree prune --dry-run.",
+    });
+  }
+  return {
+    project: project === undefined || project === ""
+      ? "Project identity unavailable"
+      : project,
+    main,
+    taskCount: rows.length,
+    needsPersonCount:
+      rows.filter((row) => row.decision.needsHumanDecision).length,
+    readyToReviewCount:
+      rows.filter((row) => row.decision.state === "ready_to_review").length,
+    refreshedAge: "just now",
+    notices,
   };
 }
 

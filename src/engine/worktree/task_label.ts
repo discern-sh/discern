@@ -2,6 +2,7 @@
 
 import { basename } from "@std/path";
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
+import { sanitizeSlug } from "./identity.ts";
 
 /** A task name plus the minted id's tail when duplicate names need it. */
 export interface WorktreeTaskLabel {
@@ -14,7 +15,13 @@ export interface WorktreeTaskLabel {
 export function taskLabel(
   entry: Pick<StatusFleetEntry, "id" | "path">,
 ): WorktreeTaskLabel {
-  const id = entry.id?.trim() || basename(entry.path);
+  const canonical = entry.id?.trim();
+  const pathIdentity = basename(entry.path).trim();
+  const id = canonical !== undefined && canonical !== ""
+    ? pathIdentity !== "" && sanitizeSlug(pathIdentity) === canonical
+      ? pathIdentity
+      : canonical
+    : pathIdentity;
   const match = /^(.*)-([0-9a-f]{6})$/i.exec(id);
   const stem = match?.[1] ?? id;
   const words = stem.replaceAll("-", " ").trim();

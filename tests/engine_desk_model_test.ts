@@ -9,11 +9,13 @@ import { configSchema } from "../src/shared/config_schema.ts";
 import {
   GATE_PROOF_CHECK_STATUSES,
   type GateProofCheckStatus,
+  type StatusData,
   type StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import type { DetectedAgentBinary } from "../src/lib/detect_agents.ts";
 import {
   buildAgentLaunches,
+  buildDeskBoardDecision,
   buildDeskDecision,
   buildDeskRows,
   decisionSummary,
@@ -461,6 +463,47 @@ Deno.test("the complete gate-Proof inspection outranks honored compatibility tex
   assertEquals(decision.landingReady, false);
 });
 
+Deno.test("task activity and the exact Proof line cross the decision boundary", () => {
+  const running = decide({
+    ahead: 1,
+    running: {
+      verb: "done",
+      started: minutesAgo(1),
+      elapsed_ms: 42_000,
+      typical_duration_ms: 120_000,
+    },
+    gate_proof: {
+      status: "honored",
+      proof_line: "Proof: agent/x abcdef0 · gate passed",
+    },
+  });
+  assertEquals(running.activity, {
+    status: "running",
+    summary: "Running discern done",
+    detail: "Elapsed 42s; usually 2m",
+  });
+  assertEquals(running.proof.line, "Proof: agent/x abcdef0 · gate passed");
+
+  const completed = decide({
+    last_action: {
+      verb: "done",
+      outcome: "failed",
+      at: minutesAgo(3),
+      failed_stage: "test",
+    },
+  });
+  assertEquals(completed.activity, {
+    status: "last_action",
+    summary: "discern done failed",
+    detail: "Recorded 3m ago; failed check: test",
+  });
+
+  assertEquals(decide({ last_activity: undefined }).activity, {
+    status: "unrecorded",
+    summary: "No activity recorded",
+  });
+});
+
 Deno.test("standing, effort, scoped, and absent authority remain distinct", () => {
   const proof = { status: "honored" } as const;
   const effort = decide({
@@ -748,6 +791,81 @@ Deno.test("unknown divergence disables actions that require trustworthy counts",
 
 // ── row construction, ordering, and factual copy ────────────────────────────
 
+Deno.test("the board decision carries project, main, counts, and bounded notices", () => {
+  const main = entry({
+    branch: "main",
+    path: "/tmp/project",
+    is_main: true,
+    is_current: true,
+    clean: false,
+    changed_files: 2,
+  });
+  const fleet = [
+    main,
+    entry({ branch: "agent/attention", path: "/tmp/attention", broken: true }),
+    entry({
+      branch: "agent/ready",
+      path: "/tmp/ready",
+      ahead: 1,
+      gate_proof: { status: "honored" },
+      landing_authority: { kind: "authorized", source: "effort-grant" },
+    }),
+  ];
+  const taskRows = buildDeskRows(fleet, new Map(), new Map(), {
+    trunk: TRUNK,
+    nowMs: NOW,
+  });
+  const data: StatusData = {
+    location: "main",
+    root: "/tmp/project",
+    project: "demo",
+    worktree: null,
+    git: null,
+    standards: [],
+    fleet,
+    unlanded_branches: ["agent/orphan"],
+    contained_refs: [{
+      branch: "agent/reclaimed",
+      contained_in: "agent/ready",
+    }],
+    reappeared_worktree_paths: [{
+      path: "/tmp/returned",
+      removed_at: daysAgo(1),
+      kind: "directory",
+      contents: [],
+      contents_truncated: false,
+      entries: 0,
+    }],
+  };
+
+  assertEquals(buildDeskBoardDecision(data, taskRows), {
+    project: "demo",
+    main: { state: "changed", headline: "main has 2 uncommitted changes" },
+    taskCount: 2,
+    needsPersonCount: 1,
+    readyToReviewCount: 1,
+    refreshedAge: "just now",
+    notices: [{
+      id: "unlanded",
+      state: "attention",
+      headline: "1 branch has no worktree",
+      detail: "agent/orphan",
+      nextAction:
+        "Open a branch with discern start --from <branch> before continuing it.",
+    }, {
+      id: "contained",
+      state: "information",
+      headline: "1 reclaimed branch remains inside live work",
+      detail: "agent/reclaimed remains inside agent/ready until it lands",
+    }, {
+      id: "reappeared",
+      state: "attention",
+      headline: "1 removed worktree path is present again",
+      nextAction: "Review with discern worktree prune --dry-run.",
+    }],
+  });
+});
+
 Deno.test("buildDeskRows excludes main, carries collisions, and sorts by human decision", () => {
   const fleet = [
     entry({ is_main: true, branch: "main", path: "/p/main" }),
@@ -877,6 +995,23 @@ Deno.test("taskLabel keeps task identity separate from its disambiguator", () =>
   assertEquals(
     taskLabel(entry({ id: undefined, path: "/p/brisk-otter-a3f9c1" })),
     { name: "Brisk otter", disambiguator: "a3f9c1" },
+  );
+  assertEquals(
+    taskLabel(entry({
+      id: "unicode-a1b2c3",
+      path: "/p/unicode-修复终端布局和证明显示-a1b2c3",
+    })),
+    {
+      name: "Unicode 修复终端布局和证明显示",
+      disambiguator: "a1b2c3",
+    },
+  );
+  assertEquals(
+    taskLabel(entry({
+      id: "canonical-a1b2c3",
+      path: "/p/unrelated-folder",
+    })),
+    { name: "Canonical", disambiguator: "a1b2c3" },
   );
 });
 

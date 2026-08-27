@@ -209,8 +209,9 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      "Bare `discern` opens the human view over work in progress (the Desk). " +
-      "Start tasks, supervise them, and read one short tip there.",
+      "Start with a task under Needs attention. Select it to read the " +
+      "evidence and recommended next action, then choose Back to return to " +
+      "the triage queue.",
   }),
 
   defineTip({

@@ -19,13 +19,12 @@
 
 import { basename } from "@std/path";
 import { bestEffort } from "../../shared/best_effort.ts";
-import { DISCERN_DOCS_URL, DISCERN_WORDMARK } from "../../shared/brand.ts";
+import { DISCERN_DOCS_URL } from "../../shared/brand.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
-import { renderHumanOutputGroups } from "../../shared/result.ts";
 import type { StartData, StatusData } from "../../shared/result_schemas.ts";
 import {
   detectAgentBinariesOnPath,
@@ -64,7 +63,7 @@ import {
 } from "../worktree/lifecycle.ts";
 import { mainRepoPath } from "../worktree/git.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { makeOut, type Out } from "../output.ts";
 import { runOwnedChild } from "../owned_child.ts";
 import { withOperationLock } from "../operation_lock.ts";
 import {
@@ -74,14 +73,11 @@ import {
 } from "../project_scripts.ts";
 import {
   buildAgentLaunches,
+  buildDeskBoardDecision,
   buildDeskRows,
-  decisionSummary,
-  DESK_STATES,
   type DeskAction,
-  type DeskActionGroupId,
   type DeskAgentLaunch,
   type DeskRow,
-  stateTitle,
 } from "./model.ts";
 import {
   markTipShown,
@@ -93,8 +89,13 @@ import { readTipSeenState, writeTipSeenState } from "./tip_state.ts";
 import { TIPS } from "../../shared/tips.ts";
 import { observeShownTip } from "../../shared/result_capture.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
-import { displayWidth, terminalWidth, wrapText } from "../../lib/text.ts";
-import { terminalLine } from "../../lib/terminal.ts";
+import { terminalSize } from "../../lib/text.ts";
+import {
+  terminalContext,
+  terminalContextAtSize,
+  terminalLine,
+  type TerminalSize,
+} from "../../lib/terminal.ts";
 import { deskSessionEnv, inDeskSession } from "./session.ts";
 import { clearEffortGrant } from "../worktree/effort_grant_cleanup.ts";
 import {
@@ -102,16 +103,26 @@ import {
   grantEffort,
 } from "../worktree/effort_grant_writer.ts";
 import { userShell } from "../user_shell.ts";
+import {
+  DESK_FILTER_THRESHOLD,
+  DESK_ROUTES,
+  deskActionGroups,
+  deskCompositionReserveRows,
+  deskRootPrompt,
+  deskRootSelectionGroups,
+  deskRootUsesSearch,
+  renderDeskBoard,
+  renderDeskTaskDetail,
+} from "./view.ts";
 
-/** Sentinel Select values that are not fleet rows (NUL-prefixed: never a path). */
-const REFRESH = "\x00refresh";
-const QUIT = "\x00quit";
-const BACK = "\x00back";
-const START_TASK = "\x00start-task";
-const RUN_PROJECT_SCRIPT = "\x00run-project-script";
-const READ_DOCS = "\x00read-docs";
-/** A short fleet is faster to scan directly; larger fleets gain type-to-filter. */
-const FILTER_THRESHOLD = 8;
+const {
+  back: BACK,
+  quit: QUIT,
+  readDocs: READ_DOCS,
+  refresh: REFRESH,
+  runProjectScript: RUN_PROJECT_SCRIPT,
+  startTask: START_TASK,
+} = DESK_ROUTES;
 
 /** Flags accepted by `desk`. */
 export interface DeskOptions {
@@ -206,8 +217,8 @@ export interface DeskRuntime {
   writeTipState(root: string, state: TipSeenState): DeskMaybePromise<void>;
   /** Report a shown tip id for the session's logbook event. */
   recordTipShown(id: string): void;
-  /** The terminal width the header wraps its tip line to. */
-  width(): number;
+  /** The live viewport sampled once for each complete Desk composition. */
+  size(): TerminalSize;
 }
 
 /** Dim "→ <command>" line: the CLI equivalent of the action about to run. */
@@ -312,7 +323,10 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   grantEffort: (path, branch) =>
     grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow())),
   clearEffortGrant: (path) => clearEffortGrant(path),
-  makeOut: () => makeOut(colorEnabled()),
+  makeOut: () => {
+    const terminal = terminalContext();
+    return makeOut(terminal.color, { terminal });
+  },
   error: (message) => deskLogger().error(message),
   select: (options) => requestSelection<string>(options),
   confirm: (message, options) => confirmOrNo(message, options),
@@ -383,7 +397,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   readTipState: (root) => readTipSeenState(root, KIT_VERSION),
   writeTipState: (root, state) => writeTipSeenState(root, state),
   recordTipShown: (id) => observeShownTip(id),
-  width: () => terminalWidth(),
+  size: () => terminalSize(),
 };
 
 /** Run a git read in `cwd` and print its output under a heading ("(none)" when
@@ -416,33 +430,6 @@ async function loadWorktreeConfig(
     // discern-best-effort: desk-worktree-config-fallback
     return undefined;
   }
-}
-
-/** Menu-order labels for the row action hierarchy. */
-const DESK_ACTION_GROUPS: readonly {
-  readonly id: DeskActionGroupId;
-  readonly label: string;
-}[] = [
-  { id: "landing", label: "Landing" },
-  { id: "work", label: "Work in this task" },
-  { id: "review", label: "Review" },
-  { id: "worktree", label: "Worktree" },
-];
-
-/** Build the populated action groups for one selected task. */
-function actionGroups(row: DeskRow): SelectionGroup<string>[] {
-  return DESK_ACTION_GROUPS.map((group) => ({
-    id: `actions-${group.id}`,
-    label: group.label,
-    items: row.decision.actions
-      .filter((offer) =>
-        offer.availability === "enabled" && offer.group === group.id
-      )
-      .map((offer) => ({
-        name: offer.label,
-        value: offer.action as string,
-      })),
-  }));
 }
 
 /** Pick one of the configured, PATH-available agent entry points. */
@@ -518,7 +505,7 @@ async function pickScript(
   ]);
   let name: string;
   try {
-    const search = scripts.length > FILTER_THRESHOLD;
+    const search = scripts.length > DESK_FILTER_THRESHOLD;
     name = await runtime.select({
       message: `Choose a Project Script for ${owner}`,
       options,
@@ -537,234 +524,34 @@ async function pickScript(
     : scripts.find((script) => script.name === name);
 }
 
-/** The first-line label of the tip slot; continuation lines hang under it. */
-const TIP_PREFIX = "  ✦ Tip  ";
-
-/** The desk header: project identity, the main checkout's state, the
- * otherwise-invisible unlanded branches, and the session's one tip line.
- * Returns the terminal rows it wrote, so the board menu can reserve them
- * out of its viewport-derived row budget. */
-function renderHeader(
-  out: Out,
-  config: DiscernConfig,
-  root: string,
-  data: StatusData,
-  rows: readonly DeskRow[],
-  tip: string | undefined,
-  width: number,
-): number {
-  const project = config.project.slug === ""
-    ? basename(root)
-    : config.project.slug;
-  out.heading(terminalLine(`${DISCERN_WORDMARK} | ${project}`));
-  const taskCount = rows.length === 0
-    ? "No tasks"
-    : `${rows.length} task${rows.length === 1 ? "" : "s"}`;
-  const main = (data.fleet ?? []).find((e) => e.is_main);
-  const summaryLines: string[] = [];
-  if (main !== undefined) {
-    const mainState = main.clean === true
-      ? `${main.branch} clean`
-      : main.clean === false
-      ? `${main.branch} has ${main.changed_files ?? "?"} uncommitted change${
-        main.changed_files === 1 ? "" : "s"
-      }`
-      : `${main.branch} state unknown`;
-    const renderedMainState = main.clean === true
-      ? out.terminal.tone(terminalLine(mainState), "success")
-      : out.terminal.tone(terminalLine(mainState), "warning");
-    summaryLines.push(
-      `  ${
-        out.terminal.role(`${taskCount}  ·`, "muted")
-      }  ${renderedMainState}`,
-    );
-  } else {
-    summaryLines.push(`  ${out.terminal.role(taskCount, "muted")}`);
-  }
-  const unlandedLines: string[] = [];
-  const unlanded = data.unlanded_branches ?? [];
-  if (unlanded.length > 0) {
-    const branches = `${unlanded.length} branch${
-      unlanded.length === 1 ? " has" : "es have"
-    } no worktree`;
-    unlandedLines.push(
-      `  ${out.terminal.tone(branches, "warning")}: ${
-        out.terminal.role(terminalLine(unlanded.join(", ")), "muted")
-      }`,
-    );
-    unlandedLines.push(
-      `  ${
-        out.terminal.role(
-          "Open one with `discern start --from <branch>`.",
-          "muted",
-        )
-      }`,
-    );
-  }
-  // Reclaimed-stage refs are a calm fact, not a warning: their commits ride
-  // inside the named live branch, and the refs self-clean through the
-  // ordinary prune once that work lands. One dim line, no action offered.
-  const containedRefs = data.contained_refs ?? [];
-  const containedLines: string[] = [];
-  if (containedRefs.length > 0) {
-    const first = containedRefs[0];
-    const line = containedRefs.length === 1 && first !== undefined
-      ? `${first.branch} rides inside ${first.contained_in} until it lands`
-      : `${containedRefs.length} reclaimed stage refs ride inside live branches until they land`;
-    containedLines.push(
-      `  ${out.terminal.role(terminalLine(`${line}.`), "muted")}`,
-    );
-  }
-  const reappearedLines: string[] = [];
-  const reappeared = data.reappeared_worktree_paths ?? [];
-  if (reappeared.length > 0) {
-    reappearedLines.push(
-      `  ${
-        out.terminal.tone(
-          `${reappeared.length} removed worktree path${
-            reappeared.length === 1 ? " is" : "s are"
-          } present again.`,
-          "warning",
-        )
-      }`,
-    );
-    reappearedLines.push(
-      `  ${
-        out.terminal.role(
-          "Review with `discern worktree prune --dry-run`.",
-          "muted",
-        )
-      }`,
-    );
-  }
-  // The session's tip (ADR 0234): one teaching line directly below the status,
-  // wrapped with a hanging indent at the resolved width — never truncated,
-  // because the narrow embedded terminals discern's users live in would clip
-  // most tips mid-sentence.
-  const tipLines: string[] = [];
-  if (tip !== undefined) {
-    const indent = " ".repeat(displayWidth(TIP_PREFIX));
-    const lines = wrapText(tip, Math.max(1, width - indent.length));
-    for (const [index, line] of lines.entries()) {
-      tipLines.push(
-        index === 0
-          ? `${out.terminal.role("  ✦ ", "muted")}${
-            out.terminal.tone("Tip", "warning")
-          }${out.terminal.role(`  ${line}`, "muted")}`
-          : out.terminal.role(`${indent}${line}`, "muted"),
-      );
-    }
-  }
-  const rendered = renderHumanOutputGroups([
-    { id: "desk-summary", items: [...summaryLines, ...tipLines] },
-    { id: "unlanded-branches", items: unlandedLines },
-    { id: "contained-branches", items: containedLines },
-    { id: "reappeared-worktree-paths", items: reappearedLines },
-  ], { leadingBoundary: true });
-  if (rendered !== "") out.raw(`${rendered}\n`);
-  const headingRows = 2;
-  const renderedRows = rendered === ""
-    ? 0
-    : (rendered.match(/\n/g)?.length ?? 0) + 1;
-  return headingRows + renderedRows;
-}
-
 /** Offer the fleet as a grouped picker; resolves to a row path or a sentinel.
- * `headerRows` is what the board header above this menu occupies, reserved out
+ * `boardRows` is what the board composition above this menu occupies, reserved out
  * of the menu's viewport-derived row budget so the board stays visible. */
 async function pickRow(
-  rows: DeskRow[],
+  rows: readonly DeskRow[],
   rootScripts: readonly ProjectScript[],
-  headerRows: number,
+  boardRows: number,
+  viewport: TerminalSize,
+  terminal: Out["terminal"],
   runtime: DeskRuntime,
 ): Promise<string> {
-  const stateHeading = (
-    state: DeskRow["decision"]["state"],
-    count: number,
-  ): string => `${stateTitle(state)} · ${count}`;
-  const nameCounts = new Map<string, number>();
-  for (const row of rows) {
-    nameCounts.set(row.task.name, (nameCounts.get(row.task.name) ?? 0) + 1);
-  }
-  const labels = new Map<string, { plain: string; rendered: string }>();
-  for (const row of rows) {
-    const duplicate = (nameCounts.get(row.task.name) ?? 0) > 1;
-    const disambiguator = duplicate
-      ? row.task.disambiguator ?? row.entry.id ?? row.entry.branch
-      : undefined;
-    labels.set(
-      row.entry.path,
-      disambiguator === undefined
-        ? { plain: row.task.name, rendered: row.task.name }
-        : {
-          plain: `${row.task.name}  ${disambiguator}`,
-          rendered: `${row.task.name}  ${disambiguator}`,
-        },
-    );
-  }
-  const labelWidth = Math.max(
-    0,
-    ...[...labels.values()].map((v) => v.plain.length),
-  );
-  const groups: SelectionGroup<string>[] = [];
-  for (const state of DESK_STATES) {
-    const members = rows.filter((row) => row.decision.state === state);
-    if (members.length === 0) {
-      continue;
-    }
-    groups.push({
-      id: `tasks-${state}`,
-      label: stateHeading(state, members.length),
-      items: members.map((r) => {
-        const label = labels.get(r.entry.path) ?? {
-          plain: r.task.name,
-          rendered: r.task.name,
-        };
-        return {
-          name: `${label.rendered}${
-            " ".repeat(labelWidth - label.plain.length)
-          }  ${decisionSummary(r.decision)}`,
-          value: r.entry.path,
-        };
-      }),
-    });
-  }
-  groups.push({
-    id: "desk-actions",
-    label: "Desk",
-    items: [
-      {
-        name: "Start a task",
-        value: START_TASK,
-      },
-      ...(rootScripts.length === 0
-        ? []
-        : [{ name: "Run a Project Script", value: RUN_PROJECT_SCRIPT }]),
-      { name: "Read discern's docs", value: READ_DOCS },
-    ],
-  });
-  groups.push({
-    id: "session-actions",
-    label: "Session",
-    items: [
-      { name: "Refresh", value: REFRESH },
-      { name: "Quit", value: QUIT },
-    ],
-  });
-  const options = groupedSelectionEntries(groups);
-  const search = rows.length > FILTER_THRESHOLD;
+  const options = groupedSelectionEntries(deskRootSelectionGroups({
+    rows,
+    hasProjectScripts: rootScripts.length > 0,
+    viewport,
+    terminal,
+  }));
+  const search = deskRootUsesSearch(rows.length);
   try {
     return await runtime.select({
-      message: rows.length === 0
-        ? "Choose a desk action"
-        : "Choose a task or action",
+      message: deskRootPrompt(rows.length),
       options,
       search,
       ...(search ? { searchLabel: "filter" } : {}),
       hint: search
         ? "Type to filter. Use the arrow keys to move and Enter to choose."
         : "Use the arrow keys to move and Enter to choose.",
-      reservedRows: headerRows,
+      reservedRows: deskCompositionReserveRows(boardRows, viewport.rows),
     });
   } catch (error) {
     if (!isInteractionCancelled(error)) throw error;
@@ -1142,10 +929,6 @@ async function dispatchAction(
   }
 }
 
-/** Rows the action menu's own preamble occupies: the task heading (two rows)
- * plus the summary and branch lines written directly below it. */
-const ACTION_MENU_PREAMBLE_ROWS = 4;
-
 /** The per-row action menu; loops until the row is left or the state changed. */
 async function actOn(
   out: Out,
@@ -1156,26 +939,13 @@ async function actOn(
   cliModel?: CliModelProvider,
 ): Promise<void> {
   clearBoard(out);
-  out.heading(terminalLine(row.task.name));
-  out.raw(
-    `  ${
-      out.terminal.role(
-        terminalLine(decisionSummary(row.decision)),
-        "muted",
-      )
-    }\n`,
-  );
-  out.raw(
-    `  ${
-      out.terminal.role(
-        terminalLine(`Branch ${row.entry.branch}`),
-        "muted",
-      )
-    }\n`,
-  );
+  const viewport = runtime.size();
+  const terminal = terminalContextAtSize(out.terminal, viewport);
+  const detail = renderDeskTaskDetail(row, viewport, terminal);
+  out.raw(`${detail.text}\n`);
   while (true) {
     const options = groupedSelectionEntries<string>([
-      ...actionGroups(row),
+      ...deskActionGroups(row),
       {
         id: "task-navigation",
         label: "Task",
@@ -1188,7 +958,7 @@ async function actOn(
         message: "Choose an action",
         options,
         hint: "Use the arrow keys to move and Enter to choose.",
-        reservedRows: ACTION_MENU_PREAMBLE_ROWS,
+        reservedRows: deskCompositionReserveRows(detail.rows, viewport.rows),
       });
     } catch (error) {
       if (!isInteractionCancelled(error)) throw error;
@@ -1363,22 +1133,29 @@ export async function runDesk(
           : { adrCollisions: data.adr_collisions }),
       },
     );
-    const headerRows = renderHeader(
-      out,
-      config,
-      root,
-      data,
-      rows,
-      tipLine,
-      runtime.width(),
-    );
+    const viewport = runtime.size();
+    const terminal = terminalContextAtSize(out.terminal, viewport);
+    const board = renderDeskBoard({
+      board: buildDeskBoardDecision(data, rows),
+      ...(tipLine === undefined ? {} : { tip: tipLine }),
+      viewport,
+      terminal,
+    });
+    out.raw(`${board.text}\n`);
 
     const focused = focusPath === undefined
       ? undefined
       : rows.find((row) => row.entry.path === focusPath);
     focusPath = undefined;
     const choice = focused?.entry.path ??
-      await pickRow(rows, rootScripts, headerRows, runtime);
+      await pickRow(
+        rows,
+        rootScripts,
+        board.rows,
+        viewport,
+        terminal,
+        runtime,
+      );
     if (choice === QUIT) {
       return 0;
     }
@@ -1397,7 +1174,7 @@ export async function runDesk(
       await runRootProjectScript(
         out,
         root,
-        config.project.slug === "" ? basename(root) : config.project.slug,
+        data.project ?? basename(root),
         rootScripts,
         runtime,
       );
