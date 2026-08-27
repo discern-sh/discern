@@ -2735,6 +2735,27 @@ export const SetupAcceptDataSchema = z.strictObject({
 });
 export type SetupAcceptData = z.infer<typeof SetupAcceptDataSchema>;
 
+/** A successful setup-acceptance no-op. The reason is explicit because an
+ * absent landing payload cannot distinguish idempotence from an omitted
+ * required landing outcome. */
+export const SetupAcceptNoOpDataSchema = z.strictObject({
+  completion: z.strictObject({
+    status: z.literal("no_op"),
+    reason: z.enum(["no_git_repository", "already_on_target"]),
+  }),
+  target: z.string(),
+});
+export type SetupAcceptNoOpData = z.infer<typeof SetupAcceptNoOpDataSchema>;
+
+/** Every successful or attempted setup-acceptance outcome. */
+export const SetupAcceptResultDataSchema = z.union([
+  SetupAcceptDataSchema,
+  SetupAcceptNoOpDataSchema,
+]);
+export type SetupAcceptResultData = z.infer<
+  typeof SetupAcceptResultDataSchema
+>;
+
 const configEditSchema = z.strictObject({
   key: z.string(),
   literal: z.string(),
@@ -3154,7 +3175,7 @@ export const SetupDoneOutputSchema = resultOutputSchema(
 /** `setup accept` output: envelope + the landing preview/result `data`. */
 export const SetupAcceptOutputSchema = resultOutputSchema(
   "setup accept",
-  SetupAcceptDataSchema,
+  SetupAcceptResultDataSchema,
 );
 
 /** `config` output: envelope + applied/planned TOML edits. */

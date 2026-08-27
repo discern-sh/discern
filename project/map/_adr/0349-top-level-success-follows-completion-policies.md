@@ -29,6 +29,7 @@ Result capture, quiet CLI emission, serialization, MCP adaptation, and the Logbo
 - Optional failures are visible and actionable without turning every warning into failure. Adding a new permitted degradation requires a typed kind and explicit policy enrollment.
 - Late required failures return false while retaining partial-state and safe-rerun evidence. Callers must not assume `ok: false` means no effects occurred.
 - Setup and upgrade consumers must migrate from ambiguous compilation Booleans and lists to `data.instruction_refresh`. This intentionally breaks consumers that treated a required compilation failure as success.
+- Successful setup-acceptance no-ops carry a typed `data.completion` state and reason; absence of landing data cannot stand for idempotence.
 - Completion evaluation is a shared boundary with some defensive repetition. That cost prevents a surface adapter or manually returned exit code from publishing a verdict that differs from the core envelope.
 
 ## Alternatives considered

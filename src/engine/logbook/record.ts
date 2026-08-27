@@ -55,7 +55,10 @@ import {
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
 import type { CrashSignature } from "../crash.ts";
-import type { DiscernResult } from "../../shared/result.ts";
+import {
+  type DiscernResult,
+  stepResultSatisfiesCompletion,
+} from "../../shared/result.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 import { logbookVerbIsEffectful } from "../../shared/verbs.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
@@ -495,9 +498,9 @@ function landingChanged(
 }
 
 /** The recorded outcome: irreversible effect evidence wins over an error slug
- * (`partial`); otherwise a slug means the verb declined to act (`refused`),
- * distinct from work that ran and failed. `internal_error` is the exception:
- * a crash envelope is work that died, so it records as `failed`. */
+ * (`partial`), and a failed/cancelled required step proves work ran and failed.
+ * Otherwise a slug means the verb declined to act (`refused`). A crash envelope
+ * is also work that died, so it records as `failed`. */
 function recordedOutcome(
   reported: "ok" | "failed",
   result: DiscernResult | undefined,
@@ -508,6 +511,9 @@ function recordedOutcome(
   }
   if (landingChanged(landing)) {
     return "partial";
+  }
+  if (result?.steps?.some((step) => !stepResultSatisfiesCompletion(step))) {
+    return "failed";
   }
   if (result?.error === "internal_error") {
     return "failed";

@@ -40,4 +40,6 @@ After interruption, `discern setup` or `discern status` resumes without replayin
 
 After `setup accept`, each provider gets one fresh-session instruction. Inspect registered tools, then invoke its exact local callable, including a namespaced form such as Codex's `mcp__discern__discern_status`. A missing action routes to local recovery or `discern doctor`, with `discern status --json` as fallback.
 
+Acceptance is idempotent where no landing applies. A project without a Git repository and a checkout already on the trunk both return `ok: true` with typed `data.completion.status = "no_op"`; `data.completion.reason` distinguishes the two states. An absent landing payload is not a no-op signal.
+
 For truncated results, consume state, diagnostics, location, next action, recovery, Proof, and relay from the structured or retrievable view. Never repeat an effectful command to recover output; completion replay belongs to follow-on work.

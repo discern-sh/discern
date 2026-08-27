@@ -143,7 +143,7 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
       "proof-recording-unavailable",
       "acceptance-cleanup-incomplete",
     ],
-    noOp: "not-applicable",
+    noOp: "success",
     recoveryOwner: "owner",
   }),
   upgrade: effectPolicy({
@@ -368,7 +368,8 @@ function instructionRefreshFailure(
   if (refresh === undefined) {
     const observationalMode = result.steps === undefined &&
       (data?.already_set_up === true || data?.check === true ||
-        data?.phase === "fresh" || data?.phase === "in_progress");
+        data?.phase === "fresh" || data?.phase === "in_progress" ||
+        data?.phase === "done");
     return result.dry_run === true || observationalMode ? undefined : failed(
       "partial_refresh",
       "The applied result omitted its required discriminated instruction-refresh outcome.",
@@ -467,10 +468,15 @@ function requiredFailure(
       return result.dry_run === true || data?.bootstrapped === true
         ? undefined
         : failed("incomplete", "Setup did not reach its completion marker.");
-    case "setup-landing":
-      return result.dry_run === true || data?.landed === true
+    case "setup-landing": {
+      const completion = record(data?.completion);
+      return result.dry_run === true || data?.landed === true ||
+          (completion?.status === "no_op" &&
+            (completion.reason === "no_git_repository" ||
+              completion.reason === "already_on_target"))
         ? undefined
         : failed("apply_failed", "Setup did not land on its declared target.");
+    }
     case "accept-landing": {
       if (result.dry_run === true) return undefined;
       const landing = record(data?.landing);
@@ -785,11 +791,13 @@ export function evaluateResultCompletion<TData>(
       "precondition_failed",
       "The verb did not satisfy its declared completion contract.",
     );
+    const needsCompletionMessage = result.message === undefined &&
+      (result.diagnostics?.length ?? 0) === 0;
     return {
       ...result,
       ...advisoryFields,
       error: result.error ?? classified.error,
-      message: result.message ?? classified.message,
+      ...(needsCompletionMessage ? { message: classified.message } : {}),
     };
   }
   if (failure === undefined) {

@@ -29,7 +29,7 @@ import {
 } from "../src/shared/fs_presence.ts";
 import { logbookEventSchema } from "../src/engine/logbook/schema.ts";
 import { z } from "@zod/zod";
-import { decodeWith } from "./decode_cli_result.ts";
+import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
 import { waitUntil } from "./waiting.ts";
 
 const DENO_TASKS_SCHEMA = z.object({
@@ -683,10 +683,18 @@ Deno.test("a capped gate exports the marker after its slots fail open", async ()
     assertEquals(result.code, 0, result.output);
     assertEquals(await Deno.readTextFile(gateObserved), "1");
     assertEquals(await Deno.readTextFile(nestedObserved), "1");
+    const envelope = decodeCliResult(result.stdout, "test");
     assertEquals(
-      occurrenceCount(result.output, UNAVAILABLE_TEXT),
+      envelope.hints?.filter((hint) => hint.includes(UNAVAILABLE_TEXT)).length,
       1,
       "only the gate warns; its marked child never probes independently",
+    );
+    assertEquals(
+      envelope.advisories?.filter((advisory) =>
+        advisory.kind === "execution-cap-unavailable"
+      ).length,
+      1,
+      "the one warning is also available as one typed advisory",
     );
   });
 });

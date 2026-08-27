@@ -338,9 +338,10 @@ Deno.test("an up-to-date update reports rather than commits tracked refresh outp
 
     const result = await runAgent(wt, ["update", "--json"]);
 
-    assertEquals(result.code, 0, result.output);
+    assertEquals(result.code, 1, result.output);
     const parsed = parse(result.stdout);
     assertEquals(parsed.ok, false, result.stdout);
+    assertEquals(parsed.error, "apply_failed", result.stdout);
     assert(
       parsed.steps?.some((step) =>
         step.label === BUILT_IN_STEP_LABELS.commitRegeneratedArtifacts &&
@@ -447,9 +448,10 @@ Deno.test("update records a failed declared generator without undoing the merge"
 
     const configured = await configuredGroupNames(wt);
     const result = await runAgent(wt, ["update", "--json"]);
-    assertEquals(result.code, 0, result.output);
+    assertEquals(result.code, 1, result.output);
     const parsed = parse(result.stdout);
     assertEquals(parsed.ok, false, result.stdout);
+    assertEquals(parsed.error, "apply_failed", result.stdout);
     assertEquals(
       await Deno.readTextFile(join(wt, "upstream.txt")),
       "from main\n",

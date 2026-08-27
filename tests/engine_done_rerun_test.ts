@@ -132,7 +132,7 @@ Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and
     const probed = await runAgent(wt, ["done", "--rerun", "--json"]);
     assertEquals(probed.code, 1, probed.output);
     const probedEnv = parseGateJson(probed.stdout);
-    assertEquals(probedEnv.error, undefined);
+    assertEquals(probedEnv.error, "gate_failed");
     assertEquals(probedEnv.data.failed_stage, "check/test");
   });
 });

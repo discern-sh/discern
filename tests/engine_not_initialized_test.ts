@@ -211,9 +211,9 @@ Deno.test("every verb answers `--json` outside a project with a structured envel
           assertEquals(r.code, spec.ok ? 0 : 1, `${label}: ${r.output}`);
           assertEquals(result.ok, spec.ok, label);
           if (name === "doctor") {
-            // doctor DIAGNOSES the missing install rather than refusing: no
-            // error slug, a data.checks payload naming the discern.toml gap.
-            assertEquals(result.error, undefined, label);
+            // Doctor completed its diagnosis but the required health check is
+            // red: the envelope is false and keeps the typed check evidence.
+            assertEquals(result.error, "precondition_failed", label);
             assert(result.data !== undefined, label);
           }
         }),

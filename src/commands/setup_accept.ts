@@ -63,6 +63,7 @@ import type {
   GateProofCheckData,
   Proof,
   SetupAcceptData,
+  SetupAcceptNoOpData,
 } from "../shared/result_schemas.ts";
 import {
   plannedFilesystemWrites,
@@ -231,7 +232,7 @@ function emitAccept(
       message: string;
       detail?: string[];
       diagnostics?: Diagnostic[];
-      data?: SetupAcceptData;
+      data?: SetupAcceptData | SetupAcceptNoOpData;
       code: number;
     }
     & (
@@ -335,6 +336,13 @@ export async function runSetupAccept(
       ok: true,
       message:
         "No Git repository is present, so there is no setup branch to land.",
+      data: {
+        completion: {
+          status: "no_op",
+          reason: "no_git_repository",
+        },
+        target,
+      },
       code: 0,
     });
   }
@@ -354,6 +362,13 @@ export async function runSetupAccept(
       ok: true,
       message:
         `The checkout is already on ${target}; there is no setup branch to land.`,
+      data: {
+        completion: {
+          status: "no_op",
+          reason: "already_on_target",
+        },
+        target,
+      },
       code: 0,
     });
   }

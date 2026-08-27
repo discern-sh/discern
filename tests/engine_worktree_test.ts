@@ -427,7 +427,7 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
       const mainRoot = await Deno.realPath(dir);
       const worktreeRoot = await Deno.realPath(wt);
       const run = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-      assertEquals(run.code, 0, run.output);
+      assertEquals(run.code, 1, run.output);
       assertEquals(
         await targetExists(wt),
         false,
@@ -461,6 +461,7 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
       );
 
       const result = decodeCliResult(run.stdout, "accept");
+      assertEquals(result.error, "partial_acceptance", run.stdout);
       assertExists(result.steps);
       const repositorySteps = result.steps.filter((step) =>
         step.kind === "repository-ensure"
@@ -481,7 +482,7 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
       assertEquals(
         result.ok,
         false,
-        "the non-fatal convergence failure remains visible in the result",
+        "the post-landing convergence failure remains visible in the result",
       );
       assertEquals(
         result.diagnostics?.filter((entry) =>
@@ -513,7 +514,7 @@ Deno.test("accept: records a post-landing smoke failure without skipping cleanup
     await commitCurrentWorktree(wt, "configure failing landing proof");
 
     const run = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(run.code, 0, run.output);
+    assertEquals(run.code, 1, run.output);
     assertEquals(await targetExists(wt), false, "cleanup removes the worktree");
     assertEquals(
       await gitOut(dir, "branch", "--list", "agent/trunk-smoke-failure"),
@@ -523,6 +524,7 @@ Deno.test("accept: records a post-landing smoke failure without skipping cleanup
 
     const result = decodeCliResult(run.stdout, "accept");
     assertEquals(result.ok, false);
+    assertEquals(result.error, "partial_acceptance", run.stdout);
     assertExists(result.steps);
     assert(
       result.steps.some((step) =>
@@ -1000,6 +1002,9 @@ Deno.test("the side assert accepts only registry keys (compile-level enrolment)"
 Deno.test("update: no-op when the branch already contains main", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "kappa");
+    const refreshed = await runAgent(wt, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
+    await commitCurrentWorktree(wt, "converge generated artifacts");
     // main has not moved, so the branch is up to date — update touches nothing.
     const r = await runAgent(wt, ["update"]);
     assertEquals(r.code, 0, r.output);
@@ -1902,9 +1907,10 @@ Deno.test("worktree setup re-entry: a failed convergence command keeps recovery 
     await writeDiscernToml(configPath, editor.toString());
 
     const run = await runAgent(wt, ["worktree", "setup", "--json"]);
-    assertEquals(run.code, 0, run.output);
+    assertEquals(run.code, 1, run.output);
     const result = decodeCliResult(run.stdout, "worktree setup");
     assertEquals(result.ok, false, run.stdout);
+    assertEquals(result.error, "apply_failed", run.stdout);
     assertEquals(
       result.diagnostics?.map((diagnostic) => ({
         tool: diagnostic.tool,
@@ -2076,9 +2082,10 @@ Deno.test("update: a failing no-op convergence serializes its command and recove
     await commitCurrentWorktree(wt, "converge generated artifacts");
 
     const run = await runAgent(wt, ["update", "--json"]);
-    assertEquals(run.code, 0, run.output);
+    assertEquals(run.code, 1, run.output);
     const result = decodeCliResult(run.stdout, "update");
     assertEquals(result.ok, false, run.stdout);
+    assertEquals(result.error, "apply_failed", run.stdout);
     assertExists(result.steps);
     assertEquals(
       result.steps.find((step) => step.label === "merge")?.outcome,
@@ -2102,7 +2109,7 @@ Deno.test("update: a failing no-op convergence serializes its command and recove
     );
 
     const markdown = await runAgent(wt, ["update", "--markdown"]);
-    assertEquals(markdown.code, 0, markdown.output);
+    assertEquals(markdown.code, 1, markdown.output);
     assertTerminalTextIncludes(markdown.stdout, "exit 7");
     assertTerminalTextIncludes(
       markdown.stdout,
@@ -2110,7 +2117,7 @@ Deno.test("update: a failing no-op convergence serializes its command and recove
     );
 
     const human = await runAgent(wt, ["update", "--plain"]);
-    assertEquals(human.code, 0, human.output);
+    assertEquals(human.code, 1, human.output);
     assertTerminalTextIncludes(human.output, "exit 7");
     assertTerminalTextIncludes(
       human.output,
@@ -2132,8 +2139,9 @@ Deno.test("update: a failing ensure is recorded but never undoes the merge", asy
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
     const r = await runAgent(wt, ["update", "--json"]);
-    // Non-fatal: the failed ensure does not abort or undo the landed merge.
-    assertEquals(r.code, 0, r.output);
+    // The failed ensure does not abort or undo the landed merge, but completion
+    // remains false because convergence is required.
+    assertEquals(r.code, 1, r.output);
     assert(
       await targetExists(join(wt, "upstream.txt")),
       "the merge must be kept",
@@ -2156,6 +2164,7 @@ Deno.test("update: a failing ensure is recorded but never undoes the merge", asy
       false,
       `result.ok reflects the failed ensure\n${r.stdout}`,
     );
+    assertEquals(result.error, "apply_failed", r.stdout);
     assertEquals(
       result.diagnostics?.find((entry) => entry.tool === "worktree-ensure")
         ?.reproduce_cmd,
@@ -2189,7 +2198,7 @@ Deno.test("update: a partial refresh is recorded but never undoes the merge", as
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
     const r = await runAgent(wt, ["update", "--json"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
     assert(
       await targetExists(join(wt, "upstream.txt")),
       "the merge must be kept",
@@ -2211,6 +2220,7 @@ Deno.test("update: a partial refresh is recorded but never undoes the merge", as
       false,
       `result.ok reflects the partial refresh\n${r.stdout}`,
     );
+    assertEquals(result.error, "apply_failed", r.stdout);
   });
 });
 
@@ -2228,9 +2238,10 @@ Deno.test("update: a partial refresh serializes on the already-current path", as
     await commitCurrentWorktree(wt, "add malformed mcp config");
 
     const run = await runAgent(wt, ["update", "--json"]);
-    assertEquals(run.code, 0, run.output);
+    assertEquals(run.code, 1, run.output);
     const result = decodeCliResult(run.stdout, "update");
     assertEquals(result.ok, false, run.stdout);
+    assertEquals(result.error, "apply_failed", run.stdout);
     assertExists(result.steps);
     assertEquals(
       result.steps.find((step) => step.label === "merge")?.outcome,

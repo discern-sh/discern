@@ -4361,463 +4361,499 @@
         "data": {
           "anyOf": [
             {
-              "type": "object",
-              "properties": {
-                "landed": {
-                  "type": "boolean"
-                },
-                "branch": {
-                  "type": "string"
-                },
-                "target": {
-                  "type": "string"
-                },
-                "fast_forward": {
-                  "type": "boolean"
-                },
-                "branch_deleted": {
-                  "type": "boolean"
-                },
-                "proof": {
+              "anyOf": [
+                {
                   "type": "object",
                   "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "honored",
-                        "report_only",
-                        "missing",
-                        "stale",
-                        "dirty",
-                        "unavailable",
-                        "read_failed"
-                      ]
+                    "landed": {
+                      "type": "boolean"
                     },
-                    "path": {
+                    "branch": {
                       "type": "string"
                     },
-                    "recorded": {
+                    "target": {
                       "type": "string"
                     },
-                    "head": {
-                      "type": "string"
+                    "fast_forward": {
+                      "type": "boolean"
                     },
-                    "reason": {
-                      "type": "string"
+                    "branch_deleted": {
+                      "type": "boolean"
                     },
                     "proof": {
-                      "type": "string"
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "honored",
+                            "report_only",
+                            "missing",
+                            "stale",
+                            "dirty",
+                            "unavailable",
+                            "read_failed"
+                          ]
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "recorded": {
+                          "type": "string"
+                        },
+                        "head": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "proof": {
+                          "type": "string"
+                        },
+                        "proof_line": {
+                          "type": "string"
+                        },
+                        "proof_data": {
+                          "$ref": "#/$defs/DiscernProof"
+                        },
+                        "checkpoint_drops": {
+                          "type": "array",
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "scope": {
+                                    "type": "string",
+                                    "const": "policy"
+                                  },
+                                  "checkpoint": {
+                                    "type": "null"
+                                  },
+                                  "mode": {
+                                    "type": "null"
+                                  },
+                                  "policy_commit": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "merge_base_unresolved",
+                                      "governing_config_unreadable",
+                                      "governing_config_invalid",
+                                      "open_question_store_unreadable",
+                                      "open_question_store_corrupt",
+                                      "declaration_evidence_unavailable"
+                                    ]
+                                  },
+                                  "account": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                  }
+                                },
+                                "required": [
+                                  "scope",
+                                  "checkpoint",
+                                  "mode",
+                                  "reason",
+                                  "account"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "scope": {
+                                    "type": "string",
+                                    "const": "checkpoint"
+                                  },
+                                  "checkpoint": {
+                                    "type": "string"
+                                  },
+                                  "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "stop",
+                                      "advise"
+                                    ]
+                                  },
+                                  "policy_commit": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "checkpoint_missing_question",
+                                      "checkpoint_question_file_missing",
+                                      "checkpoint_question_file_invalid_path",
+                                      "checkpoint_question_file_not_regular",
+                                      "checkpoint_question_file_oversized",
+                                      "checkpoint_question_file_invalid_utf8",
+                                      "checkpoint_question_file_unreadable",
+                                      "checkpoint_question_source_conflict",
+                                      "checkpoint_selector_conflict",
+                                      "checkpoint_unknown_scope",
+                                      "effort_diff_unreadable",
+                                      "trigger_content_unavailable",
+                                      "trigger_history_unavailable",
+                                      "when_spawn_failed",
+                                      "when_timeout",
+                                      "when_invalid_exit",
+                                      "when_cancelled",
+                                      "when_input_failed",
+                                      "when_input_cleanup_failed",
+                                      "when_output_limit",
+                                      "open_question_store_rebuilt",
+                                      "subject_unavailable",
+                                      "open_question_store_write_failed"
+                                    ]
+                                  },
+                                  "account": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                  }
+                                },
+                                "required": [
+                                  "scope",
+                                  "checkpoint",
+                                  "mode",
+                                  "policy_commit",
+                                  "reason",
+                                  "account"
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ]
                     },
                     "proof_line": {
                       "type": "string"
                     },
-                    "proof_data": {
-                      "$ref": "#/$defs/DiscernProof"
+                    "validated_commit": {
+                      "type": "string"
                     },
-                    "checkpoint_drops": {
-                      "type": "array",
-                      "items": {
-                        "oneOf": [
-                          {
-                            "type": "object",
-                            "properties": {
-                              "scope": {
-                                "type": "string",
-                                "const": "policy"
-                              },
-                              "checkpoint": {
-                                "type": "null"
-                              },
-                              "mode": {
-                                "type": "null"
-                              },
-                              "policy_commit": {
-                                "type": "string"
-                              },
-                              "reason": {
-                                "type": "string",
-                                "enum": [
-                                  "merge_base_unresolved",
-                                  "governing_config_unreadable",
-                                  "governing_config_invalid",
-                                  "open_question_store_unreadable",
-                                  "open_question_store_corrupt",
-                                  "declaration_evidence_unavailable"
-                                ]
-                              },
-                              "account": {
-                                "type": "string",
-                                "maxLength": 500
-                              }
-                            },
-                            "required": [
-                              "scope",
-                              "checkpoint",
-                              "mode",
-                              "reason",
-                              "account"
-                            ]
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "scope": {
-                                "type": "string",
-                                "const": "checkpoint"
-                              },
-                              "checkpoint": {
-                                "type": "string"
-                              },
-                              "mode": {
-                                "type": "string",
-                                "enum": [
-                                  "stop",
-                                  "advise"
-                                ]
-                              },
-                              "policy_commit": {
-                                "type": "string"
-                              },
-                              "reason": {
-                                "type": "string",
-                                "enum": [
-                                  "checkpoint_missing_question",
-                                  "checkpoint_question_file_missing",
-                                  "checkpoint_question_file_invalid_path",
-                                  "checkpoint_question_file_not_regular",
-                                  "checkpoint_question_file_oversized",
-                                  "checkpoint_question_file_invalid_utf8",
-                                  "checkpoint_question_file_unreadable",
-                                  "checkpoint_question_source_conflict",
-                                  "checkpoint_selector_conflict",
-                                  "checkpoint_unknown_scope",
-                                  "effort_diff_unreadable",
-                                  "trigger_content_unavailable",
-                                  "trigger_history_unavailable",
-                                  "when_spawn_failed",
-                                  "when_timeout",
-                                  "when_invalid_exit",
-                                  "when_cancelled",
-                                  "when_input_failed",
-                                  "when_input_cleanup_failed",
-                                  "when_output_limit",
-                                  "open_question_store_rebuilt",
-                                  "subject_unavailable",
-                                  "open_question_store_write_failed"
-                                ]
-                              },
-                              "account": {
-                                "type": "string",
-                                "maxLength": 500
-                              }
-                            },
-                            "required": [
-                              "scope",
-                              "checkpoint",
-                              "mode",
-                              "policy_commit",
-                              "reason",
-                              "account"
-                            ]
-                          }
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ]
-                },
-                "proof_line": {
-                  "type": "string"
-                },
-                "validated_commit": {
-                  "type": "string"
-                },
-                "merge_validated": {
-                  "type": "boolean"
-                },
-                "proof_note": {
-                  "type": "object",
-                  "properties": {
-                    "fetch": {
+                    "merge_validated": {
+                      "type": "boolean"
+                    },
+                    "proof_note": {
                       "type": "object",
                       "properties": {
-                        "mode": {
-                          "type": "string",
-                          "enum": [
-                            "local",
-                            "fetch"
+                        "fetch": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "local",
+                                "fetch"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "local",
+                                "wired",
+                                "unchanged",
+                                "no_remote",
+                                "failed"
+                              ]
+                            },
+                            "remotes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "added": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "removed": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "errors": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "status",
+                            "remotes",
+                            "added",
+                            "removed",
+                            "errors"
                           ]
                         },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "local",
-                            "wired",
-                            "unchanged",
-                            "no_remote",
-                            "failed"
+                        "write": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "recorded",
+                                "already_present",
+                                "record_failed",
+                                "missing_proof"
+                              ]
+                            },
+                            "ref": {
+                              "type": "string"
+                            },
+                            "commit": {
+                              "type": "string"
+                            },
+                            "merged_refs": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "ref",
+                            "commit",
+                            "merged_refs"
                           ]
+                        }
+                      },
+                      "required": [
+                        "fetch",
+                        "write"
+                      ]
+                    },
+                    "local_artifacts_converged": {
+                      "type": "boolean"
+                    },
+                    "local_artifact_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "tracked_refresh_pending": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "tracked_refresh_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "proof_cleared": {
+                      "type": "boolean"
+                    },
+                    "proof_clear_error": {
+                      "type": "string"
+                    },
+                    "reactivation": {
+                      "type": "object",
+                      "properties": {
+                        "summary": {
+                          "type": "string"
                         },
-                        "remotes": {
+                        "per_agent": {
                           "type": "array",
                           "items": {
-                            "type": "string"
-                          }
-                        },
-                        "added": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "removed": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "errors": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
+                            "type": "object",
+                            "properties": {
+                              "agent": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "step": {
+                                "type": "string"
+                              },
+                              "check_kind": {
+                                "type": "string",
+                                "enum": [
+                                  "mcp",
+                                  "cli"
+                                ]
+                              },
+                              "check": {
+                                "type": "string"
+                              },
+                              "recovery": {
+                                "type": "string"
+                              },
+                              "cli_fallback": {
+                                "type": "string"
+                              },
+                              "trust": {
+                                "type": "object",
+                                "properties": {
+                                  "provider": {
+                                    "type": "string"
+                                  },
+                                  "required": {
+                                    "type": "boolean"
+                                  },
+                                  "explanation": {
+                                    "type": "string"
+                                  },
+                                  "actions": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "verify-configuration",
+                                            "trust-directory",
+                                            "approve-hook",
+                                            "enable-hooks",
+                                            "approve-tools"
+                                          ]
+                                        },
+                                        "instruction": {
+                                          "type": "string"
+                                        },
+                                        "facts": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "path",
+                                                  "config-key",
+                                                  "config-value",
+                                                  "flag",
+                                                  "environment-variable"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "value"
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "instruction",
+                                        "facts"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "provider",
+                                  "required",
+                                  "explanation",
+                                  "actions"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "agent",
+                              "label",
+                              "step",
+                              "check_kind",
+                              "check",
+                              "recovery",
+                              "cli_fallback",
+                              "trust"
+                            ]
                           }
                         }
                       },
                       "required": [
-                        "mode",
-                        "status",
-                        "remotes",
-                        "added",
-                        "removed",
-                        "errors"
+                        "summary",
+                        "per_agent"
                       ]
                     },
-                    "write": {
+                    "activation_context": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "optional_improvement": {
+                      "type": "object",
+                      "properties": {
+                        "command": {
+                          "type": "string"
+                        },
+                        "after": {
+                          "type": "string",
+                          "const": "activation_verified"
+                        }
+                      },
+                      "required": [
+                        "command",
+                        "after"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "landed",
+                    "branch",
+                    "target",
+                    "fast_forward",
+                    "branch_deleted",
+                    "proof",
+                    "merge_validated",
+                    "local_artifacts_converged"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "completion": {
                       "type": "object",
                       "properties": {
                         "status": {
                           "type": "string",
-                          "enum": [
-                            "recorded",
-                            "already_present",
-                            "record_failed",
-                            "missing_proof"
-                          ]
-                        },
-                        "ref": {
-                          "type": "string"
-                        },
-                        "commit": {
-                          "type": "string"
-                        },
-                        "merged_refs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
+                          "const": "no_op"
                         },
                         "reason": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "no_git_repository",
+                            "already_on_target"
+                          ]
                         }
                       },
                       "required": [
                         "status",
-                        "ref",
-                        "commit",
-                        "merged_refs"
+                        "reason"
                       ]
-                    }
-                  },
-                  "required": [
-                    "fetch",
-                    "write"
-                  ]
-                },
-                "local_artifacts_converged": {
-                  "type": "boolean"
-                },
-                "local_artifact_errors": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "tracked_refresh_pending": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "tracked_refresh_errors": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "proof_cleared": {
-                  "type": "boolean"
-                },
-                "proof_clear_error": {
-                  "type": "string"
-                },
-                "reactivation": {
-                  "type": "object",
-                  "properties": {
-                    "summary": {
-                      "type": "string"
                     },
-                    "per_agent": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "agent": {
-                            "type": "string"
-                          },
-                          "label": {
-                            "type": "string"
-                          },
-                          "step": {
-                            "type": "string"
-                          },
-                          "check_kind": {
-                            "type": "string",
-                            "enum": [
-                              "mcp",
-                              "cli"
-                            ]
-                          },
-                          "check": {
-                            "type": "string"
-                          },
-                          "recovery": {
-                            "type": "string"
-                          },
-                          "cli_fallback": {
-                            "type": "string"
-                          },
-                          "trust": {
-                            "type": "object",
-                            "properties": {
-                              "provider": {
-                                "type": "string"
-                              },
-                              "required": {
-                                "type": "boolean"
-                              },
-                              "explanation": {
-                                "type": "string"
-                              },
-                              "actions": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "kind": {
-                                      "type": "string",
-                                      "enum": [
-                                        "verify-configuration",
-                                        "trust-directory",
-                                        "approve-hook",
-                                        "enable-hooks",
-                                        "approve-tools"
-                                      ]
-                                    },
-                                    "instruction": {
-                                      "type": "string"
-                                    },
-                                    "facts": {
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": {
-                                            "type": "string",
-                                            "enum": [
-                                              "path",
-                                              "config-key",
-                                              "config-value",
-                                              "flag",
-                                              "environment-variable"
-                                            ]
-                                          },
-                                          "value": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "value"
-                                        ]
-                                      }
-                                    }
-                                  },
-                                  "required": [
-                                    "kind",
-                                    "instruction",
-                                    "facts"
-                                  ]
-                                }
-                              }
-                            },
-                            "required": [
-                              "provider",
-                              "required",
-                              "explanation",
-                              "actions"
-                            ]
-                          }
-                        },
-                        "required": [
-                          "agent",
-                          "label",
-                          "step",
-                          "check_kind",
-                          "check",
-                          "recovery",
-                          "cli_fallback",
-                          "trust"
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "summary",
-                    "per_agent"
-                  ]
-                },
-                "activation_context": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "optional_improvement": {
-                  "type": "object",
-                  "properties": {
-                    "command": {
+                    "target": {
                       "type": "string"
-                    },
-                    "after": {
-                      "type": "string",
-                      "const": "activation_verified"
                     }
                   },
                   "required": [
-                    "command",
-                    "after"
+                    "completion",
+                    "target"
                   ]
                 }
-              },
-              "required": [
-                "landed",
-                "branch",
-                "target",
-                "fast_forward",
-                "branch_deleted",
-                "proof",
-                "merge_validated",
-                "local_artifacts_converged"
               ]
             },
             {
@@ -29947,7 +29983,7 @@
         "refusal": "failure",
         "cancellation": "failure",
         "partialEffect": "failure",
-        "noOp": "not-applicable",
+        "noOp": "success",
         "recoveryOwner": "owner"
       },
       "schema": "#/$defs/DiscernSetupAcceptResult"

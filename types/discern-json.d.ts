@@ -1796,6 +1796,12 @@ export type DiscernSetupAcceptResult = DiscernResultState & {
       after: "activation_verified";
     };
   } | {
+    completion: {
+      status: "no_op";
+      reason: "no_git_repository" | "already_on_target";
+    };
+    target: string;
+  } | {
     issues: Array<{
       kind?: "unknown_root_section";
       path: string;

@@ -184,6 +184,17 @@ Deno.test("a no-op update still re-converges: refresh + ensure run with nothing 
     );
     await gitInit(dir);
     const wt = await addWorktree(dir, "noop-converge");
+    const converged = await runAgent(wt, ["refresh", "--json"]);
+    assertEquals(converged.code, 0, converged.output);
+    await git(wt, "add", "-A");
+    await git(
+      wt,
+      "commit",
+      "-q",
+      "-m",
+      "converge generated artifacts",
+      "--no-gpg-sign",
+    );
     // Up to date with main — nothing to merge. The convergence must still run.
     await Deno.remove(join(wt, "converged.marker")).catch(() => {});
     const r = await runAgent(wt, ["update", "--json"]);

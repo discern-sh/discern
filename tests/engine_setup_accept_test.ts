@@ -468,7 +468,31 @@ Deno.test("setup accept is a clean no-op when already on the integration branch"
     assertEquals(res.code, 0, res.output);
     const obj = decodeCliResult(res.stdout, "setup accept");
     assertEquals(obj.ok, true);
-    assert(obj.data === undefined, "a no-op carries no landing data");
+    assertEquals(obj.data, {
+      completion: {
+        status: "no_op",
+        reason: "already_on_target",
+      },
+      target: "main",
+    });
+  });
+});
+
+Deno.test("setup accept is a typed no-op when the project has no Git repository", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+
+    const res = await runAgent(dir, ["setup", "accept", "--json"]);
+    assertEquals(res.code, 0, res.output);
+    const obj = decodeCliResult(res.stdout, "setup accept");
+    assertEquals(obj.ok, true);
+    assertEquals(obj.data, {
+      completion: {
+        status: "no_op",
+        reason: "no_git_repository",
+      },
+      target: "main",
+    });
   });
 });
 
