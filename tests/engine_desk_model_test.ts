@@ -646,7 +646,7 @@ const ACTION_CASES: ReadonlyArray<{
     name: "unreadable checkout",
     decision: () =>
       decide({ git_unavailable: true, clean: undefined, ahead: undefined }),
-    enabled: ["jump", "drop"],
+    enabled: ["drop"],
   },
   {
     name: "clean committed work awaiting final checks",
@@ -781,7 +781,7 @@ Deno.test("every action is offered once with closed metadata and concrete availa
   assertEquals([...enabledPopulation].sort(), [...DESK_ACTIONS].sort());
   assertEquals(
     [...disabledPopulation].sort(),
-    DESK_ACTIONS.filter((action) => action !== "jump").sort(),
+    [...DESK_ACTIONS].sort(),
     "every conditionally available action must have a refusal case",
   );
   assertEquals(
