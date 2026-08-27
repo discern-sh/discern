@@ -313,6 +313,32 @@ class McpClient {
     await this.writer.write(ENCODER.encode(`${JSON.stringify(msg)}\n`));
   }
 
+  /** Complete the standard handshake used by high-level server exercises. */
+  async initialize(): Promise<void> {
+    await this.send({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: initParams(),
+    });
+    await this.recv();
+  }
+
+  /** Call one MCP tool and return its next protocol response. */
+  async callTool(
+    id: number,
+    name: string,
+    args: Readonly<Record<string, unknown>> = {},
+  ): ReturnType<McpClient["recv"]> {
+    await this.send({
+      jsonrpc: "2.0",
+      id,
+      method: "tools/call",
+      params: { name, arguments: args },
+    });
+    return await this.recv();
+  }
+
   /** Send one raw line, for protocol-robustness tests below the JSON encoder. */
   async sendRaw(line: string): Promise<void> {
     await this.writer.write(ENCODER.encode(line));
@@ -785,13 +811,7 @@ Deno.test("mcp (live): discern_docs serves discern's own docs from a server spaw
   // tool path (not just runTool) serves docs there.
   await withTempDir(async (dir) => {
     await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
+    await mcp.initialize();
 
     await mcp.send({
       jsonrpc: "2.0",
@@ -1240,13 +1260,7 @@ Deno.test("discern mcp: a config parse failure stays structured and the server a
     await scaffoldEngine(dir);
     await gitInit(dir);
     await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
+    await mcp.initialize();
 
     // Corrupt the config after startup: the server keeps its registered tool
     // surface, while coupling's config boundary returns the user-originated
@@ -1538,6 +1552,65 @@ Deno.test("discern mcp: EVERY tool refuses an undeclared argument loudly — nev
   });
 });
 
+type McpToolResponse = Awaited<ReturnType<McpClient["callTool"]>>;
+
+interface DocumentToolCoreContract {
+  readonly tool: "discern_map" | "discern_docs";
+  readonly verb: "map" | "docs";
+  readonly target: string;
+  readonly contentIncludes: string;
+  readonly missingTarget: string;
+  readonly search: string;
+  readonly searchTarget: string;
+}
+
+interface DocumentToolCoreResponses {
+  readonly index: McpToolResponse;
+  readonly miss: McpToolResponse;
+  readonly search: McpToolResponse;
+}
+
+/** Exercise the neutral index/read/miss/search contract shared by both corpora. */
+async function exerciseDocumentToolCore(
+  mcp: McpClient,
+  contract: DocumentToolCoreContract,
+): Promise<DocumentToolCoreResponses> {
+  const index = await mcp.callTool(2, contract.tool);
+  assertEquals(index.result.isError, false);
+  assertEquals(index.result.structuredContent.verb, contract.verb);
+
+  const doc = await mcp.callTool(3, contract.tool, {
+    target: contract.target,
+  });
+  assertEquals(doc.result.isError, false);
+  assert(
+    doc.result.structuredContent.data.doc.content.includes(
+      contract.contentIncludes,
+    ),
+    "the single-doc result carries the file's content",
+  );
+
+  const miss = await mcp.callTool(4, contract.tool, {
+    target: contract.missingTarget,
+  });
+  assertEquals(miss.result.isError, true);
+  assertEquals(miss.result.structuredContent.error, "not_found");
+
+  const search = await mcp.callTool(5, contract.tool, {
+    search: contract.search,
+  });
+  assertEquals(search.result.isError, false);
+  assertEquals(
+    search.result.structuredContent.data.results[0].target,
+    contract.searchTarget,
+  );
+  assertEquals(
+    search.result.structuredContent.data.results[0].match,
+    "complete",
+  );
+  return { index, miss, search };
+}
+
 Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and reports misses", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -1559,24 +1632,18 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
       "# Velvet beacon\n",
     );
     await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
+    await mcp.initialize();
 
-    // No target → the machine-readable index.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_map", arguments: {} },
+    const core = await exerciseDocumentToolCore(mcp, {
+      tool: "discern_map",
+      verb: "map",
+      target: "00-orientation/concepts",
+      contentIncludes: "The core ideas of the project",
+      missingTarget: "no-such-doc",
+      search: "core ideas",
+      searchTarget: "00-orientation/concepts",
     });
-    const index = await mcp.recv();
-    assertEquals(index.result.isError, false);
-    assertEquals(index.result.structuredContent.verb, "map");
+    const index = core.index;
     assert(index.result.structuredContent.data.count >= 1);
     const regions = index.result.structuredContent.data.regions;
     assert(regions.length >= 1);
@@ -1590,75 +1657,21 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
     const entry = index.result.structuredContent.data.docs[0];
     assertEquals(typeof entry.slug, "string");
     assert(entry.slug.length > 0, JSON.stringify(entry));
-
-    // A target → that one doc's full Markdown content.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "discern_map", arguments: { target: entry.slug } },
-    });
-    const doc = await mcp.recv();
-    assertEquals(doc.result.isError, false);
-    assert(
-      doc.result.structuredContent.data.doc.content.includes(
-        "The core ideas of the project",
-      ),
-      "the single-doc result carries the file's content",
-    );
-
-    // A missing target → a not_found error envelope (isError true).
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 4,
-      method: "tools/call",
-      params: { name: "discern_map", arguments: { target: "no-such-doc" } },
-    });
-    const miss = await mcp.recv();
-    assertEquals(miss.result.isError, true);
-    assertEquals(miss.result.structuredContent.error, "not_found");
-
-    // Search returns a bounded result with a canonical follow-up target.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 5,
-      method: "tools/call",
-      params: {
-        name: "discern_map",
-        arguments: { search: "core ideas" },
-      },
-    });
-    const search = await mcp.recv();
-    assertEquals(search.result.isError, false);
-    const searchData = search.result.structuredContent.data;
+    const searchData = core.search.result.structuredContent.data;
     assertEquals(searchData.results[0].target, "00-orientation/concepts");
-    assertEquals(searchData.results[0].match, "complete");
     assertEquals("score" in searchData.results[0], false);
 
     // A top-level region is both a compact index target and a search scope.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 6,
-      method: "tools/call",
-      params: {
-        name: "discern_map",
-        arguments: { target: "00-orientation" },
-      },
+    const region = await mcp.callTool(6, "discern_map", {
+      target: "00-orientation",
     });
-    const region = await mcp.recv();
     assertEquals(region.result.isError, false);
     assertEquals(region.result.structuredContent.data.scope, "00-orientation");
 
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 7,
-      method: "tools/call",
-      params: {
-        name: "discern_map",
-        arguments: { target: "00-orientation", search: "core ideas" },
-      },
+    const scoped = await mcp.callTool(7, "discern_map", {
+      target: "00-orientation",
+      search: "core ideas",
     });
-    const scoped = await mcp.recv();
     assertEquals(scoped.result.isError, false);
     assertEquals(
       scoped.result.structuredContent.data.scope,
@@ -1666,18 +1679,9 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
     );
 
     // Task terms can span documents; MCP returns and labels both partials.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 8,
-      method: "tools/call",
-      params: {
-        name: "discern_map",
-        arguments: {
-          search: "copper orchard velvet beacons telescope",
-        },
-      },
+    const partials = await mcp.callTool(8, "discern_map", {
+      search: "copper orchard velvet beacons telescope",
     });
-    const partials = await mcp.recv();
     assertEquals(partials.result.isError, false);
     assertEquals(
       new Set(
@@ -1712,24 +1716,18 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       "# Project Only\n\nNothing to do with discern.\n",
     );
     await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
+    await mcp.initialize();
 
-    // No target → discern's own index (never the project's project-only.md).
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_docs", arguments: {} },
+    const core = await exerciseDocumentToolCore(mcp, {
+      tool: "discern_docs",
+      verb: "docs",
+      target: "config-reference",
+      contentIncludes: "config reference",
+      missingTarget: "config-referenc",
+      search: "review Proof and changes",
+      searchTarget: "10-guides/delegate-work",
     });
-    const index = await mcp.recv();
-    assertEquals(index.result.isError, false);
-    assertEquals(index.result.structuredContent.verb, "docs");
+    const index = core.index;
     assertEquals(index.result.structuredContent.data.map_dir, undefined);
     const docs = index.result.structuredContent.data.docs;
     assert(
@@ -1749,34 +1747,11 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       "discern_docs excludes every internal subtree",
     );
 
-    // A target → that one doc's full Markdown content.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: {
-        name: "discern_docs",
-        arguments: { target: "config-reference" },
-      },
-    });
-    const doc = await mcp.recv();
-    assertEquals(doc.result.isError, false);
-    assert(
-      doc.result.structuredContent.data.doc.content.includes(
-        "config reference",
-      ),
-      "the single-doc result carries the file's content",
-    );
-
     // A frontmatter alias resolves like a slug ("config" is a declared alias
     // of the config reference).
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 4,
-      method: "tools/call",
-      params: { name: "discern_docs", arguments: { target: "config" } },
+    const viaAlias = await mcp.callTool(6, "discern_docs", {
+      target: "config",
     });
-    const viaAlias = await mcp.recv();
     assertEquals(viaAlias.result.isError, false);
     assertEquals(
       viaAlias.result.structuredContent.data.doc.slug,
@@ -1784,20 +1759,9 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       "a frontmatter alias resolves to its page",
     );
 
-    // A near-miss target → a not_found error envelope with retryable suggestions.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 5,
-      method: "tools/call",
-      params: {
-        name: "discern_docs",
-        arguments: { target: "config-referenc" },
-      },
-    });
-    const miss = await mcp.recv();
-    assertEquals(miss.result.isError, true);
+    // A near-miss target carries retryable suggestions.
+    const miss = core.miss;
     assertEquals(miss.result.structuredContent.verb, "docs");
-    assertEquals(miss.result.structuredContent.error, "not_found");
     assertStringIncludes(miss.result.structuredContent.message, "Closest");
     assert(
       miss.result.structuredContent.data.suggestions.some(
@@ -1808,16 +1772,9 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     );
 
     // Stable manual identity resolves to the migrated page and carries its kind.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 6,
-      method: "tools/call",
-      params: {
-        name: "discern_docs",
-        arguments: { target: "guide-delegate-work" },
-      },
+    const manualPage = await mcp.callTool(7, "discern_docs", {
+      target: "guide-delegate-work",
     });
-    const manualPage = await mcp.recv();
     assertEquals(manualPage.result.isError, false);
     assertEquals(
       manualPage.result.structuredContent.data.doc.page_id,
@@ -1830,27 +1787,6 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     assertStringIncludes(
       manualPage.result.structuredContent.data.doc.content,
       "Review Proof and changes",
-    );
-
-    // Search returns the manual's canonical follow-up target through MCP.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 7,
-      method: "tools/call",
-      params: {
-        name: "discern_docs",
-        arguments: { search: "review Proof and changes" },
-      },
-    });
-    const manualSearch = await mcp.recv();
-    assertEquals(manualSearch.result.isError, false);
-    assertEquals(
-      manualSearch.result.structuredContent.data.results[0].target,
-      "10-guides/delegate-work",
-    );
-    assertEquals(
-      manualSearch.result.structuredContent.data.results[0].match,
-      "complete",
     );
 
     assertEquals(await mcp.close(), 0);

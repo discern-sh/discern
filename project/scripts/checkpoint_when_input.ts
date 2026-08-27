@@ -16,6 +16,7 @@ import {
 } from "../../src/shared/checkpoints.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../src/shared/environment_variables.ts";
 import { projectRelativePathIssue } from "../../src/shared/project_path.ts";
+import { type GitResult, runGit } from "../../src/shared/subprocess.ts";
 
 /** Default maximum size of the Engine-authored input file. */
 export const CHECKPOINT_WHEN_INPUT_MAX_BYTES = 512 * 1024;
@@ -216,13 +217,47 @@ export function parseCheckpointWhenInput(
   };
 }
 
-/** Decode bounded bytes as strict UTF-8. */
-function exactUtf8(bytes: Uint8Array): string {
+/** Decode bounded checkpoint input as strict UTF-8. */
+export function checkpointExactUtf8(
+  bytes: Uint8Array,
+  label: string,
+): string {
   try {
     return UTF8_DECODER.decode(bytes);
   } catch {
-    return fail("DISCERN_CHECKPOINT_INPUT is not valid UTF-8");
+    return fail(`${label} is not valid UTF-8`);
   }
+}
+
+/** Preserve exact Git output bytes at the shared checkpoint boundary. */
+export function checkpointGitBytes(result: GitResult): Uint8Array {
+  return result.stdoutBytes ?? UTF8_ENCODER.encode(result.stdout);
+}
+
+/** Resolve the canonical Git root shared by repository checkpoint matchers. */
+export async function checkpointProjectRoot(cwd: string): Promise<string> {
+  const result = await runGit(["rev-parse", "--show-toplevel"], {
+    cwd,
+    bin: "git",
+    timeoutMs: 2_000,
+    maxOutputBytes: 16 * 1024,
+  });
+  if (!result.success) {
+    const reason = result.timedOut === true
+      ? "timed out"
+      : result.outputLimitExceeded === true
+      ? "exceeded its output limit"
+      : `exited ${result.code}`;
+    return fail(`Git root discovery ${reason}`);
+  }
+  const root = checkpointExactUtf8(
+    checkpointGitBytes(result),
+    "Git root output",
+  ).trim();
+  if (!isAbsolute(root) || root === "") {
+    return fail("Git root discovery returned no absolute project path");
+  }
+  return await Deno.realPath(root);
 }
 
 /** Resolve the invoking checkout once at the shared checkpoint host boundary. */
@@ -252,5 +287,8 @@ export async function checkpointWhenInputFromEnvironment(
   if (bytes.byteLength > maxBytes) {
     return fail("DISCERN_CHECKPOINT_INPUT grew beyond the input-size limit");
   }
-  return parseCheckpointWhenInput(exactUtf8(bytes), contract);
+  return parseCheckpointWhenInput(
+    checkpointExactUtf8(bytes, variable),
+    contract,
+  );
 }

@@ -8,7 +8,6 @@
  * checkpoint over its complete structural match.
  */
 
-import { isAbsolute } from "@std/path";
 import type { CheckpointWhenInput } from "../../src/shared/checkpoints.ts";
 import { lstatIfExists } from "../../src/shared/fs_presence.ts";
 import { resolveContainedProjectReadPath } from "../../src/shared/project_path.ts";
@@ -27,7 +26,10 @@ import {
   REPOSITORY_MANUAL_REL,
 } from "../../src/shared/manual.ts";
 import {
+  checkpointExactUtf8,
+  checkpointGitBytes,
   checkpointInvocationRoot,
+  checkpointProjectRoot,
   checkpointWhenInputFromEnvironment,
   parseCheckpointWhenInput,
 } from "./checkpoint_when_input.ts";
@@ -42,8 +44,6 @@ export const MANUAL_CHECKPOINT_MAX_CHANGED_FILES = 2_048;
 export const MANUAL_CHECKPOINT_MAX_TOTAL_PAGE_BYTES = 4 * 1024 * 1024;
 
 const GIT_TIMEOUT_MS = 2_000;
-const UTF8_ENCODER = new TextEncoder();
-const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
 /** Registry seam used only to prove future-member enrollment. */
 export interface ManualCheckpointModel {
@@ -80,20 +80,6 @@ export function parseManualCheckpointInput(
   });
 }
 
-/** Decode bytes as strict UTF-8. */
-function exactUtf8(bytes: Uint8Array, label: string): string {
-  try {
-    return UTF8_DECODER.decode(bytes);
-  } catch {
-    return fail(`${label} is not valid UTF-8`);
-  }
-}
-
-/** Preserve Git output bytes when the subprocess supplied them. */
-function gitBytes(result: GitResult): Uint8Array {
-  return result.stdoutBytes ?? UTF8_ENCODER.encode(result.stdout);
-}
-
 /** Convert an unsuccessful Git operation into a bounded validation failure. */
 function requireGitSuccess(result: GitResult, label: string): void {
   if (result.success) return;
@@ -103,22 +89,6 @@ function requireGitSuccess(result: GitResult, label: string): void {
     ? "exceeded its output limit"
     : `exited ${result.code}`;
   fail(`${label} ${reason}`);
-}
-
-/** Resolve and canonicalize the enclosing Git worktree root. */
-async function projectRoot(cwd: string): Promise<string> {
-  const result = await runGit(["rev-parse", "--show-toplevel"], {
-    cwd,
-    bin: "git",
-    timeoutMs: GIT_TIMEOUT_MS,
-    maxOutputBytes: 16 * 1024,
-  });
-  requireGitSuccess(result, "Git root discovery");
-  const root = exactUtf8(gitBytes(result), "Git root output").trim();
-  if (!isAbsolute(root) || root === "") {
-    return fail("Git root discovery returned no absolute project path");
-  }
-  return await Deno.realPath(root);
 }
 
 interface BoundedText {
@@ -143,7 +113,10 @@ async function currentPage(root: string, path: string): Promise<BoundedText> {
   if (bytes.byteLength > MANUAL_PAGE_MAX_BYTES) {
     return fail(`${path} exceeded the manual-page read limit while reading`);
   }
-  return { text: exactUtf8(bytes, path), bytes: bytes.byteLength };
+  return {
+    text: checkpointExactUtf8(bytes, path),
+    bytes: bytes.byteLength,
+  };
 }
 
 /** Read one deleted page as a regular blob from the governing Git tree. */
@@ -162,7 +135,10 @@ async function deletedPage(
     },
   );
   requireGitSuccess(listed, `governing tree lookup for ${path}`);
-  const records = exactUtf8(gitBytes(listed), `tree entry for ${path}`)
+  const records = checkpointExactUtf8(
+    checkpointGitBytes(listed),
+    `tree entry for ${path}`,
+  )
     .split("\0").filter((entry) => entry !== "");
   const record = records.length === 1 ? records[0] : undefined;
   const tab = record?.indexOf("\t") ?? -1;
@@ -182,11 +158,14 @@ async function deletedPage(
     maxOutputBytes: MANUAL_PAGE_MAX_BYTES + 4_096,
   });
   requireGitSuccess(shown, `governing page read for ${path}`);
-  const bytes = gitBytes(shown);
+  const bytes = checkpointGitBytes(shown);
   if (bytes.byteLength > MANUAL_PAGE_MAX_BYTES) {
     return fail(`${path} exceeds the manual-page read limit`);
   }
-  return { text: exactUtf8(bytes, path), bytes: bytes.byteLength };
+  return {
+    text: checkpointExactUtf8(bytes, path),
+    bytes: bytes.byteLength,
+  };
 }
 
 /** Whether a project-relative path is admitted by the canonical manual model. */
@@ -241,7 +220,7 @@ export async function matchingManualChanges(
   input: CheckpointWhenInput,
   model: ManualCheckpointModel = CANONICAL_MANUAL_CHECKPOINT_MODEL,
 ): Promise<string[]> {
-  const root = await projectRoot(cwd);
+  const root = await checkpointProjectRoot(cwd);
   const matches: string[] = [];
   let totalPageBytes = 0;
   for (const file of input.changed_files) {

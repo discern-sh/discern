@@ -10,13 +10,15 @@
  * judged rather than hidden by an unrelated edit elsewhere in the file.
  */
 
-import { isAbsolute } from "@std/path";
 import type { CheckpointWhenInput } from "../../src/shared/checkpoints.ts";
 import { resolveContainedProjectReadPath } from "../../src/shared/project_path.ts";
 import { lstatIfExists } from "../../src/shared/fs_presence.ts";
 import { type GitResult, runGit } from "../../src/shared/subprocess.ts";
 import {
+  checkpointExactUtf8,
+  checkpointGitBytes,
   checkpointInvocationRoot,
+  checkpointProjectRoot,
   checkpointWhenInputFromEnvironment,
 } from "./checkpoint_when_input.ts";
 
@@ -50,26 +52,10 @@ export const FEATURE_BENEFIT_CANON_SECTION_MARKERS: Readonly<
 export const FEATURE_BENEFIT_REGISTRY_MAX_BYTES = 1024 * 1024;
 
 const GIT_TIMEOUT_MS = 2_000;
-const UTF8_ENCODER = new TextEncoder();
-const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
 /** Raise one bounded matcher failure. Exit 2 makes the checkpoint fail open. */
 function fail(message: string): never {
   throw new Error(message);
-}
-
-/** Decode one bounded source as exact UTF-8. */
-function exactUtf8(bytes: Uint8Array, label: string): string {
-  try {
-    return UTF8_DECODER.decode(bytes);
-  } catch {
-    return fail(`${label} is not valid UTF-8`);
-  }
-}
-
-/** Preserve exact Git output bytes when the shared runner supplies them. */
-function gitBytes(result: GitResult): Uint8Array {
-  return result.stdoutBytes ?? UTF8_ENCODER.encode(result.stdout);
 }
 
 /** Convert an unsuccessful Git operation into a bounded matcher failure. */
@@ -82,22 +68,6 @@ function requireGitSuccess(result: GitResult, label: string): void {
       : `exited ${result.code}`;
     fail(`${label} ${reason}`);
   }
-}
-
-/** Resolve and canonicalize the enclosing Git worktree root. */
-async function projectRoot(cwd: string): Promise<string> {
-  const result = await runGit(["rev-parse", "--show-toplevel"], {
-    cwd,
-    bin: "git",
-    timeoutMs: GIT_TIMEOUT_MS,
-    maxOutputBytes: 16 * 1024,
-  });
-  requireGitSuccess(result, "Git root discovery");
-  const root = exactUtf8(gitBytes(result), "Git root output").trim();
-  if (!isAbsolute(root) || root === "") {
-    return fail("Git root discovery returned no absolute project path");
-  }
-  return await Deno.realPath(root);
 }
 
 /** Find one unique section marker. */
@@ -174,7 +144,7 @@ async function candidateRegistry(root: string): Promise<string> {
   if (bytes.byteLength > FEATURE_BENEFIT_REGISTRY_MAX_BYTES) {
     return fail("candidate registry grew beyond the read limit");
   }
-  return exactUtf8(bytes, "candidate registry");
+  return checkpointExactUtf8(bytes, "candidate registry");
 }
 
 /** Read the registry from the exact policy commit governing this effort. */
@@ -192,11 +162,11 @@ async function governingRegistry(
     },
   );
   requireGitSuccess(result, "governing registry read");
-  const bytes = gitBytes(result);
+  const bytes = checkpointGitBytes(result);
   if (bytes.byteLength > FEATURE_BENEFIT_REGISTRY_MAX_BYTES) {
     return fail("governing registry exceeds the read limit");
   }
-  return exactUtf8(bytes, "governing registry");
+  return checkpointExactUtf8(bytes, "governing registry");
 }
 
 /** Resolve the exact changed paths whose currency question remains open. */
@@ -204,7 +174,7 @@ export async function matchingFeatureBenefitCurrencyChanges(
   cwd: string,
   input: CheckpointWhenInput,
 ): Promise<string[]> {
-  const root = await projectRoot(cwd);
+  const root = await checkpointProjectRoot(cwd);
   const [governing, candidate] = await Promise.all([
     governingRegistry(root, input.policy_commit),
     candidateRegistry(root),

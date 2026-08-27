@@ -1,10 +1,9 @@
 /** Fire when the manual root adds or replaces a promoted journey. */
 
-import { isAbsolute } from "@std/path";
 import type { CheckpointWhenInput } from "../../src/shared/checkpoints.ts";
 import { lstatIfExists } from "../../src/shared/fs_presence.ts";
 import { resolveContainedProjectReadPath } from "../../src/shared/project_path.ts";
-import { type GitResult, runGit } from "../../src/shared/subprocess.ts";
+import { runGit } from "../../src/shared/subprocess.ts";
 import {
   MANUAL_FRONT_DOORS_END,
   MANUAL_FRONT_DOORS_START,
@@ -13,48 +12,19 @@ import {
 } from "../../src/lib/manual.ts";
 import { REPOSITORY_MANUAL_REL } from "../../src/shared/manual.ts";
 import {
+  checkpointExactUtf8,
+  checkpointGitBytes,
   checkpointInvocationRoot,
+  checkpointProjectRoot,
   checkpointWhenInputFromEnvironment,
 } from "./checkpoint_when_input.ts";
 
 export const MANUAL_FRONT_DOOR_CHECKPOINT_ID = "manual-front-door-promotion";
 export const MANUAL_FRONT_DOOR_PATH = `${REPOSITORY_MANUAL_REL}/README.md`;
-const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
-const UTF8_ENCODER = new TextEncoder();
 
 /** Convert malformed or unreadable matcher input into one fail-closed error. */
 function fail(message: string): never {
   throw new Error(message);
-}
-
-/** Decode bounded source bytes without replacing malformed input. */
-function exactUtf8(bytes: Uint8Array, label: string): string {
-  try {
-    return UTF8_DECODER.decode(bytes);
-  } catch {
-    return fail(`${label} is not valid UTF-8`);
-  }
-}
-
-/** Preserve exact Git output bytes when the subprocess boundary provides them. */
-function gitBytes(result: GitResult): Uint8Array {
-  return result.stdoutBytes ?? UTF8_ENCODER.encode(result.stdout);
-}
-
-/** Resolve and canonicalize the invoking checkout root through Git. */
-async function rootPath(cwd: string): Promise<string> {
-  const result = await runGit(["rev-parse", "--show-toplevel"], {
-    cwd,
-    bin: "git",
-    timeoutMs: 2_000,
-    maxOutputBytes: 16 * 1024,
-  });
-  if (!result.success) return fail("Git root discovery failed");
-  const root = exactUtf8(gitBytes(result), "Git root output").trim();
-  if (!isAbsolute(root)) {
-    return fail("Git root discovery returned no absolute path");
-  }
-  return await Deno.realPath(root);
 }
 
 /** Read a non-empty promoted-destination list from one root README. */
@@ -91,7 +61,10 @@ async function governingRoot(
   if (!result.success || result.outputLimitExceeded === true) {
     return fail("the governing manual front door could not be read");
   }
-  return exactUtf8(gitBytes(result), "governing manual front door");
+  return checkpointExactUtf8(
+    checkpointGitBytes(result),
+    "governing manual front door",
+  );
 }
 
 /** Read the current bounded regular manual-root authority inside the checkout. */
@@ -112,7 +85,10 @@ async function currentRoot(root: string): Promise<string> {
       "the current manual front door is not one bounded regular file",
     );
   }
-  return exactUtf8(await Deno.readFile(path), "current manual front door");
+  return checkpointExactUtf8(
+    await Deno.readFile(path),
+    "current manual front door",
+  );
 }
 
 /** Decide whether the current root adds or replaces a promoted destination. */
@@ -126,7 +102,7 @@ async function promotionChanged(
   if (change === undefined) return false;
   if (change.binary) return fail("the manual front door is binary");
   if (change.kind === "deleted") return false;
-  const root = await rootPath(cwd);
+  const root = await checkpointProjectRoot(cwd);
   const [before, after] = await Promise.all([
     governingRoot(root, input.policy_commit),
     currentRoot(root),
