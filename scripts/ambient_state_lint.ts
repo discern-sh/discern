@@ -297,6 +297,22 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     reason:
       "The executable crash boundary resolves the invoking cwd before attempting its bounded artifact write.",
   },
+  "manual-doc-checkpoint-cwd": {
+    path: "project/scripts/manual_doc_checkpoint.ts",
+    enclosingFunction: "main",
+    primitive: "cwd",
+    operation: "anchor the changed-manual-page query",
+    reason:
+      "The executable checkpoint resolves changed manual pages from the invoking checkout cwd.",
+  },
+  "manual-front-door-checkpoint-cwd": {
+    path: "project/scripts/manual_front_door_checkpoint.ts",
+    enclosingFunction: "main",
+    primitive: "cwd",
+    operation: "anchor the promoted-manual-journey comparison",
+    reason:
+      "The executable checkpoint compares the governing and current manual front doors in the invoking checkout.",
+  },
   "mcp-ci-marker": {
     path: "src/engine/mcp/server.ts",
     enclosingFunction: "mcpDriverFacts",
@@ -360,14 +376,6 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     operation: "preserve PATH for the pseudo-terminal child",
     reason:
       "The pseudo-terminal harness preserves the operator PATH while composing its child process.",
-  },
-  "public-doc-checkpoint-cwd": {
-    path: "project/scripts/public_doc_checkpoint.ts",
-    enclosingFunction: "main",
-    primitive: "cwd",
-    operation: "anchor the changed-public-document query",
-    reason:
-      "The executable checkpoint resolves changed public documents from the invoking checkout cwd.",
   },
   "setup-command-cwd": {
     path: "src/commands/setup.ts",

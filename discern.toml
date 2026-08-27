@@ -1261,15 +1261,45 @@
   [checkpoints.instruction-economy] # always-loaded prose pays rent in every session
   [checkpoints.skills-playbook] # a skill is an executable playbook
   [checkpoints.gotchas-playbook] # failure memory stays symptom → cause → recovery
-  # Published pages first pass the configured Map selector, then this read-only
-  # command consults the manual-tier registry and page publication predicate.
-  # The command reports exact matched paths, including deleted public blobs.
-  [checkpoints.public-doc-audience]
-    paths = ["${map.dir}**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/public_doc_checkpoint.ts"
+  # The five manual checkpoints share one bounded, read-only matcher. It reads
+  # current pages or deleted governing blobs, derives publication and purpose
+  # from the canonical manual model, and fires closed on unavailable facts.
+  [checkpoints.manual-tutorial-comprehension]
+    paths = ["project/manual/**"]
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_doc_checkpoint.ts manual-tutorial-comprehension"
     mode = "stop"
-    question = "Does every changed published page work for a reader without repository context — defining terms at first use, avoiding internal shorthand and contributor instructions, linking only reachable context, stating the operating facts needed at point of use, and keeping examples accurate?"
-    teach = "Published pages must carry their own usable context; the matcher admits only the canonical public document model."
+    question = "Can the stated beginner follow this tutorial from its named starting point to the promised first success, recognize that success, and know what to do next without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
+    teach = "A tutorial earns its place when its intended beginner can complete and recognize the promised first result."
+  [checkpoints.manual-guide-comprehension]
+    paths = ["project/manual/**"]
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_doc_checkpoint.ts manual-guide-comprehension"
+    mode = "stop"
+    question = "Can the intended reader start from the named state, take each step, recognize success or refusal, and identify who owns every decision without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
+    teach = "A guide must leave its reader able to act safely and recognize the resulting state."
+  [checkpoints.manual-explanation-comprehension]
+    paths = ["project/manual/**"]
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_doc_checkpoint.ts manual-explanation-comprehension"
+    mode = "stop"
+    question = "Can the intended reader restate this concept, distinguish its adjacent states and authority boundaries, and predict the important consequence without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
+    teach = "An explanation must give the reader a usable mental model, not only a description."
+  [checkpoints.manual-reference-comprehension]
+    paths = ["project/manual/**"]
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_doc_checkpoint.ts manual-reference-comprehension"
+    mode = "stop"
+    question = "Can the intended reader find an exact, complete, current answer here, including every relevant default and limit, and act on it without repository context? Where this reference names core workflow states, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
+    teach = "Reference must answer the lookup precisely and expose the boundaries that change the answer."
+  [checkpoints.manual-troubleshooting-comprehension]
+    paths = ["project/manual/**"]
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_doc_checkpoint.ts manual-troubleshooting-comprehension"
+    mode = "stop"
+    question = "Can the intended reader start from the observable symptom, distinguish the likely causes, recover safely, recognize the result, and know when to stop without repository context? Where recovery touches the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
+    teach = "Troubleshooting must route from a symptom to bounded recovery and a clear stopping point."
+  [checkpoints.manual-front-door-promotion]
+    paths = ["project/manual/README.md"]
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_front_door_checkpoint.ts"
+    mode = "stop"
+    question = "Does each added or replacement promoted journey earn scarce front-door space by serving a distinct, high-priority starting need, with a destination that immediately fulfils its label?"
+    teach = "Keep promotion deliberately small; publication already gives every page complete navigation, search, raw, export, MCP, and machine reach."
 
   # Authored distribution bytes need a portability judgment; generated template
   # output remains excluded by the checkpoint engine's default.

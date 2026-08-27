@@ -1,7 +1,7 @@
 /**
  * discern's project-authored checkpoint policy.
  *
- * This guard keeps the seven judgment boundaries narrow after config parsing and
+ * This guard keeps the project judgment boundaries narrow after config parsing and
  * reference expansion. It also exercises the generated-artifact default and
  * the exact v1 facts handed to the public-document matcher.
  */
@@ -16,10 +16,15 @@ import type {
 } from "../src/engine/checkpoints/types.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
+import {
+  MANUAL_FRONT_DOOR_CHECKPOINT_ID,
+  MANUAL_KIND_REGISTRY,
+} from "../src/shared/manual.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const PROJECT_CHECKPOINT_IDS = [
-  "public-doc-audience",
+  ...MANUAL_KIND_REGISTRY.map((entry) => entry.checkpointId),
+  MANUAL_FRONT_DOOR_CHECKPOINT_ID,
   "templates-stay-generic",
   "shipped-instruction-rent",
   "authority-boundary",
@@ -74,23 +79,36 @@ function checkpoint(id: string): ResolvedCheckpoint {
   return found;
 }
 
-Deno.test("discern resolves exactly seven project boundary checkpoints", () => {
+Deno.test("discern resolves the complete project boundary checkpoint set", () => {
   assertEquals(RESOLUTION.drops, []);
   const authored = Object.keys(CONFIG.checkpoints).filter((id) =>
     !Object.hasOwn(BUILT_IN_CHECKPOINTS, id)
   );
   assertEquals(authored.sort(), [...PROJECT_CHECKPOINT_IDS].sort());
 
-  assertEquals(checkpoint("public-doc-audience").mode, "stop");
+  for (const registration of MANUAL_KIND_REGISTRY) {
+    const definition = checkpoint(registration.checkpointId);
+    assertEquals(definition.mode, "stop");
+    assertEquals(definition.selector?.globs, ["project/manual/**"]);
+    assertEquals(
+      definition.when,
+      "deno run --quiet --no-prompt --allow-read " +
+        "--allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git " +
+        `project/scripts/manual_doc_checkpoint.ts ${registration.checkpointId}`,
+    );
+  }
+  assertFalse(Object.hasOwn(CONFIG.checkpoints, "public-doc-audience"));
+
+  assertEquals(checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).mode, "stop");
   assertEquals(
-    checkpoint("public-doc-audience").selector?.globs,
-    ["project/map/**"],
+    checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).selector?.globs,
+    ["project/manual/README.md"],
   );
   assertEquals(
-    checkpoint("public-doc-audience").when,
+    checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).when,
     "deno run --quiet --no-prompt --allow-read " +
       "--allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git " +
-      "project/scripts/public_doc_checkpoint.ts",
+      "project/scripts/manual_front_door_checkpoint.ts",
   );
 
   assertEquals(checkpoint("templates-stay-generic").mode, "stop");
@@ -191,9 +209,9 @@ Deno.test("boundary checkpoints exclude generated subjects by default", () => {
   );
 });
 
-Deno.test("public-doc when input contains only authored pre-scoped facts", () => {
+Deno.test("manual when input contains only authored pre-scoped facts", () => {
   const authored = {
-    path: "project/map/20-quality-gate/checkpoints.md",
+    path: "project/manual/10-guides/place-and-answer-checkpoints.md",
     generated: false,
     kind: "modified" as const,
     insertions: 5,
@@ -201,7 +219,7 @@ Deno.test("public-doc when input contains only authored pre-scoped facts", () =>
     binary: false,
   };
   const generated = {
-    path: "project/map/70-reference/cli-reference.md",
+    path: "project/manual/30-reference/cli-reference.md",
     generated: true,
     kind: "modified" as const,
     insertions: 20,
@@ -215,7 +233,7 @@ Deno.test("public-doc when input contains only authored pre-scoped facts", () =>
       { path: generated.path, generated: true },
     ],
   };
-  const definition = checkpoint("public-doc-audience");
+  const definition = checkpoint("manual-guide-comprehension");
   const structural = evaluateStructuralTrigger(definition, diff);
   assert(structural.holds);
   assertEquals(structural.matched, [authored.path]);
@@ -224,7 +242,7 @@ Deno.test("public-doc when input contains only authored pre-scoped facts", () =>
     checkpointWhenInput(definition, "b".repeat(40), structural),
     {
       version: 1,
-      checkpoint: { id: "public-doc-audience", mode: "stop" },
+      checkpoint: { id: "manual-guide-comprehension", mode: "stop" },
       policy_commit: "b".repeat(40),
       changed_files: [{
         path: authored.path,
