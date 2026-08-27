@@ -39,6 +39,7 @@ import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.t
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import { makeTempArtifact } from "../shared/temp_artifacts.ts";
+import { wallTimeIso } from "../shared/clock.ts";
 
 /** The crash exit code: sysexits `EX_SOFTWARE` — an internal software error,
  * distinct from an ordinary failed verb's exit 1 and the re-raised signal
@@ -226,11 +227,12 @@ export interface CrashReport {
 export function captureCrashReport(
   verb: string | undefined,
   err: unknown,
+  nowMs: number,
 ): CrashReport {
   const inspected = inspectThrow(err);
   const signature = inspectedSignature(inspected);
   return {
-    at: new Date().toISOString(),
+    at: wallTimeIso(nowMs),
     verb: verb === undefined || verb === "" ? "discern" : verb,
     version: KIT_VERSION,
     deno: Deno.version.deno,

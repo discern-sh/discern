@@ -37,6 +37,11 @@ import { statIfExists } from "../../src/shared/fs_presence.ts";
 import { runGit } from "../../src/shared/subprocess.ts";
 import { THEME_BOOTSTRAP } from "../../site/theme.ts";
 import { type PickerCatalogEntry, pickerFromCatalog } from "./pickers.ts";
+import {
+  type Scheduler,
+  SYSTEM_SCHEDULER,
+  type TimeoutHandle,
+} from "../../src/shared/scheduler.ts";
 
 const BIND_HOST = "127.0.0.1";
 const BROWSER_HOST = "localhost";
@@ -129,6 +134,8 @@ export interface CanonEditorOptions {
   readonly snapshotBuilder?: () => Promise<Snapshot>;
   /** Deterministic request authority for route tests; random in production. */
   readonly requestToken?: string;
+  /** File-watch debounce lifecycle; defaults to the host scheduler. */
+  readonly scheduler?: Scheduler;
 }
 
 /** A running editor, closable. */
@@ -216,6 +223,7 @@ async function file(path: string): Promise<Response> {
 export async function startCanonEditor(
   options: CanonEditorOptions = {},
 ): Promise<CanonEditorHandle> {
+  const scheduler = options.scheduler ?? SYSTEM_SCHEDULER;
   const port = options.port ??
     (await resolveCanonEditorPort(Deno.env.get("PORT")));
   const requestToken = options.requestToken ?? crypto.randomUUID();
@@ -698,7 +706,10 @@ export async function startCanonEditor(
         ),
       );
     }
-    if (path === "/assets/theme.css" || path === "/assets/theme.js") {
+    if (
+      path === "/assets/theme.css" || path === "/assets/theme.js" ||
+      path === "/assets/scheduler.js"
+    ) {
       return await file(
         join(
           REPO_ROOT,
@@ -733,17 +744,17 @@ export async function startCanonEditor(
 
   let watcher: Deno.FsWatcher | undefined;
   let watchLoop: Promise<void> | undefined;
+  let debounce: TimeoutHandle | undefined;
   if (options.watch ?? true) {
     watcher = Deno.watchFs(
       WATCHED_SOURCES.map((source) => join(REPO_ROOT, source)),
     );
-    let debounce: ReturnType<typeof setTimeout> | undefined;
     const owned = watcher;
     watchLoop = (async () => {
       for await (const event of owned) {
         if (event.kind === "access") continue;
-        if (debounce !== undefined) clearTimeout(debounce);
-        debounce = setTimeout(() => {
+        if (debounce !== undefined) scheduler.cancelTimeout(debounce);
+        debounce = scheduler.scheduleTimeout(() => {
           debounce = undefined;
           if (saving) {
             // Mid-save writes are the pipeline's own; its verdict — adoption
@@ -788,6 +799,10 @@ export async function startCanonEditor(
     handler,
     refresh,
     close: async (): Promise<void> => {
+      if (debounce !== undefined) {
+        scheduler.cancelTimeout(debounce);
+        debounce = undefined;
+      }
       watcher?.close();
       if (watchLoop !== undefined) {
         await bestEffort("canon-editor-watch-loop-settlement", async () => {

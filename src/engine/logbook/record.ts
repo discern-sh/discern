@@ -49,6 +49,7 @@ import { runGit } from "../../shared/subprocess.ts";
 import { isKnownGitCount, parseGitCount } from "../../shared/git_count.ts";
 import { treeDiffFingerprint } from "../../shared/tree_identity.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
+import { type Clock, SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import type { CrashSignature } from "../crash.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
@@ -553,14 +554,18 @@ async function advanceEpoch(
  * verb; every failure inside either is absorbed. Call {@link Recording.finish}
  * once at verb completion.
  */
-export function beginRecording(cwd: string, begin: BeginReport): Recording {
+export function beginRecording(
+  cwd: string,
+  begin: BeginReport,
+  clock: Clock = SYSTEM_CLOCK,
+): Recording {
   const invocation = crypto.randomUUID();
   setActiveInvocationId(invocation);
   // The checkpoint-observation accumulator is process-local: discard anything a
   // previous invocation in this process left behind (the MCP server serves many
   // calls) so this invocation's event carries only its own observations.
   takeCheckpointActivity();
-  const startedAt = new Date().toISOString();
+  const startedAt = wallTimeIso(clock.wallNow());
   const context = gatherContext(cwd).catch(() => {
     // discern-best-effort: logbook-recording-context-fallback
     return undefined;
@@ -607,7 +612,7 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
         if (ctx === undefined) {
           return;
         }
-        const at = new Date().toISOString();
+        const at = wallTimeIso(clock.wallNow());
         await advanceEpoch(ctx, at);
         const steps = report.result !== undefined
           ? stepTimings(report.result)

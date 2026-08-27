@@ -26,6 +26,12 @@ import {
   type ValidationState,
 } from "./validation.ts";
 import { validationKey, type ValidationKeyResult } from "./validation_key.ts";
+import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
+import {
+  type Scheduler,
+  SYSTEM_SCHEDULER,
+  type TimeoutHandle,
+} from "../../shared/scheduler.ts";
 
 /** Benchmarked against the repository fixture and held as explicit hard caps. */
 export const VALIDATION_CAPTURE_LIMITS = {
@@ -63,14 +69,19 @@ class CaptureDeadline {
   #resolveExpiration:
     | ((value: { readonly kind: "expired" }) => void)
     | undefined;
-  #timer: ReturnType<typeof setTimeout> | undefined;
+  readonly #scheduler: Scheduler;
+  #timer: TimeoutHandle | undefined;
   #expired = false;
 
-  constructor(timeMs: number) {
+  constructor(timeMs: number, scheduler: Scheduler) {
+    this.#scheduler = scheduler;
     this.#expiration = new Promise((resolve) => {
       this.#resolveExpiration = resolve;
     });
-    this.#timer = setTimeout(() => this.expire(), Math.max(0, timeMs));
+    this.#timer = scheduler.scheduleTimeout(
+      () => this.expire(),
+      Math.max(0, timeMs),
+    );
   }
 
   get expired(): boolean {
@@ -80,7 +91,7 @@ class CaptureDeadline {
   expire(): void {
     if (this.#expired) return;
     this.#expired = true;
-    if (this.#timer !== undefined) clearTimeout(this.#timer);
+    if (this.#timer !== undefined) this.#scheduler.cancelTimeout(this.#timer);
     this.#timer = undefined;
     const resolveExpiration = this.#resolveExpiration;
     this.#resolveExpiration = undefined;
@@ -98,7 +109,7 @@ class CaptureDeadline {
   }
 
   close(): void {
-    if (this.#timer !== undefined) clearTimeout(this.#timer);
+    if (this.#timer !== undefined) this.#scheduler.cancelTimeout(this.#timer);
     this.#timer = undefined;
   }
 }
@@ -106,7 +117,8 @@ class CaptureDeadline {
 /** Test seams for forcing every fail-open path without relying on host modes. */
 export interface ValidationCaptureOptions {
   readonly limits?: Partial<CaptureLimits> | undefined;
-  readonly now?: (() => number) | undefined;
+  readonly clock?: Clock | undefined;
+  readonly scheduler?: Scheduler | undefined;
   readonly readFile?: ((path: string) => Promise<Uint8Array>) | undefined;
   readonly gitBin?: string | undefined;
   readonly keyProvider?:
@@ -117,7 +129,7 @@ export interface ValidationCaptureOptions {
 interface CaptureRuntime {
   readonly limits: CaptureLimits;
   readonly deadline: CaptureDeadline;
-  readonly now: () => number;
+  readonly monotonicNow: () => number;
   readonly readFile: (path: string) => Promise<Uint8Array>;
   readonly gitBin?: string | undefined;
   readonly started: number;
@@ -269,13 +281,14 @@ function limits(options: ValidationCaptureOptions): CaptureLimits {
 
 /** Build one capture's shared budget accounting. */
 function runtime(options: ValidationCaptureOptions): CaptureRuntime {
-  const now = options.now ?? (() => performance.now());
+  const clock = options.clock ?? SYSTEM_CLOCK;
+  const scheduler = options.scheduler ?? SYSTEM_SCHEDULER;
   const captureLimits = limits(options);
-  const started = now();
+  const started = clock.monotonicNow();
   return {
     limits: captureLimits,
-    deadline: new CaptureDeadline(captureLimits.timeMs),
-    now,
+    deadline: new CaptureDeadline(captureLimits.timeMs, scheduler),
+    monotonicNow: clock.monotonicNow,
     readFile: options.readFile ?? Deno.readFile,
     ...(options.gitBin !== undefined ? { gitBin: options.gitBin } : {}),
     started,
@@ -289,7 +302,7 @@ function runtime(options: ValidationCaptureOptions): CaptureRuntime {
 
 /** Rounded nonnegative elapsed milliseconds. */
 function elapsed(rt: CaptureRuntime): number {
-  return Math.max(0, Math.round(rt.now() - rt.started));
+  return Math.max(0, Math.round(rt.monotonicNow() - rt.started));
 }
 
 /** Elapsed time for a fail-open catch whose clock may itself have failed. */
@@ -307,7 +320,7 @@ function safeElapsed(rt: CaptureRuntime | undefined): number {
 function withinTime(rt: CaptureRuntime): boolean {
   if (
     !rt.deadline.expired &&
-    rt.now() - rt.started <= rt.limits.timeMs
+    rt.monotonicNow() - rt.started <= rt.limits.timeMs
   ) {
     return true;
   }
@@ -361,7 +374,7 @@ async function captureGit(
   if (rt.byteLimited) return { limit: "byte-limit" };
   const remaining = Math.max(
     1,
-    Math.floor(rt.limits.timeMs - (rt.now() - rt.started)),
+    Math.floor(rt.limits.timeMs - (rt.monotonicNow() - rt.started)),
   );
   const remainingBytes = Math.max(0, rt.limits.bytes - rt.bytes);
   const result = await runGit(args, {

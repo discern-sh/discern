@@ -3,6 +3,7 @@
    beyond the one-way fetch of /docs/index.json. */
 import { activeTocIndex } from "./docs-toc.js";
 import { searchPages } from "./search.js";
+import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
 
 (() => {
   "use strict";
@@ -208,22 +209,18 @@ import { searchPages } from "./search.js";
       resetCopy();
 
       copy.addEventListener("click", async () => {
-        if (resetTimer !== null) clearTimeout(resetTimer);
+        if (resetTimer !== null) SYSTEM_SCHEDULER.cancelTimeout(resetTimer);
         setCopyState(
           commandExecution ? "Copying command…" : "copying…",
           commandExecution ? "Copying command" : "Copying code",
         );
         try {
           if (!navigator.clipboard) throw new Error("clipboard unavailable");
-          await Promise.race([
+          await withTimeout(
             navigator.clipboard.writeText((code ?? pre).innerText.trimEnd()),
-            new Promise((_, reject) => {
-              setTimeout(
-                () => reject(new Error("clipboard timed out")),
-                1000,
-              );
-            }),
-          ]);
+            1000,
+            "clipboard timed out",
+          );
           setCopyState(
             commandExecution ? "Command copied" : "copied ✓",
             commandExecution ? "Command copied" : "Code copied",
@@ -236,7 +233,7 @@ import { searchPages } from "./search.js";
             "is-copy-failed",
           );
         }
-        resetTimer = setTimeout(resetCopy, 2000);
+        resetTimer = SYSTEM_SCHEDULER.scheduleTimeout(resetCopy, 2000);
       });
       (commandExecution ?? pre).append(copy);
     }
@@ -280,9 +277,9 @@ import { searchPages } from "./search.js";
 
     const releasePinSoon = () => {
       if (releasePinTimer !== undefined) {
-        globalThis.clearTimeout(releasePinTimer);
+        SYSTEM_SCHEDULER.cancelTimeout(releasePinTimer);
       }
-      releasePinTimer = globalThis.setTimeout(() => {
+      releasePinTimer = SYSTEM_SCHEDULER.scheduleTimeout(() => {
         pinnedIndex = -1;
         releasePinTimer = undefined;
       }, 180);

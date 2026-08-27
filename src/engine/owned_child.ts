@@ -26,6 +26,11 @@ import {
 } from "./process_signals.ts";
 import { bestEffortSync } from "../shared/best_effort.ts";
 import { operationLockChildEnv } from "../shared/operation_lock_context.ts";
+import {
+  type Scheduler,
+  SYSTEM_SCHEDULER,
+  type TimeoutHandle,
+} from "../shared/scheduler.ts";
 
 export interface OwnedChildOptions {
   /** Arguments passed to the executable without a shell. */
@@ -57,6 +62,8 @@ export interface SuperviseOptions {
   readonly isolatedGroup: boolean;
   /** Keep this process alive after an interrupt once the child is reaped. */
   readonly resumeAfterInterrupt?: boolean;
+  /** Escalation timer lifecycle; defaults to the host scheduler. */
+  readonly scheduler?: Scheduler;
 }
 
 /** A settled supervised run: what `settle` returned, and the interrupt (if any). */
@@ -95,9 +102,10 @@ export async function superviseSpawn<T>(
   settle: (child: Deno.ChildProcess, interrupted: AbortSignal) => Promise<T>,
   opts: SuperviseOptions,
 ): Promise<SupervisedRun<T>> {
+  const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
   let child: Deno.ChildProcess | undefined;
   let interruptedBy: Deno.Signal | null = null;
-  let killTimer: ReturnType<typeof setTimeout> | undefined;
+  let killTimer: TimeoutHandle | undefined;
   const interruptController = new AbortController();
   const signalChild = (signal: Deno.Signal): void => {
     const runningChild = child;
@@ -113,7 +121,7 @@ export async function superviseSpawn<T>(
     const handler = (): void => {
       interruptedBy ??= signal;
       signalChild(signal);
-      killTimer ??= setTimeout(() => {
+      killTimer ??= scheduler.scheduleTimeout(() => {
         signalChild("SIGKILL");
       }, KILL_GRACE_MS);
       interruptController.abort();
@@ -130,7 +138,7 @@ export async function superviseSpawn<T>(
     if (interruptedBy !== null) signalChild(interruptedBy);
     value = await settle(child, interruptController.signal);
   } finally {
-    if (killTimer !== undefined) clearTimeout(killTimer);
+    if (killTimer !== undefined) scheduler.cancelTimeout(killTimer);
     // A non-interactive shell can exit from SIGINT while a background child
     // remains in the group with SIGINT ignored. The leader is reaped now, so
     // no cooperative cleanup remains to wait for; remove any group survivors.

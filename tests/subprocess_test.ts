@@ -12,6 +12,7 @@
  * statically knowable — NEVER a word `sh` would not have run.
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   commandExists,
@@ -176,7 +177,7 @@ Deno.test("runGit enforces an explicit caller-owned timeout", async () => {
     const fakeGit = join(dir, "slow-git");
     await Deno.writeTextFile(fakeGit, "#!/bin/sh\nexec sleep 5\n");
     await Deno.chmod(fakeGit, 0o755);
-    const started = performance.now();
+    const started = SYSTEM_CLOCK.monotonicNow();
     const result = await runGit(["status"], {
       cwd: dir,
       bin: fakeGit,
@@ -186,7 +187,7 @@ Deno.test("runGit enforces an explicit caller-owned timeout", async () => {
     assertEquals(result.code, 124);
     assertEquals(result.timedOut, true);
     assert(
-      performance.now() - started < 2_000,
+      SYSTEM_CLOCK.monotonicNow() - started < 2_000,
       "runGit waited for the child after its explicit deadline",
     );
   });

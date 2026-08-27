@@ -86,6 +86,8 @@ import { experimentalAwaitCallSeconds } from "../../shared/experimental.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { pathExists } from "../../shared/fs_presence.ts";
+import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 
 import { AWAIT_POLL_INTERVAL_MS, AWAIT_TIMEOUT_EXIT_CODE } from "./defaults.ts";
 import {
@@ -121,6 +123,10 @@ export interface AwaitOptions {
   timeoutSeconds?: number;
   /** Test seam: the polling fallback cadence ({@link AWAIT_POLL_INTERVAL_MS}). */
   pollIntervalMs?: number;
+  /** Monotonic clock for the elapsed wait bound. */
+  clock?: Clock;
+  /** Timer lifecycle for the polling fallback. */
+  scheduler?: Scheduler;
 }
 
 /** Surface context that selects a transport-safe duration for one call. */
@@ -314,6 +320,8 @@ async function waitForWakes(
   watchPaths: string[],
   deadlineMs: number,
   pollMs: number,
+  clock: Clock,
+  scheduler: Scheduler,
   signal?: AbortSignal,
 ): Promise<"met" | "timeout"> {
   if (await evaluate()) {
@@ -347,17 +355,17 @@ async function waitForWakes(
   signal?.addEventListener("abort", kick, { once: true });
   try {
     while (true) {
-      if (signal?.aborted === true || Date.now() >= deadlineMs) {
+      if (signal?.aborted === true || clock.monotonicNow() >= deadlineMs) {
         return "timeout";
       }
-      const waitMs = Math.min(pollMs, deadlineMs - Date.now());
+      const waitMs = Math.min(pollMs, deadlineMs - clock.monotonicNow());
       await new Promise<void>((resolve) => {
-        const timer = setTimeout(() => {
+        const timer = scheduler.scheduleTimeout(() => {
           wake = undefined;
           resolve();
         }, waitMs);
         wake = (): void => {
-          clearTimeout(timer);
+          scheduler.cancelTimeout(timer);
           wake = undefined;
           resolve();
         };
@@ -771,7 +779,9 @@ export async function awaitResult(
     return last.met;
   };
 
-  const startMs = Date.now();
+  const clock = opts.clock ?? SYSTEM_CLOCK;
+  const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
+  const startMs = clock.monotonicNow();
   let outcome: "met" | "timeout";
   if (await evaluate()) {
     outcome = "met";
@@ -800,10 +810,12 @@ export async function awaitResult(
       ]),
       startMs + timeoutSeconds * 1000,
       opts.pollIntervalMs ?? AWAIT_POLL_INTERVAL_MS,
+      clock,
+      scheduler,
       signal,
     );
   }
-  const waitedMs = Math.round(Date.now() - startMs);
+  const waitedMs = Math.round(clock.monotonicNow() - startMs);
 
   const base: AwaitData = {
     condition,

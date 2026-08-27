@@ -25,6 +25,12 @@ import {
   killProcessTree,
   quiesceProcessGroup,
 } from "../process_signals.ts";
+import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
+import {
+  type Scheduler,
+  SYSTEM_SCHEDULER,
+  type TimeoutHandle,
+} from "../../shared/scheduler.ts";
 
 /** Options for spawning a single job. */
 export interface SpawnOptions {
@@ -54,6 +60,10 @@ export interface SpawnOptions {
   /** Drain all child output but retain at most this many raw bytes, bypassing
    * line presentation/diagnostic feeds. For bounded line protocols. */
   protocolOutputMaxBytes?: number;
+  /** Monotonic duration source; defaults to the host clock. */
+  clock?: Clock;
+  /** Watchdog and escalation timer lifecycle; defaults to the host scheduler. */
+  scheduler?: Scheduler;
 }
 
 /** A finished job: its result plus captured output (buffered mode only). */
@@ -234,7 +244,9 @@ export async function spawnJob(
   opts: SpawnOptions,
 ): Promise<SpawnedJob> {
   const command = shellCommand(job.command);
-  const start = performance.now();
+  const clock = opts.clock ?? SYSTEM_CLOCK;
+  const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
+  const start = clock.monotonicNow();
 
   const child = new Deno.Command("sh", {
     args: ["-c", command],
@@ -262,12 +274,12 @@ export async function spawnJob(
   // The readers draining the child's pipes, registered so the kill path can
   // cancel a read blocked on a pipe the tree-kill could not close.
   const readers = new Set<ReadableStreamDefaultReader<Uint8Array>>();
-  let killTimer: ReturnType<typeof setTimeout> | undefined;
-  let pipeGraceTimer: ReturnType<typeof setTimeout> | undefined;
+  let killTimer: TimeoutHandle | undefined;
+  let pipeGraceTimer: TimeoutHandle | undefined;
   const onAbort = (): void => {
     killProcessTree(pid, "SIGTERM");
     // Escalate if it ignores SIGTERM; cleared once the process is reaped.
-    killTimer = setTimeout(
+    killTimer = scheduler.scheduleTimeout(
       () => killProcessTree(pid, "SIGKILL"),
       KILL_GRACE_MS,
     );
@@ -277,7 +289,7 @@ export async function spawnJob(
     // reads so the job settles within its budget instead of waiting out the
     // escapee. `??=` so a second kill (abort + watchdog racing) keeps the
     // first deadline.
-    pipeGraceTimer ??= setTimeout(() => {
+    pipeGraceTimer ??= scheduler.scheduleTimeout(() => {
       for (const reader of readers) {
         detachPromise(
           "job-output-reader-cancel-detach",
@@ -305,10 +317,10 @@ export async function spawnJob(
   // `timedOutAfterS` only when the timer actually fires, so its presence is the
   // "did it time out?" flag and the value is the budget the diagnostic reports.
   let timedOutAfterS: number | undefined;
-  let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+  let timeoutTimer: TimeoutHandle | undefined;
   const budgetS = opts.timeoutS;
   if (budgetS !== undefined && budgetS > 0) {
-    timeoutTimer = setTimeout(() => {
+    timeoutTimer = scheduler.scheduleTimeout(() => {
       timedOutAfterS = budgetS;
       onAbort();
     }, budgetS * 1000);
@@ -413,13 +425,13 @@ export async function spawnJob(
   // process reaped), before any further awaits, so a job that finished within
   // budget isn't branded a timeout by a late-firing timer.
   if (timeoutTimer !== undefined) {
-    clearTimeout(timeoutTimer);
+    scheduler.cancelTimeout(timeoutTimer);
   }
   if (killTimer !== undefined) {
-    clearTimeout(killTimer);
+    scheduler.cancelTimeout(killTimer);
   }
   if (pipeGraceTimer !== undefined) {
-    clearTimeout(pipeGraceTimer);
+    scheduler.cancelTimeout(pipeGraceTimer);
   }
   if (signal) {
     signal.removeEventListener("abort", onAbort);
@@ -450,7 +462,7 @@ export async function spawnJob(
   const code = (timedOutAfterS !== undefined || cancelled) && exitCode === 0
     ? 1
     : exitCode;
-  const durationS = Math.round((performance.now() - start) / 1000);
+  const durationS = Math.round((clock.monotonicNow() - start) / 1000);
   const result: JobResult = {
     label: job.label,
     status: code === 0 ? "ok" : "failed",

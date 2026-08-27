@@ -33,6 +33,8 @@ import {
   resolveCliDest,
   writeExecutableSync,
 } from "./cli_install.ts";
+import { type Clock, SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { type Scheduler, SYSTEM_SCHEDULER } from "../src/shared/scheduler.ts";
 
 /** Build the host-target binary via the canonical build path. Returns success. */
 async function buildHostBinary(
@@ -95,7 +97,11 @@ export function holdCompiledLease(opts: {
   dest: string;
   bakedCheckout: string;
   triple: string;
+  clock?: Clock;
+  scheduler?: Scheduler;
 }): Promise<never> {
+  const clock = opts.clock ?? SYSTEM_CLOCK;
+  const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
   let restored = false;
   const restoreAndExit = (sig: string): void => {
     if (!restored) {
@@ -128,9 +134,12 @@ export function holdCompiledLease(opts: {
   printLiveBanner(opts.dest, opts.triple);
 
   // A per-minute pulse so a long-lived lease keeps reminding you it is there.
-  const startedMs = Date.now();
-  setInterval(() => {
-    const mins = Math.max(1, Math.round((Date.now() - startedMs) / 60_000));
+  const startedMs = clock.monotonicNow();
+  scheduler.scheduleInterval(() => {
+    const mins = Math.max(
+      1,
+      Math.round((clock.monotonicNow() - startedMs) / 60_000),
+    );
     console.error(
       `  ⚠  compiled discern still live (${mins}m) — Ctrl+C to restore the dev shim`,
     );

@@ -1,3 +1,4 @@
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { setActiveInvocationId } from "../src/engine/logbook/invocation_context.ts";
 import {
   assert,
@@ -281,12 +282,14 @@ Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () =
     observer: {
       started: (): void => {},
       settled: (job): void => {
-        if (job.label === "fail") cancellationStarted = performance.now();
+        if (job.label === "fail") {
+          cancellationStarted = SYSTEM_CLOCK.monotonicNow();
+        }
       },
     },
   });
   assert(cancellationStarted !== undefined);
-  const elapsed = performance.now() - cancellationStarted;
+  const elapsed = SYSTEM_CLOCK.monotonicNow() - cancellationStarted;
   assertEquals(r.ok, false);
   assertEquals(r.results.find((x) => x.label === "fail")?.code, 3);
   assert(elapsed < 10_000, `expected interaction cancel, took ${elapsed}ms`);
@@ -515,12 +518,14 @@ Deno.test("fail-fast escalates to SIGKILL when a sibling ignores SIGTERM", async
       observer: {
         started: (): void => {},
         settled: (job): void => {
-          if (job.label === "boom") cancellationStarted = performance.now();
+          if (job.label === "boom") {
+            cancellationStarted = SYSTEM_CLOCK.monotonicNow();
+          }
         },
       },
     });
     assert(cancellationStarted !== undefined);
-    const elapsed = performance.now() - cancellationStarted;
+    const elapsed = SYSTEM_CLOCK.monotonicNow() - cancellationStarted;
 
     const stubborn = r.results.find((x) => x.label === "stubborn");
     assertEquals(r.ok, false);
@@ -612,10 +617,10 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
       "the timed job's inner process to start",
       { intervalMs: 25 },
     );
-    const start = performance.now();
+    const start = SYSTEM_CLOCK.monotonicNow();
     external.abort();
     const r = await run;
-    const elapsed = performance.now() - start;
+    const elapsed = SYSTEM_CLOCK.monotonicNow() - start;
 
     assertEquals(r.ok, false);
     for (const label of ["slow", "slow-too"]) {
@@ -659,10 +664,10 @@ Deno.test("runParallel: an external abort stays bounded when an escaped descenda
       "the escaped daemon to hold the job pipes",
       { intervalMs: 25 },
     );
-    const start = performance.now();
+    const start = SYSTEM_CLOCK.monotonicNow();
     external.abort();
     const r = await run;
-    const elapsed = performance.now() - start;
+    const elapsed = SYSTEM_CLOCK.monotonicNow() - start;
 
     assertEquals(r.ok, false);
     assertEquals(r.results[0]?.cancelled, true, JSON.stringify(r.results[0]));

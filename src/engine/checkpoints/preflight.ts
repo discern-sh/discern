@@ -46,6 +46,7 @@ import {
   validateUnmetRationale,
 } from "./open_questions.ts";
 import { declarationEvidenceIdentity } from "./evidence.ts";
+import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import {
   activeOpenQuestionState,
   inspectCheckpointObligations,
@@ -337,7 +338,7 @@ export async function runCheckpointPreflight(
   now?: string,
   signal?: AbortSignal,
 ): Promise<CheckpointPreflightOutcome> {
-  const at = now ?? new Date().toISOString();
+  const at = now ?? wallTimeIso(SYSTEM_CLOCK.wallNow());
   const inspection = await inspectCheckpointObligations(root, config);
   const drops: CheckpointDrop[] = [...inspection.drops];
   const preflight: CheckpointPreflight = {

@@ -35,6 +35,7 @@ import {
   notInitializedResult,
 } from "../../shared/env.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { pathExists } from "../../shared/fs_presence.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
@@ -1577,7 +1578,7 @@ function beginMcpRecording(
       ...(flags !== undefined ? { flags } : {}),
     }),
     driver,
-    started: performance.now(),
+    started: SYSTEM_CLOCK.monotonicNow(),
   };
 }
 
@@ -1644,7 +1645,11 @@ async function runVerb(
     if (configFailure !== undefined) {
       return { result: configFailure };
     }
-    const report = captureCrashReport(verbOf(tool.name), e);
+    const report = captureCrashReport(
+      verbOf(tool.name),
+      e,
+      SYSTEM_CLOCK.wallNow(),
+    );
     const artifact = await writeCrashArtifact(root, report);
     return {
       result: internalErrorResult(verbOf(tool.name), report, artifact),
@@ -1692,7 +1697,7 @@ async function completeToolCall(
       verb: verbOf(tool.name),
       surface: "mcp",
       outcome: result.ok ? "ok" : "failed",
-      durationMs: performance.now() - recording.started,
+      durationMs: SYSTEM_CLOCK.monotonicNow() - recording.started,
       ...(result.waitedMs !== undefined ? { waitedMs: result.waitedMs } : {}),
       result,
       hintIds: observed?.hintIds ?? [],

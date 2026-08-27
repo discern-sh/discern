@@ -116,6 +116,10 @@ function decodeResolution(
 ): DenoInfoResolution | undefined {
   if (value === undefined) return undefined;
   if (!isRecord(value)) throw new TypeError(`${context} must be an object`);
+  if (!("specifier" in value)) {
+    const error = value.error;
+    if (typeof error === "string" && error.length > 0) return undefined;
+  }
   return { specifier: requiredString(value, "specifier", context) };
 }
 

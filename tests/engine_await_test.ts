@@ -16,6 +16,7 @@
  *    promptly on SIGINT with nothing left behind.
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
@@ -1109,7 +1110,7 @@ Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () =>
     }).spawn();
     await readiness(child.status, "CLI await --trunk-moved");
     child.kill("SIGINT");
-    const killedAt = Date.now();
+    const killedAt = SYSTEM_CLOCK.wallNow();
     let status: Deno.CommandOutput | undefined;
     const output = child.output().then((value) => {
       status = value;
@@ -1130,7 +1131,7 @@ Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () =>
     }
     const observed = await output;
     assert(
-      Date.now() - killedAt < 5_000,
+      SYSTEM_CLOCK.wallNow() - killedAt < 5_000,
       "the interrupted wait must die promptly, not run out its timeout",
     );
     assert(!observed.success, "an interrupted wait is not a success");

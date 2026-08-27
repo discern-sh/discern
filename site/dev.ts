@@ -11,6 +11,11 @@ import { resolveIdentity } from "../src/engine/worktree/identity.ts";
 import { fromFileUrl, join } from "@std/path";
 import { statIfExists } from "../src/shared/fs_presence.ts";
 import { detachPromise } from "../src/shared/promise_effects.ts";
+import {
+  type Scheduler,
+  SYSTEM_SCHEDULER,
+  type TimeoutHandle,
+} from "../src/shared/scheduler.ts";
 
 const REPO_ROOT = new URL("../", import.meta.url);
 const REPO_ROOT_PATH = fromFileUrl(REPO_ROOT);
@@ -54,6 +59,8 @@ export interface SiteDevOptions {
   readonly buildConfig?: string;
   readonly extraWatchInputs: readonly string[];
   readonly watch: boolean;
+  /** Preview replacement and watch-debounce timer lifecycle. */
+  readonly scheduler?: Scheduler;
 }
 
 /** Parse site-runner arguments without letting an unknown option disappear. */
@@ -223,6 +230,7 @@ export async function planSitePreviewStart(
 /** Ask a compatible one-shot preview to close, then wait for its bind to clear. */
 export async function replaceManagedSitePreview(
   plan: Extract<SitePreviewStartPlan, { readonly action: "replace" }>,
+  scheduler: Scheduler = SYSTEM_SCHEDULER,
 ): Promise<void> {
   const endpoint =
     `http://${SITE_DEV_BIND_HOST}:${plan.port}${SITE_PREVIEW_CONTROL_PATH}`;
@@ -242,7 +250,9 @@ export async function replaceManagedSitePreview(
   if (response.status !== 202) throw siteDevPortInUseError(plan.port);
   for (let attempt = 0; attempt < SITE_PREVIEW_SHUTDOWN_ATTEMPTS; attempt++) {
     if (await discoverManagedSitePreview(plan.port) === undefined) return;
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await new Promise<void>((resolve) =>
+      scheduler.scheduleTimeout(() => resolve(), 25)
+    );
   }
   throw siteDevPortInUseError(plan.port);
 }
@@ -346,10 +356,11 @@ export function localSiteWatchInputPaths(
 async function watchSiteBuildInputs(
   options: SiteDevOptions,
 ): Promise<never> {
+  const scheduler = options.scheduler ?? SYSTEM_SCHEDULER;
   const watcher = Deno.watchFs(
     localSiteWatchInputPaths(options.extraWatchInputs),
   );
-  let debounce: ReturnType<typeof setTimeout> | undefined;
+  let debounce: TimeoutHandle | undefined;
   let rebuilding = false;
   let rebuildAgain = false;
 
@@ -373,19 +384,24 @@ async function watchSiteBuildInputs(
   };
 
   console.log("Watching authored site inputs...");
-  for await (const event of watcher) {
-    if (event.kind === "access" || !siteBuildEventNeedsRebuild(event.paths)) {
-      continue;
+  try {
+    for await (const event of watcher) {
+      if (event.kind === "access" || !siteBuildEventNeedsRebuild(event.paths)) {
+        continue;
+      }
+      if (debounce !== undefined) scheduler.cancelTimeout(debounce);
+      debounce = scheduler.scheduleTimeout(() => {
+        debounce = undefined;
+        detachPromise(
+          "site-watch-rebuild",
+          rebuild,
+          (error) => console.error("Site rebuild failed:", error),
+        );
+      }, WATCH_DEBOUNCE_MS);
     }
-    if (debounce !== undefined) clearTimeout(debounce);
-    debounce = setTimeout(() => {
-      debounce = undefined;
-      detachPromise(
-        "site-watch-rebuild",
-        rebuild,
-        (error) => console.error("Site rebuild failed:", error),
-      );
-    }, WATCH_DEBOUNCE_MS);
+  } finally {
+    if (debounce !== undefined) scheduler.cancelTimeout(debounce);
+    watcher.close();
   }
   throw new Error("Site input watcher stopped unexpectedly");
 }
@@ -402,7 +418,12 @@ export async function runLocalSite(options: SiteDevOptions): Promise<void> {
   if (!await runSiteBuild(options.buildConfig)) {
     throw new Error("Initial site build failed");
   }
-  if (plan.action === "replace") await replaceManagedSitePreview(plan);
+  if (plan.action === "replace") {
+    await replaceManagedSitePreview(
+      plan,
+      options.scheduler ?? SYSTEM_SCHEDULER,
+    );
+  }
   const server = startManagedSiteServer(
     port,
     mode,

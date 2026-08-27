@@ -16,6 +16,7 @@
  * standalone `standards` verb never replays (pinning and CI stay full-fat).
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
@@ -93,7 +94,10 @@ async function measurementRuns(dir: string): Promise<number> {
 /** Commit a docs-only change that must not invalidate a source-scoped measurement. */
 async function commitDocsChange(dir: string): Promise<void> {
   await Deno.mkdir(join(dir, "docs"), { recursive: true });
-  await Deno.writeTextFile(join(dir, "docs/note.md"), `note ${Date.now()}\n`);
+  await Deno.writeTextFile(
+    join(dir, "docs/note.md"),
+    `note ${SYSTEM_CLOCK.wallNow()}\n`,
+  );
   await git(dir, "add", "docs");
   await git(dir, "commit", "-qm", "docs only", "--no-gpg-sign");
 }
@@ -339,9 +343,9 @@ Deno.test("a standard's own `timeout` bounds its gate measurement job while sibl
     );
     await gitInit(dir);
 
-    const start = Date.now();
+    const start = SYSTEM_CLOCK.wallNow();
     const r = await runAgent(dir, ["done", "--json"]);
-    const elapsed = Date.now() - start;
+    const elapsed = SYSTEM_CLOCK.wallNow() - start;
 
     assertEquals(r.code, 1, r.output);
     const obj = parseGate(r.stdout);

@@ -148,7 +148,7 @@ export async function buildMapOverview(tree: DocsTree): Promise<MapRegion[]> {
 }
 
 /** Human age wording; exact timestamps remain available in JSON. */
-export function ageSince(iso: string, now = Date.now()): string {
+export function ageSince(iso: string, now: number): string {
   const elapsed = Math.max(0, now - Date.parse(iso));
   const minute = 60_000;
   const units: Array<[number, string]> = [

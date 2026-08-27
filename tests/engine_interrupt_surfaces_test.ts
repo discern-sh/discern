@@ -22,6 +22,7 @@
  * closes — the observable a user would notice an orphan by.
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { z } from "@zod/zod";
@@ -308,7 +309,7 @@ Deno.test("the interrupt harness reports an early surface exit without spending 
     code: 23,
     signal: null,
   };
-  const started = performance.now();
+  const started = SYSTEM_CLOCK.monotonicNow();
   let caught: unknown;
   try {
     await waitForSurfaceStart(
@@ -330,7 +331,7 @@ Deno.test("the interrupt harness reports an early surface exit without spending 
   );
   assertStringIncludes(caught.message, "deliberate-early-exit");
   assert(
-    performance.now() - started < EARLY_EXIT_DIAGNOSTIC_CEILING_MS,
+    SYSTEM_CLOCK.monotonicNow() - started < EARLY_EXIT_DIAGNOSTIC_CEILING_MS,
     "an observed early exit must be reported without spending the readiness allowance",
   );
 });

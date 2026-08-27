@@ -12,6 +12,8 @@ import { z } from "@zod/zod";
 import { pathExists } from "../src/shared/fs_presence.ts";
 import { gitReportedAdminPath } from "../src/shared/git_admin_paths.ts";
 import { runGit } from "../src/shared/subprocess.ts";
+import { type Clock, SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { type Scheduler, SYSTEM_SCHEDULER } from "../src/shared/scheduler.ts";
 
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
@@ -57,6 +59,10 @@ export interface ValeToolchainOptions {
   readonly download?: (url: string) => Promise<Uint8Array>;
   /** Additional environment passed to the exact cached executable. */
   readonly env?: Record<string, string>;
+  /** Wall and monotonic sources for lock expiry and elapsed wait bounds. */
+  readonly clock?: Clock;
+  /** Timer lifecycle for bounded lock polling. */
+  readonly scheduler?: Scheduler;
 }
 
 export interface ValeToolchain {
@@ -302,14 +308,17 @@ async function removeOwnedPath(path: string): Promise<void> {
 }
 
 /** Pause one bounded install-lock retry. */
-async function waitForInstallLock(): Promise<void> {
+async function waitForInstallLock(scheduler: Scheduler): Promise<void> {
   await new Promise<void>((resolve) =>
-    setTimeout(resolve, INSTALL_LOCK_POLL_MS)
+    scheduler.scheduleTimeout(resolve, INSTALL_LOCK_POLL_MS)
   );
 }
 
 /** Reclaim a lock whose owner cannot still be a normal release download. */
-async function reclaimStaleLock(lock: string): Promise<boolean> {
+async function reclaimStaleLock(
+  lock: string,
+  clock: Clock,
+): Promise<boolean> {
   let info: Deno.FileInfo;
   try {
     info = await Deno.stat(lock);
@@ -318,7 +327,10 @@ async function reclaimStaleLock(lock: string): Promise<boolean> {
     throw error;
   }
   const modified = info.mtime?.getTime();
-  if (modified === undefined || Date.now() - modified < INSTALL_LOCK_STALE_MS) {
+  if (
+    modified === undefined ||
+    clock.wallNow() - modified < INSTALL_LOCK_STALE_MS
+  ) {
     return false;
   }
   const stale = `${lock}.stale-${crypto.randomUUID()}`;
@@ -338,9 +350,11 @@ async function acquireInstallLock(
   toolchain: ValeToolchain,
   repoRoot: string,
   env?: Record<string, string>,
+  clock: Clock = SYSTEM_CLOCK,
+  scheduler: Scheduler = SYSTEM_SCHEDULER,
 ): Promise<boolean> {
-  const started = Date.now();
-  while (Date.now() - started < INSTALL_LOCK_WAIT_MS) {
+  const started = clock.monotonicNow();
+  while (clock.monotonicNow() - started < INSTALL_LOCK_WAIT_MS) {
     try {
       await Deno.mkdir(lock, { mode: 0o700 });
       return true;
@@ -350,8 +364,8 @@ async function acquireInstallLock(
     if (await cacheValidationIssue(toolchain, repoRoot, env) === undefined) {
       return false;
     }
-    if (await reclaimStaleLock(lock)) continue;
-    await waitForInstallLock();
+    if (await reclaimStaleLock(lock, clock)) continue;
+    await waitForInstallLock(scheduler);
   }
   throw new Error(
     `Timed out waiting for another process to provision Vale ${toolchain.version}`,
@@ -455,6 +469,8 @@ export async function ensureVale(
     toolchain,
     repoRoot,
     options.env,
+    options.clock ?? SYSTEM_CLOCK,
+    options.scheduler ?? SYSTEM_SCHEDULER,
   );
   if (!ownsLock) return toolchain.binary;
 

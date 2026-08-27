@@ -30,6 +30,7 @@
 import { tmpdir } from "os";
 import { join } from "@std/path";
 import { bestEffort } from "./best_effort.ts";
+import { SYSTEM_CLOCK } from "./clock.ts";
 
 /** The registry: one filename prefix per artifact family. The prefixes are the
  * retention contract — {@link pruneStaleTempArtifacts} reaps exactly these. */
@@ -244,7 +245,7 @@ export async function pruneStaleTempArtifacts(
 ): Promise<TempArtifactPruneResult> {
   const dir = opts.dir ?? tmpdir();
   const ttlMs = opts.ttlMs ?? TEMP_ARTIFACT_TTL_MS;
-  const now = opts.now ?? Date.now();
+  const now = opts.now ?? SYSTEM_CLOCK.wallNow();
   const maxRemovals = opts.maxRemovals ?? MAX_SWEEP_REMOVALS;
   const maxInspections = opts.maxInspections ?? MAX_SWEEP_INSPECTIONS;
   const prefixes = Object.values(TEMP_ARTIFACT_KINDS);

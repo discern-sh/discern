@@ -22,6 +22,7 @@
  * hermetic git repo, so the bytes under test are the bytes an install runs.
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, dirname, join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
@@ -138,7 +139,9 @@ async function appendLogbookLines(
 ): Promise<void> {
   const logDir = join(dir, ".git", "discern", "logbook");
   await Deno.mkdir(logDir, { recursive: true });
-  const month = `${new Date().toISOString().slice(0, 7)}.jsonl`;
+  const month = `${
+    new Date(SYSTEM_CLOCK.wallNow()).toISOString().slice(0, 7)
+  }.jsonl`;
   await Deno.writeTextFile(
     join(logDir, month),
     lines.map((l) => `${JSON.stringify(l)}\n`).join(""),
@@ -151,7 +154,7 @@ async function appendLogbookLines(
 function beginEvent(branch: string): unknown {
   return {
     schema: LOGBOOK_SCHEMA_VERSION,
-    at: new Date(Date.now() - 60_000).toISOString(),
+    at: new Date(SYSTEM_CLOCK.wallNow() - 60_000).toISOString(),
     kind: "begin",
     invocation: `inv-${branch}`,
     verb: "done",
@@ -258,7 +261,7 @@ Deno.test("containment: with the logbook off, the git-derived quiet period gates
     // Fresh commits: the checkouts are active within the quiet period, so a
     // logbook-off install offers nothing yet…
     const active = await scan(dir, {
-      idle: containmentIdleCheck(undefined, Date.now()),
+      idle: containmentIdleCheck(undefined, SYSTEM_CLOCK.wallNow()),
     });
     assertEquals(
       active,
@@ -266,7 +269,7 @@ Deno.test("containment: with the logbook off, the git-derived quiet period gates
       "activity within the quiet period must withhold the offer",
     );
     // …and the same fleet is offered once the quiet period has passed.
-    const later = Date.now() + CONTAINED_QUIET_PERIOD_MS + 60_000;
+    const later = SYSTEM_CLOCK.wallNow() + CONTAINED_QUIET_PERIOD_MS + 60_000;
     const quiet = byBranch(
       await scan(dir, { idle: containmentIdleCheck(undefined, later) }),
     );

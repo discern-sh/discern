@@ -10,6 +10,7 @@
 import { dirname } from "@std/path";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 
 /** Namespace reserved for committed branch tips retained after a drop. */
 export const DROP_RECOVERY_REF_PREFIX = "refs/discern/recovery";
@@ -125,6 +126,7 @@ export async function preserveDropRecoveryRef(
   root: string,
   branch: string,
   worktreeId: string,
+  clock: Clock = SYSTEM_CLOCK,
 ): Promise<DropRecoveryRef> {
   const branchRef = `refs/heads/${branch}`;
   const resolved = await runGit([
@@ -143,9 +145,9 @@ export async function preserveDropRecoveryRef(
 
   return await withRecoveryRefLock(root, async () => {
     const existing = await existingRecoveryRefs(root);
-    const ref = `${DROP_RECOVERY_REF_PREFIX}/${recoveryTimestamp(new Date())}-${
-      recoverySlug(worktreeId)
-    }-${crypto.randomUUID().slice(0, 8)}`;
+    const ref = `${DROP_RECOVERY_REF_PREFIX}/${
+      recoveryTimestamp(new Date(clock.wallNow()))
+    }-${recoverySlug(worktreeId)}-${crypto.randomUUID().slice(0, 8)}`;
     const evicted = existing.slice(DROP_RECOVERY_REF_LIMIT - 1);
     const commands = [
       `verify ${branchRef} ${commit}`,

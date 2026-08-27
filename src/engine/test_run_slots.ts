@@ -18,6 +18,13 @@ import { compactDuration } from "./output.ts";
 import { resolveCommonGitDir } from "./worktree/git.ts";
 import { readFleetLogbookActivity } from "./logbook/read.ts";
 import { configEpoch } from "./logbook/epoch.ts";
+import { type Clock, SYSTEM_CLOCK } from "../shared/clock.ts";
+import {
+  type JitterFn,
+  type Scheduler,
+  SYSTEM_JITTER,
+  SYSTEM_SCHEDULER,
+} from "../shared/scheduler.ts";
 
 /** Re-probe backoff while every slot is held: start fast, settle near ~2s. */
 const POLL_INITIAL_MS = 150;
@@ -68,17 +75,21 @@ export interface TestRunSlotAcquirer {
 }
 
 /** A sleep the abort signal can cut short. Resolves either way. */
-function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+function abortableDelay(
+  ms: number,
+  scheduler: Scheduler,
+  signal?: AbortSignal,
+): Promise<void> {
   return new Promise((resolve) => {
     if (signal?.aborted === true) {
       resolve();
       return;
     }
     const onAbort = (): void => {
-      clearTimeout(timer);
+      scheduler.cancelTimeout(timer);
       resolve();
     };
-    const timer = setTimeout(() => {
+    const timer = scheduler.scheduleTimeout(() => {
       signal?.removeEventListener("abort", onAbort);
       resolve();
     }, ms);
@@ -209,6 +220,11 @@ async function waitDecoration(
 export function buildTestRunSlotAcquirer(
   root: string,
   cfg: DiscernConfig,
+  timing: {
+    readonly clock?: Clock;
+    readonly scheduler?: Scheduler;
+    readonly jitter?: JitterFn;
+  } = {},
 ): TestRunSlotAcquirer | undefined {
   const cap = cfg.gate.concurrent_test_runs;
   if (!Number.isInteger(cap) || cap <= 0) {
@@ -217,6 +233,9 @@ export function buildTestRunSlotAcquirer(
   let dirPromise: Promise<string | undefined> | undefined;
   let unavailable = false;
   let waitedMs: number | undefined;
+  const clock = timing.clock ?? SYSTEM_CLOCK;
+  const scheduler = timing.scheduler ?? SYSTEM_SCHEDULER;
+  const jitter = timing.jitter ?? SYSTEM_JITTER;
   const slotDir = (): Promise<string | undefined> => {
     dirPromise ??= (async (): Promise<string | undefined> => {
       const dir = await gitAdminStatePath(root, "testSlots");
@@ -287,13 +306,13 @@ export function buildTestRunSlotAcquirer(
             : NO_DECORATION),
         }),
       });
-      const waitStarted = performance.now();
+      const waitStarted = clock.monotonicNow();
       const finishWait = (): void => {
-        waitedMs = (waitedMs ?? 0) + performance.now() - waitStarted;
+        waitedMs = (waitedMs ?? 0) + clock.monotonicNow() - waitStarted;
       };
       let interval = POLL_INITIAL_MS;
       while (true) {
-        await abortableDelay(interval * (0.75 + Math.random() * 0.5), signal);
+        await abortableDelay(jitter(interval), scheduler, signal);
         if (signal?.aborted === true) {
           finishWait();
           return undefined;

@@ -36,6 +36,7 @@
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
+import { SYSTEM_CLOCK } from "./clock.ts";
 import {
   type GitAdminPathRunner,
   resolveGitAdminStatePath,
@@ -81,7 +82,7 @@ async function identityName(text: string): Promise<string> {
 /** Best-effort mtime refresh: the keep-alive the temp-artifact reaper honors
  * on a fallback shim. Harmless on a git-admin shim, which no reaper visits. */
 async function touch(dir: string): Promise<void> {
-  const now = new Date();
+  const now = new Date(SYSTEM_CLOCK.wallNow());
   await bestEffort("self-shim-keepalive-touch", async () => {
     await Deno.utime(dir, now, now);
   });

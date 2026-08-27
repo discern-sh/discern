@@ -233,6 +233,32 @@ const owned = promised();
   });
 });
 
+Deno.test("unresolved optional Deno graph edges do not hide typed source modules", async () => {
+  await withTempDir(async (root) => {
+    await Deno.mkdir(join(root, "future-source"), { recursive: true });
+    await Deno.writeTextFile(
+      join(root, "deno.json"),
+      JSON.stringify({
+        compilerOptions: { strict: true },
+        imports: {
+          "/browser/runtime.js": "./browser-runtime.js",
+        },
+      }),
+    );
+    await Deno.writeTextFile(
+      join(root, "future-source", "effect.ts"),
+      "export async function effect(): Promise<void> {}\n",
+    );
+    await Deno.writeTextFile(
+      join(root, "browser-runtime.js"),
+      "export const runtime = true;\n",
+    );
+    await gitInit(root);
+
+    assertEquals(await validatePromiseEffects(root), []);
+  });
+});
+
 Deno.test("detachPromise starts immediately but leaves completion to its lifecycle owner", async () => {
   let started = false;
   let finished = false;

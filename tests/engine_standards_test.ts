@@ -7,6 +7,7 @@
  * "coverage" is just a conventional name. `discern standards` runs them all.
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
@@ -179,9 +180,9 @@ Deno.test("standards: a per-standard timeout bounds the standalone measurement",
     );
     await gitInit(dir);
 
-    const started = performance.now();
+    const started = SYSTEM_CLOCK.monotonicNow();
     const run = await runAgent(dir, ["standards", "--json"]);
-    const elapsedMs = performance.now() - started;
+    const elapsedMs = SYSTEM_CLOCK.monotonicNow() - started;
 
     assertEquals(run.code, 1, run.output);
     assert(
@@ -216,7 +217,7 @@ Deno.test("standardsResult: pre-aborted and mid-run signals cancel promptly", as
       if (timing === "pre-aborted") {
         controller.abort();
       }
-      const started = performance.now();
+      const started = SYSTEM_CLOCK.monotonicNow();
       const pending = standardsResult(dir, { signal: controller.signal });
       if (timing === "mid-run") {
         await waitUntil(
@@ -226,7 +227,7 @@ Deno.test("standardsResult: pre-aborted and mid-run signals cancel promptly", as
         controller.abort();
       }
       const result = await pending;
-      const elapsedMs = performance.now() - started;
+      const elapsedMs = SYSTEM_CLOCK.monotonicNow() - started;
 
       assertEquals(result.ok, false, `${timing}: ${JSON.stringify(result)}`);
       assert(

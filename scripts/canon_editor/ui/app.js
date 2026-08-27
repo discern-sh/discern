@@ -3,6 +3,8 @@
    workbench — the fixed strip that carries all editing chrome so the
    document itself never shifts while a field editor is open. */
 
+import { SYSTEM_SCHEDULER } from "/assets/scheduler.js";
+
 const boot = JSON.parse(
   document.getElementById("canon-editor-boot").textContent,
 );
@@ -156,7 +158,7 @@ function ideButton(entry, activeField) {
     });
     if (result.opened) {
       button.textContent = "✓ sent to PhpStorm";
-      setTimeout(() => {
+      SYSTEM_SCHEDULER.scheduleTimeout(() => {
         button.disabled = false;
         button.textContent = "Open in PhpStorm";
       }, 2200);
@@ -671,10 +673,10 @@ function openEditor(span, ref, value, kind) {
       benchState("lint");
       benchStatusReset();
     }
-    if (fastTimer) clearTimeout(fastTimer);
-    if (valeTimer) clearTimeout(valeTimer);
-    fastTimer = setTimeout(() => lintDraft(false), 160);
-    valeTimer = setTimeout(() => lintDraft(true), 900);
+    if (fastTimer) SYSTEM_SCHEDULER.cancelTimeout(fastTimer);
+    if (valeTimer) SYSTEM_SCHEDULER.cancelTimeout(valeTimer);
+    fastTimer = SYSTEM_SCHEDULER.scheduleTimeout(() => lintDraft(false), 160);
+    valeTimer = SYSTEM_SCHEDULER.scheduleTimeout(() => lintDraft(true), 900);
   });
   lintDraft(true);
   box.focus();
@@ -869,7 +871,7 @@ function showSavedNote() {
   });
   const host = document.querySelector(".canon-editor-header-right");
   host?.prepend(chip);
-  setTimeout(() => chip.remove(), 6000);
+  SYSTEM_SCHEDULER.scheduleTimeout(() => chip.remove(), 6000);
 }
 
 const events = new EventSource("/events");

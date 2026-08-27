@@ -24,6 +24,7 @@
  *    deliberately unread with a reason — exactly one of the two.
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
@@ -1769,16 +1770,16 @@ Deno.test("patterns registry: every detector stays bounded on a large history", 
     }));
   const facts = buildStreamFacts(events, "main");
   const timings: { id: string; milliseconds: number }[] = [];
-  const started = performance.now();
+  const started = SYSTEM_CLOCK.monotonicNow();
   for (const entry of DETECTORS) {
-    const detectorStarted = performance.now();
+    const detectorStarted = SYSTEM_CLOCK.monotonicNow();
     runDetector(entry, facts);
     timings.push({
       id: entry.id,
-      milliseconds: performance.now() - detectorStarted,
+      milliseconds: SYSTEM_CLOCK.monotonicNow() - detectorStarted,
     });
   }
-  const elapsed = performance.now() - started;
+  const elapsed = SYSTEM_CLOCK.monotonicNow() - started;
   const slow = timings.filter((timing) => timing.milliseconds >= 2_000);
   assertEquals(
     slow,

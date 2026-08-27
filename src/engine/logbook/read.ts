@@ -20,6 +20,7 @@ import {
   parseLogbookLine,
   type VerbEvent,
 } from "./schema.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 
 /** The bounded event population a fleet survey inspects. */
 export const FLEET_ACTIVITY_EVENT_LIMIT = 200;
@@ -205,7 +206,7 @@ function runningStaleAfter(prior: DurationPrior | undefined): number {
 export function freshInFlightInvocations(
   events: readonly LogbookEvent[],
   currentEpoch: string,
-  nowMs: number = Date.now(),
+  nowMs: number = SYSTEM_CLOCK.wallNow(),
 ): FreshInFlightInvocation[] {
   const completions = events.filter((event): event is VerbEvent =>
     event.kind === "verb"
@@ -265,7 +266,7 @@ type BranchEvent = Exclude<LogbookEvent, { kind: "prune" }>;
 export function deriveFleetLogbookActivity(
   events: readonly LogbookEvent[],
   currentEpoch: string,
-  nowMs: number = Date.now(),
+  nowMs: number = SYSTEM_CLOCK.wallNow(),
 ): FleetLogbookActivity {
   const completions = events.filter((event): event is VerbEvent =>
     event.kind === "verb"
@@ -356,7 +357,7 @@ export function deriveFleetLogbookActivity(
 export async function readFleetLogbookActivity(
   commonGitDir: string,
   currentEpoch: string,
-  nowMs: number = Date.now(),
+  nowMs: number = SYSTEM_CLOCK.wallNow(),
 ): Promise<FleetLogbookActivity> {
   const stream = await readRecentLogbookStream(
     commonGitDir,

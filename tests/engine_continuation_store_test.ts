@@ -1,5 +1,6 @@
 /** Repository-local persistence and lifecycle for short continuation handles. */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import {
@@ -112,7 +113,7 @@ Deno.test("a future continuation kind inherits the same bounded handle store", a
 Deno.test("expired continuation records are removed when addressed", async () => {
   await withTempDir(async (dir) => {
     await initRepo(dir);
-    const now = Date.now();
+    const now = SYSTEM_CLOCK.wallNow();
     const created = await saveContinuation(
       dir,
       "await",
@@ -147,7 +148,7 @@ Deno.test("continuation creation keeps the repository store within its cap", asy
     const created: string[] = [];
     const directory = await gitAdminStatePath(dir, "continuations");
     assert(directory !== undefined);
-    const base = Date.now();
+    const base = SYSTEM_CLOCK.wallNow();
     for (const value of [5, 6, 7]) {
       const saved = await saveContinuation(
         dir,

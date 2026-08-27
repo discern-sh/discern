@@ -20,6 +20,7 @@
 import { basename } from "@std/path";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { DISCERN_DOCS_URL, DISCERN_WORDMARK } from "../../shared/brand.ts";
+import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -308,7 +309,8 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   loadConfig: (root) => loadConfig(root),
   status: (root) => statusResult(root),
   mainRepoPath: (root) => mainRepoPath(root),
-  grantEffort: (path, branch) => grantEffort(path, branch),
+  grantEffort: (path, branch) =>
+    grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow())),
   clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => makeOut(colorEnabled()),
   error: (message) => deskLogger().error(message),
@@ -377,7 +379,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   },
   runScript: (root, name, env) => runDeskProjectScript(root, name, env),
   openBrowser: (url) => openInBrowser(url),
-  now: () => Date.now(),
+  now: SYSTEM_CLOCK.wallNow,
   readTipState: (root) => readTipSeenState(root, KIT_VERSION),
   writeTipState: (root, state) => writeTipSeenState(root, state),
   recordTipShown: (id) => observeShownTip(id),

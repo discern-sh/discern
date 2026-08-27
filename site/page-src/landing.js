@@ -1,4 +1,6 @@
 /* Homepage-only progressive enhancement for prompts and the project preview. */
+import { SYSTEM_SCHEDULER, withTimeout } from "/assets/scheduler.js";
+
 (() => {
   "use strict";
 
@@ -39,20 +41,19 @@
 
     control.hidden = false;
     control.addEventListener("click", async () => {
-      if (resetTimer !== null) clearTimeout(resetTimer);
+      if (resetTimer !== null) SYSTEM_SCHEDULER.cancelTimeout(resetTimer);
       const prompt = target.textContent.trim();
       try {
         if (!navigator.clipboard?.writeText) {
           throw new Error("clipboard unavailable");
         }
-        await Promise.race([
+        await withTimeout(
           navigator.clipboard.writeText(prompt),
-          new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("clipboard timed out")), 1000);
-          }),
-        ]);
+          1000,
+          "clipboard timed out",
+        );
         reflect(true);
-        resetTimer = setTimeout(reset, 2000);
+        resetTimer = SYSTEM_SCHEDULER.scheduleTimeout(reset, 2000);
       } catch {
         selectText(target);
         reset();

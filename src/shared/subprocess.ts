@@ -28,6 +28,11 @@ import {
 import { quiesceProcessGroup, signalProcessGroup } from "./process_group.ts";
 import { bestEffort, bestEffortSync } from "./best_effort.ts";
 import { detachPromise } from "./promise_effects.ts";
+import {
+  type Scheduler,
+  SYSTEM_SCHEDULER,
+  type TimeoutHandle,
+} from "./scheduler.ts";
 
 /** Bind Git-admin path queries to the canonical generic Git subprocess runner. */
 const selfShimGitRunner: GitAdminPathRunner = async (cwd, args) =>
@@ -374,6 +379,7 @@ async function boundedChildOutput(
     readonly maxOutputBytes: number;
     /** Stop descendants in the detached child group after its leader settles. */
     readonly quiesceDescendants?: boolean | undefined;
+    readonly scheduler: Scheduler;
   },
 ): Promise<{
   output: CapturedCommandOutput;
@@ -404,9 +410,9 @@ async function boundedChildOutput(
       : 0,
     exceeded: false,
   };
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: TimeoutHandle | undefined;
   if (opts.timeoutMs !== undefined) {
-    timer = setTimeout(() => {
+    timer = opts.scheduler.scheduleTimeout(() => {
       timedOut = true;
       terminate();
     }, Math.max(0, opts.timeoutMs));
@@ -426,14 +432,14 @@ async function boundedChildOutput(
   );
   const status = await child.status;
   if (opts.quiesceDescendants) {
-    await quiesceProcessGroup(child.pid);
+    await quiesceProcessGroup(child.pid, opts.scheduler);
   }
   const [stdout, stderr, inputError] = await Promise.all([
     stdoutPromise,
     stderrPromise,
     inputPromise,
   ]);
-  if (timer !== undefined) clearTimeout(timer);
+  if (timer !== undefined) opts.scheduler.cancelTimeout(timer);
   return {
     output: {
       success: status.success,
@@ -513,6 +519,8 @@ export async function runGit(
      * on every command-owned writer having settled.
      */
     quiesceDescendants?: boolean;
+    /** Timer lifecycle for explicit process bounds and descendant grace. */
+    scheduler?: Scheduler;
   },
 ): Promise<GitResult> {
   const invocation = gitInvocation(args);
@@ -539,6 +547,7 @@ export async function runGit(
   // normalization pins machine-read status visibility at this shared funnel.
   const safeArgs = configInvariantGitArgs(args);
   const binary = opts.bin ?? gitBin();
+  const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
   let output: CapturedCommandOutput;
   let timedOut = false;
   let outputLimitExceeded = false;
@@ -559,6 +568,7 @@ export async function runGit(
         ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
         maxOutputBytes: opts.maxOutputBytes ?? Number.MAX_SAFE_INTEGER,
         quiesceDescendants: true,
+        scheduler,
       });
       output = bounded.output;
       timedOut = bounded.timedOut;
@@ -576,6 +586,7 @@ export async function runGit(
         ...(opts.stdin !== undefined ? { stdin: opts.stdin } : {}),
         ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
         maxOutputBytes: opts.maxOutputBytes,
+        scheduler,
       });
       output = bounded.output;
       timedOut = bounded.timedOut;
@@ -589,17 +600,17 @@ export async function runGit(
       } else {
         const child = command.spawn();
         const outputPromise = child.output();
-        let timer: ReturnType<typeof setTimeout> | undefined;
+        let timer: TimeoutHandle | undefined;
         const winner = await Promise.race([
           outputPromise.then((value) => ({ kind: "output" as const, value })),
           new Promise<{ kind: "timeout" }>((resolveTimeout) => {
-            timer = setTimeout(
+            timer = scheduler.scheduleTimeout(
               () => resolveTimeout({ kind: "timeout" }),
               Math.max(0, opts.timeoutMs ?? 0),
             );
           }),
         ]);
-        if (timer !== undefined) clearTimeout(timer);
+        if (timer !== undefined) scheduler.cancelTimeout(timer);
         if (winner.kind === "output") {
           output = winner.value;
         } else {

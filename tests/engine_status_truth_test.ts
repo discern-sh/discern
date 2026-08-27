@@ -8,6 +8,7 @@
  * main checkout raises the silent-divergence warning (status AND finish).
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { HINTS } from "../src/shared/hints.ts";
@@ -144,7 +145,7 @@ Deno.test("a failed worktree status read stays unreadable through status and the
         git_unavailable: true,
       }, {
         trunk: "main",
-        nowMs: Date.now(),
+        nowMs: SYSTEM_CLOCK.wallNow(),
       });
       assertEquals(
         deskDecision.actions.flatMap((offer) =>
@@ -324,7 +325,7 @@ Deno.test("status hints that a stale worktree with work should be resumed or dro
     await gitInit(dir);
     // Create the worktree with a back-dated reflog entry, then back-date the wip
     // file's mtime too (last-activity is the max of the two).
-    const tenDaysAgo = new Date(Date.now() - 10 * 86_400_000);
+    const tenDaysAgo = new Date(SYSTEM_CLOCK.wallNow() - 10 * 86_400_000);
     const wt = worktreePath(dir, "dusty");
     const add = await new Deno.Command("git", {
       args: ["worktree", "add", wt, "-b", "agent/dusty"],

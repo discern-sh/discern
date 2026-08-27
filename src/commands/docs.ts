@@ -121,6 +121,7 @@ import {
   buildMapOverview,
   type MapRegion,
 } from "../lib/map_overview.ts";
+import { SYSTEM_CLOCK } from "../shared/clock.ts";
 import { DISCERN_DOCS_URL } from "../shared/brand.ts";
 import { writeStdout } from "../engine/output.ts";
 
@@ -1474,7 +1475,7 @@ function printMapOverview(
       const changes = region.code_changes_since;
       details.push(
         `pages last changed ${
-          ageSince(region.pages_changed_at)
+          ageSince(region.pages_changed_at, SYSTEM_CLOCK.wallNow())
         }; linked code changed ${changes} time${
           changes === 1 ? "" : "s"
         } since`,

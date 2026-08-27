@@ -33,6 +33,11 @@ import {
   KILLED_PIPE_GRACE_MS,
   quiesceProcessGroup,
 } from "../process_signals.ts";
+import {
+  type Scheduler,
+  SYSTEM_SCHEDULER,
+  type TimeoutHandle,
+} from "../../shared/scheduler.ts";
 
 const ENCODER = new TextEncoder();
 const NEWLINE = 0x0a;
@@ -64,12 +69,13 @@ function concat(chunks: Uint8Array[]): Uint8Array {
 async function settleCaptured(
   child: Deno.ChildProcess,
   interrupted: AbortSignal,
+  scheduler: Scheduler,
 ): Promise<number> {
   const chunks: Uint8Array[] = [];
   const readers = new Set<ReadableStreamDefaultReader<Uint8Array>>();
-  let pipeGraceTimer: ReturnType<typeof setTimeout> | undefined;
+  let pipeGraceTimer: TimeoutHandle | undefined;
   const boundDrains = (): void => {
-    pipeGraceTimer ??= setTimeout(() => {
+    pipeGraceTimer ??= scheduler.scheduleTimeout(() => {
       for (const reader of readers) {
         detachPromise(
           "worktree-shell-drain-cancel-detach",
@@ -109,12 +115,12 @@ async function settleCaptured(
     // A shell leader can exit 0 while an ordinary background child still owns
     // both the worktree and these pipes. Stop that detached group before
     // waiting for EOF, so success cannot outrun a command-owned writer.
-    await quiesceProcessGroup(child.pid);
+    await quiesceProcessGroup(child.pid, scheduler);
   }
   try {
     await drained;
   } finally {
-    if (pipeGraceTimer !== undefined) clearTimeout(pipeGraceTimer);
+    if (pipeGraceTimer !== undefined) scheduler.cancelTimeout(pipeGraceTimer);
     interrupted.removeEventListener("abort", boundDrains);
   }
   const code = status.code;
@@ -152,12 +158,18 @@ async function settleCaptured(
  */
 export async function runShellRouted(
   command: string,
-  opts: { cwd: string; log: Logger; env?: Record<string, string> },
+  opts: {
+    cwd: string;
+    log: Logger;
+    env?: Record<string, string>;
+    scheduler?: Scheduler;
+  },
 ): Promise<number> {
   if (command.trim() === "") {
     return 0;
   }
   const { cwd, log, env } = opts;
+  const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
   const quiet = log.json;
   const isolatedGroup = Deno.build.os !== "windows";
   // `discern` in an operator command resolves to the running engine, whatever
@@ -182,8 +194,8 @@ export async function runShellRouted(
       async (child, interrupted) =>
         quiet
           ? (await child.status).code
-          : await settleCaptured(child, interrupted),
-      { isolatedGroup, resumeAfterInterrupt: false },
+          : await settleCaptured(child, interrupted, scheduler),
+      { isolatedGroup, resumeAfterInterrupt: false, scheduler },
     );
     return run.value;
   } catch {

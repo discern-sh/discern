@@ -40,6 +40,7 @@ import {
   commitDiscernChanges,
   DISCERN_AUTHORED_COMMIT_SITES,
 } from "../../shared/discern_commit.ts";
+import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import {
   parsePorcelainZ,
   type PorcelainEntry,
@@ -2376,6 +2377,7 @@ async function removeExactWorktreeRegistration(
 export async function removeWorktreeSafely(
   target: string,
   cwd: string = Deno.cwd(),
+  scheduler: Scheduler = SYSTEM_SCHEDULER,
 ): Promise<WorktreeRemovalResult> {
   const mainFirst = await firstWorktreePath(cwd);
   if (mainFirst === undefined || mainFirst === "") {
@@ -2471,7 +2473,7 @@ export async function removeWorktreeSafely(
     }
     const err = run.stderr;
     if (err.includes("Directory not empty") || err.includes("ENOTEMPTY")) {
-      await delay(500);
+      await delay(500, scheduler);
       continue;
     }
     break; // any other error → the fallback (after the lock re-check below)
@@ -2600,8 +2602,10 @@ export async function removeWorktreeSafely(
 }
 
 /** Sleep for `ms` milliseconds. */
-function delay(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+function delay(ms: number, scheduler: Scheduler): Promise<void> {
+  return new Promise((resolveDelay) =>
+    scheduler.scheduleTimeout(resolveDelay, ms)
+  );
 }
 
 /** One worktree record parsed from `git worktree list --porcelain`. */

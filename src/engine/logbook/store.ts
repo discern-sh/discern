@@ -105,7 +105,7 @@ export function logbookArchiveFileName(
 /** Choose the first unused archive basename for one UTC second. */
 export async function nextLogbookArchiveFileName(
   commonGitDir: string,
-  now: Date = new Date(),
+  now: Date,
 ): Promise<string> {
   const dir = logbookArchiveDir(commonGitDir);
   for (let ordinal = 1; ordinal < Number.MAX_SAFE_INTEGER; ordinal += 1) {

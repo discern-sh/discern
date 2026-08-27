@@ -42,6 +42,7 @@ import {
   logbookInvocationIsRecorded,
 } from "../../shared/verbs.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 
 const recordedVerbs = new Set<string>();
 const beginRecordedVerbs = new Set<string>();
@@ -351,7 +352,7 @@ export async function recordedRun(
   // Everything after a `scripts` name belongs to the child, so only normal verbs
   // may inspect this process's argv. Start driver enrichment beside the verb so
   // the host-marker stat does not extend the completion tail.
-  const started = performance.now();
+  const started = SYSTEM_CLOCK.monotonicNow();
   let code = 1;
   let crash: CrashSignature | undefined;
   try {
@@ -380,7 +381,7 @@ export async function recordedRun(
       verb,
       surface,
       outcome: code === 0 ? "ok" : "failed",
-      durationMs: performance.now() - started,
+      durationMs: SYSTEM_CLOCK.monotonicNow() - started,
       ...(waitedMs !== undefined ? { waitedMs } : {}),
       driver: await driver,
       ...(result !== undefined ? { result } : {}),

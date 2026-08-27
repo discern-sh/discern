@@ -17,6 +17,7 @@
  * which runner produced it — discern never sniffs framework or capability strings.
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { join } from "@std/path";
@@ -98,9 +99,9 @@ async function settleAfterReadiness<T>(
   what: string,
 ): Promise<{ readonly result: T; readonly elapsedMs: number }> {
   await waitForReadiness(path, pending, what);
-  const started = performance.now();
+  const started = SYSTEM_CLOCK.monotonicNow();
   const result = await pending;
-  return { result, elapsedMs: performance.now() - started };
+  return { result, elapsedMs: SYSTEM_CLOCK.monotonicNow() - started };
 }
 
 /** Prefix a shell fixture with the marker that starts the timeout assertion clock. */

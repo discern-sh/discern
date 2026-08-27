@@ -16,6 +16,7 @@ import {
   terminalContext,
   terminalSize,
 } from "./terminal.ts";
+import { type Scheduler, SYSTEM_SCHEDULER } from "../shared/scheduler.ts";
 import {
   INTERRUPT_SIGNALS,
   reraiseInterrupt,
@@ -67,6 +68,7 @@ export function observeTerminalAnimationEnvironment(): TerminalAnimationEnvironm
 export function abortableWait(
   milliseconds: number,
   signal: AbortSignal,
+  scheduler: Scheduler = SYSTEM_SCHEDULER,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
@@ -76,12 +78,12 @@ export function abortableWait(
       return;
     }
     const onAbort = (): void => {
-      clearTimeout(timer);
+      scheduler.cancelTimeout(timer);
       reject(
         new DOMException("Terminal playback was interrupted", "AbortError"),
       );
     };
-    const timer = setTimeout(() => {
+    const timer = scheduler.scheduleTimeout(() => {
       signal.removeEventListener("abort", onAbort);
       resolve();
     }, milliseconds);
@@ -92,11 +94,13 @@ export function abortableWait(
 /** The real-terminal playback port, assembled from a caller-owned writer. */
 export function terminalPlaybackPort(
   write: (value: string) => void,
+  scheduler: Scheduler = SYSTEM_SCHEDULER,
 ): TerminalPlaybackPort {
   const capabilities = terminalContext().capabilities;
   return {
     write,
-    wait: abortableWait,
+    wait: (milliseconds, signal) =>
+      abortableWait(milliseconds, signal, scheduler),
     terminalSize,
     terminalCapabilities: () => capabilities,
   };

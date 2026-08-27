@@ -33,6 +33,16 @@ import {
 } from "../src/engine/crash.ts";
 import { ISSUES_URL, KIT_VERSION } from "../src/lib/version.ts";
 
+const FIXED_CRASH_TIME = Date.parse("2026-08-27T12:34:56.000Z");
+
+/** Capture a crash against one fixed wall instant for deterministic records. */
+function captureTestCrashReport(
+  verb: string | undefined,
+  thrown: unknown,
+): ReturnType<typeof captureCrashReport> {
+  return captureCrashReport(verb, thrown, FIXED_CRASH_TIME);
+}
+
 // ── the signature (the logbook-safe reduction) ───────────────────────────────
 
 Deno.test("crashSignature: a dev-run stack trims its frame to the source tree", () => {
@@ -122,7 +132,7 @@ const hostileThrownValueCases: ReadonlyArray<{
 
 for (const fixture of hostileThrownValueCases) {
   Deno.test(`captureCrashReport: a hostile thrown value cannot escape (${fixture.label})`, () => {
-    const report = captureCrashReport("status", fixture.make());
+    const report = captureTestCrashReport("status", fixture.make());
     assertEquals(report.name, fixture.expectedName);
     assertEquals(report.message, "The thrown value could not be inspected.");
     assertEquals(report.stack, undefined);
@@ -133,7 +143,8 @@ for (const fixture of hostileThrownValueCases) {
 // ── the report and its renderings ────────────────────────────────────────────
 
 Deno.test("captureCrashReport: stamps version, runtime, platform, and verb", () => {
-  const report = captureCrashReport("done", new TypeError("boom"));
+  const report = captureTestCrashReport("done", new TypeError("boom"));
+  assertEquals(report.at, "2026-08-27T12:34:56.000Z");
   assertEquals(report.verb, "done");
   assertEquals(report.version, KIT_VERSION);
   assertEquals(report.deno, Deno.version.deno);
@@ -142,14 +153,14 @@ Deno.test("captureCrashReport: stamps version, runtime, platform, and verb", () 
   assertEquals(report.message, "boom");
   assertExists(report.stack);
 
-  const preResolution = captureCrashReport(undefined, "boom");
+  const preResolution = captureTestCrashReport(undefined, "boom");
   assertEquals(preResolution.verb, "discern");
   assertEquals(preResolution.name, "throw");
   assertEquals(preResolution.stack, undefined);
 });
 
 Deno.test("renderCrashArtifact: the saved file is self-contained", () => {
-  const report = captureCrashReport("status", new TypeError("boom"));
+  const report = captureTestCrashReport("status", new TypeError("boom"));
   const body = renderCrashArtifact(report);
   assertStringIncludes(body, "discern crash report");
   assertStringIncludes(
@@ -162,7 +173,7 @@ Deno.test("renderCrashArtifact: the saved file is self-contained", () => {
 });
 
 Deno.test("renderCrashFrame: names the version and verb, and points at the saved report", () => {
-  const report = captureCrashReport("status", new TypeError("boom"));
+  const report = captureTestCrashReport("status", new TypeError("boom"));
   const withFile = renderCrashFrame(report, "/tmp/report.txt");
   assertStringIncludes(
     withFile,
@@ -178,7 +189,7 @@ Deno.test("renderCrashFrame: names the version and verb, and points at the saved
 });
 
 Deno.test("internalErrorResult: the uniform machine envelope, no data payload", () => {
-  const report = captureCrashReport("status", new TypeError("boom"));
+  const report = captureTestCrashReport("status", new TypeError("boom"));
   const result = internalErrorResult("status", report, "/tmp/report.txt");
   assertEquals(result.ok, false);
   assertEquals(result.verb, "status");
@@ -210,7 +221,7 @@ Deno.test("writeCrashArtifact: saves under .git/discern/crash and prunes to the 
       );
     }
 
-    const report = captureCrashReport("status", new TypeError("boom"));
+    const report = captureTestCrashReport("status", new TypeError("boom"));
     const path = await writeCrashArtifact(dir, report);
     assertExists(path);
     assert(path.startsWith(crashDir), `expected ${path} under ${crashDir}`);
@@ -231,8 +242,14 @@ Deno.test("writeCrashArtifact: concurrent same-instant reports get distinct file
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "README.md"), "scaffold\n");
     await gitInit(dir);
-    const first = captureCrashReport("status", new TypeError("first crash"));
-    const second = captureCrashReport("docs", new RangeError("second crash"));
+    const first = captureTestCrashReport(
+      "status",
+      new TypeError("first crash"),
+    );
+    const second = captureTestCrashReport(
+      "docs",
+      new RangeError("second crash"),
+    );
     second.at = first.at;
 
     const [firstPath, secondPath] = await Promise.all([
@@ -262,7 +279,7 @@ Deno.test("writeCrashArtifact: concurrent same-instant reports get distinct file
 
 Deno.test("writeCrashArtifact: outside a repository, falls back to a temp file", async () => {
   await withTempDir(async (dir) => {
-    const report = captureCrashReport("status", new TypeError("boom"));
+    const report = captureTestCrashReport("status", new TypeError("boom"));
     const path = await writeCrashArtifact(dir, report);
     assertExists(path);
     assert(!path.startsWith(dir), "must not write into the bare directory");

@@ -46,6 +46,8 @@ import { expandTokens, WORKTREE_TOKENS } from "./tokens.ts";
 import type { TokenResolver, WorktreeToken } from "./tokens.ts";
 import { runShellRouted } from "./shell.ts";
 import { gitKeyIsLive, WorktreeGitError, writeWorktreeEnvVar } from "./git.ts";
+import { type Clock, SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
+import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 
 /** The ledger entry format version (forward-compat: GC skips unknown majors). */
 const LEDGER_SCHEMA = 1;
@@ -60,6 +62,10 @@ export interface ResourceContext {
   log: Logger;
   /** The directory commands run from (the worktree root, or main for GC). */
   cwd: string;
+  /** Wall timestamp source for durable resource records. */
+  clock?: Clock;
+  /** Retry and child-lifecycle timer capability. */
+  scheduler?: Scheduler;
 }
 
 /** One declared `[worktree.resources.<name>]`. */
@@ -292,8 +298,10 @@ async function deleteEntryCAS(
 // ── command execution ─────────────────────────────────────────────────────────
 
 /** Sleep for `ms` milliseconds. */
-function delay(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+function delay(ms: number, scheduler: Scheduler): Promise<void> {
+  return new Promise((resolveDelay) =>
+    scheduler.scheduleTimeout(resolveDelay, ms)
+  );
 }
 
 /**
@@ -307,19 +315,20 @@ async function runWithRetries(
   env: Record<string, string>,
   retries: number,
   log: Logger,
+  scheduler: Scheduler,
 ): Promise<boolean> {
   if (command.trim() === "") {
     return true;
   }
   for (let attempt = 0;; attempt++) {
-    const code = await runShellRouted(command, { cwd, log, env });
+    const code = await runShellRouted(command, { cwd, log, env, scheduler });
     if (code === 0) {
       return true;
     }
     if (attempt >= retries) {
       return false;
     }
-    await delay(250 * 2 ** attempt);
+    await delay(250 * 2 ** attempt, scheduler);
     log.warn(`  retrying (attempt ${attempt + 2} of ${retries + 1})…`);
   }
 }
@@ -352,6 +361,8 @@ export async function createResources(
   commonGitDir: string,
   gitKey: string,
 ): Promise<{ failed: string[] }> {
+  const clock = ctx.clock ?? SYSTEM_CLOCK;
+  const scheduler = ctx.scheduler ?? SYSTEM_SCHEDULER;
   const specs = readResourceSpecs(ctx.config);
   const worktreePath = await canonical(ctx.cwd);
   const failed: string[] = [];
@@ -408,7 +419,7 @@ export async function createResources(
       token_map: await captureTokenMap([spec.create, spec.destroy], resolver),
       retries: spec.retries,
       gc: spec.gc,
-      created_at: new Date().toISOString(),
+      created_at: wallTimeIso(clock.wallNow()),
     });
 
     if (spec.create !== "") {
@@ -419,6 +430,7 @@ export async function createResources(
         resourceCommandEnv(spec.name, resourceIdentity, settings, identity),
         spec.retries,
         ctx.log,
+        scheduler,
       );
       if (!ok) {
         if (spec.required) {
@@ -534,11 +546,12 @@ export async function destroyResources(
   ctx: ResourceContext,
   entries: LedgerItem[],
 ): Promise<{ destroyed: string[]; failed: string[] }> {
+  const scheduler = ctx.scheduler ?? SYSTEM_SCHEDULER;
   const destroyed: string[] = [];
   const failed: string[] = [];
   for (const { path, entry } of entries) {
     ctx.log.info(`Destroying worktree resource '${entry.resource_name}'…`);
-    if (await runDestroyEntry(entry, ctx.cwd, ctx.log)) {
+    if (await runDestroyEntry(entry, ctx.cwd, ctx.log, scheduler)) {
       await removeEntryFile(path);
       destroyed.push(entry.resource_name);
     } else {
@@ -560,6 +573,7 @@ async function runDestroyEntry(
   entry: ResourceEntry,
   cwd: string,
   log: Logger,
+  scheduler: Scheduler,
 ): Promise<boolean> {
   const command = entry.destroy_command;
   if (command.trim() === "") {
@@ -577,6 +591,7 @@ async function runDestroyEntry(
     { [resourceEnvName(entry.resource_name)]: entry.resource_identity },
     entry.retries,
     log,
+    scheduler,
   );
 }
 
@@ -593,6 +608,7 @@ export async function ensureResources(
   identity: WorktreeIdentity,
   settings: IdentitySettings,
 ): Promise<void> {
+  const scheduler = ctx.scheduler ?? SYSTEM_SCHEDULER;
   const specs = readResourceSpecs(ctx.config).filter((s) => s.ensure !== "");
   for (const spec of specs) {
     const resolver = buildTokenResolver(
@@ -614,6 +630,7 @@ export async function ensureResources(
       ),
       spec.retries,
       ctx.log,
+      scheduler,
     );
     if (!ok) {
       ctx.log.warn(
@@ -635,6 +652,8 @@ export interface GcParams {
   liveGitKeys: Set<string>;
   /** Canonical paths of currently-registered worktrees (secondary guard). */
   livePaths: Set<string>;
+  /** Retry and child-lifecycle timer capability. */
+  scheduler?: Scheduler;
   /** Resource handles currently owned by live worktrees (recycling guard). */
   liveIdentities: Set<string>;
   /**
@@ -661,6 +680,8 @@ export interface PlannedGcParams {
   reclaimable: LedgerItem[];
   /** Entries kept during the plan's classification. */
   kept: number;
+  /** Retry and child-lifecycle timer capability. */
+  scheduler?: Scheduler;
   /**
    * Re-check, against CURRENT disk state, whether a resource handle is owned by a
    * live worktree — the recycling guard re-evaluated right before each irreversible
@@ -777,6 +798,7 @@ export async function gcOrphanResources(p: GcParams): Promise<GcResult> {
     ...(p.recheckIdentityLive !== undefined
       ? { recheckIdentityLive: p.recheckIdentityLive }
       : {}),
+    ...(p.scheduler === undefined ? {} : { scheduler: p.scheduler }),
     log: p.log,
   });
 }
@@ -803,7 +825,14 @@ export async function gcPlannedOrphanResources(
       continue;
     }
     p.log.line(`  reclaiming ${label}…`);
-    if (await runDestroyEntry(entry, p.cwd, p.log)) {
+    if (
+      await runDestroyEntry(
+        entry,
+        p.cwd,
+        p.log,
+        p.scheduler ?? SYSTEM_SCHEDULER,
+      )
+    ) {
       if (await deleteEntryCAS(path, entry)) {
         result.reclaimed.push(entry.resource_identity);
       }

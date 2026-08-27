@@ -28,6 +28,7 @@ import { dirname } from "@std/path";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { isRelatedCheckpointKind } from "../../shared/checkpoints.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import type { RelatedCheckpointPath } from "./types.ts";
 
 /** The store's on-disk schema version (one line of JSON). */
@@ -369,7 +370,7 @@ export async function reconcileOpenQuestion(
     matchedPaths: readonly string[];
     relatedPaths: readonly RelatedCheckpointPath[];
   },
-  now: string = new Date().toISOString(),
+  now: string = wallTimeIso(SYSTEM_CLOCK.wallNow()),
 ): Promise<ReconcileOpenQuestionResult> {
   const store = await loadForWrite(cwd);
   if (!store.ok) {
@@ -482,7 +483,7 @@ export async function recordDeclaration(
   cwd: string,
   evidence: DeclarationEvidence,
   checkpoint: string,
-  now: string = new Date().toISOString(),
+  now: string = wallTimeIso(SYSTEM_CLOCK.wallNow()),
 ): Promise<DeclareResult> {
   let normalized = evidence;
   if (evidence.conclusion === "unmet") {

@@ -73,6 +73,7 @@ import {
 import { renderMarkdown } from "./lib/markdown.ts";
 import { writeStderr } from "./engine/output.ts";
 import { detachPromise } from "./shared/promise_effects.ts";
+import { SYSTEM_CLOCK } from "./shared/clock.ts";
 import {
   CLI_RESULT_FORMATS,
   CLI_RESULT_RENDER,
@@ -1801,7 +1802,7 @@ async function exitWithCrashFrame(
     terminateCrash();
   }
   crashFrameActive = true;
-  const report = captureCrashReport(verb, err);
+  const report = captureCrashReport(verb, err, SYSTEM_CLOCK.wallNow());
   let cwd = ".";
   try {
     cwd = Deno.cwd();

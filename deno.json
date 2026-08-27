@@ -78,6 +78,7 @@
     "watch": "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch"
   },
   "imports": {
+    "/assets/scheduler.js": "./site/pages/assets/scheduler.js",
     "@dprint/formatter": "npm:@dprint/formatter@0.5.1",
     "@modelcontextprotocol/sdk/server/mcp.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/mcp.js",
     "@modelcontextprotocol/sdk/server/stdio.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/stdio.js",

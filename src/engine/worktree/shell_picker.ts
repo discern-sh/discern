@@ -7,6 +7,7 @@
 
 import { dirname, isAbsolute, relative, resolve, SEPARATOR } from "@std/path";
 import { emitResult } from "../../shared/emit.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { directoryExists, realPathIfExists } from "../../shared/fs_presence.ts";
 import type {
@@ -338,7 +339,7 @@ const DEFAULT_WORKTREES_RUNTIME: WorktreesRuntime = {
   shell: () => userShell(),
   launchShell: async (shell, cwd) =>
     (await runOwnedChild(shell, { cwd })).status.code,
-  now: () => Date.now(),
+  now: SYSTEM_CLOCK.wallNow,
 };
 
 /** Run the interactive worktree shell picker. */

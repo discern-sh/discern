@@ -26,6 +26,7 @@ import {
   toCommandList,
 } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import {
   failureRecoveryHintTexts,
@@ -218,7 +219,7 @@ export async function statusResult(
   root: string,
   opts: StatusOptions = {},
 ): Promise<DiscernResult<StatusData>> {
-  const nowMs = opts.nowMs ?? Date.now();
+  const nowMs = opts.nowMs ?? SYSTEM_CLOCK.wallNow();
   const all = opts.all ?? false;
   const local = opts.local ?? false;
   if (all && local) {
@@ -1382,7 +1383,7 @@ async function isMainCheckoutDirty(
 export async function runStatus(
   opts: { json: boolean; all: boolean; local: boolean; verbose: boolean },
 ): Promise<number> {
-  const nowMs = Date.now();
+  const nowMs = SYSTEM_CLOCK.wallNow();
   const root = await findRoot();
   if (root === undefined) {
     if (opts.json) {

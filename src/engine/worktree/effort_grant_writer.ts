@@ -22,7 +22,7 @@ export type EffortGrantWrite =
 export async function grantEffort(
   cwd: string,
   branch: string,
-  grantedAt = new Date().toISOString(),
+  grantedAt: string,
 ): Promise<EffortGrantWrite> {
   const current = await readEffortGrant(cwd);
   if (current.status === "granted" && current.grant.branch === branch) {

@@ -526,10 +526,13 @@ Deno.test("path, byte, time, and unreadable budgets fail open without a comparab
         label: "time",
         options: {
           limits: { timeMs: 1 },
-          now: (() => {
-            let value = 0;
-            return () => (value += 2);
-          })(),
+          clock: {
+            wallNow: () => 0,
+            monotonicNow: (() => {
+              let value = 0;
+              return () => (value += 2);
+            })(),
+          },
         },
         reason: "time-limit",
       },
@@ -895,8 +898,11 @@ Deno.test("every validation capture path is total when its dependencies throw", 
     VALIDATION_RUNS.test,
     group(VALIDATION_RUNS.test),
     {
-      now: () => {
-        throw new Error("forced clock failure");
+      clock: {
+        wallNow: () => 0,
+        monotonicNow: () => {
+          throw new Error("forced clock failure");
+        },
       },
     },
   );

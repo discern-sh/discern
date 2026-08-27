@@ -10,6 +10,7 @@
  * classifies the one target-adjacent write-authority probe by exact shape.
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
@@ -48,7 +49,7 @@ async function fileAged(
 ): Promise<string> {
   const path = join(dir, name);
   await Deno.writeTextFile(path, "artifact body\n");
-  const then = new Date(Date.now() - ageMs);
+  const then = new Date(SYSTEM_CLOCK.wallNow() - ageMs);
   await Deno.utime(path, then, then);
   return path;
 }
@@ -93,7 +94,7 @@ async function dirAged(
   const path = join(dir, name);
   await Deno.mkdir(path);
   await Deno.writeTextFile(join(path, "discern"), "#!/usr/bin/env sh\n");
-  const then = new Date(Date.now() - ageMs);
+  const then = new Date(SYSTEM_CLOCK.wallNow() - ageMs);
   await Deno.utime(path, then, then);
   return path;
 }
@@ -285,7 +286,7 @@ Deno.test("temp artifacts: independent callers share one repository-wide sweep i
         age,
       );
     }
-    const now = Date.now();
+    const now = SYSTEM_CLOCK.wallNow();
     const sweep = () =>
       sweepDueTempArtifacts(dir, {
         now,

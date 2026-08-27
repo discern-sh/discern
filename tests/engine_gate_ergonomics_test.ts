@@ -8,6 +8,7 @@
  * build run in their own ordered stages).
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -52,9 +53,9 @@ Deno.test("gate fail_fast: a failing job cancels its slow sibling", async () => 
     await writeConfig(dir, failFastConfig({ failFast: true, sleepS: 30 }));
     await gitInit(dir);
 
-    const start = Date.now();
+    const start = SYSTEM_CLOCK.wallNow();
     const r = await runAgent(dir, ["done"]);
-    const elapsed = Date.now() - start;
+    const elapsed = SYSTEM_CLOCK.wallNow() - start;
 
     assertEquals(r.code, 1, r.output);
     // The slow sibling was cancelled before it could print its marker...
@@ -90,9 +91,9 @@ Deno.test("gate fail_fast is ON by default (no [gate] section)", async () => {
     );
     await gitInit(dir);
 
-    const start = Date.now();
+    const start = SYSTEM_CLOCK.wallNow();
     const r = await runAgent(dir, ["done"]);
-    const elapsed = Date.now() - start;
+    const elapsed = SYSTEM_CLOCK.wallNow() - start;
 
     assertEquals(r.code, 1, r.output);
     assert(

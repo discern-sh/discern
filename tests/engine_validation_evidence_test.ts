@@ -1,5 +1,6 @@
 /** Black-box validation-evidence boundary and recorder integration tests. */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
@@ -204,7 +205,7 @@ Deno.test("a stalled validation dependency cannot delay or replace the Gate verd
       limits: { timeMs: 20 },
       keyProvider: () => new Promise<never>(() => {}),
     };
-    const started = performance.now();
+    const started = SYSTEM_CLOCK.monotonicNow();
     const directCapture = await captureValidationStart(
       dir,
       cfg,
@@ -213,7 +214,7 @@ Deno.test("a stalled validation dependency cannot delay or replace the Gate verd
       validationCaptureOptions,
     );
     assert(
-      performance.now() - started < 3_000,
+      SYSTEM_CLOCK.monotonicNow() - started < 3_000,
       "validation recording must not impose its own five-second host stall",
     );
     assert(

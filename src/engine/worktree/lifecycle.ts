@@ -32,6 +32,7 @@ import {
   plainModeEnabled,
 } from "../../lib/terminal_interaction.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
@@ -5661,7 +5662,7 @@ async function pruneContainedScan(
   ctx: LifecycleContext,
   requireAutomaticOwnership = false,
 ): Promise<ContainedWorktree[]> {
-  const nowMs = Date.now();
+  const nowMs = SYSTEM_CLOCK.wallNow();
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
   const activity = ctx.config.project.logbook && commonGitDir !== undefined
     ? await readFleetLogbookActivity(

@@ -1,5 +1,8 @@
 /** Condition-oriented waiting and the closed set of real test delays. */
 
+import { type Clock, SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { type Scheduler, SYSTEM_SCHEDULER } from "../src/shared/scheduler.ts";
+
 /** Evidence recorded for one test whose contract genuinely spends wall time. */
 export interface TestRealDelayBoundary {
   /** Repository-relative module containing the one enrolled call. */
@@ -216,20 +219,28 @@ export interface WaitUntilOptions {
   readonly timeoutMs?: number;
   /** Scheduler interval between condition observations. */
   readonly intervalMs?: number;
+  /** Monotonic clock used for the elapsed wait budget. */
+  readonly clock?: Clock;
+  /** Timer lifecycle used between condition observations. */
+  readonly scheduler?: Scheduler;
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_INTERVAL_MS = 10;
 
 /** One scheduler turn whose timer is intercepted by the test stack's FakeTime. */
-function schedulerDelay(ms: number, signal?: AbortSignal): Promise<void> {
+function schedulerDelay(
+  ms: number,
+  signal: AbortSignal | undefined,
+  scheduler: Scheduler,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+    const timer = scheduler.scheduleTimeout(() => {
       signal?.removeEventListener("abort", abort);
       resolve();
     }, ms);
     const abort = (): void => {
-      clearTimeout(timer);
+      scheduler.cancelTimeout(timer);
       reject(signal?.reason ?? new DOMException("Delay aborted", "AbortError"));
     };
     if (signal?.aborted === true) {
@@ -267,6 +278,8 @@ export async function waitUntil(
   }
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
+  const clock = options.clock ?? SYSTEM_CLOCK;
+  const scheduler = options.scheduler ?? SYSTEM_SCHEDULER;
   if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
     throw new RangeError(
       "waitUntil timeoutMs must be a finite non-negative number",
@@ -278,11 +291,11 @@ export async function waitUntil(
     );
   }
 
-  const started = Date.now();
+  const started = clock.monotonicNow();
   let attempts = 0;
   while (true) {
     attempts++;
-    const elapsedMs = Date.now() - started;
+    const elapsedMs = clock.monotonicNow() - started;
     let met: boolean;
     try {
       met = await condition();
@@ -296,7 +309,11 @@ export async function waitUntil(
           `(budget ${timeoutMs}ms, interval ${intervalMs}ms, ${attempts} attempts)`,
       );
     }
-    await schedulerDelay(Math.min(intervalMs, timeoutMs - elapsedMs));
+    await schedulerDelay(
+      Math.min(intervalMs, timeoutMs - elapsedMs),
+      undefined,
+      scheduler,
+    );
   }
 }
 
@@ -305,6 +322,7 @@ export async function realDelay(
   boundaryId: TestRealDelayBoundaryId,
   ms: number,
   signal?: AbortSignal,
+  scheduler: Scheduler = SYSTEM_SCHEDULER,
 ): Promise<void> {
   if (!Object.hasOwn(TEST_REAL_DELAY_BOUNDARIES, boundaryId)) {
     throw new TypeError(`unknown test real-delay boundary '${boundaryId}'`);
@@ -314,5 +332,5 @@ export async function realDelay(
       "realDelay duration must be a finite non-negative number",
     );
   }
-  await schedulerDelay(ms, signal);
+  await schedulerDelay(ms, signal, scheduler);
 }

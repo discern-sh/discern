@@ -100,6 +100,7 @@ import {
   removeLogbook,
   withLogbookLifecycleLock,
 } from "./store.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { driverAgent, driverKind } from "./cohorts.ts";
 import { configEpoch } from "./epoch.ts";
 import { computeStats } from "./stats.ts";
@@ -2051,7 +2052,7 @@ export async function patternsArchiveResult(
     const snapshot = await activeLifecycleSnapshot(root, commonGitDir);
     const filename = await nextLogbookArchiveFileName(
       commonGitDir,
-      opts.now ?? new Date(),
+      opts.now ?? new Date(SYSTEM_CLOCK.wallNow()),
     );
     const data = archiveData(snapshot, filename);
     if (opts.dryRun !== true) {
@@ -2231,7 +2232,10 @@ async function applyArchive(
   }
   try {
     const reviewed = await activeLifecycleSnapshot(root, commonGitDir);
-    const filename = await nextLogbookArchiveFileName(commonGitDir);
+    const filename = await nextLogbookArchiveFileName(
+      commonGitDir,
+      new Date(SYSTEM_CLOCK.wallNow()),
+    );
     const reviewedData = archiveData(reviewed, filename);
     const running = inFlightRefusal(
       "patterns archive",

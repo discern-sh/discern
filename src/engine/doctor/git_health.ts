@@ -13,6 +13,7 @@ import {
   type GitResult,
   runGit,
 } from "../../shared/subprocess.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { parseWorktreeList, resolveCommonGitDir } from "../worktree/git.ts";
 
 /** One doctor-compatible diagnostic emitted by the Git health probes. */
@@ -316,6 +317,7 @@ async function checkoutInventory(
 async function expirySeconds(
   cwd: string,
   value: string,
+  nowMs: number,
 ): Promise<number | undefined> {
   const parsed = await runGit(["rev-parse", `--since=${value}`], { cwd });
   const match = /^--max-age=(\d+)\s*$/.exec(parsed.stdout);
@@ -323,7 +325,7 @@ async function expirySeconds(
   const epoch = Number(match[1]);
   if (!Number.isFinite(epoch)) return undefined;
   if (epoch === 0) return Number.POSITIVE_INFINITY;
-  return Math.max(0, Math.floor(Date.now() / 1000) - epoch);
+  return Math.max(0, Math.floor(nowMs / 1000) - epoch);
 }
 
 /** Whether a config key is a ref-pattern-specific reflog expiry policy. */
@@ -348,6 +350,7 @@ function refExpiryPolicy(entry: GitConfigEntry): ExpiryPolicy | undefined {
 /** Reflog, object-prune, and stale-worktree retention health. */
 async function recoveryCheck(
   snapshots: readonly CheckoutSnapshot[],
+  nowMs: number,
 ): Promise<GitHealthCheck> {
   const issues: string[] = [];
   for (const snapshot of snapshots) {
@@ -397,7 +400,7 @@ async function recoveryCheck(
       if (policy !== undefined) policies.push({ policy, entry });
     }
     for (const { policy, entry } of policies) {
-      const seconds = await expirySeconds(snapshot.path, entry.value);
+      const seconds = await expirySeconds(snapshot.path, entry.value, nowMs);
       if (seconds === undefined) {
         issues.push(
           `${snapshot.label}: ${policy.key}=${entry.value} could not be interpreted`,
@@ -766,6 +769,7 @@ async function worktreeConfigCheck(
 
 /** Run every read-only Git health probe used by `discern doctor`. */
 export async function inspectGitHealth(root: string): Promise<GitHealthReport> {
+  const nowMs = SYSTEM_CLOCK.wallNow();
   const repository = await repositoryProbe(root);
   if (repository.kind !== "repository") {
     if (repository.kind === "dubious-ownership") {
@@ -803,7 +807,7 @@ export async function inspectGitHealth(root: string): Promise<GitHealthReport> {
   const inventory = await checkoutInventory(root, repository.toplevel);
   const [recovery, identity, signing, index, worktreeConfig] = await Promise
     .all([
-      recoveryCheck(inventory.snapshots),
+      recoveryCheck(inventory.snapshots, nowMs),
       identityCheck(inventory.snapshots),
       signingCheck(inventory.snapshots),
       indexVisibilityCheck(inventory.snapshots),

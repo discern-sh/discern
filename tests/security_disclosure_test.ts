@@ -1,5 +1,6 @@
 /** RFC 9116 serving, expiry maintenance, and human-policy parity. */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   SECURITY_DISCLOSURE,
@@ -82,7 +83,7 @@ Deno.test("security.txt expiry stays current without exceeding one year", () => 
     Number.isFinite(expiresAt),
     `invalid RFC 3339 expiry: ${SECURITY_DISCLOSURE.expiresAt}`,
   );
-  const remaining = expiresAt - Date.now();
+  const remaining = expiresAt - SYSTEM_CLOCK.wallNow();
   const reviewLead = SECURITY_DISCLOSURE.expiryReviewLeadDays * DAY_MS;
   const maximumValidity = SECURITY_DISCLOSURE.maximumValidityDays * DAY_MS;
   assert(

@@ -20,6 +20,7 @@ import {
   isAtomicReplaceTempName,
 } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 
 export const CONTINUATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const CONTINUATION_MAX_ENTRIES = 512;
@@ -308,7 +309,7 @@ export async function readContinuation(
   if (handle === undefined) {
     return { kind: "invalid-handle" };
   }
-  const now = opts.now ?? Date.now();
+  const now = opts.now ?? SYSTEM_CLOCK.wallNow();
   const ttlMs = opts.ttlMs ?? CONTINUATION_TTL_MS;
   const result = await withStoreLock(root, async (directory) => {
     const path = recordPath(directory, handle);
@@ -347,7 +348,7 @@ export async function saveContinuation(
   if (bytes === undefined || !/^[a-z][a-z0-9-]{0,63}$/u.test(kind)) {
     return { kind: "unavailable" };
   }
-  const now = opts.now ?? Date.now();
+  const now = opts.now ?? SYSTEM_CLOCK.wallNow();
   const ttlMs = opts.ttlMs ?? CONTINUATION_TTL_MS;
   const maxEntries = opts.maxEntries ?? CONTINUATION_MAX_ENTRIES;
   if (!Number.isInteger(maxEntries) || maxEntries < 1) {

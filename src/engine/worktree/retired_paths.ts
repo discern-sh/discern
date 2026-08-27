@@ -23,6 +23,7 @@ import {
   readTextIfExists,
   statIfExists,
 } from "../../shared/fs_presence.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 
 export const RETIRED_WORKTREE_PATH_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 export const RETIRED_WORKTREE_PATH_MAX_ENTRIES = 256;
@@ -282,7 +283,7 @@ export async function recordRetiredWorktreePath(
   if (!isAbsolute(path)) {
     return false;
   }
-  const now = opts.now ?? Date.now();
+  const now = opts.now ?? SYSTEM_CLOCK.wallNow();
   const saved = await withStoreLock(root, async (directory) => {
     await replaceRecord(directory, {
       schema_version: 1,
@@ -313,7 +314,7 @@ export async function readRetiredWorktreePathRecords(
   if (directory === undefined) {
     return [];
   }
-  const now = opts.now ?? Date.now();
+  const now = opts.now ?? SYSTEM_CLOCK.wallNow();
   const ttlMs = opts.ttlMs ?? RETIRED_WORKTREE_PATH_TTL_MS;
   const records: RetiredWorktreePathRecord[] = [];
   const entries = await readDirIfExists(directory);

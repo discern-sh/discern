@@ -17,6 +17,7 @@ import {
   type TempArtifactPruneOptions,
   type TempArtifactPruneResult,
 } from "../../shared/temp_artifacts.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 
 /** One repository pays for at most one bounded sweep per hour. */
 export const TEMP_ARTIFACT_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -152,7 +153,7 @@ export async function sweepDueTempArtifacts(
       return { kind: "busy" };
     }
 
-    const now = opts.now ?? Date.now();
+    const now = opts.now ?? SYSTEM_CLOCK.wallNow();
     const prior = await readState(file);
     if (
       prior !== undefined &&

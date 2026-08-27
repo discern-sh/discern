@@ -1,3 +1,4 @@
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { Logger } from "../src/lib/log.ts";
@@ -65,14 +66,14 @@ Deno.test({
   name: "an owned child that ignores shutdown is killed after the grace period",
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    const started = performance.now();
+    const started = SYSTEM_CLOCK.monotonicNow();
     const result = await runDriver("SIGTERM", true);
 
     assertEquals(result.interruptedBy, "SIGTERM");
     assertEquals(result.signal, "SIGKILL");
     assertEquals(result.code, 137);
     assert(
-      performance.now() - started >= 2_000,
+      SYSTEM_CLOCK.monotonicNow() - started >= 2_000,
       "the child must receive the graceful signal before SIGKILL",
     );
   },

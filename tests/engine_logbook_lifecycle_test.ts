@@ -4,6 +4,7 @@
  * points reset or archive at discern's own Logbook.
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import {
   assert,
   assertEquals,
@@ -733,7 +734,7 @@ Deno.test({
         await Deno.mkdir(activeDir, { recursive: true });
         await Deno.writeTextFile(
           active,
-          `${beginLine(new Date().toISOString())}\n`,
+          `${beginLine(new Date(SYSTEM_CLOCK.wallNow()).toISOString())}\n`,
         );
         const before = await Deno.readTextFile(active);
         const result = await runAgentPty(dir, ["patterns", action]);

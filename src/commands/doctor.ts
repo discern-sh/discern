@@ -16,6 +16,7 @@ import {
 } from "../lib/paths.ts";
 import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
+import { SYSTEM_CLOCK } from "../shared/clock.ts";
 import {
   fileExists,
   readDirIfExists,
@@ -221,6 +222,7 @@ const EXPECTED_COMPLETION_GRACE_MS = 60_000;
 async function logbookCheck(
   config: DiscernConfig,
   commonGitDir: string,
+  nowMs: number,
 ): Promise<DraftCheck> {
   if (!config.project.logbook) {
     return {
@@ -274,7 +276,7 @@ async function logbookCheck(
       event.invocation === undefined ? [] : [event.invocation]
     ),
   );
-  const cutoff = Date.now() - EXPECTED_COMPLETION_GRACE_MS;
+  const cutoff = nowMs - EXPECTED_COMPLETION_GRACE_MS;
   const expectedButAbsent = stream.events.filter((event) =>
     event.kind === "begin" && !completedInvocations.has(event.invocation) &&
     Date.parse(event.at) < cutoff
@@ -991,7 +993,9 @@ export async function runChecks(
   if (gitHealth?.repository.kind === "repository") {
     const commonGitDir = await resolveCommonGitDir(destDir);
     if (commonGitDir !== undefined) {
-      checks.push(await logbookCheck(config, commonGitDir));
+      checks.push(
+        await logbookCheck(config, commonGitDir, SYSTEM_CLOCK.wallNow()),
+      );
     }
   }
 

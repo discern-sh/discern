@@ -8,6 +8,7 @@
  * observation).
  */
 
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import {
   assert,
   assertEquals,
@@ -323,7 +324,7 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
         typeof e.last_activity === "string",
         `fleet row should carry last_activity: ${JSON.stringify(e)}`,
       );
-      const ageMs = Date.now() - Date.parse(e.last_activity);
+      const ageMs = SYSTEM_CLOCK.wallNow() - Date.parse(e.last_activity);
       assert(
         ageMs >= 0 && ageMs < 5 * 60 * 1000,
         `last_activity should be recent, got ${e.last_activity}`,
@@ -361,7 +362,7 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
     await addWorktree(dir, "alpha");
     await addWorktree(dir, "beta");
     const epoch = configEpoch(await loadConfig(dir)).fingerprint;
-    const now = Date.now();
+    const now = SYSTEM_CLOCK.wallNow();
     const at = (agoMs: number): string => new Date(now - agoMs).toISOString();
     const completion = (
       branch: string,
@@ -1477,7 +1478,7 @@ Deno.test("status fleet: a freshly spawned worktree reads as recent, not as old 
       `worktree row should carry last_activity: ${r.stdout}`,
     );
     // Its creation (the reflog), not the 2021 HEAD commit, drives last_activity.
-    const ageMs = Date.now() - Date.parse(row.last_activity);
+    const ageMs = SYSTEM_CLOCK.wallNow() - Date.parse(row.last_activity);
     assert(
       ageMs < 5 * 60 * 1000,
       `a just-spawned worktree must read as recent, not 2021 — got ${row.last_activity}`,

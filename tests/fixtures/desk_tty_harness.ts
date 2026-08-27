@@ -19,6 +19,7 @@
  * for diagnosis.
  */
 
+import { SYSTEM_CLOCK } from "../../src/shared/clock.ts";
 import { ensureDir } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
 import {
@@ -493,7 +494,7 @@ async function materialiseAction(
 ): Promise<void> {
   const branch = await gitOut(worktree, "branch", "--show-current");
   const head = await gitOut(worktree, "rev-parse", "--short", "HEAD");
-  const now = Date.now();
+  const now = SYSTEM_CLOCK.wallNow();
   const base = {
     schema: LOGBOOK_SCHEMA_VERSION,
     writer: "desk-tty-fixture",
