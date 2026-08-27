@@ -37,46 +37,19 @@ The Desk uses the same observed Fleet facts and task status as `discern status`;
 | Paused          | Uncommitted or committed work without live activity; the row names the next unmet condition, such as Update or final checks.                                                        |
 | Empty           | A healthy worktree with no uncommitted files or commits ahead of the trunk.                                                                                                         |
 
-Within groups, recent worktrees appear first. The root board names the project and main-checkout state, then counts all tasks, tasks that need a person, and tasks ready to review. `Refreshed just now` is static until the Desk gains live refresh. A [Desk tip](desk-tips.md) stays secondary. Unlanded branches, reclaimed stages, and removed worktree paths that exist again remain separate bounded facts.
+Within groups, recent worktrees appear first. The root board shows project and main-checkout state, task totals, counts that need a person or are ready to review, static `Refreshed just now`, bounded fleet notices, and a secondary [Desk tip](desk-tips.md). Each row shows its title, decision headline, one fact, and the recommended action when it fits. Selection opens the complete evidence.
 
-Each root row carries the display title, decision headline, one relevant factual detail, and the recommended action when space permits. The root is a triage queue; selecting a task opens its complete evidence. A collision can move a row into **Needs attention** without hiding what the task is doing. A ready task with a landing grant does not claim to need the same owner decision as one that still needs approval.
-
-The row layout follows the live terminal width ([ADR 0351](../_adr/0351-desk-decisions-cross-a-pure-responsive-presentation-boundary.md)):
-
-- At 96 columns and wider, task, state, and current activity or next action use separate columns.
-- From 56 through 95 columns, task and state share the line; relevant detail and the next action use the selection description.
-- Below 56 columns, the bounded task title leads and state, detail, and next action continue beneath it.
-
-One title never widens every row. A bounded row may truncate identity, and the selected task's detail view is the full-title route. The static board or detail preamble retains at most one third of the terminal height on short screens; the design-system interaction fitter measures group headings, descriptions, the prompt, overflow cues, and key help in the remaining rows. Search appears when the fleet exceeds eight tasks. While its query field is active, no task row claims focus; moving into the results gives one row the focus marker and strongest emphasis.
+Rows adapt at 96 and 56 columns ([ADR 0351](../_adr/0351-desk-decisions-cross-a-pure-responsive-presentation-boundary.md)): wide rows separate task, state, and activity or action; medium rows keep task and state together; narrow rows put state and detail below the task. Every row has an independent width, and task detail preserves a truncated title. Static content retains at most one third of the terminal height; the interaction fitter owns the rest. Search begins at 9 tasks. One result receives active focus; the query field receives it during typing.
 
 ## Choose an action
 
-Selecting a task first shows its full title and decision headline. The evidence table then groups branch and path, running or last action, changed-file and commit facts, landing authority, collisions, containment, and available agents or Project Scripts with unavailable reasons. The Proof section names currency and preserves the recorded Proof line. Empty evidence blocks are omitted. On a short terminal the preamble may enter terminal history so the action picker remains coherent; every fact is emitted before the picker.
+Task detail precedes the action picker. It groups the full title and headline, location, activity, Git facts, landing authority, collisions, containment, agent and Project Script availability, and Proof currency and line. Empty groups disappear. Short screens keep the action picker coherent by moving earlier evidence into terminal history.
 
-The decision represents each canonical action once. An action is enabled or disabled with one observed reason, and at most one enabled action is recommended. The current menu shows the enabled offers only:
+The decision carries every action once, its availability reason, and at most one recommendation; the picker shows enabled actions only. Landing, work, review, and worktree groups cover Accept and its grant, Update, scripts, agents, shell, Inspect, Reclaim, and Drop. Each action echoes its CLI command and calls the same lifecycle core, which rechecks before effects.
 
-| Action                           | What it runs                                                                  |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| Accept                           | Shows the landing plan, asks for confirmation, then runs the acceptance core. |
-| Pre-authorize landing once green | Records one landing grant for this worktree in Git's administrative state.    |
-| Revoke landing pre-authorization | Removes that worktree's unconsumed effort grant.                              |
-| Update                           | Brings the trunk into the selected worktree.                                  |
-| Reclaim checkout                 | Removes a contained worktree's checkout; its branch ref is always kept.       |
-| Run script                       | Runs a discovered executable Project Script from that worktree.               |
-| Open with agent                  | Starts or continues a configured coding-agent CLI inside the worktree.        |
-| Open a shell                     | Starts `$SHELL` inside the worktree and returns to a refreshed desk on exit.  |
-| Inspect                          | Shows commits, uncommitted changes, and a diffstat relative to the trunk.     |
-| Drop                             | Runs the guarded abandoned-work removal path.                                 |
+Accept requires clean committed work ahead of the trunk without known branch lag. Grants belong to one task. Reclaim appears only for [contained work](reclaiming-contained-worktrees.md), keeps the branch, and removes the checkout and its per-worktree state after confirmation.
 
-Every enabled action echoes its CLI equivalent and calls the same core as the command. An effort grant belongs only to the selected task; acceptance consumes it, and removal clears it. Dropping work requires confirmation, with the branch name typed back when work would be discarded.
-
-Accept requires a clean worktree with commits ahead of the trunk and no known branch lag. A branch behind the trunk disables Accept and recommends Update. The lifecycle core checks again before acting. The model retains disabled reasons, recommendations, Proof, authority, and collision facts even though the current menu hides disabled offers.
-
-Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row: a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation names what survives (the branch ref) and what the reclaim destroys (the checkout and its per-worktree state, Gate Proof included). The core re-validates the predicate before acting.
-
-Project Scripts use one picker and process contract. The root action runs from the main checkout with `DISCERN_ROOT` set there; the selected-task action runs from that worktree. Both inherit the terminal and return to a fresh survey. Ctrl-C, SIGTERM, or SIGHUP stops the owned process group first ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)). Background jobs remain caller-owned.
-
-Open with agent appears only when an agent is configured in that checkout's `discern.toml` and one of its known binaries is on `PATH`. The provider registry owns each fresh and continued session command. The process inherits the terminal and worktree directory; exit or interrupt it to return to a fresh survey. The desk does not inspect private vendor session state.
+Project Scripts, agent CLIs, and shells inherit the selected checkout's terminal and return to a fresh survey. Root scripts run from main. Agent launch also requires a configured provider and an available binary; discern does not inspect vendor session state. Owned process groups stop on Ctrl-C, SIGTERM, or SIGHUP ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)).
 
 ## Know when the Desk stays closed
 
@@ -86,18 +59,7 @@ Before setup completes, bare `discern` keeps showing the setup welcome. From ins
 
 ## Where it lives in code
 
-| Responsibility                  | Source                                                                                  |
-| ------------------------------- | --------------------------------------------------------------------------------------- |
-| Interactive loop and dispatch   | [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts)                           |
-| Decision and action-offer model | [`src/engine/desk/model.ts`](../../../src/engine/desk/model.ts)                         |
-| Product mapping and composition | [`src/engine/desk/view.ts`](../../../src/engine/desk/view.ts)                           |
-| Provider-owned CLI actions      | [`src/lib/providers.ts`](../../../src/lib/providers.ts)                                 |
-| System-browser handoff          | [`src/lib/open_browser.ts`](../../../src/lib/open_browser.ts)                           |
-| Model decision table tests      | [`tests/engine_desk_model_test.ts`](../../../tests/engine_desk_model_test.ts)           |
-| Pure responsive view tests      | [`tests/engine_desk_view_test.ts`](../../../tests/engine_desk_view_test.ts)             |
-| Interactive dispatch tests      | [`tests/engine_desk_runtime_test.ts`](../../../tests/engine_desk_runtime_test.ts)       |
-| Real terminal journeys          | [`tests/engine_desk_tty_test.ts`](../../../tests/engine_desk_tty_test.ts)               |
-| Non-interactive boundary tests  | [`tests/engine_non_interactive_test.ts`](../../../tests/engine_non_interactive_test.ts) |
+Start with [`model.ts`](../../../src/engine/desk/model.ts) for decisions and action legality, [`view.ts`](../../../src/engine/desk/view.ts) for pure composition, and [`desk.ts`](../../../src/engine/desk/desk.ts) for surveys, prompts, and effects. Their contracts are covered by [model](../../../tests/engine_desk_model_test.ts), [view](../../../tests/engine_desk_view_test.ts), [runtime](../../../tests/engine_desk_runtime_test.ts), and [real-terminal](../../../tests/engine_desk_tty_test.ts) tests.
 
 ## Current state and gotchas
 

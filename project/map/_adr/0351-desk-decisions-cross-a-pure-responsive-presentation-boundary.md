@@ -16,7 +16,7 @@ The root board is a triage queue. It shows project and main-checkout state, task
 
 The product breakpoints are 96 columns for the three-column task/state/activity-or-action row, 56 columns for the two-column task/state row, and a stacked row below 56. Every row receives its own bounded width; fleet-wide title padding is forbidden. Package descriptions carry secondary facts. Truncation always has the selected task's full-detail route.
 
-Task detail precedes the action picker. It shows the full display title and decision headline, then semantic evidence groups for location, activity, Git facts, landing authority, collisions, containment, and agent or Project Script availability. A Proof receipt carries currency and the recorded line. Empty evidence groups do not render.
+Task detail precedes the action picker. It shows the full display title and decision headline, then semantic evidence groups for location, activity, Git facts, landing authority, collisions, containment, and agent or Project Script availability. The Proof section carries currency and the recorded line. Empty evidence groups do not render.
 
 Static composition retains at most one third of the live terminal height. The package interaction fitter owns exact measurement of the remaining prompt, groups, descriptions, options, overflow cues, and key help. This policy keeps the board visible on ordinary screens and lets short screens scroll earlier static evidence into terminal history so the active picker remains coherent.
 

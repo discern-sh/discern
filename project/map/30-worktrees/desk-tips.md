@@ -11,13 +11,13 @@ aliases:
 
 _Each Desk session puts a teaching line directly below the root status._
 
-Most of discern's surfaces address coding agents. The Desk is the person's surface, so it carries an ambient teaching line below the root status. The Desk selects the line when the session opens and holds it until the session ends ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The design system's semantic Note cue keeps the line secondary in color, reduced ANSI, no-color, and ASCII terminals. It wraps at the terminal width. Narrow terminals keep the complete text, using terminal history when the board and interaction cannot remain visible together.
+The Desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The design system's Note cue keeps it secondary across terminal modes. The complete text wraps to the terminal and may enter terminal history on short screens.
 
 ## How the tip is chosen
 
 Selection is deterministic: identical state shows the identical tip, and nothing is random. The Desk evaluates the registry against the fleet survey it already ran and picks the first match in this order:
 
-1. Tips new since the seen-state's baseline version, in authored order. These render with a "New in \<version\>" prefix, so an upgrade surfaces what it brought. A fresh install baselines at the current version and shows no "New in" prefix on day one.
+1. Tips new since the seen-state's baseline version, in authored order. These carry a "New in \<version\>" prefix; a fresh install starts at the current version.
 2. Unseen tips whose context currently applies. A relevance predicate reads the survey — "no standards configured", "a branch is behind the trunk" — and makes a tip timely.
 3. Unseen tips in authored order. The authored order is the curriculum.
 4. The tip shown longest ago. No tip repeats until the applicable pool exhausts.
@@ -34,15 +34,7 @@ Tips educate about capability; alarms about state belong to the board's own fact
 
 ## Where it lives in code
 
-| Responsibility                          | Source                                                                            |
-| --------------------------------------- | --------------------------------------------------------------------------------- |
-| The registry, in curriculum order       | [`src/shared/tips.ts`](../../../src/shared/tips.ts)                               |
-| Predicates, selection, seen-state shape | [`src/engine/desk/tips.ts`](../../../src/engine/desk/tips.ts)                     |
-| Seen-state file I/O                     | [`src/engine/desk/tip_state.ts`](../../../src/engine/desk/tip_state.ts)           |
-| Header composition                      | [`src/engine/desk/view.ts`](../../../src/engine/desk/view.ts)                     |
-| Session selection and stable placement  | [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts)                     |
-| Engine and store tests                  | [`tests/engine_desk_tips_test.ts`](../../../tests/engine_desk_tips_test.ts)       |
-| Session rendering tests                 | [`tests/engine_desk_runtime_test.ts`](../../../tests/engine_desk_runtime_test.ts) |
+[`src/shared/tips.ts`](../../../src/shared/tips.ts) is the ordered registry; [`tips.ts`](../../../src/engine/desk/tips.ts) owns selection, [`tip_state.ts`](../../../src/engine/desk/tip_state.ts) owns storage, and [`view.ts`](../../../src/engine/desk/view.ts) composes the line. [Registry tests](../../../tests/engine_desk_tips_test.ts) and [session tests](../../../tests/engine_desk_runtime_test.ts) cover the boundary.
 
 ## Current state and gotchas
 
