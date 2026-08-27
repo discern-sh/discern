@@ -1,43 +1,40 @@
 ---
-title: The discern manual
-description: "The public manual agents maintain under discern's own gate, covering quality checks, worktrees, instructions, skills, and reference."
+title: The discern project Map
+description: "Maintainer orientation, subsystem boundaries, working practices, and decisions for agents changing discern itself."
 aliases:
-  - docs
-  - documentation
-  - manual
+  - project map
+  - maintainer documentation
+  - repository documentation
 ---
 
-# The discern documentation
+# The discern project Map
 
-_discern's manual, shared by discern.sh, `discern docs`, and agent tools._
+_The knowledge tree for coding agents and maintainers changing discern itself._
 
-discern gives a repository a final quality check (the Gate), an isolated workspace for each change (a Git worktree), and shared project instructions supplied to every coding agent. Start with [orientation](00-orientation/) for the concepts in plain English, then follow the [quickstart](10-getting-started/quickstart.md) from installation to your first gated change.
+This Map explains the boundaries and intent that the code cannot express alone. It is the configured source behind `discern map`; it is not the product manual. Readers learning or using discern start in [`project/manual/`](../manual/README.md) or at [discern.sh/docs](https://discern.sh/docs). The separation is recorded in [ADR 0314](_adr/0314-separate-public-manual-and-project-map.md).
 
-Already know the outcome you need? Use the [task index](10-getting-started/tasks.md) to jump to its procedure.
+## Where to start
+
+Start with [orientation](00-orientation/) for the product model and vocabulary. Move to [engine internals](50-engine-internals/) for subsystem boundaries, [development](80-development/) for contributor practice, or [the site](90-site/) for discern.sh. [Architecture Decision Records](_adr/) preserve significant choices and their trade-offs.
 
 ## The sections
 
-| Section                                          | What's in it                                                                         |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| [00-orientation/](00-orientation/)               | How discern fits together, in plain English: concepts, glossary, design principles.  |
-| [10-getting-started/](10-getting-started/)       | Install, setup, a first gated change, troubleshooting, and upgrades.                 |
-| [20-quality-gate/](20-quality-gate/)             | `discern done`, its fix · build · check · test model, scopes, and Standards.         |
-| [30-worktrees/](30-worktrees/)                   | The isolated-worktree workflow: lifecycle, per-worktree identity, resources.         |
-| [40-agent-instructions/](40-agent-instructions/) | Instructions authored once and compiled into every agent file.                       |
-| [45-skills/](45-skills/)                         | Bundled and project-authored playbooks that agents load when the work calls for one. |
-| [60-agent-integrations/](60-agent-integrations/) | Per-agent integration guides: the files discern writes, trust gates, gotchas.        |
-| [70-reference/](70-reference/)                   | Exact CLI, configuration, MCP, ownership, and platform contracts.                    |
+| Section                                          | What it helps a contributor understand                                     |
+| ------------------------------------------------ | ---------------------------------------------------------------------------- |
+| [00-orientation/](00-orientation/)               | The product model, vocabulary, principles, and repository orientation.      |
+| [10-getting-started/](10-getting-started/)       | The installed workflow and the path to a first complete change.             |
+| [20-quality-gate/](20-quality-gate/)             | Gate stages, scopes, Standards, checkpoints, and Proof.                     |
+| [30-worktrees/](30-worktrees/)                   | Worktree lifecycle, identity, resources, and landing.                       |
+| [40-agent-instructions/](40-agent-instructions/) | Author-once instruction compilation and agent context boundaries.           |
+| [45-skills/](45-skills/)                         | Bundled and project-authored procedural playbooks.                          |
+| [50-engine-internals/](50-engine-internals/)     | Engine architecture and durable subsystem boundaries.                      |
+| [60-agent-integrations/](60-agent-integrations/) | Provider integrations, trust gates, and materialized files.                 |
+| [70-reference/](70-reference/)                   | Exact repository and product contracts used during implementation.         |
+| [80-development/](80-development/)               | Building, testing, reviewing, and releasing discern.                        |
+| [90-site/](90-site/)                             | The website, product manual delivery, and design-system consumption.        |
 
-Contributors can go deeper in [engine internals](50-engine-internals/), [development](80-development/), and [site](90-site/). [Project decisions](_adr/) record the choices behind discern. The decision archive sits outside the manual and customer binaries ([ADR 0142](_adr/0142-customer-binaries-carry-only-public-docs.md)).
+## Browsing and maintenance
 
-## Browsing from the terminal
+`discern map [target]` browses this repository's configured Map. `discern docs [target]` browses the separately sourced product manual. Both commands use the same neutral document reader, renderer, target resolver, and search model; their corpus policies decide what is admitted and delivered.
 
-`discern docs [target]` browses this manual. Bare interactive `discern docs` opens a full-height, grouped picker. Type to search titles and paths, move with the arrow or Page keys, and press Enter to open a document. When the terminal has room, the picker stays above a document pane with its own scroll position; short terminals use one coherent pane at a time. Tab moves between panes, the arrow and Page keys scroll the focused pane, Home and End jump within it, and Escape or `q` closes the document without losing the picker state.
-
-Use `[` and `]` to focus links and Enter to follow one. Admitted relative links and heading fragments stay inside the reader. HTTP and HTTPS links open through the system browser after discern restores the terminal. With mouse input enabled, the wheel scrolls the pane under the pointer, a click focuses a pane, and a link click follows it. Use your terminal's selection modifier when selecting terminal text while mouse tracking is active. Every mouse action has a keyboard equivalent.
-
-Choose `Read the docs online` to open [discern.sh/docs](https://discern.sh/docs), or add `--pager` to read through `$PAGER` and return when it exits. If the terminal cannot run the browser, discern prints the document, waits for `Press Enter to continue.`, and restores the remembered selection. A direct target renders and exits without waiting. `--list`, `--json`, and `--raw` support scripts and Model Context Protocol (MCP) clients. `discern map` uses the same reader for your project's Map. `discern help [command]` mirrors `discern [command] --help` ([ADR 0218](_adr/0218-docs-owns-the-manual-help-owns-cli-reference.md)).
-
-## How agents maintain the manual
-
-These pages form discern's public manual and the agent-maintained Map of its code. Coding agents update the Map under the same Gate as the product. The same source pages serve readers and agents, and the Gate checks them with the changes they describe.
+Update the Map when a change alters a durable boundary, supported workflow, or maintainer mental model. Link the implementation authority instead of copying facts that code or registries already make mechanically derivable. Update the manual only when the reader-facing product contract changes. The Gate validates both corpora with distinct integrity, checkpoint, and prose policies.

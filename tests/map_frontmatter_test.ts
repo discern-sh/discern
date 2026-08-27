@@ -5,8 +5,8 @@
  * shipped contract) must satisfy the strict frontmatter schema: a typo'd key,
  * an out-of-shape value, or a broken fence fails HERE, at the gate — never by
  * silently vanishing into the lenient reader. Published siblings must not
- * reuse an explicit `order`, and the destination-owned redirect claims must
- * assemble into a serve-safe registry against the site's live routes.
+ * reuse an explicit `order`. Product-route redirect claims belong to the
+ * dedicated manual rather than this maintainer corpus.
  *
  * Deliberately repo-local: the shipped map-integrity preflight applies only
  * the domain-neutral shape tier (`frontmatterShapeIssues`) — unknown keys,
@@ -26,7 +26,6 @@ import {
   discoverDocs,
   isPublicDoc,
 } from "../src/lib/docs.ts";
-import { loadDocsSite } from "../site/docs.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
@@ -87,29 +86,19 @@ Deno.test("published siblings never share an explicit order", async () => {
   assertEquals(clashes, [], "give each published sibling its own order");
 });
 
-Deno.test("redirect claims assemble into a serve-safe registry", async () => {
-  const site = await loadDocsSite();
-  const registry = buildRedirectRegistry(site.pages.map((p) => ({
-    route: p.route,
-    redirectFrom: p.entry.redirectFrom,
-  })));
-  assertEquals(registry.issues, []);
-
-  // Only pages the site actually serves may claim historical routes — a
-  // withheld or never-published doc would give its redirects a dead target.
+Deno.test("the Map does not claim product-manual redirects", async () => {
   const tree = await discoverDocs({
     cwd: REPO_ROOT,
     dir: REPO_AUTHORED_PATHS.map,
   });
   assert(tree !== undefined);
-  const served = new Set(site.pages.map((p) => p.entry.relToDocs));
-  const deadClaims = tree.entries
-    .filter((e) => e.redirectFrom.length > 0 && !served.has(e.relToDocs))
+  const claims = tree.entries
+    .filter((entry) => entry.redirectFrom.length > 0)
     .map((e) => e.relToDocs);
   assertEquals(
-    deadClaims,
+    claims,
     [],
-    "redirect_from belongs only on pages the site serves",
+    "move product-route redirect_from claims to their manual destinations",
   );
 });
 
