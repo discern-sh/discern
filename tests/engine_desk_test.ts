@@ -90,7 +90,7 @@ Deno.test({
         input: "\x1b[F\r",
       });
       assertEquals(r.code, 0, r.output);
-      assertTerminalTextIncludes(r.output, "Choose a desk action");
+      assertTerminalTextIncludes(r.output, "Choose a Desk command");
       assertStringIncludes(r.output, "DESK");
       assertStringIncludes(r.output, "SESSION");
       assertTerminalTextIncludes(r.output, "› [●] Quit");
