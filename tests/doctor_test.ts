@@ -2198,7 +2198,7 @@ Deno.test("doctor: an environment-denied Logbook write is advisory and disables 
   });
 });
 
-Deno.test("doctor: corrupt schema and an expected-but-absent completion are distinct warnings", async () => {
+Deno.test("doctor: corrupt schema warns, but unmatched historical begins do not affect health", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     await gitInit(dir);
@@ -2223,28 +2223,42 @@ Deno.test("doctor: corrupt schema and an expected-but-absent completion are dist
 
     const cleanLines = (await Deno.readTextFile(monthPath)).split("\n")
       .filter((line) => line.trim() !== "" && line !== "not json");
-    const oldBegin = JSON.stringify({
-      schema: 1,
-      at: "2020-01-01T00:00:00.000Z",
-      kind: "begin",
-      invocation: "missing-completion-fixture",
-      verb: "done",
-      surface: "cli",
-      driver: {},
-      branch: "main",
-      head: null,
-      epoch: null,
-    });
+    const unmatchedBegins = [
+      {
+        schema: 1,
+        at: "2020-01-01T00:00:00.000Z",
+        kind: "begin",
+        invocation: "apollo-interruption",
+        verb: "done",
+        surface: "cli",
+        driver: {},
+        branch: "main",
+        head: null,
+        epoch: null,
+      },
+      {
+        schema: 1,
+        at: "2021-06-15T12:30:00.000Z",
+        kind: "begin",
+        invocation: "margaret-interruption",
+        verb: "scripts",
+        surface: "mcp",
+        driver: {},
+        branch: "main",
+        head: null,
+        epoch: null,
+      },
+    ].map((event) => JSON.stringify(event));
     await Deno.writeTextFile(
       monthPath,
-      `${[...cleanLines, oldBegin].join("\n")}\n`,
+      `${[...cleanLines, ...unmatchedBegins].join("\n")}\n`,
     );
-    const absent = await runDoctorJson(dir);
-    const absentCheck = check(absent.payload, "logbook");
-    assertEquals(absentCheck.status, "warn");
-    assertStringIncludes(absentCheck.detail, "no expected completion event");
-    assert(!absentCheck.detail.includes("invalid or unreadable"));
-    assertEquals(absent.code, 0);
+    const healthy = await runDoctorJson(dir);
+    const healthyCheck = check(healthy.payload, "logbook");
+    assertEquals(healthyCheck.status, "ok");
+    assertStringIncludes(healthyCheck.detail, "recording");
+    assertEquals(healthyCheck.fix, undefined);
+    assertEquals(healthy.code, 0);
   });
 });
 

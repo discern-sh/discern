@@ -1,6 +1,8 @@
 # ADR 0320: Setup plans own write authority and activation recovery
 
 > **Amendment ([ADR 0322](0322-setup-is-one-bounded-operational-journey.md)).** First registration during unfinished setup explicitly defers restart. Provider-derived recovery is served only after setup is available on the trunk, through in-place completion or successful setup acceptance.
+>
+> **Logbook health amendment (2026-08-27).** Doctor does not interpret an unmatched begin event as an “event expected but absent” storage state. The event remains interruption or crash evidence under [ADR 0210](0210-effectful-verb-starts-are-paired-logbook-events.md). Current Logbook health comes from configuration, a point-in-time write probe, and readable schema.
 
 **Status**: accepted; extends the staged handshake of [ADR 0075](0075-setup-staged-handshake.md), the real-operation preflight of [ADR 0152](0152-slow-workflows-prove-write-authority-first.md), the advisory Logbook boundary of [ADR 0160](0160-local-logbook-advisory-readers.md), and the vendor-security boundary of [ADR 0193](0193-discern-does-not-enforce-the-vendor-security-boundary.md).
 
@@ -38,8 +40,8 @@ Doctor had a related first-run self-reference. It treated the absence of a histo
 
 ### Doctor and authorization language
 
-- Doctor validates whether Logbook storage and observation are configured and operable. It distinguishes healthy-but-empty, recording disabled, schema invalid, write denied, and an event expected but absent. Zero prior events is healthy on a first invocation.
-- Environment-refused Logbook storage is warning severity. It names the environmental cause and consequence—recording disabled for this process—and never blocks setup by itself. Invalid schema and an absent event after the canonical observer should have recorded one remain distinct diagnostics.
+- Doctor validates whether Logbook storage and observation are configured and operable. It distinguishes healthy-but-empty, recording disabled, schema invalid, and write denied. Zero prior events is healthy on a first invocation. Unmatched begin events remain interruption or crash evidence outside the storage-health result.
+- Environment-refused Logbook storage is warning severity. It names the environmental cause and consequence—recording disabled for this process—and never blocks setup by itself. Invalid schema remains a separate diagnostic. A missing completion event is interruption or crash evidence, with no storage-health verdict.
 - Product messages keep four concepts separate: owner consent, provider authorization, discern's recorded landing authority, and point-in-time write authority observed by a preflight. discern may request the provider permission required for its planned command, but cannot grant, persist, or bypass it.
 
 ## Consequences
