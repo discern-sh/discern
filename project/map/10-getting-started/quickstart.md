@@ -40,7 +40,7 @@ Keep routine green output concise; use SARIF and JUnit XML only when they preser
 
 ## 3. Verify setup in an isolated checkout
 
-`discern setup done` commits and diagnoses completion, proves it in a separate working copy, runs the final quality check, and returns [proof that the finished change passed the project's checks](../20-quality-gate/the-proof.md), called Proof. A failure removes only the marker commit that the current invocation can prove it owns; if the branch or checkout changed, it retains that exact state and names recovery. Repeating a successful unchanged completion safely returns the same Proof and handoff without another Gate run ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).
+`discern setup done` commits, diagnoses, and proves completion in a separate working copy. Repeating it unchanged returns the same [Proof](../20-quality-gate/the-proof.md) without another Gate. A failed transaction removes only its still-owned marker tip; otherwise the retained state names recovery ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).
 
 The result explains where later agents start, which other areas have distinct responsibilities, one important rule setup found, which checks now run, and what remains open. It also carries the precise branch, check, guide, and instruction inventories for technical review. Then it's your turn:
 
