@@ -27,12 +27,10 @@ import {
 } from "../src/engine/gate/diagnostics.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
-import {
-  BUNDLED_PUBLIC_DOC_DIRS,
-  MANUAL_SECTION_REGISTRY,
-} from "../src/lib/paths.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
+import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
+import { measurePublicDocs } from "../scripts/public_doc_density_lib.ts";
 
 const SARIF_LOG_SCHEMA = z.object({
   $schema: z.string(),
@@ -56,12 +54,8 @@ const SARIF_LOG_SCHEMA = z.object({
   })]),
 });
 
-/** A registered public section, so the density script admits the fixture. */
-const PUBLIC_SECTION = BUNDLED_PUBLIC_DOC_DIRS[0] ?? "00-orientation";
-/** A registered contributor section outside the public projection. */
-const CONTRIBUTOR_SECTION =
-  MANUAL_SECTION_REGISTRY.find((section) => section.audience === "contributor")
-    ?.dir ?? "50-engine-internals";
+const PUBLIC_SECTION = "20-quality-gate";
+const CONTRIBUTOR_SECTION = "50-engine-internals";
 
 const FRONTMATTERED = "---\n" +
   "title: Meta words that must not count\n" +
@@ -489,30 +483,27 @@ Deno.test("the prose standard divides by its staged-corpus word metric", async (
   );
 });
 
-Deno.test("the public-doc word count excludes frontmatter", async () => {
-  await withTempDir(async (dir) => {
-    const map = join(dir, "map");
-    await Deno.mkdir(join(map, PUBLIC_SECTION), { recursive: true });
-    await Deno.writeTextFile(
-      join(map, PUBLIC_SECTION, "page.md"),
-      FRONTMATTERED,
-    );
-
-    const run = await new Deno.Command(Deno.execPath(), {
-      args: [
-        "run",
-        "--allow-read",
-        join(REPO_ROOT, "scripts/public_doc_density.ts"),
-        map,
-      ],
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-    assertEquals(run.code, 0, new TextDecoder().decode(run.stderr));
-    const stdout = new TextDecoder().decode(run.stdout);
-    // "# Doc" + "Seven words of actual prose live here." = 8 words; the
-    // frontmatter's words never count.
-    assertStringIncludes(stdout, "DISCERN_METRIC public_doc_words 8");
-    assertStringIncludes(stdout, "DISCERN_METRIC public_doc_leaves 1");
-  });
+Deno.test("the public-doc density command reports canonical manual metrics", async () => {
+  const manualDir = resolveRepositoryManualDir(REPO_ROOT).abs;
+  const expected = await measurePublicDocs(REPO_ROOT, manualDir);
+  const run = await new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-read",
+      join(REPO_ROOT, "scripts/public_doc_density.ts"),
+      manualDir,
+    ],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assertEquals(run.code, 0, new TextDecoder().decode(run.stderr));
+  const stdout = new TextDecoder().decode(run.stdout);
+  assertStringIncludes(
+    stdout,
+    `DISCERN_METRIC public_doc_words ${expected.words}`,
+  );
+  assertStringIncludes(
+    stdout,
+    `DISCERN_METRIC public_doc_leaves ${expected.leaves}`,
+  );
 });

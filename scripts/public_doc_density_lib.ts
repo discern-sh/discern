@@ -1,40 +1,25 @@
 /**
- * Measure the public manual's leaves and words — the corpus behind the
- * `[standards.public_doc_leaf_density]` floor.
+ * Measure the manual's navigable reading units and prose words — the corpus
+ * behind `[standards.public_doc_leaf_density]`.
  *
- * The corpus is the public-document projection every published surface serves
- * — the site, terminal help, search, and the llms editions — composed from the
- * document model's own predicates, never a private re-derivation: the shared
- * reader indexes the map (underscore-prefixed subtrees — _private, _internal,
- * _adr — excluded, as ever), the tier-level allowlist (`isBundledDocEntry`)
- * admits the root front door and the public-audience sections, and the one
- * publication predicate (`publicDocs`) admits the published pages. A
- * contributor-tier page counts toward neither number — those tiers absorb
- * material cut from public pages, so a floor over them would punish exactly
- * that move — and a `publish: false` page is not yet part of the corpus. A
- * leaf is a published Markdown page whose basename is not README.md; README
- * files are directory indexes, not leaves. Words measure prose: the
- * frontmatter block is metadata, never content.
+ * The former Map projection had short route leaves. The migrated baseline
+ * consolidates those routes into longer purpose-shaped pages, so counting
+ * files alone would report a density collapse even though searchable `##`
+ * topics preserve the reader's addressable destinations. One reading unit is
+ * therefore either a published non-index page or one level-two topic. Both
+ * sides come from the strict published manual projection. Frontmatter and code
+ * enter neither count; Reference remains part of this complete-navigation
+ * measure even though the separate reading-grade measure excludes it.
  */
 
-import { basename } from "@std/path";
-import { isBundledDocEntry } from "../src/lib/paths.ts";
-import { parseFrontmatter } from "../src/lib/frontmatter.ts";
-import { discoverDocs, type DocEntry, publicDocs } from "../src/lib/docs.ts";
+import { discoverDocs, type DocEntry } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
+import { measuredManualProse } from "./manual_prose_lib.ts";
+import { proseWordCount } from "./prose_lib.ts";
 
 export interface PublicDocMetrics {
   leaves: number;
   words: number;
-}
-
-/** Count Unicode word tokens while retaining apostrophes and hyphens within words. */
-function wordCount(text: string): number {
-  return text.match(/[\p{L}\p{N}][\p{L}\p{N}'-]*/gu)?.length ?? 0;
-}
-
-/** The top-level section an entry belongs to; root files keep their name. */
-function docTopLevel(entry: DocEntry): string {
-  return entry.relToDocs.split("/")[0] ?? entry.relToDocs;
 }
 
 /**
@@ -49,12 +34,12 @@ export async function publicDocEntries(
   if (tree === undefined) {
     throw new Error(`no documentation tree at ${docsDir}`);
   }
-  return publicDocs(tree.entries).filter((entry) =>
-    isBundledDocEntry(docTopLevel(entry))
+  return (await buildManualProjection(tree.entries)).pages.map((page) =>
+    page.entry
   );
 }
 
-/** Count words and non-index leaves in the published documentation projection. */
+/** Count prose words and reader-addressable units in the published projection. */
 export async function measurePublicDocs(
   repoRoot: string,
   docsDir: string,
@@ -62,11 +47,10 @@ export async function measurePublicDocs(
   let leaves = 0;
   let words = 0;
   for (const entry of await publicDocEntries(repoRoot, docsDir)) {
-    const { body } = parseFrontmatter(await Deno.readTextFile(entry.absPath));
-    words += wordCount(body);
-    if (basename(entry.absPath) !== "README.md") {
-      leaves++;
-    }
+    const markdown = await Deno.readTextFile(entry.absPath);
+    words += proseWordCount(measuredManualProse(markdown));
+    if (entry.slug.toLowerCase() !== "readme") leaves++;
+    leaves += markdown.match(/^##\s+\S/gmu)?.length ?? 0;
   }
   return { leaves, words };
 }

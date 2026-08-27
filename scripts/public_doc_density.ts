@@ -8,17 +8,16 @@
  */
 
 import { dirname, fromFileUrl } from "@std/path";
-import { loadConfig } from "../src/shared/config_schema.ts";
-import { resolveMapDir } from "../src/lib/paths.ts";
+import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 import { measurePublicDocs } from "./public_doc_density_lib.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const docsDir = Deno.args[0] ??
-  resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
+  resolveRepositoryManualDir(repoRoot).abs;
 const metrics = await measurePublicDocs(repoRoot, docsDir);
 
 console.error(
-  `${docsDir} public docs: ${metrics.leaves} leaves, ${metrics.words} words`,
+  `${docsDir}: ${metrics.leaves} navigable units, ${metrics.words} prose words`,
 );
 console.log(`DISCERN_METRIC public_doc_leaves ${metrics.leaves}`);
 console.log(`DISCERN_METRIC public_doc_words ${metrics.words}`);

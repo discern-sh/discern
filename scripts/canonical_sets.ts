@@ -126,6 +126,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         kind: "generated-file",
         banner: true,
       },
+      {
+        path: "project/manual/30-reference/cli-reference.md",
+        kind: "generated-file",
+        banner: true,
+      },
     ],
     enrolledIn: {
       glossary: { perMember: "tests/glossary_enrolment_test.ts" },
@@ -309,6 +314,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [
       {
         path: "project/map/70-reference/environment-variables.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: "project/manual/30-reference/environment-variables.md",
         kind: "generated-file",
         banner: true,
       },
@@ -798,6 +808,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       },
       {
         path: "project/map/70-reference/config-reference.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: "project/manual/30-reference/config-reference.md",
         kind: "generated-file",
         banner: true,
       },
@@ -1916,6 +1931,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         kind: "generated-file",
         banner: true,
       },
+      {
+        path: "project/manual/30-reference/glossary.md",
+        kind: "generated-file",
+        banner: true,
+      },
     ],
     enrolledIn: {
       glossary: {
@@ -2283,6 +2303,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         kind: "maintained-block",
       },
       {
+        path: "project/manual/30-reference/mcp-and-results.md",
+        kind: "maintained-block",
+      },
+      {
         path: "schema/discern-proof-note.schema.json",
         kind: "generated-file",
         banner: false,
@@ -2442,10 +2466,204 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "manual-pages",
+    title: "Published manual pages",
+    what:
+      "Every strictly admitted published product-manual page, identified by its stable authored page id.",
+    source: {
+      kind: "module",
+      module: "src/lib/manual.ts",
+      exportName: "buildManualProjection",
+    },
+    guards: [
+      "tests/manual_curation_test.ts",
+      "tests/manual_surface_parity_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the document-model Map page defines the manual corpus and its stable page identities",
+      },
+      featureCanon: { nodeId: "bundled-docs" },
+    },
+    members: async () => {
+      const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+      const { discoverDocs } = await import("../src/lib/docs.ts");
+      const { buildManualProjection } = await import("../src/lib/manual.ts");
+      const { resolveRepositoryManualDir } = await import(
+        "../src/lib/paths.ts"
+      );
+      const tree = await discoverDocs({
+        cwd: repoRoot,
+        dir: resolveRepositoryManualDir(repoRoot).abs,
+      });
+      if (tree === undefined) return [];
+      return (await buildManualProjection(tree.entries)).pages.map((page) =>
+        page.id
+      );
+    },
+  },
+  {
+    id: "manual-sections",
+    title: "Manual sections",
+    what:
+      "The complete ordered section and route families of the repository-owned product manual.",
+    source: {
+      kind: "module",
+      module: "src/shared/manual.ts",
+      exportName: "MANUAL_SECTION_REGISTRY",
+    },
+    guards: [
+      "tests/manual_curation_test.ts",
+      "tests/manual_doc_checkpoint_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the product manual presents these reader-facing sections directly",
+      },
+      featureCanon: { nodeId: "bundled-docs" },
+    },
+    members: async () =>
+      (await import("../src/shared/manual.ts")).MANUAL_SECTION_REGISTRY.map(
+        (section) => section.dir,
+      ),
+  },
+  {
+    id: "manual-kinds",
+    title: "Manual kinds",
+    what:
+      "The closed editorial purposes that choose manual comprehension policy and reading-complexity inclusion.",
+    source: {
+      kind: "module",
+      module: "src/shared/manual.ts",
+      exportName: "MANUAL_KIND_REGISTRY",
+    },
+    guards: [
+      "tests/manual_policy_test.ts",
+      "tests/manual_doc_checkpoint_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the document-model Map page defines editorial purpose as manual metadata",
+      },
+      featureCanon: { nodeId: "bundled-docs" },
+    },
+    members: async () =>
+      (await import("../src/shared/manual.ts")).MANUAL_KIND_REGISTRY.map(
+        (entry) => entry.kind,
+      ),
+  },
+  {
+    id: "manual-alias-owners",
+    title: "Manual alias owners",
+    what:
+      "The explicit page-id owner for each normalized manual search name that would otherwise collide.",
+    source: {
+      kind: "module",
+      module: "src/shared/manual.ts",
+      exportName: "MANUAL_ALIAS_OWNER_OVERRIDES",
+    },
+    guards: ["tests/manual_policy_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "search-name collision ownership is repository policy rather than reader vocabulary",
+      },
+      featureCanon: { nodeId: "bundled-docs" },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/manual.ts")).MANUAL_ALIAS_OWNER_OVERRIDES,
+      ),
+  },
+  {
+    id: "manual-benefit-obligations",
+    title: "Manual benefit obligations",
+    what:
+      "The selected Human Benefit ids and the stable published manual page ids required to explain them.",
+    source: {
+      kind: "module",
+      module: "scripts/manual_benefits.ts",
+      exportName: "MANUAL_BENEFIT_OBLIGATIONS",
+    },
+    guards: ["tests/manual_policy_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the Human Benefit Canon owns benefit vocabulary; this mapping only assigns manual homes",
+      },
+      featureCanon: {
+        absent:
+          "feature-to-benefit edges stay in the Human Benefit Canon and are not copied into manual policy",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("./manual_benefits.ts")).MANUAL_BENEFIT_OBLIGATIONS,
+      ),
+  },
+  {
+    id: "manual-benefit-exclusions",
+    title: "Manual benefit exclusions",
+    what:
+      "The Human Benefit ids deliberately left without a primary manual obligation and their retained 1A reason.",
+    source: {
+      kind: "module",
+      module: "scripts/manual_benefits.ts",
+      exportName: "MANUAL_BENEFIT_EXCLUSIONS",
+    },
+    guards: ["tests/manual_policy_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the Human Benefit Canon owns benefit vocabulary; this set records a corpus decision",
+      },
+      featureCanon: {
+        absent:
+          "excluded benefits remain in the Human Benefit Canon without new feature relationships",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("./manual_benefits.ts")).MANUAL_BENEFIT_EXCLUSIONS,
+      ),
+  },
+  {
+    id: "manual-front-doors",
+    title: "Manual front doors",
+    what:
+      "The scarce promoted journeys authored as direct links in the manual root and projected into starting surfaces.",
+    source: {
+      kind: "file",
+      path: "project/manual/README.md",
+      mustContain: "<!-- BEGIN MANUAL FRONT DOORS -->",
+    },
+    guards: [
+      "tests/manual_curation_test.ts",
+      "tests/manual_surface_parity_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "promotion is a manual navigation policy, distinct from the publication vocabulary",
+      },
+      featureCanon: { nodeId: "bundled-docs" },
+    },
+  },
+  {
     id: "public-doc-surfaces",
     title: "Public doc surfaces",
     what:
-      "The projection matrix deciding which Map pages publish to each public surface.",
+      "The projection matrix deciding which admitted manual pages reach each complete public surface.",
     source: {
       kind: "module",
       module: "src/lib/docs.ts",
@@ -2456,7 +2674,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "the Map entry defines the reader-facing concept, and this Engine table supplies its publication projections",
+          "the document-model Map page defines publication, and this Engine table supplies its delivery projections",
       },
       featureCanon: { nodeId: "publish-predicate" },
     },
@@ -2549,6 +2767,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [
       {
         path: "project/map/70-reference/artifact-ownership.md",
+        kind: "maintained-block",
+      },
+      {
+        path: "project/manual/30-reference/files-and-ownership.md",
         kind: "maintained-block",
       },
       {
@@ -3482,8 +3704,8 @@ export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {
     "site build infrastructure: the route-bundle table drives this repository's site build; project installations omit it",
   "src/engine/gate/proof_render.ts":
     "the claim defines a derive-once invariant: Proof reads and reuses the result envelope",
-  "src/lib/paths.ts#BUNDLED_DOCS_STAGE_DIR":
-    "one staging-directory value shared by the build writer and bundled-docs reader",
+  "src/lib/paths.ts#BUNDLED_MANUAL_STAGE_DIR":
+    "one staging-directory value shared by the build writer and bundled-manual reader",
   "src/lib/providers.ts":
     "the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member",
   "src/lib/version.ts":

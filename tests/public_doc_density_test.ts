@@ -1,93 +1,161 @@
-/**
- * The leaf-density standard measures the PUBLIC instructions corpus — the same
- * projection the document model serves to every published surface, never a
- * private re-derivation. Pins the three exclusions the measurement makes: a
- * `publish: false` page counts toward neither leaves nor words (it is not yet
- * part of the published corpus), underscore-prefixed subtrees stay out
- * entirely, and contributor-tier sections stay out because the manual section
- * registry withholds them from every public surface — those tiers absorb
- * material cut from public pages, so counting them would punish exactly that
- * move. Section names come from the registry itself, so a re-audienced or new
- * section auto-enrols. Without this, the metric silently drifts from the
- * projection the standard exists to budget — the script once counted by path
- * alone, and later counted contributor tiers no reader of the public manual
- * ever sees.
- */
+/** Manual density uses the strict published projection and prose-only bytes. */
 
-import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { MANUAL_SECTION_REGISTRY } from "../src/lib/paths.ts";
-import { publicDocEntries } from "../scripts/public_doc_density_lib.ts";
-import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { assert, assertEquals } from "@std/assert";
+import {
+  measurePublicDocs,
+  publicDocEntries,
+} from "../scripts/public_doc_density_lib.ts";
+import {
+  MANUAL_SECTION_REGISTRY,
+  type ManualKind,
+} from "../src/shared/manual.ts";
 import { withTempDir } from "./helpers.ts";
 
-/** Resolve the configured manual directory for one published audience tier. */
-function registrySection(audience: "public" | "contributor"): string {
-  const section = MANUAL_SECTION_REGISTRY.find(
-    (entry) => entry.audience === audience,
-  );
-  if (section === undefined) {
-    throw new Error(`no ${audience} section in the manual section registry`);
-  }
-  return section.dir;
+function page(
+  id: string,
+  title: string,
+  kind: ManualKind,
+  order: number,
+  body: string,
+  publish = true,
+): string {
+  return [
+    "---",
+    `id: ${id}`,
+    `title: ${JSON.stringify(title)}`,
+    `description: ${
+      JSON.stringify(
+        "A complete manual fixture description that satisfies the strict repository contract.",
+      )
+    }`,
+    `order: ${order}`,
+    `publish: ${publish}`,
+    `kind: ${kind}`,
+    "aliases:",
+    `  - ${JSON.stringify(`${id} alias`)}`,
+    "---",
+    "",
+    body,
+    "",
+  ].join("\n");
 }
 
-Deno.test("the density metric counts only public published pages, frontmatter excluded", async () => {
-  const publicSection = registrySection("public");
-  const contributorSection = registrySection("contributor");
-  await withTempDir(async (dir) => {
-    await Deno.writeTextFile(
-      join(dir, "README.md"),
-      "# Index\n\nfour words of prose\n",
-    );
-    await Deno.mkdir(join(dir, publicSection));
-    await Deno.writeTextFile(
-      join(dir, publicSection, "published.md"),
-      "---\ntitle: Published\n---\n\n# Published\n\nsix published words in this body\n",
-    );
-    await Deno.writeTextFile(
-      join(dir, publicSection, "withheld.md"),
-      `---\npublish: false\n---\n\n# Withheld\n\n${"word ".repeat(500)}\n`,
-    );
-    await Deno.mkdir(join(dir, contributorSection));
-    await Deno.writeTextFile(
-      join(dir, contributorSection, "runbook.md"),
-      `# Runbook\n\n${"internal ".repeat(400)}\n`,
-    );
-    await Deno.mkdir(join(dir, "_private"));
-    await Deno.writeTextFile(
-      join(dir, "_private", "notes.md"),
-      `# Notes\n\n${"secret ".repeat(300)}\n`,
-    );
-
-    assertEquals(
-      (await publicDocEntries(REPO_ROOT, dir)).map((entry) => entry.relToDocs),
-      ["README.md", `${publicSection}/published.md`],
-      "the reusable projection excludes withheld, contributor, and private pages",
-    );
-
-    const script = new URL("../scripts/public_doc_density.ts", import.meta.url);
-    const result = await new Deno.Command(Deno.execPath(), {
-      args: ["run", "--allow-read", script.pathname, dir],
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-    const stdout = new TextDecoder().decode(result.stdout);
-    assertEquals(
-      result.code,
+async function writeFixture(root: string): Promise<string> {
+  const manual = join(root, "manual");
+  await Deno.mkdir(manual);
+  await Deno.writeTextFile(
+    join(manual, "README.md"),
+    page(
+      "manual-home",
+      "Manual",
+      "tutorial",
       0,
-      new TextDecoder().decode(result.stderr),
+      "# Manual\n\n<!-- BEGIN MANUAL FRONT DOORS -->\n- [Start](00-start/README.md)\n<!-- END MANUAL FRONT DOORS -->\n\nRoot prose.",
+    ),
+  );
+  for (const [index, section] of MANUAL_SECTION_REGISTRY.entries()) {
+    await Deno.mkdir(join(manual, section.dir));
+    const kind: ManualKind = index === 0
+      ? "tutorial"
+      : index === 1
+      ? "guide"
+      : index === 2
+      ? "explanation"
+      : index === 3
+      ? "reference"
+      : "troubleshooting";
+    await Deno.writeTextFile(
+      join(manual, section.dir, "README.md"),
+      page(
+        `${kind}-index`,
+        `${kind} index`,
+        kind,
+        0,
+        `# ${kind} index\n\nIndex prose.`,
+      ),
     );
+  }
+  await Deno.writeTextFile(
+    join(manual, "10-guides", "published.md"),
+    page(
+      "guide-published",
+      "Published guide",
+      "guide",
+      10,
+      "# Published guide\n\n## Action\n\nSix published words live in this body.\n\n```sh\ncode words never count here\n```",
+    ),
+  );
+  await Deno.writeTextFile(
+    join(manual, "10-guides", "withheld.md"),
+    page(
+      "guide-withheld",
+      "Withheld guide",
+      "guide",
+      20,
+      `# Withheld\n\n## Hidden topic\n\n${"hidden ".repeat(500)}`,
+      false,
+    ),
+  );
+  await Deno.writeTextFile(
+    join(manual, "30-reference", "lookup.md"),
+    page(
+      "reference-lookup",
+      "Lookup",
+      "reference",
+      10,
+      "# Lookup\n\n## Table\n\nReference prose contributes here.",
+    ),
+  );
+  return manual;
+}
 
-    const metric = (name: string): number =>
-      Number(stdout.match(new RegExp(`DISCERN_METRIC ${name} (\\d+)`))?.[1]);
-    // One leaf: published.md. Neither the withheld page, the contributor
-    // section, nor _private counts, and README files are indexes, not leaves.
-    assertEquals(metric("public_doc_leaves"), 1);
-    // Words: README body (5: "Index" + four-word line) + published body
-    // (7: "Published" + six-word line). Frontmatter contributes nothing; the
-    // withheld page's 500 words, the contributor runbook's 400, and the
-    // private tree's 300 never count.
-    assertEquals(metric("public_doc_words"), 12);
-  }, { prefix: "discern-density-" });
+Deno.test("density excludes withheld pages, frontmatter, code, and private Map prose", async () => {
+  await withTempDir(async (dir) => {
+    const manual = await writeFixture(dir);
+    const baseline = await measurePublicDocs(dir, manual);
+    assertEquals((await publicDocEntries(dir, manual)).length, 8);
+    assertEquals(baseline.leaves, 4, "two leaves plus their two H2 topics");
+
+    await Deno.mkdir(join(dir, "project", "map", "_private"), {
+      recursive: true,
+    });
+    await Deno.writeTextFile(
+      join(dir, "project", "map", "_private", "notes.md"),
+      `# Private\n\n${"private ".repeat(1000)}`,
+    );
+    assertEquals(await measurePublicDocs(dir, manual), baseline);
+
+    const guidePath = join(manual, "10-guides", "published.md");
+    const before = await Deno.readTextFile(guidePath);
+    await Deno.writeTextFile(
+      guidePath,
+      before.replace(
+        "aliases:\n",
+        `aliases:\n  - ${JSON.stringify("metadata noise ".repeat(100))}\n`,
+      ).replace(
+        "code words never count here",
+        "code words never count here " + "code ".repeat(1000),
+      ),
+    );
+    assertEquals(await measurePublicDocs(dir, manual), baseline);
+  });
+});
+
+Deno.test("reference stays inside the complete-navigation density projection", async () => {
+  await withTempDir(async (dir) => {
+    const manual = await writeFixture(dir);
+    const before = await measurePublicDocs(dir, manual);
+    const reference = join(manual, "30-reference", "lookup.md");
+    await Deno.writeTextFile(
+      reference,
+      (await Deno.readTextFile(reference)).replace(
+        "Reference prose contributes here.",
+        "Reference prose contributes here with several additional visible words.",
+      ),
+    );
+    const after = await measurePublicDocs(dir, manual);
+    assertEquals(after.leaves, before.leaves);
+    assert(after.words > before.words);
+  });
 });

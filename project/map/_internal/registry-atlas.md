@@ -90,7 +90,14 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 70      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
-| [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
+| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 47      | —                | node `bundled-docs`         |
+| [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
+| [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
+| [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 49      | —                | node `bundled-docs`         |
+| [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations)                               | `scripts/manual_benefits.ts#MANUAL_BENEFIT_OBLIGATIONS`                           | 21      | —                | —                           |
+| [`manual-benefit-exclusions`](#manual-benefit-exclusions--manual-benefit-exclusions)                                  | `scripts/manual_benefits.ts#MANUAL_BENEFIT_EXCLUSIONS`                            | 24      | —                | —                           |
+| [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
+| [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
 | [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 342     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
@@ -110,19 +117,19 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 26      | —                | —                           |
-| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 56      | —                | —                           |
+| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 57      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
 | [`secure-entropy-primitive-boundaries`](#secure-entropy-primitive-boundaries--secure-entropy-primitive-boundaries)    | `src/shared/entropy.ts#SECURE_ENTROPY_PRIMITIVE_BOUNDARIES`                       | 2       | —                | —                           |
-| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 190     | —                | —                           |
+| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 187     | —                | —                           |
 | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 8       | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 109     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 116     | —                | node `canonical-sets`       |
 
-109 sets · 160 guard tests · 61 committed artifacts.
+116 sets · 164 guard tests · 67 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -246,6 +253,10 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/logbook_powered_test.ts`                    | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/logbook_routing_test.ts`                    | [`logbook-events`](#logbook-events--logbook-events), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/logbook_test.ts`                            | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events), [`logbook-lifecycle-actions`](#logbook-lifecycle-actions--logbook-lifecycle-actions), [`error-slugs`](#error-slugs--result-error-slugs)                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `tests/manual_curation_test.ts`                    | [`manual-pages`](#manual-pages--published-manual-pages), [`manual-sections`](#manual-sections--manual-sections), [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/manual_doc_checkpoint_test.ts`              | [`manual-sections`](#manual-sections--manual-sections), [`manual-kinds`](#manual-kinds--manual-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `tests/manual_policy_test.ts`                      | [`manual-kinds`](#manual-kinds--manual-kinds), [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners), [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations), [`manual-benefit-exclusions`](#manual-benefit-exclusions--manual-benefit-exclusions)                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/manual_surface_parity_test.ts`              | [`manual-pages`](#manual-pages--published-manual-pages), [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/operation_effects_test.ts`                  | [`operation-effects`](#operation-effects--operation-effects), [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/paths_literal_ban_test.ts`                  | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/paths_registry_test.ts`                     | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -310,6 +321,12 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `.vale/DiscernProduct/AgentBlame.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   | —                                             |
 | `.vale/DiscernProduct/ProductName.yml`                     | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   | —                                             |
 | `THIRD_PARTY_NOTICES`                                      | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          | —                                             |
+| `project/manual/30-reference/cli-reference.md`             | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                                | —                                             |
+| `project/manual/30-reference/config-reference.md`          | generated file   | [`config-tables`](#config-tables--config-tables)                                                                  | —                                             |
+| `project/manual/30-reference/environment-variables.md`     | generated file   | [`environment-variables`](#environment-variables--discern-environment-variables)                                  | —                                             |
+| `project/manual/30-reference/files-and-ownership.md`       | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      | —                                             |
+| `project/manual/30-reference/glossary.md`                  | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                               | —                                             |
+| `project/manual/30-reference/mcp-and-results.md`           | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                           | —                                             |
 | `project/map/00-orientation/glossary.md`                   | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                               | —                                             |
 | `project/map/00-orientation/the-practice.md`               | generated file   | [`practice-tenets`](#practice-tenets--practice-canon)                                                             | —                                             |
 | `project/map/70-reference/artifact-ownership.md`           | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      | —                                             |
@@ -401,7 +418,7 @@ The top-level command vocabulary: every verb the dispatcher accepts through the 
   - `scripts`
   - `mcp`
 - Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/instruction_corpus_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
-- Artifacts: `project/map/70-reference/cli-reference.md`
+- Artifacts: `project/map/70-reference/cli-reference.md`, `project/manual/30-reference/cli-reference.md`
 - Glossary: each member is held named-or-recorded-absent by `tests/glossary_enrolment_test.ts`
 - Feature canon: claimed as the `verb` surface set
 
@@ -639,7 +656,7 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_TEST_ACCEPT_RELEASE`
   - `DISCERN_LIB`
 - Guards: `tests/environment_variables_enrolment_test.ts`, `tests/environment_variables_codegen_test.ts`
-- Artifacts: `project/map/70-reference/environment-variables.md`
+- Artifacts: `project/map/70-reference/environment-variables.md`, `project/manual/30-reference/environment-variables.md`
 - Glossary: not enrolled — the environment-variable reference owns these process-channel spellings
 - Feature canon: not enrolled — the registry spans installer, runtime, Worktree, development, and test infrastructure across several documented capabilities
 
@@ -995,7 +1012,7 @@ Every top-level table in the config schema.
   - `coupling`
   - `scripts`
 - Guards: `tests/config_codegen_test.ts`, `tests/config_banner_parity_test.ts`, `tests/config_set_schema_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/generated_artifacts_test.ts`, `tests/agent_gitattributes_test.ts`
-- Artifacts: `schema/discern-config.schema.json`, `schema/discern-setup-config.schema.json`, `project/map/70-reference/config-reference.md`
+- Artifacts: `schema/discern-config.schema.json`, `schema/discern-setup-config.schema.json`, `project/map/70-reference/config-reference.md`, `project/manual/30-reference/config-reference.md`
 - Glossary: not enrolled — the config reference documents every table and key
 - Feature canon: claimed as the `config` surface set
 
@@ -2161,7 +2178,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Worktree resource`
   - `Project-owned file`
 - Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`, `tests/feature_canon_plain_register_test.ts`, `tests/canon_editor_parity_test.ts`
-- Artifacts: `project/map/00-orientation/glossary.md`
+- Artifacts: `project/map/00-orientation/glossary.md`, `project/manual/30-reference/glossary.md`
 - Glossary: not enrolled — the registry is the Glossary, and its generated page is the definition surface
 - Feature canon: described by the `glossary-canon` node
 
@@ -2607,7 +2624,7 @@ The versioned public schema URLs and the root generated artifacts served at them
   - `https://discern.sh/schema/v1/discern-results.schema.json`
   - `https://discern.sh/schema/v1/discern-proof-note.schema.json`
 - Guards: `tests/config_codegen_test.ts`, `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`, `tests/reference_docs_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
-- Artifacts: `project/map/70-reference/mcp-and-results.md`, `schema/discern-proof-note.schema.json`
+- Artifacts: `project/map/70-reference/mcp-and-results.md`, `project/manual/30-reference/mcp-and-results.md`, `schema/discern-proof-note.schema.json`
 - Glossary: not enrolled — the config and result references document these machine-contract locations
 - Feature canon: described by the `published-contracts` node
 
@@ -2752,18 +2769,245 @@ The machine-stable vocabulary for explicitly optional degradation that may coexi
 - Glossary: not enrolled — the result-envelope reference defines typed advisories and their evidence/recovery shape
 - Feature canon: described by the `published-contracts` node
 
+## `manual-pages` — Published manual pages
+
+Every strictly admitted published product-manual page, identified by its stable authored page id.
+
+- Source: `src/lib/manual.ts` — `buildManualProjection`
+- Members: 47
+  - `manual-home`
+  - `start-index`
+  - `start-evaluate-discern`
+  - `start-first-success`
+  - `start-after-setup`
+  - `guide-index`
+  - `guide-finish-and-land-a-change`
+  - `guide-fix-a-red-gate`
+  - `guide-set-and-raise-standards`
+  - `guide-place-and-answer-checkpoints`
+  - `guide-coordinate-parallel-tasks`
+  - `guide-wait-for-another-task`
+  - `guide-recover-an-interrupted-task`
+  - `guide-delegate-work`
+  - `guide-write-project-instructions`
+  - `guide-create-and-manage-skills`
+  - `guide-connect-a-coding-agent`
+  - `guide-run-the-gate-in-ci`
+  - `guide-improve-the-practice`
+  - `guide-maintain-or-remove-discern`
+  - `understand-index`
+  - `explanation-practice-and-roles`
+  - `explanation-proof`
+  - `explanation-checkpoints`
+  - `explanation-standards`
+  - `explanation-worktrees-and-trunk`
+  - `explanation-instructions-skills-and-map`
+  - `explanation-local-control`
+  - `explanation-evidence-and-improvement`
+  - `reference-index`
+  - `reference-cli`
+  - `reference-config`
+  - `reference-results-and-mcp`
+  - `reference-proof-and-checkpoint-formats`
+  - `reference-environment-variables`
+  - `reference-files-and-ownership`
+  - `reference-platforms-and-providers`
+  - `reference-worktrees-and-status`
+  - `reference-logbook`
+  - `reference-licenses`
+  - `reference-glossary`
+  - `troubleshooting-index`
+  - `troubleshoot-setup-and-integrations`
+  - `troubleshoot-gate-and-proof`
+  - `troubleshoot-worktrees-and-resources`
+  - `troubleshoot-mcp-terminal-and-docs`
+  - `troubleshoot-crashes-and-local-state`
+- Guards: `tests/manual_curation_test.ts`, `tests/manual_surface_parity_test.ts`
+- Glossary: not enrolled — the document-model Map page defines the manual corpus and its stable page identities
+- Feature canon: described by the `bundled-docs` node
+
+## `manual-sections` — Manual sections
+
+The complete ordered section and route families of the repository-owned product manual.
+
+- Source: `src/shared/manual.ts` — `MANUAL_SECTION_REGISTRY`
+- Members: 5
+  - `00-start`
+  - `10-guides`
+  - `20-understand`
+  - `30-reference`
+  - `40-troubleshooting`
+- Guards: `tests/manual_curation_test.ts`, `tests/manual_doc_checkpoint_test.ts`
+- Glossary: not enrolled — the product manual presents these reader-facing sections directly
+- Feature canon: described by the `bundled-docs` node
+
+## `manual-kinds` — Manual kinds
+
+The closed editorial purposes that choose manual comprehension policy and reading-complexity inclusion.
+
+- Source: `src/shared/manual.ts` — `MANUAL_KIND_REGISTRY`
+- Members: 5
+  - `tutorial`
+  - `guide`
+  - `explanation`
+  - `reference`
+  - `troubleshooting`
+- Guards: `tests/manual_policy_test.ts`, `tests/manual_doc_checkpoint_test.ts`
+- Glossary: not enrolled — the document-model Map page defines editorial purpose as manual metadata
+- Feature canon: described by the `bundled-docs` node
+
+## `manual-alias-owners` — Manual alias owners
+
+The explicit page-id owner for each normalized manual search name that would otherwise collide.
+
+- Source: `src/shared/manual.ts` — `MANUAL_ALIAS_OWNER_OVERRIDES`
+- Members: 49
+  - `--markdown`
+  - `checkpoints`
+  - `coupling`
+  - `declared met`
+  - `declared unmet`
+  - `discern accept`
+  - `discern start`
+  - `discern update`
+  - `discern await`
+  - `discern checkpoints`
+  - `discern coupling`
+  - `discern desk`
+  - `discern done`
+  - `discern identity`
+  - `discern improvement`
+  - `discern patterns`
+  - `discern standards`
+  - `discern status`
+  - `discern tidy`
+  - `discern worktrees`
+  - `discern_checkpoint_input`
+  - `discern_checkpoints`
+  - `discern_match`
+  - `gate`
+  - `getting started`
+  - `install`
+  - `instructions`
+  - `json result`
+  - `markdown result`
+  - `structuredcontent`
+  - `landing authority`
+  - `logbook`
+  - `map`
+  - `open question`
+  - `patterns`
+  - `practice`
+  - `practice health`
+  - `prerequisites`
+  - `proof format`
+  - `proof`
+  - `proof note schema`
+  - `proof note`
+  - `skill`
+  - `skills`
+  - `standards`
+  - `tidy`
+  - `upgrade`
+  - `variance`
+  - `worktree`
+- Guards: `tests/manual_policy_test.ts`
+- Glossary: not enrolled — search-name collision ownership is repository policy rather than reader vocabulary
+- Feature canon: described by the `bundled-docs` node
+
+## `manual-benefit-obligations` — Manual benefit obligations
+
+The selected Human Benefit ids and the stable published manual page ids required to explain them.
+
+- Source: `scripts/manual_benefits.ts` — `MANUAL_BENEFIT_OBLIGATIONS`
+- Members: 21
+  - `shape-substantial-work`
+  - `parallel-work-on-one-machine`
+  - `wait-without-relay`
+  - `compose-staged-work`
+  - `resume-later`
+  - `reduce-routine-review`
+  - `judgment-at-the-change`
+  - `decisions-in-one-view`
+  - `useful-failures-sooner`
+  - `catch-related-files`
+  - `run-relevant-checks`
+  - `context-for-the-task`
+  - `project-defined-completion`
+  - `evidence-for-this-change`
+  - `evidence-that-lasts`
+  - `explicit-release-decision`
+  - `bounded-standing-permission`
+  - `unfinished-work-stays-isolated`
+  - `recover-interrupted-operations`
+  - `local-without-another-model`
+  - `explicit-write-authority`
+- Guards: `tests/manual_policy_test.ts`
+- Glossary: not enrolled — the Human Benefit Canon owns benefit vocabulary; this mapping only assigns manual homes
+- Feature canon: not enrolled — feature-to-benefit edges stay in the Human Benefit Canon and are not copied into manual policy
+
+## `manual-benefit-exclusions` — Manual benefit exclusions
+
+The Human Benefit ids deliberately left without a primary manual obligation and their retained 1A reason.
+
+- Source: `scripts/manual_benefits.ts` — `MANUAL_BENEFIT_EXCLUSIONS`
+- Members: 24
+  - `retain-measured-gains`
+  - `pin-new-baseline`
+  - `standards-that-scale`
+  - `remove-bug-class`
+  - `retire-old-pattern`
+  - `keep-clutter-down`
+  - `catch-documentation-breakage`
+  - `improve-practice-from-evidence`
+  - `teach-project-once`
+  - `inspect-agent-understanding`
+  - `preserve-decision-reasons`
+  - `instructions-at-failure`
+  - `orient-new-session`
+  - `export-project-briefing`
+  - `reuse-engineering-discipline`
+  - `agent-commissioning`
+  - `small-installation-footprint`
+  - `inspect-live-example`
+  - `clean-abandoned-environments`
+  - `switch-providers`
+  - `practice-across-stacks`
+  - `build-on-published-contracts`
+  - `planned-upgrades`
+  - `retain-work-after-uninstall`
+- Guards: `tests/manual_policy_test.ts`
+- Glossary: not enrolled — the Human Benefit Canon owns benefit vocabulary; this set records a corpus decision
+- Feature canon: not enrolled — excluded benefits remain in the Human Benefit Canon without new feature relationships
+
+## `manual-front-doors` — Manual front doors
+
+The scarce promoted journeys authored as direct links in the manual root and projected into starting surfaces.
+
+- Source: `project/manual/README.md` (authored table)
+- Members: — (the authored source keeps member names outside codegen)
+- Guards: `tests/manual_curation_test.ts`, `tests/manual_surface_parity_test.ts`
+- Glossary: not enrolled — promotion is a manual navigation policy, distinct from the publication vocabulary
+- Feature canon: described by the `bundled-docs` node
+
 ## `public-doc-surfaces` — Public doc surfaces
 
-The projection matrix deciding which Map pages publish to each public surface.
+The projection matrix deciding which admitted manual pages reach each complete public surface.
 
 - Source: `src/lib/docs.ts` — `PUBLIC_DOC_SURFACES`
-- Members: 4
-  - `site`
-  - `docs`
-  - `export-public`
-  - `docs-staging`
+- Members: 10
+  - `website-navigation`
+  - `website-pages`
+  - `website-search`
+  - `website-redirects`
+  - `website-sitemap`
+  - `website-llms`
+  - `terminal-docs`
+  - `mcp-docs`
+  - `raw-and-public-export`
+  - `binary-staging`
 - Guards: `tests/public_doc_parity_test.ts`
-- Glossary: not enrolled — the Map entry defines the reader-facing concept, and this Engine table supplies its publication projections
+- Glossary: not enrolled — the document-model Map page defines publication, and this Engine table supplies its delivery projections
 - Feature canon: described by the `publish-predicate` node
 
 ## `docs-workflow-directives` — Docs workflow directives
@@ -3167,7 +3411,7 @@ Every project-tree path discern writes or maintains, with its operational owners
   - `.cursor/hooks.json`
   - `.github/hooks/discern.json`
 - Guards: `tests/artifact_ownership_test.ts`, `tests/paths_write_surface_test.ts`
-- Artifacts: `project/map/70-reference/artifact-ownership.md`, `project/map/80-development/install-surface.md`
+- Artifacts: `project/map/70-reference/artifact-ownership.md`, `project/manual/30-reference/files-and-ownership.md`, `project/map/80-development/install-surface.md`
 - Glossary: the "File ownership" entry carries the concept
 - Feature canon: described by the `ownership-buckets` node
 
@@ -3532,7 +3776,7 @@ Every genuine wall-clock interval in executable tests, with its exact module, en
 Every direct environment or cwd read and mutation retained at a host boundary, with its stable id, exact path, enclosing function, primitive, semantic operation, and reason.
 
 - Source: `scripts/ambient_state_lint.ts` — `AMBIENT_READ_BOUNDARIES`
-- Members: 56
+- Members: 57
   - `read:canon-editor-port`
   - `read:checkpoint-input-path`
   - `read:cli-install-home`
@@ -3562,6 +3806,8 @@ Every direct environment or cwd read and mutation retained at a host boundary, w
   - `read:logbook-cli-recording-cwd`
   - `read:logbook-cli-spawned-by-marker`
   - `read:main-crash-cwd`
+  - `read:manual-doc-checkpoint-cwd`
+  - `read:manual-front-door-checkpoint-cwd`
   - `read:mcp-ci-marker`
   - `read:mcp-dispatch-cwd`
   - `read:preset-command-cwd`
@@ -3570,7 +3816,6 @@ Every direct environment or cwd read and mutation retained at a host boundary, w
   - `read:private-docs-git-query-cwd`
   - `read:private-docs-main-root-cwd`
   - `read:pty-process-path`
-  - `read:public-doc-checkpoint-cwd`
   - `read:setup-command-cwd`
   - `read:setup-gitattributes-environment`
   - `read:setup-page-tokens-environment`
@@ -3651,7 +3896,7 @@ Every direct WebCrypto UUID or byte-fill operation retained by the system secure
 Every named production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.
 
 - Source: `src/shared/best_effort.ts` — `BEST_EFFORT_BOUNDARIES`
-- Members: 190
+- Members: 187
   - `acceptance-transaction-temp-cleanup`
   - `adr-duplicate-scan-fallback`
   - `agent-gitignore-template-fallback`
@@ -3664,8 +3909,6 @@ Every named production error discard, with its exact module, enclosing function,
   - `await-watcher-close`
   - `await-watcher-open-fallback`
   - `await-watcher-pump-fallback`
-  - `build-bundled-doc-stage-cleanup`
-  - `build-bundled-doc-stage-reset`
   - `canon-editor-git-dirty-fallback`
   - `canon-editor-saved-note-fallback`
   - `canon-editor-sse-controller-close`
@@ -3763,7 +4006,6 @@ Every named production error discard, with its exact module, enclosing function,
   - `operation-lock-delegation-decode-fallback`
   - `operation-lock-record-restore`
   - `owned-child-direct-signal`
-  - `paths-bundled-docs-config-fallback`
   - `private-docs-git-query-fallback`
   - `process-group-signal-outcome`
   - `process-self-signal`
@@ -3914,7 +4156,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 109
+- Members: 116
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -3993,6 +4235,13 @@ This meta-registry: the closed set of closed sets.
   - `error-slugs`
   - `step-outcomes`
   - `result-advisory-kinds`
+  - `manual-pages`
+  - `manual-sections`
+  - `manual-kinds`
+  - `manual-alias-owners`
+  - `manual-benefit-obligations`
+  - `manual-benefit-exclusions`
+  - `manual-front-doors`
   - `public-doc-surfaces`
   - `docs-workflow-directives`
   - `adrs`
@@ -4064,7 +4313,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 
 - `site/design_system.ts#DESIGN_SYSTEM_BUNDLES` — site build infrastructure: the route-bundle table drives this repository's site build; project installations omit it
 - `src/engine/gate/proof_render.ts` — the claim defines a derive-once invariant: Proof reads and reuses the result envelope
-- `src/lib/paths.ts#BUNDLED_DOCS_STAGE_DIR` — one staging-directory value shared by the build writer and bundled-docs reader
+- `src/lib/paths.ts#BUNDLED_MANUAL_STAGE_DIR` — one staging-directory value shared by the build writer and bundled-manual reader
 - `src/lib/providers.ts` — the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member
 - `src/lib/version.ts` — the kit version constant is one value with no member axis or satellites
 - `src/shared/result_schemas.ts` — wire vocabulary already published through the result-contracts schema artifacts; tests/result_codegen_test.ts and tests/result_schemas_test.ts hold the Zod spine to the contracts

@@ -198,6 +198,11 @@
     run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose_check.ts --sarif --custom-zero \"${map.dir}\""
     provides = "docs prose lint (Vale; errors and discern voice alerts block across the non-private Map)"
 
+  [jobs.manual-prose]
+    stage = "check"
+    run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/manual_prose_check.ts --sarif"
+    provides = "product-manual prose lint (published projection; product voice; frontmatter excluded)"
+
   # `canary` runs the hot, cheap test subset (scripts/canary_registry.ts: the
   # guard/enrolment convention plus registered extras) at the check stage, so
   # `discern prepare` reports a tripped guard in seconds and a red canary ends
@@ -387,6 +392,10 @@
       "${map.dir}70-reference/cli-reference.md",
       "${map.dir}70-reference/config-reference.md",
       "${map.dir}70-reference/environment-variables.md",
+      "project/manual/30-reference/glossary.md",
+      "project/manual/30-reference/cli-reference.md",
+      "project/manual/30-reference/config-reference.md",
+      "project/manual/30-reference/environment-variables.md",
       "${map.dir}_internal/feature-canon.md",
       "${map.dir}_internal/feature-canon-plain.md",
       "${map.dir}_internal/feature-canon-human-benefits.md",
@@ -1209,15 +1218,13 @@
     margin = 1000000
     run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
 
-  # Public-manual leaf-density standard — hold the public instructions corpus at or
-  # above a rising floor of non-README Markdown leaves per 10,000 words. The
-  # corpus is the projection every published surface serves, composed from the
-  # document model's own predicates: underscore-prefixed subtrees (_private,
-  # _internal, _adr) are excluded so private notes and ADR churn cannot satisfy
-  # or breach the budget; the manual section registry withholds contributor
-  # tiers, which absorb material cut from public pages and are deliberately
-  # unbudgeted here; and the publication predicate admits only published pages,
-  # so a `publish: false` page counts toward neither number until it publishes.
+  # Public-manual density standard — hold the strict published projection at or
+  # above the existing 10.7 floor of navigable reading units per 10,000 prose
+  # words. The consolidated manual baseline made the old route-leaf numerator
+  # cease to represent navigability (41 files / 78,128 raw words = 5.25).
+  # A reading unit is now a non-index page or a searchable level-two topic;
+  # frontmatter and code enter neither side. This comparable projection measures
+  # 227 units / 63,269 prose words = 35.88 without loosening the inherited floor.
   [standards.public_doc_leaf_density]
     metric = "public_doc_leaves"
     direction = "up"
@@ -1228,14 +1235,49 @@
     # the margin keeps roughly a thousand words of room for it before a new leaf
     # is due, and re-pins leave the same headroom.
     margin = 0.5
-    run = "deno run --allow-read scripts/public_doc_density.ts \"${map.dir}\""
+    run = "deno run --allow-read scripts/public_doc_density.ts project/manual"
     inputs = [
-      "${map.dir}**",
+      "project/manual/**",
       "scripts/public_doc_density.ts",
       "scripts/public_doc_density_lib.ts",
+      "scripts/manual_prose_lib.ts",
       "src/lib/frontmatter.ts",
       "src/lib/docs.ts",
+      "src/lib/manual.ts",
       "src/lib/paths.ts",
+    ]
+
+  # Reading complexity applies to tutorials, guides, explanations, and
+  # troubleshooting through the kind registry. Reference stays in product
+  # voice, terminology, link, command, and exactness checks but not this grade.
+  [standards.manual_reading_grade]
+    metric = "manual_reading_grade"
+    direction = "down"
+    limit = 10.68
+    margin = 0.2
+    run = "deno run --allow-read scripts/manual_reading_grade.ts"
+    inputs = [
+      "project/manual/**",
+      "scripts/manual_reading_grade.ts",
+      "scripts/manual_prose_lib.ts",
+      "scripts/plain_reading_grade_lib.ts",
+      "src/lib/docs.ts",
+      "src/lib/manual.ts",
+      "src/shared/manual.ts",
+    ]
+
+  # Promoted manual journeys are scarce. The root README is the authored
+  # authority every surface projects; this ceiling counts its marked direct
+  # links rather than a renderer's copy.
+  [standards.manual_front_doors]
+    metric = "manual_front_doors"
+    direction = "down"
+    limit = 5
+    run = "deno run --allow-read scripts/manual_front_doors.ts"
+    inputs = [
+      "project/manual/README.md",
+      "scripts/manual_front_doors.ts",
+      "src/lib/manual.ts",
     ]
 
   # ─────────────────────────────────────────────────────────────────────────────
