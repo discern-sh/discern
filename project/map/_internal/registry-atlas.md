@@ -110,7 +110,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 26      | —                | —                           |
-| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 56      | —                | —                           |
+| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 55      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
@@ -3378,7 +3378,7 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `src/shared/subprocess.ts#commandExists`
   - `src/shared/discern_commit.ts#commitDiscernChanges`
   - `src/shared/deno_metadata.ts#denoMetadata`
-  - `src/commands/docs.ts#pageThrough`
+  - `src/lib/pager.ts#pageThrough`
   - `src/lib/open_browser.ts#runBrowserCommand`
   - `src/engine/owned_child.ts#runOwnedChild`
   - `src/engine/jobs/command.ts#spawnJob`
@@ -3532,7 +3532,7 @@ Every genuine wall-clock interval in executable tests, with its exact module, en
 Every direct environment or cwd read and mutation retained at a host boundary, with its stable id, exact path, enclosing function, primitive, semantic operation, and reason.
 
 - Source: `scripts/ambient_state_lint.ts` — `AMBIENT_READ_BOUNDARIES`
-- Members: 56
+- Members: 55
   - `read:canon-editor-port`
   - `read:checkpoint-input-path`
   - `read:cli-install-home`
@@ -3540,7 +3540,6 @@ Every direct environment or cwd read and mutation retained at a host boundary, w
   - `read:config-edit-plan-cwd`
   - `read:dev-wrapper-path`
   - `read:docs-browser-path`
-  - `read:docs-pager-command`
   - `read:docs-root-cwd`
   - `read:doctor-checks-cwd`
   - `read:doctor-command-cwd`

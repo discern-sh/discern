@@ -121,14 +121,6 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     reason:
       "The documentation harness preserves the operator PATH while constructing its isolated launcher.",
   },
-  "docs-pager-command": {
-    path: "src/commands/docs.ts",
-    enclosingFunction: "pageThrough",
-    primitive: "env.get",
-    operation: "read the operator's pager command",
-    reason:
-      "The docs command is the CLI composition root that elects the operator-configured pager.",
-  },
   "docs-root-cwd": {
     path: "src/commands/docs.ts",
     enclosingFunction: "runTree",
