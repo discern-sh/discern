@@ -6,6 +6,7 @@ import {
   DESK_ACTIONS,
   type DeskConfirmationPolicy,
 } from "../src/engine/desk/model.ts";
+import { splitRow } from "../src/lib/markdown.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 const START = "<!-- BEGIN DESK ACTION REGISTRY -->";
@@ -13,10 +14,7 @@ const END = "<!-- END DESK ACTION REGISTRY -->";
 
 /** Preserve contextual placeholders without letting Markdown parse HTML tags. */
 function proseCell(value: string): string {
-  return value.replaceAll("|", "\\|").replaceAll("<", "&lt;").replaceAll(
-    ">",
-    "&gt;",
-  );
+  return value.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
 /** Project the registry's safe confirmation policy into one stable table cell. */
@@ -55,24 +53,6 @@ function actionReferenceRows(): string[][] {
   return rows;
 }
 
-/** Parse one formatter-aligned Markdown row without losing escaped pipes. */
-function tableCells(line: string): string[] {
-  assert(line.startsWith("|") && line.endsWith("|"));
-  const cells: string[] = [];
-  let cell = "";
-  for (let index = 1; index < line.length - 1; index++) {
-    const char = line[index] ?? "";
-    if (char === "|" && line[index - 1] !== "\\") {
-      cells.push(cell.trim());
-      cell = "";
-    } else {
-      cell += char;
-    }
-  }
-  cells.push(cell.trim());
-  return cells;
-}
-
 Deno.test("the public Desk action table matches the canonical registry", async () => {
   const path = `${REPO_AUTHORED_PATHS.map}/30-worktrees/the-desk.md`;
   const source = await Deno.readTextFile(path);
@@ -83,7 +63,7 @@ Deno.test("the public Desk action table matches the canonical registry", async (
   const header = lines.shift();
   const divider = lines.shift();
   assert(header !== undefined && divider !== undefined);
-  assertEquals(tableCells(header), [
+  assertEquals(splitRow(header), [
     "Id",
     "Group",
     "Contextual label",
@@ -91,11 +71,11 @@ Deno.test("the public Desk action table matches the canonical registry", async (
     "Confirmation",
   ]);
   assertEquals(
-    tableCells(divider).map((cell) => /^-+$/u.test(cell)),
+    splitRow(divider).map((cell) => /^-+$/u.test(cell)),
     [true, true, true, true, true],
   );
   assertEquals(
-    lines.map(tableCells),
+    lines.map(splitRow),
     actionReferenceRows(),
     `${path} has stale Desk action facts; update it from DESK_ACTION_REGISTRY`,
   );
