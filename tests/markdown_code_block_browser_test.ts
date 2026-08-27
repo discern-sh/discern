@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { fromFileUrl, join, toFileUrl } from "@std/path";
+import { basename, fromFileUrl, join, toFileUrl } from "@std/path";
 import { emitDesignSystemRuntime } from "discern-design-system/runtime";
 import { type Browser, chromium } from "playwright-core";
 import { renderWorkflowMarkdown } from "../site/workflow.ts";
@@ -99,15 +99,7 @@ Deno.test(
         theme: "discern",
       });
       const html = await fixtureHtml(bundleRoot);
-      const modules = new Map<string, string>();
-      for (const name of ["docs.js", "docs-toc.js", "search.js"] as const) {
-        modules.set(
-          `/${name}`,
-          await Deno.readTextFile(
-            join(ROOT, "site", "pages", "assets", name),
-          ),
-        );
-      }
+      const moduleRoot = join(ROOT, "site", "pages", "assets");
 
       const browser = await launchBrowser();
       const context = await browser.newContext({
@@ -115,14 +107,13 @@ Deno.test(
       });
       const page = await context.newPage();
       try {
-        for (const [path, body] of modules) {
-          await page.route(`${ORIGIN}${path}`, async (route) => {
-            await route.fulfill({
-              body,
-              headers: { "content-type": "text/javascript; charset=utf-8" },
-            });
+        await page.route(`${ORIGIN}/*.js`, async (route) => {
+          const moduleName = basename(new URL(route.request().url()).pathname);
+          await route.fulfill({
+            body: await Deno.readTextFile(join(moduleRoot, moduleName)),
+            headers: { "content-type": "text/javascript; charset=utf-8" },
           });
-        }
+        });
         await page.route(`${ORIGIN}/`, async (route) => {
           await route.fulfill({
             body: html,

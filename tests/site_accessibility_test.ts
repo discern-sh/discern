@@ -28,6 +28,21 @@ function get(path: string): Promise<Response> {
   );
 }
 
+/** Compose the real docs client and its browser scheduler for JSDOM evaluation. */
+async function executableDocsClient(): Promise<string> {
+  const [scheduler, client] = await Promise.all([
+    Deno.readTextFile(
+      new URL("../site/pages/assets/scheduler.js", import.meta.url),
+    ),
+    Deno.readTextFile(
+      new URL("../site/pages/assets/docs.js", import.meta.url),
+    ),
+  ]);
+  return `${scheduler.replace(/^export /gm, "")}\n${
+    client.replace(/^import .*?;\n/gm, "")
+  }`;
+}
+
 /** Audit a served page and its opened search modal against WCAG, retaining serious and critical evidence. */
 async function seriousAxeFindings(path: string): Promise<string[]> {
   const response = await get(path);
@@ -79,9 +94,7 @@ Deno.test("public marketing and representative docs pages have no serious or cri
 });
 
 Deno.test("permalink controls stay outside every heading accessible name", async () => {
-  const client = await Deno.readTextFile(
-    new URL("../site/pages/assets/docs.js", import.meta.url),
-  );
+  const client = await executableDocsClient();
   const fixtures = [
     ["h2", "alpha-surface", "Alpha surface"],
     ["h3", "unrelated-beta", "Unrelated beta"],
@@ -97,7 +110,7 @@ Deno.test("permalink controls stay outside every heading accessible name", async
   Object.defineProperty(dom.window, "matchMedia", {
     value: () => ({ matches: false, addEventListener: () => undefined }),
   });
-  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
+  dom.window.eval(client);
 
   const states = fixtures.map(([, id]) => {
     const heading = dom.window.document.getElementById(id);
@@ -132,9 +145,7 @@ Deno.test("Workflow commands receive the accessible package copy anatomy", async
   const html = await (
     await get("/docs/quality-gate/when-the-gate-fails")
   ).text();
-  const client = await Deno.readTextFile(
-    new URL("../site/pages/assets/docs.js", import.meta.url),
-  );
+  const client = await executableDocsClient();
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
     url: "https://discern.sh/docs/quality-gate/when-the-gate-fails",
@@ -143,7 +154,7 @@ Deno.test("Workflow commands receive the accessible package copy anatomy", async
     value: () => ({ matches: false, addEventListener: () => undefined }),
   });
   dom.window.document.querySelector(".docs-toc")?.remove();
-  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
+  dom.window.eval(client);
 
   const document = dom.window.document;
   const execution = document.querySelector(".discern-command__execution");
@@ -185,9 +196,7 @@ Deno.test("navigation restores its position and keeps the current page visible",
   );
   if (!page) throw new Error("navigation fixture page is missing");
   const html = await (await get(page.route)).text();
-  const client = await Deno.readTextFile(
-    new URL("../site/pages/assets/docs.js", import.meta.url),
-  );
+  const client = await executableDocsClient();
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
     url: `https://discern.sh${page.route}`,
@@ -209,7 +218,7 @@ Deno.test("navigation restores its position and keeps the current page visible",
   navScroll.getBoundingClientRect = () => ({ top: 0, bottom: 300 } as DOMRect);
   current.getBoundingClientRect = () => ({ top: 340, bottom: 365 } as DOMRect);
   dom.window.sessionStorage.setItem("discern:docs-nav-scroll", "180");
-  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
+  dom.window.eval(client);
   await Promise.resolve();
 
   assertEquals(navScroll.scrollTop, 245);
@@ -232,9 +241,7 @@ Deno.test("navigation restores its position and keeps the current page visible",
 Deno.test("deep links expose page and heading context without competing claims", async () => {
   const route = "/docs/quality-gate/when-the-gate-fails";
   const html = await (await get(route)).text();
-  const client = await Deno.readTextFile(
-    new URL("../site/pages/assets/docs.js", import.meta.url),
-  );
+  const client = await executableDocsClient();
   const tocClient = await Deno.readTextFile(
     new URL("../site/pages/assets/docs-toc.js", import.meta.url),
   );
@@ -264,9 +271,7 @@ Deno.test("deep links expose page and heading context without competing claims",
   const hash = initialHeading.hash;
   dom.window.history.replaceState(null, "", hash);
   dom.window.eval(
-    `${tocClient.replace("export function", "function")}\n${
-      client.replace(/^import .*?;\n/gm, "")
-    }`,
+    `${tocClient.replace("export function", "function")}\n${client}`,
   );
 
   const initial = {
@@ -302,9 +307,7 @@ Deno.test("deep links expose page and heading context without competing claims",
 
 Deno.test("mobile drawer performs the complete modal focus contract", async () => {
   const html = await (await get("/docs")).text();
-  const client = await Deno.readTextFile(
-    new URL("../site/pages/assets/docs.js", import.meta.url),
-  );
+  const client = await executableDocsClient();
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
     url: "https://discern.sh/docs",
@@ -324,7 +327,7 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
   Object.defineProperty(dom.window, "matchMedia", {
     value: () => drawerMedia,
   });
-  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
+  dom.window.eval(client);
 
   const document = dom.window.document;
   const burger = document.querySelector<HTMLElement>("[data-drawer-toggle]");
