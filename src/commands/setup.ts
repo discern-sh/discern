@@ -2596,68 +2596,72 @@ async function uncommittedSetupWork(root: string): Promise<string[]> {
     .map((entry) => `${entry.status} ${entry.path}`);
 }
 
-/**
- * Emit the clean-tree refusal: the authored setup is not committed, so completion
- * cannot be proven or recorded yet. Lists exactly what to commit; `--force` (which
- * skips the whole proof) is the escape hatch.
- */
-function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
-  const message =
-    `setup is not finished — ${uncommitted.length} change(s) are not committed yet. ` +
-    "Commit these as your authoring commits (small, one per stage), then re-run `discern setup done`.";
-  if (json) {
-    emitResult({
-      ok: false,
-      verb: "setup done",
-      error: "uncommitted_changes",
-      message,
-      data: { uncommitted } satisfies SetupDoneFailureData,
-    });
-    return;
-  }
-  const log = new Logger({ json: false, noColor: false });
-  log.error(message);
-  log.group("uncommitted-items");
-  for (const item of uncommitted) {
-    log.humanLine(`  • ${terminalLine(item)}`);
-  }
-  log.group("recovery");
-  log.humanLine(
-    "  The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
-  );
-  log.humanLine(
-    "  (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
-  );
+interface SetupDirtyRefusal {
+  readonly message: string;
+  readonly paths: readonly string[];
+  readonly group: "refreshed-artifacts" | "uncommitted-items";
+  readonly stage?: "final_tree" | "refresh";
+  readonly recovery?: readonly string[];
 }
 
-/** Refuse after preparatory refresh changed tracked artifacts that must join the
- * authored setup commits before the marker-bearing final tree can be created. */
-function emitSetupRefreshUncommitted(
+/** Project one setup clean-tree refusal through the JSON and human surfaces. */
+function emitSetupDirtyRefusal(
   json: boolean,
-  changes: string[],
+  refusal: SetupDirtyRefusal,
 ): void {
-  const message =
-    `Instruction refresh updated ${changes.length} tracked setup artifact(s). ` +
-    "Review and commit them, then run `discern setup done` again. No completion marker was written.";
   if (json) {
     emitResult({
       ok: false,
       verb: "setup done",
       error: "uncommitted_changes",
-      message,
+      message: refusal.message,
       data: {
-        uncommitted: changes,
-        stage: "refresh",
+        uncommitted: [...refusal.paths],
+        ...(refusal.stage === undefined ? {} : { stage: refusal.stage }),
       } satisfies SetupDoneFailureData,
     });
     return;
   }
   const log = new Logger({ json: false, noColor: false });
-  log.error(message);
-  log.group("refreshed-artifacts");
-  for (const change of changes) {
-    log.humanLine(`  • ${terminalLine(change)}`);
+  log.error(refusal.message);
+  log.group(refusal.group);
+  for (const path of refusal.paths) {
+    log.humanLine(`  • ${terminalLine(path)}`);
   }
+  if (refusal.recovery !== undefined) {
+    log.group("recovery");
+    for (const line of refusal.recovery) log.humanLine(line);
+  }
+}
+
+/** Emit the clean-tree refusal when authored setup is not committed yet. */
+function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
+  emitSetupDirtyRefusal(json, {
+    message:
+      `setup is not finished — ${uncommitted.length} change(s) are not committed yet. ` +
+      "Commit these as your authoring commits (small, one per stage), then re-run `discern setup done`.",
+    paths: uncommitted,
+    group: "uncommitted-items",
+    recovery: [
+      "  The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
+      "  (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
+    ],
+  });
+}
+
+/** Refuse when refresh leaves tracked setup artifacts to review and commit. */
+function emitSetupRefreshUncommitted(
+  json: boolean,
+  changes: string[],
+): void {
+  emitSetupDirtyRefusal(json, {
+    message:
+      `Instruction refresh updated ${changes.length} tracked setup artifact(s). ` +
+      "Review and commit them, then run `discern setup done` again. No completion marker was written.",
+    paths: changes,
+    group: "refreshed-artifacts",
+    stage: "refresh",
+  });
 }
 
 /** Refuse any status-reported path before creating the clean final commit. */
@@ -2665,27 +2669,13 @@ function emitSetupFinalTreeDirty(
   json: boolean,
   paths: readonly string[],
 ): void {
-  const message =
-    `The setup tree is not fully clean. Commit, stash, ignore, or remove the reported paths, then run \`discern setup done\` again. No completion marker was written.`;
-  if (json) {
-    emitResult({
-      ok: false,
-      verb: "setup done",
-      error: "uncommitted_changes",
-      message,
-      data: {
-        uncommitted: [...paths],
-        stage: "final_tree",
-      } satisfies SetupDoneFailureData,
-    });
-    return;
-  }
-  const log = new Logger({ json: false, noColor: false });
-  log.error(message);
-  log.group("uncommitted-items");
-  for (const path of paths) {
-    log.humanLine(`  • ${terminalLine(path)}`);
-  }
+  emitSetupDirtyRefusal(json, {
+    message:
+      "The setup tree is not fully clean. Commit, stash, ignore, or remove the reported paths, then run `discern setup done` again. No completion marker was written.",
+    paths,
+    group: "uncommitted-items",
+    stage: "final_tree",
+  });
 }
 
 /** The view `printDoneSuccess` renders — the celebrate/assure/land/onboard pieces of a
