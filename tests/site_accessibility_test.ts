@@ -27,6 +27,13 @@ function pageById(site: DocsSite, id: string): DocsSite["pages"][number] {
   return page;
 }
 
+interface WorkflowFixture {
+  site: DocsSite;
+  page: DocsSite["pages"][number];
+  client: string;
+  dom: JSDOM;
+}
+
 interface AxeWindow extends Window {
   axe: typeof axe;
   eval(source: string): unknown;
@@ -52,6 +59,24 @@ async function executableDocsClient(): Promise<string> {
   return `${scheduler.replace(/^export /gm, "")}\n${
     client.replace(/^import .*?;\n/gm, "")
   }`;
+}
+
+/** Load one canonical Workflow page with the production client ready to evaluate. */
+async function workflowFixture(): Promise<WorkflowFixture> {
+  const site = await loadDocsSite();
+  const page = pageById(site, WORKFLOW_FIXTURE_PAGE_ID);
+  const [response, client] = await Promise.all([
+    get(page.route),
+    executableDocsClient(),
+  ]);
+  const dom = new JSDOM(await response.text(), {
+    runScripts: "outside-only",
+    url: `https://discern.sh${page.route}`,
+  });
+  Object.defineProperty(dom.window, "matchMedia", {
+    value: () => ({ matches: false, addEventListener: () => undefined }),
+  });
+  return { site, page, client, dom };
 }
 
 /** Audit a served page and its opened search modal against WCAG, retaining serious and critical evidence. */
@@ -153,16 +178,7 @@ Deno.test("permalink controls stay outside every heading accessible name", async
 });
 
 Deno.test("Workflow commands receive the accessible package copy anatomy", async () => {
-  const page = pageById(await loadDocsSite(), WORKFLOW_FIXTURE_PAGE_ID);
-  const html = await (await get(page.route)).text();
-  const client = await executableDocsClient();
-  const dom = new JSDOM(html, {
-    runScripts: "outside-only",
-    url: `https://discern.sh${page.route}`,
-  });
-  Object.defineProperty(dom.window, "matchMedia", {
-    value: () => ({ matches: false, addEventListener: () => undefined }),
-  });
+  const { dom, client } = await workflowFixture();
   dom.window.document.querySelector(".docs-toc")?.remove();
   dom.window.eval(client);
 
@@ -200,17 +216,7 @@ Deno.test("Workflow commands receive the accessible package copy anatomy", async
 });
 
 Deno.test("navigation restores its position and keeps the current page visible", async () => {
-  const site = await loadDocsSite();
-  const page = pageById(site, WORKFLOW_FIXTURE_PAGE_ID);
-  const html = await (await get(page.route)).text();
-  const client = await executableDocsClient();
-  const dom = new JSDOM(html, {
-    runScripts: "outside-only",
-    url: `https://discern.sh${page.route}`,
-  });
-  Object.defineProperty(dom.window, "matchMedia", {
-    value: () => ({ matches: false, addEventListener: () => undefined }),
-  });
+  const { site, dom, client } = await workflowFixture();
   dom.window.document.querySelector(".docs-toc")?.remove();
   const document = dom.window.document;
   const navScroll = document.querySelector<HTMLElement>(
@@ -246,22 +252,11 @@ Deno.test("navigation restores its position and keeps the current page visible",
 });
 
 Deno.test("deep links expose page and heading context without competing claims", async () => {
-  const route = pageById(
-    await loadDocsSite(),
-    WORKFLOW_FIXTURE_PAGE_ID,
-  ).route;
-  const html = await (await get(route)).text();
-  const client = await executableDocsClient();
+  const { page, dom, client } = await workflowFixture();
+  const route = page.route;
   const tocClient = await Deno.readTextFile(
     new URL("../site/pages/assets/docs-toc.js", import.meta.url),
   );
-  const dom = new JSDOM(html, {
-    runScripts: "outside-only",
-    url: `https://discern.sh${route}`,
-  });
-  Object.defineProperty(dom.window, "matchMedia", {
-    value: () => ({ matches: false, addEventListener: () => undefined }),
-  });
   Object.defineProperty(dom.window, "requestAnimationFrame", {
     value: (callback: FrameRequestCallback) => {
       callback(0);
