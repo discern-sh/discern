@@ -408,7 +408,7 @@ Deno.test("integrationBranch is the only DISCERN_TRUNK environment reader", asyn
       await Deno.readTextFile(join(REPO_ROOT, rel)),
     ));
   }
-  assertEquals(sites, ["src/engine/worktree/git.ts#integrationBranch"]);
+  assertEquals(sites, ["src/engine/worktree/trunk.ts#integrationBranch"]);
 });
 
 /** Convert one diagnostic byte offset into a one-based source line. */

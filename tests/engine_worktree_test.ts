@@ -467,7 +467,7 @@ Deno.test("accept: converges and smokes the trunk without running worktree-only 
         step.kind === "repository-ensure"
       );
       assertEquals(repositorySteps.map((step) => step.outcome), [
-        "failed",
+        "ok",
         "failed",
         "ok",
         "ok",

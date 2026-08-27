@@ -90,18 +90,19 @@ function namesBranchAsMain(literal: string): boolean {
 }
 
 /** The integration-branch MESSAGE surfaces: the worktree lifecycle + gate engine,
- * plus the CLI command descriptions. `git.ts` is excluded (see the file header). */
+ * plus the CLI command descriptions. Pure branch authorities are excluded. */
 async function scopedFiles(): Promise<string[]> {
   return await structuralGuardScope({
     guard: "tests/engine_branch_neutral_test.ts#integration-branch-messages",
     universe: "authored-ts",
     narrow: {
       reason:
-        "The integration-branch wording contract governs CLI descriptions plus worktree and Gate message surfaces; git.ts names the main checkout instead.",
+        "The integration-branch wording contract governs CLI descriptions plus worktree and Gate message surfaces; git.ts names the main checkout and trunk.ts owns the configured branch default.",
       include: (path) =>
         path === "src/main.ts" || path === "src/engine/dispatch.ts" ||
         ((path.startsWith("src/engine/worktree/") ||
-          path.startsWith("src/engine/gate/")) && !path.endsWith("/git.ts")),
+          path.startsWith("src/engine/gate/")) &&
+          !path.endsWith("/git.ts") && !path.endsWith("/trunk.ts")),
     },
   });
 }

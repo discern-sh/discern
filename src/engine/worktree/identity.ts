@@ -40,7 +40,7 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
-import { integrationBranch } from "./trunk.ts";
+import { DEFAULT_INTEGRATION_BRANCH, integrationBranch } from "./trunk.ts";
 import {
   WORKTREE_FIELDS,
   WORKTREE_IDENTITY_FIELDS,
@@ -264,7 +264,7 @@ export function deriveIdentity(
 export function deriveTrunkIdentity(
   settings: IdentitySettings,
 ): WorktreeIdentity {
-  const branch = settings.trunk ?? "main";
+  const branch = settings.trunk ?? DEFAULT_INTEGRATION_BRANCH;
   const id = sanitizeSlug(branch);
   if (id === "") {
     throw new IdentityError(
