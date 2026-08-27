@@ -1087,6 +1087,50 @@ Deno.test("doctor: missing tidy fails during setup but is informational after bo
   });
 });
 
+Deno.test("doctor: a check-only command cannot masquerade as the format-stage fixer", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const configured = await runCli([
+      "config",
+      "set-job",
+      "format",
+      "--run",
+      "deno fmt --check",
+      "--run",
+      "discern tidy",
+      "--json",
+    ], dir);
+    assertEquals(configured.code, 0, configured.stdout + configured.stderr);
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    const semantics = check(payload, "format job semantics");
+    assertEquals(semantics.status, "fail");
+    assertStringIncludes(semantics.detail, "deno fmt --check");
+    assertStringIncludes(semantics.detail, "mutating fix stage");
+    assertStringIncludes(semantics.fix ?? "", "write mode");
+
+    const repaired = await runCli([
+      "config",
+      "set-job",
+      "format",
+      "--run",
+      "deno fmt",
+      "--run",
+      "discern tidy",
+      "--json",
+    ], dir);
+    assertEquals(repaired.code, 0, repaired.stdout + repaired.stderr);
+    const healthy = await runDoctorJson(dir);
+    assertEquals(
+      healthy.payload.data.checks.some((candidate) =>
+        candidate.name === "format job semantics"
+      ),
+      false,
+    );
+  });
+});
+
 for (
   const invocation of ["discern tidy", "discern tidy md", "discern tidy toml"]
 ) {

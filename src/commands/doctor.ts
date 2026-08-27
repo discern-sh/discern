@@ -586,6 +586,25 @@ export async function runChecks(
       },
   );
 
+  // A format job is the Gate's mutating fix stage. A command explicitly put in
+  // check-only mode can go green while repairing nothing, so diagnose that
+  // contradiction before setup treats the job as an enforced protection.
+  const checkOnlyFormatCommands = toCommandList(config.jobs.format).filter(
+    (command) => /(^|[\s'"=])--check(?=$|[\s'";&|])/.test(command),
+  );
+  if (checkOnlyFormatCommands.length > 0) {
+    checks.push({
+      name: "format job semantics",
+      ok: false,
+      detail:
+        `the format job is the mutating fix stage, but these commands use check-only mode: ${
+          checkOnlyFormatCommands.join(", ")
+        }`,
+      fix:
+        "replace each check-only formatter command with that formatter's write mode; put read-only format checks in a check-stage job instead",
+    });
+  }
+
   // 5. job commands resolve — the leading command word of each
   // declared command (the word `sh -c` would execute, past any env-assignment
   // prefix, quotes resolved) resolves from the project root, so the gate will
