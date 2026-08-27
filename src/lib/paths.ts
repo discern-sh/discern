@@ -15,7 +15,7 @@ import {
   type EnvReader,
   installedConfigRel,
 } from "../shared/env.ts";
-import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
+import { type DiscernConfig } from "../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import {
@@ -27,6 +27,7 @@ import {
 // so the providers.ts → paths.ts edge in the other direction stays harmless.
 import { allInstructionFilePaths } from "./providers.ts";
 import { directoryExists } from "../shared/fs_presence.ts";
+import { REPOSITORY_MANUAL_REL } from "../shared/manual.ts";
 
 export { resolveWorktreeRoot } from "./worktree_root.ts";
 
@@ -188,64 +189,47 @@ export async function resolveBundledSkillsDir(
  * before `--include`-ing it (so customer binaries embed only the public
  * projection, never internal decision or maintainer trees). The single source
  * of truth for the name is shared by the build (which writes it) and
- * {@link resolveBundledDocsDir} (which reads it). It nests an inner `docs/` so
+ * {@link resolveBundledManualDir} (which reads it). It nests an inner `docs/` so
  * bundled documentation paths keep the stable `docs/…` shape used by the public
  * interface.
  */
-export const BUNDLED_DOCS_STAGE_DIR = ".discern-bundled-docs";
+export const BUNDLED_MANUAL_STAGE_DIR = ".discern-bundled-manual";
 
 /** The source-checkout decision-record directory that `docs --adr` can browse. */
 export const DOCS_ADR_DOC_DIR = "_adr";
 
-/** The audience assigned to one numbered section of discern's own manual. */
-export type ManualSectionAudience = "public" | "contributor";
+/** The reader role assigned to one numbered section of the configured Map. */
+export type MapSectionAudience = "project" | "contributor";
 
-/** One numbered manual section and the audience its projection serves. */
-export interface ManualSectionRegistration {
+/** One numbered Map section and the reader role its content serves. */
+export interface MapSectionRegistration {
   readonly dir: string;
-  readonly audience: ManualSectionAudience;
+  readonly audience: MapSectionAudience;
 }
 
 /**
- * Every numbered section in discern's own manual, in reading order. This is a
+ * Every numbered section in discern's configured Map, in reading order. This is a
  * TOTAL registry: a new numbered directory must join it as public or
- * contributor-facing, so default-deny publication cannot silently hide a new
- * public section. The curation guard ties the registry to the directory tree,
- * manual index, bundled documentation, and site navigation.
+ * contributor-facing. This classification describes the project-knowledge
+ * tree; it does not decide product-manual publication.
  */
-export const MANUAL_SECTION_REGISTRY: readonly ManualSectionRegistration[] = [
-  { dir: "00-orientation", audience: "public" },
-  { dir: "10-getting-started", audience: "public" },
-  { dir: "20-quality-gate", audience: "public" },
-  { dir: "30-worktrees", audience: "public" },
-  { dir: "40-agent-instructions", audience: "public" },
-  { dir: "45-skills", audience: "public" },
+export const MAP_SECTION_REGISTRY: readonly MapSectionRegistration[] = [
+  { dir: "00-orientation", audience: "project" },
+  { dir: "10-getting-started", audience: "project" },
+  { dir: "20-quality-gate", audience: "project" },
+  { dir: "30-worktrees", audience: "project" },
+  { dir: "40-agent-instructions", audience: "project" },
+  { dir: "45-skills", audience: "project" },
   { dir: "50-engine-internals", audience: "contributor" },
-  { dir: "60-agent-integrations", audience: "public" },
-  { dir: "70-reference", audience: "public" },
+  { dir: "60-agent-integrations", audience: "project" },
+  { dir: "70-reference", audience: "project" },
   { dir: "80-development", audience: "contributor" },
   { dir: "90-site", audience: "contributor" },
 ];
 
-/** The public subset a customer binary ships for `discern docs`. */
-export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] =
-  MANUAL_SECTION_REGISTRY
-    .filter((section) => section.audience === "public")
-    .map((section) => section.dir);
-
-/**
- * Whether a top-level project-map entry belongs to the binary's public docs
- * projection. Allowlisted and default-deny: no `_`-prefixed tree ships, a
- * numbered subtree ships only when it is user-relevant, and a root-level
- * Markdown file (the docs front door) ships. The build combines this tier-level
- * predicate with `isPublicDoc` for the page-level boundary.
- */
-export function isBundledDocEntry(name: string): boolean {
-  if (name.startsWith("_")) return false;
-  if (!name.includes("/") && name.endsWith(".md")) {
-    return true; // a root-level doc (the front-door README)
-  }
-  return BUNDLED_PUBLIC_DOC_DIRS.includes(name);
+/** Resolve discern's fixed repository-owned manual source. */
+export function resolveRepositoryManualDir(root: string): ResolvedDir {
+  return resolveDir(root, REPOSITORY_MANUAL_REL);
 }
 
 /**
@@ -314,17 +298,16 @@ export async function resolveTemplatesDir(
  * Resolution order:
  *   1. `DISCERN_DOCS_DIR` env override (tests point this at a fixture).
  *   2. the build-staged public projection embedded in a compiled binary, found by
- *      walking up to a `<dir>/<BUNDLED_DOCS_STAGE_DIR>/docs` (the inner `docs`
+ *      walking up to a `<dir>/<BUNDLED_MANUAL_STAGE_DIR>/docs` (the inner `docs`
  *      keeps bundled-document paths stable).
- *   3. this repo's own configured map when running from a checkout. The docs
- *      view applies both page publication and the manual section registry, so
- *      this uncurated fallback behaves like the pre-curated staged tree.
+ *   3. this repository's fixed `project/manual/` source when running from a
+ *      checkout. It never falls back to a project's configured Map.
  *
  * Returns `undefined` only when no tree can be located (a build defect in a
  * binary; never in a checkout) — the caller turns that into a clear message
  * rather than serving a project's docs by mistake.
  */
-export async function resolveBundledDocsDir(
+export async function resolveBundledManualDir(
   env: EnvReader = Deno.env,
 ): Promise<string | undefined> {
   const override = env.get(DISCERN_ENVIRONMENT_VARIABLES.docsDirectory);
@@ -333,21 +316,16 @@ export async function resolveBundledDocsDir(
   }
 
   // Walk up from this module's directory, preferring the staged public tree (a
-  // compiled binary) and falling back to the checkout's configured map.
+  // compiled binary) and falling back to this repository's manual source.
   let dir = dirname(fromFileUrl(import.meta.url));
   for (let depth = 0; depth < 8; depth++) {
-    const staged = join(dir, BUNDLED_DOCS_STAGE_DIR, "docs");
+    const staged = join(dir, BUNDLED_MANUAL_STAGE_DIR, "docs");
     if (await directoryExists(staged)) {
       return staged;
     }
-    try {
-      const checkout = resolveMapDir(dir, await loadConfig(dir)).abs;
-      if (await directoryExists(checkout)) {
-        return checkout;
-      }
-    } catch {
-      // discern-best-effort: paths-bundled-docs-config-fallback
-      // A non-project ancestor is not a checkout candidate; keep walking.
+    const checkout = resolveRepositoryManualDir(dir).abs;
+    if (await directoryExists(checkout)) {
+      return checkout;
     }
     const parent = dirname(dir);
     if (parent === dir) {
@@ -356,5 +334,24 @@ export async function resolveBundledDocsDir(
     dir = parent;
   }
 
+  return undefined;
+}
+
+/**
+ * Resolve this source checkout's decision records for `docs --adr`. Customer
+ * binaries deliberately carry no Map bytes, so the resolver returns undefined
+ * outside a repository checkout.
+ */
+export async function resolveRepositoryDecisionDir(): Promise<
+  string | undefined
+> {
+  let dir = dirname(fromFileUrl(import.meta.url));
+  for (let depth = 0; depth < 8; depth++) {
+    const candidate = join(dir, "project", "map", DOCS_ADR_DOC_DIR);
+    if (await directoryExists(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
   return undefined;
 }

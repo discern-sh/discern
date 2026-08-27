@@ -8339,6 +8339,19 @@
                         "items": {
                           "type": "string"
                         }
+                      },
+                      "page_id": {
+                        "type": "string"
+                      },
+                      "manual_kind": {
+                        "type": "string",
+                        "enum": [
+                          "tutorial",
+                          "guide",
+                          "explanation",
+                          "reference",
+                          "troubleshooting"
+                        ]
                       }
                     },
                     "required": [
@@ -8411,6 +8424,19 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "page_id": {
+                      "type": "string"
+                    },
+                    "manual_kind": {
+                      "type": "string",
+                      "enum": [
+                        "tutorial",
+                        "guide",
+                        "explanation",
+                        "reference",
+                        "troubleshooting"
+                      ]
                     },
                     "target": {
                       "type": "string"
@@ -8488,6 +8514,19 @@
                         "items": {
                           "type": "string"
                         }
+                      },
+                      "page_id": {
+                        "type": "string"
+                      },
+                      "manual_kind": {
+                        "type": "string",
+                        "enum": [
+                          "tutorial",
+                          "guide",
+                          "explanation",
+                          "reference",
+                          "troubleshooting"
+                        ]
                       }
                     },
                     "required": [
@@ -8963,6 +9002,19 @@
                         "items": {
                           "type": "string"
                         }
+                      },
+                      "page_id": {
+                        "type": "string"
+                      },
+                      "manual_kind": {
+                        "type": "string",
+                        "enum": [
+                          "tutorial",
+                          "guide",
+                          "explanation",
+                          "reference",
+                          "troubleshooting"
+                        ]
                       }
                     },
                     "required": [
@@ -9035,6 +9087,19 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "page_id": {
+                      "type": "string"
+                    },
+                    "manual_kind": {
+                      "type": "string",
+                      "enum": [
+                        "tutorial",
+                        "guide",
+                        "explanation",
+                        "reference",
+                        "troubleshooting"
+                      ]
                     },
                     "target": {
                       "type": "string"
@@ -9112,6 +9177,19 @@
                         "items": {
                           "type": "string"
                         }
+                      },
+                      "page_id": {
+                        "type": "string"
+                      },
+                      "manual_kind": {
+                        "type": "string",
+                        "enum": [
+                          "tutorial",
+                          "guide",
+                          "explanation",
+                          "reference",
+                          "troubleshooting"
+                        ]
                       }
                     },
                     "required": [

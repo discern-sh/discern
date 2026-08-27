@@ -2936,6 +2936,13 @@ export type DiscernMapResult = DiscernResultState & {
       publish?: boolean;
       order?: number;
       aliases?: Array<string>;
+      page_id?: string;
+      manual_kind?:
+        | "tutorial"
+        | "guide"
+        | "explanation"
+        | "reference"
+        | "troubleshooting";
     }>;
     regions?: Array<{
       name: string;
@@ -2954,6 +2961,13 @@ export type DiscernMapResult = DiscernResultState & {
       publish?: boolean;
       order?: number;
       aliases?: Array<string>;
+      page_id?: string;
+      manual_kind?:
+        | "tutorial"
+        | "guide"
+        | "explanation"
+        | "reference"
+        | "troubleshooting";
       target: string;
       content: string;
       cited_adrs?: Array<{
@@ -2972,6 +2986,13 @@ export type DiscernMapResult = DiscernResultState & {
       publish?: boolean;
       order?: number;
       aliases?: Array<string>;
+      page_id?: string;
+      manual_kind?:
+        | "tutorial"
+        | "guide"
+        | "explanation"
+        | "reference"
+        | "troubleshooting";
     }>;
     query?: string;
     scope?: string;
@@ -3130,6 +3151,13 @@ export type DiscernDocsResult = DiscernResultState & {
       publish?: boolean;
       order?: number;
       aliases?: Array<string>;
+      page_id?: string;
+      manual_kind?:
+        | "tutorial"
+        | "guide"
+        | "explanation"
+        | "reference"
+        | "troubleshooting";
     }>;
     regions?: Array<{
       name: string;
@@ -3148,6 +3176,13 @@ export type DiscernDocsResult = DiscernResultState & {
       publish?: boolean;
       order?: number;
       aliases?: Array<string>;
+      page_id?: string;
+      manual_kind?:
+        | "tutorial"
+        | "guide"
+        | "explanation"
+        | "reference"
+        | "troubleshooting";
       target: string;
       content: string;
       cited_adrs?: Array<{
@@ -3166,6 +3201,13 @@ export type DiscernDocsResult = DiscernResultState & {
       publish?: boolean;
       order?: number;
       aliases?: Array<string>;
+      page_id?: string;
+      manual_kind?:
+        | "tutorial"
+        | "guide"
+        | "explanation"
+        | "reference"
+        | "troubleshooting";
     }>;
     query?: string;
     scope?: string;

@@ -1,14 +1,12 @@
 /**
  * Public-surface PARITY guard — the forcing function that keeps every
- * published projection of a doc tree on the model's ONE page-level predicate.
+ * published manual projection on the strict corpus-policy wrapper.
  *
  * `PUBLIC_DOC_SURFACES` (src/lib/docs.ts) is the SSOT: the projection matrix
  * in code. Two reconciliations give it teeth, modelled on
  * `tests/engine_verb_parity_test.ts`:
  *
- *  1. every enrolled surface's source must actually consume `isPublicDoc` /
- *     `publicDocs`, and every pending surface must NOT yet (the day its
- *     wiring lands, it must move to the enrolled list or this fails);
+ *  1. every enrolled surface's source must consume `buildManualProjection`;
  *  2. no other module under src/, site/, or scripts/ may touch the page-level
  *     `.publish` axis at all — a new renderer that re-derives publication by
  *     hand red-lights here, with the fix being "filter through the predicate
@@ -44,10 +42,14 @@ const PUBLISH_ACCESS_EXCEPTIONS = new Map<string, string>([
     "toRecord passes the flag through as a structured field (metadata " +
     "surfacing, not a filter — the filtering goes through publicDocs)",
   ],
+  [
+    "src/lib/manual.ts",
+    "is the strict manual corpus-policy wrapper over the neutral predicate",
+  ],
 ]);
 
 const consumesPredicate = (text: string): boolean =>
-  /\b(isPublicDoc|publicDocs)\b/.test(text);
+  /\bbuildManualProjection\b/.test(text);
 
 Deno.test("every enrolled surface consumes the predicate; every pending one does not yet", async () => {
   for (const surface of PUBLIC_DOC_SURFACES) {
@@ -55,8 +57,8 @@ Deno.test("every enrolled surface consumes the predicate; every pending one does
     assert(
       consumesPredicate(text),
       `enrolled surface "${surface.name}" (${surface.source}) no longer ` +
-        "references isPublicDoc/publicDocs — re-wire it through the model's " +
-        "predicate (or remove the registry entry if the surface is gone)",
+        "references buildManualProjection — re-wire it through the canonical " +
+        "manual model (or remove the entry if the surface is gone)",
     );
   }
   for (const surface of PUBLIC_DOC_SURFACES_PENDING) {
@@ -95,7 +97,7 @@ Deno.test("no module outside the registry touches the page-level publish axis", 
     offenders,
     [],
     "these modules read .publish by hand — consume isPublicDoc/publicDocs " +
-      "from src/lib/docs.ts and enrol in PUBLIC_DOC_SURFACES instead",
+      "from src/lib/docs.ts or the strict wrapper in src/lib/manual.ts",
   );
 });
 

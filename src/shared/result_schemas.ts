@@ -24,6 +24,7 @@
  */
 
 import { z } from "@zod/zod";
+import { MANUAL_KINDS } from "./manual.ts";
 import {
   ACCEPT_LANDING_STATE_FIELDS,
   ACCEPT_LANDING_STATE_SHAPE,
@@ -2188,6 +2189,8 @@ const docRecordSchema = z.strictObject({
   publish: z.boolean().optional(),
   order: z.number().optional(),
   aliases: z.array(z.string()).optional(),
+  page_id: z.string().optional(),
+  manual_kind: z.enum(MANUAL_KINDS).optional(),
 });
 export type DocRecord = z.infer<typeof docRecordSchema>;
 

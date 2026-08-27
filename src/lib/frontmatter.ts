@@ -44,19 +44,25 @@
  */
 
 import { parse as parseYaml } from "@std/yaml";
+import { isManualKind, type ManualKind } from "../shared/manual.ts";
 
 /** The recognised override keys, the single source the validator checks against. */
 export const DOC_META_KEYS = [
+  "id",
   "title",
   "description",
   "order",
   "publish",
   "redirect_from",
   "aliases",
+  "kind",
 ] as const;
 
 /** The recognised override keys. Unknown keys are ignored when reading. */
 export interface DocMeta {
+  /** Stable corpus identity. Optional for neutral document trees; required by
+   * the repository manual policy. */
+  id?: string | undefined;
   /** Short label for nav, pager, breadcrumb, and `<title>` — the H1 stays the
    * long-form canonical title on the page. */
   title?: string | undefined;
@@ -73,6 +79,8 @@ export interface DocMeta {
   redirect_from?: string[] | undefined;
   /** Search synonyms: renamed terms, CLI spellings. */
   aliases?: string[] | undefined;
+  /** Editorial purpose. Optional in neutral trees; required by the manual. */
+  kind?: ManualKind | undefined;
 }
 
 /** A parsed document: its metadata and the content with the block removed. */
@@ -185,6 +193,7 @@ export function parseFrontmatter(md: string): FrontmatterResult {
 
   const { attrs } = parsed;
   const meta: DocMeta = {};
+  if (typeof attrs["id"] === "string") meta.id = attrs["id"];
   if (typeof attrs["title"] === "string") meta.title = attrs["title"];
   if (typeof attrs["description"] === "string") {
     meta.description = attrs["description"];
@@ -197,6 +206,7 @@ export function parseFrontmatter(md: string): FrontmatterResult {
     meta.redirect_from = attrs["redirect_from"];
   }
   if (isStringArray(attrs["aliases"])) meta.aliases = attrs["aliases"];
+  if (isManualKind(attrs["kind"])) meta.kind = attrs["kind"];
   return { meta, body: block.body };
 }
 
@@ -267,6 +277,7 @@ function readBlockForValidation(md: string): BlockRead {
  */
 function shapeIssue(key: string, value: unknown): string | undefined {
   switch (key) {
+    case "id":
     case "title":
     case "description":
       return typeof value === "string"
@@ -288,6 +299,10 @@ function shapeIssue(key: string, value: unknown): string | undefined {
       return isStringArray(value)
         ? undefined
         : "must be a `- item` list of search synonyms";
+    case "kind":
+      return isManualKind(value)
+        ? undefined
+        : "must be one of: tutorial, guide, explanation, reference, troubleshooting";
     default:
       return undefined;
   }
@@ -320,6 +335,19 @@ export function frontmatterShapeIssues(md: string): string[] {
  * list-content rules. Layered over {@link shapeIssue}, never replacing it. */
 function strictIssues(key: string, value: unknown, issues: string[]): void {
   switch (key) {
+    case "id": {
+      if (
+        typeof value === "string" &&
+        !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(value)
+      ) {
+        issue(
+          issues,
+          key,
+          "must be a lowercase hyphenated identifier beginning with a letter",
+        );
+      }
+      break;
+    }
     case "title": {
       if (typeof value === "string" && value.length > TITLE_MAX_LENGTH) {
         issue(

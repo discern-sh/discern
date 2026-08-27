@@ -16,11 +16,10 @@
  * This module is also the DOCUMENT MODEL every publishing surface consumes —
  * no renderer rediscovers, filters, orders, or titles documents on its own:
  *
- *  - {@link isPublicDoc} is the one page-level publication predicate.
- *    `publish: false` in a doc's frontmatter is the SOLE page-level withhold,
- *    honoured identically by every published surface (site, terminal docs,
- *    MCP docs, exports, staging). Which SUBTREES a surface ships is a separate,
- *    tier-level axis (`BUNDLED_PUBLIC_DOC_DIRS` in paths.ts).
+ *  - {@link isPublicDoc} is the neutral page-level publication predicate.
+ *    Corpus policy composes it once: the repository manual's strict wrapper
+ *    in `manual.ts` supplies every manual surface, while configured Maps use
+ *    the predicate directly for their public export.
  *  - Frontmatter is metadata, not content: rendered surfaces strip it (its
  *    values travel as structured fields on {@link DocEntry}). RAW editions
  *    stay pristine by contract — `--raw`, and any surface serving a doc's
@@ -50,6 +49,7 @@ import { normalizeMapDir } from "../shared/map_path.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { resolveConfigPath } from "./paths.ts";
 import { directoryExists } from "../shared/fs_presence.ts";
+import type { ManualKind } from "../shared/manual.ts";
 
 /** One indexed documentation file. */
 export interface DocEntry {
@@ -73,6 +73,10 @@ export interface DocEntry {
   order?: number | undefined;
   /** Search synonyms from frontmatter (`aliases:`), `[]` when none. */
   aliases: string[];
+  /** Stable corpus identity when the source declares `id:`. */
+  pageId?: string | undefined;
+  /** Editorial purpose when the source declares `kind:`. */
+  manualKind?: ManualKind | undefined;
   /** Retired absolute routes that redirect here (`redirect_from:`). */
   redirectFrom: string[];
   /** Decisions the doc cites, in citation order, for related-decision surfaces. */
@@ -427,38 +431,61 @@ export interface PublicDocSurface {
 }
 
 /**
- * The registry of PUBLISHED surfaces — the projection matrix, in code. Every
- * surface that projects a doc tree to an audience is listed here, and the
- * parity guard (tests/public_doc_parity_test.ts) reconciles the list against
- * the sources: an enrolled surface must consume {@link isPublicDoc}, and no
- * other module may re-derive page-level publication by hand. Building a new
- * public surface? Filter through the predicate and add the entry — the guard
- * fails until you do.
+ * The registry of published manual surfaces — the projection matrix, in code.
+ * Every entry consumes `buildManualProjection`; downstream search, raw, llms,
+ * redirect, and sitemap work receives the admitted set and never filters it a
+ * second time. The parity guard reconciles this list against its source modules.
  */
 export const PUBLIC_DOC_SURFACES: readonly PublicDocSurface[] = [
   {
-    name: "site",
+    name: "website-navigation",
     source: "site/docs.ts",
-    via:
-      "buildDocsSite filters the landing and instructions through isPublicDoc " +
-      "and decision records through publicDocs; search and llms derive from " +
-      "instructions, while the sitemap and raw .md editions derive from both families",
+    via: "loadDocsSite adapts the validated manual sections and front doors",
   },
   {
-    name: "docs",
+    name: "website-pages",
+    source: "site/docs.ts",
+    via: "rendered and raw Markdown routes share the validated site model",
+  },
+  {
+    name: "website-search",
+    source: "site/docs.ts",
+    via: "the search builder receives only validated manual pages",
+  },
+  {
+    name: "website-redirects",
+    source: "site/docs.ts",
+    via: "redirect claims come from validated destination pages",
+  },
+  {
+    name: "website-sitemap",
+    source: "site/docs.ts",
+    via: "sitemap routes derive from validated manual pages",
+  },
+  {
+    name: "website-llms",
+    source: "site/docs.ts",
+    via: "machine editions concatenate the validated site model",
+  },
+  {
+    name: "terminal-docs",
     source: "src/commands/docs.ts",
-    via: "publicVerbTree applies publicDocs and the manual section registry " +
-      "to terminal browse, TOC, JSON/MCP results, targets, and public export",
+    via: "publicVerbTree returns the validated manual projection",
   },
   {
-    name: "export-public",
+    name: "mcp-docs",
     source: "src/commands/docs.ts",
-    via: "exportDocs filters the public scope through publicDocs",
+    via: "the MCP tool shares docsResult with terminal JSON",
   },
   {
-    name: "docs-staging",
+    name: "raw-and-public-export",
+    source: "src/commands/docs.ts",
+    via: "target resolution and public export read the validated manual tree",
+  },
+  {
+    name: "binary-staging",
     source: "scripts/build.ts",
-    via: "stageBundledDocs copies only entries admitted by isPublicDoc",
+    via: "stageBundledManual copies only validated published manual bytes",
   },
 ];
 
@@ -773,6 +800,8 @@ export async function discoverDocs(opts: {
     let publish = true;
     let order: number | undefined;
     let aliases: string[] = [];
+    let pageId: string | undefined;
+    let manualKind: ManualKind | undefined;
     let redirectFrom: string[] = [];
     let citedAdrs: AdrCitation[] = [];
     try {
@@ -783,6 +812,8 @@ export async function discoverDocs(opts: {
       publish = meta.publish ?? true;
       order = meta.order;
       aliases = meta.aliases ?? [];
+      pageId = meta.id;
+      manualKind = meta.kind;
       redirectFrom = meta.redirect_from ?? [];
       citedAdrs = collectAdrCitations(body);
     } catch {
@@ -800,6 +831,8 @@ export async function discoverDocs(opts: {
       publish,
       order,
       aliases,
+      pageId,
+      manualKind,
       redirectFrom,
       citedAdrs,
     });
