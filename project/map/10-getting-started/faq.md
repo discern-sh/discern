@@ -21,7 +21,7 @@ Run the install diagnostic from anywhere inside the project:
 discern doctor
 ```
 
-It checks that `discern.toml` parses, the schema matches the installed binary, configured commands resolve on `PATH`, and each selected coding agent has its expected integration. In a Git repository it also checks recovery retention, author and committer identity, required signing programs, hidden index flags and sparse checkout, worktree-local config placement, generated paths' effective merge attributes, and repository ownership. It reads every registered worktree for repository-wide Git health because one checkout can carry a narrower Git override than its siblings; generated merge checks use the checkout being diagnosed.
+It checks that `discern.toml` parses, the schema matches the binary, configured commands resolve, and selected coding agents have their integrations. In a Git repository it also checks recovery retention, identity, signing, hidden index flags, sparse checkout, worktree-local configuration, effective generated-merge protection, and ownership. Repository-wide checks read every registered worktree; path attributes use the checkout being diagnosed.
 
 An empty enabled Logbook is healthy. A denied recording write warns and disables recording for this process without blocking setup; disabled, invalid, and missed-event states stay distinct.
 
@@ -31,11 +31,11 @@ Recovery advice warns without making doctor fail. An unusable commit identity or
 discern doctor --json
 ```
 
-### A generated path has an unsafe merge attribute
+### Doctor says a generated merge is unsafe
 
-A current managed `.gitattributes` fragment does not override Git's precedence. A later line, a nested `.gitattributes`, or `.git/info/attributes` can change one generated path to `unset`, `unspecified`, or another driver. Doctor names every affected path and its effective value. Correct the project-owned rule it identifies by effect, then run the NUL-safe `git check-attr` command from the finding and rerun doctor. Doctor leaves all project-owned rules byte-for-byte unchanged.
+A current managed fragment can still be overridden by later, nested, or Git-local attributes. Doctor names affected paths and values without changing project rules. Correct the owning rule, run the NUL-safe `git check-attr` command in the finding, then rerun doctor.
 
-When the path selects `discern-generated` but a linked worktree's driver check fails, run `git config --local extensions.worktreeConfig true` and `git config --worktree merge.discern-generated.driver true` inside that worktree. The next doctor run reports the effective value, scope, and origin.
+For a linked-worktree driver failure, run `git config --local extensions.worktreeConfig true` and `git config --worktree merge.discern-generated.driver true` there. Doctor reports the effective scope and origin.
 
 ## `discern: command not found`
 
