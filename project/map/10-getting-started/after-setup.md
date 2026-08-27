@@ -15,7 +15,7 @@ _Setup works on a `discern-setup` branch. This guide tells you what each part of
 
 Review the branch before landing it. The paths depend on the coding agents you selected and any locations you configured, but each written file belongs to one of the groups below. For the exhaustive inventory and uninstall behavior, use [Files & ownership](../70-reference/artifact-ownership.md).
 
-Successful `discern setup done` commits setup's completion state in `discern.toml`, then returns [proof that the finished change passed the project's checks](../20-quality-gate/the-proof.md), called Gate Proof, for that exact clean branch tip. `discern setup accept` validates that Proof, records it on the landed main version as a Git note, and leaves local agent files current. `--force` returns no Proof and cannot use this landing path.
+Successful `discern setup done` commits setup's completion state in `discern.toml`, then returns [proof that the finished change passed the project's checks](../20-quality-gate/the-proof.md), called Gate Proof, for that exact clean branch tip. Repeating it on the unchanged clean tip re-serves the same Proof and inventory without effects. `discern setup accept` validates that Proof, records it on the landed main version as a Git note, and leaves local agent files current. `--force` returns no Proof and cannot use this landing path.
 
 Before landing, the handoff explains where later sessions start, which other areas have distinct responsibilities, one important project rule, the checks now active, and what remains open. Its explanation and supporting inventory derive from committed project files. [Setup decisions](setup-decisions.md) explains the owner review.
 

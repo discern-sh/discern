@@ -16,7 +16,7 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { DiagnosticSchema } from "../src/shared/result_schemas.ts";
 import { writeDiscernToml } from "../src/lib/tidy_format.ts";
 import { renderMcpResult } from "../src/engine/mcp/server.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { gitOut, runAgent } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import {
@@ -284,14 +284,14 @@ Deno.test("nested Map content diagnostics survive setup completion projection", 
     assertEquals(human.code, 1, human.output);
     assertStringIncludes(human.output, "discern/map/README.md:3");
     assertStringIncludes(human.output, "[audience-boundary]");
-    assertStringIncludes(human.output, "Reproduce: discern done");
+    assertTerminalTextIncludes(human.output, "Reproduce: discern done");
     assertEquals(await setupCompletionSnapshot(dir), before);
 
     const markdown = await runAgent(dir, ["setup", "done", "--markdown"]);
     assertEquals(markdown.code, 1, markdown.output);
     assertStringIncludes(markdown.stdout, "discern/map/README.md:3");
     assertStringIncludes(markdown.stdout, "audience-boundary");
-    assertStringIncludes(markdown.stdout, "discern done");
+    assertTerminalTextIncludes(markdown.stdout, "discern done");
     assertEquals(await setupCompletionSnapshot(dir), before);
 
     const failed = await runAgent(dir, ["setup", "done", "--json"]);
@@ -357,7 +357,10 @@ Deno.test("worktree resource failures retain resource-specific diagnostics on ev
       human.output,
       "worktree.resources.fixture_db.create",
     );
-    assertStringIncludes(human.output, "Reproduce: discern worktree setup");
+    assertTerminalTextIncludes(
+      human.output,
+      "Reproduce: discern worktree setup",
+    );
     assertStringIncludes(human.output, "[worktree.resources]");
     assertEquals(await setupCompletionSnapshot(dir), before);
 
@@ -368,7 +371,7 @@ Deno.test("worktree resource failures retain resource-specific diagnostics on ev
       markdown.stdout,
       "worktree.resources.fixture_db.create",
     );
-    assertStringIncludes(markdown.stdout, "discern worktree setup");
+    assertTerminalTextIncludes(markdown.stdout, "discern worktree setup");
     assertEquals(await setupCompletionSnapshot(dir), before);
 
     const failed = await runAgent(dir, ["setup", "done", "--json"]);

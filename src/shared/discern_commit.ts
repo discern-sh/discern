@@ -58,7 +58,7 @@ export type DiscernAuthoredCommitSite = typeof DISCERN_AUTHORED_COMMIT_SITES[
   keyof typeof DISCERN_AUTHORED_COMMIT_SITES
 ];
 
-const DISCERN_OWNED_COMMIT = Symbol("discern-owned-commit");
+const DISCERN_OWNED_COMMIT = Symbol("discern owned commit");
 
 /**
  * In-memory ownership evidence for the exact commit one invocation authored.

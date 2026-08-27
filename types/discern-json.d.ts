@@ -1340,6 +1340,9 @@ export type DiscernSetupDoneResult = DiscernResultState & {
   verb: "setup done";
   data?: {
     bootstrapped: true;
+    completion: "created" | "replayed" | "validated" | "forced";
+    effects_performed: boolean;
+    gate_ran: boolean;
     forced: boolean;
     gate_proven: boolean;
     worktree_proven: boolean;
@@ -1523,7 +1526,10 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       | "worktree_probe"
       | "done"
       | "proof";
-    compensation: "not_needed" | "committed" | "working_tree" | "failed";
+    rollback: "not_needed" | "owned_commit_removed" | "retained";
+    state: string;
+    next_action: string;
+    recovery: string;
   } | {
     issues: Array<{
       kind?: "unknown_root_section";

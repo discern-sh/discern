@@ -11,7 +11,10 @@ import { decodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import { TomlEditor, tomlString } from "../src/lib/toml_edit.ts";
 import { writeDiscernToml } from "../src/lib/tidy_format.ts";
-import { SETUP_PAGE_REGISTRY } from "../src/shared/setup_pages.ts";
+import {
+  SETUP_PAGE_REGISTRY,
+  SETUP_RESULT_MAX_CHARS,
+} from "../src/shared/setup_pages.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import { conventionalSetupGotchasDoc } from "../src/shared/setup_checks.ts";
 import { providerFor } from "../src/lib/providers.ts";
@@ -488,6 +491,24 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
         assertEquals(finalStatus.code, 0, finalStatus.output);
         assertEquals(await gitOut(root, "status", "--porcelain=v1"), "");
         assertEquals((await harness.snapshot()).resourceResidue, []);
+        const outputBytes = harness.invocations.reduce(
+          (total, invocation) =>
+            total + invocation.stdoutBytes + invocation.stderrBytes,
+          0,
+        );
+        const largestOutputBytes = Math.max(
+          ...harness.invocations.map((invocation) =>
+            invocation.stdoutBytes + invocation.stderrBytes
+          ),
+        );
+        assert(
+          outputBytes <= SETUP_RESULT_MAX_CHARS * 8,
+          `cold journey emitted ${outputBytes} bytes across ${harness.invocations.length} calls`,
+        );
+        assert(
+          largestOutputBytes <= SETUP_RESULT_MAX_CHARS,
+          `largest cold-journey result was ${largestOutputBytes} bytes`,
+        );
       });
     });
   });

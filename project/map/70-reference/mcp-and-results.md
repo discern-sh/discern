@@ -129,7 +129,7 @@ A green `done` result uses compact `data.proof`; `data.gate_ran` says whether Ga
 
 An unlanded successful `setup done` carries Proof, canonical completion inventory, qualitative `inventory.project_context`, and landing state. It carries no reactivation or improvement advice. Project context includes the derived primary-subsystem handoff, project principles, and instruction sources. After successful `setup accept`, registry-derived `data.reactivation` carries each provider's exact check, local recovery, and command-line fallback. `data.activation_context` explains why a fresh session is necessary. `data.optional_improvement` remains conditional on activation verification. An in-place completion already on the trunk projects the same ordered activation contract.
 
-`setup done` failures carry data for unfinished authoring, uncommitted paths, or compensation. `ok`, `error`, and `message` discriminate the refusal.
+`setup done` failures carry data for unfinished authoring, uncommitted paths, or exact owned rollback. Transaction failures name `stage`, `rollback`, retained `state`, `next_action`, and `recovery`; nested diagnostics keep their file, line, rule, and reproduce command. `ok`, `error`, and `message` discriminate the refusal.
 
 Applied `setup` and `upgrade` results carry `data.instruction_refresh`. `status: "complete"` means the required instruction refresh completed, even when `compiled` is empty because every artifact was current. `status: "partial"` makes top-level `ok` false and carries the completed artifacts, non-empty failure evidence, `effects_preserved: true`, and `recovery: { command: "discern refresh", safe_to_retry: true }`. The partial result reports prior scaffold or migration effects rather than pretending they rolled back.
 

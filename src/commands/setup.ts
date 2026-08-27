@@ -3251,8 +3251,9 @@ async function runExistingSetupCompletion(
  * 0078) — the latter catches a skeleton whose marker was deleted without the file
  * being meaningfully filled (the shallow-compliance failure). The marker-bearing
  * commit then runs refresh, doctor, the linked-worktree probe, and the final Gate.
- * A failed check restores the incomplete marker before returning. `--force` is the
- * manual-setup escape hatch: it skips the completeness checks and Proof.
+ * A failed check removes only the exact marker commit this invocation still owns;
+ * changed state is retained with recovery. `--force` is the manual-setup escape
+ * hatch: it skips the completeness checks and Proof.
  */
 export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const root = await rootOrError(opts.json, "setup done");
@@ -3349,9 +3350,9 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     predecessorHead = finalPin.head;
   }
 
-  // The final-tree transaction starts here. Preserve the original bytes so every
-  // failed non-forced attempt can restore an observable incomplete state. The marker
-  // is written and committed BEFORE refresh, doctor, the structural worktree probe,
+  // The final-tree transaction starts here. Preserve the original bytes and Proof
+  // so an exactly-owned rollback can restore the sampled predecessor. The marker is
+  // written and committed BEFORE refresh, doctor, the structural worktree probe,
   // and the final Gate. The Gate runs last, so no successful tracked effect follows
   // the Proof it records.
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
@@ -3440,7 +3441,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
 }
 
 /** The final-tree transaction either returns the canonical honored Proof or the
- * completion stage whose failure requires marker compensation. */
+ * completion stage whose failure requires an owned-marker rollback decision. */
 type FinalSetupProof =
   | {
     ok: false;
