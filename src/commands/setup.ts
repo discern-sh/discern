@@ -3088,15 +3088,31 @@ async function runExistingSetupCompletion(
   cfg: DiscernConfig,
   opts: SetupDoneOptions,
 ): Promise<number> {
-  const [pin, proof] = await Promise.all([
+  const [pin, proof, repository] = await Promise.all([
     pinValidatedTree(root),
     inspectGateProof(root),
+    worktreeState(root),
   ]);
   const markerHead = pin.head ?? proof.head ?? proof.recorded ?? "unavailable";
   const marker: CompletionMarkerView = {
     state: "existing",
     head: markerHead,
   };
+
+  // Forced completion predates Git being mandatory: a no-Git installation may
+  // safely re-serve its unproved marker without effects. Inside Git, even force
+  // must pass the marker-state cleanliness check below so it cannot hide or
+  // overwrite intervening work.
+  if (opts.force && repository.kind === "not-a-repo") {
+    return await emitSetupDoneSuccess(root, cfg, opts, {
+      completion: "forced",
+      leftover: await findSkeletonMarkers(root, cfg),
+      markerCommit: marker,
+      worktreeProven: false,
+      effectsPerformed: false,
+      gateRan: false,
+    });
+  }
 
   if (!pin.clean) {
     const named = pin.dirtyPaths.length === 0
