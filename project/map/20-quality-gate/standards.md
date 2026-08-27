@@ -61,11 +61,9 @@ Report a breach the work itself caused instead of engineering the number back do
 
 discern's own [duplication census](../80-development/duplication-census.md) is a down-only Standard. It charges the non-overlapping normalized lines contributed by each additional source occurrence.
 
-The `process_output_boundaries` and `process_exit_boundaries` Standards hold exact exception registries rather than text-match totals. Their shared structural command first proves that every direct product primitive has one current row and every row still has one call, then emits both populations. Unknown sites and stale entries fail even when the numeric count happens to stay level ([ADR 0344](../_adr/0344-process-egress-and-termination-have-exact-boundaries.md)).
+Process-egress, ambient-read, clock, scheduler, and jitter Standards use exact operation registries. Their structural commands bind each live primitive to one row before emitting falling counts, so new and stale entries fail even when totals remain level ([ADR 0344](../_adr/0344-process-egress-and-termination-have-exact-boundaries.md), [ADR 0347](../_adr/0347-clock-scheduler-and-jitter-are-explicit-capabilities.md)).
 
 The `detached_promise_boundaries` Standard follows the same validate-then-measure shape. Its task first type-checks every promise-like expression statement in the Git-derived production universe, then binds each registered `detachPromise` call to one row naming lifecycle, rejection, and shutdown ownership. Only a clean type scan and exact two-way registry parity emit the falling population ([ADR 0345](../_adr/0345-promise-effects-have-typed-owners.md)).
-
-Ambient process and timing boundaries also validate before measurement. `ambient_read_operations` counts exact environment and cwd operations while `ambient_read_boundaries` preserves the earlier module ceiling; `ambient_mutation_boundaries` remains separate. `clock_primitive_boundaries`, `scheduler_primitive_boundaries`, and `scheduling_jitter_boundaries` count only the system adapters' direct host operations. The shared command emits these falling populations only after path, enclosing function, primitive, operation, stable id, and live call sites agree in both directions. A new primitive cannot trade places with a stale row while leaving a misleadingly level count ([ADR 0347](../_adr/0347-clock-scheduler-and-jitter-are-explicit-capabilities.md)).
 
 ## What the Gate does
 
