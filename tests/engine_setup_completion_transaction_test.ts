@@ -13,7 +13,9 @@ import {
 import { join } from "@std/path";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { DiagnosticSchema } from "../src/shared/result_schemas.ts";
 import { writeDiscernToml } from "../src/lib/tidy_format.ts";
+import { renderMcpResult } from "../src/engine/mcp/server.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitOut, runAgent } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
@@ -308,6 +310,26 @@ Deno.test("nested Map content diagnostics survive setup completion projection", 
     const failureData = result.data as Record<string, unknown>;
     assertStringIncludes(String(failureData.recovery), "discern/map/README.md");
     assertEquals(String(failureData.recovery).includes("[worktree]"), false);
+    assertExists(result.diagnostics);
+    const mcp = renderMcpResult({
+      ok: false,
+      verb: "setup done",
+      error: "gate_failed",
+      diagnostics: result.diagnostics,
+      data: result.data,
+    });
+    const mcpDiagnostics = DiagnosticSchema.array().parse(
+      mcp.structuredContent.diagnostics,
+    );
+    const mcpDiagnostic = mcpDiagnostics.find((entry) =>
+      entry.rule === "audience-boundary"
+    );
+    assertExists(mcpDiagnostic);
+    assertEquals(mcpDiagnostic.file, "discern/map/README.md");
+    assertEquals(mcpDiagnostic.line, 3);
+    assertEquals(mcpDiagnostic.reproduce_cmd, "discern done");
+    assertStringIncludes(mcp.content[0]?.text ?? "", "audience-boundary");
+    assertStringIncludes(mcp.content[0]?.text ?? "", "discern/map/README.md:3");
     assertEquals(await setupCompletionSnapshot(dir), before);
   });
 });
@@ -368,6 +390,36 @@ Deno.test("worktree resource failures retain resource-specific diagnostics on ev
     const failureData = result.data as Record<string, unknown>;
     assertStringIncludes(String(failureData.recovery), "[worktree.resources]");
     assertEquals(String(failureData.recovery).includes("discern/map"), false);
+    assertExists(result.diagnostics);
+    const mcp = renderMcpResult({
+      ok: false,
+      verb: "setup done",
+      error: "gate_failed",
+      diagnostics: result.diagnostics,
+      data: result.data,
+    });
+    const mcpDiagnostics = DiagnosticSchema.array().parse(
+      mcp.structuredContent.diagnostics,
+    );
+    const mcpDiagnostic = mcpDiagnostics.find((entry) =>
+      entry.tool === "worktree-resource"
+    );
+    assertExists(mcpDiagnostic);
+    assertEquals(mcpDiagnostic.file, "discern.toml");
+    assertEquals(
+      mcpDiagnostic.rule,
+      "worktree.resources.fixture_db.create",
+    );
+    assertEquals(mcpDiagnostic.reproduce_cmd, "discern worktree setup");
+    assertStringIncludes(
+      mcp.content[0]?.text ?? "",
+      "worktree.resources.fixture_db.create",
+    );
+    assertStringIncludes(
+      mcp.content[0]?.text ?? "",
+      "Fix its configured create command or prerequisites",
+    );
+    assertEquals(mcp.content[0]?.text?.includes("discern/map"), false);
     assertEquals(await setupCompletionSnapshot(dir), before);
   });
 });
