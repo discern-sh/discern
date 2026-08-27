@@ -1710,7 +1710,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "doctor",
         title: "Doctor",
         what:
-          "`discern doctor` verifies the installation without changing project state: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, instructions, skills, automation, resource commands, and Logbook configuration. An enabled but empty Logbook is healthy on a new install; disabled, invalid, write-denied, and unexpectedly non-recording states remain distinct. An environment-denied advisory recording write warns that recording is disabled for this process. The warning does not block setup. Doctor also prints each verb's execution model: which steps are the project's and which are discern's.",
+          "`discern doctor` verifies the installation without changing project state: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, instructions, skills, automation, resource commands, and Logbook configuration. An enabled but empty Logbook is healthy on a new install; disabled, invalid, and write-denied states remain distinct. Historical lifecycle gaps do not affect the storage-health result. An environment-denied advisory recording write warns that recording is disabled for this process. The warning does not block setup. Doctor also prints each verb's execution model: which steps are the project's and which are discern's.",
         why:
           "Facts before judgments, and a misconfigured install names its own fix.",
         plain: {

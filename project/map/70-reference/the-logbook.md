@@ -35,7 +35,7 @@ Setting `[project].logbook = false` stops new evidence for every feature below. 
 - wait estimates when concurrent test runs queue, and contention readings
 - the in-flight check on the contained-worktree offer; an installation with recording off uses a one-hour inactivity period
 - observed checkpoint economics (`discern checkpoints`)
-- recorder continuity checks in `discern doctor`
+- Logbook storage checks in `discern doctor`
 
 ## Where findings appear
 
@@ -125,7 +125,7 @@ MCP describes the client implementation. An editor, extension, or proxy may sit 
 
 discern writes the Logbook under the Git administrative area, outside commits and ignore rules. The Logbook writer has no network interface under a test in discern's own Gate. A write failure does not change the verb outcome; the verb continues without recording the event.
 
-Doctor treats an enabled empty Logbook as healthy, including on first use. Disabled, invalid, write-denied, and expected-but-absent states stay distinct. Environmental denial warns and disables recording for the process; it does not block setup ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
+Doctor treats an enabled empty Logbook as healthy, including on first use. Disabled, invalid, and write-denied states stay distinct. Unmatched begin events remain interruption or crash evidence and do not affect the storage-health result. Environmental denial warns and disables recording for the process; it does not block setup ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
 
 ## Rotation and config epochs
 

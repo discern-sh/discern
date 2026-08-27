@@ -50,7 +50,7 @@
   #   - wait estimates when concurrent test runs queue
   #   - the in-flight check on the contained-worktree offer
   #   - observed checkpoint economics (`discern checkpoints`)
-  #   - recorder continuity checks in `discern doctor`
+  #   - Logbook storage checks in `discern doctor`
   # Set false to stop all writes; existing history stays until you delete it.
   logbook = true
 

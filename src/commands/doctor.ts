@@ -16,7 +16,6 @@ import {
 } from "../lib/paths.ts";
 import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
-import { SYSTEM_CLOCK } from "../shared/clock.ts";
 import {
   fileExists,
   readDirIfExists,
@@ -209,20 +208,16 @@ function gitDisplayVersion(raw: string): string {
   return raw.replace(/^git version\s+/, "");
 }
 
-/** A begin event this old without its paired completion is recorder evidence,
- * not the currently-running doctor invocation. */
-const EXPECTED_COMPLETION_GRACE_MS = 60_000;
-
 /**
  * The Logbook health check distinguishes configuration, point-in-time write
- * authority, readable schema, an honestly empty new store, and recorder
- * continuity. Logbook recording is advisory: every unhealthy state warns but
+ * authority, readable schema, and an honestly empty new store. Unmatched
+ * lifecycle gaps are interruption evidence rather than storage-health
+ * evidence. Logbook recording is advisory: every unhealthy state warns but
  * never makes doctor red or blocks setup by itself.
  */
 async function logbookCheck(
   config: DiscernConfig,
   commonGitDir: string,
-  nowMs: number,
 ): Promise<DraftCheck> {
   if (!config.project.logbook) {
     return {
@@ -271,30 +266,6 @@ async function logbookCheck(
   }
 
   const completed = stream.events.filter((event) => event.kind === "verb");
-  const completedInvocations = new Set(
-    completed.flatMap((event) =>
-      event.invocation === undefined ? [] : [event.invocation]
-    ),
-  );
-  const cutoff = nowMs - EXPECTED_COMPLETION_GRACE_MS;
-  const expectedButAbsent = stream.events.filter((event) =>
-    event.kind === "begin" && !completedInvocations.has(event.invocation) &&
-    Date.parse(event.at) < cutoff
-  );
-  if (expectedButAbsent.length > 0) {
-    return {
-      name: "logbook",
-      ok: true,
-      status: "warn",
-      detail:
-        `storage is writable and readable, but ${expectedButAbsent.length} invocation${
-          expectedButAbsent.length === 1 ? " has" : "s have"
-        } a begin event with no expected completion event`,
-      fix:
-        "inspect the interrupted invocation in `discern patterns`; future successful verbs should continue pairing begin and completion events",
-    };
-  }
-
   if (completed.length === 0) {
     return {
       name: "logbook",
@@ -988,14 +959,12 @@ export async function runChecks(
   }
 
   // 7d. the Logbook's advisory recording substrate. Health comes from config,
-  // a real point-in-time write probe, readable schema, and recorder continuity;
-  // an empty event stream is a sound first-install state, never a rerun loop.
+  // a real point-in-time write probe, and readable schema. Unmatched lifecycle
+  // gaps remain interruption evidence, outside this point-in-time health check.
   if (gitHealth?.repository.kind === "repository") {
     const commonGitDir = await resolveCommonGitDir(destDir);
     if (commonGitDir !== undefined) {
-      checks.push(
-        await logbookCheck(config, commonGitDir, SYSTEM_CLOCK.wallNow()),
-      );
+      checks.push(await logbookCheck(config, commonGitDir));
     }
   }
 
