@@ -14,7 +14,7 @@ export interface GeneratedManualMetadata {
   readonly redirects?: readonly string[];
 }
 
-/** The historical `/docs` route represented by one old public Map path. */
+/** Project the `/docs` route represented by one Map source path. */
 function mapRoute(rel: string): string | undefined {
   if (rel === "README.md") return "/docs";
   const parts = rel.split("/");

@@ -11,6 +11,12 @@ export interface RegisteredRename {
 /** Every authored Deno rename whose purpose is not durable-state replacement. */
 export const REGISTERED_RENAMES = [
   {
+    path: "scripts/build.ts",
+    enclosingFunction: "stageBundledManual",
+    reason:
+      "Build staging publishes one complete validated manual directory assembled on the destination filesystem.",
+  },
+  {
     path: "scripts/cli_install.ts",
     enclosingFunction: "writeExecutableSync",
     reason:

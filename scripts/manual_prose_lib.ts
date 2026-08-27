@@ -100,7 +100,7 @@ export async function withStagedManualProse<T>(
   repoRoot: string,
   fn: (stage: StagedManualProse) => T | Promise<T>,
 ): Promise<T> {
-  return await withToolTempDir("map-prose-stage", async (dir) => {
+  return await withToolTempDir("manual-prose-stage", async (dir) => {
     const pages = await projectManualProse(repoRoot);
     const sources = new Map<string, string>();
     for (const projected of pages) {

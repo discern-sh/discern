@@ -8,6 +8,8 @@ export interface ToolTempDirPolicy {
   readonly prefix: `discern-${string}-`;
   /** Optional fixed parent required by the tool's execution contract. */
   readonly parent?: string;
+  /** Whether one call may supply the parent needed by its filesystem contract. */
+  readonly allowCallerParent?: boolean;
   /** Whether teardown removes content recursively. */
   readonly recursiveCleanup: boolean;
   /** Keep failed-work evidence only when this policy explicitly says so. */
@@ -37,6 +39,19 @@ export const TOOL_TEMP_DIR_KINDS = {
   "map-prose-stage": {
     purpose: "frontmatter-blanked Map prose staged for Vale",
     prefix: "discern-prose-",
+    recursiveCleanup: true,
+    preserveOnFailure: false,
+  },
+  "manual-build-stage": {
+    purpose: "validated manual assembled beside its atomic build destination",
+    prefix: "discern-manual-stage-",
+    allowCallerParent: true,
+    recursiveCleanup: true,
+    preserveOnFailure: false,
+  },
+  "manual-prose-stage": {
+    purpose: "frontmatter-blanked product manual staged for Vale",
+    prefix: "discern-manual-prose-",
     recursiveCleanup: true,
     preserveOnFailure: false,
   },
@@ -89,6 +104,11 @@ export interface ToolTempDirOperations {
 
 /** Optional operation replacements for deterministic lifecycle tests. */
 export type ToolTempDirOperationOverrides = Partial<ToolTempDirOperations>;
+
+/** Per-use placement permitted only by a registry row that opts in. */
+export interface ToolTempDirUseOptions {
+  readonly parent?: string;
+}
 
 type ToolTempDirCallbackOutcome<T> =
   | { readonly ok: true; readonly value: T }
@@ -156,6 +176,11 @@ function assertToolTempDirPolicies(
     if (policy.parent !== undefined && policy.parent.trim() === "") {
       throw new TypeError(`tool temp kind '${kind}' has an empty parent`);
     }
+    if (policy.parent !== undefined && policy.allowCallerParent === true) {
+      throw new TypeError(
+        `tool temp kind '${kind}' cannot fix and delegate its parent`,
+      );
+    }
   }
 }
 
@@ -188,6 +213,7 @@ export function createToolTempDirCapability<
 ): <T>(
   kind: Extract<keyof Kinds, string>,
   fn: (dir: string) => T | Promise<T>,
+  options?: ToolTempDirUseOptions,
 ) => Promise<T> {
   assertToolTempDirPolicies(kinds);
   const operations: ToolTempDirOperations = {
@@ -198,13 +224,27 @@ export function createToolTempDirCapability<
   return async <T>(
     kind: Extract<keyof Kinds, string>,
     fn: (dir: string) => T | Promise<T>,
+    options: ToolTempDirUseOptions = {},
   ): Promise<T> => {
     const policy = kinds[kind];
     if (policy === undefined) {
       throw new TypeError(`unknown tool temp kind '${kind}'`);
     }
+    if (options.parent !== undefined) {
+      if (options.parent.trim() === "") {
+        throw new TypeError(
+          `tool temp kind '${kind}' received an empty parent`,
+        );
+      }
+      if (policy.allowCallerParent !== true) {
+        throw new TypeError(
+          `tool temp kind '${kind}' does not accept a caller parent`,
+        );
+      }
+    }
+    const parent = options.parent ?? policy.parent;
     const dir = await operations.makeTempDir({
-      ...(policy.parent === undefined ? {} : { dir: policy.parent }),
+      ...(parent === undefined ? {} : { dir: parent }),
       prefix: policy.prefix,
     });
     const cleanup: { failure?: ToolTempDirCleanupError } = {};

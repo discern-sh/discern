@@ -72,8 +72,9 @@ export const CANARY_EXTRA_TEST_FILES: readonly CanaryRegistryEntry[] = [
     reason: "leads the recorded failure ranking; sub-second logbook unit suite",
   },
   {
-    file: "tests/map_curation_test.ts",
-    reason: "hot in the recorded failure ranking; static map content checks",
+    file: "tests/manual_curation_test.ts",
+    reason:
+      "successor to the hot map-curation guard; static manual corpus checks",
   },
   {
     file: "tests/map_frontmatter_test.ts",

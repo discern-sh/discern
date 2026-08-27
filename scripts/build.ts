@@ -34,6 +34,7 @@ import { splitNulRecords } from "../src/shared/git_paths.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { BUILD_TARGETS, type BuildTarget } from "./build_targets.ts";
 import { isHostMetadataPath } from "../src/shared/host_metadata.ts";
+import { withToolTempDir } from "./temp_dir.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -160,11 +161,7 @@ export async function stageBundledManual(
 
   const parent = dirname(stagedDocs);
   await ensureDir(parent);
-  const fresh = await Deno.makeTempDir({
-    dir: parent,
-    prefix: ".discern-manual-stage-",
-  });
-  try {
+  return await withToolTempDir("manual-build-stage", async (fresh) => {
     for (const page of projection.pages) {
       const source = page.entry.absPath;
       const info = await Deno.lstat(source);
@@ -195,15 +192,8 @@ export async function stageBundledManual(
       if (!(error instanceof Deno.errors.NotFound)) throw error;
     }
     await Deno.rename(fresh, stagedDocs);
-  } catch (error) {
-    try {
-      await Deno.remove(fresh, { recursive: true });
-    } catch (cleanupError) {
-      if (!(cleanupError instanceof Deno.errors.NotFound)) throw cleanupError;
-    }
-    throw error;
-  }
-  return staged;
+    return staged;
+  }, { parent });
 }
 
 /** Prepare the repo-relative include tree consumed by `deno compile`. */

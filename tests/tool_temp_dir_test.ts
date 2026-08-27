@@ -148,6 +148,34 @@ Deno.test("tool temp directories: concurrent uses of one kind stay isolated", as
   for (const dir of created) assertEquals(await targetExists(dir), false);
 });
 
+Deno.test("tool temp directories: only an opted-in kind accepts a caller parent", async () => {
+  let createdWith:
+    | { readonly dir?: string; readonly prefix: string }
+    | undefined;
+  const capability = createToolTempDirCapability(TOOL_TEMP_DIR_KINDS, {
+    makeTempDir: (options) => {
+      createdWith = options;
+      return Promise.resolve("/tmp/discern-manual-stage-planted");
+    },
+    remove: () => Promise.resolve(),
+  });
+  await capability("manual-build-stage", () => undefined, {
+    parent: "/tmp/manual-parent",
+  });
+  assertEquals(createdWith, {
+    dir: "/tmp/manual-parent",
+    prefix: "discern-manual-stage-",
+  });
+  await assertRejects(
+    () =>
+      capability("coverage-profile", () => undefined, {
+        parent: "/tmp/unregistered-parent",
+      }),
+    TypeError,
+    "does not accept a caller parent",
+  );
+});
+
 Deno.test("tool temp directories: a future member enrolls in creation, prefix, cleanup, and preservation", async () => {
   const reports: string[] = [];
   const capability = futureToolTempDirCapability({

@@ -7,7 +7,6 @@ import {
   assertEquals,
   assertFalse,
   assertStrictEquals,
-  assertStringIncludes,
   assertThrows,
 } from "@std/assert";
 import {
@@ -29,7 +28,7 @@ import {
   REPOSITORY_MANUAL_REL,
 } from "../src/shared/manual.ts";
 import { gitInit, gitOut } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const SCRIPT = join(
@@ -291,7 +290,7 @@ Deno.test("manual matcher fires closed for malformed, invalid UTF-8, oversized, 
     const assertClosed = async (input: unknown): Promise<void> => {
       const result = await runMatcher(dir, id, input);
       assertEquals(result.code, 0, result.stderr);
-      assertStringIncludes(result.stderr, "firing closed");
+      assertTerminalTextIncludes(result.stderr, "firing closed");
     };
 
     await Deno.writeTextFile(join(dir, rel), "---\nkind: tutorial\n");

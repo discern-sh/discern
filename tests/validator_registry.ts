@@ -1,7 +1,8 @@
 /**
  * The artifact-validator registry — every `src/lib` validator whose subject is
  * a config-resolved authored artifact (the map, instruction sources, skills,
- * project scripts, the TODO ledger, or the map's ADR records), each declared
+ * project scripts, the TODO ledger, or the map's ADR records) or discern's
+ * bundled manual, each declared
  * either SHIPPED (the binary applies it to every project) or REPO-LOCAL (this
  * repository holds only itself to it, with the reason).
  *
@@ -29,7 +30,8 @@ export type ArtifactSubject =
   | "skills"
   | "scripts"
   | "todo"
-  | "adr";
+  | "adr"
+  | "manual";
 
 /** How a validator reaches the artifacts it holds to a standard. */
 export type ValidatorEnforcement =
@@ -125,11 +127,11 @@ export const ARTIFACT_VALIDATORS: readonly EnrolledValidator[] = [
   {
     module: "src/lib/frontmatter.ts",
     exportName: "validateFrontmatter",
-    subjects: ["map"],
+    subjects: ["map", "manual"],
     enforcement: {
-      kind: "repo-local",
-      reason:
-        "the STRICT frontmatter tier — unknown-key rejection, length bounds, list-content rules — is deliberate house style for this repository's map; the shipped tier is frontmatterShapeIssues, scoped to the mistakes the lenient reader would swallow (ADR 0202)",
+      kind: "shipped",
+      via:
+        "the bundled product-manual projection; repository tests also apply the same strict tier to discern's own Map",
     },
   },
   {
@@ -163,6 +165,4 @@ export const NON_VALIDATOR_IMPORTS: Readonly<Record<string, string>> = {
     "splices the artifact-inventory section for codegen; a generator, not a validator",
   "src/lib/artifact_ownership.ts#writtenArtifactClass":
     "classifies discern-owned output for inventories and provenance guards; its subject is discern's output, not an authored artifact",
-  "src/lib/docs.ts#buildRedirectRegistry":
-    "compiles the site's redirect table from map frontmatter for the site build (site/seo.ts); a generator, not a validator",
 };
