@@ -1988,7 +1988,7 @@ The advisory capabilities that switch off with `[project].logbook = false`. Ever
   - `test-wait-estimate`
   - `contained-idle-check`
   - `checkpoint-economics`
-  - `doctor-recorder-continuity`
+  - `doctor-storage-checks`
 - Guards: `tests/logbook_powered_test.ts`
 - Glossary: not enrolled — the Logbook reference documents these capability names and their opt-out behavior
 - Feature canon: described by the `logbook` node
