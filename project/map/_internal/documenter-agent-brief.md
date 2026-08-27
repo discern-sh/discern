@@ -26,7 +26,7 @@ Treat documentation as part of the change. Every page describes the current code
 
 For **structure**, follow this brief: page inventory, page purpose, section shape, required facts, and length budgets. For **register**, follow the [product voice Skill](../../skills/discern-product-voice/SKILL.md): voice behavior, terminology, and banned moves. Apply both authorities to every page.
 
-The maintained Map includes published public tiers, contributor tiers, and operational `_internal` pages. `_private` is the only prose-free geography. Published tiers render on the docs site, in `discern docs`, and through the Model Context Protocol (MCP). The public projection decides publication and the public leaf-density Standard; it does not narrow the voice Gate. Compare every finished page with the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files and ownership](../70-reference/artifact-ownership.md).
+The maintained Map includes orientation, contributor, and operational `_internal` pages. `_private` is the only prose-free geography. `discern map` browses this configured knowledge tree; the docs site, `discern docs`, and the Model Context Protocol (MCP) serve the separate product manual. The Map prose job and Standard govern every maintained non-private Map page. Compare every finished page with the [Map landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files and ownership](../70-reference/artifact-ownership.md).
 
 ---
 
