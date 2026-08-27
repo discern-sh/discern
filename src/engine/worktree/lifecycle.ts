@@ -660,6 +660,8 @@ function setupResults(
       worktreeEnsureOutcome === "failed" ||
       (s.kind === "refresh" && !refreshOk);
     const skipped = setupStepOutcome === "skipped";
+    const optionalResourceFailure = s.kind === "resource-create" &&
+      failedResources.includes(s.label);
     return {
       step: {
         kind: s.kind,
@@ -668,6 +670,18 @@ function setupResults(
         note: s.note,
       },
       outcome: failed ? "failed" : skipped ? "skipped" : "ok",
+      ...(optionalResourceFailure
+        ? {
+          advisory: {
+            kind: "optional-resource-unavailable" as const,
+            evidence: [
+              `Optional worktree resource '${s.label}' could not be created.`,
+            ],
+            next_action:
+              `Fix the resource's create command or prerequisites, then re-run \`discern worktree setup\` if the resource is needed.`,
+          },
+        }
+        : {}),
     };
   });
 }
@@ -3267,7 +3281,17 @@ async function executeAcceptPlan(
         ? `proof-note transport is ${proofFetch.status}`
         : proofFetch.errors.join("; "),
     },
-    outcome: proofFetchOk ? "ok" : "skipped",
+    outcome: proofFetchOk ? "ok" : "failed",
+    ...(proofFetchOk ? {} : {
+      advisory: {
+        kind: "proof-recording-unavailable" as const,
+        evidence: proofFetch.errors.length === 0
+          ? [`Proof-note fetch transport status: ${proofFetch.status}.`]
+          : [...proofFetch.errors],
+        next_action:
+          "Repair the reported Git-notes fetch configuration; the landing itself does not need to be repeated.",
+      },
+    }),
   });
   if (!proofFetchOk) {
     ctx.log.warn(
@@ -3310,7 +3334,17 @@ async function executeAcceptPlan(
       note: proofWrite.reason ??
         `${proofWrite.ref} at ${proofWrite.commit}`,
     },
-    outcome: proofWritten ? "ok" : "skipped",
+    outcome: proofWritten ? "ok" : "failed",
+    ...(proofWritten ? {} : {
+      advisory: {
+        kind: "proof-recording-unavailable" as const,
+        evidence: [
+          proofWrite.reason ?? `Proof-note write status: ${proofWrite.status}.`,
+        ],
+        next_action:
+          "Repair the reported Git-notes storage problem and use the documented Proof-note recovery without repeating the landing.",
+      },
+    }),
   });
   if (proofWritten) {
     ctx.log.ok(`Recorded the landing proof under ${proofWrite.ref}.`);
@@ -3479,10 +3513,22 @@ async function executeAcceptPlan(
         : "report tracked files changed by post-landing convergence",
     },
     outcome: checkoutClean === undefined
-      ? "skipped"
+      ? "failed"
       : checkoutClean
       ? "ok"
       : "failed",
+    ...(checkoutClean === undefined
+      ? {
+        advisory: {
+          kind: "checkout-clean-observation-unavailable" as const,
+          evidence: [
+            "Git could not establish the tracked checkout baseline after the trunk fast-forward.",
+          ],
+          next_action:
+            `Run \`git status --short\` in ${mainRepo} before relying on post-landing checkout convergence.`,
+        },
+      }
+      : {}),
   });
   if (checkoutClean === false) {
     convergenceHints = mergeHintTexts(
@@ -3512,8 +3558,28 @@ async function executeAcceptPlan(
   // tear down external resources (non-fatal, while still in the worktree so
   // @dir@-bearing destroys resolve, and before removal so no orphan is left)
   ctx.log.info("Tearing down the worktree's resources…");
-  await teardownResources(ctx);
-  done("resource-destroy", BUILT_IN_STEP_LABELS.teardownResources);
+  const resourceTeardown = await teardownResources(ctx);
+  results.push({
+    step: {
+      kind: "resource-destroy",
+      label: BUILT_IN_STEP_LABELS.teardownResources,
+      disposition: "run",
+      note: resourceTeardown.failed.length === 0
+        ? `${resourceTeardown.destroyed.length} resource(s) destroyed`
+        : `resource teardown failed for: ${resourceTeardown.failed.join(", ")}`,
+    },
+    outcome: resourceTeardown.failed.length === 0 ? "ok" : "failed",
+    ...(resourceTeardown.failed.length === 0 ? {} : {
+      advisory: {
+        kind: "acceptance-cleanup-incomplete" as const,
+        evidence: resourceTeardown.failed.map((resource) =>
+          `Worktree resource '${resource}' remains recorded for recovery.`
+        ),
+        next_action:
+          "Run `discern worktree prune` from the main checkout after fixing the failed destroy command or its prerequisites.",
+      },
+    }),
+  });
 
   // remove the worktree (from the main repo)
   try {

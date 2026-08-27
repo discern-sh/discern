@@ -35,6 +35,7 @@ import {
   DIAGNOSTIC_SEVERITIES,
   ERROR_SLUGS,
   FAILED_STAGES,
+  RESULT_ADVISORY_KINDS,
   STEP_DISPOSITIONS,
   STEP_KINDS,
   STEP_OUTCOMES,
@@ -122,6 +123,13 @@ export const PlanStepJsonSchema = z.strictObject({
   group: z.string().optional(),
 });
 
+/** One optional degradation admitted by a verb's completion policy. */
+export const ResultAdvisorySchema = z.strictObject({
+  kind: z.enum(RESULT_ADVISORY_KINDS),
+  evidence: z.array(z.string().trim().min(1)).min(1),
+  next_action: z.string().trim().min(1),
+});
+
 /** Mirror of {@link import("./result.ts").StepResultJson} — a step + its outcome. */
 export const StepResultJsonSchema = z.strictObject({
   kind: stepKindEnum,
@@ -130,6 +138,7 @@ export const StepResultJsonSchema = z.strictObject({
   note: z.string().optional(),
   group: z.string().optional(),
   outcome: outcomeEnum,
+  advisory: ResultAdvisorySchema.optional(),
   duration_s: z.number().optional(),
   output_path: z.string().optional(),
   output_lines: z.number().optional(),
@@ -161,6 +170,7 @@ const ENVELOPE_BASE_FIELDS = {
   waited_ms: z.number().nonnegative().optional(),
   diagnostics: z.array(DiagnosticSchema).optional(),
   hints: z.array(z.string()).optional(),
+  advisories: z.array(ResultAdvisorySchema).optional(),
   error: z.enum(ERROR_SLUGS).optional(),
   message: z.string().optional(),
 };
@@ -173,6 +183,7 @@ const ENVELOPE_BASE_FIELDS_WITHOUT_VERB = {
   waited_ms: z.number().nonnegative().optional(),
   diagnostics: z.array(DiagnosticSchema).optional(),
   hints: z.array(z.string()).optional(),
+  advisories: z.array(ResultAdvisorySchema).optional(),
   error: z.enum(ERROR_SLUGS).optional(),
   message: z.string().optional(),
 };
@@ -2590,6 +2601,54 @@ const setupProgressSchema = z.strictObject({
   assurance: z.lazy(() => SetupAssuranceSchema).optional(),
 });
 
+/**
+ * Required instruction-compilation postcondition shared by setup and upgrade.
+ * An empty `compiled` list is unambiguous: `complete` means every artifact was
+ * already current; `partial` carries non-empty failures plus safe-rerun facts.
+ */
+export const InstructionRefreshDataSchema = z.discriminatedUnion("status", [
+  z.strictObject({
+    status: z.literal("complete"),
+    compiled: z.array(z.string()),
+  }),
+  z.strictObject({
+    status: z.literal("partial"),
+    compiled: z.array(z.string()),
+    failures: z.array(z.strictObject({
+      kind: z.literal("artifact"),
+      evidence: z.string().trim().min(1),
+    })).min(1),
+    effects_preserved: z.literal(true),
+    recovery: z.strictObject({
+      command: z.literal("discern refresh"),
+      safe_to_retry: z.literal(true),
+    }),
+  }),
+]);
+export type InstructionRefreshData = z.infer<
+  typeof InstructionRefreshDataSchema
+>;
+
+/** Build the one discriminated refresh fact from typed apply outcomes. */
+export function instructionRefreshData(
+  compiled: readonly string[],
+  errors: readonly string[],
+): InstructionRefreshData {
+  const failures = errors.flatMap((error) => {
+    const evidence = error.trim();
+    return evidence === "" ? [] : [{ kind: "artifact" as const, evidence }];
+  });
+  return failures.length === 0
+    ? { status: "complete", compiled: [...compiled] }
+    : {
+      status: "partial",
+      compiled: [...compiled],
+      failures,
+      effects_preserved: true,
+      recovery: { command: "discern refresh", safe_to_retry: true },
+    };
+}
+
 /** `setup` / `setup begin` / the fresh welcome redirect. One schema covers the
  * phased setup surface because the emitted `verb` is deliberately still `setup` for
  * the welcome and begin paths. Mode-specific fields are optional; command-specific
@@ -2621,13 +2680,11 @@ export const SetupDataSchema = z.strictObject({
   machinery_commit_error: z.string().optional(),
   kit_version: z.string().optional(),
   written: z.array(z.string()).optional(),
-  compiled: z.array(z.string()).optional(),
+  instruction_refresh: InstructionRefreshDataSchema.optional(),
   mcp_wired: z.array(z.string()).optional(),
   hooks_wired: z.array(z.string()).optional(),
   worktree_app_wired: z.array(z.string()).optional(),
   project_rules_wired: z.array(z.string()).optional(),
-  instructions_compiled: z.boolean().optional(),
-  instructions_errors: z.array(z.string()).optional(),
   skeletons: z.array(z.string()).optional(),
   skipped: z.array(z.string()).optional(),
   instructions: z.string().optional(),
@@ -2870,13 +2927,11 @@ export const UpgradeDataSchema = z.strictObject({
     linked: z.number(),
     pruned: z.number(),
   }).nullable().optional(),
-  agents_written: z.array(z.string()).optional(),
   mcp_wired: z.array(z.string()).optional(),
   hooks_wired: z.array(z.string()).optional(),
   worktree_app_wired: z.array(z.string()).optional(),
   project_rules_wired: z.array(z.string()).optional(),
-  instructions_compiled: z.boolean().optional(),
-  instructions_errors: z.array(z.string()).optional(),
+  instruction_refresh: InstructionRefreshDataSchema.optional(),
 });
 export type UpgradeData = z.infer<typeof UpgradeDataSchema>;
 

@@ -197,6 +197,14 @@ export interface RecordedRunOptions {
   readonly hasOperands?: boolean;
 }
 
+/** A failed completion contract always owns a failing process status. */
+export function completionExitCode(
+  reportedCode: number,
+  result: DiscernResult | undefined,
+): number {
+  return reportedCode === 0 && result?.ok === false ? 1 : reportedCode;
+}
+
 /** Enroll a pre-Cliffy execution path that calls {@link recordedRun} directly. */
 export function registerDirectRecordedCliCommandPath(command: string): void {
   recordedCommandPaths.add(command);
@@ -330,7 +338,10 @@ export async function recordedRun(
         ? {}
         : { hasOperands: opts.hasOperands }),
     });
-  if (!logbookInvocationIsRecorded(verb)) return await run();
+  if (!logbookInvocationIsRecorded(verb)) {
+    const reportedCode = await run();
+    return completionExitCode(reportedCode, takeObservedResult()?.result);
+  }
   // A CLI process normally serves one verb, but the accumulators are process
   // local: clear any stale test/embedded-call state before this invocation.
   takeSupplementalHintIds();
@@ -375,6 +386,7 @@ export async function recordedRun(
     // script name belongs to the child, so a child's own flags must not
     // mislabel the event.
     const result = observed?.result;
+    code = completionExitCode(code, result);
     const waitedMs = result?.waitedMs ?? opts.waitedMs?.();
     const observedDryRun = result?.dry_run === true || dryRun;
     await recording.finish({

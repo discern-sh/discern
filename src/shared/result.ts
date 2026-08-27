@@ -184,10 +184,48 @@ export const STEP_OUTCOMES = ["ok", "failed", "skipped", "cancelled"] as const;
 /** One executed-step outcome ({@link STEP_OUTCOMES}). */
 export type StepOutcome = (typeof STEP_OUTCOMES)[number];
 
+/**
+ * Machine-stable kinds for degradations that a completion policy explicitly
+ * permits under `ok: true`. Every record carries its evidence and next action;
+ * a warning string alone can never waive a required postcondition.
+ */
+export const RESULT_ADVISORY_KINDS = [
+  "acceptance-cleanup-incomplete",
+  "checkpoint-evidence-dropped",
+  "checkout-clean-observation-unavailable",
+  "doctor-warning",
+  "execution-cap-unavailable",
+  "generated-attribute-pattern-untranslated",
+  "ignored-file-observation-unavailable",
+  "landing-authority-unverified",
+  "optional-resource-unavailable",
+  "proof-recording-unavailable",
+  "setup-forced-completion",
+  "setup-machinery-commit-failed",
+  "setup-marker-commit-failed",
+  "standards-limits-unverified",
+  "uninstall-strip-incomplete",
+] as const;
+/** One policy-governed advisory kind ({@link RESULT_ADVISORY_KINDS}). */
+export type ResultAdvisoryKind = (typeof RESULT_ADVISORY_KINDS)[number];
+
+/** A successful-but-degraded fact with explicit evidence and recovery. */
+export interface ResultAdvisory {
+  kind: ResultAdvisoryKind;
+  evidence: string[];
+  next_action: string;
+}
+
 /** One executed step: the planned step plus how it turned out. */
 export interface StepResult {
   step: PlanStep;
   outcome: StepOutcome;
+  /**
+   * Present only when a failed step was explicitly optional. The shared
+   * completion evaluator lifts it to the envelope and does not treat that one
+   * failed step as a required-postcondition failure.
+   */
+  advisory?: ResultAdvisory | undefined;
   /** Whole-second wall-clock duration when measured (jobs / standards). */
   durationS?: number | undefined;
   /** Best-effort path to a full output artifact for job steps that ran. */
@@ -448,6 +486,8 @@ interface DiscernResultFields<TData> {
    * / `diagnostics`).
    */
   hints?: string[] | undefined;
+  /** Explicitly optional degradations permitted by this verb's completion policy. */
+  advisories?: ResultAdvisory[] | undefined;
   /** A human sentence accompanying `error`. */
   message?: string | undefined;
 }
@@ -951,6 +991,7 @@ export interface PlanStepJson {
 /** One step with its execution outcome, for the apply-mode results serialization. */
 export interface StepResultJson extends PlanStepJson {
   outcome: StepOutcome;
+  advisory?: ResultAdvisory | undefined;
   duration_s?: number | undefined;
   output_path?: string | undefined;
   output_lines?: number | undefined;
@@ -973,6 +1014,7 @@ export function stepResultToJson(r: StepResult): StepResultJson {
   return {
     ...stepToJson(r.step),
     outcome: r.outcome,
+    advisory: r.advisory,
     duration_s: r.durationS,
     output_path: r.outputPath,
     output_lines: r.outputLines,
@@ -1006,9 +1048,15 @@ export function resultsToJson(results: StepResult[]): {
   steps: StepResultJson[];
 } {
   return {
-    ok: results.every((r) => r.outcome !== "failed"),
+    ok: results.every(stepResultSatisfiesCompletion),
     steps: results.map(stepResultToJson),
   };
+}
+
+/** Whether one executed step satisfied its required completion obligation. */
+export function stepResultSatisfiesCompletion(result: StepResult): boolean {
+  if (result.outcome === "cancelled") return false;
+  return result.outcome !== "failed" || result.advisory !== undefined;
 }
 
 // ── envelope constructors ───────────────────────────────────────────────────
@@ -1034,14 +1082,18 @@ export function appliedResult(
   results: StepResult[],
   diagnostics?: Diagnostic[],
 ): DiscernResult<never> {
+  const advisories = results.flatMap((result) =>
+    result.advisory === undefined ? [] : [result.advisory]
+  );
   const fields = {
     verb,
     steps: results,
+    ...(advisories.length === 0 ? {} : { advisories }),
     diagnostics: diagnostics !== undefined && diagnostics.length > 0
       ? diagnostics
       : undefined,
   };
-  return results.every((r) => r.outcome !== "failed")
+  return results.every(stepResultSatisfiesCompletion)
     ? { ok: true, ...fields }
     : { ok: false, ...fields };
 }

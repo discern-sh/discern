@@ -485,6 +485,14 @@ Deno.test("a failed completion-marker commit explains itself instead of misattri
         res.data.marker_commit_error.length > 0,
       `expected the git stderr cause: ${JSON.stringify(res.data)}`,
     );
+    assertEquals(
+      res.advisories?.some((advisory) =>
+        advisory.kind === "setup-marker-commit-failed" &&
+        advisory.evidence.includes(res.data.marker_commit_error ?? "") &&
+        advisory.next_action.length > 0
+      ),
+      true,
+    );
   });
 });
 

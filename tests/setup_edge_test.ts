@@ -54,17 +54,21 @@ Deno.test("setup --json reports a partial refresh as top-level not-ok while keep
       ["setup", "--confirmed", "--json", "--slug", "demo"],
       dir,
     );
-    assertEquals(code, 0);
+    assertEquals(code, 1);
     const result = decodeCliResult(stdout, "setup");
-    assertResultDataKey(result, "instructions_compiled");
+    assertResultDataKey(result, "instruction_refresh");
     assertEquals(result.ok, false);
     assertEquals(result.error, "partial_refresh");
-    assertEquals(result.data.instructions_compiled, false);
-    assertExists(result.data.instructions_errors);
+    const refresh = result.data.instruction_refresh;
+    assertExists(refresh);
+    assertEquals(refresh.status, "partial");
+    if (refresh.status !== "partial") return;
     assertStringIncludes(
-      result.data.instructions_errors.join("\n"),
+      refresh.failures.map((failure) => failure.evidence).join("\n"),
       "malformed JSON",
     );
+    assertEquals(refresh.effects_preserved, true);
+    assertEquals(refresh.recovery.command, "discern refresh");
     assert(await targetExists(join(dir, "discern.toml")));
     assertEquals(await Deno.readTextFile(join(dir, ".mcp.json")), malformed);
   });

@@ -2156,6 +2156,40 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "result-completion-policies",
+    title: "Result completion policies",
+    what:
+      "The one-per-verb semantic authority that defines required outcomes, optional advisories, non-completion states, and recovery ownership.",
+    source: {
+      kind: "module",
+      module: "src/shared/result_completion.ts",
+      exportName: "RESULT_COMPLETION_POLICY_DEFINITIONS",
+    },
+    guards: [
+      "tests/result_completion_policy_test.ts",
+      "tests/result_codegen_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "schema/discern-results.schema.json",
+        kind: "generated-file",
+        banner: false,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the result-envelope reference defines completion and typed advisory semantics",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/result_completion.ts"))
+          .RESULT_COMPLETION_POLICY_DEFINITIONS,
+      ),
+  },
+  {
     id: "cli-json-predicates",
     title: "CLI JSON predicate contracts",
     what:
@@ -2368,6 +2402,44 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members:
       async () => [...(await import("../src/shared/result.ts")).STEP_OUTCOMES],
+  },
+  {
+    id: "result-advisory-kinds",
+    title: "Result advisory kinds",
+    what:
+      "The machine-stable vocabulary for explicitly optional degradation that may coexist with a successful completion verdict.",
+    source: {
+      kind: "module",
+      module: "src/shared/result.ts",
+      exportName: "RESULT_ADVISORY_KINDS",
+    },
+    guards: [
+      "tests/result_completion_policy_test.ts",
+      "tests/result_schemas_test.ts",
+      "tests/result_codegen_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "schema/discern-results.schema.json",
+        kind: "generated-file",
+        banner: false,
+      },
+      {
+        path: "types/discern-json.d.ts",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the result-envelope reference defines typed advisories and their evidence/recovery shape",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/result.ts")).RESULT_ADVISORY_KINDS,
+    ],
   },
   {
     id: "public-doc-surfaces",

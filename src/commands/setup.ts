@@ -155,11 +155,13 @@ import {
   deriveConsentContext,
   humanOffRampLines,
 } from "../shared/setup_messages.ts";
-import type {
-  GateProofCheckData,
-  SetupDoneCompletionStage,
-  SetupDoneData,
-  SetupDoneFailureData,
+import {
+  type GateProofCheckData,
+  instructionRefreshData,
+  type SetupData,
+  type SetupDoneCompletionStage,
+  type SetupDoneData,
+  type SetupDoneFailureData,
 } from "../shared/result_schemas.ts";
 import {
   ACCEPT_COMMAND,
@@ -1717,56 +1719,62 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       `the \`${setupBranch}\` reviewable branch`,
     );
 
-  if (opts.json) {
-    const setupOk = instructionsCompiled;
-    const resultFields = {
-      verb: "setup",
-      hints: setupHints,
-      data: {
-        // The scaffold succeeded, but SETUP is not done — the agent must now act
-        // on `instructions`. Carry that explicitly so a JSON-consuming agent can't
-        // read `ok: true` / exit 0 as "task complete" (the failure this guards).
-        complete: false,
-        bootstrapped: false,
-        branch: setupBranch ?? null,
-        machinery_committed: machineryCommitted,
-        ...(machineryCommit?.state === "failed"
-          ? { machinery_commit_error: machineryCommit.detail }
-          : {}),
-        next_action:
-          "Work through `data.instructions` (the principles + page 0), pull each next page with `discern setup step <n>`, then run `discern setup done` to finish.",
-        project: {
-          slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
-          agents: cfg?.project.agents ?? [],
-        },
-        kit_version: KIT_VERSION,
-        written: scaffold?.written ?? [],
-        compiled,
-        mcp_wired: mcpWired,
-        hooks_wired: hooksWired,
-        worktree_app_wired: worktreeAppWired,
-        project_rules_wired: projectRulesWired,
-        instructions_compiled: setupOk,
-        instructions_errors: instructionsErrors,
-        skeletons: laid,
-        skipped,
-        instructions,
-        human_relay: startedRelay,
-        // The structured first page (ADR 0078); the rest are pulled via `setup step`.
-        page: firstPage ?? null,
+  const instructionRefresh = instructionRefreshData(
+    compiled,
+    instructionsErrors,
+  );
+  const setupOk = instructionsCompiled &&
+    instructionRefresh.status === "complete";
+  const resultFields = {
+    verb: "setup" as const,
+    hints: setupHints,
+    data: {
+      // The scaffold succeeded, but SETUP is not done — the agent must now act
+      // on `instructions`. Carry that explicitly so a JSON-consuming agent can't
+      // read `ok: true` / exit 0 as "task complete" (the failure this guards).
+      complete: false,
+      bootstrapped: false,
+      branch: setupBranch ?? null,
+      machinery_committed: machineryCommitted,
+      ...(machineryCommit?.state === "failed"
+        ? { machinery_commit_error: machineryCommit.detail }
+        : {}),
+      next_action:
+        "Work through `data.instructions` (the principles + page 0), pull each next page with `discern setup step <n>`, then run `discern setup done` to finish.",
+      project: {
+        slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
+        agents: cfg?.project.agents ?? [],
       },
+      kit_version: KIT_VERSION,
+      written: scaffold?.written ?? [],
+      instruction_refresh: instructionRefresh,
+      mcp_wired: mcpWired,
+      hooks_wired: hooksWired,
+      worktree_app_wired: worktreeAppWired,
+      project_rules_wired: projectRulesWired,
+      skeletons: laid,
+      skipped,
+      instructions,
+      human_relay: startedRelay,
+      // The structured first page (ADR 0078); the rest are pulled via `setup step`.
+      page: firstPage ?? null,
+    } satisfies SetupData,
+  };
+  const result: DiscernResult<SetupData> = setupOk
+    ? { ok: true, ...resultFields }
+    : {
+      ok: false,
+      error: "partial_refresh",
+      message:
+        `${instructionsErrors.length} required instruction artifact(s) failed; applied scaffold effects remain and data.instruction_refresh names the safe retry.`,
+      ...resultFields,
     };
-    log.result(
-      setupOk ? { ok: true, ...resultFields } : {
-        ok: false,
-        error: "partial_refresh",
-        message:
-          `${instructionsErrors.length} artifact(s) failed to refresh; see data.instructions_errors.`,
-        ...resultFields,
-      },
-    );
-    return 0;
+  if (opts.json) {
+    log.result(result);
+    return result.ok ? 0 : 1;
   }
+
+  observeResult(result);
 
   // Human/agent: everything on stdout (the channel the agent reads) so the frame
   // can't land on a stream it ignores. A loud handoff banner leads — the scaffold
@@ -1828,6 +1836,16 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     { id: "agent-handoff", items: handoffLines },
     { id: "human-relay", items: [relayLine] },
     { id: "scaffold-summary", items: scaffoldLines },
+    ...(!result.ok
+      ? [{
+        id: "required-postcondition-failure",
+        items: [
+          "SETUP IS PARTIAL: required instruction compilation did not complete.",
+          ...instructionsErrors.map((error) => `  ${error}`),
+          "The scaffolded files remain in place. Fix the reported artifact failure, then run `discern refresh` safely.",
+        ],
+      }]
+      : []),
     { id: "setup-brief", items: [thinRule, instructions] },
     {
       id: "completion-guard",
@@ -1848,7 +1866,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   new Logger({ json: false, noColor: false }).line(
     renderHumanOutputGroups(groups),
   );
-  return 0;
+  return result.ok ? 0 : 1;
 }
 
 /**

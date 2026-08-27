@@ -232,6 +232,21 @@ Deno.test("uninstall surfaces incomplete strips when the templates tree can't re
         "each incomplete strip must say why",
       );
     }
+    assertEquals(
+      envelope.advisories?.filter((advisory) =>
+        advisory.kind === "uninstall-strip-incomplete"
+      ).length,
+      incomplete.length,
+    );
+    for (const item of incomplete) {
+      assert(
+        envelope.advisories?.some((advisory) =>
+          advisory.kind === "uninstall-strip-incomplete" &&
+          advisory.evidence.some((evidence) => evidence.includes(item.rel)) &&
+          advisory.next_action.length > 0
+        ) === true,
+      );
+    }
     // The human view says it too (a warning naming the files).
     const human = await runAgent(dir, ["uninstall", "--dry-run"], {
       env: { DISCERN_TEMPLATES_DIR: bogus },

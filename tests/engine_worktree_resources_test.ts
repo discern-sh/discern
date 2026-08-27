@@ -19,6 +19,7 @@ import {
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
@@ -116,8 +117,20 @@ Deno.test("a required create failure aborts setup; required = false does not", a
       join(dir, "m"),
       ['create   = "false"', "required = false"].join("\n"),
     );
-    const setup = await runAgent(wt, ["worktree", "setup"]);
+    const setup = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(setup.code, 0, setup.output);
+    const envelope = decodeCliResult(setup.stdout, "worktree setup");
+    assertEquals(envelope.ok, true);
+    assertEquals(envelope.advisories?.map((advisory) => advisory.kind), [
+      "optional-resource-unavailable",
+    ]);
+    const failedResource = envelope.steps?.find((step) =>
+      step.kind === "resource-create" && step.outcome === "failed"
+    );
+    assertEquals(
+      failedResource?.advisory?.kind,
+      "optional-resource-unavailable",
+    );
   });
 });
 
@@ -153,6 +166,43 @@ Deno.test("accept destroys the worktree's resources before removing it", async (
         `accept did not destroy the resource\n${grad.output}`,
       );
     });
+  });
+});
+
+Deno.test("accept keeps a failed resource teardown green only as a typed cleanup advisory", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "cleanup-advisory");
+    await declareResource(
+      wt,
+      join(dir, "markers"),
+      ['create = "true"', 'destroy = "false"'].join("\n"),
+    );
+    assertEquals((await runAgent(wt, ["worktree", "setup"])).code, 0);
+    await commitCurrentWorktree(wt);
+
+    const accepted = await runAgent(wt, [
+      "accept",
+      "--confirmed",
+      "--json",
+    ]);
+    assertEquals(accepted.code, 0, accepted.output);
+    const envelope = decodeCliResult(accepted.stdout, "accept");
+    assertEquals(envelope.ok, true);
+    assert(envelope.data !== undefined && "landing" in envelope.data);
+    assertEquals(envelope.data.landing?.trunk_landed, true);
+    assertEquals(envelope.data.landing?.worktree_removed, true);
+    assertEquals(envelope.data.landing?.branch_deleted, true);
+    assertEquals(
+      envelope.advisories?.some((advisory) =>
+        advisory.kind === "acceptance-cleanup-incomplete" &&
+        advisory.evidence.some((evidence) => evidence.includes("thing"))
+      ),
+      true,
+    );
+    const teardown = envelope.steps?.find((step) =>
+      step.kind === "resource-destroy" && step.outcome === "failed"
+    );
+    assertEquals(teardown?.advisory?.kind, "acceptance-cleanup-incomplete");
   });
 });
 

@@ -214,9 +214,14 @@ Deno.test("upgrade fills agents from defaults when discern.toml carries no agent
     assertEquals(r.code, 0, r.stderr);
     const res = decodeCliResult(r.stdout, "upgrade");
     assertEquals(res.ok, true);
-    assertResultDataKey(res, "instructions_compiled");
-    assertEquals(res.data.instructions_compiled, true);
-    assertEquals(res.data.agents_written, ["CLAUDE.md", "AGENTS.md"]);
+    assertResultDataKey(res, "instruction_refresh");
+    const refresh = res.data.instruction_refresh;
+    assertExists(refresh);
+    assertEquals(refresh.status, "complete");
+    assertEquals(refresh.compiled, [
+      "CLAUDE.md",
+      "AGENTS.md",
+    ]);
   });
 });
 
@@ -227,17 +232,20 @@ Deno.test("upgrade --json reports a partial refresh as top-level not-ok while ke
     await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
 
     const r = await runCli(["upgrade", "--json"], dir);
-    assertEquals(r.code, 0, r.stderr);
+    assertEquals(r.code, 1, r.stderr);
     const res = decodeCliResult(r.stdout, "upgrade");
     assertEquals(res.ok, false);
     assertEquals(res.error, "partial_refresh");
-    assertResultDataKey(res, "instructions_compiled");
-    assertExists(res.data.instructions_errors);
-    assertEquals(res.data.instructions_compiled, false);
+    assertResultDataKey(res, "instruction_refresh");
+    const refresh = res.data.instruction_refresh;
+    assertExists(refresh);
+    assertEquals(refresh.status, "partial");
+    if (refresh.status !== "partial") return;
     assertStringIncludes(
-      res.data.instructions_errors.join("\n"),
+      refresh.failures.map((failure) => failure.evidence).join("\n"),
       "malformed JSON",
     );
+    assertEquals(refresh.effects_preserved, true);
     assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
     assertEquals(await Deno.readTextFile(join(dir, ".mcp.json")), malformed);
   });

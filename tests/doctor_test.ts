@@ -1711,6 +1711,14 @@ Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure
     assertEquals(wt.status, "warn");
     assertEquals(wt.ok, true);
     assertEquals(wt.warn, true);
+    const advisory = payload.advisories?.find((candidate) =>
+      candidate.kind === "doctor-warning" &&
+      candidate.evidence.some((evidence) =>
+        evidence.includes("worktree automation")
+      )
+    );
+    assert(advisory !== undefined);
+    assertEquals(advisory.next_action, wt.fix);
   });
 });
 

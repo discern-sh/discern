@@ -68,11 +68,12 @@ Deno.test("setup --json scaffolds and reports JSON", async () => {
     assert(Array.isArray(result.data.written));
     // The whole machinery footprint is the single root config file (ADR 0020).
     assert(result.data.written.includes("discern.toml"));
-    // setup compiles the agent files; `compiled` lists them.
-    assertExists(result.data.compiled);
-    assert(Array.isArray(result.data.compiled));
-    assert(result.data.compiled.includes("AGENTS.md"));
-    assert(result.data.compiled.includes("CLAUDE.md"));
+    // setup reports an explicit required refresh outcome; an empty compiled
+    // list would mean already-current, never an unknown state.
+    assertExists(result.data.instruction_refresh);
+    assertEquals(result.data.instruction_refresh.status, "complete");
+    assert(result.data.instruction_refresh.compiled.includes("AGENTS.md"));
+    assert(result.data.instruction_refresh.compiled.includes("CLAUDE.md"));
     // It also lays the doc skeletons; `skeletons` lists them, and it prints the
     // agent instructions inline.
     assertExists(result.data.skeletons);
@@ -155,10 +156,11 @@ Deno.test("setup --force re-scaffolds an existing install without erroring", asy
     // The existing config seed is left as-is (a present seed is skipped), so it
     // is not in the written list.
     assert(!result.data.written.includes("discern.toml"));
-    // The agent files are recompiled on every run, so `compiled` lists them.
-    assertExists(result.data.compiled);
-    assert(result.data.compiled.includes("AGENTS.md"));
-    assert(result.data.compiled.includes("CLAUDE.md"));
+    // The required refresh outcome distinguishes success from an empty change set.
+    assertExists(result.data.instruction_refresh);
+    assertEquals(result.data.instruction_refresh.status, "complete");
+    assert(result.data.instruction_refresh.compiled.includes("AGENTS.md"));
+    assert(result.data.instruction_refresh.compiled.includes("CLAUDE.md"));
   });
 });
 

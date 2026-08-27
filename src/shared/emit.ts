@@ -14,6 +14,7 @@
  */
 
 import type { DiscernResult } from "./result.ts";
+import { evaluateResultCompletion } from "./result_completion.ts";
 import { serializeResult } from "./result_serialization.ts";
 import { observeResult } from "./result_capture.ts";
 import { withFailureRecoveryHint } from "./hints.ts";
@@ -69,7 +70,7 @@ export function setResultMarkdownTerminalRenderer(
  * observed-result seam, so the logbook recorder can lift per-step timings from
  * the same envelope the caller received. */
 export function emitResult(result: DiscernResult): void {
-  const prepared = withFailureRecoveryHint(result);
+  const prepared = withFailureRecoveryHint(evaluateResultCompletion(result));
   observeResult(prepared);
   const serialized = serializeResult(prepared);
   const presenter = activeResultOutputFormat === "markdown"

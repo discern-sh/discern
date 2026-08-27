@@ -703,6 +703,18 @@ Deno.test("proof-note fetch reconciliation migrates managed exact mappings and e
       landing.result.data.proof_note.write.status,
       "recorded",
     );
+    assertEquals(
+      landing.result.advisories?.some((advisory) =>
+        advisory.kind === "proof-recording-unavailable" &&
+        advisory.evidence.includes(error)
+      ),
+      true,
+    );
+    const fetchStep = landing.result.steps?.find((step) =>
+      step.label === "reconcile-proof-note-fetch"
+    );
+    assertEquals(fetchStep?.outcome, "failed");
+    assertEquals(fetchStep?.advisory?.kind, "proof-recording-unavailable");
     assertLacksHint(
       landing.result,
       HINTS["accept-publish-proof-note"],

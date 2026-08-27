@@ -14,6 +14,7 @@ import {
 } from "./hints.ts";
 import { containsCommandRefTokens } from "./command_reference.ts";
 import { type DiscernResult, planToJson, stepResultToJson } from "./result.ts";
+import { evaluateResultCompletion } from "./result_completion.ts";
 import { resultWireProjectorForVerb } from "./result_wire.ts";
 
 /**
@@ -22,7 +23,8 @@ import { resultWireProjectorForVerb } from "./result_wire.ts";
  * `next-step` hint: the boundary refuses silent or merely descriptive failures
  * before any serialized result surface can emit one.
  */
-export function serializeResult(r: DiscernResult): Record<string, unknown> {
+export function serializeResult(input: DiscernResult): Record<string, unknown> {
+  const r = evaluateResultCompletion(input);
   if (
     !r.ok && hasGenericFailureRecoveryHint(r.hints) &&
     failureRecoveryMode(r) !== "evidence"
@@ -71,6 +73,9 @@ export function serializeResult(r: DiscernResult): Record<string, unknown> {
   }
   if (r.hints !== undefined && r.hints.length > 0) {
     out.hints = r.hints;
+  }
+  if (r.advisories !== undefined && r.advisories.length > 0) {
+    out.advisories = r.advisories;
   }
   if (r.error !== undefined) {
     out.error = r.error;

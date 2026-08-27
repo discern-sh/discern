@@ -19,6 +19,7 @@
 
 import { type FiredHint, firedHintsFromTexts } from "./hints.ts";
 import type { DiscernResult } from "./result.ts";
+import { evaluateResultCompletion } from "./result_completion.ts";
 
 /** The envelope plus its local-only hint identities. */
 export interface ObservedResult {
@@ -31,12 +32,32 @@ let observed: ObservedResult | undefined;
 /** Report an invocation's final result envelope (latest call wins). */
 export function observeResult(
   result: DiscernResult,
-  firedHints: readonly FiredHint[] = firedHintsFromTexts(result.hints),
-): void {
+  firedHints?: readonly FiredHint[],
+): DiscernResult {
+  const completed = evaluateResultCompletion(result);
+  // Human-mode entry points keep rendering the object they just observed.
+  // Normalize that same object before returning so their verdict cannot lag
+  // behind the JSON/MCP completion boundary. Evaluation never upgrades a
+  // failed result or removes effect evidence; it only adds typed advisories or
+  // downgrades a lying success with its classified failure.
+  const mutable = result as DiscernResult & {
+    ok: boolean;
+    advisories?: DiscernResult["advisories"];
+    error?: DiscernResult["error"];
+    message?: string;
+  };
+  mutable.ok = completed.ok;
+  if (completed.advisories !== undefined) {
+    mutable.advisories = completed.advisories;
+  }
+  if (completed.error !== undefined) mutable.error = completed.error;
+  if (completed.message !== undefined) mutable.message = completed.message;
+  const resolvedHints = firedHints ?? firedHintsFromTexts(completed.hints);
   observed = {
     result,
-    hintIds: [...new Set(firedHints.map((hint) => hint.id))],
+    hintIds: [...new Set(resolvedHints.map((hint) => hint.id))],
   };
+  return result;
 }
 
 /** Take (and clear) the observed envelope, or undefined when none surfaced. */

@@ -35,6 +35,7 @@ import {
   notInitializedResult,
 } from "../../shared/env.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { evaluateResultCompletion } from "../../shared/result_completion.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import {
   type SecureEntropy,
@@ -1436,19 +1437,22 @@ interface ToolResult {
   isError: boolean;
 }
 
-/** Render one prepared result as authored Markdown plus compact structured data. */
-function renderResult(result: DiscernResult): ToolResult {
-  const serialized = serializeResult(result);
+/** Render one result as authored Markdown plus compact structured data. */
+export function renderMcpResult(result: DiscernResult): ToolResult {
+  const completed = withFailureRecoveryHint(
+    evaluateResultCompletion(result),
+  );
+  const serialized = serializeResult(completed);
   return {
     content: [{
       type: "text",
       text: renderResultMarkdown(
         serialized,
-        resultPresenterForVerb(result.verb),
+        resultPresenterForVerb(completed.verb),
       ),
     }],
     structuredContent: serialized,
-    isError: !result.ok,
+    isError: !completed.ok,
   };
 }
 
@@ -1678,7 +1682,9 @@ async function completeToolCall(
   pending: PendingToolCall,
   stale: FiredHint | undefined,
 ): Promise<ToolResult> {
-  const prepared = withFailureRecoveryHint(pending.result);
+  const prepared = withFailureRecoveryHint(
+    evaluateResultCompletion(pending.result),
+  );
   const withStale = stale === undefined
     ? prepared
     : prependHint(prepared, stale);
@@ -1721,7 +1727,7 @@ async function completeToolCall(
       ...(pending.crash !== undefined ? { crash: pending.crash } : {}),
     });
   }
-  return renderResult(result);
+  return renderMcpResult(result);
 }
 
 /**

@@ -567,6 +567,31 @@ function renderOtherActions(items: readonly ActionItem[]): string {
   return deferred;
 }
 
+/** Project typed optional degradations without asking a verb presenter to parse them. */
+function completionAdvisorySections(
+  result: Readonly<Record<string, unknown>>,
+): { evidence: string[]; action: ActionItem[] } {
+  const evidence: string[] = [];
+  const action: ActionItem[] = [];
+  for (const advisory of records(result.advisories)) {
+    const kind = text(advisory.kind);
+    const details = strings(advisory.evidence);
+    const next = text(advisory.next_action);
+    if (kind !== undefined && details.length > 0) {
+      evidence.push(
+        `Advisory ${code(kind)}: ${details.join("; ")}`,
+      );
+    }
+    if (next !== undefined) {
+      action.push({
+        text: next,
+        family: `completion-advisory:${kind ?? "unknown"}`,
+      });
+    }
+  }
+  return { evidence, action };
+}
+
 /** Render one contract's authored projection in the fixed agent-reading order. */
 export function renderResultMarkdown(
   result: Readonly<Record<string, unknown>>,
@@ -580,9 +605,11 @@ export function renderResultMarkdown(
     : presenter(result);
   const envelope = envelopeEvidence(result);
   const hints = hintSections(result);
+  const advisories = completionAdvisorySections(result);
   const evidence = unique([
     ...(presented.evidence ?? []),
     ...envelope.facts,
+    ...advisories.evidence,
     ...hints.evidence,
   ]);
   const supporting = uniqueVerbatim([
@@ -605,6 +632,7 @@ export function renderResultMarkdown(
         text,
         family: undefined,
       })),
+      ...advisories.action,
       ...hints.action,
     ]
   ) {
@@ -656,6 +684,7 @@ const presentSetup: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const project = object(data.project);
   const progress = object(data.progress);
+  const instructionRefresh = object(data.instruction_refresh);
   const plan = records(data.plan);
   const action = result.error === "awaiting_consent"
     ? undefined
@@ -687,8 +716,11 @@ const presentSetup: ResultMarkdownPresenter = (result) => {
       ),
       listFact(
         result.dry_run === true ? "Would compile agent files" : "Agent files",
-        strings(data.compiled),
+        strings(instructionRefresh?.compiled),
       ),
+      text(instructionRefresh?.status) === undefined
+        ? undefined
+        : `Instruction refresh: ${code(instructionRefresh?.status)}.`,
     ]),
     supportingMarkdown: instructions,
     action: action === undefined ? [] : [action],
@@ -917,6 +949,7 @@ const presentSetupAccept: ResultMarkdownPresenter = (result) => {
 const presentUpgrade: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const schema = object(data.schema);
+  const instructionRefresh = object(data.instruction_refresh);
   return {
     state: defaultState(result),
     evidence: unique([
@@ -939,8 +972,11 @@ const presentUpgrade: ResultMarkdownPresenter = (result) => {
         result.dry_run === true
           ? "Would generate agent files"
           : "Generated agent files",
-        strings(data.agents_written),
+        strings(instructionRefresh?.compiled),
       ),
+      text(instructionRefresh?.status) === undefined
+        ? undefined
+        : `Instruction refresh: ${code(instructionRefresh?.status)}.`,
     ]),
   };
 };

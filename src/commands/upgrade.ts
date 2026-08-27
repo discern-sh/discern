@@ -75,6 +75,11 @@ import {
   mergeHintTexts,
 } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
+import type { DiscernResult } from "../shared/result.ts";
+import {
+  instructionRefreshData,
+  type UpgradeData,
+} from "../shared/result_schemas.ts";
 import { TomlFormatError, writeDiscernToml } from "../lib/tidy_format.ts";
 
 /** Options accepted by the `upgrade` command. */
@@ -234,7 +239,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           pending_gitattributes_reconciliation:
             pendingGitattributesReconciliationJson,
           untranslated_gitattributes_patterns:
-            currentGitattributesReconciliation.refused,
+            currentGitattributesReconciliation.refused.map(
+              refusedGitattributesPatternToJson,
+            ),
         },
       };
       log.result(
@@ -316,7 +323,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           pending_gitattributes_reconciliation:
             pendingGitattributesReconciliationJson,
           untranslated_gitattributes_patterns:
-            currentGitattributesReconciliation.refused,
+            currentGitattributesReconciliation.refused.map(
+              refusedGitattributesPatternToJson,
+            ),
         },
       });
     } else {
@@ -546,8 +555,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   );
 
   // 2. Recompile the instructions (re-materializes skills + writes agent files).
-  // A failure here is non-fatal to the upgrade — the
-  // schema is still stamped — but it is reported.
+  // A failure here does not roll back applied migrations or the schema stamp,
+  // but it makes the completion contract false and reports a safe refresh retry.
   let instructions: InstructionsResult | undefined;
   let thrownInstructionsError: string | undefined;
   try {
@@ -572,64 +581,69 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       `instruction refresh did not fully complete: ${instructionsErrors.length} artifact(s) failed.`,
     );
   }
+  const instructionRefresh = instructionRefreshData(
+    instructions?.agentsWritten ?? [],
+    instructionsErrors,
+  );
   const fullyCompiled = instructions !== undefined &&
-    instructionsErrors.length === 0;
+    instructionRefresh.status === "complete";
 
   // 3. Stamp the new schema version into the config (now at its migrated path).
   await stampSchema(newConfigPath, currentSchema);
 
-  if (options.json) {
-    const resultFields = {
-      verb: "upgrade",
-      hints: mergeHintTexts(
-        instructions?.hints ?? [],
-        hintTexts([newerDiscernHint(), restartAgentsHint()]),
+  const resultFields = {
+    verb: "upgrade" as const,
+    hints: mergeHintTexts(
+      instructions?.hints ?? [],
+      hintTexts([newerDiscernHint(), restartAgentsHint()]),
+    ),
+    data: {
+      kit_version: KIT_VERSION,
+      // `from` is the pre-upgrade schema; the install now records `current`
+      // (the stamp ran above), so reporting it as still "recorded" would mislead.
+      schema: { from: migrateFrom, current: currentSchema },
+      migrations_applied: applied.map((m) => ({
+        from: m.from,
+        to: m.from + 1,
+        describe: m.describe,
+      })),
+      config_reconciled: reconciliation.operations.map(operationToJson),
+      config_template_available: reconciliation.templateAvailable,
+      gitignore_reconciled: gitignoreReconciliation.operations.map(
+        gitignoreOperationToJson,
       ),
-      data: {
-        kit_version: KIT_VERSION,
-        // `from` is the pre-upgrade schema; the install now records `current`
-        // (the stamp ran above), so reporting it as still "recorded" would mislead.
-        schema: { from: migrateFrom, current: currentSchema },
-        migrations_applied: applied.map((m) => ({
-          from: m.from,
-          to: m.from + 1,
-          describe: m.describe,
-        })),
-        config_reconciled: reconciliation.operations.map(operationToJson),
-        config_template_available: reconciliation.templateAvailable,
-        gitignore_reconciled: gitignoreReconciliation.operations.map(
-          gitignoreOperationToJson,
+      gitignore_template_available: gitignoreReconciliation.templateAvailable,
+      gitattributes_reconciled: gitattributesReconciliation.operations.map(
+        gitattributesOperationToJson,
+      ),
+      untranslated_gitattributes_patterns: gitattributesReconciliation.refused
+        .map(
+          refusedGitattributesPatternToJson,
         ),
-        gitignore_template_available: gitignoreReconciliation.templateAvailable,
-        gitattributes_reconciled: gitattributesReconciliation.operations.map(
-          gitattributesOperationToJson,
-        ),
-        untranslated_gitattributes_patterns:
-          gitattributesReconciliation.refused,
-        skills: instructions === undefined ? null : {
-          copied: instructions.skillsCopied,
-          linked: instructions.skillsLinked,
-          pruned: instructions.skillsPruned,
-        },
-        agents_written: instructions?.agentsWritten ?? [],
-        mcp_wired: instructions?.mcpWired ?? [],
-        hooks_wired: instructions?.hooksWired ?? [],
-        worktree_app_wired: instructions?.worktreeAppWired ?? [],
-        project_rules_wired: instructions?.projectRulesWired ?? [],
-        instructions_compiled: fullyCompiled,
-        instructions_errors: instructionsErrors,
+      skills: instructions === undefined ? null : {
+        copied: instructions.skillsCopied,
+        linked: instructions.skillsLinked,
+        pruned: instructions.skillsPruned,
       },
+      instruction_refresh: instructionRefresh,
+      mcp_wired: instructions?.mcpWired ?? [],
+      hooks_wired: instructions?.hooksWired ?? [],
+      worktree_app_wired: instructions?.worktreeAppWired ?? [],
+      project_rules_wired: instructions?.projectRulesWired ?? [],
+    } satisfies UpgradeData,
+  };
+  const result: DiscernResult<UpgradeData> = fullyCompiled
+    ? { ok: true, ...resultFields }
+    : {
+      ok: false,
+      error: "partial_refresh",
+      message:
+        `${instructionsErrors.length} required instruction artifact(s) failed; applied migrations and the schema stamp remain, and data.instruction_refresh names the safe retry.`,
+      ...resultFields,
     };
-    log.result(
-      fullyCompiled ? { ok: true, ...resultFields } : {
-        ok: false,
-        error: "partial_refresh",
-        message:
-          `${instructionsErrors.length} artifact(s) failed to refresh; see data.instructions_errors.`,
-        ...resultFields,
-      },
-    );
-    return 0;
+  if (options.json) {
+    log.result(result);
+    return result.ok ? 0 : 1;
   }
 
   if (applied.length > 0) {
@@ -638,18 +652,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
     }
   }
-  const observedFields = {
-    verb: "upgrade",
-    hints: mergeHintTexts(
-      instructions?.hints ?? [],
-      hintTexts([newerDiscernHint(), restartAgentsHint()]),
-    ),
-  };
-  observeResult(
-    fullyCompiled
-      ? { ok: true, ...observedFields }
-      : { ok: false, ...observedFields },
-  );
+  observeResult(result);
   renderUpgradeSummary(
     log,
     instructions,
@@ -658,8 +661,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     gitignoreReconciliation.operations,
     gitattributesReconciliation.operations,
     currentSchema,
+    instructionsErrors,
   );
-  return 0;
+  return result.ok ? 0 : 1;
 }
 
 /** Emit the surface-appropriate refusal for a config schema newer than this binary. */
@@ -726,6 +730,7 @@ function renderUpgradeSummary(
   gitignoreReconciliation: GitignoreReconcileOperation[],
   gitattributesReconciliation: GitattributesReconcileOperation[],
   currentSchema: number,
+  instructionErrors: readonly string[],
 ): void {
   log.heading("Upgrade summary");
   if (migrationCount > 0) {
@@ -758,10 +763,21 @@ function renderUpgradeSummary(
         instructions.skillsCopied + instructions.skillsLinked
       } (${instructions.skillsCopied} bundled, ${instructions.skillsLinked} authored)`,
     );
-    log.ok(
-      instructions.agentsWritten.length > 0
-        ? `instructions recompiled: ${instructions.agentsWritten.join(", ")}`
-        : "instructions: nothing to compile",
+    if (instructionErrors.length === 0) {
+      log.ok(
+        instructions.agentsWritten.length > 0
+          ? `instructions recompiled: ${instructions.agentsWritten.join(", ")}`
+          : "instructions: already current",
+      );
+    }
+  }
+  if (instructionErrors.length > 0) {
+    log.error(
+      "Upgrade is partial: required instruction compilation did not complete.",
+    );
+    for (const error of instructionErrors) log.detail(error);
+    log.info(
+      "Applied migrations and the schema stamp remain. Fix the reported artifact failure, then run `discern refresh` safely.",
     );
   }
   log.ok(`install stamped at schema ${currentSchema}`);
@@ -806,6 +822,17 @@ function gitattributesOperationToJson(op: GitattributesReconcileOperation): {
   path: string;
 } {
   return { kind: op.kind, path: op.path };
+}
+
+/** Preserve a refused generated-path declaration as stable public evidence. */
+function refusedGitattributesPatternToJson(
+  refused: RefusedGitattributesPattern,
+): { group: string; pattern: string; reason: string } {
+  return {
+    group: refusedGitattributesPatternLabel(refused),
+    pattern: refused.pattern,
+    reason: refused.reason,
+  };
 }
 
 /** Describe a config reconciliation operation for the human upgrade summary. */

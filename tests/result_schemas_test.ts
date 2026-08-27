@@ -196,6 +196,11 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
       fix_available: true,
     }],
     data: { anything: 1 },
+    advisories: [{
+      kind: "doctor-warning",
+      evidence: ["A non-blocking check needs attention."],
+      next_action: "Review the check before relying on it.",
+    }],
     hints: hintTexts([fire(HINTS["failure-recovery"], { verb: "demo" })]),
     error: "internal_error",
     message: "msg",

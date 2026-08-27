@@ -10,6 +10,10 @@
 import type { z } from "@zod/zod";
 import type { Command } from "@cliffy/command";
 import {
+  RESULT_COMPLETION_POLICY_DEFINITIONS,
+  type ResultCompletionPolicy,
+} from "./result_completion.ts";
+import {
   RESULT_MARKDOWN_PRESENTERS,
   type ResultMarkdownPresenter,
 } from "./result_markdown.ts";
@@ -504,6 +508,11 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
 /** The literal registry union retained for command-to-schema type inference. */
 export type RegisteredCliJsonResultContract =
   (typeof CLI_JSON_RESULT_CONTRACT_DEFINITIONS)[number];
+
+/** A new public result discriminator cannot compile without a completion policy. */
+export const RESULT_COMPLETION_POLICY_PARITY: Readonly<
+  Record<RegisteredCliJsonResultContract["verb"], ResultCompletionPolicy>
+> = RESULT_COMPLETION_POLICY_DEFINITIONS;
 
 /** Public runtime registry, widened to the stable result-contract interface. */
 export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] =

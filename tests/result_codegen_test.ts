@@ -31,6 +31,7 @@ import {
   RESULT_SCHEMA_ID,
 } from "../src/shared/public_schemas.ts";
 import { ERROR_SLUGS } from "../src/shared/result.ts";
+import { RESULT_COMPLETION_POLICIES } from "../src/shared/result_completion.ts";
 import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 import type { DiscernTidyResult } from "../types/discern-json.d.ts";
@@ -268,6 +269,17 @@ Deno.test("result contract metadata uses only the canonical schema-reference fie
       isRecord(value) && value.id === contract.id
     );
     assert(isRecord(generated), `${contract.id} should publish metadata`);
+    const policy = RESULT_COMPLETION_POLICIES[contract.verb];
+    assert(policy !== undefined);
+    assertEquals(generated.completionPolicy, {
+      requiredPostconditions: [...policy.requiredPostconditions],
+      optionalAdvisories: [...policy.optionalAdvisories],
+      refusal: policy.refusal,
+      cancellation: policy.cancellation,
+      partialEffect: policy.partialEffect,
+      noOp: policy.noOp,
+      recoveryOwner: policy.recoveryOwner,
+    });
     const referenceFields = Object.entries(generated)
       .filter(([, value]) =>
         typeof value === "string" && value.startsWith("#/$defs/")
