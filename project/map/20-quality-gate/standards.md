@@ -65,6 +65,8 @@ The `process_output_boundaries` and `process_exit_boundaries` Standards hold exa
 
 The `detached_promise_boundaries` Standard follows the same validate-then-measure shape. Its task first type-checks every promise-like expression statement in the Git-derived production universe, then binds each registered `detachPromise` call to one row naming lifecycle, rejection, and shutdown ownership. Only a clean type scan and exact two-way registry parity emit the falling population ([ADR 0345](../_adr/0345-promise-effects-have-typed-owners.md)).
 
+Ambient process and timing boundaries also validate before measurement. `ambient_read_operations` counts exact environment and cwd operations while `ambient_read_boundaries` preserves the earlier module ceiling; `ambient_mutation_boundaries` remains separate. `clock_primitive_boundaries`, `scheduler_primitive_boundaries`, and `scheduling_jitter_boundaries` count only the system adapters' direct host operations. The shared command emits these falling populations only after path, enclosing function, primitive, operation, stable id, and live call sites agree in both directions. A new primitive cannot trade places with a stale row while leaving a misleadingly level count ([ADR 0347](../_adr/0347-clock-scheduler-and-jitter-are-explicit-capabilities.md)).
+
 ## What the Gate does
 
 The Gate checks normalized definitions and limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Definition and limit checks never defer. A Standard with a live proposed limit measures fresh even when ordinary policy would replay or defer it. The reading must equal the proposal. `discern prepare` skips measurement.

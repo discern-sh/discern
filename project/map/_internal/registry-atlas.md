@@ -90,7 +90,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 336     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 337     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -108,14 +108,18 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 26      | —                | —                           |
+| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 56      | —                | —                           |
+| [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
+| [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
+| [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
 | [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 190     | —                | —                           |
 | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 8       | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 102     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 106     | —                | node `canonical-sets`       |
 
-102 sets · 156 guard tests · 58 committed artifacts.
+106 sets · 158 guard tests · 58 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -132,6 +136,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/agent_parity_test.ts`                       | [`agent-providers`](#agent-providers--agent-providers)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/agent_policy_parity_test.ts`                | [`operating-policies`](#operating-policies--operating-policies)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/agent_surface_contracts_test.ts`            | [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/ambient_state_lint_test.ts`                 | [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries), [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries), [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries), [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                                                                                                                                                                                                                                                     |
 | `tests/art_browser_gallery_test.ts`                | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/art_gallery_test.ts`                        | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants), [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs), [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/artifact_ownership_test.ts`                 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -163,6 +168,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/checkpoints_subject_test.ts`                | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/checkpoints_trigger_vocabulary_test.ts`     | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/cli_reference_codegen_test.ts`              | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `tests/clock_scheduler_test.ts`                    | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries), [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries), [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                                                                                                                                                                                                                                                                                                                                                |
 | `tests/config_banner_parity_test.ts`               | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `tests/config_codegen_test.ts`                     | [`jobs`](#jobs--gate-jobs), [`config-tables`](#config-tables--config-tables), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/config_command_test.ts`                     | [`jobs`](#jobs--gate-jobs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -2688,7 +2694,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 336
+- Members: 337
   - `0003`
   - `0005`
   - `0006`
@@ -3003,6 +3009,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0344`
   - `0345`
   - `0346`
+  - `0347`
   - `0001`
   - `0002`
   - `0004`
@@ -3423,6 +3430,113 @@ Every genuine wall-clock interval in executable tests, with its exact module, en
 - Glossary: not enrolled — real test-delay enrollment is a repository development boundary rather than product vocabulary
 - Feature canon: not enrolled — the condition-oriented waiting capability supports this repository and is not part of the shipped discern binary
 
+## `ambient-state-boundaries` — Ambient process-state boundaries
+
+Every direct environment or cwd read and mutation retained at a host boundary, with its stable id, exact path, enclosing function, primitive, semantic operation, and reason.
+
+- Source: `scripts/ambient_state_lint.ts` — `AMBIENT_READ_BOUNDARIES`
+- Members: 56
+  - `read:canon-editor-port`
+  - `read:checkpoint-input-path`
+  - `read:cli-install-home`
+  - `read:cli-install-path`
+  - `read:config-edit-plan-cwd`
+  - `read:dev-wrapper-path`
+  - `read:docs-browser-path`
+  - `read:docs-pager-command`
+  - `read:docs-root-cwd`
+  - `read:doctor-checks-cwd`
+  - `read:doctor-command-cwd`
+  - `read:engine-checkpoint-fixture-path`
+  - `read:engine-desk-runtime-cwd`
+  - `read:engine-gate-timeout-fast-job-cwd`
+  - `read:engine-gate-timeout-unbounded-job-cwd`
+  - `read:engine-gate-timeout-zero-override-cwd`
+  - `read:engine-helper-path`
+  - `read:engine-mcp-call-timeout`
+  - `read:engine-mcp-readiness-timeout`
+  - `read:engine-setup-done-path`
+  - `read:engine-setup-page-cwd`
+  - `read:feature-benefit-checkpoint-cwd`
+  - `read:gate-execute-cwd`
+  - `read:jobs-runner-cwd`
+  - `read:logbook-cli-ci-marker`
+  - `read:logbook-cli-operation-cwd`
+  - `read:logbook-cli-recording-cwd`
+  - `read:logbook-cli-spawned-by-marker`
+  - `read:main-crash-cwd`
+  - `read:mcp-ci-marker`
+  - `read:mcp-dispatch-cwd`
+  - `read:preset-command-cwd`
+  - `read:preset-source-override`
+  - `read:private-docs-checkout-root-cwd`
+  - `read:private-docs-git-query-cwd`
+  - `read:private-docs-main-root-cwd`
+  - `read:pty-process-path`
+  - `read:public-doc-checkpoint-cwd`
+  - `read:setup-command-cwd`
+  - `read:setup-gitattributes-environment`
+  - `read:setup-page-tokens-environment`
+  - `read:setup-verify-cwd`
+  - `read:setup-welcome-branch-cwd`
+  - `read:setup-welcome-git-cwd`
+  - `read:shell-picker-cwd-adapter`
+  - `read:site-design-system-path`
+  - `read:site-development-port`
+  - `read:site-production-port`
+  - `read:site-specimen-port`
+  - `read:subprocess-first-stdin-cwd`
+  - `read:subprocess-second-stdin-cwd`
+  - `read:terminal-capture-cwd`
+  - `read:uninstall-command-cwd`
+  - `read:upgrade-command-cwd`
+  - `read:verb-dispatch-cwd`
+  - `read:worktree-remove-helper-cwd`
+- Guards: `tests/ambient_state_lint_test.ts`
+- Glossary: not enrolled — ambient process-state enrollment is an internal architecture boundary rather than user-facing vocabulary
+- Feature canon: not enrolled — the boundary supports every host-facing feature rather than adding a separately selectable capability
+
+## `clock-primitive-boundaries` — Clock primitive boundaries
+
+Every direct wall or monotonic host-clock read, with its stable id, exact path, enclosing function, operation, and reason.
+
+- Source: `src/shared/clock.ts` — `CLOCK_PRIMITIVE_BOUNDARIES`
+- Members: 2
+  - `system-monotonic-clock-read`
+  - `system-wall-clock-read`
+- Guards: `tests/ambient_state_lint_test.ts`, `tests/clock_scheduler_test.ts`
+- Glossary: not enrolled — clock primitive enrollment is an internal architecture boundary rather than user-facing vocabulary
+- Feature canon: not enrolled — the clock capability supports time-aware features rather than adding a separately selectable capability
+
+## `scheduler-primitive-boundaries` — Scheduler primitive boundaries
+
+Every direct timeout or interval schedule and cancellation operation in the Deno and browser system adapters, with its stable id, exact path, enclosing function, operation, and reason.
+
+- Source: `src/shared/scheduler.ts` — `SCHEDULER_PRIMITIVE_BOUNDARIES`
+- Members: 8
+  - `browser-system-interval-cancel`
+  - `browser-system-interval-schedule`
+  - `browser-system-timeout-cancel`
+  - `browser-system-timeout-schedule`
+  - `system-interval-cancel`
+  - `system-interval-schedule`
+  - `system-timeout-cancel`
+  - `system-timeout-schedule`
+- Guards: `tests/ambient_state_lint_test.ts`, `tests/clock_scheduler_test.ts`
+- Glossary: not enrolled — scheduler primitive enrollment is an internal architecture boundary rather than user-facing vocabulary
+- Feature canon: not enrolled — the scheduler capability supports asynchronous lifecycles rather than adding a separately selectable capability
+
+## `scheduling-jitter-boundaries` — Scheduling-jitter boundaries
+
+Every direct pseudo-random read retained for non-security scheduling variation, with its stable id, exact path, enclosing function, operation, and reason.
+
+- Source: `src/shared/scheduler.ts` — `JITTER_PRIMITIVE_BOUNDARIES`
+- Members: 1
+  - `system-scheduling-jitter-read`
+- Guards: `tests/ambient_state_lint_test.ts`, `tests/clock_scheduler_test.ts`
+- Glossary: not enrolled — scheduling-jitter enrollment is an internal architecture boundary rather than user-facing vocabulary
+- Feature canon: not enrolled — bounded scheduling variation supports fleet coordination rather than adding a separately selectable capability
+
 ## `best-effort-boundaries` — Error-discard boundaries
 
 Every named production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.
@@ -3691,7 +3805,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 102
+- Members: 106
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -3788,6 +3902,10 @@ This meta-registry: the closed set of closed sets.
   - `canary-tests`
   - `temp-directory-creator-authorities`
   - `test-real-delay-boundaries`
+  - `ambient-state-boundaries`
+  - `clock-primitive-boundaries`
+  - `scheduler-primitive-boundaries`
+  - `scheduling-jitter-boundaries`
   - `best-effort-boundaries`
   - `detached-promise-boundaries`
   - `tool-temp-directory-kinds`

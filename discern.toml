@@ -1054,10 +1054,8 @@
       "deno.lock",
     ]
 
-  # Ambient-read boundary standard — direct Deno.env/Deno.cwd composition stays
-  # in the syntax-aware registry, while default-parameter reads remain ordinary
-  # injectable seams. The raw module count is an invariant: new host boundaries
-  # need an owner decision, and removing one permanently lowers the ceiling.
+  # Ambient-read module standard — counts distinct boundary modules separately
+  # so the operation registry cannot trade more modules for fewer calls.
   [standards.ambient_read_boundaries]
     direction = "down"
     limit = 38
@@ -1068,8 +1066,21 @@
       "deno.json",
     ]
 
+  # Ambient-read operation standard — every direct Deno.env/Deno.cwd read has a
+  # stable path/function/operation id. The structural guard binds rows and calls
+  # both ways; this ceiling makes every added operation an owner decision.
+  [standards.ambient_read_operations]
+    direction = "down"
+    limit = 56
+    run = "deno task ambient-boundaries"
+    inputs = [
+      "scripts/ambient_state_lint.ts",
+      "scripts/ambient_state_boundary_counts.ts",
+      "deno.json",
+    ]
+
   # Process-environment mutation boundary standard — the explicit registry is
-  # empty after the landing-refresh migration. The zero ceiling prevents a
+  # empty while no unavoidable mutation exists. The zero ceiling prevents a
   # future Deno.env.set/delete exception from being added on a feature branch;
   # the lint rule separately rejects every unregistered call.
   [standards.ambient_mutation_boundaries]
@@ -1079,6 +1090,46 @@
     inputs = [
       "scripts/ambient_state_lint.ts",
       "scripts/ambient_state_boundary_counts.ts",
+      "deno.json",
+    ]
+
+  # Clock authority standard — direct wall and monotonic reads are confined to
+  # the system clock, and the structural guard rejects every unregistered call.
+  [standards.clock_primitive_boundaries]
+    direction = "down"
+    limit = 2
+    run = "deno task ambient-boundaries"
+    inputs = [
+      "scripts/ambient_state_lint.ts",
+      "scripts/ambient_state_boundary_counts.ts",
+      "src/shared/clock.ts",
+      "deno.json",
+    ]
+
+  # Scheduler authority standard — the Deno and browser adapters each own the
+  # host's four schedule/cancel operations; application code injects the seam.
+  [standards.scheduler_primitive_boundaries]
+    direction = "down"
+    limit = 8
+    run = "deno task ambient-boundaries"
+    inputs = [
+      "scripts/ambient_state_lint.ts",
+      "scripts/ambient_state_boundary_counts.ts",
+      "site/pages/assets/scheduler.js",
+      "src/shared/scheduler.ts",
+      "deno.json",
+    ]
+
+  # Scheduling-jitter authority standard — Math.random is retained only for
+  # bounded retry variation and is never an entropy source for identities.
+  [standards.scheduling_jitter_boundaries]
+    direction = "down"
+    limit = 1
+    run = "deno task ambient-boundaries"
+    inputs = [
+      "scripts/ambient_state_lint.ts",
+      "scripts/ambient_state_boundary_counts.ts",
+      "src/shared/scheduler.ts",
       "deno.json",
     ]
 

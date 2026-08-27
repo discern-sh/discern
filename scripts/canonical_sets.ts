@@ -3017,6 +3017,133 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "ambient-state-boundaries",
+    title: "Ambient process-state boundaries",
+    what:
+      "Every direct environment or cwd read and mutation retained at a host boundary, with its stable id, exact path, enclosing function, primitive, semantic operation, and reason.",
+    source: {
+      kind: "module",
+      module: "scripts/ambient_state_lint.ts",
+      exportName: "AMBIENT_READ_BOUNDARIES",
+    },
+    guards: ["tests/ambient_state_lint_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "ambient process-state enrollment is an internal architecture boundary rather than user-facing vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the boundary supports every host-facing feature rather than adding a separately selectable capability",
+      },
+    },
+    members: async () => {
+      const boundaries = await import("./ambient_state_lint.ts");
+      return [
+        ...Object.keys(boundaries.AMBIENT_READ_BOUNDARIES).map((id) =>
+          `read:${id}`
+        ),
+        ...Object.keys(boundaries.AMBIENT_MUTATION_BOUNDARIES).map((id) =>
+          `mutation:${id}`
+        ),
+      ];
+    },
+  },
+  {
+    id: "clock-primitive-boundaries",
+    title: "Clock primitive boundaries",
+    what:
+      "Every direct wall or monotonic host-clock read, with its stable id, exact path, enclosing function, operation, and reason.",
+    source: {
+      kind: "module",
+      module: "src/shared/clock.ts",
+      exportName: "CLOCK_PRIMITIVE_BOUNDARIES",
+    },
+    guards: [
+      "tests/ambient_state_lint_test.ts",
+      "tests/clock_scheduler_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "clock primitive enrollment is an internal architecture boundary rather than user-facing vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the clock capability supports time-aware features rather than adding a separately selectable capability",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/clock.ts"))
+          .CLOCK_PRIMITIVE_BOUNDARIES,
+      ),
+  },
+  {
+    id: "scheduler-primitive-boundaries",
+    title: "Scheduler primitive boundaries",
+    what:
+      "Every direct timeout or interval schedule and cancellation operation in the Deno and browser system adapters, with its stable id, exact path, enclosing function, operation, and reason.",
+    source: {
+      kind: "module",
+      module: "src/shared/scheduler.ts",
+      exportName: "SCHEDULER_PRIMITIVE_BOUNDARIES",
+    },
+    guards: [
+      "tests/ambient_state_lint_test.ts",
+      "tests/clock_scheduler_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "scheduler primitive enrollment is an internal architecture boundary rather than user-facing vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the scheduler capability supports asynchronous lifecycles rather than adding a separately selectable capability",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/scheduler.ts"))
+          .SCHEDULER_PRIMITIVE_BOUNDARIES,
+      ),
+  },
+  {
+    id: "scheduling-jitter-boundaries",
+    title: "Scheduling-jitter boundaries",
+    what:
+      "Every direct pseudo-random read retained for non-security scheduling variation, with its stable id, exact path, enclosing function, operation, and reason.",
+    source: {
+      kind: "module",
+      module: "src/shared/scheduler.ts",
+      exportName: "JITTER_PRIMITIVE_BOUNDARIES",
+    },
+    guards: [
+      "tests/ambient_state_lint_test.ts",
+      "tests/clock_scheduler_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "scheduling-jitter enrollment is an internal architecture boundary rather than user-facing vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "bounded scheduling variation supports fleet coordination rather than adding a separately selectable capability",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/scheduler.ts"))
+          .JITTER_PRIMITIVE_BOUNDARIES,
+      ),
+  },
+  {
     id: "best-effort-boundaries",
     title: "Error-discard boundaries",
     what:
