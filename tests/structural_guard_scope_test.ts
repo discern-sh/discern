@@ -32,6 +32,10 @@ const NON_GUARD_MODULES = new Map([
     "tests/host_metadata_ingress_test.ts",
     "This behavioral test injects Git metadata files to verify the underlying authored-text projection.",
   ],
+  [
+    "scripts/build.ts",
+    "The binary builder traverses caller-supplied physical resource roots to exclude unauthored entries; it does not enforce a cross-file source invariant.",
+  ],
 ]);
 const CANONICAL_IMPORT =
   /^(?:AUTHORED_(?:TS|DENO|TEXT)_FILES|TRACKED_MD_FILES|authored(?:Ts|Deno|Text)Files|trackedMarkdownFiles|gitListed(?:Repo|Text)Files)$/;

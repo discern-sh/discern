@@ -9,8 +9,7 @@ import {
 } from "./presentation.ts";
 import { type GotchasFailureTail, renderGotchasTail } from "./gotchas.ts";
 
-const GATE_FAILURE_HELP_COMMAND =
-  "discern docs 20-quality-gate/when-the-gate-fails";
+const GATE_FAILURE_HELP_COMMAND = "discern docs guide-fix-a-red-gate";
 
 /** Project one output sink into explicit pure-view inputs. */
 function presentation(out: Out): {

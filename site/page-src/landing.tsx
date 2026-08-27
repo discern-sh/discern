@@ -812,13 +812,13 @@ function V3OutcomesSection() {
         </div>
 
         <nav className="v3-outcomes__links" aria-label="Explore the workflow">
-          <a href="/docs/worktrees">
+          <a href="/docs/understand/worktrees-and-trunk">
             See parallel work in practice <span>↗</span>
           </a>
           <a href="/docs/understand/proof">
             Read the Proof model <span>↗</span>
           </a>
-          <a href="/docs/agent-instructions">
+          <a href="/docs/understand/instructions-skills-and-map">
             See how project instructions work <span>↗</span>
           </a>
         </nav>
@@ -1209,7 +1209,10 @@ function LandingShell({ children }: LandingShellProps) {
                 label: "Trust & your data",
                 href: "/docs/understand/local-control",
               },
-              { label: "Agent integrations", href: "/docs/agent-integrations" },
+              {
+                label: "Agent integrations",
+                href: "/docs/guides/connect-a-coding-agent",
+              },
             ],
           },
           {

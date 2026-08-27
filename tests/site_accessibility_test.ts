@@ -16,6 +16,17 @@ const BROWSER = {
   "user-agent": "Mozilla/5.0 accessibility audit",
 };
 
+const WORKFLOW_FIXTURE_PAGE_ID = "guide-fix-a-red-gate";
+
+type DocsSite = Awaited<ReturnType<typeof loadDocsSite>>;
+
+/** Resolve a representative page by stable manual identity, not a legacy route. */
+function pageById(site: DocsSite, id: string): DocsSite["pages"][number] {
+  const page = site.pages.find((candidate) => candidate.entry.pageId === id);
+  if (page === undefined) throw new Error(`manual fixture ${id} is missing`);
+  return page;
+}
+
 interface AxeWindow extends Window {
   axe: typeof axe;
   eval(source: string): unknown;
@@ -142,13 +153,12 @@ Deno.test("permalink controls stay outside every heading accessible name", async
 });
 
 Deno.test("Workflow commands receive the accessible package copy anatomy", async () => {
-  const html = await (
-    await get("/docs/quality-gate/when-the-gate-fails")
-  ).text();
+  const page = pageById(await loadDocsSite(), WORKFLOW_FIXTURE_PAGE_ID);
+  const html = await (await get(page.route)).text();
   const client = await executableDocsClient();
   const dom = new JSDOM(html, {
     runScripts: "outside-only",
-    url: "https://discern.sh/docs/quality-gate/when-the-gate-fails",
+    url: `https://discern.sh${page.route}`,
   });
   Object.defineProperty(dom.window, "matchMedia", {
     value: () => ({ matches: false, addEventListener: () => undefined }),
@@ -191,10 +201,7 @@ Deno.test("Workflow commands receive the accessible package copy anatomy", async
 
 Deno.test("navigation restores its position and keeps the current page visible", async () => {
   const site = await loadDocsSite();
-  const page = site.pages.find((candidate) =>
-    candidate.route === "/docs/quality-gate/when-the-gate-fails"
-  );
-  if (!page) throw new Error("navigation fixture page is missing");
+  const page = pageById(site, WORKFLOW_FIXTURE_PAGE_ID);
   const html = await (await get(page.route)).text();
   const client = await executableDocsClient();
   const dom = new JSDOM(html, {
@@ -239,7 +246,10 @@ Deno.test("navigation restores its position and keeps the current page visible",
 });
 
 Deno.test("deep links expose page and heading context without competing claims", async () => {
-  const route = "/docs/quality-gate/when-the-gate-fails";
+  const route = pageById(
+    await loadDocsSite(),
+    WORKFLOW_FIXTURE_PAGE_ID,
+  ).route;
   const html = await (await get(route)).text();
   const client = await executableDocsClient();
   const tocClient = await Deno.readTextFile(

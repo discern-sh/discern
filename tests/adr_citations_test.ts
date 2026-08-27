@@ -103,7 +103,9 @@ Deno.test("a citation whose destination disagrees with its number fails", () => 
   );
   assertEquals(stray.length, 1);
   assert(
-    stray[0]?.reason.includes("not an `_adr/NNNN-slug.md` record"),
+    stray[0]?.reason.includes(
+      "neither an `_adr/NNNN-slug.md` record nor its canonical discern.sh decision route",
+    ),
     stray[0]?.reason,
   );
 });

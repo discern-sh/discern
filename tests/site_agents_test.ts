@@ -10,6 +10,7 @@ import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import { AGENTS_TITLE } from "../site/brand.ts";
 import {
   AGENTS_PROSE_WORD_CEILING,
+  AGENTS_ROUTES,
   CLOSING_ENVELOPE,
 } from "../site/page-src/agents-content.ts";
 import { renderAgents } from "../site/page-src/agents.tsx";
@@ -34,13 +35,13 @@ const CLOSING_ENVELOPE_SCHEMA = z.object({
 });
 
 const REQUIRED_MACHINE_ROUTES = [
-  "/llms.txt",
-  "/docs/getting-started/quickstart",
-  "/docs/reference/mcp-and-results",
-  "/schema/v1/discern-results.schema.json",
-  "/docs/orientation/glossary",
-  "/docs/agent-integrations",
-  "/docs/orientation/trust-and-data",
+  AGENTS_ROUTES.machineGuide,
+  AGENTS_ROUTES.quickstart,
+  AGENTS_ROUTES.mcp,
+  AGENTS_ROUTES.schema,
+  AGENTS_ROUTES.glossary,
+  AGENTS_ROUTES.providers,
+  AGENTS_ROUTES.trust,
 ] as const;
 
 const CURL = { accept: "*/*", "user-agent": "curl/8.6.0" };

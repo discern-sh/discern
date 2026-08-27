@@ -7,12 +7,16 @@ import {
   buildManualProjection,
   type ManualProjection,
 } from "../src/lib/manual.ts";
-import { MANUAL_SECTION_REGISTRY } from "../src/shared/manual.ts";
+import {
+  MANUAL_SECTION_REGISTRY,
+  REPOSITORY_MANUAL_REL,
+} from "../src/shared/manual.ts";
 import { stageBundledManual } from "../scripts/build.ts";
 import { loadDocsSite } from "../site/docs.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** Load the repository manual through its canonical strict policy. */
 async function projection(): Promise<ManualProjection> {
@@ -49,13 +53,24 @@ async function curatedSiblingPaths(
 Deno.test("manual sections, source directories, site, and projection share one registry order", async () => {
   const manual = await projection();
   const site = await loadDocsSite();
-  const physical: string[] = [];
-  for await (const entry of Deno.readDir(REPO_AUTHORED_PATHS.manual)) {
-    if (entry.isDirectory) physical.push(entry.name);
-  }
-  physical.sort();
+  const prefix = `${REPOSITORY_MANUAL_REL}/`;
+  const sourceFiles = await structuralGuardScope({
+    guard: "tests/manual_curation_test.ts#manual-section-directories",
+    universe: "tracked-markdown",
+    narrow: {
+      reason:
+        "Manual section membership covers tracked Markdown below the canonical manual root.",
+      include: (rel) =>
+        rel.startsWith(prefix) && rel.slice(prefix.length).includes("/"),
+    },
+  });
+  const sourceDirs = [
+    ...new Set(
+      sourceFiles.map((rel) => rel.slice(prefix.length).split("/")[0] ?? ""),
+    ),
+  ].filter((dir) => dir !== "").sort();
   const registered = MANUAL_SECTION_REGISTRY.map((section) => section.dir);
-  assertEquals(physical, registered);
+  assertEquals(sourceDirs, registered);
   assertEquals(manual.sections.map((section) => section.dir), registered);
   assertEquals(site.sections.map((section) => section.dir), registered);
   assertEquals(manual.pages.length, 47);

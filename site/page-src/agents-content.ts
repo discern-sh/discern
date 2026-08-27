@@ -25,10 +25,10 @@ export const AGENTS_ROUTES = {
   mcp: "/docs/reference/mcp-and-results",
   resultSurfaces: "/docs/reference/mcp-and-results",
   map: "/docs/understand/instructions-skills-and-map",
-  instructions: "/docs/agent-instructions",
-  worktrees: "/docs/worktrees",
+  instructions: "/docs/understand/instructions-skills-and-map",
+  worktrees: "/docs/understand/worktrees-and-trunk",
   glossary: "/docs/reference/glossary",
-  providers: "/docs/agent-integrations",
+  providers: "/docs/guides/connect-a-coding-agent",
   trust: "/docs/understand/local-control",
   schema: "/schema/v1/discern-results.schema.json",
 } as const;

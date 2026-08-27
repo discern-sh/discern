@@ -33,8 +33,7 @@ import { decodeCliResult } from "./decode_cli_result.ts";
 
 const EXIT_127_TITLE = "A gate command fails with exit 127 (command not found)";
 const MATCHED_TRAP_GATE_LAUNCH_BUDGET = 4;
-const GATE_FAILURE_HELP_COMMAND =
-  "discern docs 20-quality-gate/when-the-gate-fails";
+const GATE_FAILURE_HELP_COMMAND = "discern docs guide-fix-a-red-gate";
 const TEMPLATE_GOTCHAS = join(
   REAL_TEMPLATES,
   "setup",
