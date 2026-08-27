@@ -9,11 +9,15 @@ import { readEffortGrant } from "../src/engine/worktree/effort_grant.ts";
 import {
   claimEffortGrant,
   clearEffortGrant,
+  clearEffortGrantPlan,
   consumeEffortGrantClaim,
   restoreEffortGrantClaim,
   settleEffortGrantClaim,
 } from "../src/engine/worktree/effort_grant_cleanup.ts";
-import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
+import {
+  effortGrantPlan,
+  grantEffort,
+} from "../src/engine/worktree/effort_grant_writer.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { addWorktree, git, gitInit, gitOut } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
@@ -28,6 +32,10 @@ Deno.test("effort grant round-trips idempotently outside the worktree tree", asy
     const worktree = await addWorktree(dir, "overnight");
     const branch = await gitOut(worktree, "branch", "--show-current");
 
+    const before = await effortGrantPlan(worktree, branch);
+    assertEquals(before.steps.map((step) => step.disposition), ["run"]);
+    assertStringIncludes(before.details.join("\n"), branch);
+
     assertEquals(
       await grantEffort(worktree, branch, FIRST_GRANT),
       {
@@ -39,6 +47,12 @@ Deno.test("effort grant round-trips idempotently outside the worktree tree", asy
       status: "granted",
       grant: { branch, granted_at: FIRST_GRANT },
     });
+    assertEquals(
+      (await effortGrantPlan(worktree, branch)).steps.map((step) =>
+        step.disposition
+      ),
+      ["skip"],
+    );
     assertEquals(
       await grantEffort(worktree, branch, SECOND_GRANT),
       {
@@ -77,8 +91,20 @@ Deno.test("effort grant round-trips idempotently outside the worktree tree", asy
       },
       "a branch identity change replaces stale authority",
     );
+    assertEquals(
+      (await clearEffortGrantPlan(worktree)).steps.map((step) =>
+        step.disposition
+      ),
+      ["run"],
+    );
     assertEquals(await clearEffortGrant(worktree), true);
     assertEquals(await readEffortGrant(worktree), { status: "missing" });
+    assertEquals(
+      (await clearEffortGrantPlan(worktree)).steps.map((step) =>
+        step.disposition
+      ),
+      ["skip"],
+    );
     assertEquals(await clearEffortGrant(worktree), false);
   });
 });

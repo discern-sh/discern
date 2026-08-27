@@ -1735,6 +1735,14 @@ async function buildDropPlan(
   };
 }
 
+/** Read-only drop plan for composite human surfaces such as the Desk. */
+export async function worktreeDropPlan(
+  ctx: LifecycleContext,
+  target: string,
+): Promise<EnginePlan> {
+  return dropPlanToEngine(await buildDropPlan(ctx, target));
+}
+
 /**
  * Discard a worktree from the main checkout — the `discern worktree drop`
  * command, the sanctioned removal for abandoned work (`worktree prune` only ever
@@ -6174,6 +6182,25 @@ export async function worktreeReclaimContained(
   ctx: LifecycleContext,
   target: string,
 ): Promise<ContainedWorktree> {
+  const match = await containedReclaimCandidate(ctx, target);
+  const result = await reclaimContainedWorktrees(ctx, [match]);
+  if (result.reclaimed.length !== 1) {
+    const skippedReason = result.skipped[0]?.reason;
+    throw new WorktreeGitError(
+      skippedReason !== undefined
+        ? `Reclaim skipped ${match.path}: ${skippedReason}. Nothing was removed.`
+        : `Reclaim failed for ${match.path}. Review the error above, fix its ` +
+          `cause, then re-run.`,
+    );
+  }
+  return match;
+}
+
+/** Resolve and revalidate one contained candidate without changing state. */
+async function containedReclaimCandidate(
+  ctx: LifecycleContext,
+  target: string,
+): Promise<ContainedWorktree> {
   await assertOpSide("worktree-prune", ctx.cwd);
   const wanted = target.trim().replace(/\/+$/, "");
   if (wanted === "") {
@@ -6197,17 +6224,40 @@ export async function worktreeReclaimContained(
         `then re-run.`,
     );
   }
-  const result = await reclaimContainedWorktrees(ctx, [match]);
-  if (result.reclaimed.length !== 1) {
-    const skippedReason = result.skipped[0]?.reason;
-    throw new WorktreeGitError(
-      skippedReason !== undefined
-        ? `Reclaim skipped ${match.path}: ${skippedReason}. Nothing was removed.`
-        : `Reclaim failed for ${match.path}. Review the error above, fix its ` +
-          `cause, then re-run.`,
-    );
-  }
   return match;
+}
+
+/** Exact read-only reclaim plan for a selected Desk task. */
+export async function worktreeReclaimContainedPlan(
+  ctx: LifecycleContext,
+  target: string,
+): Promise<EnginePlan> {
+  const match = await containedReclaimCandidate(ctx, target);
+  return {
+    title: "Contained checkout reclaim plan",
+    details: [
+      `Branch kept:      ${match.branch}`,
+      `Checkout removed: ${match.path}`,
+      `Contained in:     ${match.containingBranch}`,
+    ],
+    steps: [{
+      kind: "resource-destroy",
+      label: BUILT_IN_STEP_LABELS.teardownResources,
+      disposition: "run",
+      note: "destroy resources recorded for this checkout",
+    }, {
+      kind: "git",
+      label: BUILT_IN_STEP_LABELS.removeWorktree,
+      disposition: "run",
+      note: match.path,
+    }, {
+      kind: "git",
+      label: BUILT_IN_STEP_LABELS.deleteBranch,
+      disposition: "skip",
+      note:
+        `${match.branch} is kept because its commits are contained in ${match.containingBranch}`,
+    }],
+  };
 }
 
 /** Map the real prune/sweep/GC/reclaim outcomes to `--json` step results. */
