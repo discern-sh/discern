@@ -1248,10 +1248,11 @@
   # Reading complexity applies to tutorials, guides, explanations, and
   # troubleshooting through the kind registry. Reference stays in product
   # voice, terminology, link, command, and exactness checks but not this grade.
+  # The ceiling starts at the final migration baseline measured by this corpus.
   [standards.manual_reading_grade]
     metric = "manual_reading_grade"
     direction = "down"
-    limit = 10.68
+    limit = 10.7
     margin = 0.2
     run = "deno run --allow-read scripts/manual_reading_grade.ts"
     inputs = [
