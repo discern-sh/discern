@@ -20,15 +20,15 @@ The marked direct links in the manual root are a smaller promotion authority. `D
 
 [The document model](../50-engine-internals/the-document-model.md) describes the strict frontmatter schema, redirect registry, and per-entry metadata that the site reads.
 
-| Route                 | Content                                                        |
-| --------------------- | -------------------------------------------------------------- |
+| Route                 | Content                                                          |
+| --------------------- | ---------------------------------------------------------------- |
 | `/docs`               | Browser cover; the pristine manual-root README for text readers. |
-| `/docs/<s>/<leaf>`    | The rendered leaf: nav, breadcrumbs, contents rail, pager.     |
-| `/docs/<s>/<leaf>.md` | The pristine Markdown bytes, for any reader.                   |
-| `/docs/decisions`     | Browser index; the pristine `_adr/README.md` for text readers. |
-| `/docs/decisions/<n>` | One current or visibly superseded decision record.             |
-| `/docs/index.json`    | The client-side search index over the published manual.        |
-| `/llms.txt`           | The plaintext edition plus a generated docs listing.           |
+| `/docs/<s>/<leaf>`    | The rendered leaf: nav, breadcrumbs, contents rail, pager.       |
+| `/docs/<s>/<leaf>.md` | The pristine Markdown bytes, for any reader.                     |
+| `/docs/decisions`     | Browser index; the pristine `_adr/README.md` for text readers.   |
+| `/docs/decisions/<n>` | One current or visibly superseded decision record.               |
+| `/docs/index.json`    | The client-side search index over the published manual.          |
+| `/llms.txt`           | The plaintext edition plus a generated docs listing.             |
 
 `DocsSite.sitemapRoutes` is the canonical Hypertext Markup Language (HTML) route source for the sitemap. It contains the docs landing, every public manual page, the decisions index, and every decision record. Decision routes stay out of `site.pages`. Search and llms prepend `DocsSite.landing` to that public-document sequence, while the sitemap adds project history.
 

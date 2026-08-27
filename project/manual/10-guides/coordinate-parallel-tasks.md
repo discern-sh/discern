@@ -106,12 +106,12 @@ Slots are OS advisory locks under the shared git directory. Process death releas
 
 ### Where it lives in code
 
-| Concern                            | Source                                                                                                                                 |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Slot primitive and wait policy     | [`test_run_slots.ts`](https://github.com/jackwh/discern/blob/main/src/engine/test_run_slots.ts)                                                                           |
+| Concern                            | Source                                                                                                                                                                                                       |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Slot primitive and wait policy     | [`test_run_slots.ts`](https://github.com/jackwh/discern/blob/main/src/engine/test_run_slots.ts)                                                                                                              |
 | Gate and wrapper presentation      | [`test_slots.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/test_slots.ts), [`queue.ts`](https://github.com/jackwh/discern/blob/main/src/engine/queue.ts)                                  |
 | Plan split and the enrollment seam | [`plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/plan.ts), [`execute.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/execute.ts)                                     |
-| The config key                     | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts)                                                                             |
+| The config key                     | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts)                                                                                                                |
 | Behavioral coverage                | [`engine_gate_slots_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_gate_slots_test.ts), [`engine_queue_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_queue_test.ts) |
 
 ### Current state & gotchas
@@ -119,6 +119,7 @@ Slots are OS advisory locks under the shared git directory. Process death releas
 - Advisory locks bound concurrency without promising arrival order.
 - During config transitions, the loosest in-flight cap wins.
 - Slot files persist for lock identity; excess files are inert.
+
 ## Per-worktree resources
 
 _Give each worktree the external state it needs, then remove that state when the worktree goes away._
@@ -177,8 +178,8 @@ Garbage collection acts only on entries in this project's ledger. It keeps live 
 
 ### Where it lives in code
 
-| Responsibility                                 | Source                                                                                        |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Responsibility                                 | Source                                                                                                                           |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Resource specs, ledger, and garbage collection | [`src/engine/worktree/resources.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/resources.ts)               |
 | Lifecycle orchestration                        | [`src/engine/worktree/lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)               |
 | Token expansion                                | [`src/engine/worktree/tokens.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/tokens.ts)                     |
@@ -190,6 +191,7 @@ Garbage collection acts only on entries in this project's ledger. It keeps live 
 - Make `destroy` independent of the current directory. Orphan cleanup runs it from the main checkout after the worktree directory has disappeared.
 - Use identity tokens or absolute paths in `destroy`; a relative path such as `./cache` points somewhere else during orphan cleanup.
 - `@resource@` exists only inside that resource's commands. Use `@worktree@`, `@db@`, `@site@`, or `@port@` in `[worktree.setup]`.
+
 ## Parallel and team work
 
 _Give each effort its own worktree, and use the main checkout to supervise the fleet._
@@ -248,8 +250,8 @@ Claude Code can create and remove worktrees through `WorktreeCreate` and `Worktr
 
 ### Where it lives in code
 
-| Responsibility                  | Source                                                                            |
-| ------------------------------- | --------------------------------------------------------------------------------- |
+| Responsibility                  | Source                                                                                                               |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Fleet status and recovery hints | [`src/engine/status/status.ts`](https://github.com/jackwh/discern/blob/main/src/engine/status/status.ts)             |
 | Cross-project MCP routing       | [`src/engine/mcp/server.ts`](https://github.com/jackwh/discern/blob/main/src/engine/mcp/server.ts)                   |
 | Claude Code hook adapter        | [`src/lib/worktree_hooks.ts`](https://github.com/jackwh/discern/blob/main/src/lib/worktree_hooks.ts)                 |
@@ -260,6 +262,7 @@ Claude Code can create and remove worktrees through `WorktreeCreate` and `Worktr
 - The main checkout is the supervisory view. Make task changes only inside a worktree.
 - `discern status` only inspects state. It creates, refreshes, and destroys no resources.
 - The fleet's Git-clean signal excludes ignored provider-local and generated files.
+
 ## Multi-repo workspaces
 
 _Each repository has its own install, linked to others through trunks, registries, or submodules._
@@ -306,8 +309,8 @@ ensure = ["git submodule update --init --recursive"]
 
 ### Where it lives in code
 
-| Concept                                          | File                                                                            |
-| ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Concept                                          | File                                                                                                               |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | Default worktree placement and `[worktree].root` | [`src/lib/paths.ts`](https://github.com/jackwh/discern/blob/main/src/lib/paths.ts)                                 |
 | Project-root discovery                           | [`src/shared/env.ts`](https://github.com/jackwh/discern/blob/main/src/shared/env.ts)                               |
 | Repository convergence (`[repository].ensure`)   | [`src/engine/worktree/lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts) |
@@ -318,6 +321,7 @@ ensure = ["git submodule update --init --recursive"]
 - Root discovery walks up from the working directory to the nearest `discern.toml` and does not stop at a repository boundary ([`src/shared/env.ts`](https://github.com/jackwh/discern/blob/main/src/shared/env.ts)). A repo without its own config, nested under a directory that has one, resolves to the outer project; `discern doctor`, run from the nested repo, discloses the crossing.
 - A consumer's Gate reads a linked library at whatever state the linked checkout holds at that moment. Linking the main checkout keeps that state landed, and the consumer's Proof still describes only its own repository.
 - `discern start` runs no submodule population of its own: the `[repository].ensure` command above is the supported path, and `start` hints at it when the fresh worktree carries a `.gitmodules` no configured command mentions.
+
 ## Open another worktree
 
 _`discern worktrees` moves sideways across the [fleet](../30-reference/glossary.md#fleet) without losing your place in the project tree._
@@ -345,8 +349,8 @@ There is no Model Context Protocol (MCP) tool for `worktrees`: an agent can read
 
 ### Where it lives in code
 
-| Responsibility                  | Source                                                                |
-| ------------------------------- | --------------------------------------------------------------------- |
+| Responsibility                  | Source                                                                                                   |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Picker, cwd mapping, and launch | [`shell_picker.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/shell_picker.ts)     |
 | Fleet facts                     | [`status.ts`](https://github.com/jackwh/discern/blob/main/src/engine/status/status.ts)                   |
 | Shared row wording              | [`model.ts`](https://github.com/jackwh/discern/blob/main/src/engine/desk/model.ts)                       |

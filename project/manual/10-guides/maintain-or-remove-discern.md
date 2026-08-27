@@ -102,6 +102,7 @@ discern upgrade --check
 `discern doctor` checks the complete installation and integrations. `discern upgrade --check` exits successfully when the project's schema, fixed config scaffold, managed banners, `.gitignore` block, and managed `.gitattributes` fragment match the installed binary. It checks fragment currency. Doctor separately diagnoses effective per-path attributes. Neither command queries the network for a newer release.
 
 Commit the reviewed upgrade diff. If the agent files changed, keep them in the same commit as their source and the migration changes.
+
 ## `discern tidy`: format discern-owned surfaces
 
 _An offline formatter for the files whose conventions discern defines._

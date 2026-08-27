@@ -47,6 +47,7 @@ Nothing is uploaded. discern makes no network calls, so a crash report exists on
 ### Reporting one
 
 Attach the report file to a new issue at [github.com/jackwh/discern/issues](https://github.com/jackwh/discern/issues). It includes the version and runtime block, command, full error, and stack. The error can quote paths from your machine, so review the file before attaching it. If a CLI crash could not save the file, copy the error and stack from its stderr frame. An MCP envelope has no stack, so preserve the report file when one was written.
+
 ## Temp files & retention
 
 _discern keeps selected temporary output for 24 hours so you can inspect it after a run. A registry defines each file family and its retention rule._
@@ -59,7 +60,7 @@ Every family carries a registered prefix and a random name:
 | ---------------- | ---------------------------------------------------------------------------------------------------------- |
 | `discern-job-`   | A Gate job's full output. Results expose this file as `output_path` so it remains available after the run. |
 | `discern-diag-`  | The full text behind a truncated diagnostic.                                                               |
-| `discern-crash-` | A crash report written outside any repository ([crash reports](crashes-and-local-state.md)).                         |
+| `discern-crash-` | A crash report written outside any repository ([crash reports](crashes-and-local-state.md)).               |
 | `discern-self-`  | A fallback self-shim for a run with no repository root.                                                    |
 | `discern-test-`  | Scaffolds from discern's own test suite. Installed runtime commands do not create this family.             |
 

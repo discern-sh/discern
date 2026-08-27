@@ -19,19 +19,19 @@ Start with [orientation](00-orientation/) for the product model and vocabulary. 
 
 ## The sections
 
-| Section                                          | What it helps a contributor understand                                     |
-| ------------------------------------------------ | ---------------------------------------------------------------------------- |
-| [00-orientation/](00-orientation/)               | The product model, vocabulary, principles, and repository orientation.      |
-| [10-getting-started/](10-getting-started/)       | The installed workflow and the path to a first complete change.             |
-| [20-quality-gate/](20-quality-gate/)             | Gate stages, scopes, Standards, checkpoints, and Proof.                     |
-| [30-worktrees/](30-worktrees/)                   | Worktree lifecycle, identity, resources, and landing.                       |
-| [40-agent-instructions/](40-agent-instructions/) | Author-once instruction compilation and agent context boundaries.           |
-| [45-skills/](45-skills/)                         | Bundled and project-authored procedural playbooks.                          |
-| [50-engine-internals/](50-engine-internals/)     | Engine architecture and durable subsystem boundaries.                      |
-| [60-agent-integrations/](60-agent-integrations/) | Provider integrations, trust gates, and materialized files.                 |
-| [70-reference/](70-reference/)                   | Exact repository and product contracts used during implementation.         |
-| [80-development/](80-development/)               | Building, testing, reviewing, and releasing discern.                        |
-| [90-site/](90-site/)                             | The website, product manual delivery, and design-system consumption.        |
+| Section                                          | What it helps a contributor understand                                 |
+| ------------------------------------------------ | ---------------------------------------------------------------------- |
+| [00-orientation/](00-orientation/)               | The product model, vocabulary, principles, and repository orientation. |
+| [10-getting-started/](10-getting-started/)       | The installed workflow and the path to a first complete change.        |
+| [20-quality-gate/](20-quality-gate/)             | Gate stages, scopes, Standards, checkpoints, and Proof.                |
+| [30-worktrees/](30-worktrees/)                   | Worktree lifecycle, identity, resources, and landing.                  |
+| [40-agent-instructions/](40-agent-instructions/) | Author-once instruction compilation and agent context boundaries.      |
+| [45-skills/](45-skills/)                         | Bundled and project-authored procedural playbooks.                     |
+| [50-engine-internals/](50-engine-internals/)     | Engine architecture and durable subsystem boundaries.                  |
+| [60-agent-integrations/](60-agent-integrations/) | Provider integrations, trust gates, and materialized files.            |
+| [70-reference/](70-reference/)                   | Exact repository and product contracts used during implementation.     |
+| [80-development/](80-development/)               | Building, testing, reviewing, and releasing discern.                   |
+| [90-site/](90-site/)                             | The website, product manual delivery, and design-system consumption.   |
 
 ## Browsing and maintenance
 

@@ -115,8 +115,8 @@ A cloud coding agent may start from a clone without the discern binary or materi
 
 ## Where it lives in code
 
-| Concern                             | Source                                                                    |
-| ----------------------------------- | ------------------------------------------------------------------------- |
+| Concern                             | Source                                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Binary release assets and checksums | [`.github/workflows/release.yml`](https://github.com/jackwh/discern/blob/main/.github/workflows/release.yml) |
 | Gate preconditions and standards    | [`finish.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/finish.ts)                         |
 | Non-interactive job environment     | [`command.ts`](https://github.com/jackwh/discern/blob/main/src/engine/jobs/command.ts)                       |

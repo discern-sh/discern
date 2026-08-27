@@ -81,13 +81,14 @@ A single accepted change keeps `biggest` and `best day` off the card, since eith
 
 ### Where it lives in code
 
-| Concern                                | Source                                                                                                                                                     |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The computation                        | [`stats.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/stats.ts)                                                                                                         |
-| Identity thresholds and cohort routing | [`cohorts.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/cohorts.ts)                                                                                                     |
-| The flag, the card, and the wire       | [`patterns.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/patterns.ts)                                                                                                   |
-| Counts proven from synthetic streams   | [`stats_test.ts`](https://github.com/jackwh/discern/blob/main/tests/stats_test.ts)                                                                                                            |
+| Concern                                | Source                                                                                                                                                                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The computation                        | [`stats.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/stats.ts)                                                                                                                                            |
+| Identity thresholds and cohort routing | [`cohorts.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/cohorts.ts)                                                                                                                                        |
+| The flag, the card, and the wire       | [`patterns.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/patterns.ts)                                                                                                                                      |
+| Counts proven from synthetic streams   | [`stats_test.ts`](https://github.com/jackwh/discern/blob/main/tests/stats_test.ts)                                                                                                                                               |
 | Black-box CLI and archive coverage     | [`engine_patterns_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_patterns_test.ts), [`engine_logbook_lifecycle_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_logbook_lifecycle_test.ts) |
+
 ## The Logbook
 
 _The Logbook is a local activity record containing metadata rather than code or output._
@@ -224,6 +225,7 @@ Tip-adoption episodes compare events only when the config epoch, discern writer 
 - [Trust and your data](../20-understand/local-control.md): the full network, telemetry, and execution contract.
 - [Files and ownership](files-and-ownership.md): the enforced footprint the Logbook path belongs to.
 - Why identity stays evidence rather than a verdict, and how the shared catalog supports it ([ADR 0166](https://discern.sh/docs/decisions/0166-agent-identity-is-advisory-logbook-evidence)).
+
 ## Logbook lifecycle
 
 _Archive preserves the active evidence for later reports. Reset permanently removes only the active evidence._

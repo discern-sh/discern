@@ -57,8 +57,8 @@ The gate never commits its own output. Only the author can choose the right comm
 
 ## Where it lives in code
 
-| Concern                                             | Source                                                                  |
-| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| Concern                                             | Source                                                                                                     |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Dirty-path snapshots and attribution                | [`tree_drift.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/tree_drift.ts)               |
 | Checkpoint and final-pass timing                    | [`finish.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/finish.ts)                       |
 | Pre-checkpoint stage list (`PRE_CHECKPOINT_STAGES`) | [`plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/plan.ts)                           |

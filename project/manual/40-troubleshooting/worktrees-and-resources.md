@@ -47,8 +47,8 @@ Reclaiming requires a fresh, explicit confirmation through `discern worktree pru
 
 ### Where it lives in code
 
-| Responsibility            | Source                                                                                        |
-| ------------------------- | --------------------------------------------------------------------------------------------- |
+| Responsibility            | Source                                                                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | The containment predicate | [`src/engine/worktree/containment.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/containment.ts)           |
 | Prune offer and reclaim   | [`src/engine/worktree/lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)               |
 | Desk action               | [`src/engine/desk/desk.ts`](https://github.com/jackwh/discern/blob/main/src/engine/desk/desk.ts)                                 |
@@ -59,6 +59,7 @@ Reclaiming requires a fresh, explicit confirmation through `discern worktree pru
 - No configuration, grant, or hint can reclaim a worktree without a fresh confirmation naming it.
 - Equal tips are ambiguous twins and never qualify. An unreadable checkout stays off the list because unknown state does not qualify.
 - Apply re-checks each candidate's live state immediately before acting. A stage that gained work drops out.
+
 ## Cleanup ownership and successful teardown
 
 _Merge status limits data loss. Recorded identity grants cleanup authority. Successful teardown requires verified absence._
@@ -87,6 +88,7 @@ discern records retirement evidence and repeats both checks at the return bounda
 The failure names the exact path, retained Git or branch state, and the safe next action. Stop the named writer or repair that one Git worktree entry, then repeat the same lifecycle command. The retry checks the current identity and filesystem object again and converges from partial state. Do not replace it with a parent-directory deletion or repository-wide prune.
 
 A separate program can still write to a retired location after the lifecycle returns. [Reappeared worktree paths](worktrees-and-resources.md) explains how removal evidence makes that later state visible and reclaimable. The ownership and absence decision is recorded separately ([ADR 0315](https://discern.sh/docs/decisions/0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence)).
+
 ## Reappeared worktree paths
 
 _Review files written after worktree removal, then reclaim only the path discern can prove it removed._
@@ -119,8 +121,8 @@ Cleanup does not clear the record. A second reappearance remains observable unti
 
 ### Where it lives in code
 
-| Responsibility          | Source                                                                                  |
-| ----------------------- | --------------------------------------------------------------------------------------- |
+| Responsibility          | Source                                                                                                                     |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Evidence and inspection | [`src/engine/worktree/retired_paths.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/retired_paths.ts) |
 | Removal enrollment      | [`src/engine/worktree/git.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/git.ts)                     |
 | Status projection       | [`src/engine/status/status.ts`](https://github.com/jackwh/discern/blob/main/src/engine/status/status.ts)                   |

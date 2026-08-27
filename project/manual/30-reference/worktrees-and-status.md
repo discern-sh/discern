@@ -72,8 +72,8 @@ Resource and setup commands receive `@worktree@`, `@db@`, `@site@`, `@port@`, `@
 
 ### Where it lives in code
 
-| Responsibility                        | Source                                                                                                  |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Responsibility                        | Source                                                                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Identity derivation and id resolution | [`src/engine/worktree/identity.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/identity.ts)                           |
 | Destructive ownership predicate       | [`src/engine/worktree/ownership.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/ownership.ts)                         |
 | Env-file precedence and writes        | [`src/engine/worktree/env_file.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/env_file.ts)                           |
@@ -87,6 +87,7 @@ Resource and setup commands receive `@worktree@`, `@db@`, `@site@`, `@port@`, `@
 - `@resource@` has no DNS length limit. Use `@site@` for a 63-character DNS label.
 - An env override applies only to the process's own worktree. Inspecting another path still resolves that target's identity.
 - The seed provides deterministic test-order replay. It carries no randomness or security meaning.
+
 ## Status and session hints
 
 _`discern status` reports what is true now and what deserves attention next. It runs no Gate job, test, Standard measurement, or setup action._
@@ -157,8 +158,8 @@ After setup, detectors can add recent Logbook observations to `hints[]`. They in
 
 ### Where it lives in code
 
-| Concern                               | Source                                                                              |
-| ------------------------------------- | ----------------------------------------------------------------------------------- |
+| Concern                               | Source                                                                                                                 |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Status facts and hints                | [`status.ts`](https://github.com/jackwh/discern/blob/main/src/engine/status/status.ts)                                 |
 | Pure package-component adaptation     | [`tty.ts`](https://github.com/jackwh/discern/blob/main/src/engine/status/tty.ts)                                       |
 | Shared terminal facts and safe text   | [`terminal.ts`](https://github.com/jackwh/discern/blob/main/src/lib/terminal.ts)                                       |

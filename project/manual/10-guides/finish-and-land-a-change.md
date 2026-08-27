@@ -99,8 +99,8 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 
 ### Where it lives in code
 
-| Responsibility                | Source                                                                                                    |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Responsibility                | Source                                                                                                                                       |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Lifecycle plans and execution | [`src/engine/worktree/lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)                           |
 | Acceptance recovery journal   | [`src/engine/worktree/acceptance_transaction.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/acceptance_transaction.ts) |
 | Setup-step journal            | [`src/engine/worktree/setup_step_journal.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/setup_step_journal.ts)         |
@@ -126,6 +126,7 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 - A first setup-step or convergence failure aborts creation. discern reports later convergence failures without undoing a completed update, blocking session start, or interrupting post-landing cleanup.
 - `discern doctor` reports repository layouts that `start` and `accept` cannot use.
 - Drop recovery refs keep committed branch tips reachable independently of reflog expiry while they remain in the bounded namespace. They do not make `--force` safe for uncommitted work.
+
 ## Hand work back for review
 
 _Finish the intended commit, report what changed, end with its Proof line, and wait for the owner to decide whether it lands._
@@ -169,8 +170,8 @@ Leave the ready worktree untouched while its landing decision is pending. Indepe
 
 ### Where it lives in code
 
-| Concern                           | Source                                                                                                        |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Concern                           | Source                                                                                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Proof creation and relay hints    | [`src/engine/gate/proof_render.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_render.ts)                                 |
 | Acceptance validation and cleanup | [`src/engine/worktree/lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)                               |
 | Landing-authority resolution      | [`src/engine/worktree/landing_authority.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/landing_authority.ts)               |

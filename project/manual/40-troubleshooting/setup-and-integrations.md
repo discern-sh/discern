@@ -59,6 +59,7 @@ After `setup accept`, each provider gets one fresh-session instruction. Inspect 
 Acceptance is idempotent where no landing applies. A project without a Git repository and a checkout already on the trunk both return `ok: true` with typed `data.completion.status = "no_op"`; `data.completion.reason` distinguishes the two states. An absent landing payload is not a no-op signal.
 
 For a truncated result, repeat `setup done` on the unchanged clean marker: it returns the same Proof, inventory, and landing facts with `data.completion = "replayed"` and no effects or Gate. Missing or stale Proof validates that commit; dirty state retains existing evidence and refuses ([ADR 0351](https://discern.sh/docs/decisions/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips)).
+
 ## Recover an interrupted worktree setup step
 
 _discern preserves uncertainty instead of automatically replaying a command whose outcome it cannot observe._

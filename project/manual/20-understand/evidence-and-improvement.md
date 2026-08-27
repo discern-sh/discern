@@ -150,8 +150,8 @@ Result fields and Model Context Protocol arguments are in [MCP tools & results](
 
 ### Where it lives in code
 
-| Concern                                  | Source                                                                         |
-| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| Concern                                  | Source                                                                                                            |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | The detector registry and every detector | [`detectors.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/detectors.ts)                     |
 | The investigation relationship registry  | [`investigations.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/investigations.ts)           |
 | Validation comparison projections        | [`validation_findings.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/validation_findings.ts) |
@@ -175,6 +175,7 @@ Result fields and Model Context Protocol arguments are in [MCP tools & results](
 - Ranking mixes count-based strengths across detector kinds; treat the order as a reading order and the `evidence` counts as the facts.
 - Events written before the current release may lack newer fields (a step's gate stage, for example); detectors count such runs out rather than guessing. Identity signals exist only on events recorded since their introduction, so the driver split starts sparse and fills in with use.
 - A torn or foreign line is skipped and counted in `data.logbook.unparsed`; reading continues.
+
 ## Validation findings
 
 _Patterns separates repeated per-job divergence under matched recorded conditions from differences between controlled execution contexts._
@@ -198,6 +199,7 @@ The optional `basis` carries comparable count and denominator, validation versio
 Complete `same-tree-flake` evidence can join recurring confirmed unchanged-state Gate reruns in the additive validation-instability investigation. Legacy or incomplete validation identity cannot support that relationship. The investigation cites both source findings and retains the comparison boundary; it does not claim that reruns caused the divergence or hide either finding ([ADR 0277](https://discern.sh/docs/decisions/0277-patterns-investigations-preserve-source-findings)).
 
 The detector registry is in [`detectors.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/detectors.ts); pure comparison projections are in [`validation_findings.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/validation_findings.ts); registry and surface guards are in [`patterns_test.ts`](https://github.com/jackwh/discern/blob/main/tests/patterns_test.ts), [`logbook_routing_test.ts`](https://github.com/jackwh/discern/blob/main/tests/logbook_routing_test.ts), and [`engine_patterns_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_patterns_test.ts).
+
 ## Patterns decision evidence
 
 _Percentages, estimates, and mechanical eligibility become recommendations only when comparable local history supports the action._
@@ -227,6 +229,7 @@ A recommendation additionally requires a current active Standard, measured or re
 When current mechanical eligibility instead coincides with recent comparable reversals or failures, the additive Standard-variance investigation replaces no finding and offers no pin advice. It directs the owner to test whether the headroom is durable ([ADR 0277](https://discern.sh/docs/decisions/0277-patterns-investigations-preserve-source-findings)).
 
 The thresholds and authority boundary are recorded for future changes ([ADR 0276](https://discern.sh/docs/decisions/0276-patterns-recommendations-require-project-local-decision-evidence)). [Practice patterns](evidence-and-improvement.md) covers the report, detector families, evidence handling, and historical selection.
+
 ## Pattern investigations
 
 _An investigation connects already-visible findings that clear one registered evidence rule. It proposes what to diagnose next without claiming a cause or changing the project._

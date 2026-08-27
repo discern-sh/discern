@@ -39,12 +39,12 @@ When you return for a later release, follow [Upgrade discern](../10-guides/maint
 
 | Read next                                                       | What it helps you do                                                                    |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| [Tasks by lifecycle](../10-guides/README.md)                                  | Jump from an intended outcome to the page that owns its procedure.                      |
-| [Quickstart](first-success.md)                                     | Install, complete setup, and land your first gated change.                              |
-| [Setup decisions](first-success.md)                           | Choose the setup model and recognize the decisions that need your judgment.             |
-| [Walkthrough](first-success.md)                                   | Follow the same flow with each handoff and verification explained.                      |
+| [Tasks by lifecycle](../10-guides/README.md)                    | Jump from an intended outcome to the page that owns its procedure.                      |
+| [Quickstart](first-success.md)                                  | Install, complete setup, and land your first gated change.                              |
+| [Setup decisions](first-success.md)                             | Choose the setup model and recognize the decisions that need your judgment.             |
+| [Walkthrough](first-success.md)                                 | Follow the same flow with each handoff and verification explained.                      |
 | [What setup added](after-setup.md)                              | Read the setup diff and know which files to edit.                                       |
-| [FAQ and troubleshooting](../40-troubleshooting/README.md)                               | Diagnose setup, command, Model Context Protocol (MCP), platform, and worktree problems. |
-| [Upgrade discern](../10-guides/maintain-or-remove-discern.md)                           | Update the binary, migrate the project, and verify the result.                          |
-| [Files & ownership](../30-reference/files-and-ownership.md)      | Look up the complete write surface and removal behavior.                                |
+| [FAQ and troubleshooting](../40-troubleshooting/README.md)      | Diagnose setup, command, Model Context Protocol (MCP), platform, and worktree problems. |
+| [Upgrade discern](../10-guides/maintain-or-remove-discern.md)   | Update the binary, migrate the project, and verify the result.                          |
+| [Files & ownership](../30-reference/files-and-ownership.md)     | Look up the complete write surface and removal behavior.                                |
 | [`discern.toml` reference](../30-reference/config-reference.md) | Look up every configuration key, type, and default.                                     |

@@ -97,8 +97,8 @@ The bundled [`discern-await-the-fleet`](delegate-work.md) Skill packages this pr
 
 ## Where it lives in code
 
-| Responsibility                      | Source                                                                            |
-| ----------------------------------- | --------------------------------------------------------------------------------- |
+| Responsibility                      | Source                                                                                                               |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Conditions and waiting              | [`src/engine/await/await.ts`](https://github.com/jackwh/discern/blob/main/src/engine/await/await.ts)                 |
 | Short-handle grammar                | [`src/shared/continuation_handle.ts`](https://github.com/jackwh/discern/blob/main/src/shared/continuation_handle.ts) |
 | Repository-local continuation state | [`src/engine/continuations/store.ts`](https://github.com/jackwh/discern/blob/main/src/engine/continuations/store.ts) |

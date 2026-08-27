@@ -20,11 +20,13 @@ Choose the shortest supported path for a first result, a task, understanding, ex
 ## Start here
 
 <!-- BEGIN MANUAL FRONT DOORS -->
+
 - [Start with discern](00-start/README.md)
 - [Finish and land a change](10-guides/finish-and-land-a-change.md)
 - [Understand the Proof](20-understand/proof.md)
 - [Look up an exact contract](30-reference/README.md)
 - [Recover from a problem](40-troubleshooting/README.md)
+
 <!-- END MANUAL FRONT DOORS -->
 
 ## The complete manual
@@ -37,13 +39,13 @@ Already know the outcome you need? Use the [task index](10-guides/README.md) to 
 
 ### The sections
 
-| Section                                          | What's in it                                                                         |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| [Start](00-start/README.md) | Evaluate discern, reach a first success, and understand what setup produced. |
-| [Guides](10-guides/README.md) | Complete a task from a named starting state and recognize its result. |
-| [Understand](20-understand/README.md) | Learn the product states, evidence, and authority boundaries behind the workflow. |
-| [Reference](30-reference/README.md) | Look up exact commands, configuration, formats, files, platforms, and defaults. |
-| [Troubleshooting](40-troubleshooting/README.md) | Start from an observable symptom and recover through a bounded procedure. |
+| Section                                         | What's in it                                                                      |
+| ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| [Start](00-start/README.md)                     | Evaluate discern, reach a first success, and understand what setup produced.      |
+| [Guides](10-guides/README.md)                   | Complete a task from a named starting state and recognize its result.             |
+| [Understand](20-understand/README.md)           | Learn the product states, evidence, and authority boundaries behind the workflow. |
+| [Reference](30-reference/README.md)             | Look up exact commands, configuration, formats, files, platforms, and defaults.   |
+| [Troubleshooting](40-troubleshooting/README.md) | Start from an observable symptom and recover through a bounded procedure.         |
 
 Contributors can go deeper in the project's [engine](https://github.com/jackwh/discern/tree/main/project/map/50-engine-internals/), [development](https://github.com/jackwh/discern/tree/main/project/map/80-development/), and [site](https://github.com/jackwh/discern/tree/main/project/map/90-site/) Map sections. [Project decisions](https://discern.sh/docs/decisions) record the choices behind discern. Decision records remain outside the product manual and customer binaries.
 

@@ -113,8 +113,8 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 
 ### Where it lives in code
 
-| Concern                    | Source                                                      |
-| -------------------------- | ----------------------------------------------------------- |
+| Concern                    | Source                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
 | Note, merge, and transport | [`proof_notes.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_notes.ts) |
 | Acceptance boundary        | [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts) |
 | Setup acceptance boundary  | [`setup_accept.ts`](https://github.com/jackwh/discern/blob/main/src/commands/setup_accept.ts)  |
@@ -128,6 +128,7 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 - Refresh migrates older exact mappings that carry discern's ownership marker. An unmarked exact mapping stays untouched; the refresh result gives the command that removes it.
 - An older marker may lack structured data. Acceptance honors its commit identity but reports `missing_proof`.
 - A note with a different stable claim on the same commit fails open. Inspect the cause in `data.proof_note.write`.
+
 ## Proof note format
 
 _A Proof note is the durable claim that `discern accept` attaches to a landed commit._
@@ -147,7 +148,14 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 ```json
 {
   "subject": { "commit": "<full commit id>" },
-  "proof": { "branch": "…", "trunk": "…", "head": "…", "files_total": 1, "insertions": 1, "deletions": 0 },
+  "proof": {
+    "branch": "…",
+    "trunk": "…",
+    "head": "…",
+    "files_total": 1,
+    "insertions": 1,
+    "deletions": 0
+  },
   "presentation": { "line": "…", "markdown": "…" }
 }
 ```
@@ -189,11 +197,12 @@ discern v1.0.0 neither signs nor verifies. A later profile chooses the algorithm
 
 ### Where it lives in code
 
-| Concern                     | Source                                                                             |
-| --------------------------- | ---------------------------------------------------------------------------------- |
+| Concern                     | Source                                                                                                                |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Envelope, payload, issuer   | [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts)                       |
 | Writer, reader, cross-check | [`proof_notes.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_notes.ts)                        |
 | Published schema            | [`discern-proof-note.schema.json`](https://github.com/jackwh/discern/blob/main/schema/discern-proof-note.schema.json) |
+
 ## Checkpoint state and declarations
 
 A [checkpoint](glossary.md#checkpoint) pairs a deterministic trigger with a question the agent judges. This page is the reference for its states, flags, and surfaces. The governing definitions are read from `[checkpoints]` at the effort's merge-base with the trunk — the **policy identity** every report and Proof names. A `stop` checkpoint interlocks `discern done`; an `advise` checkpoint serves its question through the advisory channel and blocks nothing.
@@ -238,6 +247,7 @@ A current declared-unmet conclusion makes `discern accept` refuse until the owne
 ### Read surfaces
 
 `discern checkpoints` (CLI, `--json`, `--markdown`, and the MCP tool `discern_checkpoints`) reports the governing policy with each checkpoint's canonical obligation, question, trigger summary, open-question evidence, and structural preview, plus recorded questions outside the governing policy, observed economics, and fail-open advisories. `discern prepare` and `discern status` route the same obligation through the advisory channel, and `discern done --dry-run` describes the same refusal-or-proceed decision. Every read surface is effect-free: it runs no configured `when` command (an undecided condition reports as `unknown` and “may require”) and writes no open question, declaration, Gate marker, or checkpoint lifecycle observation. Command details live in the [CLI reference](cli-reference.md#discern-checkpoints), executable input and output in the [`when` protocol](proof-and-checkpoint-formats.md), and the result contract in [MCP tools & results](mcp-and-results.md).
+
 ## Checkpoint `when` protocol
 
 A structurally holding checkpoint may delegate its final firing decision to `when = "<command>"`. An actual strict or CI run creates one temporary UTF-8 JSON file for the command and exposes its absolute path as `DISCERN_CHECKPOINT_INPUT`. Version 1 has this shape:

@@ -108,8 +108,8 @@ The public result fields are in [MCP tools & results](../30-reference/mcp-and-re
 
 ### Where it lives in code
 
-| Concern                         | Source                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------- |
+| Concern                         | Source                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Marker identity and validation  | [`proof.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof.ts)                           |
 | Proposal authority and currency | [`standard_proposals.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposals.ts) |
 | Write-authority probe           | [`write_preflight.ts`](https://github.com/jackwh/discern/blob/main/src/shared/write_preflight.ts)            |
@@ -131,6 +131,7 @@ The public result fields are in [MCP tools & results](../30-reference/mcp-and-re
 - The preflight is a point-in-time check. Proof writes remain best-effort against a permission change or filesystem failure that occurs after the probe; that rare late failure remains visible in `data.gate_proof`.
 - A Logbook hint is advice beside the Proof. The stored Markdown and its commit identity remain unchanged.
 - A proposal-bearing Proof is green Gate evidence with an unresolved owner decision. Report the proposal and use the approval command served by `discern accept`. Do not describe the branch as approved to land.
+
 ## Landing authority
 
 _discern verifies landing authority before moving the trunk._
@@ -141,11 +142,11 @@ A Proof that contains a Standard limit proposal also needs separate owner approv
 
 ### Authority sources
 
-| Source         | Evidence                                                                                               | Lifetime               |
-| -------------- | ------------------------------------------------------------------------------------------------------ | ---------------------- |
-| Conversation   | `discern accept --confirmed` attests to acceptance in this conversation.                               | One call.              |
+| Source         | Evidence                                                                                             | Lifetime               |
+| -------------- | ---------------------------------------------------------------------------------------------------- | ---------------------- |
+| Conversation   | `discern accept --confirmed` attests to acceptance in this conversation.                             | One call.              |
 | Standing grant | The trunk's `[acceptance].pre_authorized` lists granted [scopes](../30-reference/glossary.md#scope). | Every covered landing. |
-| Effort grant   | **Pre-authorize landing once green** at [the desk](../10-guides/delegate-work.md).                                       | That worktree.         |
+| Effort grant   | **Pre-authorize landing once green** at [the desk](../10-guides/delegate-work.md).                   | That worktree.         |
 
 `--confirmed` means conversation consent only. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
 
@@ -188,10 +189,10 @@ If the owner declines, leave acceptance stopped. Restore the trunk limit in the 
 
 ### Where it lives in code
 
-| Concern                   | Source                                                                                                                                                  |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Concern                   | Source                                                                                                                                                                                                                        |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Resolution and vocabulary | [`landing_authority.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/landing_authority.ts), [`consent.ts`](https://github.com/jackwh/discern/blob/main/src/shared/consent.ts)                             |
-| Standing grants           | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts)                                                                                              |
+| Standing grants           | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts)                                                                                                                                 |
 | Effort grants             | [`effort_grant.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/effort_grant.ts), [`effort_grant_writer.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/effort_grant_writer.ts)      |
 | Standard limit approval   | [`standard_proposals.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposals.ts), [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)                  |
 | Results and surface guard | [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts), [`engine_lifecycle_authority_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_lifecycle_authority_test.ts) |

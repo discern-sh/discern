@@ -62,12 +62,13 @@ Keep instructions provider-neutral. Agent-specific setup, trust prompts, and fil
 
 ### Where it lives in code
 
-| Concern                          | Source                                                                            |
-| -------------------------------- | --------------------------------------------------------------------------------- |
+| Concern                          | Source                                                                                                               |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Instruction configuration        | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts) (`instructionSection`) |
 | Source discovery and compilation | [`instructions.ts`](https://github.com/jackwh/discern/blob/main/src/engine/instructions.ts) (`compileInstructions`)  |
 | Agent file registry              | [`providers.ts`](https://github.com/jackwh/discern/blob/main/src/lib/providers.ts)                                   |
 | Compilation coverage             | [`instructions_test.ts`](https://github.com/jackwh/discern/blob/main/tests/instructions_test.ts)                     |
+
 ## Compile and check agent instructions
 
 _After an instruction edit, run `discern refresh`, review the generated files, and commit the tracked outputs with their sources._
@@ -129,16 +130,16 @@ Operational procedures derive from the Skill resolver and setup templates. A rep
 
 ### Where it lives in code
 
-| Concern                         | Source                                                                                                                   |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Concern                         | Source                                                                                                                                                                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Refresh plan and apply          | [`tracked_refresh.ts`](https://github.com/jackwh/discern/blob/main/src/engine/tracked_refresh.ts), [`instructions.ts`](https://github.com/jackwh/discern/blob/main/src/engine/instructions.ts) |
-| Canonical and pointer rendering | [`instruction_render.ts`](https://github.com/jackwh/discern/blob/main/src/engine/instruction_render.ts)                                                     |
-| Local Markdown link relocation  | [`markdown_links.ts`](https://github.com/jackwh/discern/blob/main/src/lib/markdown_links.ts)                                                                |
-| Region discovery                | [`docs.ts`](https://github.com/jackwh/discern/blob/main/src/lib/docs.ts)                                                                                    |
-| Agent file mappings             | [`providers.ts`](https://github.com/jackwh/discern/blob/main/src/lib/providers.ts)                                                                          |
-| Operational-copy universe       | [`agent_surface_contracts.ts`](https://github.com/jackwh/discern/blob/main/scripts/agent_surface_contracts.ts)                                              |
-| Operational-copy guard          | [`agent_surface_contracts_test.ts`](https://github.com/jackwh/discern/blob/main/tests/agent_surface_contracts_test.ts)                                      |
-| Maintained ADR index            | [`adr_index.ts`](https://github.com/jackwh/discern/blob/main/src/lib/adr_index.ts)                                                                          |
-| Refresh behavior                | [`engine_refresh_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_refresh_test.ts)                                                        |
-| Preparation convergence         | [`prepare.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/prepare.ts)                                                                      |
-| ADR index behavior              | [`engine_adr_index_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_adr_index_test.ts)                                                    |
+| Canonical and pointer rendering | [`instruction_render.ts`](https://github.com/jackwh/discern/blob/main/src/engine/instruction_render.ts)                                                                                        |
+| Local Markdown link relocation  | [`markdown_links.ts`](https://github.com/jackwh/discern/blob/main/src/lib/markdown_links.ts)                                                                                                   |
+| Region discovery                | [`docs.ts`](https://github.com/jackwh/discern/blob/main/src/lib/docs.ts)                                                                                                                       |
+| Agent file mappings             | [`providers.ts`](https://github.com/jackwh/discern/blob/main/src/lib/providers.ts)                                                                                                             |
+| Operational-copy universe       | [`agent_surface_contracts.ts`](https://github.com/jackwh/discern/blob/main/scripts/agent_surface_contracts.ts)                                                                                 |
+| Operational-copy guard          | [`agent_surface_contracts_test.ts`](https://github.com/jackwh/discern/blob/main/tests/agent_surface_contracts_test.ts)                                                                         |
+| Maintained ADR index            | [`adr_index.ts`](https://github.com/jackwh/discern/blob/main/src/lib/adr_index.ts)                                                                                                             |
+| Refresh behavior                | [`engine_refresh_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_refresh_test.ts)                                                                                           |
+| Preparation convergence         | [`prepare.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/prepare.ts)                                                                                                         |
+| ADR index behavior              | [`engine_adr_index_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_adr_index_test.ts)                                                                                       |

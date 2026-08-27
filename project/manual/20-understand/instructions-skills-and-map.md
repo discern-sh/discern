@@ -68,8 +68,8 @@ An internal registry keeps classifications outside shipped Skills and binds exac
 
 ## Where it lives in code
 
-| Concern                     | Source                                                                       |
-| --------------------------- | ---------------------------------------------------------------------------- |
+| Concern                     | Source                                                                                                          |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Built-in discovery rule     | [`skills.md`](https://github.com/jackwh/discern/blob/main/templates/instructions/skills.md)                     |
 | Effective-set listing       | [`skills.ts`](https://github.com/jackwh/discern/blob/main/src/lib/skills.ts) (`listSkills`, `skillsListResult`) |
 | Operational classifications | [`agent_surface_contracts.ts`](https://github.com/jackwh/discern/blob/main/scripts/agent_surface_contracts.ts)  |

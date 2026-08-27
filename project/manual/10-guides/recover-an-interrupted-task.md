@@ -72,13 +72,14 @@ Checkout-local artifact materialization, repository ensure, smoke, tracked-clean
 
 ### Where it lives in code
 
-| Concern                  | Source                                                                                                                                 |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Journal and recovery     | [`acceptance_transaction.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/acceptance_transaction.ts)                                                  |
-| Ref transition           | [`git.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/git.ts)                                                                                        |
-| Effort-claim cleanup     | [`effort_grant_cleanup.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/effort_grant_cleanup.ts)                                                      |
+| Concern                  | Source                                                                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Journal and recovery     | [`acceptance_transaction.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/acceptance_transaction.ts)                                                                                     |
+| Ref transition           | [`git.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/git.ts)                                                                                                                           |
+| Effort-claim cleanup     | [`effort_grant_cleanup.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/effort_grant_cleanup.ts)                                                                                         |
 | Result state             | [`accept_landing_state.ts`](https://github.com/jackwh/discern/blob/main/src/shared/accept_landing_state.ts), [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts) |
-| Acceptance orchestration | [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)                                                                            |
+| Acceptance orchestration | [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)                                                                                                               |
+
 ## Recover a dropped worktree branch
 
 _A destructive drop leaves a bounded, local route back to the branch's last committed snapshot._

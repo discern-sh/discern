@@ -28,14 +28,14 @@ The remaining pages answer common evaluation questions. [Design principles](../2
 
 The [glossary](../30-reference/glossary.md) defines each product term once, and every page uses the same name. After setup, [What setup added to your repo](after-setup.md) explains the diff file by file.
 
-| Read next                                    | What's in it                                                                |
-| -------------------------------------------- | --------------------------------------------------------------------------- |
-| [concepts.md](../20-understand/practice-and-roles.md)                   | The mental model in one pass: the gate, worktrees, instructions, ownership. |
-| [design-principles.md](../20-understand/practice-and-roles.md) | Why discern works this way, with each rule observable in your repo.         |
-| [trust-and-data.md](../20-understand/local-control.md)       | What runs on your machine: no network, no telemetry, your commands only.    |
-| [secure-entropy.md](../30-reference/platforms-and-providers.md)       | How WebCrypto stays the production source while tests inject fixed values.  |
-| [the-practice.md](../20-understand/standards.md)           | The tenets discern holds for every change, numbered and citable.            |
-| [system-map.md](../20-understand/practice-and-roles.md)               | The architecture as one picture.                                            |
-| [glossary.md](../30-reference/glossary.md)                   | Every discern term, defined once and alphabetized.                          |
+| Read next                                                       | What's in it                                                                |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| [concepts.md](../20-understand/practice-and-roles.md)           | The mental model in one pass: the gate, worktrees, instructions, ownership. |
+| [design-principles.md](../20-understand/practice-and-roles.md)  | Why discern works this way, with each rule observable in your repo.         |
+| [trust-and-data.md](../20-understand/local-control.md)          | What runs on your machine: no network, no telemetry, your commands only.    |
+| [secure-entropy.md](../30-reference/platforms-and-providers.md) | How WebCrypto stays the production source while tests inject fixed values.  |
+| [the-practice.md](../20-understand/standards.md)                | The tenets discern holds for every change, numbered and citable.            |
+| [system-map.md](../20-understand/practice-and-roles.md)         | The architecture as one picture.                                            |
+| [glossary.md](../30-reference/glossary.md)                      | Every discern term, defined once and alphabetized.                          |
 
 Return to the [manual's front page](../README.md) and choose the section for your task.

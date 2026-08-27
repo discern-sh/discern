@@ -62,15 +62,16 @@ From the main checkout, bare `discern` opens the human view over work in progres
 
 ### Where next
 
-| Want to understand…                                      | Read                                            |
-| -------------------------------------------------------- | ----------------------------------------------- |
-| Install, setup, and upgrades                             | [Getting started](../00-start/README.md)       |
-| `discern done`: jobs, scopes, Standards, and checkpoints | [the quality gate](../10-guides/README.md)         |
-| The worktree lifecycle and its resources                 | [worktrees](../10-guides/README.md)                   |
-| Instruction compilation                                  | [agent instructions](../10-guides/README.md) |
-| Bundled and project-authored Skills                      | [Skills](../10-guides/README.md)                         |
+| Want to understand…                                      | Read                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------ |
+| Install, setup, and upgrades                             | [Getting started](../00-start/README.md)                     |
+| `discern done`: jobs, scopes, Standards, and checkpoints | [the quality gate](../10-guides/README.md)                   |
+| The worktree lifecycle and its resources                 | [worktrees](../10-guides/README.md)                          |
+| Instruction compilation                                  | [agent instructions](../10-guides/README.md)                 |
+| Bundled and project-authored Skills                      | [Skills](../10-guides/README.md)                             |
 | The files discern writes for each coding agent           | [agent integrations](../10-guides/connect-a-coding-agent.md) |
-| Why the system is shaped this way                        | [design principles](practice-and-roles.md)       |
+| Why the system is shaped this way                        | [design principles](practice-and-roles.md)                   |
+
 ## Design principles
 
 _Why discern works this way: the rules the system enforces and what each one means in your repository._

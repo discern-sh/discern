@@ -94,8 +94,8 @@ The result fields and Model Context Protocol wrapper are in [MCP tools & results
 
 ### Where it lives in code
 
-| Concern                                | Source                                                                    |
-| -------------------------------------- | ------------------------------------------------------------------------- |
+| Concern                                | Source                                                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Category and rule catalog              | [`rules.ts`](https://github.com/jackwh/discern/blob/main/src/engine/improve/rules.ts)                        |
 | Rule and report vocabulary             | [`types.ts`](https://github.com/jackwh/discern/blob/main/src/engine/improve/types.ts)                        |
 | Scoring, prioritization, and rendering | [`improve.ts`](https://github.com/jackwh/discern/blob/main/src/engine/improve/improve.ts)                    |
@@ -108,6 +108,7 @@ The result fields and Model Context Protocol wrapper are in [MCP tools & results
 - `--min-score` enforces the automated floor; open qualitative reviews do not change `ok`.
 - Historical findings sit outside the score and never change `--min-score`; a recommendation they back stays advice.
 - The relevant source files contain no unfinished-work markers for coach behavior.
+
 ## Coupling
 
 _`discern coupling` names files that usually move together, with the history behind each suggestion._
@@ -166,12 +167,12 @@ The result fields and Model Context Protocol arguments are in [MCP tools & resul
 
 ### Where it lives in code
 
-| Concern                              | Source                                                                                                 |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Mining, ranking, and all three modes | [`coupling.ts`](https://github.com/jackwh/discern/blob/main/src/engine/coupling/coupling.ts)                                              |
-| Result data schema                   | [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts)                                           |
+| Concern                              | Source                                                                                                                                                                       |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mining, ranking, and all three modes | [`coupling.ts`](https://github.com/jackwh/discern/blob/main/src/engine/coupling/coupling.ts)                                                                                 |
+| Result data schema                   | [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts)                                                                              |
 | Gate and prepare integration         | [`finish.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/finish.ts), [`prepare.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/prepare.ts) |
-| Behavioral coverage                  | [`engine_coupling_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_coupling_test.ts)                                    |
+| Behavioral coverage                  | [`engine_coupling_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_coupling_test.ts)                                                                       |
 
 ### Current state & gotchas
 

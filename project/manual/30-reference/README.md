@@ -43,23 +43,23 @@ The authored pages cover contracts that need explanation. MCP tools share the sa
 
 For setup and first-use steps, start in [Getting started](../00-start/README.md). For behavior and failure recovery, use [The quality Gate](../10-guides/README.md) or [Worktrees](../10-guides/README.md). Reference remains organized for lookup.
 
-| Reference                                                                 | Use it to                                                                                |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| [CLI reference](cli-reference.md)                                         | Find every visible command, subcommand, positional argument, and flag.                   |
-| [`discern.toml` reference](config-reference.md)                           | Find every section, key, type, default, and repeatable named table.                      |
-| [Result formats & delivery](mcp-and-results.md)                           | Choose terminal, Markdown, JSON, or MCP delivery for one prepared result.                |
-| [MCP tools & results](mcp-and-results.md#compatibility-by-schema-version) | Integrate with tools, resources, result envelopes, schemas, and exit codes.              |
-| [Proof note format](proof-and-checkpoint-formats.md)                                 | Consume the durable Proof record attached to each landed commit.                         |
-| [Files & ownership](files-and-ownership.md)                                | See what discern writes, who may edit or overwrite it, Git treatment, and removal rules. |
-| [Licenses for project payloads](licenses.md)               | See where Apache-2.0 begins and ends for discern-authored material.                      |
-| [The Logbook](logbook.md)                                             | See what discern records about its own runs, and read, delete, or disable it.            |
-| [Crash reports](../40-troubleshooting/crashes-and-local-state.md)                                         | Find the saved report, exit code, and envelope a bug in discern leaves behind.           |
-| [Environment variables](environment-variables.md)                         | Find every public `DISCERN_*` input and export, grouped by purpose.                      |
-| [Platforms & prerequisites](platforms-and-providers.md)                     | Check release targets, required tools, identity selectors, and tokens.                   |
-| [MCP call duration](../40-troubleshooting/mcp-terminal-and-docs.md)                                 | Compare verified tool-call bounds and resumable waits across coding agents.              |
-| [Temp files & retention](../40-troubleshooting/crashes-and-local-state.md)                     | Know what discern writes to your temp directory, for how long, and how it leaves.        |
-| [Logbook lifecycle](logbook.md)                                 | Preview, confirm, archive, reset, recover, and read sealed Logbook history.              |
-| [Checkpoint state & declarations](proof-and-checkpoint-formats.md)                    | Look up open-question states, declaration and variance flags, and the read surfaces.     |
-| [Checkpoint `when` protocol](proof-and-checkpoint-formats.md)                 | Consume the versioned command input, match output, and temporary-file lifecycle.         |
-| [Setup command boundaries](../40-troubleshooting/setup-and-integrations.md)                   | Separate setup consent, write access, recovery, and provider activation.                 |
-| [Worktree setup-step recovery](../40-troubleshooting/setup-and-integrations.md)           | Resolve an interrupted one-shot setup command without automatic replay.                  |
+| Reference                                                                       | Use it to                                                                                |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [CLI reference](cli-reference.md)                                               | Find every visible command, subcommand, positional argument, and flag.                   |
+| [`discern.toml` reference](config-reference.md)                                 | Find every section, key, type, default, and repeatable named table.                      |
+| [Result formats & delivery](mcp-and-results.md)                                 | Choose terminal, Markdown, JSON, or MCP delivery for one prepared result.                |
+| [MCP tools & results](mcp-and-results.md#compatibility-by-schema-version)       | Integrate with tools, resources, result envelopes, schemas, and exit codes.              |
+| [Proof note format](proof-and-checkpoint-formats.md)                            | Consume the durable Proof record attached to each landed commit.                         |
+| [Files & ownership](files-and-ownership.md)                                     | See what discern writes, who may edit or overwrite it, Git treatment, and removal rules. |
+| [Licenses for project payloads](licenses.md)                                    | See where Apache-2.0 begins and ends for discern-authored material.                      |
+| [The Logbook](logbook.md)                                                       | See what discern records about its own runs, and read, delete, or disable it.            |
+| [Crash reports](../40-troubleshooting/crashes-and-local-state.md)               | Find the saved report, exit code, and envelope a bug in discern leaves behind.           |
+| [Environment variables](environment-variables.md)                               | Find every public `DISCERN_*` input and export, grouped by purpose.                      |
+| [Platforms & prerequisites](platforms-and-providers.md)                         | Check release targets, required tools, identity selectors, and tokens.                   |
+| [MCP call duration](../40-troubleshooting/mcp-terminal-and-docs.md)             | Compare verified tool-call bounds and resumable waits across coding agents.              |
+| [Temp files & retention](../40-troubleshooting/crashes-and-local-state.md)      | Know what discern writes to your temp directory, for how long, and how it leaves.        |
+| [Logbook lifecycle](logbook.md)                                                 | Preview, confirm, archive, reset, recover, and read sealed Logbook history.              |
+| [Checkpoint state & declarations](proof-and-checkpoint-formats.md)              | Look up open-question states, declaration and variance flags, and the read surfaces.     |
+| [Checkpoint `when` protocol](proof-and-checkpoint-formats.md)                   | Consume the versioned command input, match output, and temporary-file lifecycle.         |
+| [Setup command boundaries](../40-troubleshooting/setup-and-integrations.md)     | Separate setup consent, write access, recovery, and provider activation.                 |
+| [Worktree setup-step recovery](../40-troubleshooting/setup-and-integrations.md) | Resolve an interrupted one-shot setup command without automatic replay.                  |

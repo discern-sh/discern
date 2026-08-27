@@ -42,11 +42,11 @@ For the shared instructions behind these files, read [Agent instructions](README
 
 The identity catalog supplies the supported set, and the provider registry requires a record for every native integration ([ADR 0166](https://discern.sh/docs/decisions/0166-agent-identity-is-advisory-logbook-evidence), [ADR 0031](https://discern.sh/docs/decisions/0031-typed-provider-integration)).
 
-| Read next                                                 | What's in it                                                     |
-| --------------------------------------------------------- | ---------------------------------------------------------------- |
+| Read next                                                           | What's in it                                                     |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | [MCP call duration](../40-troubleshooting/mcp-terminal-and-docs.md) | Verified long-call bounds and resumable waits across providers.  |
-| [Claude Code](../30-reference/platforms-and-providers.md)                             | `CLAUDE.md`, Claude Skills, MCP, hooks, and permission defaults. |
-| [Codex](../30-reference/platforms-and-providers.md)                                         | `AGENTS.md`, MCP, hooks, app worktrees, and narrow Git rules.    |
-| [Gemini](../30-reference/platforms-and-providers.md)                                       | `GEMINI.md`, shared Skills, MCP, hooks, and workspace trust.     |
-| [Cursor](../30-reference/platforms-and-providers.md)                                       | `AGENTS.md`, MCP, hooks, IDE setup, and worktree choices.        |
-| [GitHub Copilot](../30-reference/platforms-and-providers.md)                       | `AGENTS.md`, shared Skills, MCP, hooks, and folder trust.        |
+| [Claude Code](../30-reference/platforms-and-providers.md)           | `CLAUDE.md`, Claude Skills, MCP, hooks, and permission defaults. |
+| [Codex](../30-reference/platforms-and-providers.md)                 | `AGENTS.md`, MCP, hooks, app worktrees, and narrow Git rules.    |
+| [Gemini](../30-reference/platforms-and-providers.md)                | `GEMINI.md`, shared Skills, MCP, hooks, and workspace trust.     |
+| [Cursor](../30-reference/platforms-and-providers.md)                | `AGENTS.md`, MCP, hooks, IDE setup, and worktree choices.        |
+| [GitHub Copilot](../30-reference/platforms-and-providers.md)        | `AGENTS.md`, shared Skills, MCP, hooks, and folder trust.        |

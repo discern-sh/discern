@@ -79,6 +79,7 @@ Centralizing the source leaves identifier formats, nonce lengths, collision retr
 [`SECURE_ENTROPY_PRIMITIVE_BOUNDARIES`](https://github.com/jackwh/discern/blob/main/src/shared/entropy.ts) records each direct WebCrypto operation with its path, function, operation, required security property, and reason. The structural guard binds calls and rows in both directions. An unenrolled call, wrapper, stale row, missing security property, or `Math.random` downgrade fails.
 
 The `secure_entropy_primitive_boundaries` Standard holds this registry at a down-only limit of 2. Secure entropy and scheduling jitter remain separate ([ADR 0348](https://discern.sh/docs/decisions/0348-secure-entropy-is-a-webcrypto-capability)).
+
 ## Claude Code integration
 
 _The Claude Code integration supplies shared instructions and Skills, a Model Context Protocol (MCP) server entry, hooks, and project-local permission defaults._
@@ -197,6 +198,7 @@ discern does not emit Claude Code sandbox settings. In discern's recorded provid
 - Why the worktree-hook payloads are parsed in the binary ([ADR 0040](https://discern.sh/docs/decisions/0040-worktree-hooks-in-the-binary)).
 - Why the provider registry is the single source for agent files, Skills, settings, and ignores ([ADR 0043](https://discern.sh/docs/decisions/0043-registry-derived-agent-parity)).
 - Why Claude Code and GitHub Copilot co-own `.mcp.json` ([ADR 0074](https://discern.sh/docs/decisions/0074-co-owned-mcp-json)).
+
 ## Codex integration
 
 _The Codex integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, hooks, app worktree scripts, and narrow Git rules._
@@ -325,6 +327,7 @@ The default writable-root path includes the main checkout directory name. If a d
 ### See also
 
 - Why discern writes this narrow Codex project config and avoids broader sandbox control ([ADR 0082](https://discern.sh/docs/decisions/0082-codex-project-config-writable-root)).
+
 ## Gemini integration
 
 _The Gemini integration supplies shared instructions and Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
@@ -403,6 +406,7 @@ Run `discern refresh` after changing the configured agent set or upgrading the p
 
 - Why `GEMINI.md` is a pointer to `AGENTS.md` ([ADR 0043](https://discern.sh/docs/decisions/0043-registry-derived-agent-parity)).
 - Why MCP coverage is explicit in the provider registry ([ADR 0072](https://discern.sh/docs/decisions/0072-typed-mcp-status-forcing-function)).
+
 ## Cursor integration
 
 _The Cursor integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
@@ -527,6 +531,7 @@ Skill-loading behavior varies across Cursor CLI versions. When diagnosing a miss
 
 - Why Cursor emits no provider-specific agent file ([ADR 0070](https://discern.sh/docs/decisions/0070-reuse-canonical-guidance)).
 - Why Cursor shares the same stdio MCP JSON writer shape as Claude Code and GitHub Copilot ([ADR 0074](https://discern.sh/docs/decisions/0074-co-owned-mcp-json)).
+
 ## GitHub Copilot integration
 
 _The GitHub Copilot integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
@@ -621,6 +626,7 @@ Copilot's local sandbox and pre-tool hooks are separate vendor features. discern
 
 - Why Copilot emits no provider-specific agent file ([ADR 0070](https://discern.sh/docs/decisions/0070-reuse-canonical-guidance)).
 - Why Claude Code and GitHub Copilot co-own `.mcp.json` ([ADR 0074](https://discern.sh/docs/decisions/0074-co-owned-mcp-json)).
+
 ## Platforms and prerequisites
 
 _The release targets and local tools discern requires, followed by identity selectors and worktree command tokens._

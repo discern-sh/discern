@@ -85,13 +85,14 @@ discern skills list
 
 ### Where it lives in code
 
-| Concern                               | Source                                                                                                                                |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `[skills].dir` default and schema     | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts) (`skillsSection`)                                                          |
-| Authored resolution and links         | [`skills.ts`](https://github.com/jackwh/discern/blob/main/src/lib/skills.ts) (`resolveSkillsByName`, `materializeSkills`)                                                |
-| Frontmatter validation                | [`skills.ts`](https://github.com/jackwh/discern/blob/main/src/lib/skills.ts) (`skillFrontmatterIssues`)                                                                  |
+| Concern                               | Source                                                                                                                                                                                                                 |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[skills].dir` default and schema     | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts) (`skillsSection`)                                                                                                        |
+| Authored resolution and links         | [`skills.ts`](https://github.com/jackwh/discern/blob/main/src/lib/skills.ts) (`resolveSkillsByName`, `materializeSkills`)                                                                                              |
+| Frontmatter validation                | [`skills.ts`](https://github.com/jackwh/discern/blob/main/src/lib/skills.ts) (`skillFrontmatterIssues`)                                                                                                                |
 | This repo's example in `[skills].dir` | [`discern-product-voice`](https://github.com/jackwh/discern/blob/main/project/skills/discern-product-voice/SKILL.md) (generated from [`voice.ts`](https://github.com/jackwh/discern/blob/main/scripts/brand/voice.ts)) |
-| Materialization coverage              | [`instructions_test.ts`](https://github.com/jackwh/discern/blob/main/tests/instructions_test.ts)                                                                         |
+| Materialization coverage              | [`instructions_test.ts`](https://github.com/jackwh/discern/blob/main/tests/instructions_test.ts)                                                                                                                       |
+
 ## Customize or exclude a Skill
 
 _Copy a built-in Skill into project ownership when its procedure needs editing, or exclude a Skill the project does not use._
@@ -142,12 +143,13 @@ An unknown exclusion warns during materialization and excludes nothing. The warn
 
 ### Where it lives in code
 
-| Concern                    | Source                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------- |
+| Concern                    | Source                                                                                                          |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Override and exclude rules | [`skills.ts`](https://github.com/jackwh/discern/blob/main/src/lib/skills.ts) (`resolveEffectiveSkills`)         |
 | Ejection behavior          | [`skills.ts`](https://github.com/jackwh/discern/blob/main/src/lib/skills.ts) (`ejectSkill`)                     |
 | Configuration schema       | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts) (`skillsSection`) |
 | Full command-path coverage | [`engine_skills_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_skills_test.ts)              |
+
 ## Teach the project
 
 _Record a durable correction, procedure, or decision in a project source that future agent sessions inherit._
@@ -160,14 +162,14 @@ discern's built-in instructions also tell agents to offer this capture at a natu
 
 The Skill checks for an existing source before adding anything. Update the current rule, playbook, or page instead of creating a second authority.
 
-| The lesson is…                          | Its home                                                                         |
-| --------------------------------------- | -------------------------------------------------------------------------------- |
+| The lesson is…                          | Its home                                                |
+| --------------------------------------- | ------------------------------------------------------- |
 | A standing rule every session needs     | The [Instruction source](write-project-instructions.md) |
-| A repeatable procedure needing judgment | An [authored Skill](create-and-manage-skills.md)                                           |
-| A review judgment a diff makes relevant | A [checkpoint](../20-understand/checkpoints.md)                                |
-| A deterministic command sequence        | A Project Script                                                                 |
-| Durable subsystem facts                 | The documentation Map                                                            |
-| A significant decision and its reason   | An ADR                                                                           |
+| A repeatable procedure needing judgment | An [authored Skill](create-and-manage-skills.md)        |
+| A review judgment a diff makes relevant | A [checkpoint](../20-understand/checkpoints.md)         |
+| A deterministic command sequence        | A Project Script                                        |
+| Durable subsystem facts                 | The documentation Map                                   |
+| A significant decision and its reason   | An ADR                                                  |
 
 Record each lesson in one authoritative source. An instruction can link to the ADR that explains it, while the rule and rationale retain separate purposes.
 
@@ -188,8 +190,8 @@ Record each lesson in one authoritative source. An instruction can link to the A
 
 ### Where it lives in code
 
-| Concern                 | Source                                                                                      |
-| ----------------------- | ------------------------------------------------------------------------------------------- |
+| Concern                 | Source                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Capture playbook        | [`discern-teach-the-project`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-teach-the-project/SKILL.md) |
 | Proactive offer rule    | [`skills.md`](https://github.com/jackwh/discern/blob/main/templates/instructions/skills.md)                                    |
 | Instruction compilation | [`instructions.ts`](https://github.com/jackwh/discern/blob/main/src/engine/instructions.ts)                                    |

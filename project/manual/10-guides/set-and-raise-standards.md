@@ -138,17 +138,17 @@ Pin records a clean `HEAD` before reading values and rechecks before editing. A 
 
 ## Where it lives in code
 
-| Concern                                   | Source                                                                                                                                                       |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Config fields and validation              | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts)                                                                                                   |
-| Pure standard plan                        | [`standard_plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_plan.ts)                                                                                              |
-| Shared trunk definition and limit check   | [`standard_limits.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_limits.ts)                                                                                          |
+| Concern                                   | Source                                                                                                                                                                                                                             |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config fields and validation              | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts)                                                                                                                                      |
+| Pure standard plan                        | [`standard_plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_plan.ts)                                                                                                                                 |
+| Shared trunk definition and limit check   | [`standard_limits.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_limits.ts)                                                                                                                             |
 | Proposed limit plan and transaction       | [`standard_proposal_plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposal_plan.ts), [`standard_proposals.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposals.ts) |
-| Shared measurement and pin execution      | [`standards.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standards.ts)                                                                                                      |
-| Gate replay and deferral policy           | [`standards_gate.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standards_gate.ts)                                                                                            |
-| Human Standard presentation               | [`presentation.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/presentation.ts)                                                                                                |
-| Parallel scheduling and process-tree kill | [`runner.ts`](https://github.com/jackwh/discern/blob/main/src/engine/jobs/runner.ts)                                                                                                            |
-| Built-in write probes                     | [`write_preflight.ts`](https://github.com/jackwh/discern/blob/main/src/shared/write_preflight.ts)                                                                                               |
+| Shared measurement and pin execution      | [`standards.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standards.ts)                                                                                                                                         |
+| Gate replay and deferral policy           | [`standards_gate.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standards_gate.ts)                                                                                                                               |
+| Human Standard presentation               | [`presentation.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/presentation.ts)                                                                                                                                   |
+| Parallel scheduling and process-tree kill | [`runner.ts`](https://github.com/jackwh/discern/blob/main/src/engine/jobs/runner.ts)                                                                                                                                               |
+| Built-in write probes                     | [`write_preflight.ts`](https://github.com/jackwh/discern/blob/main/src/shared/write_preflight.ts)                                                                                                                                  |
 
 ## Current state & gotchas
 
