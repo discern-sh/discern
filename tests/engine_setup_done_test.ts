@@ -41,6 +41,7 @@ import { inspectGateProof } from "../src/engine/gate/proof.ts";
 import { SETUP_RESULT_MAX_CHARS } from "../src/shared/setup_pages.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { readyForSetupDone } from "./fixtures/setup_completion_harness.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const HIDE_CURSOR = `${CSI}?25l`;
@@ -53,35 +54,7 @@ async function readyForDone(
   cmd: string,
   env: Record<string, string> = {},
 ): Promise<void> {
-  await scaffoldEngine(dir, { bootstrapped: false });
-  await gitInit(dir);
-  await git(dir, "checkout", "-q", "-b", SETUP_BRANCH);
-  await runAgent(dir, ["setup", "begin", "--confirmed"], { env }); // lay the skeletons
-  // Replace the marker-carrying skeletons with real, marker-free content. The
-  // instructions.md carries a real pitch and Conventions section. The Map carries
-  // the qualitative primary-subsystem contract; design-principles stays absent (N/A).
-  await Deno.remove(defaultMapPath(dir), { recursive: true });
-  await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
-  await Deno.writeTextFile(
-    defaultMapPath(dir, "README.md"),
-    "# Real docs\n",
-  );
-  await Deno.writeTextFile(
-    defaultMapPath(dir, "10-runtime", "README.md"),
-    "# Runtime\n\n## Start here\n\nBegin at `main.ts`.\n\n" +
-      "## Boundary\n\nThe runtime owns project execution.\n\n" +
-      "## Non-obvious invariant\n\nPreserve the configured command's exit status.\n",
-  );
-  await Deno.writeTextFile(
-    join(dir, "discern/instructions.md"),
-    "# Project instructions\n\nA real pitch describing the project and who it serves.\n\n## Conventions\n\nReal, project-specific conventions.\n",
-  );
-  const wired = await runAgent(dir, ["config", "set-job", "test", cmd], {
-    env,
-  });
-  assertEquals(wired.code, 0, wired.output);
-  const refreshed = await runAgent(dir, ["refresh"], { env });
-  assertEquals(refreshed.code, 0, refreshed.output);
+  await readyForSetupDone(dir, cmd, env);
 }
 
 /** A failed completion reports setup incomplete and leaves no current Proof. */
