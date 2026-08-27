@@ -21,7 +21,10 @@ import {
 } from "../scripts/manual_prose_lib.ts";
 import { addsOrReplacesFrontDoor } from "../project/scripts/manual_front_door_checkpoint.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
-import { buildManualProjection } from "../src/lib/manual.ts";
+import {
+  buildManualProjection,
+  type ManualProjection,
+} from "../src/lib/manual.ts";
 import {
   MANUAL_ALIAS_OWNER_OVERRIDES,
   MANUAL_KIND_REGISTRY,
@@ -29,7 +32,8 @@ import {
 } from "../src/shared/manual.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
-async function repositoryManual() {
+/** Load the repository manual through its canonical strict policy. */
+async function repositoryManual(): Promise<ManualProjection> {
   const tree = await discoverDocs({
     cwd: REPO_ROOT,
     dir: REPO_AUTHORED_PATHS.manual,

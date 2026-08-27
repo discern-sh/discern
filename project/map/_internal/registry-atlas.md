@@ -2950,7 +2950,7 @@ The selected Human Benefit ids and the stable published manual page ids required
 
 ## `manual-benefit-exclusions` — Manual benefit exclusions
 
-The Human Benefit ids deliberately left without a primary manual obligation and their retained 1A reason.
+The Human Benefit ids left without a primary manual obligation and their retained 1A reason.
 
 - Source: `scripts/manual_benefits.ts` — `MANUAL_BENEFIT_EXCLUSIONS`
 - Members: 24

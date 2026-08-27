@@ -12,12 +12,16 @@ import {
 import { buildSearchIndex } from "../site/search.ts";
 import { docsResult } from "../src/commands/docs.ts";
 import { buildRedirectRegistry, discoverDocs } from "../src/lib/docs.ts";
-import { buildManualProjection } from "../src/lib/manual.ts";
+import {
+  buildManualProjection,
+  type ManualProjection,
+} from "../src/lib/manual.ts";
 import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { withTempDir } from "./helpers.ts";
 
-async function repositoryManual() {
+/** Load the repository manual through the same strict projection as consumers. */
+async function repositoryManual(): Promise<ManualProjection> {
   const tree = await discoverDocs({
     cwd: REPO_ROOT,
     dir: resolveRepositoryManualDir(REPO_ROOT).abs,

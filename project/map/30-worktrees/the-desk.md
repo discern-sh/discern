@@ -57,23 +57,7 @@ Every action remains visible in **Work**, **Review**, **Manage**, or **Danger**.
 
 Broken or unreadable tasks never recommend Drop.
 
-<!-- BEGIN DESK ACTION REGISTRY -->
-
-| Id             | Group  | Contextual label                                                                | Command evidence                     | Confirmation                                                     |
-| -------------- | ------ | ------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
-| `done`         | Work   | Run final checks                                                                | `discern done`                       | No by default; Run                                               |
-| `accept`       | Review | Run final checks, then land on &lt;trunk&gt; / Review and land on &lt;trunk&gt; | `discern accept`                     | No by default; Land                                              |
-| `update`       | Manage | Update branch from &lt;trunk&gt;                                                | `discern update`                     | No by default; Update                                            |
-| `agent`        | Work   | Continue with an agent                                                          | `<configured-agent>`                 | None                                                             |
-| `scripts`      | Work   | Run a Project Script                                                            | `discern scripts <name>`             | No by default; Run                                               |
-| `jump`         | Work   | Open a shell                                                                    | `<user-shell>`                       | None                                                             |
-| `inspect`      | Review | Review Proof and changes                                                        | `git diff`                           | None                                                             |
-| `grant`        | Manage | Pre-authorize landing once green                                                | `discern desk`                       | No by default; Allow                                             |
-| `revoke_grant` | Manage | Revoke landing pre-authorization                                                | `discern desk`                       | No by default; Revoke                                            |
-| `reclaim`      | Manage | Reclaim checkout, keep branch (work contained in &lt;later-branch&gt;)          | `discern worktree prune --contained` | No by default; Reclaim                                           |
-| `drop`         | Danger | Drop worktree and branch                                                        | `discern worktree drop <path>`       | No by default; Drop, then type the branch before discarding work |
-
-<!-- END DESK ACTION REGISTRY -->
+The typed action registry owns menu order, grouping, contextual labels, command evidence, and confirmation policy. The [product-manual action table](https://discern.sh/docs/guides/delegate-work#choose-one-contextual-action) projects every member for readers; its registry-driven test enrols future actions automatically.
 
 Grant and revoke remain human-only actions inside `discern desk`.
 

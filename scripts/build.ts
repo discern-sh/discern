@@ -324,6 +324,7 @@ async function main(): Promise<void> {
     DISTRIBUTION_SOURCE_ROOTS,
     distributionFiles,
   );
+  let buildFailure: unknown;
   try {
     for (const target of targets) {
       await compileTarget(
@@ -333,15 +334,26 @@ async function main(): Promise<void> {
         exclusions,
       );
     }
-  } finally {
-    // The staged manual is a transient embed input. Cleanup failures are build
-    // failures because retained bytes could contaminate a later binary.
-    try {
-      await Deno.remove(docsStageDir, { recursive: true });
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
-    }
+  } catch (error) {
+    buildFailure = error;
   }
+
+  // The staged manual is a transient embed input. Cleanup always runs, and a
+  // failure remains visible without replacing an earlier compilation failure.
+  let cleanupFailure: unknown;
+  try {
+    await Deno.remove(docsStageDir, { recursive: true });
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) cleanupFailure = error;
+  }
+  if (buildFailure !== undefined && cleanupFailure !== undefined) {
+    throw new AggregateError(
+      [buildFailure, cleanupFailure],
+      "binary compilation and bundled-manual cleanup both failed",
+    );
+  }
+  if (buildFailure !== undefined) throw buildFailure;
+  if (cleanupFailure !== undefined) throw cleanupFailure;
   console.log(`✓ built ${targets.length} binary/binaries into ${distDir}/`);
 }
 

@@ -15,7 +15,7 @@ import {
   type EnvReader,
   installedConfigRel,
 } from "../shared/env.ts";
-import { type DiscernConfig } from "../shared/config_schema.ts";
+import type { DiscernConfig } from "../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import {

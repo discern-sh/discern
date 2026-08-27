@@ -19,10 +19,12 @@ export const MANUAL_FRONT_DOOR_PATH = `${REPOSITORY_MANUAL_REL}/README.md`;
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 const UTF8_ENCODER = new TextEncoder();
 
+/** Convert malformed or unreadable matcher input into one fail-closed error. */
 function fail(message: string): never {
   throw new Error(message);
 }
 
+/** Decode bounded source bytes without replacing malformed input. */
 function exactUtf8(bytes: Uint8Array, label: string): string {
   try {
     return UTF8_DECODER.decode(bytes);
@@ -31,10 +33,12 @@ function exactUtf8(bytes: Uint8Array, label: string): string {
   }
 }
 
+/** Preserve exact Git output bytes when the subprocess boundary provides them. */
 function gitBytes(result: GitResult): Uint8Array {
   return result.stdoutBytes ?? UTF8_ENCODER.encode(result.stdout);
 }
 
+/** Resolve and canonicalize the invoking checkout root through Git. */
 async function rootPath(cwd: string): Promise<string> {
   const result = await runGit(["rev-parse", "--show-toplevel"], {
     cwd,
@@ -50,6 +54,7 @@ async function rootPath(cwd: string): Promise<string> {
   return await Deno.realPath(root);
 }
 
+/** Read a non-empty promoted-destination list from one root README. */
 function destinations(markdown: string, label: string): string[] {
   const values = manualFrontDoorDestinations(markdown);
   if (values.length === 0) {
@@ -69,6 +74,7 @@ export function addsOrReplacesFrontDoor(
   return after.some((destination) => !existing.has(destination));
 }
 
+/** Read the policy commit's exact manual-root authority with a byte bound. */
 async function governingRoot(
   root: string,
   commit: string,
@@ -85,6 +91,7 @@ async function governingRoot(
   return exactUtf8(gitBytes(result), "governing manual front door");
 }
 
+/** Read the current bounded regular manual-root authority inside the checkout. */
 async function currentRoot(root: string): Promise<string> {
   const path = await resolveContainedProjectReadPath(
     root,
@@ -105,6 +112,7 @@ async function currentRoot(root: string): Promise<string> {
   return exactUtf8(await Deno.readFile(path), "current manual front door");
 }
 
+/** Decide whether the current root adds or replaces a promoted destination. */
 async function promotionChanged(
   cwd: string,
   input: CheckpointWhenInput,
@@ -126,6 +134,7 @@ async function promotionChanged(
   );
 }
 
+/** Emit a match only when the governed front door grows or replaces a member. */
 async function main(): Promise<number> {
   const input = await checkpointWhenInputFromEnvironment({
     id: MANUAL_FRONT_DOOR_CHECKPOINT_ID,

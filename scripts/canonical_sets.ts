@@ -2613,7 +2613,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "manual-benefit-exclusions",
     title: "Manual benefit exclusions",
     what:
-      "The Human Benefit ids deliberately left without a primary manual obligation and their retained 1A reason.",
+      "The Human Benefit ids left without a primary manual obligation and their retained 1A reason.",
     source: {
       kind: "module",
       module: "scripts/manual_benefits.ts",

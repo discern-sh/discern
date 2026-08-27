@@ -54,7 +54,7 @@ function actionReferenceRows(): string[][] {
 }
 
 Deno.test("the public Desk action table matches the canonical registry", async () => {
-  const path = `${REPO_AUTHORED_PATHS.map}/30-worktrees/the-desk.md`;
+  const path = `${REPO_AUTHORED_PATHS.manual}/10-guides/delegate-work.md`;
   const source = await Deno.readTextFile(path);
   const start = source.indexOf(START);
   const end = source.indexOf(END);

@@ -1,7 +1,7 @@
 /** Manual-specific destinations for canonical reference generators. */
 
 import * as posix from "@std/path/posix";
-import { type ManualPage, type ManualProjection } from "../src/lib/manual.ts";
+import type { ManualPage, ManualProjection } from "../src/lib/manual.ts";
 import { MANUAL_ALIAS_OWNER_OVERRIDES } from "../src/shared/manual.ts";
 import {
   parseFrontmatter,

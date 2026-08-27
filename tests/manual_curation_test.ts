@@ -3,7 +3,10 @@
 import { dirname, join, SEPARATOR } from "@std/path";
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { discoverDocs, structuredLinkDestinations } from "../src/lib/docs.ts";
-import { buildManualProjection } from "../src/lib/manual.ts";
+import {
+  buildManualProjection,
+  type ManualProjection,
+} from "../src/lib/manual.ts";
 import { MANUAL_SECTION_REGISTRY } from "../src/shared/manual.ts";
 import { stageBundledManual } from "../scripts/build.ts";
 import { loadDocsSite } from "../site/docs.ts";
@@ -11,7 +14,8 @@ import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
-async function projection() {
+/** Load the repository manual through its canonical strict policy. */
+async function projection(): Promise<ManualProjection> {
   const tree = await discoverDocs({
     cwd: REPO_ROOT,
     dir: REPO_AUTHORED_PATHS.manual,

@@ -46,6 +46,7 @@ interface MatcherResult {
   readonly stderr: string;
 }
 
+/** Render one strict manual page for matcher boundary fixtures. */
 function page(
   id: string,
   kind: ManualKind,
@@ -74,6 +75,7 @@ function page(
   ].join("\n");
 }
 
+/** Build one valid policy-commit-governed matcher input. */
 function matcherInput(
   checkpointId: string,
   policyCommit: string,
@@ -87,6 +89,7 @@ function matcherInput(
   };
 }
 
+/** Execute the real matcher process with its bounded input environment. */
 async function runMatcher(
   cwd: string,
   checkpointId: string,

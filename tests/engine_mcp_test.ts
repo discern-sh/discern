@@ -1807,6 +1807,52 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       "config-reference remains among the retryable suggestions",
     );
 
+    // Stable manual identity resolves to the migrated page and carries its kind.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: {
+        name: "discern_docs",
+        arguments: { target: "guide-delegate-work" },
+      },
+    });
+    const manualPage = await mcp.recv();
+    assertEquals(manualPage.result.isError, false);
+    assertEquals(
+      manualPage.result.structuredContent.data.doc.page_id,
+      "guide-delegate-work",
+    );
+    assertEquals(
+      manualPage.result.structuredContent.data.doc.manual_kind,
+      "guide",
+    );
+    assertStringIncludes(
+      manualPage.result.structuredContent.data.doc.content,
+      "Review Proof and changes",
+    );
+
+    // Search returns the manual's canonical follow-up target through MCP.
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: {
+        name: "discern_docs",
+        arguments: { search: "review Proof and changes" },
+      },
+    });
+    const manualSearch = await mcp.recv();
+    assertEquals(manualSearch.result.isError, false);
+    assertEquals(
+      manualSearch.result.structuredContent.data.results[0].target,
+      "10-guides/delegate-work",
+    );
+    assertEquals(
+      manualSearch.result.structuredContent.data.results[0].match,
+      "complete",
+    );
+
     assertEquals(await mcp.close(), 0);
   });
 });

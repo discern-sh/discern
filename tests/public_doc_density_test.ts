@@ -12,6 +12,7 @@ import {
 } from "../src/shared/manual.ts";
 import { withTempDir } from "./helpers.ts";
 
+/** Render one strict manual fixture page with caller-selected publication. */
 function page(
   id: string,
   title: string,
@@ -41,6 +42,7 @@ function page(
   ].join("\n");
 }
 
+/** Materialize every registered section plus measured and excluded leaves. */
 async function writeFixture(root: string): Promise<string> {
   const manual = join(root, "manual");
   await Deno.mkdir(manual);

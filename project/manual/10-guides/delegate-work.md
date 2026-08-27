@@ -59,15 +59,57 @@ Within groups, recent worktrees appear first. The root board shows project and m
 
 Rows adapt at 96 and 56 columns ([ADR 0352](https://discern.sh/docs/decisions/0352-desk-decisions-cross-a-pure-responsive-presentation-boundary)): wide rows separate task, state, and activity or action; medium rows keep task and state together; narrow rows put state and detail below the task. Every row has an independent width, and task detail preserves a truncated title. Static content retains at most one third of the terminal height; the interaction fitter owns the rest. Search begins at 9 tasks. One result receives active focus; the query field receives it during typing.
 
-### Choose an action
+### Choose one contextual action
 
-Task detail precedes the action picker. It groups the full title and headline, location, activity, Git facts, landing authority, collisions, containment, agent and Project Script availability, and Proof currency and line. Empty groups disappear. Short screens keep the action picker coherent by moving earlier evidence into terminal history.
+Task detail shows the full title, location, activity, Git and Proof facts, landing authority, collisions, containment, and available agents and Project Scripts. Short screens move earlier evidence into terminal history.
 
-The decision carries every action once, its availability reason, and at most one recommendation; the picker shows enabled actions only. Landing, work, review, and worktree groups cover Accept and its grant, Update, scripts, agents, shell, Inspect, Reclaim, and Drop. Each action echoes its CLI command and calls the same lifecycle core, which rechecks before effects.
+Every action remains visible in **Work**, **Review**, **Manage**, or **Danger**. Known refusals are disabled with a reason and recovery. At most one available action moves into **Recommended**:
 
-Accept requires clean committed work ahead of the trunk without known branch lag. Grants belong to one task. Reclaim appears only for [contained work](../40-troubleshooting/worktrees-and-resources.md), keeps the branch, and removes the checkout and its per-worktree state after confirmation.
+- behind trunk: Update;
+- failed: an available agent, otherwise Proof review;
+- active, stale, or empty: the preferred available agent;
+- clean commits without current Proof: final checks;
+- honored Proof: review and landing;
+- collisions: review;
+- contained work: Reclaim.
 
-Project Scripts, agent CLIs, and shells inherit the selected checkout's terminal and return to a fresh survey. Root scripts run from main. Agent launch also requires a configured provider and an available binary; discern does not inspect vendor session state. Owned process groups stop on Ctrl-C, SIGTERM, or SIGHUP ([ADR 0159](https://discern.sh/docs/decisions/0159-inherited-terminal-children-have-one-owned-lifecycle)).
+Broken or unreadable tasks never recommend Drop.
+
+<!-- BEGIN DESK ACTION REGISTRY -->
+
+| Id             | Group  | Contextual label                                                                | Command evidence                     | Confirmation                                                     |
+| -------------- | ------ | ------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
+| `done`         | Work   | Run final checks                                                                | `discern done`                       | No by default; Run                                               |
+| `accept`       | Review | Run final checks, then land on &lt;trunk&gt; / Review and land on &lt;trunk&gt; | `discern accept`                     | No by default; Land                                              |
+| `update`       | Manage | Update branch from &lt;trunk&gt;                                                | `discern update`                     | No by default; Update                                            |
+| `agent`        | Work   | Continue with an agent                                                          | `<configured-agent>`                 | None                                                             |
+| `scripts`      | Work   | Run a Project Script                                                            | `discern scripts <name>`             | No by default; Run                                               |
+| `jump`         | Work   | Open a shell                                                                    | `<user-shell>`                       | None                                                             |
+| `inspect`      | Review | Review Proof and changes                                                        | `git diff`                           | None                                                             |
+| `grant`        | Manage | Pre-authorize landing once green                                                | `discern desk`                       | No by default; Allow                                             |
+| `revoke_grant` | Manage | Revoke landing pre-authorization                                                | `discern desk`                       | No by default; Revoke                                            |
+| `reclaim`      | Manage | Reclaim checkout, keep branch (work contained in &lt;later-branch&gt;)          | `discern worktree prune --contained` | No by default; Reclaim                                           |
+| `drop`         | Danger | Drop worktree and branch                                                        | `discern worktree drop <path>`       | No by default; Drop, then type the branch before discarding work |
+
+<!-- END DESK ACTION REGISTRY -->
+
+Grant and revoke remain human-only actions inside `discern desk`.
+
+### Run final checks and review Proof
+
+`Run final checks` calls the same Gate core as `discern done`. Without Proof, landing reads `Run final checks, then land on <trunk>`; honored Proof changes it to `Review and land on <trunk>`. Status shows a typical duration when known. A pass refreshes the task with its new Proof.
+
+`Review Proof and changes` shows Proof currency, its stored line and Markdown page, checks and Standards, every commit subject, Diffstat, changed and uncommitted paths, collisions, and landing authority. Failed reads remain failures with one next step.
+
+`View actual diff` opens `git diff --no-ext-diff --color=always <trunk>...HEAD` in the [shared pager](https://github.com/jackwh/discern/blob/main/src/lib/pager.ts), then returns to review. `Open in editor` runs an available simple command from `$VISUAL` or `$EDITOR`; unsafe values stay disabled with a reason.
+
+### Review effects before confirming
+
+Before a lifecycle mutation, the Desk renders its live plan and command with **Keeps**, **Changes**, **Removes**, and **Recoverable** facts. The authoritative core checks current state again after confirmation. Confirmations default to No; discarding work also requires the branch name.
+
+Project Scripts show their name, description, executable, working directory, required confirmation, and undeclared destructive policy. `Show command` copies the exact executable and `discern scripts <name>` command without running either. Missing or non-executable scripts stay disabled with recovery.
+
+Configured agents also remain visible when their binary is missing from `PATH`. One available action launches directly; several keep provider-owned labels and commands. Session state stays outside discern, and resume arguments come only from the provider registry. Scripts, agents, and shells inherit the selected checkout's terminal and return to a fresh survey. Their process groups stop with the Desk ([ADR 0159](https://discern.sh/docs/decisions/0159-inherited-terminal-children-have-one-owned-lifecycle)).
 
 ### Know when the Desk stays closed
 
@@ -84,7 +126,7 @@ Start with [`model.ts`](https://github.com/jackwh/discern/blob/main/src/engine/d
 - The first release of agent launching is CLI-only. Desktop-app integrations for Codex and Claude are a recorded follow-up: they need an official, lifecycle-aware handoff whose status stays accurate when discern later accepts or drops the worktree.
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A row's menu is advisory. The invoked lifecycle core rechecks every precondition before changing state.
-- Broken or unreadable checkouts offer only drop. Without explicit force, drop refuses when discern cannot verify the work.
+- Broken or unreadable checkouts keep shell, review when Git is readable, and Drop as separate offers. They never recommend Drop. Without explicit force, Drop refuses when discern cannot verify the work.
 
 ## Desk tips
 
