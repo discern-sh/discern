@@ -1,4 +1,4 @@
-# ADR 0351: Desk decisions cross a pure responsive presentation boundary
+# ADR 0352: Desk decisions cross a pure responsive presentation boundary
 
 **Status**: accepted. Extends the external terminal boundary from [ADR 0279](0279-external-terminal-rendering-crosses-one-process-boundary.md), the Desk's canonical decision model from [ADR 0318](0318-the-desk-adapts-status-into-one-human-decision.md), and the human advisory channel from [ADR 0234](0234-tips-are-the-desks-human-advisory-channel.md).
 
