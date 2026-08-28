@@ -50,6 +50,7 @@ import {
   buildStandardLimitProposalRebindPlan,
   type PlannedStandardLimitProposal,
   type StandardLimitProposalPlan,
+  type StandardLimitProposalRefusal,
 } from "./standard_proposal_plan.ts";
 import { validateStandardLimitReason } from "../../shared/standard_limit_reason.ts";
 import { buildStandardPlan, type PlannedStandard } from "./standard_plan.ts";
@@ -468,9 +469,32 @@ function proposalFailure(
   };
 }
 
+/** Project a pure proposal-plan refusal into the verb's result envelope. */
+function proposalPlanFailure(
+  refusal: StandardLimitProposalRefusal,
+): DiscernResult {
+  return {
+    ok: false,
+    verb: "standards propose",
+    error: refusal.error,
+    message: refusal.message,
+  };
+}
+
 type ProposalMeasurement =
   | { readonly ok: true; readonly value: number }
   | { readonly ok: false; readonly result: DiscernResult };
+
+interface StableProposalMeasurementContext {
+  readonly root: string;
+  readonly cfg: DiscernConfig;
+  readonly plan: ReturnType<typeof buildStandardPlan>;
+  readonly standard: PlannedStandard;
+  readonly head: string;
+  readonly mainBranch: string;
+  readonly trunkCommit: string;
+  readonly signal?: AbortSignal;
+}
 
 /** Reuse exact-HEAD process evidence when present; otherwise measure only the
  * named Standard through the shared execution planner. */
@@ -531,6 +555,41 @@ async function proposalMeasurement(
     };
   }
   return { ok: true, value: reading.value };
+}
+
+/** Measure once, then reject evidence if any tree identity moved meanwhile. */
+async function stableProposalMeasurement(
+  context: StableProposalMeasurementContext,
+  authority: StandardProposalWriteAuthority,
+  destination: "proposal commit" | "proposal could be renewed",
+): Promise<ProposalMeasurement> {
+  const measured = await proposalMeasurement(
+    context.root,
+    context.cfg,
+    context.plan,
+    context.standard,
+    authority,
+    context.signal,
+  );
+  if (!measured.ok) return measured;
+  const [currentHead, currentTrunk, clean] = await Promise.all([
+    gitValue(context.root, ["rev-parse", "HEAD"]),
+    readTrunkConfig(context.root, context.mainBranch),
+    isWorktreeFullyClean(context.root),
+  ]);
+  if (
+    currentHead !== context.head || currentTrunk.kind !== "parsed" ||
+    currentTrunk.commit !== context.trunkCommit || !clean
+  ) {
+    return {
+      ok: false,
+      result: proposalFailure(
+        "proposal_stale",
+        `standard '${context.standard.name}' was measured, but HEAD, the worktree, or ${context.mainBranch} moved before its ${destination}. Commit the final clean tree, update from ${context.mainBranch} if needed, then retry the same proposal command.`,
+      ),
+    };
+  }
+  return measured;
 }
 
 /** Whether one immutable proposal commit remains in the current history. */
@@ -734,6 +793,26 @@ export async function standardsProposeResult(
       "discern could not enumerate the changed paths responsible for this measurement; fix the Git diff and retry.",
     );
   }
+  const proposalContext = {
+    standard,
+    reason: reason.reason,
+    head,
+    definitionFingerprint,
+    trunk: mainBranch,
+    trunkCommit: trunk.commit,
+    trunkLimit,
+    changedPaths,
+  };
+  const measurementContext: StableProposalMeasurementContext = {
+    root,
+    cfg,
+    plan,
+    standard,
+    head,
+    mainBranch,
+    trunkCommit: trunk.commit,
+    ...(opts.signal === undefined ? {} : { signal: opts.signal }),
+  };
 
   // A stale record whose branch still carries the proposed limit may renew only
   // its evidence binding. Restoring the trunk limit instead starts a new proposal
@@ -749,28 +828,19 @@ export async function standardsProposeResult(
           (await installedConfigRel(root)) ?? CONFIG_REL,
         ),
       ]);
-    const preliminary = buildStandardLimitProposalRebindPlan({
-      standard,
+    const rebindContext = {
+      ...proposalContext,
       proposal: stale.proposal,
-      reason: reason.reason,
-      head,
-      definitionFingerprint,
-      trunk: mainBranch,
-      trunkCommit: trunk.commit,
-      trunkLimit,
-      measurement: stale.proposal.measurement,
-      changedPaths,
       originIsAncestor,
       trunkIsContained,
       ...(originShapeError === undefined ? {} : { originShapeError }),
+    };
+    const preliminary = buildStandardLimitProposalRebindPlan({
+      ...rebindContext,
+      measurement: stale.proposal.measurement,
     });
     if (!preliminary.ok) {
-      return {
-        ok: false,
-        verb: "standards propose",
-        error: preliminary.error,
-        message: preliminary.message,
-      };
+      return proposalPlanFailure(preliminary);
     }
     if (opts.dryRun ?? false) {
       return previewResult(
@@ -783,53 +853,20 @@ export async function standardsProposeResult(
         "internal error: proposal renewal has no write authority",
       );
     }
-    const measured = await proposalMeasurement(
-      root,
-      cfg,
-      plan,
-      standard,
+    const measured = await stableProposalMeasurement(
+      measurementContext,
       authority,
-      opts.signal,
+      "proposal could be renewed",
     );
     if (!measured.ok) {
       return measured.result;
     }
-    const [currentHead, currentTrunk] = await Promise.all([
-      gitValue(root, ["rev-parse", "HEAD"]),
-      readTrunkConfig(root, mainBranch),
-    ]);
-    if (
-      currentHead !== head || currentTrunk.kind !== "parsed" ||
-      currentTrunk.commit !== trunk.commit ||
-      !(await isWorktreeFullyClean(root))
-    ) {
-      return proposalFailure(
-        "proposal_stale",
-        `standard '${standard.name}' was measured, but HEAD, the worktree, or ${mainBranch} moved before its proposal could be renewed. Commit the final clean tree, update from ${mainBranch} if needed, then retry the same proposal command.`,
-      );
-    }
     const rebound = buildStandardLimitProposalRebindPlan({
-      standard,
-      proposal: stale.proposal,
-      reason: reason.reason,
-      head,
-      definitionFingerprint,
-      trunk: mainBranch,
-      trunkCommit: trunk.commit,
-      trunkLimit,
+      ...rebindContext,
       measurement: measured.value,
-      changedPaths,
-      originIsAncestor,
-      trunkIsContained,
-      ...(originShapeError === undefined ? {} : { originShapeError }),
     });
     if (!rebound.ok) {
-      return {
-        ok: false,
-        verb: "standards propose",
-        error: rebound.error,
-        message: rebound.message,
-      };
+      return proposalPlanFailure(rebound);
     }
     try {
       await persistProposal(authority, rebound.plan.proposal);
@@ -854,23 +891,11 @@ export async function standardsProposeResult(
       ? trunkLimit + 1
       : trunkLimit - 1;
     const previewDecision = buildStandardLimitProposalPlan({
-      standard,
-      reason: reason.reason,
-      head,
-      definitionFingerprint,
-      trunk: mainBranch,
-      trunkCommit: trunk.commit,
-      trunkLimit,
+      ...proposalContext,
       measurement: previewMeasurement,
-      changedPaths,
     });
     if (!previewDecision.ok) {
-      return {
-        ok: false,
-        verb: "standards propose",
-        error: previewDecision.error,
-        message: previewDecision.message,
-      };
+      return proposalPlanFailure(previewDecision);
     }
     return previewResult(
       "standards propose",
@@ -880,49 +905,20 @@ export async function standardsProposeResult(
   if (authority === undefined) {
     throw new Error("internal error: proposal apply has no write authority");
   }
-  const measured = await proposalMeasurement(
-    root,
-    cfg,
-    plan,
-    standard,
+  const measured = await stableProposalMeasurement(
+    measurementContext,
     authority,
-    opts.signal,
+    "proposal commit",
   );
   if (!measured.ok) {
     return measured.result;
   }
-  const [currentHead, currentTrunk] = await Promise.all([
-    gitValue(root, ["rev-parse", "HEAD"]),
-    readTrunkConfig(root, mainBranch),
-  ]);
-  if (
-    currentHead !== head || currentTrunk.kind !== "parsed" ||
-    currentTrunk.commit !== trunk.commit ||
-    !(await isWorktreeFullyClean(root))
-  ) {
-    return proposalFailure(
-      "proposal_stale",
-      `standard '${standard.name}' was measured, but HEAD, the worktree, or ${mainBranch} moved before its proposal commit. Commit the final clean tree, update from ${mainBranch} if needed, then retry the same proposal command.`,
-    );
-  }
   const decision = buildStandardLimitProposalPlan({
-    standard,
-    reason: reason.reason,
-    head,
-    definitionFingerprint,
-    trunk: mainBranch,
-    trunkCommit: trunk.commit,
-    trunkLimit,
+    ...proposalContext,
     measurement: measured.value,
-    changedPaths,
   });
   if (!decision.ok) {
-    return {
-      ok: false,
-      verb: "standards propose",
-      error: decision.error,
-      message: decision.message,
-    };
+    return proposalPlanFailure(decision);
   }
   try {
     const proposal = await applyProposalPlan(
