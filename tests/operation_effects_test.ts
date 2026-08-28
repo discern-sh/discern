@@ -261,6 +261,14 @@ Deno.test("queue keeps its own concurrency authority while declaring project eff
   assertEquals(operationEffectPolicy("queue")?.lock, "none");
 });
 
+Deno.test("standards propose declares targeted measurement and both owned write classes", () => {
+  assertEquals(OPERATION_EFFECTS["standards propose"].effects, [
+    "discern-checkout-mutation",
+    "discern-git-mutation",
+    "project-command",
+  ]);
+});
+
 Deno.test("every MCP tool resolves to the same command-path policy", () => {
   assertEquals(
     TOOLS.map((tool) => verbOf(tool.name))

@@ -7,6 +7,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { dirname, isAbsolute, join } from "@std/path";
+import { z } from "@zod/zod";
 import { readTextIfExists, statIfExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
@@ -18,8 +19,13 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+
+const MutableProposalStoreFixtureSchema = z.object({
+  version: z.number(),
+  proposals: z.array(z.record(z.string(), z.unknown())),
+}).passthrough();
 
 /** Minimal falling ceiling whose metric grows with tracked source files. */
 function proposalConfig(): string {
@@ -144,9 +150,10 @@ Deno.test("standards propose records the breached value in one config-only commi
       "standardLimitProposals",
     );
     assert(proposalPath !== undefined);
-    const legacyStore = JSON.parse(
+    const legacyStore = decodeWith(
+      MutableProposalStoreFixtureSchema,
       await Deno.readTextFile(proposalPath),
-    ) as { version: number; proposals: Record<string, unknown>[] };
+    );
     legacyStore.version = 1;
     delete legacyStore.proposals[0]?.bound_commit;
     await Deno.writeTextFile(

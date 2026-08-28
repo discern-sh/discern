@@ -35,6 +35,10 @@ const LastGateRunMarkerSchema = z.object({
   mode: z.enum(["strict", "report"]).optional(),
 });
 
+const MutableProofFixtureSchema = z.object({
+  standard_proposals: z.array(z.record(z.string(), z.unknown())),
+}).passthrough();
+
 const T0 = "2026-01-01T00:00:00.000Z";
 
 /** A committed clean repo with one declared-met openQuestion. */
@@ -212,9 +216,10 @@ Deno.test("proof marker: a pre-rebinding Standard proposal binds to its proposal
     const lines = (await Deno.readTextFile(recorded.path)).split("\n");
     const dataIndex = lines.findIndex((line) => line.startsWith("data: "));
     assert(dataIndex >= 0);
-    const data = JSON.parse(lines[dataIndex]?.slice("data: ".length) ?? "") as {
-      standard_proposals: Record<string, unknown>[];
-    };
+    const data = decodeWith(
+      MutableProofFixtureSchema,
+      lines[dataIndex]?.slice("data: ".length) ?? "",
+    );
     delete data.standard_proposals[0]?.bound_commit;
     lines[dataIndex] = `data: ${JSON.stringify(data)}`;
     await Deno.writeTextFile(recorded.path, lines.join("\n"));
