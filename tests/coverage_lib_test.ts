@@ -20,10 +20,29 @@ import { fromFileUrl, join, toFileUrl } from "@std/path";
 
 const ROOT = "/repo/checkout";
 
-/** Render one LCOV source record with chosen found and hit line counts. */
+/** Render one LCOV record from explicit per-line execution counts. */
+function recordWithLines(
+  path: string,
+  lines: ReadonlyArray<readonly [number, number]>,
+): string {
+  const hit = lines.filter(([, count]) => count > 0).length;
+  return [
+    `SF:${path}`,
+    ...lines.map(([line, count]) => `DA:${line},${count}`),
+    `LF:${lines.length}`,
+    `LH:${hit}`,
+    "end_of_record",
+  ].join("\n");
+}
+
+/** Render one LCOV record whose leading lines realize the chosen hit count. */
 function record(path: string, found: number, hit: number): string {
-  return [`SF:${path}`, `LF:${found}`, `LH:${hit}`, "end_of_record"].join(
-    "\n",
+  return recordWithLines(
+    path,
+    Array.from(
+      { length: found },
+      (_, index) => [index + 1, index < hit ? 1 : 0],
+    ),
   );
 }
 
@@ -125,7 +144,7 @@ Deno.test("the LCOV join gives an unloaded executable module an explicit zero", 
   assertEquals(cov.issues, []);
 });
 
-Deno.test("canonical LCOV records merge while foreign and mismatched paths diagnose", () => {
+Deno.test("canonical LCOV records union per line while foreign and mismatched paths diagnose", () => {
   const lcov = [
     record(`${ROOT}/src/engine/dispatch.ts`, 5, 4),
     record(`file://${ROOT}/src/engine/dispatch.ts`, 5, 5),
@@ -138,9 +157,9 @@ Deno.test("canonical LCOV records merge while foreign and mismatched paths diagn
     cov.files.find((file) => file.path === "src/engine/dispatch.ts"),
     {
       path: "src/engine/dispatch.ts",
-      hit: 9,
-      found: 10,
-      pct: 90,
+      hit: 5,
+      found: 5,
+      pct: 100,
       status: "measured",
     },
   );
@@ -152,6 +171,90 @@ Deno.test("canonical LCOV records merge while foreign and mismatched paths diagn
   assertStringIncludes(cov.issues[0]?.message ?? "", "lcov-only.ts");
   assertStringIncludes(cov.issues[1]?.message ?? "", "absolute");
   assertStringIncludes(cov.issues[2]?.message ?? "", "/elsewhere");
+});
+
+Deno.test("shard reports union per line so a line hit in any pass counts hit once", () => {
+  const shardA = [
+    recordWithLines(`${ROOT}/src/engine/dispatch.ts`, [
+      [1, 1],
+      [2, 1],
+      [3, 0],
+      [4, 0],
+      [5, 0],
+      [6, 0],
+    ]),
+    record(`${ROOT}/src/shared/config.ts`, 10, 8),
+  ].join("\n");
+  const shardB = recordWithLines(`${ROOT}/src/engine/dispatch.ts`, [
+    [1, 0],
+    [2, 0],
+    [3, 1],
+    [4, 1],
+    [5, 0],
+    [6, 0],
+  ]);
+  const cov = srcLineCoverage([shardA, shardB], ROOT, MODULES);
+  assertEquals(
+    cov.files.find((file) => file.path === "src/engine/dispatch.ts"),
+    {
+      path: "src/engine/dispatch.ts",
+      hit: 4,
+      found: 6,
+      pct: 66.7,
+      status: "measured",
+    },
+  );
+  assertEquals(
+    cov.files.find((file) => file.path === "src/shared/config.ts"),
+    {
+      path: "src/shared/config.ts",
+      hit: 8,
+      found: 10,
+      pct: 80,
+      status: "measured",
+    },
+  );
+  assertEquals(cov.issues, []);
+});
+
+Deno.test("records whose DA lines disagree with their summary diagnose instead of counting", () => {
+  const forged = [
+    `SF:${ROOT}/src/engine/dispatch.ts`,
+    "DA:1,1",
+    "DA:2,0",
+    "LF:5",
+    "LH:4",
+    "end_of_record",
+  ].join("\n");
+  const duplicated = [
+    `SF:${ROOT}/src/engine/dispatch.ts`,
+    "DA:1,1",
+    "DA:1,0",
+    "LF:2",
+    "LH:1",
+    "end_of_record",
+  ].join("\n");
+  const unterminated = [
+    `SF:${ROOT}/src/engine/dispatch.ts`,
+    "DA:1,1",
+    "LF:1",
+    "LH:1",
+  ].join("\n");
+  for (
+    const [lcov, detail] of [
+      [forged, "disagrees"],
+      [duplicated, "twice"],
+      [unterminated, "end_of_record"],
+    ] as const
+  ) {
+    const cov = srcLineCoverage(lcov, ROOT, MODULES);
+    assertEquals(cov.issues.map((issue) => issue.kind), ["invalid-lcov"]);
+    assertStringIncludes(cov.issues[0]?.message ?? "", detail);
+    assertEquals(
+      cov.files.find((file) => file.path === "src/engine/dispatch.ts")?.status,
+      "unloaded",
+    );
+  }
 });
 
 Deno.test("a new low module, exact exception, regression, and stale exception are distinct", () => {

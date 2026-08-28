@@ -70,8 +70,16 @@ export interface ModuleCoverageEvaluation {
 
 interface LcovRecord {
   readonly source: string;
-  readonly found: number;
-  readonly hit: number;
+  readonly lines: ReadonlyMap<number, number>;
+}
+
+/** Count the executed lines in one per-line execution-count map. */
+function hitLineCount(lines: ReadonlyMap<number, number>): number {
+  let hit = 0;
+  for (const count of lines.values()) {
+    if (count > 0) hit += 1;
+  }
+  return hit;
 }
 
 /** Escape one literal URL for use as an anchored regular expression. */
@@ -199,44 +207,84 @@ export function classifyModuleSource(
   return sawType ? "type-only" : "no-executable-lines";
 }
 
-/** Parse complete LCOV records without granting them module membership. */
+/**
+ * Parse complete LCOV records without granting them module membership.
+ *
+ * DA lines are the authority for a record's per-line execution counts; the
+ * LF/LH summary must agree with them, so a record that claims lines it does
+ * not enumerate diagnoses instead of counting.
+ */
 function parseLcov(lcov: string): {
   records: LcovRecord[];
   issues: CoverageIssue[];
 } {
   const records: LcovRecord[] = [];
   const issues: CoverageIssue[] = [];
+  let open = false;
   let source: string | undefined;
-  let found: number | undefined;
-  let hit: number | undefined;
+  let foundClaim: number | undefined;
+  let hitClaim: number | undefined;
+  let lines = new Map<number, number>();
+  let fault: string | undefined;
   const finish = (terminated: boolean): void => {
-    if (source === undefined && found === undefined && hit === undefined) {
-      return;
+    if (!open) return;
+    if (!terminated) fault ??= "the record is missing end_of_record";
+    if (source === undefined) fault ??= "the record has no SF source";
+    if (foundClaim === undefined || hitClaim === undefined) {
+      fault ??= "the record is missing its LF or LH summary";
+    } else if (foundClaim !== lines.size || hitClaim !== hitLineCount(lines)) {
+      fault ??= `the LF:${foundClaim}/LH:${hitClaim} summary disagrees with ` +
+        `its ${lines.size} DA lines (${hitLineCount(lines)} hit)`;
     }
-    if (
-      source === undefined || found === undefined || hit === undefined ||
-      !Number.isSafeInteger(found) || !Number.isSafeInteger(hit) ||
-      found < 0 || hit < 0 || hit > found || !terminated
-    ) {
+    if (fault === undefined && source !== undefined) {
+      records.push({ source, lines });
+    } else {
       issues.push({
         kind: "invalid-lcov",
         source: source ?? "<missing SF>",
-        message: `LCOV record '${
-          source ?? "<missing SF>"
-        }' is incomplete or invalid`,
+        message: `LCOV record '${source ?? "<missing SF>"}' is invalid: ${
+          fault ?? "the record is incomplete"
+        }`,
       });
-    } else {
-      records.push({ source, found, hit });
     }
+    open = false;
     source = undefined;
-    found = undefined;
-    hit = undefined;
+    foundClaim = undefined;
+    hitClaim = undefined;
+    lines = new Map();
+    fault = undefined;
   };
   for (const line of lcov.split(/\r?\n/)) {
-    if (line.startsWith("SF:")) source = line.slice(3);
-    else if (line.startsWith("LF:")) found = Number(line.slice(3));
-    else if (line.startsWith("LH:")) hit = Number(line.slice(3));
-    else if (line === "end_of_record") finish(true);
+    if (line.startsWith("SF:")) {
+      finish(false);
+      open = true;
+      source = line.slice(3);
+    } else if (line.startsWith("DA:")) {
+      open = true;
+      const [lineText, countText] = line.slice(3).split(",", 2);
+      const lineNumber = Number(lineText);
+      const count = Number(countText);
+      if (
+        lineText === undefined || countText === undefined ||
+        !/^\d+$/.test(lineText) || !/^\d+$/.test(countText) ||
+        !Number.isSafeInteger(lineNumber) || lineNumber < 1 ||
+        !Number.isSafeInteger(count)
+      ) {
+        fault ??= `DA line '${line}' is malformed`;
+      } else if (lines.has(lineNumber)) {
+        fault ??= `DA line ${lineNumber} appears twice`;
+      } else {
+        lines.set(lineNumber, count);
+      }
+    } else if (line.startsWith("LF:")) {
+      open = true;
+      foundClaim = Number(line.slice(3));
+    } else if (line.startsWith("LH:")) {
+      open = true;
+      hitClaim = Number(line.slice(3));
+    } else if (line === "end_of_record") {
+      finish(true);
+    }
   }
   finish(false);
   return { records, issues };
@@ -285,37 +333,49 @@ function canonicalSource(
   return { path: path.replaceAll(SEPARATOR, "/") };
 }
 
-/** Join LCOV records to every elected source module, assigning absence zero. */
+/**
+ * Join LCOV reports to every elected source module, assigning absence zero.
+ *
+ * Accepts one report or several — concurrent report passes over disjoint
+ * profile shards each contribute a report. Records for the same module merge
+ * per line: execution counts sum, so a line hit in any report counts hit once
+ * and the line universe is the union the single merged pass would produce.
+ */
 export function srcLineCoverage(
-  lcov: string,
+  lcov: string | readonly string[],
   repoRoot: string,
   modules: readonly SourceModule[],
 ): SrcCoverage {
+  const reports = typeof lcov === "string" ? [lcov] : lcov;
   const moduleByPath = new Map(modules.map((module) => [module.path, module]));
-  const merged = new Map<string, { hit: number; found: number }>();
-  const parsed = parseLcov(lcov);
-  const issues = [...parsed.issues];
-  for (const record of parsed.records) {
-    const canonical = canonicalSource(record.source, repoRoot);
-    if (canonical.issue !== undefined) {
-      issues.push(canonical.issue);
-      continue;
+  const merged = new Map<string, Map<number, number>>();
+  const issues: CoverageIssue[] = [];
+  for (const report of reports) {
+    const parsed = parseLcov(report);
+    issues.push(...parsed.issues);
+    for (const record of parsed.records) {
+      const canonical = canonicalSource(record.source, repoRoot);
+      if (canonical.issue !== undefined) {
+        issues.push(canonical.issue);
+        continue;
+      }
+      const path = canonical.path;
+      if (path === undefined || !moduleByPath.has(path)) {
+        issues.push({
+          kind: "lcov-outside-universe",
+          source: record.source,
+          message: `LCOV source '${record.source}' resolves to '${
+            path ?? "<unknown>"
+          }', which is outside the elected module universe`,
+        });
+        continue;
+      }
+      const target = merged.get(path) ?? new Map<number, number>();
+      for (const [lineNumber, count] of record.lines) {
+        target.set(lineNumber, (target.get(lineNumber) ?? 0) + count);
+      }
+      merged.set(path, target);
     }
-    const path = canonical.path;
-    if (path === undefined || !moduleByPath.has(path)) {
-      issues.push({
-        kind: "lcov-outside-universe",
-        source: record.source,
-        message: `LCOV source '${record.source}' resolves to '${
-          path ?? "<unknown>"
-        }', which is outside the elected module universe`,
-      });
-      continue;
-    }
-    const current = merged.get(path) ?? { hit: 0, found: 0 };
-    current.hit += record.hit;
-    current.found += record.found;
-    merged.set(path, current);
   }
 
   const files = [...modules]
@@ -323,7 +383,7 @@ export function srcLineCoverage(
     .map((module): FileCoverage => {
       const measured = merged.get(module.path);
       if (module.kind !== "executable") {
-        if (measured !== undefined && measured.found > 0) {
+        if (measured !== undefined && measured.size > 0) {
           issues.push({
             kind: "lcov-kind-mismatch",
             source: module.path,
@@ -348,7 +408,9 @@ export function srcLineCoverage(
           status: "unloaded",
         };
       }
-      if (measured.found === 0) {
+      const found = measured.size;
+      const hit = hitLineCount(measured);
+      if (found === 0) {
         issues.push({
           kind: "lcov-kind-mismatch",
           source: module.path,
@@ -358,9 +420,9 @@ export function srcLineCoverage(
       }
       return {
         path: module.path,
-        hit: measured.hit,
-        found: measured.found,
-        pct: percentage(measured.hit, measured.found),
+        hit,
+        found,
+        pct: percentage(hit, found),
         status: "measured",
       };
     });
