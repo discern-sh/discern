@@ -1483,10 +1483,13 @@ function defaultInstalledVersion(): Promise<string | undefined> {
 /**
  * The MCP server's **working root** — the directory its verbs operate on, held as one
  * mutable value because the OS process cwd is frozen at spawn and unusable for this
- * (ADR 0062). Initialized to the spawn root (`findRoot()`), and re-pointed on exactly
- * two lifecycle transitions: `discern_start` aims it at the worktree it just created,
- * `discern_accept` resets it to the spawn root. `undefined` when the server spawned
- * outside a discern project — {@link runTool}'s `not_initialized` guard handles that.
+ * (ADR 0062). Initialized to the spawn root (`findRoot()`), and re-pointed on two
+ * lifecycle transitions: `discern_start` aims it at the worktree it just created,
+ * `discern_accept` resets it to the spawn root. One repair exists besides those:
+ * when the held root's checkout vanishes between calls, dispatch refuses and
+ * re-aims back at the spawn root while it remains a live project. `undefined`
+ * when the server spawned outside a discern project — {@link runTool}'s
+ * `not_initialized` guard handles that.
  * The verb cores stay pure functions of an explicit `root`; this is only the
  * server-layer default they receive, resolved per call in {@link runTool}.
  */

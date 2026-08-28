@@ -12,7 +12,12 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { runTool, TOOLS, verbOf, WorkingRoot } from "../src/engine/mcp/server.ts";
+import {
+  runTool,
+  TOOLS,
+  verbOf,
+  WorkingRoot,
+} from "../src/engine/mcp/server.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import { ConfigMissingError, loadConfig } from "../src/shared/config_schema.ts";
@@ -48,7 +53,13 @@ Deno.test("a vanished held root refuses with recovery and re-aims at the spawn r
     // The server's state is repaired, not just reported: the next plain call
     // runs against the checkout the server started in.
     assertEquals(working.get(), home);
-    const recovered = await runTool(status, working, {}, undefined, sameVersion);
+    const recovered = await runTool(
+      status,
+      working,
+      {},
+      undefined,
+      sameVersion,
+    );
     assertEquals(recovered.isError, false, JSON.stringify(recovered));
   });
 });
