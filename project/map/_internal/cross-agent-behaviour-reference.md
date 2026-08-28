@@ -115,7 +115,7 @@ A project-scoped MCP server is a persistent subprocess rooted at its launch dire
 
 This behavior was confirmed in mid-2026 with discern's stdio MCP server (`discern mcp`), which resolves its project root from the process cwd at spawn. A session opened in a worktree makes `discern_status` return `location: "worktree"`; a session opened in the main checkout keeps returning `location: "main"` after `cd` or `EnterWorktree`. A main-rooted session that calls `discern_start` likewise leaves its process-rooted tools on main. An integration that needs its MCP surface to follow the agent within one session must hold and update a logical target root itself.
 
-> **Resolved in discern by [ADR 0062](../../_adr/0062-mcp-server-working-root.md).** The `discern mcp` server holds a mutable logical working root and re-aims it on `discern_start` (to the new worktree) and `discern_accept` (to the spawn root). The process cwd stays pinned at spawn, while discern's tools follow the recorded logical root. The agent must move its file-operation cwd into the worktree.
+> **Resolved in discern by [ADR 0062](../../_adr/0062-mcp-server-working-root.md).** The `discern mcp` server holds a mutable logical working root and re-aims it on `discern_start` (to the new worktree) and `discern_accept` (to the spawn root). If the held root's checkout vanishes between calls — a sibling session landed that effort and removed its worktree — dispatch refuses with the vanished path and repairs the root back to the spawn checkout rather than crashing. The process cwd stays pinned at spawn, while discern's tools follow the recorded logical root. The agent must move its file-operation cwd into the worktree.
 
 ### In-worktree and out-of-worktree MCP behavior
 

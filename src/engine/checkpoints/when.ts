@@ -29,6 +29,7 @@
 import { type SpawnedJob, spawnJob } from "../jobs/command.ts";
 import { beginTrackedRun } from "../jobs/interrupt.ts";
 import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
+import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import type { WhenOutcome } from "./types.ts";
 import type { CheckpointWhenInput } from "../../shared/checkpoints.ts";
@@ -126,7 +127,10 @@ export async function runWhenCommand(
     const input = opts.input;
     const env: Record<string, string> = {};
     if (input !== undefined) {
-      inputPath = await makeTempArtifact("checkpointInput");
+      inputPath = await makeTempArtifact(
+        "checkpointInput",
+        await tempArtifactScopeFor(root),
+      );
       await Deno.chmod(inputPath, 0o600);
       await Deno.writeTextFile(inputPath, `${JSON.stringify(input)}\n`);
       env[DISCERN_ENVIRONMENT_VARIABLES.checkpointInput] = inputPath;

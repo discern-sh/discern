@@ -17,15 +17,16 @@ _discern keeps selected temporary output for 24 hours so you can inspect it afte
 
 ## Files in your temp directory
 
-Every family carries a registered prefix and a random name:
+Every name carries its family's registered prefix, then the minting checkout's project slug and worktree id when the run can resolve them, then a random tail — for example `/tmp/discern-job-my-app-wt-feature-1a2b3c.log`. On a machine running several discern projects at once, the label says which checkout each file came from.
 
-| Prefix           | What it holds                                                                                              |
-| ---------------- | ---------------------------------------------------------------------------------------------------------- |
-| `discern-job-`   | A Gate job's full output. Results expose this file as `output_path` so it remains available after the run. |
-| `discern-diag-`  | The full text behind a truncated diagnostic.                                                               |
-| `discern-crash-` | A crash report written outside any repository ([crash reports](crash-reports.md)).                         |
-| `discern-self-`  | A fallback self-shim for a run with no repository root.                                                    |
-| `discern-test-`  | Scaffolds from discern's own test suite. Installed runtime commands do not create this family.             |
+| Prefix                      | What it holds                                                                                              |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `discern-job-`              | A Gate job's full output. Results expose this file as `output_path` so it remains available after the run. |
+| `discern-diag-`             | The full text behind a truncated diagnostic.                                                               |
+| `discern-crash-`            | A crash report written outside any repository ([crash reports](crash-reports.md)).                         |
+| `discern-checkpoint-input-` | Structured facts served to one checkpoint `when` command, removed with the run.                            |
+| `discern-self-`             | A fallback self-shim for a run with no repository root.                                                    |
+| `discern-test-`             | Scaffolds from discern's own test suite. Installed runtime commands do not create this family.             |
 
 Each file remains for 24 hours after its run. Gate verbs remove expired files in pages of at most 500. A lock under the shared Git directory limits each repository to one page per hour. A burst of runs therefore scans the temp directory once, and each Gate start performs at most one page of cleanup ([ADR 0216](../_adr/0216-temp-retention-is-repository-throttled-and-inspection-bounded.md), [ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).
 

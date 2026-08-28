@@ -39,6 +39,7 @@ import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.t
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import { makeTempArtifact } from "../shared/temp_artifacts.ts";
+import { tempArtifactScopeFor } from "./temp_artifact_scope.ts";
 import { wallTimeIso } from "../shared/clock.ts";
 import {
   type SecureEntropy,
@@ -358,7 +359,10 @@ export async function writeCrashArtifact(
   try {
     // The registered temp-artifact family, so the reaper's coverage stays
     // total; its TTL only collects reports nobody came back for.
-    const path = await makeTempArtifact("crash");
+    const path = await makeTempArtifact(
+      "crash",
+      await tempArtifactScopeFor(cwd),
+    );
     await Deno.writeTextFile(path, body);
     return path;
   } catch {

@@ -808,7 +808,7 @@ Rendered example:
 
 Rendered example:
 
-> Review lint's output at /tmp/discern-job-lint.log. It passed but printed 12 error-like lines across 80 output lines.
+> Review lint's output at /tmp/discern-job-my-app-wt-feature-1a2b3c.log. It passed but printed 12 error-like lines across 80 output lines.
 
 ## `gate-land-under-verified-authority`
 

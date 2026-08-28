@@ -139,7 +139,7 @@ async function ensureShimAt(
 
 /** A per-process temp shim for callers with no repository root at hand. */
 async function mintTempShim(content: string): Promise<string> {
-  const dir = await makeTempArtifactDir("shim");
+  const dir = await makeTempArtifactDir("shim", undefined);
   await Deno.writeTextFile(join(dir, "discern"), content);
   if (Deno.build.os !== "windows") {
     await Deno.chmod(join(dir, "discern"), 0o755);

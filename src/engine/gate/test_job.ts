@@ -157,6 +157,7 @@ async function runTestGate(
     slots,
   );
   const { steps, diagnostics, hints } = await serializeJobSteps(
+    root,
     [group],
     results,
   );
