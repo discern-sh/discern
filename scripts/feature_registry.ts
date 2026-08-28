@@ -701,7 +701,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "When the work itself crosses a limit",
           what:
-            "When the work itself crosses a limit, the person responsible decides whether it should move. After the intended version is committed, discern measures that quality again and carries the value, reason, and responsible files into the final review.",
+            "When the work itself crosses a limit, the person responsible decides whether it should move. After the intended version is saved as a change, discern measures that quality again and carries the value, reason, and responsible files into the final review.",
         },
       },
     ],
