@@ -1184,8 +1184,8 @@ export const TOOLS: McpTool[] = orderTools([
       "dry_run to preview the plan without creating anything.",
     inputSchema: {
       name: z.string().optional().describe(
-        "Optional task title and worktree-id seed. Discern normalizes the id and " +
-          "preserves the supplied text in data.task.title. Omit for a random codename.",
+        "Optional task title and worktree-id seed. discern preserves the supplied " +
+          "text in data.task.title and normalizes the id. Omit for a random codename.",
       ),
       title: z.string().optional().describe(
         "Optional display title when it should differ from `name`. With no `name`, " +

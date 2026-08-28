@@ -54,6 +54,7 @@ import {
   requestMarkdownBrowser,
   requestSelection,
   requestSelections,
+  requestSequentialForm,
   requestText,
   resolveBrief,
   resolveSetupConfig,
@@ -392,6 +393,104 @@ Deno.test("interaction defaults stay semantic across text, confirmation, and sel
     }, scriptedRuntime(selection)),
     "beta",
   );
+});
+
+Deno.test("sequential forms compose product requests through one package session", async () => {
+  const io = new ScriptedTerminal(["\r", "Task ingress 修复\r", "\x1b[C\r"]);
+  const values = await requestSequentialForm({
+    message: "Create a task",
+    hint: "Ctrl+U returns to the previous question.",
+    steps: [{
+      id: "base",
+      label: "Starting point",
+      summarize: (value) => String(value),
+      run: (_values, previous, requests) =>
+        requests.select({
+          message: "Choose a base",
+          options: [
+            { id: "main", name: "main", value: "main" },
+            { id: "task", name: "Live task", value: "agent/task" },
+          ],
+          ...(typeof previous === "string" ? { default: previous } : {}),
+        }),
+    }, {
+      id: "title",
+      label: "Task title",
+      run: (_values, previous, requests) =>
+        requests.text({
+          message: "Task title",
+          ...(typeof previous === "string" ? { default: previous } : {}),
+        }),
+    }, {
+      id: "authority",
+      label: "Landing authority",
+      summarize: (value) => value === true ? "Pre-authorized" : "Later",
+      run: (_values, previous, requests) =>
+        requests.confirm("Pre-authorize landing?", {
+          defaultTo: previous === true,
+          noLabel: "Later",
+          yesLabel: "Pre-authorize",
+        }),
+    }],
+  }, scriptedRuntime(io));
+
+  assertEquals(values, {
+    base: "main",
+    title: "Task ingress 修复",
+    authority: true,
+  });
+  assertEquals(io.rawTransitions, [true, false, true, false, true, false]);
+  const rendered = stripAnsi(io.writes.join(""));
+  for (
+    const text of [
+      "Create a task",
+      "Starting point",
+      "Task title",
+      "Landing authority",
+    ]
+  ) {
+    assertStringIncludes(rendered, text);
+  }
+});
+
+Deno.test("sequential forms retain prior answers across package back-navigation", async () => {
+  const io = new ScriptedTerminal(["\r", "\x15", "\x1b[B\r", "Follow-up\r"]);
+  const values = await requestSequentialForm({
+    message: "Create a task",
+    steps: [{
+      id: "base",
+      label: "Starting point",
+      run: (_values, previous, requests) =>
+        requests.select({
+          message: "Choose a base",
+          options: [
+            { id: "main", name: "main", value: "main" },
+            { id: "task", name: "Live task", value: "agent/task" },
+          ],
+          ...(typeof previous === "string" ? { default: previous } : {}),
+        }),
+    }, {
+      id: "title",
+      label: "Task title",
+      run: (_values, previous, requests) =>
+        requests.text({
+          message: "Task title",
+          ...(typeof previous === "string" ? { default: previous } : {}),
+        }),
+    }],
+  }, scriptedRuntime(io));
+
+  assertEquals(values, { base: "agent/task", title: "Follow-up" });
+  assertEquals(io.rawTransitions, [
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+  ]);
 });
 
 Deno.test("selection navigation preserves every supported byte-sequence variant", async () => {

@@ -304,10 +304,20 @@ export function activationCheck(
  * registry owns both the user-facing wording and argv so the desk never grows a
  * vendor switch statement. `open` starts a fresh conversation; `continue`
  * resumes through the provider's own project-scoped UI or latest-session rule. */
+export interface AgentCliPromptArgument {
+  /** A documented option whose value is passed as the following argv member. */
+  readonly kind: "option";
+  readonly flag: string;
+  /** Public provider documentation for this prompt option. */
+  readonly documentation: string;
+}
+
 export interface AgentCliAction {
   readonly kind: "open" | "continue";
   readonly label: string;
   readonly args: readonly string[];
+  /** Absent until the provider documents a prompt argument safe for argv use. */
+  readonly promptArgument?: AgentCliPromptArgument;
 }
 
 /** A provider's terminal integration. Required on every provider so adding a

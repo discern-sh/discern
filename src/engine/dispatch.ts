@@ -927,7 +927,7 @@ export function attachEngineCommands(
     .option("--dry-run", "Show the start plan; touch nothing.")
     .option(
       "--name <name:string>",
-      "Set the task title and seed its worktree id. Discern normalizes the id while preserving this text as the title. Omit for a random codename.",
+      "Set the task title and seed its worktree id. discern preserves this text as the title and normalizes the id. Omit for a random codename.",
     )
     .option(
       "--title <title:string>",

@@ -74,6 +74,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  deskPreferences: {
+    path: "discern/desk/preferences.json",
+    scope: "common",
+    kind: "file",
+    validation: false,
+  },
   taskMetadata: {
     path: "discern/task-metadata.json",
     scope: "worktree",
