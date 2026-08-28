@@ -94,6 +94,7 @@ import {
   acceptResult,
   lifecycleContext,
   startResult,
+  taskRenameResult,
   updateResult,
 } from "../src/engine/worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
@@ -1853,6 +1854,45 @@ const START_FAITHFULNESS_CASE = defineFaithfulnessCase(
   });
 });
 
+const TASK_RENAME_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "worktree rename result is faithful (preview and applied Unicode title)",
+  ["worktreeRename"],
+)(async ({ expectFaithful }) => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const main = await lifecycleContext(
+      dir,
+      new Logger({ json: true, noColor: true }),
+    );
+    const started = await startResult(main, {
+      worktreeRoot: resolveWorktreeRoot(main.root, main.config),
+      name: "rename-faithfulness",
+      brief: "Keep the brief intact.",
+    });
+    const path = started.data?.path;
+    assert(path !== undefined);
+    const worktree = await lifecycleContext(
+      path,
+      new Logger({ json: true, noColor: true }),
+    );
+
+    const preview = await taskRenameResult(
+      worktree,
+      "題名を保つ: Café ✓",
+      { dryRun: true },
+    );
+    expectFaithful("worktreeRename", preview, "worktree rename dry-run");
+
+    const applied = await taskRenameResult(
+      worktree,
+      "題名を保つ: Café ✓",
+    );
+    expectFaithful("worktreeRename", applied, "worktree rename applied");
+    assertEquals(applied.data?.task.brief, "Keep the brief intact.");
+  });
+});
+
 /**
  * The declaration every faithfulness test and coverage audit consumes. A new
  * case is registered by the loop below and enrolled in FAITHFULNESS_COVERED by
@@ -1880,6 +1920,7 @@ const FAITHFULNESS_CASES: readonly FaithfulnessCase[] = [
   ACCEPT_FAITHFULNESS_CASE,
   SKILLS_LIST_FAITHFULNESS_CASE,
   START_FAITHFULNESS_CASE,
+  TASK_RENAME_FAITHFULNESS_CASE,
 ];
 
 /** Contract ids backed by declared, self-reconciling real-result cases. */

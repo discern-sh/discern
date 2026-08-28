@@ -74,6 +74,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  taskMetadata: {
+    path: "discern/task-metadata.json",
+    scope: "worktree",
+    kind: "file",
+    validation: false,
+  },
   tempArtifactSweep: {
     path: "discern/temp-artifact-sweep",
     scope: "common",

@@ -53,6 +53,14 @@ export const SIDE_RESTRICTED_OPS = {
     label: "discern worktree teardown",
     cli: { argv: ["worktree", "teardown"], verb: "worktree teardown" },
   },
+  "worktree-rename": {
+    side: "worktree",
+    label: "discern worktree rename",
+    cli: {
+      argv: ["worktree", "rename", "Renamed task"],
+      verb: "worktree rename",
+    },
+  },
   // The side guard precedes target resolution, so any placeholder target works.
   "worktree-drop": {
     side: "main-checkout",

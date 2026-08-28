@@ -238,6 +238,7 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
   "worktree setup": effectPolicy({
     advisories: ["optional-resource-unavailable"],
   }),
+  "worktree rename": effectPolicy(),
   "worktree teardown": effectPolicy(),
   "worktree drop": effectPolicy(),
   "worktree prune": effectPolicy({ cancellation: "successful-no-effect" }),

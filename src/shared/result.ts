@@ -57,6 +57,7 @@ export const STEP_KINDS = [
   "resource-create", // create a per-worktree external resource
   "resource-destroy", // destroy / reclaim a per-worktree external resource
   "git", // a git mutation (branch, remove, checkout, fast-forward, sweep)
+  "task-metadata", // record or change human task wording in worktree Git state
   "setup-step", // a [worktree.setup].steps command (one-shot, at creation)
   "repository-ensure", // a [repository].ensure command (shared checkout convergence)
   "checkout-clean-check", // report tracked drift left by checkout convergence
@@ -112,6 +113,7 @@ export const BUILT_IN_STEP_LABELS = {
   trackedRefreshLandingBoundary: "tracked-refresh-check-landing-boundary",
   trackedRefreshProofBoundary: "tracked-refresh-check-proof-boundary",
   trunkLimits: "trunk-limits",
+  writeTaskMetadata: "write-task-metadata",
   writeProofNote: "write-proof-note",
 } as const;
 

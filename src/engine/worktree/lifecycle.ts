@@ -139,6 +139,8 @@ import {
   setupPlanToEngine,
   type SetupStepDesc,
   startPlanToEngine,
+  type TaskRenamePlan,
+  taskRenamePlanToEngine,
   type TeardownPlan,
   teardownPlanToEngine,
   type UpdatePlan,
@@ -184,10 +186,16 @@ import type {
   StandardLimitApprovalRequestData,
   StandardLimitProposalData,
   StartData,
+  TaskRenameData,
   UpdateData,
 } from "../../shared/result_schemas.ts";
 import { AppliedAcceptDataSchema } from "../../shared/result_schemas.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
+import {
+  recordedTaskMetadataData,
+  type StoredTaskMetadata,
+  validateTaskText,
+} from "../../shared/task_metadata.ts";
 import { buildStandardPlan } from "../gate/standard_plan.ts";
 import {
   cloneStandardLimitProposal,
@@ -263,6 +271,12 @@ import {
   classifyAutomaticBranchOwnership,
   deleteAutomaticallyOwnedBranch,
 } from "./ownership.ts";
+import { taskLabel } from "./task_label.ts";
+import {
+  readStoredTaskMetadata,
+  TaskMetadataStoreError,
+  writeStoredTaskMetadata,
+} from "./task_metadata.ts";
 
 // worktree setup recompiles the agent instructions as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
@@ -415,6 +429,8 @@ function applyResultTitle(verb: string): string {
       return "Worktree setup results";
     case "worktree teardown":
       return "Worktree teardown results";
+    case "worktree rename":
+      return "Task title results";
     case "worktree prune":
       return "Worktree prune results";
     default:
@@ -1276,6 +1292,7 @@ export async function createAndSetupWorktree(
   invocation: {
     verb: string;
     reproduceCmd: string;
+    taskMetadata?: StoredTaskMetadata;
   } = { verb: "start", reproduceCmd: "discern start" },
 ): Promise<void> {
   if (!(await hasAnyCommit(mainRepo))) {
@@ -1351,6 +1368,9 @@ export async function createAndSetupWorktree(
         );
       }
       throw e;
+    }
+    if (invocation.taskMetadata !== undefined) {
+      await writeStoredTaskMetadata(dir, invocation.taskMetadata);
     }
     await worktreeSetup(ctx, { humanApplySummary: false });
   } catch (e) {
@@ -5241,18 +5261,18 @@ export async function mintFreeWorktree(
 async function resolveStartPoint(
   ctx: LifecycleContext,
   from: string | undefined,
-): Promise<string> {
+): Promise<{ ref: string; commit: string }> {
   if (from !== undefined && from.trim() !== "") {
     const ref = from.trim();
-    await resolveCommitRef(ctx.root, ref); // refuses unknown/ambiguous
-    return ref;
+    const commit = await resolveCommitRef(ctx.root, ref);
+    return { ref, commit };
   }
   // The trunk is all a default start needs — the main checkout's HEAD may be
   // parked anywhere, detached, or even unborn (an orphan branch): the worktree
   // forks from the trunk ref, never from HEAD.
   const trunk = integrationBranch(ctx.config.repository.trunk);
   if (await localBranchExists(ctx.root, trunk)) {
-    return trunk;
+    return { ref: trunk, commit: await resolveCommitRef(ctx.root, trunk) };
   }
   if (!(await hasAnyCommit(ctx.root))) {
     throw new WorktreeGitError(
@@ -5320,29 +5340,75 @@ export async function startResult(
     dryRun?: boolean;
     worktreeRoot: string;
     name?: string;
+    title?: string;
+    brief?: string;
     from?: string;
   },
 ): Promise<DiscernResult<StartData>> {
   await assertOpSide("start", ctx.cwd);
   await assertProjectRootIsRepoToplevel(ctx, "start");
   const startPoint = await resolveStartPoint(ctx, opts.from);
+  const suppliedName = opts.name === undefined || opts.name.trim() === ""
+    ? undefined
+    : opts.name;
+  let suppliedTitle: string | undefined;
+  let suppliedBrief: string | undefined;
+  try {
+    suppliedTitle = opts.title !== undefined
+      ? validateTaskText(opts.title, "title")
+      : suppliedName === undefined
+      ? undefined
+      : validateTaskText(suppliedName, "title");
+    suppliedBrief = opts.brief === undefined
+      ? undefined
+      : validateTaskText(opts.brief, "brief");
+  } catch (error) {
+    throw new WorktreeGitError(
+      error instanceof Error ? error.message : String(error),
+      { cause: error },
+    );
+  }
 
   const settings = await loadIdentitySettings(ctx.root);
   const { id, branch, dir, note, nameHint } = await mintFreeWorktree(
     ctx,
     settings,
     opts.worktreeRoot,
-    opts.name,
+    suppliedName ?? suppliedTitle,
     { usedPorts: await livePortsInUse(ctx, settings) },
   );
+  const title = suppliedTitle ?? taskLabel({ id, path: dir }).name;
+  const taskMetadata: StoredTaskMetadata = {
+    schema_version: 1,
+    title,
+    ...(suppliedBrief === undefined ? {} : { brief: suppliedBrief }),
+    created_from: startPoint,
+  };
 
   if (opts.dryRun ?? false) {
     return previewResult(
       "start",
       startPlanToEngine(
         note !== undefined
-          ? { id, branch, worktreePath: dir, from: startPoint, note }
-          : { id, branch, worktreePath: dir, from: startPoint },
+          ? {
+            id,
+            branch,
+            worktreePath: dir,
+            from: startPoint.ref,
+            fromCommit: startPoint.commit,
+            title,
+            ...(suppliedBrief === undefined ? {} : { brief: suppliedBrief }),
+            note,
+          }
+          : {
+            id,
+            branch,
+            worktreePath: dir,
+            from: startPoint.ref,
+            fromCommit: startPoint.commit,
+            title,
+            ...(suppliedBrief === undefined ? {} : { brief: suppliedBrief }),
+          },
       ),
     );
   }
@@ -5358,7 +5424,7 @@ export async function startResult(
   const dirtyNote = mainChanges > 0
     ? fire(HINTS["start-main-changes-stay"], {
       changes: mainChanges,
-      startPoint,
+      startPoint: startPoint.ref,
     })
     : undefined;
   if (dirtyNote !== undefined) {
@@ -5372,19 +5438,20 @@ export async function startResult(
     branch,
     ctx.log,
     { id, settings },
-    startPoint,
+    startPoint.ref,
     {
       verb: "start",
       reproduceCmd: [
         "discern start",
-        ...(opts.name === undefined || opts.name === ""
-          ? []
-          : ["--name", opts.name]),
+        ...(suppliedName === undefined ? [] : ["--name", suppliedName]),
+        ...(opts.title === undefined ? [] : ["--title", opts.title]),
+        ...(suppliedBrief === undefined ? [] : ["--brief", suppliedBrief]),
         ...(opts.from === undefined ? [] : ["--from", opts.from]),
       ].join(" "),
+      taskMetadata,
     },
   );
-  ctx.log.ok(`Worktree '${id}' is ready at ${dir} (from ${startPoint}).`);
+  ctx.log.ok(`Worktree '${id}' is ready at ${dir} (from ${startPoint.ref}).`);
 
   // `git worktree add` checks out `.gitmodules` but leaves every submodule
   // directory empty; when no configured command populates them, the gate is
@@ -5405,7 +5472,8 @@ export async function startResult(
     id,
     branch,
     path: dir,
-    from: startPoint,
+    from: startPoint.ref,
+    task: recordedTaskMetadataData({ id, branch }, taskMetadata),
     ...(note !== undefined ? { name_note: note } : {}),
     ...(authorityProjection !== undefined
       ? { landing_authority: authorityProjection }
@@ -5417,7 +5485,16 @@ export async function startResult(
         kind: "git",
         label: BUILT_IN_STEP_LABELS.addWorktree,
         disposition: "run",
-        note: `${dir} on ${branch} (from ${startPoint})`,
+        note: `${dir} on ${branch} (from ${startPoint.ref})`,
+      },
+      outcome: "ok",
+    },
+    {
+      step: {
+        kind: "task-metadata",
+        label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
+        disposition: "run",
+        note: "recorded the display title, brief, and creation source",
       },
       outcome: "ok",
     },
@@ -5496,6 +5573,8 @@ export async function start(
     json?: boolean;
     worktreeRoot: string;
     name?: string;
+    title?: string;
+    brief?: string;
     from?: string;
   },
 ): Promise<void> {
@@ -5503,6 +5582,8 @@ export async function start(
     dryRun: opts.dryRun ?? false,
     worktreeRoot: opts.worktreeRoot,
     name: opts.name ?? "",
+    ...(opts.title !== undefined ? { title: opts.title } : {}),
+    ...(opts.brief !== undefined ? { brief: opts.brief } : {}),
     ...(opts.from !== undefined ? { from: opts.from } : {}),
   });
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false, {
@@ -5511,6 +5592,134 @@ export async function start(
       const data = r.data;
       if (data !== undefined) {
         ctx.log.info(`cd into it to continue: cd ${data.path}`);
+      }
+    },
+  });
+}
+
+// ── task title rename ───────────────────────────────────────────────────────
+
+/** Build the metadata-only title plan from the current worktree state. */
+async function buildTaskRenamePlan(
+  ctx: LifecycleContext,
+  titleInput: string,
+): Promise<{
+  plan: TaskRenamePlan;
+  metadata: StoredTaskMetadata;
+  previousTitle: string;
+}> {
+  await assertOpSide("worktree-rename", ctx.cwd);
+  let title: string;
+  try {
+    title = validateTaskText(titleInput, "title");
+  } catch (error) {
+    throw new WorktreeGitError(
+      error instanceof Error ? error.message : String(error),
+      { cause: error },
+    );
+  }
+  const { identity } = await resolveContextIdentity(ctx);
+  let current: StoredTaskMetadata | undefined;
+  try {
+    current = await readStoredTaskMetadata(ctx.cwd);
+  } catch (error) {
+    if (error instanceof TaskMetadataStoreError) {
+      throw new WorktreeGitError(
+        `${error.message} Resolve the record before changing this task title.`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+  const previousTitle = current?.title ?? taskLabel({
+    id: identity.id,
+    path: ctx.cwd,
+  }).name;
+  const metadata: StoredTaskMetadata = {
+    ...(current ?? {
+      schema_version: 1,
+      title: previousTitle,
+    }),
+    title,
+  };
+  return {
+    plan: {
+      id: identity.id,
+      branch: identity.branch,
+      worktreePath: ctx.cwd,
+      previousTitle,
+      title,
+      willWrite: current === undefined || current.title !== title,
+    },
+    metadata,
+    previousTitle,
+  };
+}
+
+/** Plan or apply a human title change without changing worktree identity. */
+export async function taskRenameResult(
+  ctx: LifecycleContext,
+  title: string,
+  opts: { dryRun?: boolean } = {},
+): Promise<DiscernResult<TaskRenameData>> {
+  const built = await buildTaskRenamePlan(ctx, title);
+  if (opts.dryRun ?? false) {
+    return previewResult(
+      "worktree rename",
+      taskRenamePlanToEngine(built.plan),
+    );
+  }
+  if (built.plan.willWrite) {
+    try {
+      await writeStoredTaskMetadata(ctx.cwd, built.metadata);
+    } catch (error) {
+      if (error instanceof TaskMetadataStoreError) {
+        throw new WorktreeGitError(error.message, { cause: error });
+      }
+      throw error;
+    }
+  }
+  const result: DiscernResult<TaskRenameData> = appliedResult(
+    "worktree rename",
+    [{
+      step: {
+        kind: "task-metadata",
+        label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
+        disposition: built.plan.willWrite ? "run" : "skip",
+        note: built.plan.willWrite
+          ? "changed the human display title"
+          : "the task already had this recorded title",
+      },
+      outcome: built.plan.willWrite ? "ok" : "skipped",
+    }],
+  );
+  result.message = built.plan.willWrite
+    ? `Changed the task title to ${JSON.stringify(built.metadata.title)}.`
+    : `Task title remains ${JSON.stringify(built.metadata.title)}.`;
+  result.data = {
+    path: ctx.cwd,
+    previous_title: built.previousTitle,
+    task: recordedTaskMetadataData(
+      { id: built.plan.id, branch: built.plan.branch },
+      built.metadata,
+    ),
+  };
+  return result;
+}
+
+/** Render `worktree rename` through the same result boundary as other verbs. */
+export async function taskRename(
+  ctx: LifecycleContext,
+  title: string,
+  opts: WorktreeOpOptions = {},
+): Promise<void> {
+  const result = await taskRenameResult(ctx, title, {
+    dryRun: opts.dryRun ?? false,
+  });
+  emitOrRenderWorktreeResult(ctx, result, opts.json ?? false, {
+    afterApply: (settled) => {
+      if (settled.message !== undefined) {
+        ctx.log.info(settled.message);
       }
     },
   });

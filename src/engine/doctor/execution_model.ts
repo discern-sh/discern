@@ -128,6 +128,11 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     hint:
       "A built-in git mutation discern performs (branch, worktree removal, checkout, fast-forward, sweep); the note says which.",
   },
+  "task-metadata": {
+    actor: "discern",
+    hint:
+      "A built-in write to the worktree's Git-admin task record. It changes human task wording or records the creation source without changing Git identity.",
+  },
   "setup-step": {
     actor: "project",
     hint:

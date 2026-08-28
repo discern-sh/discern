@@ -150,6 +150,7 @@ export const SUGGESTABLE_ENGINE_COMMANDS: readonly string[] = [
   "identity",
   "worktree-setup",
   "worktree-ensure",
+  "worktree-rename",
   "worktree-teardown",
   "worktree-drop",
   "worktree-prune",
@@ -926,11 +927,19 @@ export function attachEngineCommands(
     .option("--dry-run", "Show the start plan; touch nothing.")
     .option(
       "--name <name:string>",
-      "Name the worktree after this task (a slug or a few words — discern normalises it into a branch-safe name). Omit for a random codename.",
+      "Set the task title and seed its worktree id. Discern normalizes the id while preserving this text as the title. Omit for a random codename.",
+    )
+    .option(
+      "--title <title:string>",
+      "Set the display title separately from --name. With no --name, the title also seeds the worktree id.",
+    )
+    .option(
+      "--brief <brief:string>",
+      "Store an optional one-line brief for task detail and agent handoff.",
     )
     .option(
       "--from <ref:string>",
-      "Branch the new worktree from this ref (a branch, tag, or commit) instead of the trunk. For building on unlanded work — omit it for everyday starts.",
+      "Branch the new worktree from this ref (a branch, tag, or commit). Omit it to start from the trunk.",
     )
     .action(recordedExit("start", async (o) => {
       const json = o.json ?? false;
@@ -940,6 +949,8 @@ export function attachEngineCommands(
             json,
             dryRun: o.dryRun ?? false,
             name: o.name ?? "",
+            ...(o.title !== undefined ? { title: o.title } : {}),
+            ...(o.brief !== undefined ? { brief: o.brief } : {}),
             ...(o.from !== undefined ? { from: o.from } : {}),
             // WHERE the worktree lands is the feature-layer placement convention,
             // resolved here and passed in — the engine core bakes in none (ADR 0052),
@@ -1266,6 +1277,30 @@ export function attachEngineCommands(
               }),
           ),
         ),
+    )
+    .command(
+      "rename",
+      new Command()
+        .description(
+          "Change this worktree's display title. Its id, branch, path, brief, and creation source stay unchanged.",
+        )
+        .option("--dry-run", "Show the title-change plan; touch nothing.")
+        .option(
+          "--json",
+          "Emit one JSON result on stdout.",
+        )
+        .arguments("<title:string>")
+        .action(recordedExit("worktree rename", async (o, title) => {
+          const json = o.json ?? false;
+          return await runWorktreeOp(
+            (ctx, lc) =>
+              lc.taskRename(ctx, title, {
+                json,
+                dryRun: o.dryRun ?? false,
+              }),
+            { json, verb: "worktree rename" },
+          );
+        })),
     )
     .command(
       "teardown",
