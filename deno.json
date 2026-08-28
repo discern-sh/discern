@@ -153,6 +153,7 @@
         "guard-for-in",
         "no-eval",
         "no-external-import",
+        "no-import-prefix",
         "no-node-globals",
         "no-non-null-asserted-optional-chain",
         "no-non-null-assertion",
@@ -163,6 +164,8 @@
         "no-sync-fn-in-async-fn",
         "no-throw-literal",
         "no-useless-rename",
+        "react-no-danger",
+        "react-rules-of-hooks",
         "single-var-declarator",
         "verbatim-module-syntax"
       ]
