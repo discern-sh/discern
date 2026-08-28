@@ -549,8 +549,6 @@ const PROBES: Record<string, DryRunProbe> = {
       );
       await git(worktree, "add", "src/feature.ts");
       await git(worktree, "commit", "-m", "Add feature source");
-      const measured = await runAgent(worktree, ["standards", "--json"]);
-      assertEquals(measured.code, 1, measured.output);
       const reason = "The feature requires one additional source file.";
       return {
         cwd: worktree,

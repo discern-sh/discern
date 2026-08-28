@@ -15,8 +15,8 @@ import {
 } from "../../shared/consent.ts";
 import {
   type AuthorizedVarianceData,
+  canonicalStandardLimitProposal,
   type StandardLimitProposalData,
-  StandardLimitProposalSchema,
 } from "../../shared/result_schemas.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
@@ -272,12 +272,12 @@ function parseStandardProposals(
   const proposals: StandardLimitProposalData[] = [];
   const names = new Set<string>();
   for (const entry of value) {
-    const parsed = StandardLimitProposalSchema.safeParse(entry);
-    if (!parsed.success || names.has(parsed.data.standard)) {
+    const parsed = canonicalStandardLimitProposal(entry);
+    if (parsed === undefined || names.has(parsed.standard)) {
       return undefined;
     }
-    names.add(parsed.data.standard);
-    proposals.push(parsed.data);
+    names.add(parsed.standard);
+    proposals.push(parsed);
   }
   return proposals;
 }

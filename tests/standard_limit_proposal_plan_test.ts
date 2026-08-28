@@ -2,11 +2,16 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import type { StandardLimitProposalData } from "../src/shared/result_schemas.ts";
 import {
   STANDARD_LIMIT_REASON_MAX_LENGTH,
   validateStandardLimitReason,
 } from "../src/shared/standard_limit_reason.ts";
-import { buildStandardLimitProposalPlan } from "../src/engine/gate/standard_proposal_plan.ts";
+import {
+  buildStandardLimitProposalPlan,
+  buildStandardLimitProposalRebindPlan,
+} from "../src/engine/gate/standard_proposal_plan.ts";
+import { sameStandardLimitProposalSet } from "../src/engine/gate/standard_proposal_state.ts";
 import {
   buildStandardPlan,
   type PlannedStandard,
@@ -43,6 +48,40 @@ function context(
     trunkLimit: 10,
     measurement: 12,
     changedPaths: ["docs/unrelated.md", "src/feature.ts", "src/feature.ts"],
+    ...overrides,
+  };
+}
+
+/** One recorded proposal whose branch now carries the proposed limit. */
+function recordedProposal(): StandardLimitProposalData {
+  const decision = buildStandardLimitProposalPlan(context());
+  assert(decision.ok);
+  return {
+    ...decision.plan.proposal,
+    commit: "c".repeat(40),
+    bound_commit: "c".repeat(40),
+  };
+}
+
+/** Build one eligible descendant-renewal context with focused overrides. */
+function rebindContext(
+  overrides: Partial<
+    Parameters<typeof buildStandardLimitProposalRebindPlan>[0]
+  > = {},
+): Parameters<typeof buildStandardLimitProposalRebindPlan>[0] {
+  return {
+    standard: { ...plannedStandard(), limit: 12 },
+    proposal: recordedProposal(),
+    reason: "The required feature adds one measured source.",
+    head: "d".repeat(40),
+    definitionFingerprint: "definition",
+    trunk: "main",
+    trunkCommit: "e".repeat(40),
+    trunkLimit: 10,
+    measurement: 12,
+    changedPaths: ["src/final.ts", "docs/unrelated.md"],
+    originIsAncestor: true,
+    trunkIsContained: true,
     ...overrides,
   };
 }
@@ -121,4 +160,76 @@ Deno.test("Standard limit proposal reasons are verbatim, bounded, visible, and s
   ) {
     assertEquals(validateStandardLimitReason(reason).ok, false);
   }
+});
+
+Deno.test("Standard proposal renewal changes only its descendant binding and current evidence", () => {
+  const original = recordedProposal();
+  const decision = buildStandardLimitProposalRebindPlan(rebindContext({
+    proposal: original,
+  }));
+  assert(decision.ok);
+  assertEquals(decision.plan.proposal, {
+    ...original,
+    bound_commit: "d".repeat(40),
+    trunk_commit: "e".repeat(40),
+    evidence_paths: ["src/final.ts"],
+  });
+  assertEquals(decision.plan.engine.steps.length, 2);
+  assertEquals(decision.plan.engine.steps[0]?.kind, "standard");
+  assertEquals(decision.plan.engine.steps[1]?.label, "rebind-size");
+});
+
+Deno.test("Standard proposal renewal requires origin and trunk ancestry", () => {
+  for (
+    const overrides of [
+      { originIsAncestor: false },
+      { trunkIsContained: false },
+      { originShapeError: "its proposal commit changes another file" },
+    ]
+  ) {
+    const decision = buildStandardLimitProposalRebindPlan(
+      rebindContext(overrides),
+    );
+    assert(!decision.ok);
+    assertEquals(decision.error, "proposal_stale");
+  }
+});
+
+Deno.test("Standard proposal renewal refuses every material tuple change", () => {
+  const original = recordedProposal();
+  const cases: Parameters<typeof buildStandardLimitProposalRebindPlan>[0][] = [
+    rebindContext({ reason: "A different owner decision." }),
+    rebindContext({ definitionFingerprint: "different-definition" }),
+    rebindContext({ standard: { ...plannedStandard(), limit: 13 } }),
+    rebindContext({ trunkLimit: 9 }),
+    rebindContext({ measurement: 13 }),
+    rebindContext({
+      proposal: { ...original, delta: original.delta + 1 },
+    }),
+  ];
+  for (const candidate of cases) {
+    const decision = buildStandardLimitProposalRebindPlan(candidate);
+    assert(!decision.ok);
+    assertEquals(decision.error, "proposal_stale");
+  }
+});
+
+Deno.test("Standard proposal renewal recomputes attributable paths", () => {
+  const decision = buildStandardLimitProposalRebindPlan(rebindContext({
+    changedPaths: ["docs/only.md"],
+  }));
+  assert(!decision.ok);
+  assertEquals(decision.error, "proposal_stale");
+  assertStringIncludes(decision.message, "no current changed path");
+});
+
+Deno.test("Standard proposal authority includes the renewable bound commit", () => {
+  const proposal = recordedProposal();
+  assert(
+    !sameStandardLimitProposalSet(
+      [proposal],
+      [{ ...proposal, bound_commit: "d".repeat(40) }],
+    ),
+  );
+  assert(sameStandardLimitProposalSet([proposal], [{ ...proposal }]));
 });

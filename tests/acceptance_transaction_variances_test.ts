@@ -162,6 +162,10 @@ Deno.test("journal v4: exact Standard proposal tuples require and preserve conve
       inspected.transaction.standard_proposals[0]?.reason,
       "The accepted feature adds one required source.",
     );
+    assertEquals(
+      inspected.transaction.standard_proposals[0]?.bound_commit,
+      SHA_B,
+    );
   });
 });
 

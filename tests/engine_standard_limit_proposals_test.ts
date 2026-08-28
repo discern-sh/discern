@@ -6,8 +6,8 @@ import {
   assertMatch,
   assertStringIncludes,
 } from "@std/assert";
-import { dirname, join } from "@std/path";
-import { statIfExists } from "../src/shared/fs_presence.ts";
+import { dirname, isAbsolute, join } from "@std/path";
+import { readTextIfExists, statIfExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   addWorktree,
@@ -53,6 +53,18 @@ async function proposalWorktree(dir: string): Promise<string> {
   return worktree;
 }
 
+/** Count planted process invocations kept in common Git administration. */
+async function proposalInvocationCount(
+  worktree: string,
+  counter: string,
+): Promise<number> {
+  const common = await gitOut(worktree, "rev-parse", "--git-common-dir");
+  const path = isAbsolute(common)
+    ? join(common, counter)
+    : join(worktree, common, counter);
+  return (await readTextIfExists(path))?.length ?? 0;
+}
+
 interface ApprovalChallenge {
   readonly token: string;
   readonly proposal: {
@@ -74,14 +86,6 @@ function approvalChallenge(stdout: string): ApprovalChallenge {
 Deno.test("standards propose records the breached value in one config-only commit and is idempotent", async () => {
   await withTempDir(async (dir) => {
     const worktree = await proposalWorktree(dir);
-    const measured = await runAgent(worktree, ["standards", "--json"]);
-    assertEquals(measured.code, 1, measured.output);
-    const measuredData = decodeCliResult(measured.stdout, "standards").data as {
-      standards?: { name: string; value?: number; verdict?: string }[];
-    };
-    assertEquals(measuredData.standards?.[0]?.value, 2);
-    assertEquals(measuredData.standards?.[0]?.verdict, "regressed");
-
     const before = await gitOut(worktree, "rev-parse", "HEAD");
     const proposed = await runAgent(worktree, [
       "standards",
@@ -101,6 +105,7 @@ Deno.test("standards propose records the breached value in one config-only commi
           standard: string;
           measured_commit: string;
           commit: string;
+          bound_commit: string;
           trunk_limit: number;
           proposed_limit: number;
           measurement: number;
@@ -129,6 +134,26 @@ Deno.test("standards propose records the breached value in one config-only commi
 
     const commit = await gitOut(worktree, "rev-parse", "HEAD");
     assertEquals(proposalResult.proposal.commit, commit);
+    assertEquals(proposalResult.proposal.bound_commit, commit);
+
+    // A proposal record written before descendant rebinding had no
+    // `bound_commit`. It remains exact authority for its proposal commit and
+    // is normalized at the persistence boundary.
+    const proposalPath = await gitAdminStatePath(
+      worktree,
+      "standardLimitProposals",
+    );
+    assert(proposalPath !== undefined);
+    const legacyStore = JSON.parse(
+      await Deno.readTextFile(proposalPath),
+    ) as { version: number; proposals: Record<string, unknown>[] };
+    legacyStore.version = 1;
+    delete legacyStore.proposals[0]?.bound_commit;
+    await Deno.writeTextFile(
+      proposalPath,
+      `${JSON.stringify(legacyStore)}\n`,
+    );
+
     const repeated = await runAgent(worktree, [
       "standards",
       "propose",
@@ -140,9 +165,18 @@ Deno.test("standards propose records the breached value in one config-only commi
     assertEquals(repeated.code, 0, repeated.output);
     assertEquals(
       (decodeCliResult(repeated.stdout, "standards propose").data as {
-        proposal: { status: string };
-      }).proposal.status,
-      "unchanged",
+        proposal: {
+          status: string;
+          proposal: { bound_commit: string };
+        };
+      }).proposal,
+      {
+        status: "unchanged",
+        proposal: {
+          ...proposalResult.proposal,
+          bound_commit: commit,
+        },
+      },
     );
     assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), commit);
 
@@ -165,6 +199,200 @@ Deno.test("standards propose records the breached value in one config-only commi
       "A revised owner-facing reason for the same measured breach.",
     );
     assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), commit);
+  });
+});
+
+Deno.test("standards propose measures only its named Standard", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "targeted-limit-proposal"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[standards.sources]",
+        'direction = "down"',
+        "limit = 1",
+        'run = "printf x >> $(git rev-parse --git-common-dir)/proposal-target-runs; echo DISCERN_METRIC sources 2"',
+        'inputs = ["src/**"]',
+        "",
+        "[standards.unrelated]",
+        'direction = "down"',
+        "limit = 10",
+        'run = "printf x >> $(git rev-parse --git-common-dir)/proposal-unrelated-runs; echo DISCERN_METRIC unrelated 1"',
+        'inputs = ["docs/**"]',
+        "",
+      ].join("\n"),
+    );
+    await Deno.mkdir(join(dir, "src"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "src", "base.ts"), "base\n");
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "targeted-limit-proposal");
+    await Deno.writeTextFile(join(worktree, "src", "feature.ts"), "feature\n");
+    await git(worktree, "add", "src/feature.ts");
+    await git(worktree, "commit", "-m", "Add feature source");
+
+    const proposed = await runAgent(worktree, [
+      "standards",
+      "propose",
+      "sources",
+      "--reason",
+      "The feature adds one required source file.",
+      "--json",
+    ]);
+
+    assertEquals(proposed.code, 0, proposed.output);
+    assertEquals(
+      await proposalInvocationCount(worktree, "proposal-target-runs"),
+      1,
+    );
+    assertEquals(
+      await proposalInvocationCount(worktree, "proposal-unrelated-runs"),
+      0,
+    );
+  });
+});
+
+Deno.test("an unchanged proposal rebinds to a measured descendant without another commit", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await proposalWorktree(dir);
+    const reason = "The feature adds one source file required by the product.";
+    const proposed = await runAgent(worktree, [
+      "standards",
+      "propose",
+      "sources",
+      "--reason",
+      reason,
+      "--json",
+    ]);
+    assertEquals(proposed.code, 0, proposed.output);
+    const original = (decodeCliResult(proposed.stdout, "standards propose")
+      .data as {
+        proposal: {
+          proposal: {
+            commit: string;
+            measured_commit: string;
+            bound_commit: string;
+          };
+        };
+      }).proposal.proposal;
+
+    await Deno.writeTextFile(join(dir, "trunk.txt"), "trunk moved\n");
+    await git(dir, "add", "trunk.txt");
+    await git(dir, "commit", "-m", "Move trunk without changing Standards");
+    await git(worktree, "merge", "--no-edit", "--no-gpg-sign", "main");
+    const descendant = await gitOut(worktree, "rev-parse", "HEAD");
+    const currentTrunk = await gitOut(dir, "rev-parse", "main");
+    const proposalPath = await gitAdminStatePath(
+      worktree,
+      "standardLimitProposals",
+    );
+    assert(proposalPath !== undefined);
+    const beforePreview = await Deno.readTextFile(proposalPath);
+
+    const preview = await runAgent(worktree, [
+      "standards",
+      "propose",
+      "sources",
+      "--reason",
+      reason,
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(preview.code, 0, preview.output);
+    assertEquals(
+      decodeCliResult(preview.stdout, "standards propose").plan?.steps.map(
+        (step) => step.label,
+      ),
+      ["sources", "rebind-sources"],
+    );
+    assertEquals(await Deno.readTextFile(proposalPath), beforePreview);
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), descendant);
+
+    const rebound = await runAgent(worktree, [
+      "standards",
+      "propose",
+      "sources",
+      "--reason",
+      reason,
+      "--json",
+    ]);
+    assertEquals(rebound.code, 0, rebound.output);
+    const reboundResult = (decodeCliResult(
+      rebound.stdout,
+      "standards propose",
+    ).data as {
+      proposal: {
+        status: string;
+        proposal: {
+          commit: string;
+          measured_commit: string;
+          bound_commit: string;
+          trunk_commit: string;
+          evidence_paths: string[];
+        };
+      };
+    }).proposal;
+    assertEquals(reboundResult.status, "rebound");
+    assertEquals(reboundResult.proposal.commit, original.commit);
+    assertEquals(
+      reboundResult.proposal.measured_commit,
+      original.measured_commit,
+    );
+    assertEquals(reboundResult.proposal.bound_commit, descendant);
+    assertEquals(reboundResult.proposal.trunk_commit, currentTrunk);
+    assertEquals(reboundResult.proposal.evidence_paths, ["src/feature.ts"]);
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), descendant);
+
+    const repeated = await runAgent(worktree, [
+      "standards",
+      "propose",
+      "sources",
+      "--reason",
+      reason,
+      "--json",
+    ]);
+    assertEquals(repeated.code, 0, repeated.output);
+    assertEquals(
+      (decodeCliResult(repeated.stdout, "standards propose").data as {
+        proposal: { status: string };
+      }).proposal.status,
+      "unchanged",
+    );
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), descendant);
+
+    const done = await runAgent(worktree, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const proofProposal = (decodeCliResult(done.stdout, "done").data as {
+      proof?: {
+        standard_proposals?: {
+          commit: string;
+          bound_commit: string;
+        }[];
+      };
+    }).proof?.standard_proposals?.[0];
+    assertEquals(proofProposal, {
+      ...reboundResult.proposal,
+      commit: original.commit,
+      bound_commit: descendant,
+    });
+
+    const stopped = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(stopped.code, 1, stopped.output);
+    const token = approvalChallenge(stopped.stdout).token;
+    const accepted = await runAgent(worktree, [
+      "accept",
+      "--confirmed",
+      "--approve-standard",
+      token,
+      "--json",
+    ]);
+    assertEquals(accepted.code, 0, accepted.output);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), descendant);
   });
 });
 
@@ -324,7 +552,7 @@ async function assertRejectsNotFound(path: string): Promise<void> {
   assertEquals(await statIfExists(path), undefined);
 }
 
-Deno.test("standards propose refuses trunk, unknown, absent-evidence, and dirty states read-only", async () => {
+Deno.test("standards propose refuses trunk, unknown, and dirty states read-only", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, proposalConfig());
@@ -366,20 +594,6 @@ Deno.test("standards propose refuses trunk, unknown, absent-evidence, and dirty 
       "unknown_standard",
     );
 
-    const absent = await runAgent(worktree, [
-      "standards",
-      "propose",
-      "sources",
-      "--reason",
-      "A measurement must exist first.",
-      "--json",
-    ]);
-    assertEquals(absent.code, 1, absent.output);
-    assertTerminalTextIncludes(
-      String(decodeCliResult(absent.stdout, "standards propose").message),
-      "no fresh measured breach",
-    );
-
     await Deno.writeTextFile(join(worktree, "scratch.txt"), "dirty\n");
     const dirty = await runAgent(worktree, [
       "standards",
@@ -402,7 +616,7 @@ Deno.test("standards propose refuses trunk, unknown, absent-evidence, and dirty 
   });
 });
 
-Deno.test("standards propose refuses stale and failed fresh measurements", async () => {
+Deno.test("standards propose remeasures stale evidence and refuses failed measurements", async () => {
   await withTempDir(async (dir) => {
     const worktree = await proposalWorktree(dir);
     assertEquals((await runAgent(worktree, ["standards", "--json"])).code, 1);
@@ -410,6 +624,7 @@ Deno.test("standards propose refuses stale and failed fresh measurements", async
     await Deno.writeTextFile(join(worktree, "docs", "later.md"), "later\n");
     await git(worktree, "add", "docs/later.md");
     await git(worktree, "commit", "-m", "Move beyond measured commit");
+    const descendant = await gitOut(worktree, "rev-parse", "HEAD");
     const stale = await runAgent(worktree, [
       "standards",
       "propose",
@@ -418,10 +633,12 @@ Deno.test("standards propose refuses stale and failed fresh measurements", async
       "Stale measurements cannot authorize a new limit.",
       "--json",
     ]);
-    assertEquals(stale.code, 1, stale.output);
-    assertStringIncludes(
-      String(decodeCliResult(stale.stdout, "standards propose").message),
-      "(stale)",
+    assertEquals(stale.code, 0, stale.output);
+    assertEquals(
+      (decodeCliResult(stale.stdout, "standards propose").data as {
+        proposal: { proposal: { measured_commit: string } };
+      }).proposal.proposal.measured_commit,
+      descendant,
     );
   });
 
@@ -578,6 +795,22 @@ Deno.test("trunk movement and changed fresh measurement stale a proposal", async
       ),
       stale.stdout,
     );
+    const proposalHead = await gitOut(worktree, "rev-parse", "HEAD");
+    const behind = await runAgent(worktree, [
+      "standards",
+      "propose",
+      "sources",
+      "--reason",
+      "The feature adds one source file required by the product.",
+      "--json",
+    ]);
+    assertEquals(behind.code, 1, behind.output);
+    assertEquals(
+      decodeCliResult(behind.stdout, "standards propose").error,
+      "proposal_stale",
+    );
+    assertTerminalTextIncludes(behind.stdout, "discern update");
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), proposalHead);
   });
 
   await withTempDir(async (dir) => {
@@ -607,6 +840,7 @@ Deno.test("trunk movement and changed fresh measurement stale a proposal", async
       "--json",
     ]);
     assertEquals(proposed.code, 0, proposed.output);
+    const proposalHead = await gitOut(worktree, "rev-parse", "HEAD");
     await git(worktree, "config", "test.metric", "3");
     const changed = await runAgent(worktree, ["standards", "--json"]);
     assertEquals(changed.code, 1, changed.output);
@@ -619,6 +853,29 @@ Deno.test("trunk movement and changed fresh measurement stale a proposal", async
     assertTerminalTextIncludes(
       stale.stdout,
       "latest fresh measurement is 3",
+    );
+    const reproposed = await runAgent(worktree, [
+      "standards",
+      "propose",
+      "sources",
+      "--reason",
+      "The initial measured value is two.",
+      "--json",
+    ]);
+    assertEquals(reproposed.code, 1, reproposed.output);
+    assertEquals(
+      decodeCliResult(reproposed.stdout, "standards propose").error,
+      "proposal_stale",
+    );
+    assertTerminalTextIncludes(
+      reproposed.stdout,
+      "renewal cannot change the proposed value",
+    );
+    assertTerminalTextIncludes(reproposed.stdout, "Restore the main limit 1");
+    assertEquals(await gitOut(worktree, "rev-parse", "HEAD"), proposalHead);
+    assertStringIncludes(
+      await Deno.readTextFile(join(worktree, "discern.toml")),
+      "limit = 2",
     );
   });
 });
@@ -769,8 +1026,11 @@ Deno.test("proposal recovery unwinds a pre-commit edit and finalizes a post-comm
     );
     assert(proposalPath !== undefined);
     await Deno.remove(proposalPath);
-    const { commit: _commit, ...proposalBeforeCommit } =
-      resumedProposal.proposal;
+    const {
+      commit: _commit,
+      bound_commit: _boundCommit,
+      ...proposalBeforeCommit
+    } = resumedProposal.proposal;
     await Deno.writeTextFile(
       transactionPath,
       `${

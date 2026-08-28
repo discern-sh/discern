@@ -1614,7 +1614,6 @@ const STANDARDS_PROPOSE_FAITHFULNESS_CASE = defineFaithfulnessCase(
     await Deno.writeTextFile(join(worktree, "src", "feature.ts"), "feature\n");
     await git(worktree, "add", "src/feature.ts");
     await git(worktree, "commit", "-m", "Add feature source");
-    assertEquals((await standardsResult(worktree)).ok, false);
 
     const preview = await standardsProposeResult(worktree, {
       name: "sources",

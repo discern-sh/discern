@@ -121,6 +121,7 @@ const VERIFIED: StandardsLimitsData = { status: "verified", trunk: "main" };
 const GROWTH_PROPOSAL: StandardLimitProposalData = {
   standard: "source_count",
   commit: "c".repeat(40),
+  bound_commit: "c".repeat(40),
   measured_commit: "b".repeat(40),
   definition_fingerprint: "definition-fingerprint",
   trunk: "main",
@@ -199,6 +200,21 @@ Deno.test("proof render: Standard limit proposal leads routine standards and nam
   assertStringIncludes(
     markdown,
     "Reason: The accepted feature adds two required sources.",
+  );
+  assertStringIncludes(
+    renderProofMarkdown(
+      {
+        ...facts,
+        standard_proposals: [{
+          ...GROWTH_PROPOSAL,
+          bound_commit: "d".repeat(40),
+        }],
+      },
+      STEPS,
+      [HELD],
+      { status: "proposed", trunk: "main" },
+    ),
+    `Bound to \`${"d".repeat(12)}\`; proposal commit \`${"c".repeat(12)}\``,
   );
   assert(
     markdown.indexOf("Standard limit proposals") <

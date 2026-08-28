@@ -193,7 +193,7 @@ import {
   cloneStandardLimitProposal,
   inspectActiveStandardLimitProposals,
   sameStandardLimitProposalSet,
-} from "../gate/standard_proposals.ts";
+} from "../gate/standard_proposal_state.ts";
 import { emitResult } from "../../shared/emit.ts";
 import {
   fire,

@@ -2869,16 +2869,17 @@ export const HINTS = {
       "measurements. A pin dry-run measures nothing.",
   }),
 
-  /** A same-commit check Proof supplied every measurement for the pin pass. */
+  /** Same-commit evidence supplied one or more measurements for the pin pass. */
   "standards-pin-reused-measurements": defineHint({
     id: "standards-pin-reused-measurements",
     category: "notice",
     audience: "all",
-    when: "`standards --pin` reuses measurements from same-commit check Proof.",
+    when:
+      "`standards --pin` reuses one or more measurements from same-commit evidence.",
     family: "standards-pin",
     example: undefined,
     template: (): string =>
-      "Reused the green check's measurements for this commit. Nothing was re-measured.",
+      "Available measurements were reused for this commit. Missing selected measurements ran through their shared process groups.",
   }),
 
   /** A red standard blocks the whole pin rather than capturing a failing state. */

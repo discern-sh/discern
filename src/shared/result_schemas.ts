@@ -442,11 +442,13 @@ export const CheckpointDropSchema = z.discriminatedUnion("scope", [
 export type CheckpointDropData = z.infer<typeof CheckpointDropSchema>;
 
 /** One Standard limit proposal. It is bound to the measured source
- * commit, the config-only proposal commit, the trunk baseline, the complete
- * Standard definition, and the responsible changed paths. */
+ * commit, the immutable config-only proposal commit, the current descendant
+ * commit whose measurement renews it, the trunk baseline, the complete Standard
+ * definition, and the responsible changed paths. */
 export const StandardLimitProposalSchema = z.strictObject({
   standard: z.string(),
   commit: z.string(),
+  bound_commit: z.string(),
   measured_commit: z.string(),
   definition_fingerprint: z.string(),
   trunk: z.string(),
@@ -470,6 +472,40 @@ export const StandardLimitProposalSchema = z.strictObject({
 export type StandardLimitProposalData = z.infer<
   typeof StandardLimitProposalSchema
 >;
+
+/** The short-lived pre-rebinding wire shape. Persisted proposal and Proof
+ * readers normalize it by treating the immutable proposal commit as the first
+ * binding; new public results always emit {@link StandardLimitProposalSchema}. */
+export const LegacyStandardLimitProposalSchema = StandardLimitProposalSchema
+  .omit({ bound_commit: true });
+
+/** Normalize one persisted proposal across the pre-rebinding boundary. */
+export function canonicalStandardLimitProposal(
+  value: unknown,
+): StandardLimitProposalData | undefined {
+  const current = StandardLimitProposalSchema.safeParse(value);
+  if (current.success) {
+    return current.data;
+  }
+  const legacy = LegacyStandardLimitProposalSchema.safeParse(value);
+  return legacy.success
+    ? { ...legacy.data, bound_commit: legacy.data.commit }
+    : undefined;
+}
+
+/** Normalize a complete proposal array, refusing partial recovery when any
+ * member is malformed. Compatibility readers share this all-or-nothing seam. */
+export function canonicalStandardLimitProposals(
+  value: unknown,
+): StandardLimitProposalData[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const proposals = value.map(canonicalStandardLimitProposal);
+  return proposals.some((proposal) => proposal === undefined)
+    ? undefined
+    : proposals as StandardLimitProposalData[];
+}
 
 /** One exact approval challenge served at acceptance. The opaque token binds
  * the Standard name, proposed value, and verbatim reason; changing any member
@@ -935,7 +971,13 @@ export type PinnedLimit = z.infer<typeof PinnedLimitSchema>;
 
 /** How `standards propose` changed (or retained) its one proposal record. */
 export const StandardLimitProposalResultSchema = z.strictObject({
-  status: z.enum(["recorded", "replaced", "unchanged", "recovered"]),
+  status: z.enum([
+    "recorded",
+    "rebound",
+    "replaced",
+    "unchanged",
+    "recovered",
+  ]),
   proposal: StandardLimitProposalSchema,
 });
 export type StandardLimitProposalResultData = z.infer<

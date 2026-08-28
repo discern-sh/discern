@@ -12,6 +12,7 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   buildStandardMeasurementPlan,
   buildStandardPlan,
+  buildStandardSelectionPlan,
   pinnedLimit,
   type ResolvedStandard,
   standardExecutionIdentity,
@@ -55,6 +56,47 @@ Deno.test("buildStandardPlan: one PlannedStandard per [standards.*], fields reso
 Deno.test("buildStandardPlan: no [standards.*] tables → an empty plan", () => {
   const bare = parseConfigOrThrow('[project]\nslug = "x"\n');
   assertEquals(buildStandardPlan(bare).standards, []);
+});
+
+Deno.test("buildStandardSelectionPlan: every named operation gets one canonical execution scope", () => {
+  const plan = buildStandardPlan(CFG);
+  assertEquals(
+    buildStandardSelectionPlan(plan, ["coverage"], true).execution.standards
+      .map((standard) => standard.name),
+    ["coverage"],
+  );
+  assertEquals(
+    buildStandardSelectionPlan(plan, ["coverage"], false).execution.standards
+      .map((standard) => standard.name),
+    ["coverage", "bundle"],
+  );
+  assertEquals(
+    buildStandardSelectionPlan(plan, [], true).execution.standards.map(
+      (standard) => standard.name,
+    ),
+    ["coverage", "bundle"],
+  );
+
+  const future = parseConfigOrThrow(`
+[standards.unrelated_future_name]
+direction = "down"
+limit = 10
+run = "echo future"
+
+[standards.requested_future_name]
+direction = "up"
+limit = 1
+run = "echo requested"
+`);
+  assertEquals(
+    buildStandardSelectionPlan(
+      buildStandardPlan(future),
+      ["requested_future_name"],
+      true,
+    ).execution.standards.map((standard) => standard.name),
+    ["requested_future_name"],
+    "a future named Standard operation enrolls without an operation-specific case",
+  );
 });
 
 Deno.test("standardPlanToEngine: each standard is a run step noting direction + limit", () => {

@@ -1151,6 +1151,80 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       brief: "brief-0042",
     });
 
+    // A note written before descendant rebinding used the proposal commit as
+    // its implicit live binding. The durable reader restores that field and
+    // keeps the proposal in the returned Proof.
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Legacy proposal landing",
+      "--no-gpg-sign",
+    );
+    const proposalCommit = await gitOut(dir, "rev-parse", "HEAD");
+    const proposalProof = syntheticProof(
+      proposalCommit,
+      "agent/legacy-proposal",
+    );
+    const legacyProposal = {
+      standard: "sources",
+      commit: proposalCommit,
+      measured_commit: proposalCommit,
+      definition_fingerprint: "definition-fingerprint",
+      trunk: "main",
+      trunk_commit: proposalCommit,
+      direction: "down" as const,
+      trunk_limit: 1,
+      proposed_limit: 2,
+      measurement: 2,
+      delta: 1,
+      reason: "The accepted feature adds one required source.",
+      evidence_paths: ["src/feature.ts"],
+    };
+    const legacyProposalPayload = encodedProofPayload({
+      subject: { commit: proposalCommit },
+      proof: {
+        branch: proposalProof.branch,
+        trunk: proposalProof.trunk,
+        head: proposalProof.head,
+        files_total: proposalProof.files_total,
+        insertions: proposalProof.insertions,
+        deletions: proposalProof.deletions,
+        standard_proposals: [legacyProposal],
+      },
+      presentation: {
+        line: proposalProof.line,
+        markdown: proposalProof.markdown,
+      },
+    });
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      JSON.stringify({
+        payloadType: PROOF_NOTE_PAYLOAD_TYPE,
+        payload: legacyProposalPayload,
+        signatures: [],
+      }),
+      proposalCommit,
+    );
+    assertEquals(await readProofNoteAt(dir, proposalCommit), {
+      status: "valid",
+      commit: proposalCommit,
+      ref: PROOF_NOTES_REF,
+      proof: {
+        ...proposalProof,
+        standard_proposals: [{
+          ...legacyProposal,
+          bound_commit: proposalCommit,
+        }],
+      },
+    });
+
     // A readable envelope still needs valid Base64, UTF-8, JSON, and the
     // required payload core. Malformed payload bytes are not proof evidence.
     const malformedPayloads = [

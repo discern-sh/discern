@@ -204,6 +204,42 @@ export interface StandardPlan {
   standards: PlannedStandard[];
 }
 
+/** One named Standard operation's canonical target and execution scopes. The
+ * target set controls which limits the operation may mutate. The execution
+ * plan controls which Standard measurements it may run or replay. A caller may
+ * narrow execution only after its own integrity precondition has been proven. */
+export interface StandardSelectionPlan {
+  targets: PlannedStandard[];
+  execution: StandardPlan;
+  targetOnly: boolean;
+}
+
+/** Select one named Standard operation from the configured plan. Empty names
+ * mean every Standard. `targetOnly` is the caller's already-decided integrity
+ * policy: true makes execution equal the named target set; false retains the
+ * complete plan while the mutation target stays narrow. Every named Standard
+ * workflow consumes this authority so previews and executors cannot maintain
+ * separate filters. */
+export function buildStandardSelectionPlan(
+  plan: StandardPlan,
+  names: readonly string[],
+  targetOnly: boolean,
+): StandardSelectionPlan {
+  const requested = names.length === 0 ? undefined : new Set(names);
+  const targets = requested === undefined
+    ? [...plan.standards]
+    : plan.standards.filter((standard) => requested.has(standard.name));
+  return {
+    targets,
+    execution: {
+      standards: targetOnly && requested !== undefined
+        ? [...targets]
+        : [...plan.standards],
+    },
+    targetOnly: targetOnly && requested !== undefined,
+  };
+}
+
 /**
  * Build the standard plan from the typed config. Pure: just reads `cfg.standards`
  * (declared order) into the planned list, resolving each standard's metric and

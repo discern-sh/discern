@@ -1578,11 +1578,11 @@ Rendered example:
 - Category: `notice`
 - Audience: `all`
 - Family: `standards-pin`
-- Emitting context: `standards --pin` reuses measurements from same-commit check Proof.
+- Emitting context: `standards --pin` reuses one or more measurements from same-commit evidence.
 
 Rendered example:
 
-> Reused the green check's measurements for this commit. Nothing was re-measured.
+> Available measurements were reused for this commit. Missing selected measurements ran through their shared process groups.
 
 ## `standards-pinnable-slack`
 

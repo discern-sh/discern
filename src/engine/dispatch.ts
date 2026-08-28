@@ -537,7 +537,7 @@ export function attachEngineCommands(
     )
     .option(
       "--pin",
-      "Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate proof forward. Requires a clean worktree.",
+      "Capture measured improvements for the named Standards, or every one with slack. Same-commit values are reused; named measurement narrows only when Gate Proof already validates the clean tree. Commit the limit change alone and carry Proof forward. Requires a clean worktree.",
     )
     .action(
       recordedExit("standards", async (o, ...names: string[]) => {
@@ -559,7 +559,7 @@ export function attachEngineCommands(
     "propose",
     new Command()
       .description(
-        "Propose a new limit for a Standard breached by this change. The proposal is measured and commit-bound; acceptance still requires explicit approval for its exact value and reason.",
+        "Finalize a proposed limit for a Standard breached by this change. On a clean final HEAD, measure the named Standard, then create its config-only proposal commit or renew an unchanged descendant binding. Acceptance still requires explicit approval for the value and reason.",
       )
       .arguments("<name:string>")
       .option(
