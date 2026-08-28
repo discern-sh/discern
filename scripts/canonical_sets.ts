@@ -3311,6 +3311,31 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "real-pty-contracts",
+    title: "Real pseudo-terminal contracts",
+    what:
+      "The operating-system properties that justify a real pseudo-terminal test; every declared boundary names one or more contracts, and every contract retains a cross-platform canary.",
+    source: {
+      kind: "module",
+      module: "tests/real_pty.ts",
+      exportName: "REAL_PTY_CONTRACTS",
+    },
+    guards: ["tests/real_pty_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "real pseudo-terminal contract enrollment is repository test architecture rather than product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the contracts govern proof at the host boundary and do not add a shipped discern capability",
+      },
+    },
+    members: async () =>
+      Object.keys((await import("../tests/real_pty.ts")).REAL_PTY_CONTRACTS),
+  },
+  {
     id: "ambient-state-boundaries",
     title: "Ambient process-state boundaries",
     what:
