@@ -462,6 +462,12 @@ const LIFECYCLE_CASES: readonly LifecycleCase[] = [
     cwd: "worktree",
     args: () => ["worktree", "setup"],
   },
+  {
+    commandPath: "worktree rename",
+    envelopeVerb: "worktree rename",
+    cwd: "worktree",
+    args: () => ["worktree", "rename", "Purity title"],
+  },
   // Without --confirmed, accept refuses read-only — the refusal must still be
   // the single envelope line.
   {
@@ -792,7 +798,7 @@ Deno.test("done --markdown emits one quiet authored document under both stream s
   }
 });
 
-Deno.test("worktree lifecycle --json: start/update/accept/setup/teardown/drop/prune emit only the envelope", async () => {
+Deno.test("worktree lifecycle --json: start/update/accept/setup/rename/teardown/drop/prune emit only the envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // Noisy worktree setup steps and resource commands: they inherit stdio in

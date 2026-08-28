@@ -468,16 +468,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "A cleanup failure cannot replace the report write failure that selects the temporary storage fallback.",
   },
-  "desk-preferences-record": {
-    path: "src/engine/desk/preferences.ts",
-    enclosingFunction: "writeDeskPreferences",
-    operation: "write repository-local Desk convenience preferences",
-    kind: "capability",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "A preference write only affects the next Desk default and cannot replace task creation, provider selection, or lifecycle authority.",
-  },
   "desk-project-scripts-fallback": {
     path: "src/engine/desk/desk.ts",
     enclosingFunction: "scripts",

@@ -114,6 +114,7 @@ import {
 } from "./model.ts";
 import {
   type DeskPreferences,
+  type DeskPreferencesWriteResult,
   readDeskPreferences,
   writeDeskPreferences,
 } from "./preferences.ts";
@@ -332,7 +333,7 @@ export interface DeskRuntime {
   writePreferences(
     root: string,
     preferences: DeskPreferences,
-  ): DeskMaybePromise<void>;
+  ): DeskMaybePromise<DeskPreferencesWriteResult>;
   /** Report a shown tip id for the session's logbook event. */
   recordTipShown(id: string): void;
   /** The live viewport sampled once for each complete Desk composition. */
@@ -347,6 +348,18 @@ function echoCommand(out: Out, command: string): void {
     out.terminal,
   );
   out.raw(`${rendered.text}\n`);
+}
+
+/** Keep a convenience-state failure visible without changing task outcomes. */
+function reportPreferenceWrite(
+  out: Out,
+  result: DeskPreferencesWriteResult,
+): void {
+  if (result.status === "saved") return;
+  out.warn(
+    `Desk preferences were not saved: ${result.reason} ` +
+      "The current task is unchanged; the next Desk session may ask you to choose again.",
+  );
 }
 
 /** Format recorded command words for the desk's compact activity view. */
@@ -1838,11 +1851,16 @@ async function startTask(
       );
     }
   }
-  await runtime.writePreferences(root, {
-    ...preferences,
-    ...(options.fixedFrom === undefined ? { creation_path: creationPath } : {}),
-    ...(launch === undefined ? {} : { last_agent: launch.agent }),
-  });
+  reportPreferenceWrite(
+    out,
+    await runtime.writePreferences(root, {
+      ...preferences,
+      ...(options.fixedFrom === undefined
+        ? { creation_path: creationPath }
+        : {}),
+      ...(launch === undefined ? {} : { last_agent: launch.agent }),
+    }),
+  );
   const createdViewport = runtime.size();
   const createdTerminal = terminalContextAtSize(
     out.terminal,
@@ -2290,10 +2308,13 @@ async function dispatchAction(
           row.entry.path,
           deskSessionEnv(),
         );
-        await runtime.writePreferences(root, {
-          ...await runtime.readPreferences(root),
-          last_agent: launch.agent,
-        });
+        reportPreferenceWrite(
+          out,
+          await runtime.writePreferences(root, {
+            ...await runtime.readPreferences(root),
+            last_agent: launch.agent,
+          }),
+        );
       } catch (error) {
         out.warn(
           `Could not launch ${launch.label}: ${

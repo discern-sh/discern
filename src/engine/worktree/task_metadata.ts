@@ -8,6 +8,7 @@
 
 import { dirname } from "@std/path";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
+import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import {
   type StoredTaskMetadata,
@@ -42,13 +43,10 @@ export async function readStoredTaskMetadata(
       "Task metadata is unavailable because Git could not resolve its worktree state path.",
     );
   }
-  let text: string;
+  let text: string | undefined;
   try {
-    text = await Deno.readTextFile(path);
+    text = await readTextIfExists(path);
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return undefined;
-    }
     throw new TaskMetadataStoreError(
       `Task metadata could not be read: ${
         error instanceof Error ? error.message : String(error)
@@ -56,6 +54,7 @@ export async function readStoredTaskMetadata(
       { cause: error },
     );
   }
+  if (text === undefined) return undefined;
   let decoded: unknown;
   try {
     decoded = JSON.parse(text);

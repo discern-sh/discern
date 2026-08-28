@@ -107,7 +107,7 @@ import {
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
-import { RELATED_CHECKPOINT_KIND_LABELS } from "../../shared/checkpoints.ts";
+import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import {
   type AcceptanceCheckpointState,
   inspectAcceptanceCheckpoints,
@@ -2249,34 +2249,16 @@ function acceptDeclarationsStaleResult(
  * path names travel inside the code-span escaping boundary, never as live
  * Markdown. */
 function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
-  const shown = unmet.matched.slice(0, 6).map(markdownCodeSpan).join(", ");
-  const more = unmet.matched.length > 6
-    ? `, +${unmet.matched.length - 6} more`
-    : "";
+  const evidence = checkpointServingText(unmet);
   const lines = [
     `${unmet.id} — declared unmet at ${unmet.declaredAt}`,
     `  Question: ${unmet.question.trim()}`,
-    `  Changed: ${shown}${more}`,
-    ...unmet.related.map((relation) =>
-      `  ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
-        markdownCodeSpan(relation.path)
-      } resembles ${markdownCodeSpan(relation.forPath)}`
-    ),
+    ...(evidence.questionSource === undefined ? [] : [evidence.questionSource]),
+    `  Changed: ${evidence.matched}`,
+    ...evidence.related,
     `  Rationale: ${markdownCodeSpan(unmet.why)}`,
+    ...evidence.notes,
   ];
-  if (unmet.questionFile !== undefined) {
-    lines.splice(
-      2,
-      0,
-      `  Question source: ${markdownCodeSpan(unmet.questionFile)}`,
-    );
-  }
-  if (unmet.teach !== undefined && unmet.teach.trim() !== "") {
-    lines.push(`  Teach: ${unmet.teach.trim()}`);
-  }
-  if (unmet.reference !== undefined && unmet.reference.trim() !== "") {
-    lines.push(`  Reference: ${markdownCodeSpan(unmet.reference.trim())}`);
-  }
   return lines.join("\n");
 }
 

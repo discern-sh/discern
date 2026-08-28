@@ -9,7 +9,7 @@
 import { dirname } from "@std/path";
 import { z } from "@zod/zod";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
-import { bestEffort } from "../../shared/best_effort.ts";
+import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { AGENT_NAMES } from "../../shared/config_schema.ts";
 import type { AgentName } from "../../lib/config.ts";
@@ -34,6 +34,11 @@ export interface DeskPreferences {
   readonly creation_path?: DeskCreationPath;
 }
 
+/** Observable outcome of persisting optional convenience defaults. */
+export type DeskPreferencesWriteResult =
+  | { readonly status: "saved" }
+  | { readonly status: "unavailable"; readonly reason: string };
+
 /** A fresh record carries no default that could go stale. */
 export function freshDeskPreferences(): DeskPreferences {
   return { schema_version: DESK_PREFERENCES_SCHEMA_VERSION };
@@ -53,8 +58,10 @@ export async function readDeskPreferences(
   try {
     const path = await deskPreferencesPath(root);
     if (path === undefined) return freshDeskPreferences();
+    const text = await readTextIfExists(path);
+    if (text === undefined) return freshDeskPreferences();
     const parsed = DeskPreferencesSchema.safeParse(
-      JSON.parse(await Deno.readTextFile(path)),
+      JSON.parse(text),
     );
     return parsed.success
       ? {
@@ -72,15 +79,21 @@ export async function readDeskPreferences(
   }
 }
 
-/** Persist convenience defaults atomically; failure never blocks task work. */
+/** Persist convenience defaults atomically and expose any unavailable store. */
 export async function writeDeskPreferences(
   root: string,
   preferences: DeskPreferences,
-): Promise<void> {
+): Promise<DeskPreferencesWriteResult> {
   const parsed = DeskPreferencesSchema.parse(preferences);
-  await bestEffort("desk-preferences-record", async () => {
+  try {
     const path = await deskPreferencesPath(root);
-    if (path === undefined) return;
+    if (path === undefined) {
+      return {
+        status: "unavailable",
+        reason:
+          "Git could not resolve the repository's shared state directory.",
+      };
+    }
     await Deno.mkdir(dirname(path), { recursive: true });
     await atomicReplaceJson(path, parsed, {
       mode: 0o600,
@@ -88,5 +101,11 @@ export async function writeDeskPreferences(
       space: 2,
       trailingNewline: true,
     });
-  });
+    return { status: "saved" };
+  } catch (error) {
+    return {
+      status: "unavailable",
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
 }

@@ -23,6 +23,8 @@ import { Logger } from "../src/lib/log.ts";
 import {
   type ConfirmationRequestOptions,
   InteractionCancelled,
+  isSelectionHeading,
+  type SelectionEntry,
   type SelectionRequestOptions,
   type SequentialFormRequestOptions,
   type SequentialInteractionRequests,
@@ -209,6 +211,71 @@ function startedFleetEntry(started: StartData): StatusFleetEntry {
   });
 }
 
+interface ScriptedSelectionValue<T> {
+  readonly token: string;
+  readonly value: T;
+}
+
+/** Recover one typed form value from the string-only Desk script seam. */
+function scriptedSelectionValue<T>(
+  choices: readonly ScriptedSelectionValue<T>[],
+  token: string,
+): T {
+  const choice = choices.find((candidate) => candidate.token === token);
+  if (choice === undefined) {
+    throw new Error(`Scripted selection returned unknown token ${token}.`);
+  }
+  return choice.value;
+}
+
+/** Adapt one generic form request to the Desk test runtime without a cast. */
+async function scriptedSequentialSelection<T>(
+  request: SelectionRequestOptions<T>,
+  select: DeskRuntime["select"],
+): Promise<T> {
+  const choices: ScriptedSelectionValue<T>[] = [];
+  const options: SelectionEntry<string>[] = request.options.map(
+    (entry, index) => {
+      if (isSelectionHeading(entry)) return entry;
+      const token = typeof entry.value === "string"
+        ? entry.value
+        : entry.id ?? `scripted-choice-${index}`;
+      choices.push({ token, value: entry.value });
+      return { ...entry, value: token };
+    },
+  );
+  const defaultToken = request.default === undefined
+    ? undefined
+    : choices.find((choice) => Object.is(choice.value, request.default))?.token;
+  const validate = request.validate;
+  const selected = await select({
+    message: request.message,
+    options,
+    ...(defaultToken === undefined ? {} : { default: defaultToken }),
+    ...(request.hint === undefined ? {} : { hint: request.hint }),
+    ...(request.required === undefined ? {} : { required: request.required }),
+    ...(request.completion === undefined
+      ? {}
+      : { completion: request.completion }),
+    ...(request.presentation === undefined
+      ? {}
+      : { presentation: request.presentation }),
+    ...(validate === undefined ? {} : {
+      validate: (token: string) =>
+        validate(scriptedSelectionValue(choices, token)),
+    }),
+    ...(request.search === undefined ? {} : { search: request.search }),
+    ...(request.searchLabel === undefined
+      ? {}
+      : { searchLabel: request.searchLabel }),
+    ...(request.maxRows === undefined ? {} : { maxRows: request.maxRows }),
+    ...(request.reservedRows === undefined
+      ? {}
+      : { reservedRows: request.reservedRows }),
+  });
+  return scriptedSelectionValue(choices, selected);
+}
+
 /** Provide deterministic desk dependencies whose behavior can be selectively overridden. */
 function scriptedRuntime(
   output: Transcript,
@@ -228,9 +295,7 @@ function scriptedRuntime(
     const values: Record<string, unknown> = {};
     const requests: SequentialInteractionRequests = {
       select: async <T>(request: SelectionRequestOptions<T>): Promise<T> =>
-        await select(
-          request as unknown as SelectionRequestOptions<string>,
-        ) as T,
+        await scriptedSequentialSelection(request, select),
       text: async (request: TextRequestOptions): Promise<string> =>
         await input(request),
       confirm: async (
@@ -328,7 +393,7 @@ function scriptedRuntime(
     readTipState: () => freshTipSeenState(KIT_VERSION),
     writeTipState: () => {},
     readPreferences: () => ({ schema_version: 1 }),
-    writePreferences: () => {},
+    writePreferences: () => ({ status: "saved" }),
     recordTipShown: () => {},
     size: () => ({ columns: 80, rows: 24 }),
     ...patch,
@@ -987,6 +1052,7 @@ Deno.test("expanded creation retains trunk, live-task, and unlanded bases", asyn
       },
       writePreferences: (_root, preferences) => {
         saved.push(preferences);
+        return { status: "saved" };
       },
     });
 
@@ -1067,6 +1133,7 @@ Deno.test("compact creation opens the remembered available agent", async () => {
     },
     writePreferences: (_root, preferences) => {
       saved.push(preferences);
+      return { status: "saved" };
     },
   });
 
@@ -1083,6 +1150,43 @@ Deno.test("compact creation opens the remembered available agent", async () => {
     creation_path: "compact",
   }]);
   assertStringIncludes(joined(output), "Open in Codex");
+});
+
+Deno.test("an unavailable preference write leaves creation intact and explains the fallback", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const choices = [START_TASK, "codename", "compact", "none", BACK, QUIT];
+  const confirmations = [true];
+  let created: StartData | undefined;
+  const runtime = scriptedRuntime(output, {
+    status: () => ({
+      ok: true,
+      data: statusData([
+        main,
+        ...(created === undefined ? [] : [startedFleetEntry(created)]),
+      ]),
+    }),
+    select: () => choices.shift() ?? QUIT,
+    confirm: () => confirmations.shift() ?? false,
+    start: (_ctx, prepared) => {
+      created = startedTask(prepared);
+      return created;
+    },
+    writePreferences: () => ({
+      status: "unavailable",
+      reason: "the repository preference store is read-only",
+    }),
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assert(created !== undefined);
+  assertStringIncludes(joined(output), "Desk preferences were not saved");
+  assertStringIncludes(joined(output), "preference store is read-only");
+  assertStringIncludes(joined(output), "current task is unchanged");
+  assertStringIncludes(joined(output), "may ask you to choose again");
 });
 
 Deno.test("a failed landing grant keeps the created task and reports actual authority", async () => {
@@ -1304,6 +1408,7 @@ Deno.test("task creation returns safely from every progressive prompt", async ()
       },
       writePreferences: () => {
         preferenceWrites++;
+        return { status: "saved" };
       },
     });
 
@@ -1473,6 +1578,7 @@ Deno.test("a live task starts a follow-up from its exact branch tip", async () =
     },
     writePreferences: (_root, value) => {
       preferences.push(value);
+      return { status: "saved" };
     },
   });
 
@@ -1617,6 +1723,7 @@ Deno.test("desk explains missing configured agents and launches available argv i
     }),
     writePreferences: (_root, value) => {
       preferences.push(value);
+      return { status: "saved" };
     },
   });
 

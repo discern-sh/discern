@@ -32,7 +32,7 @@ The compact path starts from the configured trunk and opens the last-used config
 
 Preferences remember the last agent and creation path in repository-local Git state. They carry no task fact or authority.
 
-Before creation, the Desk shows the retained start plan: title, brief, worktree id, branch, selected ref and commit, worktree root, resources, agent action, and landing authority. Confirmation applies that same plan through the `start` core, which rejects a stale base, id, branch, or path. The created-task receipt names the resulting path and identity.
+Before creation, the Desk shows the retained start plan: title, brief, worktree id, branch, selected ref and commit, worktree root, resources, agent action, and landing authority. Confirmation applies that same plan through the `start` core, which rejects a stale base, id, branch, or path. The Start result names the resulting path and identity.
 
 After creation, the Desk opens the new row. `Refresh` runs another status survey, so a worktree created elsewhere appears in the root menu.
 

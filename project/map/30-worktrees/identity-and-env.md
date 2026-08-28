@@ -68,8 +68,8 @@ Resource and setup commands receive `@worktree@`, `@db@`, `@site@`, `@port@`, `@
 | Responsibility                        | Source                                                                                                  |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Identity derivation and id resolution | [`src/engine/worktree/identity.ts`](../../../src/engine/worktree/identity.ts)                           |
-| Human task metadata schema            | [`src/shared/task_metadata.ts`](../../../src/shared/task_metadata.ts)                                 |
-| Worktree-local metadata store         | [`src/engine/worktree/task_metadata.ts`](../../../src/engine/worktree/task_metadata.ts)               |
+| Human task metadata schema            | [`src/shared/task_metadata.ts`](../../../src/shared/task_metadata.ts)                                   |
+| Worktree-local metadata store         | [`src/engine/worktree/task_metadata.ts`](../../../src/engine/worktree/task_metadata.ts)                 |
 | Destructive ownership predicate       | [`src/engine/worktree/ownership.ts`](../../../src/engine/worktree/ownership.ts)                         |
 | Env-file precedence and writes        | [`src/engine/worktree/env_file.ts`](../../../src/engine/worktree/env_file.ts)                           |
 | Contained read and write paths        | [`src/shared/project_path.ts`](../../../src/shared/project_path.ts)                                     |

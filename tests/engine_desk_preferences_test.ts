@@ -1,6 +1,6 @@
 /** Repository-local Desk convenience preferences never become task truth. */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import {
   deskPreferencesPath,
@@ -28,7 +28,9 @@ Deno.test("Desk preferences: linked worktrees share safe repository defaults", a
       last_agent: "codex" as const,
       creation_path: "expanded" as const,
     };
-    await writeDeskPreferences(dir, preferences);
+    assertEquals(await writeDeskPreferences(dir, preferences), {
+      status: "saved",
+    });
     assertEquals(await readDeskPreferences(dir), preferences);
 
     const linked = await addWorktree(dir, "desk-preferences-shared");
@@ -68,13 +70,17 @@ Deno.test("Desk preferences: stale, torn, and authority-shaped records reset", a
   });
 });
 
-Deno.test("Desk preferences: outside Git, reads reset and writes are silent", async () => {
+Deno.test("Desk preferences: outside Git, reads reset and writes report unavailability", async () => {
   await withTempDir(async (dir) => {
     assertEquals(await deskPreferencesPath(dir), undefined);
     assertEquals(await readDeskPreferences(dir), freshDeskPreferences());
-    await writeDeskPreferences(dir, {
+    const result = await writeDeskPreferences(dir, {
       schema_version: 1,
       creation_path: "compact",
     });
+    assertEquals(result.status, "unavailable");
+    if (result.status === "unavailable") {
+      assertStringIncludes(result.reason, "shared state directory");
+    }
   });
 });
