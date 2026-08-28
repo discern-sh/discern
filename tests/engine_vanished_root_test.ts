@@ -29,19 +29,38 @@ import { gitInit, scaffoldEngine } from "./engine_helpers.ts";
 const sameVersion = (): Promise<string | undefined> =>
   Promise.resolve(KIT_VERSION);
 
-Deno.test("a vanished held root refuses with recovery and re-aims at the spawn root", async () => {
+/** The discern_status tool — the representative registry member. */
+function statusTool(): (typeof TOOLS)[number] {
+  const status = TOOLS.find((tool) => tool.name === "discern_status");
+  assert(status !== undefined, "discern_status must exist");
+  return status;
+}
+
+/** A scaffolded home checkout, a WorkingRoot re-aimed at a worktree path that
+ * no longer exists, and that vanished path — the state every guard case
+ * starts from. */
+async function withVanishedHeldRoot(
+  fn: (state: {
+    home: string;
+    gone: string;
+    working: WorkingRoot;
+  }) => Promise<void>,
+): Promise<void> {
   await withTempDir(async (dir) => {
     const home = join(dir, "main");
     await Deno.mkdir(home);
     await scaffoldEngine(home, { bootstrapped: true });
     await gitInit(home);
     const gone = join(dir, "efforts", "landed-worktree");
-
-    const status = TOOLS.find((tool) => tool.name === "discern_status");
-    assert(status !== undefined, "discern_status must exist");
     const working = new WorkingRoot(home);
     working.set(gone);
+    await fn({ home, gone, working });
+  });
+}
 
+Deno.test("a vanished held root refuses with recovery and re-aims at the spawn root", async () => {
+  await withVanishedHeldRoot(async ({ home, gone, working }) => {
+    const status = statusTool();
     const refusal = await runTool(status, working, {}, undefined, sameVersion);
     assertEquals(refusal.isError, true);
     assertEquals(refusal.structuredContent.error, "not_initialized");
@@ -65,13 +84,7 @@ Deno.test("a vanished held root refuses with recovery and re-aims at the spawn r
 });
 
 Deno.test("every MCP tool refuses a vanished held root before its verb runs", async () => {
-  await withTempDir(async (dir) => {
-    const home = join(dir, "main");
-    await Deno.mkdir(home);
-    await scaffoldEngine(home, { bootstrapped: true });
-    await gitInit(home);
-    const gone = join(dir, "efforts", "landed-worktree");
-
+  await withVanishedHeldRoot(async ({ home, gone }) => {
     for (const tool of TOOLS) {
       const working = new WorkingRoot(home);
       working.set(gone);
@@ -100,12 +113,7 @@ Deno.test("a future tool inherits the vanished-root refusal without enrolment", 
   // Fresh-name sibling: a tool the guard has never heard of must be refused
   // before its verb runs — the protection reads the registry-shared dispatch
   // path, not a name list.
-  await withTempDir(async (dir) => {
-    const home = join(dir, "main");
-    await Deno.mkdir(home);
-    await scaffoldEngine(home, { bootstrapped: true });
-    await gitInit(home);
-    const gone = join(dir, "efforts", "landed-worktree");
+  await withVanishedHeldRoot(async ({ home, working }) => {
     const probe = {
       name: "discern_zzz_probe",
       description: "synthetic future tool for the vanished-root guard",
@@ -116,9 +124,6 @@ Deno.test("a future tool inherits the vanished-root refusal without enrolment", 
         );
       },
     };
-
-    const working = new WorkingRoot(home);
-    working.set(gone);
     const result = await runTool(probe, working, {}, undefined, sameVersion);
     assertEquals(result.isError, true);
     assertEquals(result.structuredContent.error, "not_initialized");
@@ -130,11 +135,14 @@ Deno.test("a future tool inherits the vanished-root refusal without enrolment", 
 Deno.test("a vanished spawn root refuses with the path recovery and moves nothing", async () => {
   await withTempDir(async (dir) => {
     const gone = join(dir, "removed-checkout");
-    const status = TOOLS.find((tool) => tool.name === "discern_status");
-    assert(status !== undefined, "discern_status must exist");
-
     const working = new WorkingRoot(gone);
-    const result = await runTool(status, working, {}, undefined, sameVersion);
+    const result = await runTool(
+      statusTool(),
+      working,
+      {},
+      undefined,
+      sameVersion,
+    );
     assertEquals(result.isError, true);
     assertEquals(result.structuredContent.error, "not_initialized");
     const message = result.structuredContent.message as string;
