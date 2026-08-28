@@ -1814,7 +1814,42 @@ async function dispatchToolCall(
       ),
     };
   }
-  const root = pathArg ? await findRoot(pathArg) : working.get();
+  let root = pathArg ? await findRoot(pathArg) : working.get();
+  // The held working root is remembered state, not caller input: the worktree
+  // it names can vanish between calls of this long-lived server — a sibling
+  // session lands the effort, or the directory is dropped by hand. Trusting it
+  // blindly hands the verb a vanished directory, so a routine "that effort is
+  // over" state reads as a crash inside discern. Verify the marker first (an
+  // explicit `path` was already vetted by findRoot), refuse with the story, and
+  // repair the held root to the spawn checkout when that is still a project.
+  if (
+    root !== undefined && pathArg === undefined &&
+    !(await fileExists(join(root, CONFIG_REL)))
+  ) {
+    const spawn = working.spawnRoot();
+    const home = spawn !== undefined && spawn !== root &&
+        (await fileExists(join(spawn, CONFIG_REL)))
+      ? spawn
+      : undefined;
+    if (home !== undefined) {
+      working.set(home);
+    }
+    if (tool.rootIndependent !== true) {
+      return {
+        result: notInitializedResult(
+          verbOf(tool.name),
+          vanishedHeldRootMessage(root, home),
+        ),
+        recording: home === undefined
+          ? undefined
+          : beginMcpRecording(home, verbOf(tool.name), args, mcpClient),
+      };
+    }
+    // A root-independent answer never depended on the vanished root: continue
+    // against the repaired home, or with no root at all — the branch below
+    // serves it from the process cwd exactly as when no root resolves.
+    root = home;
+  }
   if (root === undefined) {
     // A root-independent tool (discern_docs) serves the same answer from anywhere —
     // discern's OWN bundled docs, present in every install — so it must not be refused
@@ -1839,50 +1874,6 @@ async function dispatchToolCall(
     return {
       result: notInitializedResult(verbOf(tool.name)),
       recording: undefined,
-    };
-  }
-  // The held working root is remembered state, not caller input: the worktree
-  // it names can vanish between calls of this long-lived server — a sibling
-  // session lands the effort, or the directory is dropped by hand. Trusting it
-  // blindly hands the verb a vanished directory, so a routine "that effort is
-  // over" state reads as a crash inside discern. Verify the marker first (an
-  // explicit `path` was already vetted by findRoot), refuse with the story, and
-  // repair the held root to the spawn checkout when that is still a project.
-  if (pathArg === undefined && !(await fileExists(join(root, CONFIG_REL)))) {
-    const spawn = working.spawnRoot();
-    const home = spawn !== undefined && spawn !== root &&
-        (await fileExists(join(spawn, CONFIG_REL)))
-      ? spawn
-      : undefined;
-    if (home !== undefined) {
-      working.set(home);
-    }
-    if (tool.rootIndependent === true) {
-      // The root-independent answer never depended on the vanished root; serve
-      // it from the repaired home, or the process cwd as when no root resolves.
-      const run = await runVerb(
-        tool,
-        home ?? Deno.cwd(),
-        args,
-        signal,
-        awaitCallProfile,
-        cliModel,
-      );
-      return {
-        ...run,
-        recording: home === undefined
-          ? undefined
-          : beginMcpRecording(home, verbOf(tool.name), args, mcpClient),
-      };
-    }
-    return {
-      result: notInitializedResult(
-        verbOf(tool.name),
-        vanishedHeldRootMessage(root, home),
-      ),
-      recording: home === undefined
-        ? undefined
-        : beginMcpRecording(home, verbOf(tool.name), args, mcpClient),
     };
   }
   const recording = beginMcpRecording(
