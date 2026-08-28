@@ -112,13 +112,13 @@ If the owner declines, leave acceptance stopped, restore the trunk limit in the 
 
 A failure puts its reason, value, limit, and command in `diagnostics[]`. [Tool result contracts](../70-reference/mcp-and-results.md) defines the public shape.
 
-| Failure                                    | Response                                                                                                                                                            |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Failure                                    | Response                                                                                                                                                                                                               |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The metric regressed                       | Move it the right way within the task's scope. When the change caused the breach, finish and commit the clean tree, then run `discern standards propose <name> --reason "…"`; the command measures the named Standard. |
-| The branch redefined an existing Standard  | Restore the trunk definition. For an intentional change, ask the owner to change trunk, then update the worktree.                                                   |
-| The branch weakened or deleted a limit     | Restore the trunk value. Tell the owner if the old limit is no longer valid.                                                                                        |
-| The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                                                                               |
-| The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate.                                                   |
+| The branch redefined an existing Standard  | Restore the trunk definition. For an intentional change, ask the owner to change trunk, then update the worktree.                                                                                                      |
+| The branch weakened or deleted a limit     | Restore the trunk value. Tell the owner if the old limit is no longer valid.                                                                                                                                           |
+| The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                                                                                                                                  |
+| The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate.                                                                                                      |
 
 An owner may loosen a limit directly on trunk ([ADR 0003](../_adr/0003-named-metric-standards.md)).
 
@@ -130,17 +130,17 @@ Pin records a clean `HEAD` before reading values and rechecks before editing. A 
 
 ## Where it lives in code
 
-| Concern                                   | Source                                                                                                                                                       |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Config fields and validation              | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                                                   |
-| Pure standard plan                        | [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts)                                                                                              |
-| Shared trunk definition and limit check   | [`standard_limits.ts`](../../../src/engine/gate/standard_limits.ts)                                                                                          |
+| Concern                                     | Source                                                                                                                                                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config fields and validation                | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                                                                                                                                        |
+| Pure standard plan                          | [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts)                                                                                                                                                                                   |
+| Shared trunk definition and limit check     | [`standard_limits.ts`](../../../src/engine/gate/standard_limits.ts)                                                                                                                                                                               |
 | Proposed limit plan, state, and transaction | [`standard_proposal_plan.ts`](../../../src/engine/gate/standard_proposal_plan.ts), [`standard_proposal_state.ts`](../../../src/engine/gate/standard_proposal_state.ts), [`standard_proposals.ts`](../../../src/engine/gate/standard_proposals.ts) |
-| Shared measurement and pin execution      | [`standards.ts`](../../../src/engine/gate/standards.ts)                                                                                                      |
-| Gate replay and deferral policy           | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts)                                                                                            |
-| Human Standard presentation               | [`presentation.ts`](../../../src/engine/gate/presentation.ts)                                                                                                |
-| Parallel scheduling and process-tree kill | [`runner.ts`](../../../src/engine/jobs/runner.ts)                                                                                                            |
-| Built-in write probes                     | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)                                                                                               |
+| Shared measurement and pin execution        | [`standards.ts`](../../../src/engine/gate/standards.ts)                                                                                                                                                                                           |
+| Gate replay and deferral policy             | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts)                                                                                                                                                                                 |
+| Human Standard presentation                 | [`presentation.ts`](../../../src/engine/gate/presentation.ts)                                                                                                                                                                                     |
+| Parallel scheduling and process-tree kill   | [`runner.ts`](../../../src/engine/jobs/runner.ts)                                                                                                                                                                                                 |
+| Built-in write probes                       | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)                                                                                                                                                                                    |
 
 ## Current state & gotchas
 

@@ -40,7 +40,7 @@ Project-authored tests that require a live registry to equal a configured limit 
 
 - Agents can finish implementation before creating a proposal. Required descendant work no longer produces alternating proposal and restoration commits when the decision and measurement remain unchanged.
 - Renewal still pays for the named measurement. That cost is required evidence that the descendant preserves the proposed value; unrelated Standards do not run.
-- The immutable proposal commit remains auditable in history, while the current binding remains local until Gate Proof and acceptance make it durable.
+- The immutable proposal commit remains reviewable in history, while the current binding remains local until Gate Proof and acceptance make it durable.
 - Pin can avoid unrelated on-demand work after the complete tree is proved. Before that proof exists, its previous whole-set safety property remains intact.
 - Proposal and Proof records gain one required field in new output. Compatibility readers must normalize the short-lived earlier record rather than treating it as malformed.
 - The target-selection planner becomes another canonical set boundary. New Standard names enroll automatically; future named operations must consume it instead of filtering independently.

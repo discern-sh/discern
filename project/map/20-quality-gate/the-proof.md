@@ -91,21 +91,21 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 
 ## Where it lives in code
 
-| Concern                         | Source                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------- |
-| Marker identity and validation  | [`proof.ts`](../../../src/engine/gate/proof.ts)                           |
+| Concern                         | Source                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------- |
+| Marker identity and validation  | [`proof.ts`](../../../src/engine/gate/proof.ts)                                     |
 | Proposal authority and currency | [`standard_proposal_state.ts`](../../../src/engine/gate/standard_proposal_state.ts) |
-| Write-authority probe           | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)            |
-| Operation exclusion             | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)              |
-| Proof facts and markdown        | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts)             |
-| Pure human presentation         | [`presentation.ts`](../../../src/engine/gate/presentation.ts)             |
-| Live TTY effects and viewport   | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)                     |
-| `done` proof panel              | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)                     |
-| `done` integration              | [`finish.ts`](../../../src/engine/gate/finish.ts)                         |
-| `prepare` integration           | [`prepare.ts`](../../../src/engine/gate/prepare.ts)                       |
-| Landing validation              | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)               |
-| Setup validation                | [`setup.ts`](../../../src/commands/setup.ts)                              |
-| Setup landing validation        | [`setup_accept.ts`](../../../src/commands/setup_accept.ts)                |
+| Write-authority probe           | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)                      |
+| Operation exclusion             | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)                        |
+| Proof facts and markdown        | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts)                       |
+| Pure human presentation         | [`presentation.ts`](../../../src/engine/gate/presentation.ts)                       |
+| Live TTY effects and viewport   | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)                               |
+| `done` proof panel              | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)                               |
+| `done` integration              | [`finish.ts`](../../../src/engine/gate/finish.ts)                                   |
+| `prepare` integration           | [`prepare.ts`](../../../src/engine/gate/prepare.ts)                                 |
+| Landing validation              | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                         |
+| Setup validation                | [`setup.ts`](../../../src/commands/setup.ts)                                        |
+| Setup landing validation        | [`setup_accept.ts`](../../../src/commands/setup_accept.ts)                          |
 
 ## Current state & gotchas
 
