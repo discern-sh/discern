@@ -76,7 +76,10 @@ const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
 const CSI = "\x1b[";
 const CSI_SEQUENCE = /^[0-?]*[ -/]*[@-~]/u;
-const CSI_SEQUENCES = /\x1b\[[0-?]*[ -/]*[@-~]/gu;
+const CSI_SEQUENCES = new RegExp(
+  `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
+  "gu",
+);
 
 interface HarnessRun {
   readonly process: PtyProcessResult;
