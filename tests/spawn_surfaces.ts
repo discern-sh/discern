@@ -138,8 +138,8 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   },
   {
     path: "scripts/coverage.ts",
-    enclosingFunction: "deno",
-    operation: "run a Deno coverage subprocess",
+    enclosingFunction: "denoCommand",
+    operation: "run a Deno coverage subprocess or detach its profile remover",
     reason:
       "coverage owns profile directories, command permissions, and raw subprocess output for its report pipeline",
     may: ["other"],

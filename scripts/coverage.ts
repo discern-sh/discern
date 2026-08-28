@@ -23,11 +23,13 @@
  * report pass over a profile dir is single-threaded. So the test run collects
  * raw profiles only (suppressing the reports `deno test --coverage` generates
  * at the end of a run), `scripts/coverage_profiles.ts` prunes the profiles no
- * report can use and spreads the rest across shard directories, one
- * concurrent report pass each, and the join unions the shard reports per
- * line — the same numbers one merged pass produces, at a fraction of the
- * wall clock. The module census runs alongside the report passes; the two
- * only meet at the join.
+ * report can use and spreads the rest across shard directories by module
+ * URL, one concurrent report pass each — per-module merging then happens
+ * whole within one pass, so the joined numbers equal the single merged
+ * pass at a fraction of the wall clock. The module census runs alongside
+ * the report passes, and the measured path retires the profile dir with
+ * one rename to a detached remover rather than paying a million unlinks
+ * on its own clock.
  *
  * Usage: `deno task coverage` (the `[standards.coverage]` run command). Prints a
  * per-file table to stderr for context, then the metric line to stdout.
@@ -43,6 +45,7 @@ import {
 } from "./coverage_lib.ts";
 import {
   pruneAndShardProfiles,
+  reapProfileDir,
   reportShardCount,
 } from "./coverage_profiles.ts";
 import {
@@ -52,21 +55,34 @@ import {
 import { sourceModuleUniverse } from "./source_module_universe.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 
+/** Build one `deno` subcommand invocation — the sole construction site. */
+function denoCommand(args: string[], io: Deno.CommandOptions): Deno.Command {
+  return new Deno.Command(Deno.execPath(), { ...io, args });
+}
+
 /** Run a `deno` subcommand, returning its captured stdout (throws on failure). */
 async function deno(
   args: string[],
   opts: { capture?: boolean } = {},
 ): Promise<string> {
-  const command = new Deno.Command(Deno.execPath(), {
-    args,
+  const result = await denoCommand(args, {
     stdout: opts.capture ? "piped" : "inherit",
     stderr: "inherit",
-  });
-  const result = await command.output();
+  }).output();
   if (!result.success) {
     throw new Error(`deno ${args[0]} failed (exit ${result.code}).`);
   }
   return opts.capture ? new TextDecoder().decode(result.stdout) : "";
+}
+
+/**
+ * Spawn a `deno` subcommand unobserved and unreferenced — for work that must
+ * outlive this measurement without holding its clock.
+ */
+function denoDetached(args: string[]): void {
+  denoCommand(args, { stdin: "null", stdout: "null", stderr: "null" })
+    .spawn()
+    .unref();
 }
 
 /**
@@ -141,6 +157,14 @@ await withToolTempDir("coverage-profile", async (profile) => {
   for (const failure of moduleEvaluation.failures) {
     console.error(`MODULE COVERAGE: ${failure}`);
   }
+
+  // 4. Retire the profile dir before the metric lines: deleting a
+  //    million-file directory inline costs minutes — enough to push a
+  //    finished measurement past its timeout — so one rename hands it to a
+  //    detached remover, and a reap fault still fails the run loudly. The
+  //    owning temp capability tolerates the then-absent directory.
+  await reapProfileDir(profile, denoDetached);
+
   console.log(`DISCERN_METRIC coverage ${cov.pct.toFixed(1)}`);
   console.log(
     `DISCERN_METRIC module_coverage_failures ${moduleEvaluation.failureCount}`,

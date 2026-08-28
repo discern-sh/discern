@@ -12,9 +12,17 @@
  *   so no report pass needs to parse it. Classification is conservative — an
  *   unrecognized head shards anyway and the report filter stays the judge —
  *   so pruning can only ever remove observations the report would discard.
- * - **Shard**: kept profiles spread round-robin across shard directories,
- *   one report pass each. Any assignment is correct because the join unions
- *   shard reports per line; round-robin merely balances the parse work.
+ * - **Shard**: kept profiles spread across shard directories by module-URL
+ *   hash, one report pass each. Confining every module's profiles to one
+ *   pass makes that pass's per-module range merge identical to the single
+ *   merged pass — V8 range-tree merging is not per-line decomposable across
+ *   partitions of one module's profiles, so URL-hash assignment is what
+ *   keeps the sharded numbers exact. An opaque head routes by filename
+ *   hash; the join's per-line union covers that degraded case.
+ * - **Reap**: after the report passes, deleting a million-file directory
+ *   costs minutes, so the measured path retires the directory with one
+ *   rename and hands removal to a detached child instead of paying per-file
+ *   unlinks on its own clock.
  */
 
 import { join } from "@std/path";
@@ -78,16 +86,26 @@ export interface ProfileShardingSummary {
   readonly opaque: number;
 }
 
-/** Read up to {@link HEAD_BYTES} leading bytes of one file as text. */
-async function readHead(path: string): Promise<string> {
-  const file = await Deno.open(path, { read: true });
-  try {
-    const buffer = new Uint8Array(HEAD_BYTES);
-    const read = await file.read(buffer);
-    return HEAD_DECODER.decode(buffer.subarray(0, read ?? 0));
-  } finally {
-    file.close();
+/**
+ * Read one profile and decode its leading bytes for classification. Whole-file
+ * reads cost one operation against these page-sized profiles, so they beat a
+ * seek-and-close head read; only {@link HEAD_BYTES} of text is decoded.
+ */
+async function readProfileHead(path: string): Promise<string> {
+  const bytes = await Deno.readFile(path);
+  return HEAD_DECODER.decode(
+    bytes.subarray(0, Math.min(HEAD_BYTES, bytes.length)),
+  );
+}
+
+/** Deterministic 32-bit FNV-1a hash for shard assignment. */
+function fnv1a(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
   }
+  return hash;
 }
 
 /**
@@ -104,7 +122,7 @@ export async function pruneAndShardProfiles(
   profileDir: string,
   srcUrlPrefix: string,
   shardTotal: number,
-  concurrency = 64,
+  concurrency = 256,
 ): Promise<ProfileShardingSummary> {
   const names: string[] = [];
   for await (const entry of Deno.readDir(profileDir)) {
@@ -128,13 +146,14 @@ export async function pruneAndShardProfiles(
       const name = names[index];
       if (name === undefined) return;
       const path = join(profileDir, name);
-      const head = classifyRawProfileHead(await readHead(path));
+      const head = classifyRawProfileHead(await readProfileHead(path));
       if (isPrunableProfile(head, srcUrlPrefix)) {
         pruned += 1;
         continue;
       }
       if (head.kind === "opaque") opaque += 1;
-      const slot = sharded % dirs.length;
+      const slot = fnv1a(head.kind === "single-script" ? head.url : name) %
+        dirs.length;
       sharded += 1;
       const target = dirs[slot];
       if (target === undefined) {
@@ -155,4 +174,25 @@ export async function pruneAndShardProfiles(
     pruned,
     opaque,
   };
+}
+
+/**
+ * Retire a measured profile directory off the critical path: one rename to a
+ * sibling graveyard name, then a detached remover process the caller spawns.
+ * Deleting the directory's files inline costs minutes of per-file unlinks —
+ * long enough to push a finished measurement past its timeout — so removal
+ * happens on the detached child's clock. Returns the graveyard path.
+ */
+export async function reapProfileDir(
+  profileDir: string,
+  spawnDetached: (args: string[]) => void,
+): Promise<string> {
+  const graveyard = `${profileDir}-reaped`;
+  await Deno.rename(profileDir, graveyard);
+  spawnDetached([
+    "eval",
+    `--allow-write=${graveyard}`,
+    `await Deno.remove(${JSON.stringify(graveyard)}, { recursive: true });`,
+  ]);
+  return graveyard;
 }

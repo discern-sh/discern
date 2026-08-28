@@ -24,6 +24,12 @@ export const REGISTERED_RENAMES = [
   },
   {
     path: "scripts/coverage_profiles.ts",
+    enclosingFunction: "reapProfileDir",
+    reason:
+      "Retiring the measured profile directory is one move to its graveyard name for the detached remover, replacing nothing.",
+  },
+  {
+    path: "scripts/coverage_profiles.ts",
     enclosingFunction: "worker",
     reason:
       "Sharding relocates immutable raw coverage profiles between owned scratch directories, replacing nothing.",

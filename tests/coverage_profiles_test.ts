@@ -15,8 +15,10 @@ import {
   classifyRawProfileHead,
   isPrunableProfile,
   pruneAndShardProfiles,
+  reapProfileDir,
   reportShardCount,
 } from "../scripts/coverage_profiles.ts";
+import { fileExists } from "../src/shared/fs_presence.ts";
 import {
   lcovReportArgs,
   srcCoverageUrlPrefix,
@@ -92,20 +94,21 @@ Deno.test("pruning excludes only identified foreign profiles and shards the rest
     const prefix = srcCoverageUrlPrefix(REPO);
     const seeded: Record<string, string> = {
       "aa.json": profile(`file://${REPO}/src/engine/dispatch.ts`),
-      "bb.json": profile(`file://${REPO}/src/shared/config.ts`),
+      "bb.json": profile(`file://${REPO}/src/engine/dispatch.ts`),
       "cc.json": profile("file:///caches/deno/npm/pkg/index.js"),
       "dd.json": `{"result":[${profile("file:///caches/deno/other.js")}]}`,
+      "ee.json": profile(`file://${REPO}/src/shared/config.ts`),
     };
     for (const [name, body] of Object.entries(seeded)) {
       await Deno.writeTextFile(join(dir, name), body);
     }
     await Deno.writeTextFile(join(dir, "notes.txt"), "not a profile");
 
-    const summary = await pruneAndShardProfiles(dir, prefix, 2, 2);
+    const summary = await pruneAndShardProfiles(dir, prefix, 3, 2);
     assertEquals(summary.pruned, 1);
-    assertEquals(summary.sharded, 3);
+    assertEquals(summary.sharded, 4);
     assertEquals(summary.opaque, 1);
-    assert(summary.shardDirs.length >= 1 && summary.shardDirs.length <= 2);
+    assert(summary.shardDirs.length >= 1 && summary.shardDirs.length <= 3);
 
     const rootNames: string[] = [];
     for await (const entry of Deno.readDir(dir)) {
@@ -113,12 +116,43 @@ Deno.test("pruning excludes only identified foreign profiles and shards the rest
     }
     assertEquals(rootNames.sort(), ["cc.json", "notes.txt"]);
 
-    const shardedNames: string[] = [];
+    const shardOf = new Map<string, string>();
     for (const shard of summary.shardDirs) {
       for await (const entry of Deno.readDir(shard)) {
-        shardedNames.push(entry.name);
+        shardOf.set(entry.name, shard);
       }
     }
-    assertEquals(shardedNames.sort(), ["aa.json", "bb.json", "dd.json"]);
+    assertEquals([...shardOf.keys()].sort(), [
+      "aa.json",
+      "bb.json",
+      "dd.json",
+      "ee.json",
+    ]);
+    assertEquals(
+      shardOf.get("aa.json"),
+      shardOf.get("bb.json"),
+      "profiles for one module URL must share a shard so its range merge stays whole",
+    );
+  });
+});
+
+Deno.test("reaping renames the profile dir once and detaches its remover", async () => {
+  await withTempDir(async (dir) => {
+    const profileDir = join(dir, "profiles");
+    await Deno.mkdir(profileDir);
+    await Deno.writeTextFile(join(profileDir, "aa.json"), profile("file:///x"));
+    const spawns: string[][] = [];
+    const graveyard = await reapProfileDir(
+      profileDir,
+      (args) => spawns.push(args),
+    );
+    assertEquals(graveyard, `${profileDir}-reaped`);
+    assertEquals(await fileExists(profileDir), false);
+    assertEquals(await fileExists(join(graveyard, "aa.json")), true);
+    assertEquals(spawns.length, 1);
+    const args = spawns[0] ?? [];
+    assertEquals(args[0], "eval");
+    assertEquals(args[1], `--allow-write=${graveyard}`);
+    assert((args[2] ?? "").includes(JSON.stringify(graveyard)));
   });
 });
