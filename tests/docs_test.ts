@@ -44,7 +44,11 @@ import {
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
-import { type PtyInputPhase, runPtyProcess } from "./fixtures/pty_process.ts";
+import {
+  type PtyInputPhase,
+  ptyOutputContains,
+  runPtyProcess,
+} from "./fixtures/pty_process.ts";
 import { engineRunArgs } from "./engine_helpers.ts";
 import {
   assertResultDataKey,
@@ -465,17 +469,36 @@ Deno.test({
           // Browse and Start here precede the complete-navigation root.
           {
             waitFor: "Enter open/action  Esc cancel",
-            captureAs: "initial",
+            capture: {
+              name: "initial",
+              when: ptyOutputContains([
+                "BROWSE",
+                "START HERE",
+                "OVERVIEW",
+                "INTRO",
+                "Concepts at a glance",
+                "Enter open/action  Esc cancel",
+              ]),
+            },
             steps: [{ bytes: "\x1b[B\x1b[B\r" }],
           },
           {
             waitFor: ["Welcome.", "Tab picker"],
-            captureAs: "split",
+            capture: {
+              name: "split",
+              when: ptyOutputContains(["Welcome.", "Tab picker"]),
+            },
             steps: [{ bytes: "q" }],
           },
           {
             waitFor: ["discern documentation", "Esc cancel"],
-            captureAs: "restored",
+            capture: {
+              name: "restored",
+              when: ptyOutputContains([
+                "discern documentation",
+                "Esc cancel",
+              ]),
+            },
             steps: [{ bytes: "\x03" }],
           },
         ],
@@ -618,7 +641,13 @@ Deno.test({
           },
           {
             waitFor: ["Document · Concepts at a glance", "The concepts body"],
-            captureAs: "fragment",
+            capture: {
+              name: "fragment",
+              when: ptyOutputContains([
+                "Document · Concepts at a glance",
+                "The concepts body",
+              ]),
+            },
             steps: [{ bytes: "q" }],
           },
           {
@@ -670,7 +699,10 @@ Deno.test({
           },
           {
             waitFor: ["website", "Enter follow"],
-            captureAs: "resumed-link",
+            capture: {
+              name: "resumed-link",
+              when: ptyOutputContains(["website", "Enter follow"]),
+            },
             steps: [{ bytes: "q" }],
           },
           {
@@ -757,7 +789,13 @@ Deno.test({
         input: [
           {
             waitFor: "Enter open/action  Esc cancel",
-            captureAs: "initial",
+            capture: {
+              name: "initial",
+              when: ptyOutputContains([
+                "ACTIONS",
+                "Enter open/action  Esc cancel",
+              ]),
+            },
             steps: [{ bytes: "\r" }],
           },
           {

@@ -1,6 +1,7 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import {
+  parseTerminalCaptureInputScript,
   TERMINAL_REVIEW_GUIDE,
   terminalCaptureHandoff,
 } from "../scripts/terminal_capture.ts";
@@ -23,6 +24,47 @@ Deno.test("terminal capture hands reviewers to the rendered-review workflow", ()
   assertEquals(
     TERMINAL_REVIEW_GUIDE,
     "project/map/80-development/reviewing-terminal-output.md",
+  );
+});
+
+Deno.test("terminal capture scripts require independent keyframe readiness", () => {
+  const phases = parseTerminalCaptureInputScript([{
+    waitFor: "frame begins",
+    capture: { name: "complete", when: "frame complete" },
+    steps: [{ bytes: "x" }],
+  }]);
+  const capture = phases[0]?.capture;
+  assertEquals(capture?.name, "complete");
+  assertEquals(
+    capture?.when.test({
+      stdout: "frame begins",
+      stderr: "",
+      transcript: "frame begins",
+      phaseStdout: "frame begins",
+      phaseStderr: "",
+    }),
+    false,
+  );
+  assertEquals(
+    capture?.when.test({
+      stdout: "frame begins\nframe complete",
+      stderr: "",
+      transcript: "frame begins\nframe complete",
+      phaseStdout: "frame begins\nframe complete",
+      phaseStderr: "",
+    }),
+    true,
+  );
+
+  assertThrows(
+    () =>
+      parseTerminalCaptureInputScript([{
+        waitFor: "frame begins",
+        captureAs: "complete",
+        steps: [{ bytes: "x" }],
+      }]),
+    TypeError,
+    "capture { name, when }",
   );
 });
 

@@ -24,6 +24,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
+import { ptyOutputContains } from "./fixtures/pty_process.ts";
 import {
   finishResult,
   renderGateStageGapNote,
@@ -305,7 +306,15 @@ Deno.test({
               "tail-complete",
               "tail-second",
             ],
-            captureAs: "active-tail",
+            capture: {
+              name: "active-tail",
+              when: ptyOutputContains([
+                "phase-one",
+                "phase-two",
+                "tail-complete",
+                "tail-second",
+              ]),
+            },
             steps: [{ delayMs: 50 }],
           }],
           timeoutMs: 12_000,
@@ -360,7 +369,13 @@ Deno.test({
         env: { NO_COLOR: "1", CI: "false" },
         input: [{
           waitFor: "format │ interrupt-ready",
-          captureAs: "running",
+          capture: {
+            name: "running",
+            when: ptyOutputContains([
+              "format started",
+              "format │ interrupt-ready",
+            ]),
+          },
           steps: [{ delayMs: 100, bytes: "\x03" }],
         }],
         timeoutMs: 8_000,

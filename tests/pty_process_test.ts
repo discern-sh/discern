@@ -6,7 +6,7 @@ import {
 } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { runPtyProcess } from "./fixtures/pty_process.ts";
+import { ptyOutputContains, runPtyProcess } from "./fixtures/pty_process.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const PTY_CHILD_PROGRAM = join(
@@ -71,7 +71,10 @@ Deno.test({
       cwd: REPO_ROOT,
       input: [{
         waitFor: "fresh sibling ready",
-        captureAs: "ready",
+        capture: {
+          name: "ready",
+          when: ptyOutputContains("fresh sibling ready"),
+        },
         steps: [{ bytes: "\x03" }],
       }],
       timeoutMs: 2_000,
@@ -198,6 +201,33 @@ Deno.test({
 });
 
 Deno.test({
+  name: "PTY keyframe waits for its own condition after early input readiness",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const result = await runPtyProcess({
+      command: Deno.execPath(),
+      args: childArgs("multi-write-frame"),
+      cwd: REPO_ROOT,
+      input: [{
+        waitFor: "frame begins",
+        capture: {
+          name: "delayed-frame",
+          when: ptyOutputContains("frame complete"),
+        },
+        steps: [{ bytes: "x" }],
+      }],
+      timeoutMs: 3_000,
+    });
+
+    assertEquals(result.code, 0, result.transcript);
+    assertStringIncludes(
+      result.keyframes["delayed-frame"] ?? "",
+      "frame complete",
+    );
+  },
+});
+
+Deno.test({
   name: "PTY ordered readiness markers capture a complete multi-write frame",
   ignore: Deno.build.os === "windows",
   fn: async () => {
@@ -207,7 +237,10 @@ Deno.test({
       cwd: REPO_ROOT,
       input: [{
         waitFor: ["frame begins", "frame complete"],
-        captureAs: "settled-frame",
+        capture: {
+          name: "settled-frame",
+          when: ptyOutputContains("frame complete"),
+        },
         steps: [{ bytes: "x" }],
       }],
       timeoutMs: 3_000,

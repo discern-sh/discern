@@ -63,6 +63,7 @@ import { withTempDir } from "../temp_dir.ts";
 import {
   type PtyGeometry,
   type PtyInputPhase,
+  type PtyObservedOutput,
   runPtyProcess,
   TEST_PROCESS_TIMEOUT_MS,
 } from "./pty_process.ts";
@@ -553,11 +554,26 @@ export interface DeskTtyInputChunk {
   readonly allowLoneEscape?: boolean;
 }
 
+/** Observable visible-screen facts that make a Desk keyframe complete. */
+export type DeskTtyFrameCondition =
+  | {
+    readonly includes: string | readonly [string, ...string[]];
+    readonly focusMarkers?: number;
+  }
+  | {
+    readonly includes?: undefined;
+    readonly focusMarkers: number;
+  };
+
+/** One named Desk keyframe and the visible-screen facts that prove readiness. */
+export interface DeskTtyCapture {
+  readonly name: string;
+  readonly when: DeskTtyFrameCondition;
+}
+
 export interface DeskTtyInputPhase {
   readonly waitFor: string | readonly [string, ...string[]];
-  readonly captureAs?: string;
-  /** Pause after the readiness marker before capturing and sending chunks. */
-  readonly settleMs?: number;
+  readonly capture?: DeskTtyCapture;
   readonly chunks: readonly [DeskTtyInputChunk, ...DeskTtyInputChunk[]];
 }
 
@@ -681,10 +697,11 @@ export async function runDeskTty(
     let expectedGeometry = options.geometry;
     let resizeSequence = 0;
     const input: PtyInputPhase[] = options.input.map((phase) => {
-    const phaseSettleMs = phase.settleMs ?? 20;
-    assertSettle(phaseSettleMs);
-    if (phase.captureAs !== undefined) {
-      captureGeometry.set(phase.captureAs, expectedGeometry);
+    const phaseGeometry = expectedGeometry;
+    const capture = phase.capture;
+    if (capture !== undefined) {
+      assertDeskCapture(capture);
+      captureGeometry.set(capture.name, phaseGeometry);
     }
     const steps = phase.chunks.map((chunk) => {
       if (chunk.settleMs !== undefined) assertSettle(chunk.settleMs);
@@ -731,8 +748,29 @@ export async function runDeskTty(
     });
     return {
       waitFor: phase.waitFor,
-      settleMs: phaseSettleMs,
-      ...(phase.captureAs === undefined ? {} : { captureAs: phase.captureAs }),
+      ...(capture === undefined
+        ? {}
+        : {
+          capture: {
+            name: capture.name,
+            when: {
+              description: describeDeskCapture(capture),
+              test: (output: PtyObservedOutput): boolean =>
+                deskCaptureReady(
+                  capture,
+                  normaliseDeskTranscript(
+                    capture.name,
+                    output.transcript,
+                    options.geometry,
+                    resizeTimeline.filter((resize) =>
+                      resize.transcriptOffset < output.transcript.length
+                    ),
+                    phaseGeometry,
+                  ),
+                ),
+            },
+          },
+        }),
       steps: steps as [typeof steps[number], ...typeof steps[number][]],
     };
   });
@@ -825,6 +863,52 @@ function assertSettle(milliseconds: number): void {
   if (!Number.isSafeInteger(milliseconds) || milliseconds < 0 || milliseconds > 1_000) {
     throw new TypeError("Desk PTY settle time must be between 0 and 1000ms");
   }
+}
+
+function assertDeskCapture(capture: DeskTtyCapture): void {
+  if (capture.name.length === 0) {
+    throw new TypeError("Desk PTY keyframe name must not be empty");
+  }
+  const includes = capture.when.includes;
+  const markers = includes === undefined
+    ? []
+    : typeof includes === "string"
+    ? [includes]
+    : includes;
+  if (markers.some((marker) => marker.length === 0)) {
+    throw new TypeError("Desk PTY keyframe text must not be empty");
+  }
+  const focusMarkers = capture.when.focusMarkers;
+  if (
+    focusMarkers !== undefined &&
+    (!Number.isSafeInteger(focusMarkers) || focusMarkers < 0)
+  ) {
+    throw new TypeError("Desk PTY keyframe focus count must be a non-negative integer");
+  }
+  if (markers.length === 0 && focusMarkers === undefined) {
+    throw new TypeError("Desk PTY keyframe needs an observable screen condition");
+  }
+}
+
+function describeDeskCapture(capture: DeskTtyCapture): string {
+  return `Desk frame ${JSON.stringify(capture.name)} to satisfy ${
+    JSON.stringify(capture.when)
+  }`;
+}
+
+function deskCaptureReady(
+  capture: DeskTtyCapture,
+  frame: DeskVisibleFrame,
+): boolean {
+  const includes = capture.when.includes;
+  const markers = includes === undefined
+    ? []
+    : typeof includes === "string"
+    ? [includes]
+    : includes;
+  return markers.every((marker) => frame.text.includes(marker)) &&
+    (capture.when.focusMarkers === undefined ||
+      frame.focusMarkers.length === capture.when.focusMarkers);
 }
 
 function combineInput(
