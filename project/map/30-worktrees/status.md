@@ -23,7 +23,7 @@ Worktrees default to a local view. The main checkout shows its state, fleet task
 
 One observation feeds every projection; shared CLI components render each terminal view.
 
-The 104-column report uses human task labels; `--verbose` reveals complete worktree and branch identities.
+The 104-column report uses stored task titles when available; `--verbose` reveals complete worktree and branch identities. A title that differs from its normalized id never replaces the id or branch.
 
 Rows prioritize live, stale, or uncommitted work while still showing branch drift. Shared-file and Architecture Decision Record (ADR) number collisions remain separate landing risks.
 
@@ -63,7 +63,7 @@ Every default result includes the route to full structured detail. Run `discern 
 
 `data.pending_tracked_refresh` lists tracked paths an ordinary refresh would change. `data.tracked_refresh_plan_errors` lists problems that prevent the plan from being derived. `stale_generated`, `stale_materialized`, `stale_integrations`, and `stale_adr_index` remain compatibility projections of the same plan.
 
-Fleet retains the main row. Each sampled readable worktree carries identity, Git state, divergence, activity, one `gate_proof`, and authority. `gate_proof` always carries its inspection status. A current honored marker adds compact Proof facts and the one-line rendering; an older marker may add only `proof_line`. Every structured mode omits rendered Proof pages and the earlier `proof_honored`, `proof`, and `proof_line` compatibility copies at fleet-row level. Status authority keeps the exact decision, six authored-first path examples plus uncovered totals and scopes. In full mode, `landed_proof.proof` is compact and `landed_proof.commit_at` supplies landing age when Git can read it.
+Fleet retains the main row. Each sampled readable worktree carries identity, Git state, divergence, activity, one `gate_proof`, and authority. Newer rows also carry `task`: the display title, title source, optional brief, and creation ref and commit. `title_source: "identity_fallback"` identifies an older worktree with no record. Unavailable metadata remains a separate diagnostic. `gate_proof` always carries its inspection status. A current honored marker adds compact Proof facts and the one-line rendering; an older marker may add only `proof_line`. Every structured mode omits rendered Proof pages and the earlier `proof_honored`, `proof`, and `proof_line` compatibility copies at fleet-row level. Status authority keeps the exact decision, six authored-first path examples plus uncovered totals and scopes. In full mode, `landed_proof.proof` is compact and `landed_proof.commit_at` supplies landing age when Git can read it.
 
 Ahead and behind are non-negative integers, `"unknown"` after a failed or malformed count, and `null` on local status when the trunk is missing. Only a number can support readiness or containment ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)).
 

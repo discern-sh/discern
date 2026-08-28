@@ -192,14 +192,14 @@ From the main checkout, create a worktree with a separate checkout and branch fo
 
 Usage: `discern start [options]`
 
-| Option            | Description                                                                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`          | Emit one JSON result on stdout (data.path is the new worktree).                                                                             |
-| `--dry-run`       | Show the start plan; touch nothing.                                                                                                         |
-| `--name <name>`   | Set the task title and seed its worktree id. Discern normalizes the id while preserving this text as the title. Omit for a random codename. |
-| `--title <title>` | Set the display title separately from --name. With no --name, the title also seeds the worktree id.                                         |
-| `--brief <brief>` | Store an optional one-line brief for task detail and agent handoff.                                                                         |
-| `--from <ref>`    | Branch the new worktree from this ref (a branch, tag, or commit). Omit it to start from the trunk.                                          |
+| Option            | Description                                                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`          | Emit one JSON result on stdout (data.path is the new worktree).                                                                          |
+| `--dry-run`       | Show the start plan; touch nothing.                                                                                                      |
+| `--name <name>`   | Set the task title and seed its worktree id. discern preserves this text as the title and normalizes the id. Omit for a random codename. |
+| `--title <title>` | Set the display title separately from --name. With no --name, the title also seeds the worktree id.                                      |
+| `--brief <brief>` | Store an optional one-line brief for task detail and agent handoff.                                                                      |
+| `--from <ref>`    | Branch the new worktree from this ref (a branch, tag, or commit). Omit it to start from the trunk.                                       |
 
 ### `discern update`
 

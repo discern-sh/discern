@@ -30,8 +30,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`acceptance-transaction-boundaries`](#acceptance-transaction-boundaries--acceptance-transaction-boundaries)          | `src/engine/worktree/acceptance_transaction.ts#ACCEPTANCE_TRANSACTION_BOUNDARIES` | 2       | —                | node `worktrees`            |
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
-| [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 11      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 29      | —                | —                           |
+| [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 13      | —                | node `desk`                 |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 30      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
@@ -123,7 +123,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
 | [`secure-entropy-primitive-boundaries`](#secure-entropy-primitive-boundaries--secure-entropy-primitive-boundaries)    | `src/shared/entropy.ts#SECURE_ENTROPY_PRIMITIVE_BOUNDARIES`                       | 2       | —                | —                           |
-| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 187     | —                | —                           |
+| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 188     | —                | —                           |
 | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 10      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
@@ -825,14 +825,16 @@ The Worktree lifecycle verbs that require `discern.toml` at the Git repository r
 The Desk's per-Worktree action vocabulary and menu order. The legality table exercises every member, and the runtime test checks each interactive effect boundary.
 
 - Source: `src/engine/desk/model.ts` — `DESK_ACTIONS`
-- Members: 11
+- Members: 13
   - `done`
   - `accept`
   - `update`
   - `agent`
+  - `follow_up`
   - `scripts`
   - `jump`
   - `inspect`
+  - `rename`
   - `grant`
   - `revoke_grant`
   - `reclaim`
@@ -846,7 +848,7 @@ The Desk's per-Worktree action vocabulary and menu order. The legality table exe
 Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 29
+- Members: 30
   - `resources`
   - `logbook`
   - `logbookArchives`
@@ -856,6 +858,7 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `crash`
   - `testSlots`
   - `deskTips`
+  - `deskPreferences`
   - `taskMetadata`
   - `tempArtifactSweep`
   - `continuations`
@@ -3925,7 +3928,7 @@ Every direct WebCrypto UUID or byte-fill operation retained by the system secure
 Every named production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.
 
 - Source: `src/shared/best_effort.ts` — `BEST_EFFORT_BOUNDARIES`
-- Members: 187
+- Members: 188
   - `acceptance-transaction-temp-cleanup`
   - `adr-duplicate-scan-fallback`
   - `agent-gitignore-template-fallback`
@@ -3967,6 +3970,7 @@ Every named production error discard, with its exact module, enclosing function,
   - `crash-thrown-value-text-fallback`
   - `crash-write-error-close`
   - `crash-write-error-remove`
+  - `desk-preferences-record`
   - `desk-project-scripts-fallback`
   - `desk-tip-presentation`
   - `desk-tip-state-record`
