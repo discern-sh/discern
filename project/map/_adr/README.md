@@ -339,6 +339,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0351 — Setup completion replays Proof and rolls back only owned tips](0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)
 - [0352 — Desk decisions cross a pure responsive presentation boundary](0352-desk-decisions-cross-a-pure-responsive-presentation-boundary.md)
 - [0353 — Desk actions are registry facts reviewed before effects](0353-desk-actions-are-registry-facts-reviewed-before-effects.md)
+- [0354 — Standard proposals renew descendant evidence through target-scoped measurement](0354-standard-proposals-renew-descendant-evidence.md)
 
 <!-- END GENERATED: current ADR records -->
 

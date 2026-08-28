@@ -52,7 +52,7 @@ The Proof pins a reviewable `HEAD` even if trunk advances. Without a verified gr
 
 ### Proposal-bearing Proof
 
-A live Standard limit proposal lets the Gate explain one otherwise-forbidden limit change. The Gate forces a fresh measurement for that Standard, including `measure = "on-demand"` and replay-eligible entries. The measured value must equal the proposal. Proof then carries the Standard, trunk and proposed limits, measurement, signed delta, verbatim reason, responsible paths, definition fingerprint, and commit identities.
+A live Standard limit proposal lets the Gate explain one otherwise-forbidden limit change. The Gate forces a fresh measurement for that Standard, including `measure = "on-demand"` and replay-eligible entries. The measured value must equal the proposal. Proof carries the Standard, trunk and proposed limits, measurement, signed delta, verbatim reason, responsible paths, definition fingerprint, immutable proposal commit and measured parent, and the current descendant commit to which renewed evidence is bound ([ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
 
 The Proof line states the open proposal as awaiting the owner's exact approval. The page presents the proposal before routine Standard results. Compact JSON, Markdown, Model Context Protocol results, status, and proof notes retain the structured proposal. A green proposal-bearing Proof establishes Gate success for that committed tree; it grants neither landing authority nor proposal approval.
 
@@ -89,7 +89,7 @@ discern stores the validated commit, structured Proof, and both renderings in th
 | `discern setup done`   | Replays current Proof read-only or validates an existing clean marker. New completion commits and probes one marker, then runs the Gate last. Failure removes only its exact owned tip; changed state is retained.                                                                                                                                                                                                         |
 | `discern setup accept` | Requires the complete current setup Proof before preview or apply. It refuses invalid evidence without moving refs, proves a moved-trunk merge separately, lands the full commit pinned by Proof, and writes the same durable Proof note as normal acceptance.                                                                                                                                                             |
 
-Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. A changed checkpoint conclusion or rationale invalidates it at an unchanged `HEAD`: the marker binds to the declaration evidence it recorded, so acceptance never honors a Proof whose agent-declared conclusions have moved ([ADR 0298](https://discern.sh/docs/decisions/0298-declaration-evidence-binds-proof-currency-and-variance-authorization)). A changed, revoked, or stale Standard proposal also invalidates reuse at the same `HEAD`. The live proposal set must equal the Proof set. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the Gate Proof forward ([ADR 0106](https://discern.sh/docs/decisions/0106-standards-pin-carries-the-gate-receipt), [ADR 0339](https://discern.sh/docs/decisions/0339-proposed-standard-limits-and-shared-measurements)).
+Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. A changed checkpoint conclusion or rationale invalidates it at an unchanged `HEAD`: the marker binds to the declaration evidence it recorded, so acceptance never honors a Proof whose agent-declared conclusions have moved ([ADR 0298](https://discern.sh/docs/decisions/0298-declaration-evidence-binds-proof-currency-and-variance-authorization)). A changed, revoked, rebound, or stale Standard proposal also invalidates reuse at the same `HEAD`. The live proposal set, including each renewable bound commit, must equal the Proof set. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the Gate Proof forward ([ADR 0106](https://discern.sh/docs/decisions/0106-standards-pin-carries-the-gate-receipt), [ADR 0339](https://discern.sh/docs/decisions/0339-proposed-standard-limits-and-shared-measurements), [ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
 
 ### After landing
 
@@ -108,21 +108,21 @@ The public result fields are in [MCP tools & results](../30-reference/mcp-and-re
 
 ### Where it lives in code
 
-| Concern                         | Source                                                                                                       |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Marker identity and validation  | [`proof.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof.ts)                           |
-| Proposal authority and currency | [`standard_proposals.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposals.ts) |
-| Write-authority probe           | [`write_preflight.ts`](https://github.com/jackwh/discern/blob/main/src/shared/write_preflight.ts)            |
-| Operation exclusion             | [`operation_lock.ts`](https://github.com/jackwh/discern/blob/main/src/engine/operation_lock.ts)              |
-| Proof facts and markdown        | [`proof_render.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_render.ts)             |
-| Pure human presentation         | [`presentation.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/presentation.ts)             |
-| Live TTY effects and viewport   | [`gate_tty.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/gate_tty.ts)                     |
-| `done` proof panel              | [`done_tty.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/done_tty.ts)                     |
-| `done` integration              | [`finish.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/finish.ts)                         |
-| `prepare` integration           | [`prepare.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/prepare.ts)                       |
-| Landing validation              | [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)               |
-| Setup validation                | [`setup.ts`](https://github.com/jackwh/discern/blob/main/src/commands/setup.ts)                              |
-| Setup landing validation        | [`setup_accept.ts`](https://github.com/jackwh/discern/blob/main/src/commands/setup_accept.ts)                |
+| Concern                         | Source                                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Marker identity and validation  | [`proof.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof.ts)                                     |
+| Proposal authority and currency | [`standard_proposal_state.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposal_state.ts) |
+| Write-authority probe           | [`write_preflight.ts`](https://github.com/jackwh/discern/blob/main/src/shared/write_preflight.ts)                      |
+| Operation exclusion             | [`operation_lock.ts`](https://github.com/jackwh/discern/blob/main/src/engine/operation_lock.ts)                        |
+| Proof facts and markdown        | [`proof_render.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_render.ts)                       |
+| Pure human presentation         | [`presentation.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/presentation.ts)                       |
+| Live TTY effects and viewport   | [`gate_tty.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/gate_tty.ts)                               |
+| `done` proof panel              | [`done_tty.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/done_tty.ts)                               |
+| `done` integration              | [`finish.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/finish.ts)                                   |
+| `prepare` integration           | [`prepare.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/prepare.ts)                                 |
+| Landing validation              | [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)                         |
+| Setup validation                | [`setup.ts`](https://github.com/jackwh/discern/blob/main/src/commands/setup.ts)                                        |
+| Setup landing validation        | [`setup_accept.ts`](https://github.com/jackwh/discern/blob/main/src/commands/setup_accept.ts)                          |
 
 ### Current state & gotchas
 
@@ -194,7 +194,7 @@ If the owner declines, leave acceptance stopped. Restore the trunk limit in the 
 | Resolution and vocabulary | [`landing_authority.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/landing_authority.ts), [`consent.ts`](https://github.com/jackwh/discern/blob/main/src/shared/consent.ts)                             |
 | Standing grants           | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts)                                                                                                                                 |
 | Effort grants             | [`effort_grant.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/effort_grant.ts), [`effort_grant_writer.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/effort_grant_writer.ts)      |
-| Standard limit approval   | [`standard_proposals.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposals.ts), [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)                  |
+| Standard limit approval   | [`standard_proposal_state.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposal_state.ts), [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)        |
 | Results and surface guard | [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts), [`engine_lifecycle_authority_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_lifecycle_authority_test.ts) |
 
 ### Current state & gotchas
