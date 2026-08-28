@@ -152,7 +152,7 @@ Deno.test("reaping renames the profile dir once and detaches its remover", async
     assertEquals(spawns.length, 1);
     const args = spawns[0] ?? [];
     assertEquals(args[0], "eval");
-    assertEquals(args[1], `--allow-write=${graveyard}`);
-    assert((args[2] ?? "").includes(JSON.stringify(graveyard)));
+    assertEquals(args.length, 2, "eval takes no permission flags");
+    assert((args[1] ?? "").includes(JSON.stringify(graveyard)));
   });
 });

@@ -76,11 +76,18 @@ async function deno(
 }
 
 /**
- * Spawn a `deno` subcommand unobserved and unreferenced — for work that must
- * outlive this measurement without holding its clock.
+ * Spawn a `deno` subcommand unobserved, unreferenced, and leading its own
+ * process group — for work that must outlive this measurement without holding
+ * its clock. Group leadership matters: the job runner tears down a finished
+ * job's process group, and only a detached child survives that sweep.
  */
 function denoDetached(args: string[]): void {
-  denoCommand(args, { stdin: "null", stdout: "null", stderr: "null" })
+  denoCommand(args, {
+    stdin: "null",
+    stdout: "null",
+    stderr: "null",
+    detached: true,
+  })
     .spawn()
     .unref();
 }

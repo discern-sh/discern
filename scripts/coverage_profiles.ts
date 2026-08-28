@@ -191,7 +191,6 @@ export async function reapProfileDir(
   await Deno.rename(profileDir, graveyard);
   spawnDetached([
     "eval",
-    `--allow-write=${graveyard}`,
     `await Deno.remove(${JSON.stringify(graveyard)}, { recursive: true });`,
   ]);
   return graveyard;
