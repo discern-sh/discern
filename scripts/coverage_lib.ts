@@ -79,17 +79,25 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Build the sole LCOV report pass over this checkout's product source tree. */
+/**
+ * The one URL prefix that bounds this checkout's product source tree. Every
+ * surface that admits or rejects a module by URL — the report include filter
+ * and the raw-profile pruner — derives its boundary from this prefix.
+ */
+export function srcCoverageUrlPrefix(repoRoot: string): string {
+  return toFileUrl(`${join(repoRoot, "src")}${SEPARATOR}`).href;
+}
+
+/** Build one LCOV report pass over this checkout's product source tree. */
 export function lcovReportArgs(
   profile: string,
   repoRoot: string,
 ): string[] {
-  const srcUrl = toFileUrl(`${join(repoRoot, "src")}${SEPARATOR}`).href;
   return [
     "coverage",
     profile,
     "--lcov",
-    `--include=^${escapeRegExp(srcUrl)}`,
+    `--include=^${escapeRegExp(srcCoverageUrlPrefix(repoRoot))}`,
   ];
 }
 
