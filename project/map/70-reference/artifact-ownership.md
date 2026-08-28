@@ -117,6 +117,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/crash/`                                   | repository | Crash reports.                                                                                                        |
 | `discern/test-slots/`                              | repository | Fleet test-run cap lock files.                                                                                        |
 | `discern/desk/tips.json`                           | repository | Desk tip evidence.                                                                                                    |
+| `discern/desk/preferences.json`                    | repository | Last agent and task-creation path defaults.                                                                           |
 | `discern/temp-artifact-sweep`                      | repository | Temp-retention sweep stamp and cursor.                                                                                |
 | `discern/gate-proof`                               | worktree   | Proof from a clean `done` run.                                                                                        |
 | `discern/last-gate-run`                            | worktree   | Last gate verdict.                                                                                                    |
@@ -127,6 +128,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/ignored-baseline`                         | worktree   | Ignored-file baseline.                                                                                                |
 | `discern/effort-grant`                             | worktree   | Desk landing grant.                                                                                                   |
 | `discern/effort-grant-claims/`                     | worktree   | Claims held by acceptance.                                                                                            |
+| `discern/task-metadata.json`                       | worktree   | Display title, optional brief, and creation source.                                                                   |
 | `discern/acceptance-transaction.json`              | worktree   | Acceptance recovery journal.                                                                                          |
 | `discern/acceptance-transaction.lock`              | worktree   | Single-acceptance advisory lock.                                                                                      |
 | `discern/setup-machinery-commit-evidence.json`     | worktree   | Setup retry evidence.                                                                                                 |

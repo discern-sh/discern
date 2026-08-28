@@ -9,6 +9,7 @@
 import {
   joinVertical,
   layoutColumns,
+  renderAgentHandoffCli,
   renderBadgeCli,
   renderClusterCli,
   renderCommandCli,
@@ -26,12 +27,17 @@ import {
   renderRetryNoticeCli,
   renderStandardMeterCli,
   renderTableCli,
+  renderTaskMetadataCli,
   wrapInlineCluster,
 } from "discern-design-system/cli";
 import { DISCERN_WORDMARK } from "../../shared/brand.ts";
 import { commandEvidence } from "../../shared/command_evidence.ts";
 import type { EnginePlan } from "../../shared/result.ts";
-import type { GateProofCheckData } from "../../shared/result_schemas.ts";
+import type {
+  GateProofCheckData,
+  StartData,
+} from "../../shared/result_schemas.ts";
+import type { StartPlan } from "../worktree/plan.ts";
 import { renderMarkdown } from "../../lib/markdown.ts";
 import type { DeskProjectScript } from "../project_scripts.ts";
 import type {
@@ -50,6 +56,7 @@ import {
   type DeskAction,
   type DeskActionGroupId,
   type DeskActionOffer,
+  type DeskAgentLaunch,
   type DeskBoardDecision,
   type DeskDetail,
   type DeskProofFact,
@@ -67,6 +74,21 @@ export const DESK_ROUTES = {
   runProjectScript: "\x00run-project-script",
   readDocs: "\x00read-docs",
 } as const;
+
+/** Route prefix for one exact status-reported branch without a worktree. */
+export const DESK_UNLANDED_ROUTE_PREFIX = "\x00unlanded:";
+
+/** Preserve an unlanded branch ref as a root-picker route. */
+export function deskUnlandedRoute(branch: string): string {
+  return `${DESK_UNLANDED_ROUTE_PREFIX}${branch}`;
+}
+
+/** Recover an exact branch ref from a root-picker route. */
+export function deskUnlandedBranch(route: string): string | undefined {
+  return route.startsWith(DESK_UNLANDED_ROUTE_PREFIX)
+    ? route.slice(DESK_UNLANDED_ROUTE_PREFIX.length)
+    : undefined;
+}
 
 /** Routes available inside the Proof-first review drill-down. */
 export const DESK_REVIEW_ROUTES = {
@@ -96,6 +118,19 @@ type ResultState =
 export interface DeskRenderedFrame {
   readonly text: string;
   readonly rows: number;
+}
+
+/** Render one exact applied command without writing through the viewport. */
+export function renderDeskCommandEvidence(
+  command: string,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const text = terminal.presenter.present(renderCommandCli, {
+    command: terminalLine(command),
+    maxWidth: viewportDimension(viewport.columns),
+  });
+  return { text, rows: frameRows(text) };
 }
 
 /** One path in the review's committed or uncommitted change set. */
@@ -392,6 +427,7 @@ export interface DeskBoardViewInput {
 /** Inputs needed to map the root commands into their separate menu groups. */
 export interface DeskRootSelectionInput {
   readonly rows: readonly DeskRow[];
+  readonly unlandedBranches?: readonly string[];
   readonly hasProjectScripts: boolean;
   readonly viewport: TerminalSize;
   readonly terminal: TerminalContext;
@@ -684,6 +720,19 @@ export function deskRootSelectionGroups(
       ),
     }];
   });
+  const unlandedBranches = input.unlandedBranches ?? [];
+  if (unlandedBranches.length > 0) {
+    groups.push({
+      id: "unlanded-branches",
+      label: `Work without a worktree · ${unlandedBranches.length}`,
+      description: "Committed branches available to resume in a new worktree.",
+      items: unlandedBranches.map((branch) => ({
+        name: branch,
+        description: "Resume, inspect, or return to the Desk.",
+        value: deskUnlandedRoute(branch),
+      })),
+    });
+  }
   groups.push({
     id: "desk-commands",
     label: "Desk commands",
@@ -780,7 +829,16 @@ function availability(
 
 /** Every required task-detail fact, grouped without reclassifying state. */
 function taskEvidence(row: DeskRow): EvidenceRow[] {
+  const task = row.entry.task;
   const evidence: EvidenceRow[] = [
+    ...(row.entry.id === undefined
+      ? []
+      : [{ group: "Identity", label: "Worktree id", value: row.entry.id }]),
+    ...(task?.unavailable_reason === undefined ? [] : [{
+      group: "Identity",
+      label: "Task metadata",
+      value: task.unavailable_reason,
+    }]),
     { group: "Location", label: "Branch", value: row.entry.branch },
     { group: "Location", label: "Path", value: row.entry.path },
     {
@@ -900,6 +958,40 @@ export function renderDeskTaskDetail(
     overflow: "wrap",
     maxWidth: width,
   });
+  const metadata = row.entry.task;
+  const availableAgents = [
+    ...new Set(
+      row.agentLaunches
+        .filter((launch) => launch.availability !== "disabled")
+        .map((launch) => launch.providerLabel),
+    ),
+  ];
+  const taskMetadata = presenter.present(renderTaskMetadataCli, {
+    label: terminalLine("Task metadata"),
+    outcome: terminalMultiline(metadata?.brief ?? row.task.name),
+    audience: terminalLine(
+      availableAgents.length === 0
+        ? "Project contributors"
+        : availableAgents.join(", "),
+    ),
+    prerequisites: terminalMultiline(
+      metadata?.created_from !== undefined
+        ? `${metadata.created_from.ref} at ${metadata.created_from.commit}`
+        : metadata?.unavailable_reason ??
+          "Creation source is unavailable for this older task",
+    ),
+    complexity: terminalLine(
+      row.entry.id === undefined
+        ? "One isolated worktree"
+        : `One isolated worktree (${row.entry.id})`,
+    ),
+    fileEffects: "may-change",
+    retrySafety: "check-first",
+    expectedState: terminalMultiline(
+      "Committed work is ready for final checks and review",
+    ),
+    maxWidth: width,
+  });
   const decision = presenter.present(renderResultSummaryCli, {
     state: DESK_STATE_RESULT[row.decision.state],
     fact: terminalLine(row.decision.headline),
@@ -941,7 +1033,254 @@ export function renderDeskTaskDetail(
     maxWidth: width,
   });
   const text = composeFrames(
-    [heading, decision, facts, proof],
+    [heading, taskMetadata, decision, facts, proof],
+    viewportDimension(viewport.rows),
+  );
+  return { text, rows: frameRows(text) };
+}
+
+/** Inputs for the concrete start plan retained through confirmation. */
+export interface DeskStartPreviewInput {
+  readonly plan: StartPlan;
+  readonly enginePlan: EnginePlan;
+  readonly command: readonly string[];
+  readonly launch?: DeskAgentLaunch;
+  readonly preauthorizeLanding: boolean;
+  readonly viewport: TerminalSize;
+  readonly terminal: TerminalContext;
+}
+
+/** Render one concrete task creation plan before any effect runs. */
+export function renderDeskStartPreview(
+  input: DeskStartPreviewInput,
+): DeskRenderedFrame {
+  const width = viewportDimension(input.viewport.columns);
+  const presenter = input.terminal.presenter;
+  const plan = input.plan;
+  const launch = input.launch;
+  const metadata = presenter.present(renderTaskMetadataCli, {
+    label: terminalLine("New task metadata"),
+    outcome: terminalMultiline(plan.brief ?? plan.title),
+    audience: terminalLine(launch?.providerLabel ?? "Project contributors"),
+    prerequisites: terminalMultiline(`${plan.from} at ${plan.fromCommit}`),
+    complexity: terminalLine(
+      plan.resources.length === 0
+        ? "One isolated worktree"
+        : `One isolated worktree with ${plan.resources.length} resource${
+          plan.resources.length === 1 ? "" : "s"
+        }`,
+    ),
+    fileEffects: "changes-files",
+    retrySafety: "check-first",
+    expectedState: terminalMultiline(
+      launch === undefined
+        ? `Task is ready at ${plan.worktreePath}`
+        : `Task is ready and ${launch.label} opens in its worktree`,
+    ),
+    maxWidth: width,
+  });
+  const command = presenter.present(renderCommandCli, {
+    command: terminalLine(commandEvidence(input.command)),
+    workingDirectory: terminalLine("main checkout"),
+    explanation: terminalMultiline("Create the previewed task"),
+    expectedResult: terminalMultiline(
+      `${plan.branch} is ready at ${plan.worktreePath}`,
+    ),
+    expectedResultLabel: terminalLine("Expected effect"),
+    expectedResultVariant: "state",
+    failureNote: terminalMultiline(
+      "The start core revalidates the base, id, branch, and path after confirmation.",
+    ),
+    maxWidth: width,
+  });
+  const procedure = presenter.present(renderProcedureCli, {
+    title: terminalLine(input.enginePlan.title),
+    description: terminalMultiline(input.enginePlan.details.join("\n")),
+    steps: input.enginePlan.steps.map((step) => ({
+      title: terminalLine(String(step.label)),
+      status: plannedStepStatus(step.disposition),
+    })),
+    completion: terminalMultiline(
+      launch === undefined
+        ? "The created task returns to its Desk detail."
+        : `${launch.label} exits back to the created task's Desk detail.`,
+    ),
+    completionLabel: terminalLine("Complete when"),
+    register: "brand",
+    maxWidth: width,
+  });
+  const resources = plan.resources.length === 0
+    ? "None"
+    : plan.resources.map((resource) => `${resource.name}=${resource.identity}`)
+      .join(", ");
+  const facts = presenter.present(renderTableCli, {
+    caption: terminalLine("Creation facts"),
+    layout: "responsive",
+    columns: [
+      { header: terminalLine("Fact") },
+      { header: terminalLine("Value") },
+    ],
+    rows: [
+      ["Title", plan.title],
+      ...(plan.brief === undefined ? [] : [["Brief", plan.brief]]),
+      ["Worktree id", plan.id],
+      ["Branch", plan.branch],
+      ["Base", plan.from],
+      ["Base commit", plan.fromCommit],
+      ["Worktree", plan.worktreePath],
+      ["Resources", resources],
+      ["Agent", launch?.label ?? "No agent will open"],
+      [
+        "Landing authority",
+        input.preauthorizeLanding
+          ? "Pre-authorize landing after final checks pass"
+          : "A later conversation must authorize landing",
+      ],
+      ...(plan.note === undefined ? [] : [["Worktree name", plan.note]]),
+    ].map(([label, value]) => [
+      terminalLine(label ?? ""),
+      terminalMultiline(value ?? ""),
+    ]),
+    width,
+  });
+  const text = composeFrames(
+    [metadata, command, procedure, facts],
+    viewportDimension(input.viewport.rows),
+  );
+  return { text, rows: frameRows(text) };
+}
+
+/** Render the task identity and created path after start completes. */
+export function renderDeskCreatedTask(
+  started: StartData,
+  launch: DeskAgentLaunch | undefined,
+  preauthorized: boolean,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const width = viewportDimension(viewport.columns);
+  const presenter = terminal.presenter;
+  const metadata = presenter.present(renderTaskMetadataCli, {
+    label: terminalLine("Created task"),
+    outcome: terminalMultiline(started.task.brief ?? started.task.title),
+    audience: terminalLine(launch?.providerLabel ?? "Project contributors"),
+    prerequisites: terminalMultiline(
+      started.task.created_from === undefined
+        ? started.from
+        : `${started.task.created_from.ref} at ${started.task.created_from.commit}`,
+    ),
+    complexity: terminalLine(`One isolated worktree (${started.id})`),
+    fileEffects: "changes-files",
+    retrySafety: "check-first",
+    expectedState: terminalMultiline(
+      launch === undefined
+        ? "The task is ready in the Desk"
+        : `${launch.label} opens in the task worktree`,
+    ),
+    maxWidth: width,
+  });
+  const summary = presenter.present(renderResultSummaryCli, {
+    state: "passed",
+    fact: terminalLine(`Created ${started.task.title}`),
+    nextAction: terminalLine(
+      launch?.label ?? "Choose the next action from task detail",
+    ),
+    maxWidth: width,
+  });
+  const facts = presenter.present(renderTableCli, {
+    caption: terminalLine("Created identity"),
+    layout: "responsive",
+    columns: [
+      { header: terminalLine("Fact") },
+      { header: terminalLine("Value") },
+    ],
+    rows: [
+      ["Worktree id", started.id],
+      ["Branch", started.branch],
+      ["Path", started.path],
+      ["Base", started.from],
+      [
+        "Landing authority",
+        preauthorized
+          ? "Pre-authorized after final checks pass"
+          : "A later conversation must authorize landing",
+      ],
+      ...(started.name_note === undefined
+        ? []
+        : [["Worktree name", started.name_note]]),
+    ].map(([label, value]) => [
+      terminalLine(label ?? ""),
+      terminalMultiline(value ?? ""),
+    ]),
+    width,
+  });
+  const text = composeFrames(
+    [metadata, summary, facts],
+    viewportDimension(viewport.rows),
+  );
+  return { text, rows: frameRows(text) };
+}
+
+/** Render a stored brief at the last boundary before an agent process opens. */
+export function renderDeskAgentHandoff(
+  task: Pick<StartData["task"], "title" | "brief">,
+  launch: DeskAgentLaunch,
+  briefPassed: boolean,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame | undefined {
+  const brief = task.brief;
+  if (brief === undefined) return undefined;
+  const handoff = terminal.presenter.present(renderAgentHandoffCli, {
+    title: terminalLine(task.title),
+    prompt: terminalMultiline(brief),
+    description: terminalMultiline(
+      briefPassed
+        ? `discern passes this stored brief through ${launch.providerLabel}'s documented prompt option.`
+        : `Copy this stored brief into the session. ${launch.providerLabel}'s configured command does not declare a prompt option.`,
+    ),
+    maxWidth: viewportDimension(viewport.columns),
+  });
+  return { text: handoff, rows: frameRows(handoff) };
+}
+
+/** Render one worktree-less branch before its read or resume actions. */
+export function renderDeskUnlandedBranchDetail(
+  branch: string,
+  trunk: string,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const width = viewportDimension(viewport.columns);
+  const heading = terminal.presenter.present(renderHeadingCli, {
+    text: terminalLine(branch),
+    level: 1,
+    leadingBlankLines: 0,
+    overflow: "wrap",
+    maxWidth: width,
+  });
+  const summary = terminal.presenter.present(renderResultSummaryCli, {
+    state: "declared",
+    fact: terminalLine("Committed branch has no worktree"),
+    nextAction: terminalLine("Resume in a worktree or inspect its commits"),
+    maxWidth: width,
+  });
+  const facts = terminal.presenter.present(renderTableCli, {
+    caption: terminalLine("Branch facts"),
+    layout: "responsive",
+    columns: [
+      { header: terminalLine("Fact") },
+      { header: terminalLine("Value") },
+    ],
+    rows: [
+      [terminalLine("Branch"), terminalLine(branch)],
+      [terminalLine("Compared with"), terminalLine(trunk)],
+      [terminalLine("Worktree"), terminalLine("None")],
+    ],
+    width,
+  });
+  const text = composeFrames(
+    [heading, summary, facts],
     viewportDimension(viewport.rows),
   );
   return { text, rows: frameRows(text) };

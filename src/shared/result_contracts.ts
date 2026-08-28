@@ -53,6 +53,7 @@ import {
   StandardsProposeOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
+  TaskRenameOutputSchema,
   TestOutputSchema,
   TidyOutputSchema,
   TriangleOutputSchema,
@@ -416,6 +417,13 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     schema: StartOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.start,
     mcpTool: "discern_start",
+  },
+  {
+    id: "worktreeRename",
+    commands: ["worktree rename"],
+    verb: "worktree rename",
+    schema: TaskRenameOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.taskRename,
   },
   {
     id: "accept",

@@ -241,6 +241,7 @@ Deno.test("SUGGESTABLE_ENGINE_COMMANDS is the engine verbs minus command groups,
   const SUGGESTION_ADDS_SUBCOMMANDS = [
     "worktree-setup",
     "worktree-ensure",
+    "worktree-rename",
     "worktree-teardown",
     "worktree-drop",
     "worktree-prune",

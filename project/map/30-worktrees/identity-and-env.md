@@ -37,6 +37,14 @@ Main identity uses the configured trunk and preserves it in `--branch`. Its seed
 
 `discern start` avoids trunk and live-sibling port collisions when possible. A crowded band or racing starts may collide; change `DISCERN_WORKTREE_ID` then.
 
+## Keep task metadata separate from identity
+
+The worktree id, branch, path, resource handles, port, and environment values form stable lifecycle identity. A task's display title and optional brief are mutable human metadata. New starts store that metadata with the creation ref and resolved commit in the linked worktree's Git administrative directory at `discern/task-metadata.json` ([ADR 0356](../_adr/0356-task-metadata-follows-the-worktree-identity.md)). Git activity and the Logbook remain the timestamp authorities.
+
+Status joins the record to the derived id and branch. A missing record marks an older worktree and uses its id-derived label. An invalid or unreadable record reports unavailable metadata with the same bounded fallback. `discern worktree rename <title>` changes the display title through a plan and apply operation. It leaves stable identity and the stored brief and creation source intact.
+
+Moving a registered worktree retains its Git administrative directory and task metadata. Acceptance, Drop, failed-start cleanup, and Git worktree removal remove the record with that directory. A retained branch without a worktree therefore has no task record. Cloning and fetching transfer Git history and refs without transferring this local metadata.
+
 ## Inherit selected env values
 
 `[worktree].env_files` lists env-style files in precedence order. The default is `[".env", ".env.local"]`. Reads use the last file that defines a key. Writes update that last definition or place a new key in the first listed file.
@@ -60,6 +68,8 @@ Resource and setup commands receive `@worktree@`, `@db@`, `@site@`, `@port@`, `@
 | Responsibility                        | Source                                                                                                  |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Identity derivation and id resolution | [`src/engine/worktree/identity.ts`](../../../src/engine/worktree/identity.ts)                           |
+| Human task metadata schema            | [`src/shared/task_metadata.ts`](../../../src/shared/task_metadata.ts)                                   |
+| Worktree-local metadata store         | [`src/engine/worktree/task_metadata.ts`](../../../src/engine/worktree/task_metadata.ts)                 |
 | Destructive ownership predicate       | [`src/engine/worktree/ownership.ts`](../../../src/engine/worktree/ownership.ts)                         |
 | Env-file precedence and writes        | [`src/engine/worktree/env_file.ts`](../../../src/engine/worktree/env_file.ts)                           |
 | Contained read and write paths        | [`src/shared/project_path.ts`](../../../src/shared/project_path.ts)                                     |

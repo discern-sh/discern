@@ -126,10 +126,9 @@ import {
 } from "../checkpoints/preflight.ts";
 import { inspectCheckpointNotes } from "../checkpoints/inspection.ts";
 import { relatedCheckpointData } from "../checkpoints/related.ts";
+import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { AWAITING_DECLARATION_SLUG } from "../../shared/declarations.ts";
 import { checkpointDropAccounts } from "../../shared/checkpoint_drops.ts";
-import { RELATED_CHECKPOINT_KIND_LABELS } from "../../shared/checkpoints.ts";
-import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import type {
   GateCheckpointsData,
   ProofCheckpointsData,
@@ -1564,28 +1563,14 @@ function serveCheckpointText(served: ServedCheckpoint): string {
   // Matched paths are working-tree-controlled text and this message renders
   // verbatim on the --markdown surface, so each path travels inside the
   // code-span escaping boundary rather than as live Markdown.
-  const shown = served.matched.slice(0, 6).map(markdownCodeSpan).join(", ");
-  const more = served.matched.length > 6
-    ? `, +${served.matched.length - 6} more`
-    : "";
+  const evidence = checkpointServingText(served);
   const lines = [
-    `${served.id} — changed: ${shown}${more}`,
-    ...served.related.map((relation) =>
-      `  ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
-        markdownCodeSpan(relation.path)
-      } resembles ${markdownCodeSpan(relation.forPath)}`
-    ),
+    `${served.id} — changed: ${evidence.matched}`,
+    ...evidence.related,
     `  Question: ${served.question.trim()}`,
+    ...(evidence.questionSource === undefined ? [] : [evidence.questionSource]),
+    ...evidence.notes,
   ];
-  if (served.questionFile !== undefined) {
-    lines.push(`  Question source: ${markdownCodeSpan(served.questionFile)}`);
-  }
-  if (served.teach !== undefined && served.teach.trim() !== "") {
-    lines.push(`  Teach: ${served.teach.trim()}`);
-  }
-  if (served.reference !== undefined && served.reference.trim() !== "") {
-    lines.push(`  Reference: ${markdownCodeSpan(served.reference.trim())}`);
-  }
   return lines.join("\n");
 }
 

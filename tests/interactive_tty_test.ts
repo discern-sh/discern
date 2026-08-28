@@ -76,6 +76,10 @@ const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
 const CSI = "\x1b[";
 const CSI_SEQUENCE = /^[0-?]*[ -/]*[@-~]/u;
+const CSI_SEQUENCES = new RegExp(
+  `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
+  "gu",
+);
 
 interface HarnessRun {
   readonly process: PtyProcessResult;
@@ -195,7 +199,11 @@ function keys(
 
 /** Assert process, line-mode, cursor, and final-frame restoration under the
  * package's independently detected ANSI-control capability. */
-function assertRestored(run: HarnessRun, ansiControl = true): void {
+function assertRestored(
+  run: HarnessRun,
+  ansiControl = true,
+  allowStyledCompletion = false,
+): void {
   assertEquals(run.process.code, 0, run.process.transcript);
   assertEquals(
     run.result.terminal.restored,
@@ -226,13 +234,24 @@ function assertRestored(run: HarnessRun, ansiControl = true): void {
   }
   assert(hiddenAt >= 0, run.process.transcript);
   assert(shownAt > hiddenAt, run.process.transcript);
-  assertEquals(
-    run.process.transcript.slice(shownAt + SHOW_CURSOR.length).includes(
-      "\x1b[",
-    ),
-    false,
-    "no redraw control may leak after the final cursor restoration",
+  const afterRestore = run.process.transcript.slice(
+    shownAt + SHOW_CURSOR.length,
   );
+  if (allowStyledCompletion) {
+    const controls = [...afterRestore.matchAll(CSI_SEQUENCES)].map((match) =>
+      match[0]
+    );
+    assert(
+      controls.every((control) => control.endsWith("m")),
+      `only semantic styling may follow the final cursor restoration:\n${afterRestore}`,
+    );
+  } else {
+    assertEquals(
+      afterRestore.includes(CSI),
+      false,
+      "no redraw control may leak after the final cursor restoration",
+    );
+  }
 }
 
 /** Assert an out-of-band submitted value and restored terminal. */
@@ -240,10 +259,11 @@ function assertValue(
   run: HarnessRun,
   expected: unknown,
   ansiControl = true,
+  allowStyledCompletion = false,
 ): void {
   assertEquals(run.result.outcome, "value", run.process.transcript);
   assertEquals(run.result.value, expected, run.process.transcript);
-  assertRestored(run, ansiControl);
+  assertRestored(run, ansiControl, allowStyledCompletion);
 }
 
 /** Remove complete CSI controls while preserving all printable transcript text. */
@@ -287,6 +307,55 @@ realPtyTest({
     );
   },
 });
+
+realPtyTest({
+  name:
+    "production sequential form retains answers across real-PTY back-navigation",
+  contracts: ["line-discipline", "terminal-modes", "control-rendering"],
+  canary: true,
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const labels = INTERACTIVE_TTY_REQUEST_LABELS["sequential-form"];
+    const title = "Task ingress 修复";
+    const run = await runHarness({
+      scenario: "sequential-form",
+      input: [{
+        waitFor: labels[1],
+        steps: [{ bytes: "\r" }],
+      }, {
+        waitFor: labels[2],
+        steps: [{ bytes: `${title}\r` }],
+      }, {
+        waitFor: labels[3],
+        steps: [{ bytes: "\x15" }],
+      }, {
+        waitFor: labels[2],
+        steps: [{ bytes: "\r" }],
+      }, {
+        waitFor: labels[3],
+        steps: [{ bytes: "\x1b[C\r" }],
+      }],
+    });
+
+    assertValue(
+      run,
+      {
+        base: "main",
+        title,
+        authority: true,
+      },
+      true,
+      true,
+    );
+    const plain = stripCsiSequences(run.process.transcript);
+    for (const label of labels) assertStringIncludes(plain, label);
+    assert(
+      plain.split(labels[2]).length >= 3,
+      `back-navigation must repaint the retained title step:\n${run.process.transcript}`,
+    );
+  },
+});
+
 realPtyTest({
   name:
     "raw Ctrl-C and canonical EOF restore the terminal with precise outcomes",

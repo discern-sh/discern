@@ -20,7 +20,16 @@ import type {
   StatusFleetEntry,
 } from "../src/shared/result_schemas.ts";
 import { Logger } from "../src/lib/log.ts";
-import type { ConfirmationRequestOptions } from "../src/lib/terminal_interaction.ts";
+import {
+  type ConfirmationRequestOptions,
+  InteractionCancelled,
+  isSelectionHeading,
+  type SelectionEntry,
+  type SelectionRequestOptions,
+  type SequentialFormRequestOptions,
+  type SequentialInteractionRequests,
+  type TextRequestOptions,
+} from "../src/lib/terminal_interaction.ts";
 import { makeOut, type Out } from "../src/engine/output.ts";
 import {
   resolveTerminalContext,
@@ -32,7 +41,10 @@ import {
   runDeskInteractiveChild,
   runDeskProjectScript,
 } from "../src/engine/desk/desk.ts";
-import { DESK_REVIEW_ROUTES } from "../src/engine/desk/view.ts";
+import {
+  DESK_REVIEW_ROUTES,
+  deskUnlandedRoute,
+} from "../src/engine/desk/view.ts";
 import { DESK_ACTIONS, type DeskAction } from "../src/engine/desk/model.ts";
 import {
   DESK_SESSION_ENV,
@@ -41,6 +53,7 @@ import {
 import {
   IdentityError,
   type LifecycleContext,
+  type PreparedStart,
   WorktreeGitError,
 } from "../src/engine/worktree/lifecycle.ts";
 import {
@@ -141,6 +154,128 @@ const CONTEXT: LifecycleContext = {
   log: new Logger({ json: true, noColor: true }),
 };
 
+const START_COMMIT = "a".repeat(40);
+
+/** Build one retained start preview for the scripted Desk boundary. */
+function preparedStart(
+  title = "New task",
+  patch: Partial<PreparedStart["plan"]> = {},
+): PreparedStart {
+  const plan = {
+    id: "new-task",
+    branch: "agent/new-task",
+    worktreePath: "/worktrees/new-task",
+    from: "main",
+    fromCommit: START_COMMIT,
+    title,
+    resources: [],
+    ...patch,
+  };
+  return {
+    plan,
+    taskMetadata: {
+      schema_version: 1,
+      title: plan.title,
+      ...(plan.brief === undefined ? {} : { brief: plan.brief }),
+      created_from: { ref: plan.from, commit: plan.fromCommit },
+    },
+    reproduceCmd: "discern start",
+  };
+}
+
+/** Project a scripted retained start into the public start payload. */
+function startedTask(prepared: PreparedStart): StartData {
+  const { plan } = prepared;
+  return {
+    id: plan.id,
+    branch: plan.branch,
+    path: plan.worktreePath,
+    from: plan.from,
+    task: {
+      id: plan.id,
+      branch: plan.branch,
+      title: plan.title,
+      title_source: "recorded",
+      ...(plan.brief === undefined ? {} : { brief: plan.brief }),
+      created_from: { ref: plan.from, commit: plan.fromCommit },
+    },
+    ...(plan.note === undefined ? {} : { name_note: plan.note }),
+  };
+}
+
+/** Return the status row created by a scripted start result. */
+function startedFleetEntry(started: StartData): StatusFleetEntry {
+  return fleetEntry(started.branch, started.path, {
+    id: started.id,
+    task: started.task,
+  });
+}
+
+interface ScriptedSelectionValue<T> {
+  readonly token: string;
+  readonly value: T;
+}
+
+/** Recover one typed form value from the string-only Desk script seam. */
+function scriptedSelectionValue<T>(
+  choices: readonly ScriptedSelectionValue<T>[],
+  token: string,
+): T {
+  const choice = choices.find((candidate) => candidate.token === token);
+  if (choice === undefined) {
+    throw new Error(`Scripted selection returned unknown token ${token}.`);
+  }
+  return choice.value;
+}
+
+/** Adapt one generic form request to the Desk test runtime without a cast. */
+async function scriptedSequentialSelection<T>(
+  request: SelectionRequestOptions<T>,
+  select: DeskRuntime["select"],
+): Promise<T> {
+  const choices: ScriptedSelectionValue<T>[] = [];
+  const options: SelectionEntry<string>[] = request.options.map(
+    (entry, index) => {
+      if (isSelectionHeading(entry)) return entry;
+      const token = typeof entry.value === "string"
+        ? entry.value
+        : entry.id ?? `scripted-choice-${index}`;
+      choices.push({ token, value: entry.value });
+      return { ...entry, value: token };
+    },
+  );
+  const defaultToken = request.default === undefined
+    ? undefined
+    : choices.find((choice) => Object.is(choice.value, request.default))?.token;
+  const validate = request.validate;
+  const selected = await select({
+    message: request.message,
+    options,
+    ...(defaultToken === undefined ? {} : { default: defaultToken }),
+    ...(request.hint === undefined ? {} : { hint: request.hint }),
+    ...(request.required === undefined ? {} : { required: request.required }),
+    ...(request.completion === undefined
+      ? {}
+      : { completion: request.completion }),
+    ...(request.presentation === undefined
+      ? {}
+      : { presentation: request.presentation }),
+    ...(validate === undefined ? {} : {
+      validate: (token: string) =>
+        validate(scriptedSelectionValue(choices, token)),
+    }),
+    ...(request.search === undefined ? {} : { search: request.search }),
+    ...(request.searchLabel === undefined
+      ? {}
+      : { searchLabel: request.searchLabel }),
+    ...(request.maxRows === undefined ? {} : { maxRows: request.maxRows }),
+    ...(request.reservedRows === undefined
+      ? {}
+      : { reservedRows: request.reservedRows }),
+  });
+  return scriptedSelectionValue(choices, selected);
+}
+
 /** Provide deterministic desk dependencies whose behavior can be selectively overridden. */
 function scriptedRuntime(
   output: Transcript,
@@ -151,6 +286,36 @@ function scriptedRuntime(
     is_current: true,
   });
   const data = statusData([main]);
+  const select = patch.select ?? (() => QUIT);
+  const confirm = patch.confirm ?? (() => true);
+  const input = patch.input ?? (() => "");
+  const sequence = async (
+    options: SequentialFormRequestOptions,
+  ): Promise<Record<string, unknown>> => {
+    const values: Record<string, unknown> = {};
+    const requests: SequentialInteractionRequests = {
+      select: async <T>(request: SelectionRequestOptions<T>): Promise<T> =>
+        await scriptedSequentialSelection(request, select),
+      text: async (request: TextRequestOptions): Promise<string> =>
+        await input(request),
+      confirm: async (
+        message: string,
+        request: ConfirmationRequestOptions,
+      ): Promise<boolean> => await confirm(message, request),
+    };
+    for (const step of options.steps) {
+      if (step.when?.(values) === false) {
+        delete values[step.id];
+        continue;
+      }
+      values[step.id] = await step.run(
+        values,
+        values[step.id],
+        requests,
+      );
+    }
+    return values;
+  };
   return {
     canInteract: () => true,
     inDeskSession: () => false,
@@ -178,9 +343,10 @@ function scriptedRuntime(
     clearEffortGrant: () => true,
     makeOut: () => output.out,
     error: (message) => output.stderr.push(`console:${message}`),
-    select: () => QUIT,
-    confirm: () => true,
-    input: () => "",
+    select,
+    confirm,
+    input,
+    sequence,
     pause: () => {},
     lifecycle: () => CONTEXT,
     done: () => ({ ok: true, verb: "done" }),
@@ -200,11 +366,22 @@ function scriptedRuntime(
     openEditor: () => 0,
     interactive: () => 0,
     detectAgents: () => [],
-    start: () => ({
-      id: "new-task",
-      branch: "agent/new-task",
-      path: "/worktrees/new-task",
-      from: "main",
+    startPlan: (_ctx, opts) =>
+      preparedStart(opts.title ?? "Random codename", {
+        ...(opts.brief === undefined ? {} : { brief: opts.brief }),
+        ...(opts.from === undefined ? {} : { from: opts.from }),
+      }),
+    start: (_ctx, prepared) => startedTask(prepared),
+    renamePlan: (_ctx, title) => ({
+      ok: true,
+      verb: "worktree rename",
+      dry_run: true,
+      plan: { title: `Change title to ${title}`, details: [], steps: [] },
+    }),
+    rename: (_ctx, title) => ({
+      ok: true,
+      verb: "worktree rename",
+      message: `Changed the task title to ${JSON.stringify(title)}.`,
     }),
     scripts: () => [],
     runScript: () => 0,
@@ -215,6 +392,8 @@ function scriptedRuntime(
     now: () => NOW,
     readTipState: () => freshTipSeenState(KIT_VERSION),
     writeTipState: () => {},
+    readPreferences: () => ({ schema_version: 1 }),
+    writePreferences: () => ({ status: "saved" }),
     recordTipShown: () => {},
     size: () => ({ columns: 80, rows: 24 }),
     ...patch,
@@ -361,7 +540,21 @@ Deno.test("desk session renders task-first fleet rows from the survey's own proo
   for (const task of ["Ready to land", "Flying", "Broken", "Unreadable"]) {
     assertStringIncludes(options, task);
   }
-  assert(!options.includes("agent/"), "fleet rows should lead with task names");
+  for (
+    const branch of [
+      ready.branch,
+      flying.branch,
+      broken.branch,
+      unreadable.branch,
+    ]
+  ) {
+    assert(
+      !options.includes(branch),
+      "live fleet rows should lead with task names",
+    );
+  }
+  assertStringIncludes(options, "Work without a worktree");
+  assertStringIncludes(options, "agent/orphan");
   assert(
     !options.includes("Ready to land  a1b2c3"),
     "a unique task name should not display its id tail",
@@ -681,16 +874,24 @@ Deno.test("desk starts a named task and focuses its ready worktree immediately",
     "agent/desk-launchers",
     "/worktrees/desk-launchers",
   );
-  const started: StartData = {
+  const prepared = preparedStart("  desk launchers  ", {
     id: "desk-launchers",
     branch: startedEntry.branch,
-    path: startedEntry.path,
-    from: "main",
-  };
+    worktreePath: startedEntry.path,
+  });
+  const started = startedTask(prepared);
   let hasStarted = false;
-  const choices = [START_TASK, BACK, QUIT];
+  const choices = [
+    START_TASK,
+    "describe",
+    "compact",
+    "none",
+    BACK,
+    QUIT,
+  ];
   const menus: Array<{ message: string; options: string }> = [];
-  const starts: Array<{ worktreeRoot: string; name?: string }> = [];
+  const starts: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
+  const applied: PreparedStart[] = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({
       ok: true,
@@ -704,8 +905,12 @@ Deno.test("desk starts a named task and focuses its ready worktree immediately",
       return choices.shift() ?? QUIT;
     },
     input: () => "  desk launchers  ",
-    start: (_ctx, opts) => {
+    startPlan: (_ctx, opts) => {
       starts.push(opts);
+      return prepared;
+    },
+    start: (_ctx, retained) => {
+      applied.push(retained);
       hasStarted = true;
       return started;
     },
@@ -714,24 +919,25 @@ Deno.test("desk starts a named task and focuses its ready worktree immediately",
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(starts, [{
     worktreeRoot: "/project.worktrees",
-    name: "desk launchers",
+    title: "  desk launchers  ",
   }]);
+  assertEquals(applied, [prepared]);
   assertStringIncludes(menus[0]?.options ?? "", "Start a task");
   assertStringIncludes(
     menus[0]?.message ?? "",
     "Choose a Desk command",
   );
   assert(
-    menus[1]?.message === "Choose an action",
+    menus.some((menu) => menu.message === "Choose an action"),
     "the new worktree action menu should open without another root-menu choice",
   );
   assertStringIncludes(
     joined(output),
-    "discern start --name='desk launchers'",
+    "Run: discern start --title ' desk launchers '",
   );
 });
 
-Deno.test("desk leaves the start name unset when the optional request is blank", async () => {
+Deno.test("desk uses a generated codename only after the explicit fallback", async () => {
   const output = transcript();
   const main = fleetEntry("main", ROOT, {
     is_main: true,
@@ -742,31 +948,720 @@ Deno.test("desk leaves the start name unset when the optional request is blank",
     "/worktrees/random-codename",
   );
   let hasStarted = false;
-  const choices = [START_TASK, BACK, QUIT];
-  const starts: Array<{ worktreeRoot: string; name?: string }> = [];
+  const choices = [START_TASK, "codename", "compact", "none", BACK, QUIT];
+  const starts: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
+  const prepared = preparedStart("Random codename", {
+    id: "random-codename",
+    branch: random.branch,
+    worktreePath: random.path,
+  });
   const runtime = scriptedRuntime(output, {
     status: () => ({
       ok: true,
       data: statusData(hasStarted ? [main, random] : [main]),
     }),
     select: () => choices.shift() ?? QUIT,
-    input: () => "   ",
-    start: (_ctx, opts) => {
+    startPlan: (_ctx, opts) => {
       starts.push(opts);
+      return prepared;
+    },
+    start: () => {
       hasStarted = true;
-      return {
-        id: "random-codename",
-        branch: random.branch,
-        path: random.path,
-        from: "main",
-      };
+      return startedTask(prepared);
     },
   });
 
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(starts, [{ worktreeRoot: "/project.worktrees" }]);
-  assertStringIncludes(joined(output), "→ discern start");
-  assert(!joined(output).includes("--name="));
+  assertStringIncludes(joined(output), "Run: discern start");
+  assert(!joined(output).includes("--title"));
+});
+
+Deno.test("expanded creation retains trunk, live-task, and unlanded bases", async () => {
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const live = fleetEntry("agent/existing-task", "/worktrees/existing-task", {
+    id: "existing-task",
+  });
+  const orphan = "agent/unlanded-branch";
+  const cases = [
+    { name: "trunk", base: "main", expectedFrom: undefined },
+    { name: "live task", base: live.branch, expectedFrom: live.branch },
+    { name: "unlanded branch", base: orphan, expectedFrom: orphan },
+  ] as const;
+
+  for (const testCase of cases) {
+    const output = transcript();
+    const title = `Repair ingress from ${testCase.name} — 修复`;
+    const brief = `Preserve the exact ${testCase.name} base and human wording.`;
+    const inputs = [title, brief];
+    const choices = [
+      START_TASK,
+      "describe",
+      "expanded",
+      testCase.base,
+      "none",
+      BACK,
+      QUIT,
+    ];
+    const confirmations = [testCase.name === "live task", true];
+    const requests: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
+    const grants: Array<{ path: string; branch: string }> = [];
+    const saved: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
+    let created: StartData | undefined;
+    const runtime = scriptedRuntime(output, {
+      status: () => ({
+        ok: true,
+        data: {
+          ...statusData([
+            main,
+            live,
+            ...(created === undefined ? [] : [startedFleetEntry(created)]),
+          ]),
+          unlanded_branches: [orphan],
+        },
+      }),
+      select: () => choices.shift() ?? QUIT,
+      input: () => inputs.shift() ?? "",
+      confirm: () => confirmations.shift() ?? false,
+      startPlan: (_ctx, request) => {
+        requests.push(request);
+        return preparedStart(request.title ?? "Generated title", {
+          id: `created-from-${testCase.name.replaceAll(" ", "-")}`,
+          branch: `agent/created-from-${testCase.name.replaceAll(" ", "-")}`,
+          worktreePath: `/worktrees/created-from-${
+            testCase.name.replaceAll(" ", "-")
+          }`,
+          from: request.from ?? "main",
+          ...(request.brief === undefined ? {} : { brief: request.brief }),
+          resources: [{ name: "database", identity: "demo_created_task" }],
+        });
+      },
+      start: (_ctx, prepared) => {
+        created = startedTask(prepared);
+        return created;
+      },
+      grantEffort: (path, branch) => {
+        grants.push({ path, branch });
+        return {
+          status: "granted",
+          grant: { branch, granted_at: "2026-07-11T12:00:00.000Z" },
+        };
+      },
+      writePreferences: (_root, preferences) => {
+        saved.push(preferences);
+        return { status: "saved" };
+      },
+    });
+
+    assertEquals(await runDesk({}, runtime), 0, testCase.name);
+    assertEquals(requests, [{
+      worktreeRoot: "/project.worktrees",
+      title,
+      brief,
+      ...(testCase.expectedFrom === undefined
+        ? {}
+        : { from: testCase.expectedFrom }),
+    }], testCase.name);
+    assertEquals(
+      grants.length,
+      testCase.name === "live task" ? 1 : 0,
+      testCase.name,
+    );
+    assertEquals(saved, [{
+      schema_version: 1,
+      creation_path: "expanded",
+    }]);
+    const text = joined(output).replaceAll(/\s+/gu, "");
+    assertStringIncludes(text, title.replaceAll(/\s+/gu, ""));
+    assertStringIncludes(text, brief.replaceAll(/\s+/gu, ""));
+    assertStringIncludes(text, testCase.base.replaceAll(/\s+/gu, ""));
+    assertStringIncludes(text, "demo_created_task");
+    assertStringIncludes(text, "Noagentwillopen");
+    assertStringIncludes(text, created?.path.replaceAll(/\s+/gu, "") ?? "");
+  }
+});
+
+Deno.test("compact creation opens the remembered available agent", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const config = configSchema.parse({
+    project: { slug: "demo", agents: ["codex"] },
+    repository: { trunk: "main" },
+  });
+  const choices = [START_TASK, "describe", "compact", BACK, QUIT];
+  const menus: string[] = [];
+  const saved: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
+  const launches: Array<{
+    command: string;
+    args: readonly string[];
+    cwd: string;
+  }> = [];
+  let created: StartData | undefined;
+  const runtime = scriptedRuntime(output, {
+    loadConfig: () => config,
+    status: () => ({
+      ok: true,
+      data: statusData([
+        main,
+        ...(created === undefined ? [] : [startedFleetEntry(created)]),
+      ]),
+    }),
+    detectAgents: () => [{ name: "codex", binary: "codex" }],
+    readPreferences: () => ({
+      schema_version: 1,
+      last_agent: "codex",
+      creation_path: "compact",
+    }),
+    select: (options) => {
+      menus.push(String(options.message));
+      return choices.shift() ?? QUIT;
+    },
+    input: () => "Human title",
+    start: (_ctx, prepared) => {
+      created = startedTask(prepared);
+      return created;
+    },
+    interactive: (command, args, cwd) => {
+      launches.push({ command, args, cwd });
+      return 0;
+    },
+    writePreferences: (_root, preferences) => {
+      saved.push(preferences);
+      return { status: "saved" };
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(menus.includes("Choose an agent action"), false);
+  assertEquals(launches, [{
+    command: "codex",
+    args: [],
+    cwd: "/worktrees/new-task",
+  }]);
+  assertEquals(saved, [{
+    schema_version: 1,
+    last_agent: "codex",
+    creation_path: "compact",
+  }]);
+  assertStringIncludes(joined(output), "Open in Codex");
+});
+
+Deno.test("an unavailable preference write leaves creation intact and explains the fallback", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const choices = [START_TASK, "codename", "compact", "none", BACK, QUIT];
+  const confirmations = [true];
+  let created: StartData | undefined;
+  const runtime = scriptedRuntime(output, {
+    status: () => ({
+      ok: true,
+      data: statusData([
+        main,
+        ...(created === undefined ? [] : [startedFleetEntry(created)]),
+      ]),
+    }),
+    select: () => choices.shift() ?? QUIT,
+    confirm: () => confirmations.shift() ?? false,
+    start: (_ctx, prepared) => {
+      created = startedTask(prepared);
+      return created;
+    },
+    writePreferences: () => ({
+      status: "unavailable",
+      reason: "the repository preference store is read-only",
+    }),
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assert(created !== undefined);
+  assertStringIncludes(joined(output), "Desk preferences were not saved");
+  assertStringIncludes(joined(output), "preference store is read-only");
+  assertStringIncludes(joined(output), "current task is unchanged");
+  assertStringIncludes(joined(output), "may ask you to choose again");
+});
+
+Deno.test("a failed landing grant keeps the created task and reports actual authority", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const choices = [
+    START_TASK,
+    "codename",
+    "expanded",
+    "main",
+    "none",
+    BACK,
+    QUIT,
+  ];
+  const confirmations = [true, true];
+  let created: StartData | undefined;
+  const runtime = scriptedRuntime(output, {
+    status: () => ({
+      ok: true,
+      data: statusData([
+        main,
+        ...(created === undefined ? [] : [startedFleetEntry(created)]),
+      ]),
+    }),
+    select: () => choices.shift() ?? QUIT,
+    input: () => "",
+    confirm: () => confirmations.shift() ?? false,
+    start: (_ctx, prepared) => {
+      created = startedTask(prepared);
+      return created;
+    },
+    grantEffort: () => {
+      throw new Error("the grant store is unavailable");
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assert(created !== undefined);
+  assertStringIncludes(joined(output), "Task created.");
+  assertStringIncludes(
+    joined(output),
+    "Landing pre-authorization was not recorded",
+  );
+  assertStringIncludes(joined(output), "the grant store is unavailable");
+  assertStringIncludes(
+    joined(output),
+    "A later conversation must authorize landing",
+  );
+});
+
+Deno.test("a stale remembered agent falls back to an explicit choice", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const config = configSchema.parse({
+    project: { slug: "demo", agents: ["gemini"] },
+    repository: { trunk: "main" },
+  });
+  const choices = [
+    START_TASK,
+    "codename",
+    "compact",
+    "gemini:open",
+    BACK,
+    QUIT,
+  ];
+  let agentMenu = "";
+  let launchCount = 0;
+  let created: StartData | undefined;
+  const runtime = scriptedRuntime(output, {
+    loadConfig: () => config,
+    status: () => ({
+      ok: true,
+      data: statusData([
+        main,
+        ...(created === undefined ? [] : [startedFleetEntry(created)]),
+      ]),
+    }),
+    detectAgents: () => [{ name: "gemini", binary: "gemini" }],
+    readPreferences: () => ({
+      schema_version: 1,
+      last_agent: "codex",
+      creation_path: "compact",
+    }),
+    select: (options) => {
+      if (String(options.message) === "Choose an agent action") {
+        agentMenu = JSON.stringify(options.options);
+      }
+      return choices.shift() ?? QUIT;
+    },
+    start: (_ctx, prepared) => {
+      created = startedTask(prepared);
+      return created;
+    },
+    interactive: () => {
+      launchCount++;
+      return 0;
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertStringIncludes(agentMenu, "Gemini");
+  assert(!agentMenu.includes("Codex"));
+  assertStringIncludes(agentMenu, "Create without opening an agent");
+  assertEquals(launchCount, 1);
+});
+
+Deno.test("task creation returns safely from every progressive prompt", async () => {
+  const cases = [
+    {
+      name: "title route",
+      choices: [START_TASK, BACK, QUIT],
+      cancelInputAt: 0,
+      planned: 0,
+    },
+    {
+      name: "title text",
+      choices: [START_TASK, "describe", QUIT],
+      cancelInputAt: 1,
+      planned: 0,
+    },
+    {
+      name: "creation path",
+      choices: [START_TASK, "codename", BACK, QUIT],
+      cancelInputAt: 0,
+      planned: 0,
+    },
+    {
+      name: "creation base",
+      choices: [START_TASK, "codename", "expanded", BACK, QUIT],
+      cancelInputAt: 0,
+      planned: 0,
+    },
+    {
+      name: "brief",
+      choices: [START_TASK, "codename", "expanded", "main", QUIT],
+      cancelInputAt: 1,
+      planned: 0,
+    },
+    {
+      name: "agent action",
+      choices: [
+        START_TASK,
+        "codename",
+        "expanded",
+        "main",
+        BACK,
+        QUIT,
+      ],
+      cancelInputAt: 0,
+      planned: 0,
+    },
+    {
+      name: "landing authority",
+      choices: [
+        START_TASK,
+        "codename",
+        "expanded",
+        "main",
+        "none",
+        QUIT,
+      ],
+      cancelInputAt: 0,
+      cancelConfirmAt: 1,
+      planned: 0,
+    },
+    {
+      name: "creation confirmation",
+      choices: [START_TASK, "codename", "compact", "none", QUIT],
+      cancelInputAt: 0,
+      planned: 1,
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    const output = transcript();
+    const main = fleetEntry("main", ROOT, {
+      is_main: true,
+      is_current: true,
+    });
+    const choices = [...testCase.choices];
+    let inputCalls = 0;
+    let confirmCalls = 0;
+    let planCalls = 0;
+    let startCalls = 0;
+    let preferenceWrites = 0;
+    const runtime = scriptedRuntime(output, {
+      status: () => ({ ok: true, data: statusData([main]) }),
+      select: () => choices.shift() ?? QUIT,
+      input: () => {
+        inputCalls++;
+        if (inputCalls === testCase.cancelInputAt) {
+          throw new InteractionCancelled();
+        }
+        return "";
+      },
+      confirm: () => {
+        confirmCalls++;
+        if (
+          "cancelConfirmAt" in testCase &&
+          confirmCalls === testCase.cancelConfirmAt
+        ) {
+          throw new InteractionCancelled();
+        }
+        return false;
+      },
+      startPlan: (_ctx, request) => {
+        planCalls++;
+        return preparedStart(request.title ?? "Generated codename");
+      },
+      start: (_ctx, prepared) => {
+        startCalls++;
+        return startedTask(prepared);
+      },
+      writePreferences: () => {
+        preferenceWrites++;
+        return { status: "saved" };
+      },
+    });
+
+    assertEquals(await runDesk({}, runtime), 0, testCase.name);
+    assertEquals(planCalls, testCase.planned, testCase.name);
+    assertEquals(startCalls, 0, testCase.name);
+    assertEquals(preferenceWrites, 0, testCase.name);
+  }
+});
+
+Deno.test("an unlanded branch can be inspected or resumed by its exact ref", async () => {
+  const branch = "agent/orphan-修复";
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+
+  const inspectOutput = transcript();
+  const inspectChoices = [deskUnlandedRoute(branch), "inspect", BACK, QUIT];
+  const gitCalls: string[][] = [];
+  let branchMenu = "";
+  let page = "";
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedRuntime(inspectOutput, {
+        status: () => ({
+          ok: true,
+          data: { ...statusData([main]), unlanded_branches: [branch] },
+        }),
+        select: (options) => {
+          if (String(options.message) === "Choose a branch action") {
+            branchMenu = JSON.stringify(options.options);
+          }
+          return inspectChoices.shift() ?? QUIT;
+        },
+        git: (args) => {
+          gitCalls.push(args);
+          return {
+            success: true,
+            stdout: args[0] === "log"
+              ? "abc1234 Keep orphan work\n"
+              : "src/a.ts | 2 ++\n",
+            stderr: "",
+          };
+        },
+        pager: (text) => {
+          page = text;
+          return { shown: true };
+        },
+      }),
+    ),
+    0,
+  );
+  assertEquals(gitCalls, [
+    ["log", "--oneline", "--decorate", `main..${branch}`],
+    ["diff", "--stat", `main...${branch}`],
+  ]);
+  assertStringIncludes(page, branch);
+  assertStringIncludes(page, "abc1234 Keep orphan work");
+  assertStringIncludes(page, "src/a.ts | 2 ++");
+  assertStringIncludes(branchMenu, "Resume in a worktree");
+  assert(!branchMenu.includes("Delete"));
+
+  const resumeOutput = transcript();
+  const resumeChoices = [
+    deskUnlandedRoute(branch),
+    "resume",
+    "describe",
+    "none",
+    BACK,
+    QUIT,
+  ];
+  const inputs = ["Resume orphan work", "Retain the branch's committed base."];
+  const confirmations = [false, true];
+  const requests: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
+  let created: StartData | undefined;
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedRuntime(resumeOutput, {
+        status: () => ({
+          ok: true,
+          data: {
+            ...statusData([
+              main,
+              ...(created === undefined ? [] : [startedFleetEntry(created)]),
+            ]),
+            unlanded_branches: [branch],
+          },
+        }),
+        select: () => resumeChoices.shift() ?? QUIT,
+        input: () => inputs.shift() ?? "",
+        confirm: () => confirmations.shift() ?? false,
+        startPlan: (_ctx, request) => {
+          requests.push(request);
+          return preparedStart(request.title ?? "Generated title", {
+            from: request.from ?? "main",
+            ...(request.brief === undefined ? {} : { brief: request.brief }),
+          });
+        },
+        start: (_ctx, prepared) => {
+          created = startedTask(prepared);
+          return created;
+        },
+      }),
+    ),
+    0,
+  );
+  assertEquals(requests, [{
+    worktreeRoot: "/project.worktrees",
+    title: "Resume orphan work",
+    brief: "Retain the branch's committed base.",
+    from: branch,
+  }]);
+  assertStringIncludes(joined(resumeOutput), branch);
+});
+
+Deno.test("a live task starts a follow-up from its exact branch tip", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
+  const parent = fleetEntry("agent/parent-task", "/worktrees/parent-task", {
+    id: "parent-task",
+  });
+  const choices = [
+    parent.path,
+    "follow_up",
+    "describe",
+    "none",
+    BACK,
+    QUIT,
+  ];
+  const inputs = [
+    "Follow-up: preserve metadata",
+    "Build on the selected task's committed tip.",
+  ];
+  const confirmations = [false, true];
+  const requests: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
+  const preferences: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
+  let created: StartData | undefined;
+  const runtime = scriptedRuntime(output, {
+    status: () => ({
+      ok: true,
+      data: statusData([
+        main,
+        parent,
+        ...(created === undefined ? [] : [startedFleetEntry(created)]),
+      ]),
+    }),
+    readPreferences: () => ({
+      schema_version: 1,
+      creation_path: "compact",
+    }),
+    select: () => choices.shift() ?? QUIT,
+    input: () => inputs.shift() ?? "",
+    confirm: () => confirmations.shift() ?? false,
+    startPlan: (_ctx, request) => {
+      requests.push(request);
+      return preparedStart(request.title ?? "Generated title", {
+        from: request.from ?? "main",
+        ...(request.brief === undefined ? {} : { brief: request.brief }),
+      });
+    },
+    start: (_ctx, prepared) => {
+      created = startedTask(prepared);
+      return created;
+    },
+    writePreferences: (_root, value) => {
+      preferences.push(value);
+      return { status: "saved" };
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(requests, [{
+    worktreeRoot: "/project.worktrees",
+    title: "Follow-up: preserve metadata",
+    brief: "Build on the selected task's committed tip.",
+    from: parent.branch,
+  }]);
+  assertEquals(preferences, [{
+    schema_version: 1,
+    creation_path: "compact",
+  }]);
+  assertStringIncludes(joined(output), parent.branch);
+  assertStringIncludes(joined(output), START_COMMIT);
+});
+
+Deno.test("renaming changes only the recorded title through preview and apply", async () => {
+  const output = transcript();
+  const oldTitle = "Original title";
+  const newTitle = "Renamed: Unicode 修复";
+  const branch = "agent/stable-identity";
+  const path = "/worktrees/stable-identity";
+  let currentTitle = oldTitle;
+  const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
+  const task = (): StatusFleetEntry =>
+    fleetEntry(branch, path, {
+      id: "stable-identity",
+      task: {
+        id: "stable-identity",
+        branch,
+        title: currentTitle,
+        title_source: "recorded",
+        brief: "Keep this brief.",
+        created_from: { ref: "main", commit: START_COMMIT },
+      },
+    });
+  const choices = [path, "rename", BACK, QUIT];
+  const previews: string[] = [];
+  const applies: string[] = [];
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data: statusData([main, task()]) }),
+    select: () => choices.shift() ?? QUIT,
+    input: () => newTitle,
+    renamePlan: (_ctx, title) => {
+      previews.push(title);
+      return {
+        ok: true,
+        verb: "worktree rename",
+        dry_run: true,
+        plan: {
+          title: "Task title plan",
+          details: [
+            `Branch: ${branch}`,
+            `Path: ${path}`,
+            `New title: ${title}`,
+          ],
+          steps: [],
+        },
+      };
+    },
+    rename: (_ctx, title) => {
+      applies.push(title);
+      currentTitle = title;
+      return {
+        ok: true,
+        verb: "worktree rename",
+        message: `Changed the task title to ${JSON.stringify(title)}.`,
+      };
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(previews, [newTitle]);
+  assertEquals(applies, [newTitle]);
+  assertEquals(task().branch, branch);
+  assertEquals(task().path, path);
+  assertEquals(task().task?.brief, "Keep this brief.");
+  assertStringIncludes(
+    joined(output),
+    "discern worktree rename 'Renamed: Unicode 修复'",
+  );
 });
 
 Deno.test("desk explains missing configured agents and launches available argv in the worktree", async () => {
@@ -802,6 +1697,7 @@ Deno.test("desk explains missing configured agents and launches available argv i
     cwd: string;
     env: Record<string, string>;
   }> = [];
+  const preferences: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
     loadConfig: (root) => root === effort.path ? worktreeConfig : CONFIG,
@@ -821,6 +1717,14 @@ Deno.test("desk explains missing configured agents and launches available argv i
       launches.push({ command, args, cwd, env });
       return 0;
     },
+    readPreferences: () => ({
+      schema_version: 1,
+      creation_path: "expanded",
+    }),
+    writePreferences: (_root, value) => {
+      preferences.push(value);
+      return { status: "saved" };
+    },
   });
 
   assertEquals(await runDesk({}, runtime), 0);
@@ -838,6 +1742,15 @@ Deno.test("desk explains missing configured agents and launches available argv i
       env: { [DESK_SESSION_ENV]: "1" },
     },
   ]);
+  assertEquals(preferences, [{
+    schema_version: 1,
+    creation_path: "expanded",
+    last_agent: "claude_code",
+  }, {
+    schema_version: 1,
+    creation_path: "expanded",
+    last_agent: "claude_code",
+  }]);
   const actionMenu = menus.find((menu) => menu.message === "Choose an action");
   const agentMenu = menus.find((menu) =>
     menu.message.startsWith("Choose an agent for Agents")
@@ -881,7 +1794,7 @@ Deno.test("desk explains missing configured agents and launches available argv i
   );
   assertStringIncludes(
     joined(output),
-    `claude --continue  (cwd: ${effort.path})`,
+    `Run: claude --continue (cwd: ${effort.path})`,
   );
 });
 
@@ -1067,7 +1980,7 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   assertStringIncludes(scriptMenu.options, "deploy this checkout");
 
   const text = joined(output);
-  assertStringIncludes(text, "discern scripts deploy  (in scripted)");
+  assertStringIncludes(text, "Run: discern scripts deploy (in scripted)");
   assertStringIncludes(text, "Project Script exited with status 7");
 });
 
@@ -1137,7 +2050,7 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
   );
   assertStringIncludes(
     joined(output),
-    "discern scripts health  (in project root)",
+    "Run: discern scripts health (in project root)",
   );
   assertStringIncludes(joined(output), "Executable");
   assertStringIncludes(joined(output), "Working directory");
@@ -1328,6 +2241,19 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
         },
       }),
     },
+    follow_up: {
+      choices: ["follow_up", "describe", "none", QUIT],
+      runtime: (effects: DeskAction[]) => {
+        const inputs = ["Follow-up task", "Carry the current work forward."];
+        return {
+          input: () => inputs.shift() ?? "",
+          start: (_ctx, prepared) => {
+            effects.push("follow_up");
+            return startedTask(prepared);
+          },
+        };
+      },
+    },
     scripts: {
       choices: ["scripts", "verify", "run", BACK, QUIT],
       runtime: (effects: DeskAction[]) => ({
@@ -1358,6 +2284,20 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
         git: () => {
           effects.push("inspect");
           return { success: true, stdout: "", stderr: "" };
+        },
+      }),
+    },
+    rename: {
+      choices: ["rename", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        input: () => "A clearer task title",
+        rename: (_ctx, title) => {
+          effects.push("rename");
+          return {
+            ok: true,
+            verb: "worktree rename",
+            message: `Changed the task title to ${JSON.stringify(title)}.`,
+          };
         },
       }),
     },

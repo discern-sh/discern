@@ -312,10 +312,16 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
 
 // ── start ─────────────────────────────────────────────────────────────────────
 
+/** One external resource identity the new worktree setup will create. */
+export interface StartResourcePlan {
+  readonly name: string;
+  readonly identity: string;
+}
+
 /** The plan a `discern start` would carry out: create a fresh linked worktree at a
  * resolved sibling location on its own branch, then run its first-time setup. The
- * id/branch are minted while building this (a fresh id each run), so the preview
- * shows concrete, representative values. */
+ * id and branch are minted while building this. A caller such as the Desk may
+ * retain this plan through confirmation and apply those same concrete values. */
 export interface StartPlan {
   /** The freshly-minted worktree id. */
   id: string;
@@ -326,6 +332,14 @@ export interface StartPlan {
   /** The ref the new branch forks from — the trunk by default, any ref via
    * `--from` (the landing model's pull axis). */
   from: string;
+  /** The immutable commit `from` resolved to while planning. */
+  fromCommit: string;
+  /** Human display title preserved in worktree task metadata. */
+  title: string;
+  /** Optional one-line task brief preserved in worktree task metadata. */
+  brief?: string;
+  /** External resource identities setup will create for this worktree. */
+  resources: readonly StartResourcePlan[];
   /** A normalisation/fallback note when the caller named the worktree (see
    * `chooseWorktreeName`) — surfaced in the dry-run preview so the caller sees the
    * name it would actually get. Absent for an unnamed (codename) start. */
@@ -337,9 +351,23 @@ export function startPlanToEngine(plan: StartPlan): EnginePlan {
   const details = [
     `New worktree: ${plan.id}`,
     `Branch:       ${plan.branch}`,
+    `Title:        ${plan.title}`,
     `From:         ${plan.from}`,
+    `Base commit:  ${plan.fromCommit}`,
     `Path:         ${plan.worktreePath}`,
   ];
+  if (plan.brief !== undefined) {
+    details.push(`Brief:        ${plan.brief}`);
+  }
+  details.push(
+    plan.resources.length === 0
+      ? "Resources:    none"
+      : `Resources:    ${
+        plan.resources.map((resource) =>
+          `${resource.name}=${resource.identity}`
+        ).join(", ")
+      }`,
+  );
   if (plan.note !== undefined) {
     details.push(`Name:         ${plan.note}`);
   }
@@ -354,6 +382,12 @@ export function startPlanToEngine(plan: StartPlan): EnginePlan {
         note: `${plan.worktreePath} on ${plan.branch}`,
       },
       {
+        kind: "task-metadata",
+        label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
+        disposition: "run",
+        note: "record the display title, brief, and creation source",
+      },
+      {
         kind: "setup-step",
         label: BUILT_IN_STEP_LABELS.setup,
         disposition: "run",
@@ -361,6 +395,40 @@ export function startPlanToEngine(plan: StartPlan): EnginePlan {
           "ready the new worktree (branch, resources, env, port, agent files)",
       },
     ],
+  };
+}
+
+// ── task title rename ───────────────────────────────────────────────────────
+
+/** Read-only plan for changing one worktree's human title. */
+export interface TaskRenamePlan {
+  readonly id: string;
+  readonly branch: string;
+  readonly worktreePath: string;
+  readonly previousTitle: string;
+  readonly title: string;
+  readonly willWrite: boolean;
+}
+
+/** Project a metadata-only title change onto the shared plan vocabulary. */
+export function taskRenamePlanToEngine(plan: TaskRenamePlan): EnginePlan {
+  return {
+    title: "Task title plan",
+    details: [
+      `Worktree id:  ${plan.id}`,
+      `Branch:       ${plan.branch}`,
+      `Path:         ${plan.worktreePath}`,
+      `Current title: ${plan.previousTitle}`,
+      `New title:     ${plan.title}`,
+    ],
+    steps: [{
+      kind: "task-metadata",
+      label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
+      disposition: plan.willWrite ? "run" : "skip",
+      note: plan.willWrite
+        ? "replace the human display title; preserve worktree identity and task facts"
+        : "the task already has this recorded title",
+    }],
   };
 }
 

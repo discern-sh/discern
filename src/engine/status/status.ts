@@ -118,6 +118,12 @@ import {
   resolveIdentity,
   resolveWorktreeId,
 } from "../worktree/identity.ts";
+import {
+  fallbackTaskMetadataData,
+  recordedTaskMetadataData,
+} from "../../shared/task_metadata.ts";
+import { taskLabel } from "../worktree/task_label.ts";
+import { inspectTaskMetadata } from "../worktree/task_metadata.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
 import {
   containedRefPointers,
@@ -829,6 +835,19 @@ async function fleetEntryFor(
         }
       }
     }
+  }
+  if (!row.isMain) {
+    const id = entry.id ?? basename(row.path);
+    const identity = { id, branch: row.branch };
+    const fallbackTitle = taskLabel(entry).name;
+    const task = await inspectTaskMetadata(row.path);
+    entry.task = task.kind === "recorded"
+      ? recordedTaskMetadataData(identity, task.metadata)
+      : fallbackTaskMetadataData(
+        identity,
+        fallbackTitle,
+        task.kind === "unavailable" ? task.reason : undefined,
+      );
   }
   return entry;
 }

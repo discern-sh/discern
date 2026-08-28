@@ -59,6 +59,7 @@ aliases:
   - discern worktree
   - discern worktree setup
   - discern worktree ensure
+  - discern worktree rename
   - discern worktree teardown
   - discern worktree drop
   - discern worktree prune
@@ -188,12 +189,14 @@ From the main checkout, create a worktree with a separate checkout and branch fo
 
 Usage: `discern start [options]`
 
-| Option          | Description                                                                                                                                         |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`        | Emit one JSON result on stdout (data.path is the new worktree).                                                                                     |
-| `--dry-run`     | Show the start plan; touch nothing.                                                                                                                 |
-| `--name <name>` | Name the worktree after this task (a slug or a few words — discern normalises it into a branch-safe name). Omit for a random codename.              |
-| `--from <ref>`  | Branch the new worktree from this ref (a branch, tag, or commit) instead of the trunk. For building on unlanded work — omit it for everyday starts. |
+| Option            | Description                                                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`          | Emit one JSON result on stdout (data.path is the new worktree).                                                                          |
+| `--dry-run`       | Show the start plan; touch nothing.                                                                                                      |
+| `--name <name>`   | Set the task title and seed its worktree id. discern preserves this text as the title and normalizes the id. Omit for a random codename. |
+| `--title <title>` | Set the display title separately from --name. With no --name, the title also seeds the worktree id.                                      |
+| `--brief <brief>` | Store an optional one-line brief for task detail and agent handoff.                                                                      |
+| `--from <ref>`    | Branch the new worktree from this ref (a branch, tag, or commit). Omit it to start from the trunk.                                       |
 
 ### `discern update`
 
@@ -261,6 +264,17 @@ Usage: `discern worktree setup [options]`
 Idempotent session-start worktree setup.
 
 Usage: `discern worktree ensure [options]`
+
+#### `discern worktree rename`
+
+Change this worktree's display title. Its id, branch, path, brief, and creation source stay unchanged.
+
+Usage: `discern worktree rename <title> [options]`
+
+| Option      | Description                                |
+| ----------- | ------------------------------------------ |
+| `--dry-run` | Show the title-change plan; touch nothing. |
+| `--json`    | Emit one JSON result on stdout.            |
 
 #### `discern worktree teardown`
 

@@ -72,6 +72,7 @@ import {
   WORKTREE_FIELDS,
   type WorktreeIdentityField,
 } from "./worktree_identity_fields.ts";
+import { TaskMetadataDataSchema } from "./task_metadata.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -1479,10 +1480,19 @@ export const StartDataSchema = z.strictObject({
   branch: z.string(),
   path: z.string(),
   from: z.string(),
+  task: TaskMetadataDataSchema,
   name_note: z.string().optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
 });
 export type StartData = z.infer<typeof StartDataSchema>;
+
+/** `worktree rename` — the metadata-only title change for this worktree. */
+export const TaskRenameDataSchema = z.strictObject({
+  path: z.string(),
+  previous_title: z.string(),
+  task: TaskMetadataDataSchema,
+});
+export type TaskRenameData = z.infer<typeof TaskRenameDataSchema>;
 
 export const ProofNotesFetchSchema = z.strictObject({
   mode: z.enum(["local", "fetch"]),
@@ -1740,6 +1750,9 @@ const statusFleetEntrySchema = z.strictObject({
   git_unavailable: z.boolean().optional(),
   id: z.string().optional(),
   port: z.number().optional(),
+  /** Human task wording joined to the separately authoritative id and branch.
+   * Optional for status compatibility with older producers. */
+  task: TaskMetadataDataSchema.optional(),
   /** Present (true) when the worktree's creation never completed — its project
    * config is missing from the checkout (a crashed `start`'s signature; config
    * presence is the deliberate signal, not the ready sentinel, so a healthy
@@ -3150,6 +3163,12 @@ export const PatternsArchivesOutputSchema = resultOutputSchema(
 
 /** `start` output: envelope + the new-worktree `data`. */
 export const StartOutputSchema = resultOutputSchema("start", StartDataSchema);
+
+/** `worktree rename` output: envelope + the changed task projection. */
+export const TaskRenameOutputSchema = resultOutputSchema(
+  "worktree rename",
+  TaskRenameDataSchema,
+);
 
 /** `accept` output: envelope + the landing-root `data` (present on an apply; a
  * dry-run preview carries none). */

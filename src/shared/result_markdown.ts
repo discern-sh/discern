@@ -1770,6 +1770,8 @@ const presentStart: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const path = text(data.path);
   const branch = text(data.branch);
+  const task = object(data.task);
+  const createdFrom = object(task?.created_from);
   const preview = result.dry_run === true;
   return {
     state: defaultState(
@@ -1785,9 +1787,41 @@ const presentStart: ResultMarkdownPresenter = (result) => {
       text(data.id) === undefined
         ? undefined
         : `Worktree id: ${code(data.id)}.`,
+      verbatimText(task?.title) === undefined
+        ? undefined
+        : `Task title: ${code(task?.title)}.`,
+      verbatimText(task?.brief) === undefined
+        ? undefined
+        : `Brief: ${code(task?.brief)}.`,
+      text(createdFrom?.commit) === undefined
+        ? undefined
+        : `Base commit: ${code(createdFrom?.commit)}.`,
       text(data.name_note),
     ]),
     boundary: landingBoundary(data),
+  };
+};
+
+const presentTaskRename: ResultMarkdownPresenter = (result) => {
+  const data = dataOf(result);
+  const task = object(data.task);
+  return {
+    state: defaultState(result, "The task title was updated."),
+    evidence: unique([
+      verbatimText(data.previous_title) === undefined
+        ? undefined
+        : `Previous title: ${code(data.previous_title)}.`,
+      verbatimText(task?.title) === undefined
+        ? undefined
+        : `Task title: ${code(task?.title)}.`,
+      text(task?.id) === undefined
+        ? undefined
+        : `Worktree id: ${code(task?.id)}.`,
+      text(task?.branch) === undefined
+        ? undefined
+        : `Branch: ${code(task?.branch)}.`,
+      text(data.path) === undefined ? undefined : `Path: ${code(data.path)}.`,
+    ]),
   };
 };
 
@@ -1990,6 +2024,7 @@ export const RESULT_MARKDOWN_PRESENTERS = {
   patternsLifecycle: presentPatternsLifecycle,
   status: presentStatus,
   start: presentStart,
+  taskRename: presentTaskRename,
   accept: presentAccept,
   update: presentUpdate,
   identity: presentIdentity,

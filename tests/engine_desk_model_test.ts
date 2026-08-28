@@ -14,6 +14,7 @@ import {
 } from "../src/shared/result_schemas.ts";
 import type { DetectedAgentBinary } from "../src/lib/detect_agents.ts";
 import {
+  agentLaunchArgs,
   buildAgentLaunches,
   buildDeskBoardDecision,
   buildDeskDecision,
@@ -640,7 +641,7 @@ const ACTION_CASES: ReadonlyArray<{
   {
     name: "broken checkout",
     decision: () => decide({ broken: true }),
-    enabled: ["jump", "inspect", "drop"],
+    enabled: ["follow_up", "jump", "inspect", "rename", "drop"],
   },
   {
     name: "unreadable checkout",
@@ -651,7 +652,16 @@ const ACTION_CASES: ReadonlyArray<{
   {
     name: "clean committed work awaiting final checks",
     decision: () => decide({ ahead: 2 }),
-    enabled: ["done", "accept", "jump", "inspect", "grant", "drop"],
+    enabled: [
+      "done",
+      "accept",
+      "follow_up",
+      "jump",
+      "inspect",
+      "rename",
+      "grant",
+      "drop",
+    ],
     recommended: "done",
   },
   {
@@ -662,13 +672,30 @@ const ACTION_CASES: ReadonlyArray<{
         gate_proof: { status: "honored" },
         landing_authority: { kind: "authorized", source: "effort-grant" },
       }),
-    enabled: ["done", "accept", "jump", "inspect", "revoke_grant", "drop"],
+    enabled: [
+      "done",
+      "accept",
+      "follow_up",
+      "jump",
+      "inspect",
+      "rename",
+      "revoke_grant",
+      "drop",
+    ],
     recommended: "accept",
   },
   {
     name: "branch behind main",
     decision: () => decide({ ahead: 2, behind: 1 }),
-    enabled: ["update", "jump", "inspect", "grant", "drop"],
+    enabled: [
+      "update",
+      "follow_up",
+      "jump",
+      "inspect",
+      "rename",
+      "grant",
+      "drop",
+    ],
     recommended: "update",
   },
   {
@@ -677,8 +704,10 @@ const ACTION_CASES: ReadonlyArray<{
     enabled: [
       "done",
       "accept",
+      "follow_up",
       "jump",
       "inspect",
+      "rename",
       "grant",
       "reclaim",
       "drop",
@@ -696,7 +725,16 @@ const ACTION_CASES: ReadonlyArray<{
         scripts: [{ name: "verify" }],
         agentLaunches: [AGENT_LAUNCH],
       }),
-    enabled: ["agent", "scripts", "jump", "inspect", "grant", "drop"],
+    enabled: [
+      "agent",
+      "follow_up",
+      "scripts",
+      "jump",
+      "inspect",
+      "rename",
+      "grant",
+      "drop",
+    ],
     recommended: "agent",
   },
   {
@@ -706,12 +744,12 @@ const ACTION_CASES: ReadonlyArray<{
         ahead: 2,
         running: { verb: "done", started: minutesAgo(1), elapsed_ms: 1_000 },
       }, { scripts: [{ name: "verify" }], agentLaunches: [AGENT_LAUNCH] }),
-    enabled: ["jump", "inspect"],
+    enabled: ["follow_up", "jump", "inspect", "rename"],
   },
   {
     name: "empty task",
     decision: () => decide(),
-    enabled: ["jump", "inspect", "grant", "drop"],
+    enabled: ["follow_up", "jump", "inspect", "rename", "grant", "drop"],
   },
 ];
 
@@ -891,8 +929,7 @@ Deno.test("the board decision carries project, main, counts, and bounded notices
       state: "attention",
       headline: "1 branch has no worktree",
       detail: "agent/orphan",
-      nextAction:
-        "Open a branch with discern start --from <branch> before continuing it.",
+      nextAction: "Choose a branch under Work without a worktree.",
     }, {
       id: "contained",
       state: "information",
@@ -1096,4 +1133,46 @@ Deno.test("buildAgentLaunches respects an explicitly empty agent set", () => {
     buildAgentLaunches(config, [{ name: "codex", binary: "codex" }]),
     [],
   );
+});
+
+Deno.test("stored briefs change argv only through a documented provider contract", () => {
+  const config = configSchema.parse({
+    project: {
+      slug: "demo",
+      agents: ["gemini", "claude_code", "codex", "cursor", "copilot"],
+    },
+    repository: { trunk: TRUNK },
+  });
+  const current = buildAgentLaunches(config, [
+    { name: "gemini", binary: "gemini" },
+    { name: "claude_code", binary: "claude" },
+    { name: "codex", binary: "codex" },
+    { name: "cursor", binary: "cursor-agent" },
+    { name: "copilot", binary: "copilot" },
+  ]);
+  for (const launch of current) {
+    assertEquals(launch.promptArgument, undefined, launch.id);
+    assertEquals(agentLaunchArgs(launch, "Keep Unicode wording 修复."), {
+      args: launch.args,
+      briefPassed: false,
+    });
+  }
+
+  const documented: DeskAgentLaunch = {
+    ...AGENT_LAUNCH,
+    args: ["open"],
+    promptArgument: {
+      kind: "option",
+      flag: "--prompt",
+      documentation: "https://provider.example/cli#prompt",
+    },
+  };
+  assertEquals(agentLaunchArgs(documented, "Keep Unicode wording 修复."), {
+    args: ["open", "--prompt", "Keep Unicode wording 修复."],
+    briefPassed: true,
+  });
+  assertEquals(agentLaunchArgs(documented, undefined), {
+    args: ["open"],
+    briefPassed: false,
+  });
 });

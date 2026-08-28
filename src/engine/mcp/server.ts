@@ -1184,13 +1184,16 @@ export const TOOLS: McpTool[] = orderTools([
       "dry_run to preview the plan without creating anything.",
     inputSchema: {
       name: z.string().optional().describe(
-        "Optional name for the worktree — a short slug or a few words describing this " +
-          "task (e.g. `fix-upload-retry` or `fix the upload retry path`). You don't need " +
-          "to format it: discern normalises whatever you pass into a branch-safe slug " +
-          "(case, spaces, and punctuation are fixed; an over-long name is shortened; an " +
-          "unusable one — all punctuation, emoji — falls back to a random codename). " +
-          "Omit for a random codename. data.name_note reports any normalisation or " +
-          "fallback so you can retry with a cleaner name if you care.",
+        "Optional task title and worktree-id seed. discern preserves the supplied " +
+          "text in data.task.title and normalizes the id. Omit for a random codename.",
+      ),
+      title: z.string().optional().describe(
+        "Optional display title when it should differ from `name`. With no `name`, " +
+          "this title also seeds the worktree id.",
+      ),
+      brief: z.string().optional().describe(
+        "Optional one-line task brief. The new worktree stores it for status, Desk " +
+          "detail, and visible agent handoff.",
       ),
       from: z.string().optional().describe(
         "Branch the new worktree from this ref (a branch, tag, or commit) instead " +
@@ -1218,6 +1221,8 @@ export const TOOLS: McpTool[] = orderTools([
       startToolResult(root, {
         dryRun: args.dry_run === true,
         name: args.name ?? "",
+        title: args.title,
+        brief: args.brief,
         from: args.from,
       }),
   }),
@@ -1359,7 +1364,13 @@ async function updateToolResult(
  */
 async function startToolResult(
   root: string,
-  opts: { dryRun?: boolean; name?: string; from?: string | undefined },
+  opts: {
+    dryRun?: boolean;
+    name?: string;
+    title?: string | undefined;
+    brief?: string | undefined;
+    from?: string | undefined;
+  },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,
@@ -1370,6 +1381,8 @@ async function startToolResult(
       dryRun: opts.dryRun ?? false,
       worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
       name: opts.name ?? "",
+      ...(opts.title !== undefined ? { title: opts.title } : {}),
+      ...(opts.brief !== undefined ? { brief: opts.brief } : {}),
       ...(opts.from !== undefined ? { from: opts.from } : {}),
     });
     // Over MCP, start ALSO re-aims the live server's working root at the new worktree

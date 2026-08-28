@@ -99,7 +99,7 @@ function assertFrameFits(
   assertEquals(
     value.implicitWraps,
     expectedImplicitWraps,
-    `${value.name} wrote through the ${value.columns}-column boundary`,
+    `${value.name} wrote through the ${value.columns}-column boundary\n${value.text}`,
   );
   for (const row of value.lines) {
     assertEquals(row.columns, measureText(row.text));
@@ -196,6 +196,199 @@ realPtyTest({
     });
   },
 });
+
+realPtyTest({
+  name:
+    "Desk PTY: progressive creation preserves title, brief, base, and identity",
+  contracts: [
+    "terminal-modes",
+    "control-rendering",
+    "process-lifecycle",
+    "platform-transport",
+  ],
+  canary: true,
+  ignore: PTY_UNAVAILABLE,
+  fn: async () => {
+    const title = "Complete task ingress: Unicode 修复";
+    const brief = "Preserve this exact brief before the selected agent opens.";
+    await withDeskTtyProject(deskFleetFixture(), async (project) => {
+      const result = await runDeskTty(project, {
+        geometry: { columns: 100, rows: 55 },
+        colorMode: "no-color-env",
+        input: [{
+          waitFor: EMPTY_ROOT_READY,
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: ["What are you changing?", "Describe the task"],
+          capture: focusedCapture(
+            "creation-title-route",
+            "What are you changing?",
+            "Describe the task",
+          ),
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: ["Task title", "Describe the change in one line"],
+          chunks: [{ input: `${title}\r` }],
+        }, {
+          waitFor: ["Choose the creation path", "More options"],
+          chunks: [{ keys: ["down", "enter"] }],
+        }, {
+          waitFor: [
+            "Choose where this task starts",
+            "Start from the current trunk tip",
+          ],
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: ["One-line task brief", "What should the agent know"],
+          chunks: [{ input: `${brief}\r` }],
+        }, {
+          waitFor: [
+            "Choose an agent action",
+            "Create without opening an agent",
+          ],
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: ["Pre-authorize this task", "Later", "Pre-authorize"],
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: ["Creation facts", title, brief, "Base commit"],
+          capture: textCapture(
+            "creation-preview",
+            "Creation facts",
+            title,
+            brief,
+            "Worktree id",
+            "No agent will open",
+          ),
+          chunks: [{ keys: ["right", "enter"] }],
+        }, {
+          waitFor: "Press Enter to continue.",
+          capture: textCapture(
+            "creation-receipt",
+            "Created identity",
+            title,
+            brief,
+            "Path",
+          ),
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: "Choose an action",
+          capture: focusedCapture(
+            "created-task-detail",
+            "Choose an action",
+          ),
+          chunks: [{ keys: ["end", "enter"] }],
+        }, {
+          waitFor: TASK_ROOT_READY,
+          chunks: [{ keys: ["end", "enter"] }],
+        }],
+        env: { LANG: "en_GB.UTF-8", LC_ALL: "en_GB.UTF-8" },
+      });
+
+      assertHealthySession(result);
+      assertUniqueFocus(frame(result, "creation-title-route"));
+      assertStringIncludes(frame(result, "creation-preview").text, title);
+      assertStringIncludes(frame(result, "creation-preview").text, brief);
+      assertStringIncludes(frame(result, "creation-receipt").text, "Path");
+      assertStringIncludes(
+        result.transcript,
+        `# ${title}\r\n\r\nTask metadata\r\nOutcome: ${brief}`,
+      );
+
+      const status = await runAgent(project.root, [
+        "status",
+        "--verbose",
+        "--json",
+      ]);
+      assertEquals(status.code, 0, status.output);
+      const decoded = decodeCliResult(status.stdout, "status");
+      assert(decoded.data !== undefined && "fleet" in decoded.data);
+      const created = decoded.data.fleet?.find((entry) => !entry.is_main);
+      assert(created !== undefined, status.stdout);
+      assertEquals(created.task?.title, title);
+      assertEquals(created.task?.brief, brief);
+      assertEquals(created.task?.title_source, "recorded");
+      assertEquals(created.task?.created_from?.ref, "main");
+      assertEquals(created.task?.id, created.id);
+      assertEquals(created.task?.branch, created.branch);
+      assert(created.task?.title !== created.id);
+    });
+  },
+});
+
+realPtyTest({
+  name: "Desk PTY: task rename changes the title without changing identity",
+  contracts: [
+    "terminal-modes",
+    "control-rendering",
+    "process-lifecycle",
+    "platform-transport",
+  ],
+  canary: true,
+  ignore: PTY_UNAVAILABLE,
+  fn: async () => {
+    const id = "rename-journey-a1b2c3";
+    const originalTitle = "Rename journey";
+    const title = "Renamed task: Unicode 修复";
+    await withDeskTtyProject(
+      deskFleetFixture([deskFleetEntry(id, { aheadCommits: 1 })]),
+      async (project) => {
+        const result = await runDeskTty(project, {
+          geometry: { columns: 100, rows: 50 },
+          colorMode: "no-color-env",
+          input: [{
+            waitFor: TASK_ROOT_READY,
+            chunks: [{ keys: ["enter"] }],
+          }, {
+            waitFor: ["Choose an action", "Change task title"],
+            chunks: [{
+              keys: ["down", "down", "down", "down", "down", "enter"],
+            }],
+          }, {
+            waitFor: "New task title",
+            chunks: [{
+              input: `${"\u007f".repeat(originalTitle.length)}${title}\r`,
+            }],
+          }, {
+            waitFor: ["Task title plan", title, "Change"],
+            capture: textCapture("rename-preview", "Task title plan", title),
+            chunks: [{ keys: ["right", "enter"] }],
+          }, {
+            waitFor: "Press Enter to continue.",
+            chunks: [{ keys: ["enter"] }],
+          }, {
+            waitFor: "Choose an action",
+            chunks: [{ keys: ["end", "enter"] }],
+          }, {
+            waitFor: TASK_ROOT_READY,
+            chunks: [{ keys: ["end", "enter"] }],
+          }],
+          env: { LANG: "en_GB.UTF-8", LC_ALL: "en_GB.UTF-8" },
+        });
+
+        assertHealthySession(result);
+        assertStringIncludes(frame(result, "rename-preview").text, title);
+        assertStringIncludes(result.transcript, `# ${title}`);
+
+        const status = await runAgent(project.root, [
+          "status",
+          "--verbose",
+          "--json",
+        ]);
+        assertEquals(status.code, 0, status.output);
+        const decoded = decodeCliResult(status.stdout, "status");
+        assert(decoded.data !== undefined && "fleet" in decoded.data);
+        const renamed = decoded.data.fleet?.find((entry) => !entry.is_main);
+        assert(renamed !== undefined, status.stdout);
+        assertEquals(renamed.id, id);
+        assertEquals(renamed.branch, `agent/${id}`);
+        assertEquals(renamed.task?.title, title);
+        assertEquals(renamed.task?.title_source, "recorded");
+      },
+    );
+  },
+});
+
 realPtyTest({
   name:
     "Desk PTY: Proof review opens the actual diff through the pager and returns",
@@ -231,7 +424,7 @@ realPtyTest({
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: ["Choose an action", "Review Proof and changes"],
-          chunks: [{ keys: ["down", "down", "down", "enter"] }],
+          chunks: [{ keys: ["down", "down", "down", "down", "enter"] }],
         }, {
           waitFor: [
             "Review Review pager",

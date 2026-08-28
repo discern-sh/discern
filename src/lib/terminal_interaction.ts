@@ -10,6 +10,7 @@ import {
   renderDialogCli,
 } from "discern-design-system/cli";
 import {
+  createSequentialForm,
   InteractionCancelled as PackageInteractionCancelled,
   type InteractionChoicePresentation,
   type InteractionCompletionPolicy,
@@ -362,6 +363,39 @@ export interface TerminalInteractionRuntime {
   readonly interactive?: (yes: boolean) => boolean;
   /** Environment read for the diagnostics trace lookup; defaults to the process. */
   readonly env?: EnvReader;
+  /** Package session inherited by requests inside one sequential form. */
+  readonly packageRuntime?: PackageInteractionRuntime;
+}
+
+/** Requests a sequential-form step may compose through the product boundary. */
+export interface SequentialInteractionRequests {
+  select<T>(options: SelectionRequestOptions<T>): Promise<T>;
+  text(options: TextRequestOptions): Promise<string>;
+  confirm(
+    message: string,
+    options: ConfirmationRequestOptions,
+  ): Promise<boolean>;
+}
+
+/** One conditionally applicable step in a package-owned sequential form. */
+export interface SequentialFormRequestStep {
+  readonly id: string;
+  readonly label: string;
+  readonly run: (
+    values: Readonly<Record<string, unknown>>,
+    previous: unknown,
+    requests: SequentialInteractionRequests,
+  ) => MaybePromise<unknown>;
+  readonly when?: (values: Readonly<Record<string, unknown>>) => boolean;
+  /** Non-sensitive progress text shown after this step completes. */
+  readonly summarize?: (value: unknown) => string;
+}
+
+/** Product vocabulary for one sequential interaction. */
+export interface SequentialFormRequestOptions {
+  readonly message: string;
+  readonly hint?: string;
+  readonly steps: readonly SequentialFormRequestStep[];
 }
 
 /** Product cancellation meaning for Ctrl+C and terminal end-of-input. */
@@ -902,7 +936,11 @@ function packageValidator<T>(
 }
 
 interface PackageInteractionSession {
-  readonly runtime: PackageInteractionRuntime;
+  readonly runtime: PackageInteractionRuntime & { readonly io: TerminalIO };
+  /** Start a package form with the same traced IO and presentation runtime. */
+  readonly sequentialForm: (
+    options: Readonly<{ label: string; hint?: string }>,
+  ) => ReturnType<typeof createSequentialForm>;
   /** End a frame whose unexpected exception bypassed the package's finish. */
   readonly terminateUnexpectedFrame: () => void;
   /** Flush this request's diagnostic trace record, when tracing is active. */
@@ -929,8 +967,15 @@ function packageInteractionRuntime(
   let target: TerminalIO;
   let theme: PackageInteractionRuntime["theme"];
   let motif: PackageInteractionRuntime["motif"];
+  const inherited = runtime.packageRuntime;
   if (runtime.io !== undefined) {
     target = runtime.io;
+    theme = inherited?.theme;
+    motif = inherited?.motif;
+  } else if (inherited?.io !== undefined) {
+    target = inherited.io;
+    theme = inherited.theme;
+    motif = inherited.motif;
   } else {
     const terminal = terminalContext();
     target = terminalInteractionIo(terminal);
@@ -962,12 +1007,16 @@ function packageInteractionRuntime(
   const trace = tracePath === undefined
     ? undefined
     : traceInteractionIo(tracePath, io);
+  const packageRuntime = {
+    ...(inherited ?? {}),
+    io: trace?.io ?? io,
+    ...(theme === undefined ? {} : { theme }),
+    ...(motif === undefined ? {} : { motif }),
+  } satisfies PackageInteractionRuntime & { readonly io: TerminalIO };
   return {
-    runtime: {
-      io: trace?.io ?? io,
-      ...(theme === undefined ? {} : { theme }),
-      ...(motif === undefined ? {} : { motif }),
-    },
+    runtime: packageRuntime,
+    sequentialForm: (formOptions) =>
+      createSequentialForm(Object.assign({}, packageRuntime, formOptions)),
     ...(trace === undefined ? {} : { settleTrace: trace.settle }),
     terminateUnexpectedFrame: (): void => {
       if (!options.terminateUnexpectedFrame || !wrote) return;
@@ -1292,6 +1341,72 @@ export async function requestCompactAcknowledgement(
     { presentation: "compact" as const },
     runtime,
   );
+}
+
+/**
+ * Compose conditional text, selection, and confirmation steps through one
+ * package-owned form. Ctrl+U returns to the prior applicable step; cancellation
+ * is normalized to the same product error as every individual request.
+ */
+export async function requestSequentialForm(
+  options: SequentialFormRequestOptions,
+  runtime: TerminalInteractionRuntime = {},
+): Promise<Record<string, unknown>> {
+  requireInteraction("this task form", runtime);
+  const session = packageInteractionRuntime(runtime);
+  const parent = session.runtime;
+  const form = session.sequentialForm({
+    label: terminalLine(options.message),
+    ...(options.hint === undefined ? {} : { hint: terminalLine(options.hint) }),
+  });
+  for (const step of options.steps) {
+    form.add({
+      id: step.id,
+      label: terminalLine(step.label),
+      ...(step.when === undefined ? {} : { when: step.when }),
+      ...(step.summarize === undefined ? {} : {
+        summarize: (value): string =>
+          terminalLine(step.summarize?.(value) ?? ""),
+      }),
+      run: async (values, previous, stepRuntime): Promise<unknown> => {
+        const childRuntime: TerminalInteractionRuntime = {
+          io: parent.io,
+          interactive: () => true,
+          ...(runtime.env === undefined ? {} : { env: runtime.env }),
+          packageRuntime: stepRuntime,
+        };
+        const requests: SequentialInteractionRequests = {
+          select: <T>(request: SelectionRequestOptions<T>): Promise<T> =>
+            requestSelection(request, childRuntime),
+          text: (request): Promise<string> =>
+            requestText(request, childRuntime),
+          confirm: (message, request): Promise<boolean> =>
+            requestConfirmation(message, request, childRuntime),
+        };
+        try {
+          return await step.run(values, previous, requests);
+        } catch (error) {
+          if (error instanceof InteractionCancelled) {
+            throw new PackageInteractionCancelled(error.message);
+          }
+          throw error;
+        }
+      },
+    });
+  }
+  let outcome = "value";
+  try {
+    return await form.submit();
+  } catch (error) {
+    if (error instanceof PackageInteractionCancelled) {
+      outcome = "cancelled";
+      throw new InteractionCancelled();
+    }
+    outcome = "error";
+    throw error;
+  } finally {
+    session.settleTrace?.(outcome);
+  }
 }
 
 /** Canonical whitespace policy shared by single-line product text requests. */

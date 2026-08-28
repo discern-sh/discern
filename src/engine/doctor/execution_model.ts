@@ -128,6 +128,11 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     hint:
       "A built-in git mutation discern performs (branch, worktree removal, checkout, fast-forward, sweep); the note says which.",
   },
+  "task-metadata": {
+    actor: "discern",
+    hint:
+      "A built-in write to the worktree's Git-admin task record. It changes human task wording or records the creation source without changing Git identity.",
+  },
   "setup-step": {
     actor: "project",
     hint:
@@ -385,6 +390,9 @@ function startVerb(cfg: DiscernConfig): VerbPlan {
     }),
     step("git", BUILT_IN_STEP_LABELS.ensureBranch, {
       note: "put the worktree on a named branch",
+    }),
+    step("task-metadata", BUILT_IN_STEP_LABELS.writeTaskMetadata, {
+      note: "record the display title, optional brief, and creation source",
     }),
   ];
   for (const [name, r] of resourceEntries(cfg)) {
