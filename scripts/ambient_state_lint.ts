@@ -121,14 +121,6 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     reason:
       "The test harness preserves the operator PATH while constructing an isolated wrapper process.",
   },
-  "docs-browser-path": {
-    path: "tests/docs_test.ts",
-    enclosingFunction: "fakeBrowserLauncher",
-    primitive: "env.get",
-    operation: "preserve PATH for the fake browser child",
-    reason:
-      "The documentation harness preserves the operator PATH while constructing its isolated launcher.",
-  },
   "docs-root-cwd": {
     path: "src/commands/docs.ts",
     enclosingFunction: "runTree",
