@@ -59,7 +59,6 @@ import {
   type PatternsStats,
 } from "../../shared/patterns_vocabulary.ts";
 import {
-  LOGBOOK_LIFECYCLE_ACTION_NAMES,
   type LogbookLifecycleAccess,
   logbookLifecycleAccess,
   type LogbookLifecycleActionName,
@@ -2443,22 +2442,6 @@ export async function runPatternsLifecycle(
   return await LIFECYCLE_HANDLERS[action](root, opts, access, out);
 }
 
-/** Backward-compatible internal entry for the reset CLI wiring. */
-export async function runPatternsReset(
-  root: string,
-  opts: RunPatternsLifecycleOptions,
-): Promise<number> {
-  return await runPatternsLifecycle(root, "reset", opts);
-}
-
-/** Run the archive CLI wiring through the registered lifecycle gate. */
-export async function runPatternsArchive(
-  root: string,
-  opts: RunPatternsLifecycleOptions,
-): Promise<number> {
-  return await runPatternsLifecycle(root, "archive", opts);
-}
-
 /** Read every sealed archive and return its discoverable counts. */
 export async function patternsArchivesResult(
   root: string,
@@ -2587,9 +2570,4 @@ export async function runPatternsArchives(
     }\n`);
   }
   return 0;
-}
-
-/** The registry is read here so dead action metadata cannot silently survive. */
-export function registeredLogbookLifecycleActions(): readonly string[] {
-  return LOGBOOK_LIFECYCLE_ACTION_NAMES;
 }

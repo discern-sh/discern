@@ -489,19 +489,6 @@ function StandardTrajectoryChart() {
   );
 }
 
-/** Landing-page projection of the Standard trajectory's essential evidence. */
-export function CompactStandardTrajectory() {
-  return (
-    <div
-      className="standard-trajectory standard-trajectory--compact"
-      aria-label="Lint suppression Standard trajectory"
-    >
-      <StandardTrajectorySummary />
-      <StandardTrajectoryChart />
-    </div>
-  );
-}
-
 /** Dated internal trajectory of the real lint-suppression falling ceiling. */
 export function StandardTrajectory() {
   return (

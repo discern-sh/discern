@@ -119,8 +119,6 @@ This territory leads the For Agents page and technical thought leadership.`,
   },
 ] as const satisfies readonly Territory[];
 
-export type TerritoryId = (typeof TERRITORIES)[number]["id"];
-
 /** The message pillars; each cites the claims that make it defensible. */
 export const PILLARS = [
   {
@@ -282,8 +280,6 @@ export const PILLARS = [
     claims: ["agent-as-operator", "no-model-inside", "isolated-worktrees"],
   },
 ] as const satisfies readonly Pillar<ClaimSlug>[];
-
-export type PillarId = (typeof PILLARS)[number]["id"];
 
 /** Approved descriptions: the by-length ladder, then the audience variants. */
 export const DESCRIPTIONS = [

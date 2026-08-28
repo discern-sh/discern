@@ -339,14 +339,6 @@ export function factCollectionPaths(
   return { content, binary, lineStats };
 }
 
-/** Backward-compatible content-only projection for focused callers. */
-export function contentCollectionPaths(
-  definitions: readonly ResolvedCheckpoint[],
-  diff: EffortDiff,
-): Set<string> {
-  return factCollectionPaths(definitions, diff).content;
-}
-
 /**
  * Evaluate one checkpoint's structural predicates against the effort diff —
  * the pure half of the trigger. `when` is not run here: a holding outcome

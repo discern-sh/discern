@@ -84,11 +84,6 @@ export function plainModeEnabled(): boolean {
   return plainMode;
 }
 
-/** Whether the global CLI requested a quiet result format. */
-export function jsonModeEnabled(): boolean {
-  return jsonMode;
-}
-
 /** Raw flag values passed to `setup` (all optional; undefined → ask/default). */
 export interface InitFlags {
   name?: string | undefined;
@@ -1573,28 +1568,6 @@ async function requestProceed(
     if (!isInteractionCancelled(error)) throw error;
     return false;
   }
-}
-
-/**
- * A friendly confirmation request. At this low-level seam a suppressed
- * interaction returns true; effectful callers first require explicit `--yes` when the
- * shared policy forbids interaction, while `--json` callers keep their existing
- * machine-authorized path. The `json` guard is load-bearing: an interactive
- * confirmation renders to stdout and blocks on input, so reaching it under `--json`
- * would corrupt the single-envelope machine stream and hang a non-interactive
- * caller that happens to hold a TTY. Machine mode therefore takes the same
- * auto-proceed path as `--yes` — the verb still emits exactly one envelope.
- */
-export async function confirmProceed(
-  message: string,
-  labels: ConfirmationLabels,
-  yes: boolean,
-  json = false,
-): Promise<boolean> {
-  if (!confirmationAllowed(yes, json)) {
-    return true;
-  }
-  return await requestProceed(message, labels, requestConfirmation);
 }
 
 /**

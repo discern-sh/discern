@@ -37,8 +37,6 @@ export const valeAlertSchema = z.looseObject({
 /** Vale's path-to-alert-list JSON report. */
 export const valeReportSchema = z.record(z.string(), z.array(valeAlertSchema));
 
-/** One validated Vale alert. */
-export type ValeAlert = z.output<typeof valeAlertSchema>;
 /** One validated Vale JSON report. */
 export type ValeReport = z.output<typeof valeReportSchema>;
 

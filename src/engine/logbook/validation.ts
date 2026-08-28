@@ -176,7 +176,6 @@ export const VALIDATION_EVIDENCE_SCHEMA_FIELDS = {
 } as const;
 export type ValidationEvidence = z.infer<typeof validationEvidenceSchema>;
 export type ValidationState = ValidationEvidence["state"];
-export type ValidationExecution = ValidationEvidence["execution"];
 export type ValidationIncomplete = NonNullable<
   ValidationState["incomplete"]
 >[number];
