@@ -29,6 +29,7 @@ const PROJECT_CHECKPOINT_IDS = [
   "templates-stay-generic",
   "shipped-instruction-rent",
   "authority-boundary",
+  "terminal-timing-readiness",
   "adr-quality",
   "feature-benefit-currency",
   "public-contract",
@@ -68,6 +69,17 @@ const PUBLIC_CONTRACT_PATHS = [
   "src/engine/gate/proof_notes.ts",
   "src/engine/logbook/schema.ts",
   "scripts/public_schema_compatibility.ts",
+] as const;
+
+const TERMINAL_TIMING_READINESS_PATHS = [
+  "tests/waiting.ts",
+  "tests/test_waiting_guard.ts",
+  "scripts/test_real_delay_boundaries.ts",
+  "tests/fixtures/pty_process.ts",
+  "tests/fixtures/interactive_tty_harness.ts",
+  "tests/fixtures/terminal_resize_harness.ts",
+  "tests/fixtures/desk_tty_harness.ts",
+  "scripts/terminal_capture.ts",
 ] as const;
 
 const CONFIG = await loadConfig(REPO_ROOT);
@@ -133,6 +145,21 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
       false,
   );
 
+  const terminalTiming = checkpoint("terminal-timing-readiness");
+  assertEquals(terminalTiming.mode, "stop");
+  assertEquals(
+    terminalTiming.selector?.globs,
+    TERMINAL_TIMING_READINESS_PATHS,
+  );
+  assertEquals(
+    terminalTiming.teach,
+    "Scheduler silence cannot establish completion of streamed output; " +
+      "the real-delay census measures population, not semantic validity.",
+  );
+  assert(
+    terminalTiming.question.includes("why no protocol can expose that state"),
+  );
+
   assertEquals(checkpoint("adr-quality").mode, "advise");
   assertEquals(
     checkpoint("adr-quality").selector?.globs,
@@ -184,6 +211,48 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
     "Remove stale material, link the authority, and cut mechanically derivable prose.",
   );
   assertFalse(Object.hasOwn(CONFIG.checkpoints, "map-conventions"));
+});
+
+Deno.test("terminal timing checkpoint catches a fresh registered sibling and generic synchronization changes", () => {
+  const definition = checkpoint("terminal-timing-readiness");
+  const changed = (
+    path: string,
+  ): EffortDiff["files"][number] => ({
+    path,
+    generated: false,
+    kind: "modified",
+    insertions: 1,
+    deletions: 0,
+    binary: false,
+  });
+
+  const futureSibling: EffortDiff = {
+    files: [
+      changed("tests/foreign-rig/scenes/unrelated_fixture.ts"),
+      changed("tests/waiting.ts"),
+    ],
+    baseFiles: [],
+  };
+  const siblingTrigger = evaluateStructuralTrigger(definition, futureSibling);
+  assert(siblingTrigger.holds);
+  assertEquals(siblingTrigger.matched, ["tests/waiting.ts"]);
+
+  for (const path of TERMINAL_TIMING_READINESS_PATHS) {
+    const outcome = evaluateStructuralTrigger(definition, {
+      files: [changed(path)],
+      baseFiles: [],
+    });
+    assert(outcome.holds, `${path} must require terminal timing judgment`);
+    assertEquals(outcome.matched, [path]);
+  }
+
+  assertEquals(
+    evaluateStructuralTrigger(definition, {
+      files: [changed("tests/unrelated_parser_test.ts")],
+      baseFiles: [],
+    }),
+    { holds: false, vetoedBy: "empty_matched_set" },
+  );
 });
 
 Deno.test("project checkpoint matchers share the invocation-root boundary", () => {

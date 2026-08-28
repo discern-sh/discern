@@ -1379,6 +1379,24 @@
     mode = "stop"
     question = "Does this change preserve the three evidence classes and the Boundary Canon — machine success grants no landing authority, agent declarations are not machine verification, grants never cover a variance, and each effect requires the exact applicable consent?"
 
+  # The timer registry is a population census, not a semantic verifier. Changes
+  # to its authority or the generic terminal synchronization paths must judge
+  # whether elapsed time remains behavior or stimulus rather than readiness.
+  [checkpoints.terminal-timing-readiness]
+    paths = [
+      "tests/waiting.ts",
+      "tests/test_waiting_guard.ts",
+      "scripts/test_real_delay_boundaries.ts",
+      "tests/fixtures/pty_process.ts",
+      "tests/fixtures/interactive_tty_harness.ts",
+      "tests/fixtures/terminal_resize_harness.ts",
+      "tests/fixtures/desk_tty_harness.ts",
+      "scripts/terminal_capture.ts",
+    ]
+    mode = "stop"
+    question = "Does each changed terminal transition use elapsed time only for behavior or controlled adversarial stimulus under test, and a positive observable condition for readiness and frame completion? If not, identify the transition that still infers state from elapsed time and why no protocol can expose that state."
+    teach = "Scheduler silence cannot establish completion of streamed output; the real-delay census measures population, not semantic validity."
+
   # An ADR addition is the decision moment; later corrections to an existing
   # record do not need this advisory.
   [checkpoints.adr-quality]
