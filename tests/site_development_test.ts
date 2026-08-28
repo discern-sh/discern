@@ -12,7 +12,10 @@ import { dirname, fromFileUrl, join, toFileUrl } from "@std/path";
 import { Project, SyntaxKind } from "ts-morph";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import {
+  assignedWorktreePort,
   DEFAULT_SITE_DEV_PORT,
+  type DenoRunInvocation,
+  denoRunInvocation,
   LOCAL_SITE_BUILD_TASKS,
   localHandler,
   localSiteBuildCommandArgs,
@@ -25,6 +28,8 @@ import {
   SITE_DEV_BROWSER_HOST,
   siteDevPortInUseError,
 } from "../site/dev.ts";
+import { quietDenoRunArgs, withTempDir } from "./helpers.ts";
+import { addWorktree, gitInit, writeConfig } from "./engine_helpers.ts";
 import {
   SITE_BUILD_INPUTS,
   siteBuildEventNeedsRebuild,
@@ -437,6 +442,278 @@ Deno.test("an explicit build config and future package tree reach every linked-p
     Error,
     "--build-config requires",
   );
+});
+
+/** A preview-capable `deno run` task and the config file declaring it. */
+interface PreviewTask {
+  readonly config: string;
+  readonly name: string;
+  readonly invocation: DenoRunInvocation;
+}
+
+/** Normalize one task entry token to a repo-relative module path. */
+function normalizedTaskEntry(entry: string): string {
+  return entry.replace(/^\.\//, "");
+}
+
+/** Site modules that reach the preview runtime through site-local imports. */
+function previewRuntimeModules(
+  sources: readonly AuthoredSource[],
+): Set<string> {
+  const project = new Project({ useInMemoryFileSystem: true });
+  const importsOf = new Map<string, readonly string[]>();
+  for (const source of sources) {
+    const file = project.createSourceFile(source.path, source.text, {
+      overwrite: true,
+    });
+    const specifiers = [
+      ...file.getImportDeclarations().map((declaration) =>
+        declaration.getModuleSpecifierValue()
+      ),
+      ...file.getExportDeclarations().map((declaration) =>
+        declaration.getModuleSpecifierValue()
+      ),
+    ];
+    importsOf.set(
+      source.path,
+      specifiers
+        .filter((specifier): specifier is string =>
+          specifier !== undefined && specifier.startsWith(".")
+        )
+        .map((specifier) =>
+          new URL(specifier, `file:///${source.path}`).pathname.slice(1)
+        )
+        .filter((path) => path.startsWith("site/")),
+    );
+  }
+  const reached = new Set<string>(["site/dev.ts"]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const [path, dependencies] of importsOf) {
+      if (reached.has(path)) continue;
+      if (dependencies.some((dependency) => reached.has(dependency))) {
+        reached.add(path);
+        grew = true;
+      }
+    }
+  }
+  return reached;
+}
+
+/** Tasks whose `deno run` entry reaches the preview runtime. */
+function sitePreviewTasks(
+  entries: readonly ConfigEntry[],
+  runtimeModules: ReadonlySet<string>,
+): PreviewTask[] {
+  const tasks: PreviewTask[] = [];
+  for (const { path, config } of entries) {
+    for (const [name, command] of Object.entries(config.tasks ?? {})) {
+      const invocation = denoRunInvocation(command);
+      if (invocation === undefined) continue;
+      if (!runtimeModules.has(normalizedTaskEntry(invocation.entry))) continue;
+      tasks.push({ config: path, name, invocation });
+    }
+  }
+  return tasks;
+}
+
+/**
+ * Replay preview startup's environment reads in a child process. The child
+ * inherits the caller's environment, so the probe never depends on ambient
+ * values: it always resolves identity, and only mirrors an explicit PORT
+ * override's read before neutralizing its value.
+ */
+const PREVIEW_ENV_PROBE = `
+const [target, devSpecifier, entrySpecifier] = Deno.args;
+if (
+  target === undefined || devSpecifier === undefined ||
+  entrySpecifier === undefined
+) {
+  throw new Error("usage: probe <worktree-root> <dev-url> <entry-url>");
+}
+await import(entrySpecifier);
+const dev = await import(devSpecifier);
+const discovered = await dev.assignedWorktreePort(target);
+if (discovered === undefined) {
+  throw new Error("the scaffolded worktree resolved no identity port");
+}
+const explicit = Deno.env.get("PORT");
+const resolved = await dev.resolveSiteDevPort(
+  explicit === undefined ? undefined : String(discovered),
+  () => Promise.resolve(discovered),
+);
+if (resolved !== discovered) {
+  throw new Error("preview port resolution ignored the worktree identity");
+}
+console.log("preview-port:" + resolved);
+`;
+
+/** Scaffold a hermetic main checkout plus one linked worktree for port probes. */
+async function withScaffoldedWorktree<T>(
+  fn: (worktree: string, probePath: string) => Promise<T>,
+): Promise<T> {
+  return await withTempDir(async (dir) => {
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "site-preview-probe"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "preview-probe");
+    const probePath = join(dir, "preview_env_probe.ts");
+    await Deno.writeTextFile(probePath, PREVIEW_ENV_PROBE);
+    return await fn(worktree, probePath);
+  });
+}
+
+/** Spawn the probe under exactly the given task permission flags. */
+async function runPreviewProbe(
+  permissionFlags: readonly string[],
+  worktree: string,
+  probePath: string,
+  entryUrl: string,
+): Promise<{ success: boolean; stdout: string; stderr: string }> {
+  const devUrl = toFileUrl(join(REPO, "site/dev.ts")).href;
+  const output = await new Deno.Command(Deno.execPath(), {
+    // The probe file lives outside the repo, so the repo's import map must be
+    // named explicitly; permission flags still come only from the task.
+    args: quietDenoRunArgs([
+      "--config",
+      join(REPO, "deno.json"),
+      ...permissionFlags,
+      probePath,
+      worktree,
+      devUrl,
+      entryUrl,
+    ]),
+    cwd: REPO,
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  const decoder = new TextDecoder();
+  return {
+    success: output.success,
+    stdout: decoder.decode(output.stdout),
+    stderr: decoder.decode(output.stderr),
+  };
+}
+
+Deno.test("the preview census parses invocations and reaches the runtime", () => {
+  assertEquals(
+    denoRunInvocation(
+      "discern queue -- deno run --watch --allow-read --allow-env=A,B ./site/showcase.ts --watch",
+    ),
+    {
+      permissionFlags: ["--allow-read", "--allow-env=A,B"],
+      entry: "./site/showcase.ts",
+    },
+  );
+  assertEquals(denoRunInvocation("deno fmt"), undefined);
+  assertEquals(denoRunInvocation("deno task site:specimens"), undefined);
+
+  const runtime = previewRuntimeModules([
+    { path: "site/dev.ts", text: "" },
+    {
+      path: "site/showcase.ts",
+      text: 'import { plan } from "./nested/helper.ts";',
+    },
+    {
+      path: "site/nested/helper.ts",
+      text: 'export { planSitePreviewStart as plan } from "../dev.ts";',
+    },
+    { path: "site/build.ts", text: 'import "./design_system.ts";' },
+  ]);
+  assert(
+    runtime.has("site/showcase.ts"),
+    "transitive preview imports must enroll",
+  );
+  assert(!runtime.has("site/build.ts"), "non-preview site modules stay out");
+
+  assertEquals(
+    sitePreviewTasks([{
+      path: "unrelated/deno.json",
+      config: {
+        tasks: { showcase: "deno run --allow-env=PORT site/showcase.ts" },
+      },
+    }], runtime).map((task) => task.name),
+    ["showcase"],
+  );
+});
+
+Deno.test("worktree port discovery declines a checkout without a git link file", async () => {
+  await withTempDir(async (dir) => {
+    assertEquals(await assignedWorktreePort(dir), undefined);
+    await Deno.mkdir(join(dir, ".git"));
+    assertEquals(await assignedWorktreePort(dir), undefined);
+  });
+});
+
+Deno.test("every preview task resolves worktree identity under its own permissions", async () => {
+  const runtime = previewRuntimeModules(await authoredSiteSources());
+  const tasks = sitePreviewTasks(await developmentConfigs(), runtime);
+  const names = new Set(tasks.map((task) => task.name));
+  for (const required of ["site", "watch", "site:specimens"]) {
+    assert(names.has(required), `the preview-task census lost '${required}'`);
+  }
+  await withScaffoldedWorktree(async (worktree, probePath) => {
+    assertEquals(typeof await assignedWorktreePort(worktree), "number");
+    const results = await Promise.all(tasks.map(async (task) => ({
+      task,
+      probe: await runPreviewProbe(
+        task.invocation.permissionFlags,
+        worktree,
+        probePath,
+        toFileUrl(join(REPO, normalizedTaskEntry(task.invocation.entry))).href,
+      ),
+    })));
+    for (const { task, probe } of results) {
+      assert(
+        probe.success,
+        `task '${task.name}' cannot start from a linked worktree under its ` +
+          `own permission flags. Preview startup reads something the task's ` +
+          `--allow-env list in ${task.config} does not grant; add the ` +
+          `variable named below to that list.\n${probe.stderr}`,
+      );
+      assertStringIncludes(
+        probe.stdout,
+        "preview-port:",
+        `task '${task.name}' probe skipped identity discovery`,
+      );
+    }
+  });
+});
+
+Deno.test("the preview probe fails when an identity variable is withheld", async () => {
+  const runtime = previewRuntimeModules(await authoredSiteSources());
+  const site = sitePreviewTasks(await developmentConfigs(), runtime)
+    .find((task) => task.name === "site");
+  assert(site !== undefined, "the root config must keep a 'site' preview task");
+  const reduced = site.invocation.permissionFlags.map((flag) =>
+    flag.startsWith("--allow-env=") ? "--allow-env=PORT" : flag
+  );
+  await withScaffoldedWorktree(async (worktree, probePath) => {
+    const probe = await runPreviewProbe(
+      reduced,
+      worktree,
+      probePath,
+      toFileUrl(join(REPO, "site/dev.ts")).href,
+    );
+    assertEquals(
+      probe.success,
+      false,
+      "identity resolution under a stripped --allow-env list must fail; if " +
+        "this now passes, preview startup no longer reads restricted " +
+        "environment variables and the sufficiency probe proves nothing",
+    );
+    assertStringIncludes(probe.stderr, "NotCapable", probe.stderr);
+  });
 });
 
 Deno.test("the watch task delegates to the source-driven site watcher", async () => {

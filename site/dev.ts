@@ -107,6 +107,42 @@ export function parseSiteDevArgs(args: readonly string[]): SiteDevOptions {
   };
 }
 
+/** One `deno run` invocation inside a task command: sandbox flags plus entry. */
+export interface DenoRunInvocation {
+  /** The `--allow-*` / `--deny-*` permission flags, in command order. */
+  readonly permissionFlags: readonly string[];
+  /** The first non-flag token after `deno run` — the entry module path. */
+  readonly entry: string;
+}
+
+/**
+ * Extract the first `deno run` invocation from a task command, or undefined
+ * when the command runs no module. The one shared reading of a preview task's
+ * permission surface: the sufficiency guard replays these flags against a real
+ * worktree, and the linked design-system preview derives its server sandbox
+ * from the same parse, so a permission fix in `deno.json` reaches both.
+ */
+export function denoRunInvocation(
+  command: string,
+): DenoRunInvocation | undefined {
+  const tokens = command.split(/\s+/).filter((token) => token !== "");
+  const run = tokens.findIndex((token, index) =>
+    token === "deno" && tokens[index + 1] === "run"
+  );
+  if (run === -1) return undefined;
+  const permissionFlags: string[] = [];
+  for (let index = run + 2; index < tokens.length; index++) {
+    const token = tokens[index];
+    if (token === undefined) break;
+    if (token.startsWith("-")) {
+      if (/^--(?:allow|deny)-/.test(token)) permissionFlags.push(token);
+      continue;
+    }
+    return { permissionFlags, entry: token };
+  }
+  return undefined;
+}
+
 /** Parse an optional local port override without silently accepting garbage. */
 export function parseSiteDevPort(value: string | undefined): number {
   if (value === undefined) return DEFAULT_SITE_DEV_PORT;
@@ -120,11 +156,13 @@ export function parseSiteDevPort(value: string | undefined): number {
 }
 
 /** Discover the port discern assigned when this checkout is a linked worktree. */
-async function assignedWorktreePort(): Promise<number | undefined> {
-  if (!(await statIfExists(join(REPO_ROOT_PATH, ".git")))?.isFile) {
+export async function assignedWorktreePort(
+  root: string = REPO_ROOT_PATH,
+): Promise<number | undefined> {
+  if (!(await statIfExists(join(root, ".git")))?.isFile) {
     return undefined;
   }
-  return (await resolveIdentity(REPO_ROOT_PATH, REPO_ROOT_PATH)).port;
+  return (await resolveIdentity(root, root)).port;
 }
 
 /** Prefer an explicit override, then worktree identity, then the main default. */
