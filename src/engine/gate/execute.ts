@@ -284,6 +284,12 @@ export async function runJobGroups(
   return { results, failedStage };
 }
 
+/** The run-level time budget every gate job inherits, paired with the config
+ * key that set it so a fired watchdog can name its source. */
+export function gateTimeoutBudget(cfg: DiscernConfig): JobTimeout {
+  return { seconds: cfg.gate.timeout, key: GATE_TIMEOUT_KEY };
+}
+
 /**
  * The run context every gate verb shares: the {@link RunOptions} for the job runner
  * and the {@link Out} for its narration, derived once from the resolved project root,
@@ -302,12 +308,6 @@ export async function runJobGroups(
  * gate verb: any run whose context comes from this one place carries the cap,
  * and {@link runGroup} decides per group whether to draw on it.
  */
-/** The run-level time budget every gate job inherits, paired with the config
- * key that set it so a fired watchdog can name its source. */
-export function gateTimeoutBudget(cfg: DiscernConfig): JobTimeout {
-  return { seconds: cfg.gate.timeout, key: GATE_TIMEOUT_KEY };
-}
-
 export function gateRunContext(
   root: string,
   cfg: DiscernConfig,
