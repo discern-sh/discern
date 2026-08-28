@@ -255,6 +255,26 @@ Deno.test({
 });
 
 Deno.test({
+  name: "PTY input phases accept a positive condition over fresh output",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    const result = await runPtyProcess({
+      command: Deno.execPath(),
+      args: childArgs("multi-write-frame"),
+      cwd: REPO_ROOT,
+      input: [{
+        waitFor: ptyOutputContains(["frame begins", "frame complete"]),
+        steps: [{ bytes: "x" }],
+      }],
+      timeoutMs: 3_000,
+    });
+
+    assertEquals(result.code, 0, result.transcript);
+    assertStringIncludes(result.transcript, "frame complete");
+  },
+});
+
+Deno.test({
   name: "PTY process applies scripted terminal geometry",
   ignore: Deno.build.os === "windows",
   fn: async () => {

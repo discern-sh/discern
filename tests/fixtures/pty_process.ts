@@ -45,7 +45,10 @@ export interface PtyKeyframeCapture {
 
 /** Input that cannot begin until the child has rendered a named marker. */
 export interface PtyInputPhase {
-  readonly waitFor: string | readonly [string, ...string[]];
+  readonly waitFor:
+    | string
+    | readonly [string, ...string[]]
+    | PtyOutputCondition;
   /** Save the transcript only after its own positive readiness condition. */
   readonly capture?: PtyKeyframeCapture;
   readonly steps: readonly [PtyInputStep, ...PtyInputStep[]];
@@ -224,9 +227,14 @@ export async function runPtyProcess(
     phaseStderr: observedStderr.slice(cursor.stderr),
   });
   const waitForOutput = async (
-    requestedMarkers: string | readonly [string, ...string[]],
+    readiness: PtyInputPhase["waitFor"],
     cursor: OutputCursor,
   ): Promise<void> => {
+    if (isOutputCondition(readiness)) {
+      await waitForOutputCondition(readiness, cursor);
+      return;
+    }
+    const requestedMarkers = readiness;
     const markers = typeof requestedMarkers === "string"
       ? [requestedMarkers]
       : requestedMarkers;
@@ -286,7 +294,7 @@ export async function runPtyProcess(
       for (const [phaseIndex, phase] of inputPhases.entries()) {
         inputProgress =
           `phase ${phaseIndex + 1}/${inputPhases.length} waiting for ` +
-          JSON.stringify(phase.waitFor);
+          readinessDescription(phase.waitFor);
         await waitForOutput(phase.waitFor, cursor);
         inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} ready`;
         const capture = phase.capture;
@@ -498,6 +506,12 @@ function validateInput(
   let pendingLoneEscape = false;
   const keyframeNames = new Set<string>();
   for (const phase of phases) {
+    if (
+      isOutputCondition(phase.waitFor) &&
+      phase.waitFor.description.length === 0
+    ) {
+      throw new TypeError("PTY input readiness description must not be empty");
+    }
     const capture = phase.capture;
     if (capture !== undefined) {
       if (capture.name.length === 0) {
@@ -527,6 +541,20 @@ function validateInput(
         step.allowLoneEscape !== true;
     }
   }
+}
+
+/** Whether one phase waits on a positive output predicate instead of markers. */
+function isOutputCondition(
+  readiness: PtyInputPhase["waitFor"],
+): readiness is PtyOutputCondition {
+  return typeof readiness === "object" && !Array.isArray(readiness);
+}
+
+/** Render one phase's readiness boundary without serializing its function. */
+function readinessDescription(readiness: PtyInputPhase["waitFor"]): string {
+  return isOutputCondition(readiness)
+    ? readiness.description
+    : JSON.stringify(readiness);
 }
 
 function assertOutputMarkers(

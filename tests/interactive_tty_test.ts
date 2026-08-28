@@ -11,6 +11,7 @@ import {
 } from "./fixtures/interactive_tty_harness.ts";
 import {
   type PtyInputPhase,
+  type PtyOutputCondition,
   type PtyProcessResult,
   runPtyProcess,
 } from "./fixtures/pty_process.ts";
@@ -92,7 +93,7 @@ interface HarnessRunOptions {
   readonly resize?: {
     readonly columns: number;
     readonly rows: number;
-    readonly afterMs: number;
+    readonly when: PtyOutputCondition;
   };
   readonly noColor?: boolean;
   readonly canonicalEof?: boolean;
@@ -105,12 +106,24 @@ function sizeArgument(size: { columns: number; rows: number }): string {
   return `${size.columns}x${size.rows}`;
 }
 
+/** Return the control path created whenever resize options are present. */
+function requiredResizePath(path: string | undefined): string {
+  if (path === undefined) {
+    throw new Error("resize control path was not created");
+  }
+  return path;
+}
+
 /** Run one production interaction scenario inside a real pseudo-terminal. */
 async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
   const resultPath = await Deno.makeTempFile({
     prefix: "discern-interactive-result-",
     suffix: ".json",
   });
+  const resizeWhenPath = options.resize === undefined
+    ? undefined
+    : await Deno.makeTempFile({ prefix: "discern-interactive-resize-" });
+  if (resizeWhenPath !== undefined) await Deno.remove(resizeWhenPath);
   try {
     const args = repoSourceRunArgs(HARNESS, [
       "--scenario",
@@ -124,8 +137,8 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
       ...(options.resize === undefined ? [] : [
         "--resize",
         sizeArgument(options.resize),
-        "--resize-after",
-        String(options.resize.afterMs),
+        "--resize-when",
+        requiredResizePath(resizeWhenPath),
       ]),
       ...(options.canonicalEof === true ? ["--canonical-eof"] : []),
       ...(options.interactionStartDelayMs === undefined ? [] : [
@@ -133,12 +146,28 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
         String(options.interactionStartDelayMs),
       ]),
     ]);
+    const resizePhase: PtyInputPhase | undefined = options.resize === undefined
+      ? undefined
+      : {
+        waitFor: options.resize.when,
+        steps: [{
+          effect: async () => {
+            await Deno.writeTextFile(
+              requiredResizePath(resizeWhenPath),
+              "ready\n",
+            );
+          },
+        }],
+      };
     const process = await runPtyProcess({
       command: Deno.execPath(),
       args,
       cwd: REPO_ROOT,
       ...(options.env === undefined ? {} : { env: options.env }),
-      input: options.input ?? keys(options.scenario, "\r"),
+      input: [
+        ...(resizePhase === undefined ? [] : [resizePhase]),
+        ...(options.input ?? keys(options.scenario, "\r")),
+      ],
       timeoutMs: options.timeoutMs ?? 8_000,
     });
     const raw = await Deno.readTextFile(resultPath);
@@ -149,6 +178,9 @@ async function runHarness(options: HarnessRunOptions): Promise<HarnessRun> {
     };
   } finally {
     await Deno.remove(resultPath).catch(() => undefined);
+    if (resizeWhenPath !== undefined) {
+      await Deno.remove(resizeWhenPath).catch(() => undefined);
+    }
   }
 }
 
@@ -676,7 +708,19 @@ Deno.test({
     const run = await runHarness({
       scenario: "grouped-select",
       size: { columns: 32, rows: 10 },
-      resize: { columns: 100, rows: 30, afterMs: 180 },
+      resize: {
+        columns: 100,
+        rows: 30,
+        when: {
+          description: "the complete initial narrow grouped-selection frame",
+          test: (output) =>
+            stripCsiSequences(output.phaseStdout).split(/\r?\n/u).some((line) =>
+              line.includes("Alpha with a") &&
+              !line.includes("deliberately long")
+            ),
+        },
+      },
+      interactionStartDelayMs: 600,
       input: [
         {
           waitFor: "[resize-ready]",
@@ -689,6 +733,12 @@ Deno.test({
       ],
     });
     assertValue(run, "alpha");
+    assert(
+      run.process.transcript.indexOf(
+        INTERACTIVE_TTY_REQUEST_LABELS["grouped-select"][0],
+      ) < run.process.transcript.indexOf("[resize-ready]"),
+      `the resize must follow the first observable interaction frame:\n${run.process.transcript}`,
+    );
     assertEquals(run.result.terminal.initialSize, { columns: 32, rows: 10 });
     assertEquals(run.result.terminal.resizedSize, {
       columns: 100,

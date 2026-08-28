@@ -6,6 +6,23 @@ import {
   waitingSources,
 } from "../tests/test_waiting_guard.ts";
 import { TEST_REAL_DELAY_BOUNDARIES } from "../tests/waiting.ts";
+import type { TestRealDelayClassification } from "../tests/waiting.ts";
+
+/** Summarize the semantic audit recorded on the canonical boundary rows. */
+export function realDelayClassificationCounts(): Record<
+  TestRealDelayClassification,
+  number
+> {
+  const counts: Record<TestRealDelayClassification, number> = {
+    "elapsed-behavior": 0,
+    "negative-observation-window": 0,
+    "adversarial-stimulus": 0,
+  };
+  for (const boundary of Object.values(TEST_REAL_DELAY_BOUNDARIES)) {
+    counts[boundary.classification]++;
+  }
+  return counts;
+}
 
 /** Verify exact enrollment and return the deterministic registry population. */
 export async function measureTestRealDelayBoundaries(
@@ -22,5 +39,12 @@ export async function measureTestRealDelayBoundaries(
 
 if (import.meta.main) {
   const count = await measureTestRealDelayBoundaries();
+  const classifications = realDelayClassificationCounts();
+  console.error(
+    "test real-delay classifications: " +
+      Object.entries(classifications).map(([name, members]) =>
+        `${name}=${members}`
+      ).join(", "),
+  );
   console.log(`DISCERN_METRIC test_real_delay_boundaries ${count}`);
 }

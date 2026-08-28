@@ -3,6 +3,12 @@
 import { type Clock, SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../src/shared/scheduler.ts";
 
+/** The semantic reason a registered test interval must remain real. */
+export type TestRealDelayClassification =
+  | "elapsed-behavior"
+  | "negative-observation-window"
+  | "adversarial-stimulus";
+
 /** Evidence recorded for one test whose contract genuinely spends wall time. */
 export interface TestRealDelayBoundary {
   /** Repository-relative module containing the one enrolled call. */
@@ -13,6 +19,8 @@ export interface TestRealDelayBoundary {
   readonly operation: string;
   /** Why observation or fake time cannot replace the real interval. */
   readonly reason: string;
+  /** Which retained semantic role makes elapsed scheduler time essential. */
+  readonly classification: TestRealDelayClassification;
 }
 
 /**
@@ -27,6 +35,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "observe that a delayed post-commit descendant cannot write",
     reason:
       "Absence before the hook's planted delay expires cannot prove that the commit boundary reaped it.",
+    classification: "negative-observation-window",
   },
   "escaped-daemon-hold": {
     path: "tests/fixtures/escaped_daemon.ts",
@@ -34,6 +43,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "keep detached inherited pipes open after the leader exits",
     reason:
       "The runner's drain-bound behavior is tested only while the escaped descendant deliberately retains the pipes for an elapsed lifetime.",
+    classification: "adversarial-stimulus",
   },
   "job-descendant-quiescence-window": {
     path: "tests/jobs_runner_test.ts",
@@ -42,20 +52,15 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "observe that a released background job cannot write late",
     reason:
       "The assertion is the absence of a write scheduled after the job result, so no positive condition can complete it early.",
-  },
-  "interactive-tty-resize-delay": {
-    path: "tests/fixtures/interactive_tty_harness.ts",
-    enclosing: "main",
-    operation: "move the PTY viewport during a live interactive frame",
-    reason:
-      "The resize scenario intentionally changes terminal geometry after startup and has no child-owned readiness marker.",
+    classification: "negative-observation-window",
   },
   "interactive-tty-start-delay": {
     path: "tests/fixtures/interactive_tty_harness.ts",
     enclosing: "main",
     operation: "delay scripted interaction until the target state is exposed",
     reason:
-      "This legacy interactive scenario observes behavior during a deliberately elapsed startup window and exposes no positive readiness signal.",
+      "The scenario deliberately postpones the first read; the parent still waits for the child-owned first-read acknowledgment before sending EOF.",
+    classification: "adversarial-stimulus",
   },
   "pty-child-frame-completion": {
     path: "tests/fixtures/pty_child_program.ts",
@@ -63,6 +68,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "separate the middle and complete writes of one PTY frame",
     reason:
       "The scenario proves ordered multi-write rendering, so the writes must occupy distinct elapsed intervals.",
+    classification: "adversarial-stimulus",
   },
   "pty-child-frame-middle": {
     path: "tests/fixtures/pty_child_program.ts",
@@ -70,6 +76,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "separate the opening and middle writes of one PTY frame",
     reason:
       "The scenario proves ordered multi-write rendering, so the writes must occupy distinct elapsed intervals.",
+    classification: "adversarial-stimulus",
   },
   "pty-child-held-input-window": {
     path: "tests/fixtures/pty_child_program.ts",
@@ -77,6 +84,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "observe whether the wrapper input remains open after one read",
     reason:
       "The assertion distinguishes an open blocked read from EOF by allowing an explicit observation window to win the race.",
+    classification: "negative-observation-window",
   },
   "pty-child-progress-phase-two": {
     path: "tests/fixtures/pty_child_program.ts",
@@ -84,6 +92,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "delay completion after the second scripted input phase",
     reason:
       "The test subject is whether the completion timeout restarts after each observed input phase.",
+    classification: "adversarial-stimulus",
   },
   "pty-child-progress-phase-one": {
     path: "tests/fixtures/pty_child_program.ts",
@@ -91,6 +100,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "delay the second readiness marker after the first input phase",
     reason:
       "The test subject is whether the completion timeout restarts after each observed input phase.",
+    classification: "adversarial-stimulus",
   },
   "pty-child-slow-start": {
     path: "tests/fixtures/pty_child_program.ts",
@@ -98,6 +108,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "delay raw-mode readiness beyond the completion timeout",
     reason:
       "The scenario proves startup readiness and completion use different clocks by intentionally exceeding the latter before readiness.",
+    classification: "adversarial-stimulus",
   },
   "pty-input-step-pacing": {
     path: "tests/fixtures/pty_process.ts",
@@ -105,6 +116,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "separate intentionally distinct terminal input writes",
     reason:
       "The tests exercise byte sequences arriving in separate terminal reads; a condition would collapse the input timing under test.",
+    classification: "adversarial-stimulus",
   },
   "pty-termination-grace": {
     path: "tests/fixtures/pty_process.ts",
@@ -112,6 +124,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "allow TERM handling before escalating the PTY tree to KILL",
     reason:
       "Graceful signal handling is the timing contract, and the child offers no positive completion condition before escalation.",
+    classification: "elapsed-behavior",
   },
   "routed-command-quiescence-window": {
     path: "tests/owned_child_test.ts",
@@ -120,13 +133,15 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "observe that a released routed descendant cannot write late",
     reason:
       "The assertion is the absence of a delayed write after command settlement, which requires the planted window to pass.",
+    classification: "negative-observation-window",
   },
   "terminal-resize-delay": {
     path: "tests/fixtures/terminal_resize_harness.ts",
     enclosing: "main",
     operation: "resize a real terminal after the scenario's declared interval",
     reason:
-      "Unmarked real-PTY scenarios require the viewport change to occur after startup rather than at an observable child transition.",
+      "A job-owned marker first proves active work; the following interval deliberately places the resize during that job, while output assertions independently prove the before and after frames.",
+    classification: "adversarial-stimulus",
   },
   "slot-lock-holder-lifetime": {
     path: "tests/fixtures/slot_lock_holder.ts",
@@ -134,6 +149,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "keep a child process and its advisory lock alive until SIGKILL",
     reason:
       "The crash-safety test requires a live process to own the kernel lock; its termination signal is the only external release event.",
+    classification: "adversarial-stimulus",
   },
   "suite-temp-child-lifetime": {
     path: "tests/fixtures/suite_temp_child.ts",
@@ -141,6 +157,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "keep a suite-temp owner alive until the parent kills it",
     reason:
       "The test distinguishes normal unload cleanup from a killed process, so the child must remain alive without reaching unload first.",
+    classification: "adversarial-stimulus",
   },
   "self-signal-desk-lifetime": {
     path: "tests/fixtures/self_signalling_child.ts",
@@ -148,6 +165,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "keep the Desk child alive after it interrupts its parent",
     reason:
       "The Desk resume contract requires a still-live child tree for the parent to forward and reap after the interrupt.",
+    classification: "adversarial-stimulus",
   },
   "self-signal-desk-trigger": {
     path: "tests/fixtures/self_signalling_child.ts",
@@ -155,6 +173,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "interrupt the Desk driver after child startup",
     reason:
       "The signal must arrive asynchronously while the parent owns the live child, which is the interaction under test.",
+    classification: "adversarial-stimulus",
   },
   "self-signal-owned-lifetime": {
     path: "tests/fixtures/self_signalling_child.ts",
@@ -162,6 +181,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "keep the owned child alive after it interrupts its parent",
     reason:
       "Signal forwarding and escalation require a still-live child for the parent to terminate after receiving the interrupt.",
+    classification: "adversarial-stimulus",
   },
   "self-signal-owned-trigger": {
     path: "tests/fixtures/self_signalling_child.ts",
@@ -169,6 +189,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "interrupt the owned-child driver after child startup",
     reason:
       "The signal must arrive asynchronously while the parent is awaiting the child, which is the behavior under test.",
+    classification: "adversarial-stimulus",
   },
   "validation-capture-deadline-watchdog": {
     path: "tests/validation_evidence_test.ts",
@@ -176,6 +197,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "bound a categorical capture-deadline assertion",
     reason:
       "The test subject is the validation capture's elapsed-time deadline; the later watchdog distinguishes a returned deadline result from a hang.",
+    classification: "elapsed-behavior",
   },
   "waiting-real-delay-fake-time": {
     path: "tests/waiting_test.ts",
@@ -183,6 +205,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     operation: "advance an enrolled elapsed-time assertion",
     reason:
       "The test's subject is the realDelay capability itself; FakeTime proves the interval without spending wall time.",
+    classification: "elapsed-behavior",
   },
   "worktree-probe-hook-quiescence-window": {
     path: "tests/engine_worktree_probe_test.ts",
@@ -192,6 +215,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
       "observe that a delayed checkout-hook descendant cannot recreate the probe",
     reason:
       "Only the full planted hook delay can prove the successful teardown did not return ahead of its process group.",
+    classification: "negative-observation-window",
   },
   "worktree-probe-job-quiescence-window": {
     path: "tests/engine_worktree_probe_test.ts",
@@ -201,6 +225,7 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
       "observe that a delayed command descendant cannot recreate the probe",
     reason:
       "The negative post-teardown assertion becomes meaningful only after the planted writer's delay has elapsed.",
+    classification: "negative-observation-window",
   },
 } as const satisfies Record<string, TestRealDelayBoundary>;
 

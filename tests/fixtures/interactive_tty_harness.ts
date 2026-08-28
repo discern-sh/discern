@@ -23,7 +23,7 @@ import {
   setTerminalContext,
   terminalProcessContext,
 } from "../../src/lib/terminal.ts";
-import { realDelay } from "../waiting.ts";
+import { realDelay, waitUntil } from "../waiting.ts";
 
 export type InteractiveTtyScenario =
   | "text"
@@ -102,7 +102,7 @@ interface HarnessOptions {
   readonly resultPath: string;
   readonly noColor: boolean;
   readonly initialSize?: TerminalDimensions;
-  readonly resize?: TerminalDimensions & { readonly delayMs: number };
+  readonly resize?: TerminalDimensions & { readonly whenPath: string };
   readonly interactionStartDelayMs?: number;
   /** Make a literal VEOF produce a zero-byte PTY read while output stays open. */
   readonly canonicalEof: boolean;
@@ -122,6 +122,12 @@ function argument(args: readonly string[], name: string): string | undefined {
   return at < 0 ? undefined : args[at + 1];
 }
 
+/** Return a required parsed argument after a related-option check. */
+function requiredArgument(value: string | undefined, name: string): string {
+  if (value === undefined) throw new TypeError(`${name} is required`);
+  return value;
+}
+
 function dimensions(value: string | undefined): TerminalDimensions | undefined {
   if (value === undefined) return undefined;
   const match = /^(\d+)x(\d+)$/u.exec(value);
@@ -139,8 +145,11 @@ function parseOptions(args: readonly string[]): HarnessOptions {
   }
   const initialSize = dimensions(argument(args, "--size"));
   const resizeSize = dimensions(argument(args, "--resize"));
-  const resizeDelay = Number(argument(args, "--resize-after") ?? "100");
+  const resizeWhenPath = argument(args, "--resize-when");
   const interactionStartDelay = argument(args, "--interaction-start-delay");
+  if (resizeSize !== undefined && resizeWhenPath === undefined) {
+    throw new TypeError("--resize-when is required with --resize");
+  }
   return {
     scenario,
     resultPath,
@@ -148,7 +157,12 @@ function parseOptions(args: readonly string[]): HarnessOptions {
     ...(initialSize === undefined ? {} : { initialSize }),
     ...(resizeSize === undefined
       ? {}
-      : { resize: { ...resizeSize, delayMs: resizeDelay } }),
+      : {
+        resize: {
+          ...resizeSize,
+          whenPath: requiredArgument(resizeWhenPath, "--resize-when"),
+        },
+      }),
     ...(interactionStartDelay === undefined
       ? {}
       : { interactionStartDelayMs: Number(interactionStartDelay) }),
@@ -210,6 +224,19 @@ async function setSize(size: TerminalDimensions): Promise<void> {
 function consoleSize(): TerminalDimensions {
   const size = Deno.consoleSize();
   return { columns: size.columns, rows: size.rows };
+}
+
+/** Await the parent-owned control marker for an observed complete frame. */
+async function waitForPath(path: string): Promise<void> {
+  await waitUntil(async () => {
+    try {
+      await Deno.stat(path);
+      return true;
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      return false;
+    }
+  }, `interactive resize readiness path ${path}`, { timeoutMs: 10_000 });
 }
 
 /** Whether canonical, echoing, signal-aware output mode matches before/after. */
@@ -564,8 +591,8 @@ async function main(args: readonly string[]): Promise<void> {
   const resize = options.resize === undefined
     ? undefined
     : (async (): Promise<void> => {
-      await realDelay("interactive-tty-resize-delay", options.resize?.delayMs ?? 0);
       if (options.resize === undefined) return;
+      await waitForPath(options.resize.whenPath);
       await setSize(options.resize);
       resizedSize = consoleSize();
       console.log("[resize-ready]");
