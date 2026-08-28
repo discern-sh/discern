@@ -23,7 +23,6 @@ export const TASK_TITLE_SOURCES = [
   "identity-fallback",
   "unavailable-fallback",
 ] as const;
-export type TaskTitleSource = (typeof TASK_TITLE_SOURCES)[number];
 
 /** Control, format, and line-separator characters unsafe for terminal text. */
 const UNSAFE_SINGLE_LINE_TEXT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
@@ -82,7 +81,6 @@ export const TaskCreationSourceSchema = z.strictObject({
   ref: z.string().min(1),
   commit: z.string().regex(/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/),
 });
-export type TaskCreationSource = z.infer<typeof TaskCreationSourceSchema>;
 
 const taskTitleSchema = z.string().superRefine((value, context) => {
   const message = taskTextValidationError(value, "title");
