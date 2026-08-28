@@ -316,12 +316,6 @@ const OUTPUT_IDIOM_EXCEPTIONS: readonly OutputIdiomException[] = [
     count: 1,
     reason: "Generated Markdown table cells in a committed document.",
   },
-  {
-    file: "src/engine/desk/desk.ts",
-    rule: "narration-glyph-literal",
-    count: 1,
-    reason: "The desk's muted command echo reuses the accent arrow glyph.",
-  },
 ];
 
 /** Locate outlawed output idioms in comment-stripped source. */

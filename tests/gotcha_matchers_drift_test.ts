@@ -63,7 +63,7 @@ function realFailureCorpus(): GateFailureEvidence[] {
   }));
   const timedOut = jobFailureMessage(
     "test",
-    failedJob({ timedOutAfterS: 600 }),
+    failedJob({ timedOut: { seconds: 600, key: "[gate].timeout" } }),
   );
   const notFound = jobFailureMessage("lint", failedJob({ code: 127 }));
   return [

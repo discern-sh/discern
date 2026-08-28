@@ -72,6 +72,7 @@ import {
   WORKTREE_FIELDS,
   type WorktreeIdentityField,
 } from "./worktree_identity_fields.ts";
+import { TaskMetadataDataSchema } from "./task_metadata.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -567,10 +568,6 @@ export const CheckpointMetConclusionSchema = z.strictObject({
     "One checkpoint question the agent declared met, with the declaration " +
     "time. Agent evidence: recorded, not machine-verified.",
 });
-export type CheckpointMetConclusionData = z.infer<
-  typeof CheckpointMetConclusionSchema
->;
-
 /** One current declared-unmet checkpoint conclusion and its rationale. */
 export const CheckpointUnmetConclusionSchema = z.strictObject({
   id: z.string(),
@@ -588,10 +585,6 @@ export const CheckpointUnmetConclusionSchema = z.strictObject({
     "One checkpoint question the agent declared unmet, with its rationale " +
     "and declaration time. Landing requires an owner-authorized variance.",
 });
-export type CheckpointUnmetConclusionData = z.infer<
-  typeof CheckpointUnmetConclusionSchema
->;
-
 const ReportedCheckpointReviewEntrySchema = z.strictObject({
   id: z.string(),
   mode: z.enum(CHECKPOINT_MODES),
@@ -653,8 +646,6 @@ export const ProofSummarySchema = z.strictObject(PROOF_SUMMARY_FIELDS).meta({
   description: "The compact Proof claim: branch, trunk, validated " +
     "commit, whole-diff statistics, and the one-line rendered proof.",
 });
-export type ProofSummary = z.infer<typeof ProofSummarySchema>;
-
 /** Compatibility readers' view of an earlier or structurally wider proof.
  * Unknown fields remain readable but never enter the strict runtime proof. */
 export const TolerantProofSchema = z.looseObject(PROOF_FIELDS);
@@ -861,8 +852,6 @@ export const ProofNoteSchema = z.strictObject({
       "least one. An empty array is discern's unsigned extension, written at v1.0.0.",
   }),
 });
-export type ProofNote = z.infer<typeof ProofNoteSchema>;
-
 /** The durable reader's payload schema. Unknown additive fields pass at every
  * level while the required proof claim remains stable within this major. */
 export const TolerantProofNotePayloadSchema = z.looseObject({
@@ -967,8 +956,6 @@ export const PinnedLimitSchema = z.strictObject({
   to: z.number(),
   measured: z.number(),
 });
-export type PinnedLimit = z.infer<typeof PinnedLimitSchema>;
-
 /** How `standards propose` changed (or retained) its one proposal record. */
 export const StandardLimitProposalResultSchema = z.strictObject({
   status: z.enum([
@@ -980,10 +967,6 @@ export const StandardLimitProposalResultSchema = z.strictObject({
   ]),
   proposal: StandardLimitProposalSchema,
 });
-export type StandardLimitProposalResultData = z.infer<
-  typeof StandardLimitProposalResultSchema
->;
-
 /** The `standards` verb's `data`: the per-standard readings (the same shape the
  * gate carries in `GateData.standards`, so one consumer reads both), and — on a
  * `--pin` that tightened limits — the applied pins. Both optional: a refusal or
@@ -1130,10 +1113,6 @@ export const OpenQuestionDeclarationSchema = z.strictObject({
    * conclusion does not bind to the current subject. */
   current: z.boolean(),
 });
-export type OpenQuestionDeclarationData = z.infer<
-  typeof OpenQuestionDeclarationSchema
->;
-
 /** One checkpoint's effort-scoped openQuestion: the record that it fired, and any
  * declaration bound to it. */
 export const OpenQuestionDataSchema = z.strictObject({
@@ -1307,8 +1286,6 @@ const GateValidationSchema = z.strictObject({
   mode: z.enum(["proof", "rerun"]),
   proof: GateProofCheckSchema,
 });
-export type GateValidationData = z.infer<typeof GateValidationSchema>;
-
 const GateValidationWireSchema = z.strictObject({
   mode: z.enum(["proof", "rerun"]),
   proof: GateProofWireSchema,
@@ -1503,10 +1480,19 @@ export const StartDataSchema = z.strictObject({
   branch: z.string(),
   path: z.string(),
   from: z.string(),
+  task: TaskMetadataDataSchema,
   name_note: z.string().optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
 });
 export type StartData = z.infer<typeof StartDataSchema>;
+
+/** `worktree rename` — the metadata-only title change for this worktree. */
+export const TaskRenameDataSchema = z.strictObject({
+  path: z.string(),
+  previous_title: z.string(),
+  task: TaskMetadataDataSchema,
+});
+export type TaskRenameData = z.infer<typeof TaskRenameDataSchema>;
 
 export const ProofNotesFetchSchema = z.strictObject({
   mode: z.enum(["local", "fetch"]),
@@ -1603,8 +1589,6 @@ export const AppliedAcceptDataSchema = AcceptDataSchema.required({
   root: true,
   consent: true,
 });
-export type AppliedAcceptData = z.infer<typeof AppliedAcceptDataSchema>;
-
 /** Compact `accept`: landing state plus its bounded Proof line. */
 const AcceptWireDataSchema = AcceptDataSchema.omit({
   proof: true,
@@ -1766,6 +1750,9 @@ const statusFleetEntrySchema = z.strictObject({
   git_unavailable: z.boolean().optional(),
   id: z.string().optional(),
   port: z.number().optional(),
+  /** Human task wording joined to the separately authoritative id and branch.
+   * Optional for status compatibility with older producers. */
+  task: TaskMetadataDataSchema.optional(),
   /** Present (true) when the worktree's creation never completed — its project
    * config is missing from the checkout (a crashed `start`'s signature; config
    * presence is the deliberate signal, not the ready sentinel, so a healthy
@@ -1841,10 +1828,6 @@ const reappearedWorktreePathSchema = z.strictObject({
   /** Present when confirmed prune still must preserve the path. */
   cleanup_blocked_reason: z.string().optional(),
 });
-export type ReappearedWorktreePathData = z.infer<
-  typeof reappearedWorktreePathSchema
->;
-
 /** `status` — the full situation payload. The local-only heavy blocks
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
@@ -1978,8 +1961,6 @@ export const StatusResultDataSchema = z.union([
   StatusWireDataSchema,
   StatusConfigIssueDataSchema,
 ]);
-export type StatusResultData = z.infer<typeof StatusResultDataSchema>;
-
 // doctor ────────────────────────────────────────────────────────────────────
 
 /** One doctor check ({@link import("../commands/doctor.ts").Check}). */
@@ -2396,8 +2377,6 @@ export const SetupVerifyFindingsSchema = z.strictObject({
     requires_confirmation: z.literal(true),
   }),
 });
-export type SetupVerifyFindings = z.infer<typeof SetupVerifyFindingsSchema>;
-
 /**
  * `setup verify` — the read-only preflight payload (ADR 0075), two shapes under one
  * schema:
@@ -2515,10 +2494,6 @@ export const SetupCompletionInventorySchema = z.strictObject({
     not_applicable: z.array(z.string()),
   }),
 });
-export type SetupCompletionInventory = z.infer<
-  typeof SetupCompletionInventorySchema
->;
-
 /** How one successful `setup done` invocation reached the completed state. */
 export const SETUP_DONE_SUCCESS_KINDS = [
   "created",
@@ -2660,8 +2635,6 @@ export const SetupDoneResultDataSchema = z.union([
   SetupDoneDataSchema,
   SetupDoneFailureDataSchema,
 ]);
-export type SetupDoneResultData = z.infer<typeof SetupDoneResultDataSchema>;
-
 // CLI-only installer/configuration result payloads ────────────────────────────
 
 const setupProjectSchema = z.strictObject({
@@ -2832,10 +2805,6 @@ export const SetupAcceptResultDataSchema = z.union([
   SetupAcceptDataSchema,
   SetupAcceptNoOpDataSchema,
 ]);
-export type SetupAcceptResultData = z.infer<
-  typeof SetupAcceptResultDataSchema
->;
-
 const configEditSchema = z.strictObject({
   key: z.string(),
   literal: z.string(),
@@ -2964,8 +2933,6 @@ export const PresetDataSchema = z.strictObject({
   config_fills_skipped: z.array(z.string()).optional(),
   written: z.array(z.string()).optional(),
 });
-export type PresetData = z.infer<typeof PresetDataSchema>;
-
 const migrationStepSchema = z.strictObject({
   from: z.number(),
   to: z.number(),
@@ -3196,6 +3163,12 @@ export const PatternsArchivesOutputSchema = resultOutputSchema(
 
 /** `start` output: envelope + the new-worktree `data`. */
 export const StartOutputSchema = resultOutputSchema("start", StartDataSchema);
+
+/** `worktree rename` output: envelope + the changed task projection. */
+export const TaskRenameOutputSchema = resultOutputSchema(
+  "worktree rename",
+  TaskRenameDataSchema,
+);
 
 /** `accept` output: envelope + the landing-root `data` (present on an apply; a
  * dry-run preview carries none). */

@@ -176,7 +176,6 @@ export const VALIDATION_EVIDENCE_SCHEMA_FIELDS = {
 } as const;
 export type ValidationEvidence = z.infer<typeof validationEvidenceSchema>;
 export type ValidationState = ValidationEvidence["state"];
-export type ValidationExecution = ValidationEvidence["execution"];
 export type ValidationIncomplete = NonNullable<
   ValidationState["incomplete"]
 >[number];
@@ -214,7 +213,9 @@ export interface ValidationPlannedJob {
   readonly kind: string;
   readonly reportStage: string;
   readonly willRun: boolean;
-  readonly timeoutS?: number | undefined;
+  readonly timeout?:
+    | { readonly seconds: number; readonly key: string }
+    | undefined;
 }
 
 export interface ValidationJobGroup {

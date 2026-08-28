@@ -11,6 +11,7 @@ import { renderMarkdown } from "../src/lib/markdown.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import { runAgent, runAgentPty, scaffoldEngine } from "./engine_helpers.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const STATIC_ENVIRONMENT = {
   NO_COLOR: "1",
@@ -54,8 +55,10 @@ Deno.test("--render is the design-system rendering of the authored Markdown resu
   });
 });
 
-Deno.test({
+realPtyTest({
   name: "--render applies terminal styling while --markdown keeps source bytes",
+  contracts: ["control-rendering", "platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -66,7 +69,7 @@ Deno.test({
         ["status", "--local", "--render", "--theme", "dark"],
         { env },
       );
-      const markdown = await runAgentPty(
+      const markdown = await runAgent(
         dir,
         ["status", "--local", "--markdown", "--theme", "dark"],
         { env },

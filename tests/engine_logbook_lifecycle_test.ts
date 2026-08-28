@@ -51,6 +51,7 @@ import { logbookLifecycleConfirmation } from "../src/engine/dispatch.ts";
 import { InteractionCancelled } from "../src/lib/terminal_interaction.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 /** Decode a patterns report whose successful payload is required by the test. */
 function patternsData(stdout: string): PatternsData {
@@ -222,9 +223,11 @@ Deno.test("Logbook lifecycle apply refuses machine mode without changing active 
   }
 });
 
-Deno.test({
+realPtyTest({
   name:
     "Logbook lifecycle preview stays noninteractive and read-only under pipes, CI, plain, and JSON",
+  contracts: ["platform-transport"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     for (const action of LOGBOOK_LIFECYCLE_ACTION_NAMES) {
@@ -310,9 +313,11 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name:
     "Logbook lifecycle confirmation declines and defaults to No without changing data",
+  contracts: ["platform-transport"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     for (const action of LOGBOOK_LIFECYCLE_ACTION_NAMES) {
@@ -446,9 +451,11 @@ Deno.test("Logbook lifecycle exposes no unattended confirmation bypass", async (
   }
 });
 
-Deno.test({
+realPtyTest({
   name:
     "patterns archive seals every raw shard, lists it, and historical reports leave it unchanged",
+  contracts: ["platform-transport"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -721,8 +728,10 @@ Deno.test("historical Logbook selection accepts only regular registered archive 
   });
 });
 
-Deno.test({
+realPtyTest({
   name: "Logbook lifecycle refuses while another fresh invocation is in flight",
+  contracts: ["platform-transport"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     for (const action of LOGBOOK_LIFECYCLE_ACTION_NAMES) {

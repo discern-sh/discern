@@ -272,8 +272,6 @@ export const CONCEPTS = [
   },
 ] as const satisfies readonly Concept[];
 
-export type ConceptId = (typeof CONCEPTS)[number]["id"];
-
 /** The product-to-brand translation examples, in rendering order. */
 export const TRANSLATIONS = [
   {

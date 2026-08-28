@@ -51,8 +51,6 @@ import type {
   StandardMeasurementDisposition,
   StandardVerdictLabel,
 } from "../../shared/result_schemas.ts";
-import type { JobResult } from "../jobs/types.ts";
-import type { JobGroup } from "./plan.ts";
 import { fmtDuration } from "./proof_render.ts";
 
 const MAX_GATE_WIDTH = 120;
@@ -108,15 +106,6 @@ export interface GateLiveDashboard {
   readonly total: number;
   readonly elapsedS: number;
 }
-
-const LIVE_DASHBOARD_RESULT_STATE = {
-  active: "changed",
-  failed: "failed",
-  cancelled: "blocked",
-  complete: "passed",
-} as const satisfies Readonly<
-  Record<GateLiveDashboardState, ResultSummaryCliProps["state"]>
->;
 
 /** Exhaustive status mapping into the package workflow vocabulary. */
 export const GATE_JOB_STEP_STATUS = {
@@ -537,52 +526,6 @@ export function renderGateFullDashboard(
   ].join("\n\n");
 }
 
-/** Render the intentionally small live view: aggregate facts plus active jobs. */
-export function renderGateCompactDashboard(
-  dashboard: GateLiveDashboard,
-  options: GatePresentationOptions,
-): string {
-  const width = presentationWidth(options.width);
-  const presenter = options.terminal.presenter;
-  const subject = dashboardSubject(dashboard.kind);
-  if (dashboard.total === 0) {
-    return presenter.present(renderResultSummaryCli, {
-      state: "unchanged",
-      fact: safeLine(subject.empty),
-      maxWidth: width,
-    });
-  }
-  const running = dashboard.running.map((row) => row.label);
-  const activity = running.length === 0
-    ? dashboard.state === "active"
-      ? "Waiting for the next job to start."
-      : `The ${subject.noun.toLowerCase()} has no running job.`
-    : running.length === 1
-    ? `Running: ${running[0] ?? "(unknown)"}.`
-    : `Running concurrently: ${running.join(", ")}.`;
-  const status = dashboard.state === "active"
-    ? "active"
-    : dashboard.state === "failed"
-    ? "failed"
-    : dashboard.state === "cancelled"
-    ? "cancelled"
-    : "complete";
-  return presenter.present(renderResultSummaryCli, {
-    state: LIVE_DASHBOARD_RESULT_STATE[dashboard.state],
-    fact: safeLine(
-      `${subject.noun} ${status} · ${dashboard.completed} / ${dashboard.total} jobs settled. ${activity}`,
-    ),
-    counts: [
-      { label: "Completed", value: safeLine(String(dashboard.completed)) },
-      { label: "Failed", value: safeLine(String(dashboard.failed)) },
-      { label: "Cancelled", value: safeLine(String(dashboard.cancelled)) },
-      { label: "Remaining", value: safeLine(String(dashboard.remaining)) },
-    ],
-    duration: safeLine(fmtDuration(dashboard.elapsedS)),
-    maxWidth: width,
-  });
-}
-
 /** Compatibility projection for completed and static Gate job tables. */
 export function renderGateJobs(
   rows: readonly GateJobPresentation[],
@@ -615,57 +558,6 @@ export function completedGateJobs(
         ? { durationS: result.durationS }
         : {}),
     }));
-}
-
-/** Resolve a settled scheduler result without consulting presentation. */
-function jobOutcome(result: JobResult): StepOutcome {
-  if (result.cancelled === true) return "cancelled";
-  return result.code === 0 ? "ok" : "failed";
-}
-
-/** Project planned jobs and scheduler facts without implying a pending job ran. */
-export function liveGateJobs(
-  groups: readonly JobGroup[],
-  running: ReadonlySet<string>,
-  results: ReadonlyMap<string, JobResult>,
-  startedAtMs: ReadonlyMap<string, number> = new Map(),
-  timeMs = 0,
-): GateJobPresentation[] {
-  return groups.flatMap((group) =>
-    group.jobs.map((job): GateJobPresentation => {
-      const settled = results.get(job.label);
-      if (settled !== undefined) {
-        return {
-          group: group.display,
-          label: job.label,
-          command: job.command,
-          kind: job.kind,
-          status: jobOutcome(settled),
-          durationS: settled.durationS,
-        };
-      }
-      if (running.has(job.label)) {
-        const started = startedAtMs.get(job.label);
-        return {
-          group: group.display,
-          label: job.label,
-          command: job.command,
-          kind: job.kind,
-          status: "running",
-          ...(started === undefined
-            ? {}
-            : { elapsedS: Math.max(0, Math.floor((timeMs - started) / 1000)) }),
-        };
-      }
-      return {
-        group: group.display,
-        label: job.label,
-        command: job.command,
-        kind: job.kind,
-        status: job.willRun ? "pending" : "skipped",
-      };
-    })
-  );
 }
 
 /** Explain the owner and meaning of one Gate plan step kind. */

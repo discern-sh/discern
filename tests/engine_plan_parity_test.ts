@@ -643,6 +643,23 @@ const PROBES: Record<string, DryRunProbe> = {
       };
     },
   },
+  "worktree rename": {
+    envelope: "engine-plan",
+    arrange: async (dir) => {
+      const wt = await mainWithWorktree(dir, "parityrename");
+      return {
+        cwd: wt,
+        dry: [
+          "worktree",
+          "rename",
+          "Renamed task",
+          "--dry-run",
+          "--json",
+        ],
+        apply: ["worktree", "rename", "Renamed task", "--json"],
+      };
+    },
+  },
   "worktree teardown": {
     envelope: "engine-plan",
     arrange: async (dir) => {

@@ -41,6 +41,7 @@
     "npm:@types/react@18.3.12": "18.3.12",
     "npm:ajv@^8.20.0": "8.20.0",
     "npm:axe-core@4.10.3": "4.10.3",
+    "npm:fta-cli@3.0.1": "3.0.1",
     "npm:jsdom@26.1.0": "26.1.0",
     "npm:mdast-util-from-markdown@2.0.3": "2.0.3",
     "npm:mdast-util-gfm@3.1.0": "3.1.0",
@@ -546,6 +547,10 @@
     },
     "fresh@2.0.0": {
       "integrity": "sha512-Rx/WycZ60HOaqLKAi6cHRKKI7zxWbJ31MhntmtwMoaTeF7XFH9hhBp8vITaMidfljRQ6eYWCKkaTK+ykVJHP2A=="
+    },
+    "fta-cli@3.0.1": {
+      "integrity": "sha512-Nm03+vurWkzWj/SEiOof+8zDAbp/0+gDttW5+gIVe4Qxg4uOTlQm+IbHyXM+QptCfywj0/h4U37NsnybaG9z6Q==",
+      "bin": true
     },
     "function-bind@1.1.2": {
       "integrity": "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA=="
@@ -1421,6 +1426,7 @@
       "npm:@types/react@18.3.12",
       "npm:ajv@^8.20.0",
       "npm:axe-core@4.10.3",
+      "npm:fta-cli@3.0.1",
       "npm:jsdom@26.1.0",
       "npm:mdast-util-from-markdown@2.0.3",
       "npm:mdast-util-gfm@3.1.0",

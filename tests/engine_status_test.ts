@@ -51,6 +51,7 @@ import {
   decodeCliResult,
 } from "./decode_cli_result.ts";
 import { seedForBranch } from "../src/engine/worktree/identity.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const STATUS_ESCAPE = String.fromCharCode(27);
 
@@ -868,9 +869,10 @@ Deno.test("status fleet (human): the wide brief is bounded and defers row eviden
   });
 });
 
-Deno.test({
-  name:
-    "status fleet (human): a PTY selects its width and --no-color removes styling only",
+realPtyTest({
+  name: "status fleet (human): a real PTY supplies width and terminal styling",
+  contracts: ["control-rendering", "platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -892,22 +894,6 @@ Deno.test({
         assert(
           displayWidth(line) <= 48,
           `PTY dashboard line exceeded 48 columns: ${line}`,
-        );
-      }
-
-      const plain = await runAgentPty(dir, ["status", "--no-color"], {
-        env,
-      });
-      assertEquals(plain.code, 0, plain.output);
-      assert(!plain.output.includes(STATUS_ESCAPE), plain.output);
-      assertTerminalTextIncludes(plain.output, "Fleet · 1 active worktree");
-      assert(!plain.output.includes("agent/alpha"), plain.output);
-      assertStringIncludes(plain.output, "Alpha");
-      assertStringIncludes(plain.output, "Idle");
-      for (const line of plain.stdout.trimEnd().split("\n")) {
-        assert(
-          displayWidth(line) <= 48,
-          `plain PTY dashboard line exceeded 48 columns: ${line}`,
         );
       }
     });

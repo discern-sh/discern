@@ -100,6 +100,7 @@ export type DiscernResultState =
           | "resource-create"
           | "resource-destroy"
           | "git"
+          | "task-metadata"
           | "setup-step"
           | "repository-ensure"
           | "checkout-clean-check"
@@ -134,6 +135,7 @@ export type DiscernResultState =
           | "resource-create"
           | "resource-destroy"
           | "git"
+          | "task-metadata"
           | "setup-step"
           | "repository-ensure"
           | "checkout-clean-check"
@@ -166,6 +168,7 @@ export type DiscernResultState =
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -478,6 +481,7 @@ export type DiscernDiscernResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -505,6 +509,7 @@ export type DiscernDiscernResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -610,6 +615,7 @@ export type DiscernSetupResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -637,6 +643,7 @@ export type DiscernSetupResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -874,6 +881,7 @@ export type DiscernSetupVerifyResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -901,6 +909,7 @@ export type DiscernSetupVerifyResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -1044,6 +1053,7 @@ export type DiscernSetupStepResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -1071,6 +1081,7 @@ export type DiscernSetupStepResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -1236,6 +1247,7 @@ export type DiscernSetupDoneResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -1263,6 +1275,7 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -1560,6 +1573,7 @@ export type DiscernSetupAcceptResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -1587,6 +1601,7 @@ export type DiscernSetupAcceptResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -1837,6 +1852,7 @@ export type DiscernUpgradeResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -1864,6 +1880,7 @@ export type DiscernUpgradeResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -2049,6 +2066,7 @@ export type DiscernUninstallResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -2076,6 +2094,7 @@ export type DiscernUninstallResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -2194,6 +2213,7 @@ export type DiscernDoctorResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -2221,6 +2241,7 @@ export type DiscernDoctorResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -2353,6 +2374,7 @@ export type DiscernDoctorResult = DiscernResultState & {
           | "resource-create"
           | "resource-destroy"
           | "git"
+          | "task-metadata"
           | "setup-step"
           | "repository-ensure"
           | "checkout-clean-check"
@@ -2396,6 +2418,7 @@ export type DiscernLicensesResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -2423,6 +2446,7 @@ export type DiscernLicensesResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -2543,6 +2567,7 @@ export type DiscernTriangleResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -2570,6 +2595,7 @@ export type DiscernTriangleResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -2678,6 +2704,7 @@ export type DiscernPresetResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -2705,6 +2732,7 @@ export type DiscernPresetResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -2822,6 +2850,7 @@ export type DiscernMapResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -2849,6 +2878,7 @@ export type DiscernMapResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -3037,6 +3067,7 @@ export type DiscernDocsResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -3064,6 +3095,7 @@ export type DiscernDocsResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -3252,6 +3284,7 @@ export type DiscernConfigResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -3279,6 +3312,7 @@ export type DiscernConfigResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -3403,6 +3437,7 @@ export type DiscernDoneResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -3430,6 +3465,7 @@ export type DiscernDoneResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -3741,6 +3777,7 @@ export type DiscernPrepareResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -3768,6 +3805,7 @@ export type DiscernPrepareResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -3873,6 +3911,7 @@ export type DiscernTestResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -3900,6 +3939,7 @@ export type DiscernTestResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -4005,6 +4045,7 @@ export type DiscernImprovementResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -4032,6 +4073,7 @@ export type DiscernImprovementResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -4245,6 +4287,7 @@ export type DiscernCheckpointsResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -4272,6 +4315,7 @@ export type DiscernCheckpointsResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -4536,6 +4580,7 @@ export type DiscernStandardsResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -4563,6 +4608,7 @@ export type DiscernStandardsResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -4707,6 +4753,7 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -4734,6 +4781,7 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -4878,6 +4926,7 @@ export type DiscernRefreshResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -4905,6 +4954,7 @@ export type DiscernRefreshResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -5024,6 +5074,7 @@ export type DiscernTidyResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -5051,6 +5102,7 @@ export type DiscernTidyResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -5156,6 +5208,7 @@ export type DiscernImpactResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -5183,6 +5236,7 @@ export type DiscernImpactResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -5298,6 +5352,7 @@ export type DiscernCouplingResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -5325,6 +5380,7 @@ export type DiscernCouplingResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -5456,6 +5512,7 @@ export type DiscernAwaitResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -5483,6 +5540,7 @@ export type DiscernAwaitResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -5631,6 +5689,7 @@ export type DiscernPatternsResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -5658,6 +5717,7 @@ export type DiscernPatternsResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -6071,6 +6131,7 @@ export type DiscernPatternsResetResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -6098,6 +6159,7 @@ export type DiscernPatternsResetResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -6220,6 +6282,7 @@ export type DiscernPatternsArchiveResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -6247,6 +6310,7 @@ export type DiscernPatternsArchiveResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -6368,6 +6432,7 @@ export type DiscernPatternsArchivesResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -6395,6 +6460,7 @@ export type DiscernPatternsArchivesResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -6510,6 +6576,7 @@ export type DiscernDeskResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -6537,6 +6604,7 @@ export type DiscernDeskResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -6642,6 +6710,7 @@ export type DiscernWorktreesResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -6669,6 +6738,7 @@ export type DiscernWorktreesResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -6774,6 +6844,7 @@ export type DiscernStatusResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -6801,6 +6872,7 @@ export type DiscernStatusResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -7076,6 +7148,18 @@ export type DiscernStatusResult = DiscernResultState & {
       git_unavailable?: boolean;
       id?: string;
       port?: number;
+      task?: {
+        id: string;
+        branch: string;
+        title: string;
+        title_source: "recorded" | "identity-fallback" | "unavailable-fallback";
+        brief?: string;
+        created_from?: {
+          ref: string;
+          commit: string;
+        };
+        unavailable_reason?: string;
+      };
       broken?: boolean;
       gate_proof?: {
         status:
@@ -7205,6 +7289,7 @@ export type DiscernStartResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -7232,6 +7317,7 @@ export type DiscernStartResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -7314,6 +7400,18 @@ export type DiscernStartResult = DiscernResultState & {
     branch: string;
     path: string;
     from: string;
+    task: {
+      id: string;
+      branch: string;
+      title: string;
+      title_source: "recorded" | "identity-fallback" | "unavailable-fallback";
+      brief?: string;
+      created_from?: {
+        ref: string;
+        commit: string;
+      };
+      unavailable_reason?: string;
+    };
     name_note?: string;
     landing_authority?: {
       kind: "authorized" | "conversation-required";
@@ -7329,6 +7427,155 @@ export type DiscernStartResult = DiscernResultState & {
       uncovered_unscoped_total?: number;
       uncovered_generated_total?: number;
       warnings?: Array<string>;
+    };
+  } | {
+    issues: Array<{
+      kind?: "unknown_root_section";
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernWorktreeRenameResult = DiscernResultState & {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "instructions-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "task-metadata"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "instructions-check"
+      | "skills-check"
+      | "tracked-refresh-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "task-metadata"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    advisory?: {
+      kind:
+        | "acceptance-cleanup-incomplete"
+        | "checkpoint-evidence-dropped"
+        | "checkout-clean-observation-unavailable"
+        | "doctor-warning"
+        | "execution-cap-unavailable"
+        | "generated-attribute-pattern-untranslated"
+        | "ignored-file-observation-unavailable"
+        | "landing-authority-unverified"
+        | "optional-resource-unavailable"
+        | "proof-recording-unavailable"
+        | "setup-forced-completion"
+        | "setup-machinery-commit-failed"
+        | "setup-marker-commit-failed"
+        | "standards-limits-unverified"
+        | "uninstall-strip-incomplete";
+      evidence: Array<string>;
+      next_action: string;
+    };
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  advisories?: Array<{
+    kind:
+      | "acceptance-cleanup-incomplete"
+      | "checkpoint-evidence-dropped"
+      | "checkout-clean-observation-unavailable"
+      | "doctor-warning"
+      | "execution-cap-unavailable"
+      | "generated-attribute-pattern-untranslated"
+      | "ignored-file-observation-unavailable"
+      | "landing-authority-unverified"
+      | "optional-resource-unavailable"
+      | "proof-recording-unavailable"
+      | "setup-forced-completion"
+      | "setup-machinery-commit-failed"
+      | "setup-marker-commit-failed"
+      | "standards-limits-unverified"
+      | "uninstall-strip-incomplete";
+    evidence: Array<string>;
+    next_action: string;
+  }>;
+  error?: string;
+  message?: string;
+  verb: "worktree rename";
+  data?: {
+    path: string;
+    previous_title: string;
+    task: {
+      id: string;
+      branch: string;
+      title: string;
+      title_source: "recorded" | "identity-fallback" | "unavailable-fallback";
+      brief?: string;
+      created_from?: {
+        ref: string;
+        commit: string;
+      };
+      unavailable_reason?: string;
     };
   } | {
     issues: Array<{
@@ -7358,6 +7605,7 @@ export type DiscernAcceptResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -7385,6 +7633,7 @@ export type DiscernAcceptResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -7684,6 +7933,7 @@ export type DiscernUpdateResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -7711,6 +7961,7 @@ export type DiscernUpdateResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -7844,6 +8095,7 @@ export type DiscernIdentityResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -7871,6 +8123,7 @@ export type DiscernIdentityResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -7989,6 +8242,7 @@ export type DiscernScriptsResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -8016,6 +8270,7 @@ export type DiscernScriptsResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -8127,6 +8382,7 @@ export type DiscernWorktreeResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -8154,6 +8410,7 @@ export type DiscernWorktreeResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -8259,6 +8516,7 @@ export type DiscernWorktreeSetupResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -8286,6 +8544,7 @@ export type DiscernWorktreeSetupResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -8391,6 +8650,7 @@ export type DiscernWorktreeTeardownResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -8418,6 +8678,7 @@ export type DiscernWorktreeTeardownResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -8523,6 +8784,7 @@ export type DiscernWorktreeDropResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -8550,6 +8812,7 @@ export type DiscernWorktreeDropResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -8655,6 +8918,7 @@ export type DiscernWorktreePruneResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -8682,6 +8946,7 @@ export type DiscernWorktreePruneResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -8787,6 +9052,7 @@ export type DiscernSkillsResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -8814,6 +9080,7 @@ export type DiscernSkillsResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -8919,6 +9186,7 @@ export type DiscernSkillsListResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -8946,6 +9214,7 @@ export type DiscernSkillsListResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -9059,6 +9328,7 @@ export type DiscernSkillsEjectResult = DiscernResultState & {
         | "resource-create"
         | "resource-destroy"
         | "git"
+        | "task-metadata"
         | "setup-step"
         | "repository-ensure"
         | "checkout-clean-check"
@@ -9086,6 +9356,7 @@ export type DiscernSkillsEjectResult = DiscernResultState & {
       | "resource-create"
       | "resource-destroy"
       | "git"
+      | "task-metadata"
       | "setup-step"
       | "repository-ensure"
       | "checkout-clean-check"
@@ -9219,6 +9490,7 @@ export type DiscernCliJsonResult =
   | DiscernWorktreesResult
   | DiscernStatusResult
   | DiscernStartResult
+  | DiscernWorktreeRenameResult
   | DiscernAcceptResult
   | DiscernUpdateResult
   | DiscernIdentityResult
@@ -9268,6 +9540,7 @@ export interface DiscernResultByVerb {
   worktrees: DiscernWorktreesResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
+  "worktree rename": DiscernWorktreeRenameResult;
   accept: DiscernAcceptResult;
   update: DiscernUpdateResult;
   identity: DiscernIdentityResult;
@@ -9328,6 +9601,7 @@ export interface DiscernResultByCommand {
   worktrees: DiscernWorktreesResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
+  "worktree rename": DiscernWorktreeRenameResult;
   accept: DiscernAcceptResult;
   update: DiscernUpdateResult;
   identity: DiscernIdentityResult;

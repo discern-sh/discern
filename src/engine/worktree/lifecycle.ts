@@ -25,6 +25,8 @@ import {
   resolve,
 } from "@std/path";
 import { type Logger, loggerSink } from "../../lib/log.ts";
+import { terminalLine } from "../../lib/terminal.ts";
+import { renderResultSummaryCli } from "discern-design-system/cli";
 import { adrIndexState } from "../../lib/adr_index.ts";
 import {
   canInteract,
@@ -34,6 +36,7 @@ import {
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
+import { commandEvidence } from "../../shared/command_evidence.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
@@ -104,7 +107,7 @@ import {
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
-import { RELATED_CHECKPOINT_KIND_LABELS } from "../../shared/checkpoints.ts";
+import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import {
   type AcceptanceCheckpointState,
   inspectAcceptanceCheckpoints,
@@ -138,7 +141,10 @@ import {
   type SetupPlan,
   setupPlanToEngine,
   type SetupStepDesc,
+  type StartPlan,
   startPlanToEngine,
+  type TaskRenamePlan,
+  taskRenamePlanToEngine,
   type TeardownPlan,
   teardownPlanToEngine,
   type UpdatePlan,
@@ -184,10 +190,17 @@ import type {
   StandardLimitApprovalRequestData,
   StandardLimitProposalData,
   StartData,
+  TaskRenameData,
   UpdateData,
 } from "../../shared/result_schemas.ts";
 import { AppliedAcceptDataSchema } from "../../shared/result_schemas.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
+import {
+  recordedTaskMetadataData,
+  type StoredTaskMetadata,
+  TASK_METADATA_SCHEMA_VERSION,
+  validateTaskText,
+} from "../../shared/task_metadata.ts";
 import { buildStandardPlan } from "../gate/standard_plan.ts";
 import {
   cloneStandardLimitProposal,
@@ -263,6 +276,12 @@ import {
   classifyAutomaticBranchOwnership,
   deleteAutomaticallyOwnedBranch,
 } from "./ownership.ts";
+import { taskLabel } from "./task_label.ts";
+import {
+  readStoredTaskMetadata,
+  TaskMetadataStoreError,
+  writeStoredTaskMetadata,
+} from "./task_metadata.ts";
 
 // worktree setup recompiles the agent instructions as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
@@ -415,6 +434,8 @@ function applyResultTitle(verb: string): string {
       return "Worktree setup results";
     case "worktree teardown":
       return "Worktree teardown results";
+    case "worktree rename":
+      return "Task title results";
     case "worktree prune":
       return "Worktree prune results";
     default:
@@ -1276,6 +1297,7 @@ export async function createAndSetupWorktree(
   invocation: {
     verb: string;
     reproduceCmd: string;
+    taskMetadata?: StoredTaskMetadata;
   } = { verb: "start", reproduceCmd: "discern start" },
 ): Promise<void> {
   if (!(await hasAnyCommit(mainRepo))) {
@@ -1351,6 +1373,9 @@ export async function createAndSetupWorktree(
         );
       }
       throw e;
+    }
+    if (invocation.taskMetadata !== undefined) {
+      await writeStoredTaskMetadata(dir, invocation.taskMetadata);
     }
     await worktreeSetup(ctx, { humanApplySummary: false });
   } catch (e) {
@@ -2110,7 +2135,7 @@ async function buildAcceptPlan(
       .map((job) => ({
         label: job.label,
         command: job.command,
-        ...(job.timeoutS !== undefined ? { timeoutS: job.timeoutS } : {}),
+        ...(job.timeout !== undefined ? { timeout: job.timeout } : {}),
       })),
     hasResources: readResourceSpecs(ctx.config).length > 0,
     ignoredFileChanges,
@@ -2224,34 +2249,16 @@ function acceptDeclarationsStaleResult(
  * path names travel inside the code-span escaping boundary, never as live
  * Markdown. */
 function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
-  const shown = unmet.matched.slice(0, 6).map(markdownCodeSpan).join(", ");
-  const more = unmet.matched.length > 6
-    ? `, +${unmet.matched.length - 6} more`
-    : "";
+  const evidence = checkpointServingText(unmet);
   const lines = [
     `${unmet.id} — declared unmet at ${unmet.declaredAt}`,
     `  Question: ${unmet.question.trim()}`,
-    `  Changed: ${shown}${more}`,
-    ...unmet.related.map((relation) =>
-      `  ${RELATED_CHECKPOINT_KIND_LABELS[relation.kind]}: ${
-        markdownCodeSpan(relation.path)
-      } resembles ${markdownCodeSpan(relation.forPath)}`
-    ),
+    ...(evidence.questionSource === undefined ? [] : [evidence.questionSource]),
+    `  Changed: ${evidence.matched}`,
+    ...evidence.related,
     `  Rationale: ${markdownCodeSpan(unmet.why)}`,
+    ...evidence.notes,
   ];
-  if (unmet.questionFile !== undefined) {
-    lines.splice(
-      2,
-      0,
-      `  Question source: ${markdownCodeSpan(unmet.questionFile)}`,
-    );
-  }
-  if (unmet.teach !== undefined && unmet.teach.trim() !== "") {
-    lines.push(`  Teach: ${unmet.teach.trim()}`);
-  }
-  if (unmet.reference !== undefined && unmet.reference.trim() !== "") {
-    lines.push(`  Reference: ${markdownCodeSpan(unmet.reference.trim())}`);
-  }
   return lines.join("\n");
 }
 
@@ -2793,7 +2800,7 @@ async function runLandingSmoke(
       kind: "known",
       reportStage: "test",
       willRun: true,
-      ...(job.timeoutS !== undefined ? { timeoutS: job.timeoutS } : {}),
+      ...(job.timeout !== undefined ? { timeout: job.timeout } : {}),
     })),
   };
   log.info("Running the smoke job in the landing checkout...");
@@ -2811,7 +2818,7 @@ async function runLandingSmoke(
     out,
     slots,
   );
-  const serialized = await serializeJobSteps([group], results);
+  const serialized = await serializeJobSteps(mainRepo, [group], results);
   if (failedStage === null) {
     log.ok("Landing-checkout smoke passed.");
   } else {
@@ -4504,7 +4511,12 @@ function updateGeneratedJobGroup(
       kind: "custom",
       reportStage: "build",
       willRun: true,
-      ...(group.timeout === undefined ? {} : { timeoutS: group.timeout }),
+      ...(group.timeout === undefined ? {} : {
+        timeout: {
+          seconds: group.timeout,
+          key: `[generated.${group.name}].timeout`,
+        },
+      }),
     })),
   };
 }
@@ -4544,7 +4556,7 @@ async function runUpdateGeneratedGroups(
       context.out,
       context.slots,
     );
-    const serialized = await serializeJobSteps([group], run.results);
+    const serialized = await serializeJobSteps(ctx.root, [group], run.results);
     const executed: string[] = [];
     const successful = new Set<string>();
     for (const configured of groups) {
@@ -5236,18 +5248,18 @@ export async function mintFreeWorktree(
 async function resolveStartPoint(
   ctx: LifecycleContext,
   from: string | undefined,
-): Promise<string> {
+): Promise<{ ref: string; commit: string }> {
   if (from !== undefined && from.trim() !== "") {
     const ref = from.trim();
-    await resolveCommitRef(ctx.root, ref); // refuses unknown/ambiguous
-    return ref;
+    const commit = await resolveCommitRef(ctx.root, ref);
+    return { ref, commit };
   }
   // The trunk is all a default start needs — the main checkout's HEAD may be
   // parked anywhere, detached, or even unborn (an orphan branch): the worktree
   // forks from the trunk ref, never from HEAD.
   const trunk = integrationBranch(ctx.config.repository.trunk);
   if (await localBranchExists(ctx.root, trunk)) {
-    return trunk;
+    return { ref: trunk, commit: await resolveCommitRef(ctx.root, trunk) };
   }
   if (!(await hasAnyCommit(ctx.root))) {
     throw new WorktreeGitError(
@@ -5292,6 +5304,137 @@ async function assertProjectRootIsRepoToplevel(
   }
 }
 
+/** Inputs shared by standalone start and the Desk's retained preview. */
+export interface StartRequestOptions {
+  readonly worktreeRoot: string;
+  readonly name?: string;
+  readonly title?: string;
+  readonly brief?: string;
+  readonly from?: string;
+}
+
+/**
+ * A concrete start plan retained across one human preview and confirmation.
+ * The executor revalidates its source, branch, and path before applying it.
+ */
+export interface PreparedStart {
+  readonly plan: StartPlan;
+  readonly taskMetadata: StoredTaskMetadata;
+  readonly reproduceCmd: string;
+  readonly nameHint?: FiredHint;
+}
+
+/** Build one concrete, read-only start plan. */
+export async function buildStartPlan(
+  ctx: LifecycleContext,
+  opts: StartRequestOptions,
+): Promise<PreparedStart> {
+  await assertOpSide("start", ctx.cwd);
+  await assertProjectRootIsRepoToplevel(ctx, "start");
+  const startPoint = await resolveStartPoint(ctx, opts.from);
+  const suppliedName = opts.name === undefined || opts.name.trim() === ""
+    ? undefined
+    : opts.name;
+  let suppliedTitle: string | undefined;
+  let suppliedBrief: string | undefined;
+  try {
+    suppliedTitle = opts.title !== undefined
+      ? validateTaskText(opts.title, "title")
+      : suppliedName === undefined
+      ? undefined
+      : validateTaskText(suppliedName, "title");
+    suppliedBrief = opts.brief === undefined
+      ? undefined
+      : validateTaskText(opts.brief, "brief");
+  } catch (error) {
+    throw new WorktreeGitError(
+      error instanceof Error ? error.message : String(error),
+      { cause: error },
+    );
+  }
+
+  const settings = await loadIdentitySettings(ctx.root);
+  const { id, branch, dir, note, nameHint } = await mintFreeWorktree(
+    ctx,
+    settings,
+    opts.worktreeRoot,
+    suppliedName ?? suppliedTitle,
+    { usedPorts: await livePortsInUse(ctx, settings) },
+  );
+  const title = suppliedTitle ?? taskLabel({ id, path: dir }).name;
+  const taskMetadata: StoredTaskMetadata = {
+    schema_version: TASK_METADATA_SCHEMA_VERSION,
+    title,
+    ...(suppliedBrief === undefined ? {} : { brief: suppliedBrief }),
+    created_from: startPoint,
+  };
+  const resources = readResourceSpecs(ctx.config).map((resource) => ({
+    name: resource.name,
+    identity: resourceForId(settings.slug, id, resource.name),
+  }));
+  const plan: StartPlan = {
+    id,
+    branch,
+    worktreePath: dir,
+    from: startPoint.ref,
+    fromCommit: startPoint.commit,
+    title,
+    ...(suppliedBrief === undefined ? {} : { brief: suppliedBrief }),
+    resources,
+    ...(note === undefined ? {} : { note }),
+  };
+  const reproduceCmd = commandEvidence([
+    "discern",
+    "start",
+    ...(suppliedName === undefined ? [] : ["--name", suppliedName]),
+    ...(opts.title === undefined ? [] : ["--title", opts.title]),
+    ...(suppliedBrief === undefined ? [] : ["--brief", suppliedBrief]),
+    ...(opts.from === undefined ? [] : ["--from", opts.from]),
+  ]);
+  return {
+    plan,
+    taskMetadata,
+    reproduceCmd,
+    ...(nameHint === undefined ? {} : { nameHint }),
+  };
+}
+
+/** Refuse a retained preview when its source or destination has changed. */
+async function assertStartPlanCurrent(
+  ctx: LifecycleContext,
+  prepared: PreparedStart,
+): Promise<IdentitySettings> {
+  await assertOpSide("start", ctx.cwd);
+  await assertProjectRootIsRepoToplevel(ctx, "start");
+  const settings = await loadIdentitySettings(ctx.root);
+  if (
+    deriveIdentity(prepared.plan.id, settings).branch !== prepared.plan.branch
+  ) {
+    throw new WorktreeGitError(
+      "Worktree identity settings changed after the start preview. Review a new plan before creating the task.",
+    );
+  }
+  const currentCommit = await resolveCommitRef(ctx.root, prepared.plan.from);
+  if (currentCommit !== prepared.plan.fromCommit) {
+    throw new WorktreeGitError(
+      `Source ${prepared.plan.from} moved after the start preview. Review a new plan before creating the task.`,
+    );
+  }
+  const run = makeGitRunner(ctx);
+  const branchTaken = (await run([
+    "show-ref",
+    "--verify",
+    "--quiet",
+    `refs/heads/${prepared.plan.branch}`,
+  ])).success;
+  if (branchTaken || await pathExists(prepared.plan.worktreePath)) {
+    throw new WorktreeGitError(
+      `The previewed task identity ${prepared.plan.id} is no longer available. Review a new start plan before creating the task.`,
+    );
+  }
+  return settings;
+}
+
 /**
  * Perform `discern start` and return its {@link DiscernResult} — the plan (dry-run)
  * or the created worktree — without emitting or exiting. The single source the CLI's
@@ -5309,39 +5452,12 @@ async function assertProjectRootIsRepoToplevel(
  * engine core free of the placement convention. The result carries the new worktree's
  * `data.path` and a hint to re-root: nothing relocates the caller's session for it.
  */
-export async function startResult(
+export async function applyStartPlan(
   ctx: LifecycleContext,
-  opts: {
-    dryRun?: boolean;
-    worktreeRoot: string;
-    name?: string;
-    from?: string;
-  },
+  prepared: PreparedStart,
 ): Promise<DiscernResult<StartData>> {
-  await assertOpSide("start", ctx.cwd);
-  await assertProjectRootIsRepoToplevel(ctx, "start");
-  const startPoint = await resolveStartPoint(ctx, opts.from);
-
-  const settings = await loadIdentitySettings(ctx.root);
-  const { id, branch, dir, note, nameHint } = await mintFreeWorktree(
-    ctx,
-    settings,
-    opts.worktreeRoot,
-    opts.name,
-    { usedPorts: await livePortsInUse(ctx, settings) },
-  );
-
-  if (opts.dryRun ?? false) {
-    return previewResult(
-      "start",
-      startPlanToEngine(
-        note !== undefined
-          ? { id, branch, worktreePath: dir, from: startPoint, note }
-          : { id, branch, worktreePath: dir, from: startPoint },
-      ),
-    );
-  }
-
+  const settings = await assertStartPlanCurrent(ctx, prepared);
+  const { plan, taskMetadata } = prepared;
   // Advisory, not a gate: uncommitted work in the main checkout never follows a
   // new worktree (it branches from a committed ref), so say where it stays.
   const mainChanges = parsePorcelainZ(
@@ -5353,55 +5469,63 @@ export async function startResult(
   const dirtyNote = mainChanges > 0
     ? fire(HINTS["start-main-changes-stay"], {
       changes: mainChanges,
-      startPoint,
+      startPoint: plan.from,
     })
     : undefined;
   if (dirtyNote !== undefined) {
     ctx.log.info(dirtyNote.text);
   }
 
-  ctx.log.heading(`Starting a new worktree (${id})…`);
+  ctx.log.heading(`Starting a new worktree (${plan.id})…`);
   await createAndSetupWorktree(
     ctx.root,
-    dir,
-    branch,
+    plan.worktreePath,
+    plan.branch,
     ctx.log,
-    { id, settings },
-    startPoint,
+    { id: plan.id, settings },
+    plan.fromCommit,
     {
       verb: "start",
-      reproduceCmd: [
-        "discern start",
-        ...(opts.name === undefined || opts.name === ""
-          ? []
-          : ["--name", opts.name]),
-        ...(opts.from === undefined ? [] : ["--from", opts.from]),
-      ].join(" "),
+      reproduceCmd: prepared.reproduceCmd,
+      taskMetadata,
     },
   );
-  ctx.log.ok(`Worktree '${id}' is ready at ${dir} (from ${startPoint}).`);
+  ctx.log.humanLine(
+    ctx.log.terminal.presenter.present(renderResultSummaryCli, {
+      state: "passed",
+      fact: terminalLine(
+        `Worktree '${plan.id}' is ready at ${plan.worktreePath} from ${plan.from}.`,
+      ),
+      nextAction: terminalLine(`Continue in ${plan.worktreePath}`),
+      maxWidth: ctx.log.terminal.size.columns,
+    }),
+  );
 
   // `git worktree add` checks out `.gitmodules` but leaves every submodule
   // directory empty; when no configured command populates them, the gate is
   // about to run against missing trees — disclose at the moment they appear.
-  const submoduleNote =
-    (await hasGitmodules(dir)) && !submoduleCommandWired(ctx.config)
-      ? fire(HINTS["start-submodules-empty"])
-      : undefined;
+  const submoduleNote = (await hasGitmodules(plan.worktreePath)) &&
+      !submoduleCommandWired(ctx.config)
+    ? fire(HINTS["start-submodules-empty"])
+    : undefined;
 
   const landingAuthority = await inspectLandingAuthority(
-    dir,
+    plan.worktreePath,
     ctx.config.repository.trunk,
   );
   const authorityProjection = prospectiveLandingAuthorityProjection(
     landingAuthority,
   );
   const data: StartData = {
-    id,
-    branch,
-    path: dir,
-    from: startPoint,
-    ...(note !== undefined ? { name_note: note } : {}),
+    id: plan.id,
+    branch: plan.branch,
+    path: plan.worktreePath,
+    from: plan.from,
+    task: recordedTaskMetadataData(
+      { id: plan.id, branch: plan.branch },
+      taskMetadata,
+    ),
+    ...(plan.note === undefined ? {} : { name_note: plan.note }),
     ...(authorityProjection !== undefined
       ? { landing_authority: authorityProjection }
       : {}),
@@ -5412,7 +5536,16 @@ export async function startResult(
         kind: "git",
         label: BUILT_IN_STEP_LABELS.addWorktree,
         disposition: "run",
-        note: `${dir} on ${branch} (from ${startPoint})`,
+        note: `${plan.worktreePath} on ${plan.branch} (from ${plan.from})`,
+      },
+      outcome: "ok",
+    },
+    {
+      step: {
+        kind: "task-metadata",
+        label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
+        disposition: "run",
+        note: "recorded the display title, brief, and creation source",
       },
       outcome: "ok",
     },
@@ -5426,13 +5559,14 @@ export async function startResult(
       outcome: "ok",
     },
   ]);
-  result.message = `Created worktree '${id}' at ${dir} (branch ${branch}).`;
+  result.message =
+    `Created worktree '${plan.id}' at ${plan.worktreePath} (branch ${plan.branch}).`;
   result.data = data;
-  const reRoot = fire(HINTS["start-re-root"], { dir });
+  const reRoot = fire(HINTS["start-re-root"], { dir: plan.worktreePath });
   // A normalisation/fallback note leads the hints, so the caller — and the human
   // reading over its shoulder — see what the worktree was actually named.
   result.hints = hintTexts([
-    ...(nameHint !== undefined ? [nameHint] : []),
+    ...(prepared.nameHint !== undefined ? [prepared.nameHint] : []),
     reRoot,
     ...(authorityProjection !== undefined
       ? [
@@ -5447,6 +5581,17 @@ export async function startResult(
     ...(dirtyNote !== undefined ? [dirtyNote] : []),
   ]);
   return result;
+}
+
+/** Build a fresh plan, then preview or apply it through one result boundary. */
+export async function startResult(
+  ctx: LifecycleContext,
+  opts: StartRequestOptions & { readonly dryRun?: boolean },
+): Promise<DiscernResult<StartData>> {
+  const prepared = await buildStartPlan(ctx, opts);
+  return opts.dryRun ?? false
+    ? previewResult("start", startPlanToEngine(prepared.plan))
+    : await applyStartPlan(ctx, prepared);
 }
 
 /** True when the checkout at `dir` carries a tracked `.gitmodules`. */
@@ -5491,6 +5636,8 @@ export async function start(
     json?: boolean;
     worktreeRoot: string;
     name?: string;
+    title?: string;
+    brief?: string;
     from?: string;
   },
 ): Promise<void> {
@@ -5498,6 +5645,8 @@ export async function start(
     dryRun: opts.dryRun ?? false,
     worktreeRoot: opts.worktreeRoot,
     name: opts.name ?? "",
+    ...(opts.title !== undefined ? { title: opts.title } : {}),
+    ...(opts.brief !== undefined ? { brief: opts.brief } : {}),
     ...(opts.from !== undefined ? { from: opts.from } : {}),
   });
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false, {
@@ -5506,6 +5655,134 @@ export async function start(
       const data = r.data;
       if (data !== undefined) {
         ctx.log.info(`cd into it to continue: cd ${data.path}`);
+      }
+    },
+  });
+}
+
+// ── task title rename ───────────────────────────────────────────────────────
+
+/** Build the metadata-only title plan from the current worktree state. */
+async function buildTaskRenamePlan(
+  ctx: LifecycleContext,
+  titleInput: string,
+): Promise<{
+  plan: TaskRenamePlan;
+  metadata: StoredTaskMetadata;
+  previousTitle: string;
+}> {
+  await assertOpSide("worktree-rename", ctx.cwd);
+  let title: string;
+  try {
+    title = validateTaskText(titleInput, "title");
+  } catch (error) {
+    throw new WorktreeGitError(
+      error instanceof Error ? error.message : String(error),
+      { cause: error },
+    );
+  }
+  const { identity } = await resolveContextIdentity(ctx);
+  let current: StoredTaskMetadata | undefined;
+  try {
+    current = await readStoredTaskMetadata(ctx.cwd);
+  } catch (error) {
+    if (error instanceof TaskMetadataStoreError) {
+      throw new WorktreeGitError(
+        `${error.message} Resolve the record before changing this task title.`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+  const previousTitle = current?.title ?? taskLabel({
+    id: identity.id,
+    path: ctx.cwd,
+  }).name;
+  const metadata: StoredTaskMetadata = {
+    ...(current ?? {
+      schema_version: 1,
+      title: previousTitle,
+    }),
+    title,
+  };
+  return {
+    plan: {
+      id: identity.id,
+      branch: identity.branch,
+      worktreePath: ctx.cwd,
+      previousTitle,
+      title,
+      willWrite: current === undefined || current.title !== title,
+    },
+    metadata,
+    previousTitle,
+  };
+}
+
+/** Plan or apply a human title change without changing worktree identity. */
+export async function taskRenameResult(
+  ctx: LifecycleContext,
+  title: string,
+  opts: { dryRun?: boolean } = {},
+): Promise<DiscernResult<TaskRenameData>> {
+  const built = await buildTaskRenamePlan(ctx, title);
+  if (opts.dryRun ?? false) {
+    return previewResult(
+      "worktree rename",
+      taskRenamePlanToEngine(built.plan),
+    );
+  }
+  if (built.plan.willWrite) {
+    try {
+      await writeStoredTaskMetadata(ctx.cwd, built.metadata);
+    } catch (error) {
+      if (error instanceof TaskMetadataStoreError) {
+        throw new WorktreeGitError(error.message, { cause: error });
+      }
+      throw error;
+    }
+  }
+  const result: DiscernResult<TaskRenameData> = appliedResult(
+    "worktree rename",
+    [{
+      step: {
+        kind: "task-metadata",
+        label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
+        disposition: built.plan.willWrite ? "run" : "skip",
+        note: built.plan.willWrite
+          ? "changed the human display title"
+          : "the task already had this recorded title",
+      },
+      outcome: built.plan.willWrite ? "ok" : "skipped",
+    }],
+  );
+  result.message = built.plan.willWrite
+    ? `Changed the task title to ${JSON.stringify(built.metadata.title)}.`
+    : `Task title remains ${JSON.stringify(built.metadata.title)}.`;
+  result.data = {
+    path: ctx.cwd,
+    previous_title: built.previousTitle,
+    task: recordedTaskMetadataData(
+      { id: built.plan.id, branch: built.plan.branch },
+      built.metadata,
+    ),
+  };
+  return result;
+}
+
+/** Render `worktree rename` through the same result boundary as other verbs. */
+export async function taskRename(
+  ctx: LifecycleContext,
+  title: string,
+  opts: WorktreeOpOptions = {},
+): Promise<void> {
+  const result = await taskRenameResult(ctx, title, {
+    dryRun: opts.dryRun ?? false,
+  });
+  emitOrRenderWorktreeResult(ctx, result, opts.json ?? false, {
+    afterApply: (settled) => {
+      if (settled.message !== undefined) {
+        ctx.log.info(settled.message);
       }
     },
   });

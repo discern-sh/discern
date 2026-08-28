@@ -127,5 +127,3 @@ export async function deriveSetupProjectContext(
     instruction_sources: [...instructionSources],
   };
 }
-
-export const _setupProjectContextTest = { sectionParagraph };

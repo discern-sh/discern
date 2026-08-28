@@ -79,7 +79,7 @@ Deno.test("runParallel: observer sees starts up front and settlements in real co
       failFast: true,
       color: false,
       quiet: true,
-      timeoutS: 180,
+      timeout: { seconds: 180, key: "[gate].timeout" },
       observer: {
         started: (job): void => {
           events.push(`started:${job.label}`);

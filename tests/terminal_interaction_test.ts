@@ -54,6 +54,7 @@ import {
   requestMarkdownBrowser,
   requestSelection,
   requestSelections,
+  requestSequentialForm,
   requestText,
   resolveBrief,
   resolveSetupConfig,
@@ -355,6 +356,189 @@ Deno.test("grouped select keeps headings structural and ids stable across reorde
     }, scriptedRuntime(reordered)),
     "beta",
   );
+});
+
+Deno.test("interaction defaults stay semantic across text, confirmation, and selection", async () => {
+  const text = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await requestText(
+      { message: "Text", default: "remembered-value" },
+      scriptedRuntime(text),
+    ),
+    "remembered-value",
+  );
+
+  const confirmation = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await requestConfirmation("Confirm", {
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Reclaim",
+    }, scriptedRuntime(confirmation)),
+    false,
+  );
+  assertStringIncludes(confirmation.writes.join(""), "Keep");
+  assertStringIncludes(confirmation.writes.join(""), "Reclaim");
+
+  const selection = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await requestSelection({
+      message: "Choose",
+      default: "beta",
+      options: [
+        { id: "alpha", name: "Alpha", value: "alpha" },
+        { id: "beta", name: "Beta", value: "beta" },
+        { id: "omega", name: "Omega", value: "omega" },
+      ],
+    }, scriptedRuntime(selection)),
+    "beta",
+  );
+});
+
+Deno.test("sequential forms compose product requests through one package session", async () => {
+  const io = new ScriptedTerminal(["\r", "Task ingress 修复\r", "\x1b[C\r"]);
+  const values = await requestSequentialForm({
+    message: "Create a task",
+    hint: "Ctrl+U returns to the previous question.",
+    steps: [{
+      id: "base",
+      label: "Starting point",
+      summarize: (value) => String(value),
+      run: (_values, previous, requests) =>
+        requests.select({
+          message: "Choose a base",
+          options: [
+            { id: "main", name: "main", value: "main" },
+            { id: "task", name: "Live task", value: "agent/task" },
+          ],
+          ...(typeof previous === "string" ? { default: previous } : {}),
+        }),
+    }, {
+      id: "title",
+      label: "Task title",
+      run: (_values, previous, requests) =>
+        requests.text({
+          message: "Task title",
+          ...(typeof previous === "string" ? { default: previous } : {}),
+        }),
+    }, {
+      id: "authority",
+      label: "Landing authority",
+      summarize: (value) => value === true ? "Pre-authorized" : "Later",
+      run: (_values, previous, requests) =>
+        requests.confirm("Pre-authorize landing?", {
+          defaultTo: previous === true,
+          noLabel: "Later",
+          yesLabel: "Pre-authorize",
+        }),
+    }],
+  }, scriptedRuntime(io));
+
+  assertEquals(values, {
+    base: "main",
+    title: "Task ingress 修复",
+    authority: true,
+  });
+  assertEquals(io.rawTransitions, [true, false, true, false, true, false]);
+  const rendered = stripAnsi(io.writes.join(""));
+  for (
+    const text of [
+      "Create a task",
+      "Starting point",
+      "Task title",
+      "Landing authority",
+    ]
+  ) {
+    assertStringIncludes(rendered, text);
+  }
+});
+
+Deno.test("sequential forms retain prior answers across package back-navigation", async () => {
+  const io = new ScriptedTerminal(["\r", "\x15", "\x1b[B\r", "Follow-up\r"]);
+  const values = await requestSequentialForm({
+    message: "Create a task",
+    steps: [{
+      id: "base",
+      label: "Starting point",
+      run: (_values, previous, requests) =>
+        requests.select({
+          message: "Choose a base",
+          options: [
+            { id: "main", name: "main", value: "main" },
+            { id: "task", name: "Live task", value: "agent/task" },
+          ],
+          ...(typeof previous === "string" ? { default: previous } : {}),
+        }),
+    }, {
+      id: "title",
+      label: "Task title",
+      run: (_values, previous, requests) =>
+        requests.text({
+          message: "Task title",
+          ...(typeof previous === "string" ? { default: previous } : {}),
+        }),
+    }],
+  }, scriptedRuntime(io));
+
+  assertEquals(values, { base: "agent/task", title: "Follow-up" });
+  assertEquals(io.rawTransitions, [
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+  ]);
+});
+
+Deno.test("selection navigation preserves every supported byte-sequence variant", async () => {
+  const cases: readonly {
+    readonly input: string;
+    readonly expected: string;
+    readonly default?: string;
+  }[] = [
+    { input: "\x1b[B\x1b[A\x1b[B\r", expected: "beta" },
+    { input: "jkj\r", expected: "beta" },
+    { input: "lhl\r", expected: "beta" },
+    { input: "\x0e\x10\x0e\r", expected: "beta" },
+    { input: "\x06\x02\x06\r", expected: "beta" },
+    { input: "\x1b[H\r", expected: "alpha", default: "beta" },
+    { input: "\x1b[F\r", expected: "omega", default: "beta" },
+  ];
+  for (const testCase of cases) {
+    const io = new ScriptedTerminal([testCase.input]);
+    assertEquals(
+      await requestSelection({
+        message: "Choose",
+        ...(testCase.default === undefined
+          ? {}
+          : { default: testCase.default }),
+        options: [
+          { id: "alpha", name: "Alpha", value: "alpha" },
+          { id: "beta", name: "Beta", value: "beta" },
+          { id: "omega", name: "Omega", value: "omega" },
+        ],
+      }, scriptedRuntime(io)),
+      testCase.expected,
+    );
+  }
+});
+
+Deno.test("text editing preserves fragmented Unicode and cursor operations deterministically", async () => {
+  const emoji = encoder.encode("👩‍💻");
+  const io = new FakeTerminalIO([
+    encoder.encode("A"),
+    emoji.slice(0, 3),
+    emoji.slice(3),
+    encoder.encode("B\x1b[D\x7fé\x1b[HΩ\x1b[F!\r"),
+  ], { ansiControl: true, columns: 60, rows: 24 });
+  assertEquals(
+    await requestText("Edit", scriptedRuntime(io)),
+    "ΩAéB!",
+  );
+  assertEquals(io.rawTransitions, [true, false]);
 });
 
 Deno.test("choice descriptions stay semantic, searchable, and control-free", async () => {

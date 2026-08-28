@@ -1,0 +1,5 @@
+{
+  "exclude_under": 0,
+  "include_comments": false,
+  "extensions": [".mts", ".cts", ".mjs", ".cjs"]
+}

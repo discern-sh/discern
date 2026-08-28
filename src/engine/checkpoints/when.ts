@@ -29,6 +29,7 @@
 import { type SpawnedJob, spawnJob } from "../jobs/command.ts";
 import { beginTrackedRun } from "../jobs/interrupt.ts";
 import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
+import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import type { WhenOutcome } from "./types.ts";
 import type { CheckpointWhenInput } from "../../shared/checkpoints.ts";
@@ -126,7 +127,10 @@ export async function runWhenCommand(
     const input = opts.input;
     const env: Record<string, string> = {};
     if (input !== undefined) {
-      inputPath = await makeTempArtifact("checkpointInput");
+      inputPath = await makeTempArtifact(
+        "checkpointInput",
+        await tempArtifactScopeFor(root),
+      );
       await Deno.chmod(inputPath, 0o600);
       await Deno.writeTextFile(inputPath, `${JSON.stringify(input)}\n`);
       env[DISCERN_ENVIRONMENT_VARIABLES.checkpointInput] = inputPath;
@@ -138,7 +142,10 @@ export async function runWhenCommand(
         cwd: root,
         stream: false,
         write: () => {},
-        timeoutS,
+        timeout: {
+          seconds: timeoutS,
+          key: "the checkpoint trigger's fixed budget",
+        },
         keepOutput: true,
         protocolOutputMaxBytes: CHECKPOINT_WHEN_OUTPUT_BYTES,
         signal: tracked.signal,
@@ -187,13 +194,13 @@ export async function runWhenCommand(
         `checkpoint '${checkpointId}': the when command produced no result; the trigger fails open and did not fire.`,
     };
   }
-  if (result.result.timedOutAfterS !== undefined) {
+  if (result.result.timedOut !== undefined) {
     return {
       kind: "error",
       reason: "when_timeout",
       advisory:
         `checkpoint '${checkpointId}': the when command did not finish within ` +
-        `${result.result.timedOutAfterS}s; the trigger fails open and did not fire.`,
+        `${result.result.timedOut.seconds}s; the trigger fails open and did not fire.`,
     };
   }
   if (result.result.cancelled === true || tracked.signal.aborted) {

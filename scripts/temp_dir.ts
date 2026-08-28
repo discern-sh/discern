@@ -36,6 +36,12 @@ export const TOOL_TEMP_DIR_KINDS = {
     recursiveCleanup: true,
     preserveOnFailure: false,
   },
+  "fta-analysis": {
+    purpose: "exact authored-source projection for one pinned FTA analysis",
+    prefix: "discern-fta-analysis-",
+    recursiveCleanup: true,
+    preserveOnFailure: false,
+  },
   "map-prose-stage": {
     purpose: "frontmatter-blanked Map prose staged for Vale",
     prefix: "discern-prose-",

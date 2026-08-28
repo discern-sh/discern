@@ -1,6 +1,11 @@
 /** Generic real-PTY process driver shared by interactive integration harnesses. */
 
 import { realDelay, waitUntil } from "../waiting.ts";
+import {
+  claimRealPtyBoundary,
+  realPtyEvidence,
+  recordRealPtyProcessEvidence,
+} from "../real_pty.ts";
 
 const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
@@ -119,6 +124,7 @@ export function ptyOutputContains(
 export async function runPtyProcess(
   options: PtyProcessOptions,
 ): Promise<PtyProcessResult> {
+  const boundary = claimRealPtyBoundary();
   validateInput(options.input);
   if (Deno.build.os === "windows") {
     throw new Error("the interactive PTY harness requires script(1)");
@@ -376,15 +382,25 @@ export async function runPtyProcess(
   if (timedOut) {
     throw new Error(
       `pseudo-terminal command exceeded ${timeoutMs}ms ` +
-        `(${inputProgress}):\n${stdout}${stderr}`,
+        `(${inputProgress}; ${realPtyEvidence(boundary)}):\n${stdout}${stderr}`,
     );
   }
   if (inputError !== undefined) {
     const message = inputError instanceof Error
       ? inputError.message
       : String(inputError);
-    throw new Error(`${message}:\n${stdout}${stderr}`, { cause: inputError });
+    throw new Error(
+      `${message}; ${realPtyEvidence(boundary)}:\n${stdout}${stderr}`,
+      { cause: inputError },
+    );
   }
+  recordRealPtyProcessEvidence(boundary, {
+    phase: inputProgress,
+    readiness: options.input?.map((phase) =>
+      readinessDescription(phase.waitFor)
+    ) ?? [],
+    transcript: stdout + stderr,
+  });
   return {
     code: status.code,
     stdout,

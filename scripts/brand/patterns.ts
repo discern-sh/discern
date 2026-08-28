@@ -480,8 +480,6 @@ Do not compress an entire product page into a social post.`,
   },
 ] as const satisfies readonly CopyPattern[];
 
-export type CopyPatternId = (typeof COPY_PATTERNS)[number]["id"];
-
 /** The pattern anti-abuse rules, in rendering order. */
 export const ANTI_ABUSE_RULES: readonly string[] = [
   "Do not use the audience signature on every page.",

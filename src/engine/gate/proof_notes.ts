@@ -229,36 +229,6 @@ async function planManagedRemoteRemoval(
   return { operations, errors: [] };
 }
 
-/** Project a proof-note plan into the stable result data shape. */
-export function proofNotesFetchPlanData(
-  plan: ProofNotesFetchPlan,
-): ProofNotesFetchData {
-  const added: string[] = [];
-  const removed: string[] = [];
-  for (const boundary of plan.boundaries) {
-    for (const operation of boundary.operations) {
-      for (const key of operation.addedKeys) pushUnique(added, key);
-      for (const key of operation.removedKeys) pushUnique(removed, key);
-    }
-  }
-  return {
-    mode: plan.mode,
-    status: plan.errors.length > 0
-      ? "failed"
-      : plan.mode === "local"
-      ? "local"
-      : plan.remotes.length === 0
-      ? "no_remote"
-      : added.length > 0 || removed.length > 0
-      ? "wired"
-      : "unchanged",
-    remotes: [...plan.remotes],
-    added,
-    removed,
-    errors: [...plan.errors],
-  };
-}
-
 /**
  * Compute every proof-note fetch Git-config effect without writing. The plan is
  * grouped per remote so one unreadable or failed remote never blinds the rest.

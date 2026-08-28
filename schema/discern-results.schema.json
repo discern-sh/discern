@@ -92,6 +92,7 @@
                               "resource-create",
                               "resource-destroy",
                               "git",
+                              "task-metadata",
                               "setup-step",
                               "repository-ensure",
                               "checkout-clean-check",
@@ -181,6 +182,7 @@
                               "resource-create",
                               "resource-destroy",
                               "git",
+                              "task-metadata",
                               "setup-step",
                               "repository-ensure",
                               "checkout-clean-check",
@@ -261,6 +263,7 @@
                           "resource-create",
                           "resource-destroy",
                           "git",
+                          "task-metadata",
                           "setup-step",
                           "repository-ensure",
                           "checkout-clean-check",
@@ -408,6 +411,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -469,6 +473,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -771,6 +776,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -832,6 +838,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -1795,6 +1802,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -1856,6 +1864,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -2329,6 +2338,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -2390,6 +2400,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -3001,6 +3012,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -3062,6 +3074,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -4111,6 +4124,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -4172,6 +4186,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -4974,6 +4989,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -5035,6 +5051,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -5746,6 +5763,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -5807,6 +5825,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -6178,6 +6197,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -6239,6 +6259,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -6628,6 +6649,7 @@
                                 "resource-create",
                                 "resource-destroy",
                                 "git",
+                                "task-metadata",
                                 "setup-step",
                                 "repository-ensure",
                                 "checkout-clean-check",
@@ -6766,6 +6788,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -6827,6 +6850,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -7206,6 +7230,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -7267,6 +7292,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -7588,6 +7614,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -7649,6 +7676,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -8018,6 +8046,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -8079,6 +8108,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -8681,6 +8711,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -8742,6 +8773,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -9344,6 +9376,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -9405,6 +9438,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -9817,6 +9851,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -9878,6 +9913,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -10934,6 +10970,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -10995,6 +11032,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -11297,6 +11335,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -11358,6 +11397,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -11660,6 +11700,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -11721,6 +11762,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -12564,6 +12606,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -12625,6 +12668,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -13466,6 +13510,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -13527,6 +13572,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -14018,6 +14064,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -14079,6 +14126,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -14570,6 +14618,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -14631,6 +14680,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -15019,6 +15069,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -15080,6 +15131,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -15382,6 +15434,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -15443,6 +15496,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -15796,6 +15850,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -15857,6 +15912,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -16288,6 +16344,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -16349,6 +16406,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -16787,6 +16845,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -16848,6 +16907,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -18815,6 +18875,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -18876,6 +18937,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -19264,6 +19326,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -19325,6 +19388,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -19708,6 +19772,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -19769,6 +19834,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -20125,6 +20191,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -20186,6 +20253,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -20488,6 +20556,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -20549,6 +20618,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -20851,6 +20921,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -20912,6 +20983,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -21955,6 +22027,57 @@
                       "port": {
                         "type": "number"
                       },
+                      "task": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "branch": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "title_source": {
+                            "type": "string",
+                            "enum": [
+                              "recorded",
+                              "identity-fallback",
+                              "unavailable-fallback"
+                            ]
+                          },
+                          "brief": {
+                            "type": "string"
+                          },
+                          "created_from": {
+                            "type": "object",
+                            "properties": {
+                              "ref": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "commit": {
+                                "type": "string",
+                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                              }
+                            },
+                            "required": [
+                              "ref",
+                              "commit"
+                            ]
+                          },
+                          "unavailable_reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "branch",
+                          "title",
+                          "title_source"
+                        ]
+                      },
                       "broken": {
                         "type": "boolean"
                       },
@@ -22402,6 +22525,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -22463,6 +22587,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -22698,6 +22823,57 @@
                 "from": {
                   "type": "string"
                 },
+                "task": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "branch": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "title_source": {
+                      "type": "string",
+                      "enum": [
+                        "recorded",
+                        "identity-fallback",
+                        "unavailable-fallback"
+                      ]
+                    },
+                    "brief": {
+                      "type": "string"
+                    },
+                    "created_from": {
+                      "type": "object",
+                      "properties": {
+                        "ref": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "commit": {
+                          "type": "string",
+                          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                        }
+                      },
+                      "required": [
+                        "ref",
+                        "commit"
+                      ]
+                    },
+                    "unavailable_reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "branch",
+                    "title",
+                    "title_source"
+                  ]
+                },
                 "name_note": {
                   "type": "string"
                 },
@@ -22787,7 +22963,444 @@
                 "id",
                 "branch",
                 "path",
-                "from"
+                "from",
+                "task"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "unknown_root_section"
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "issues"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
+      ]
+    },
+    "DiscernWorktreeRenameResult": {
+      "title": "DiscernWorktreeRenameResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "instructions-check",
+                      "skills-check",
+                      "tracked-refresh-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "task-metadata",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "instructions-check",
+                  "skills-check",
+                  "tracked-refresh-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "task-metadata",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped",
+                  "cancelled"
+                ]
+              },
+              "advisory": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "acceptance-cleanup-incomplete",
+                      "checkpoint-evidence-dropped",
+                      "checkout-clean-observation-unavailable",
+                      "doctor-warning",
+                      "execution-cap-unavailable",
+                      "generated-attribute-pattern-untranslated",
+                      "ignored-file-observation-unavailable",
+                      "landing-authority-unverified",
+                      "optional-resource-unavailable",
+                      "proof-recording-unavailable",
+                      "setup-forced-completion",
+                      "setup-machinery-commit-failed",
+                      "setup-marker-commit-failed",
+                      "standards-limits-unverified",
+                      "uninstall-strip-incomplete"
+                    ]
+                  },
+                  "evidence": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "next_action": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "evidence",
+                  "next_action"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "advisories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "acceptance-cleanup-incomplete",
+                  "checkpoint-evidence-dropped",
+                  "checkout-clean-observation-unavailable",
+                  "doctor-warning",
+                  "execution-cap-unavailable",
+                  "generated-attribute-pattern-untranslated",
+                  "ignored-file-observation-unavailable",
+                  "landing-authority-unverified",
+                  "optional-resource-unavailable",
+                  "proof-recording-unavailable",
+                  "setup-forced-completion",
+                  "setup-machinery-commit-failed",
+                  "setup-marker-commit-failed",
+                  "standards-limits-unverified",
+                  "uninstall-strip-incomplete"
+                ]
+              },
+              "evidence": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "next_action": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "evidence",
+              "next_action"
+            ]
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "worktree rename"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "previous_title": {
+                  "type": "string"
+                },
+                "task": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "branch": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "title_source": {
+                      "type": "string",
+                      "enum": [
+                        "recorded",
+                        "identity-fallback",
+                        "unavailable-fallback"
+                      ]
+                    },
+                    "brief": {
+                      "type": "string"
+                    },
+                    "created_from": {
+                      "type": "object",
+                      "properties": {
+                        "ref": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "commit": {
+                          "type": "string",
+                          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                        }
+                      },
+                      "required": [
+                        "ref",
+                        "commit"
+                      ]
+                    },
+                    "unavailable_reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "branch",
+                    "title",
+                    "title_source"
+                  ]
+                }
+              },
+              "required": [
+                "path",
+                "previous_title",
+                "task"
               ]
             },
             {
@@ -22876,6 +23489,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -22937,6 +23551,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -23883,6 +24498,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -23944,6 +24560,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -24394,6 +25011,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -24455,6 +25073,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -24836,6 +25455,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -24897,6 +25517,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -25232,6 +25853,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -25293,6 +25915,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -25595,6 +26218,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -25656,6 +26280,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -25958,6 +26583,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -26019,6 +26645,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -26321,6 +26948,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -26382,6 +27010,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -26684,6 +27313,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -26745,6 +27375,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -27047,6 +27678,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -27108,6 +27740,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -27410,6 +28043,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -27471,6 +28105,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -27819,6 +28454,7 @@
                       "resource-create",
                       "resource-destroy",
                       "git",
+                      "task-metadata",
                       "setup-step",
                       "repository-ensure",
                       "checkout-clean-check",
@@ -27880,6 +28516,7 @@
                   "resource-create",
                   "resource-destroy",
                   "git",
+                  "task-metadata",
                   "setup-step",
                   "repository-ensure",
                   "checkout-clean-check",
@@ -29853,6 +30490,9 @@
           "$ref": "#/$defs/DiscernStartResult"
         },
         {
+          "$ref": "#/$defs/DiscernWorktreeRenameResult"
+        },
+        {
           "$ref": "#/$defs/DiscernAcceptResult"
         },
         {
@@ -29927,6 +30567,7 @@
           "worktrees": "#/$defs/DiscernWorktreesResult",
           "status": "#/$defs/DiscernStatusResult",
           "start": "#/$defs/DiscernStartResult",
+          "worktree rename": "#/$defs/DiscernWorktreeRenameResult",
           "accept": "#/$defs/DiscernAcceptResult",
           "update": "#/$defs/DiscernUpdateResult",
           "identity": "#/$defs/DiscernIdentityResult",
@@ -30777,6 +31418,26 @@
       },
       "schema": "#/$defs/DiscernStartResult",
       "mcpToolResultSchema": "#/$defs/DiscernStartMcpToolResult"
+    },
+    {
+      "id": "worktreeRename",
+      "verb": "worktree rename",
+      "commands": [
+        "worktree rename"
+      ],
+      "completionPolicy": {
+        "requiredPostconditions": [
+          "declared-outcome",
+          "executed-steps"
+        ],
+        "optionalAdvisories": [],
+        "refusal": "failure",
+        "cancellation": "failure",
+        "partialEffect": "failure",
+        "noOp": "success",
+        "recoveryOwner": "caller"
+      },
+      "schema": "#/$defs/DiscernWorktreeRenameResult"
     },
     {
       "id": "accept",

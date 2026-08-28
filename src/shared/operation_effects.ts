@@ -360,6 +360,12 @@ export const OPERATION_EFFECTS = {
     "checkout",
     "disclose",
   ),
+  "worktree rename": policy(
+    ["discern-checkout-mutation", "discern-git-mutation"],
+    "checkout",
+    "required",
+    { gitWriteAuthority: "boundary-plus-effect-plan" },
+  ),
   "worktree hook": OBSERVATION,
   "worktree hook create": policy(
     [

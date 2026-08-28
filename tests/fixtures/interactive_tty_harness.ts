@@ -9,6 +9,7 @@ import {
   requestSelections,
   requestConfirmation,
   groupedSelectionEntries,
+  requestSequentialForm,
   requestText,
   isInteractionCancelled,
   requestSelection,
@@ -34,6 +35,7 @@ export type InteractiveTtyScenario =
   | "grouped-select"
   | "search"
   | "search-default"
+  | "sequential-form"
   | "repeated-viewport"
   | "composed-viewport-cycles"
   | "textarea-tall"
@@ -52,6 +54,12 @@ export const INTERACTIVE_TTY_REQUEST_LABELS = {
   "grouped-select": ["Choose from semantic groups"],
   search: ["Filter grouped documents"],
   "search-default": ["Restore a remembered searchable document"],
+  "sequential-form": [
+    "Create a task",
+    "Choose a base",
+    "Task title",
+    "Pre-authorize landing?",
+  ],
   "repeated-viewport": [
     "Choose a desk action",
     "Browse docs",
@@ -361,6 +369,50 @@ async function runScenario(
             ],
           },
         ]),
+      });
+    case "sequential-form":
+      return await requestSequentialForm({
+        message: INTERACTIVE_TTY_REQUEST_LABELS["sequential-form"][0],
+        hint: "Ctrl+U returns to the previous question.",
+        steps: [{
+          id: "base",
+          label: "Starting point",
+          summarize: (value) => String(value),
+          run: (_values, previous, requests) =>
+            requests.select({
+              message: INTERACTIVE_TTY_REQUEST_LABELS["sequential-form"][1],
+              options: [
+                { id: "main", name: "main", value: "main" },
+                { id: "task", name: "Live task", value: "agent/task" },
+              ],
+              ...(typeof previous === "string"
+                ? { default: previous }
+                : {}),
+            }),
+        }, {
+          id: "title",
+          label: "Task title",
+          run: (_values, previous, requests) =>
+            requests.text({
+              message: INTERACTIVE_TTY_REQUEST_LABELS["sequential-form"][2],
+              ...(typeof previous === "string"
+                ? { default: previous }
+                : {}),
+            }),
+        }, {
+          id: "authority",
+          label: "Landing authority",
+          summarize: (value) => value === true ? "Pre-authorized" : "Later",
+          run: (_values, previous, requests) =>
+            requests.confirm(
+              INTERACTIVE_TTY_REQUEST_LABELS["sequential-form"][3],
+              {
+                defaultTo: previous === true,
+                noLabel: "Later",
+                yesLabel: "Pre-authorize",
+              },
+            ),
+        }],
       });
     case "repeated-viewport": {
       const deskOptions = groupedSelectionEntries([{

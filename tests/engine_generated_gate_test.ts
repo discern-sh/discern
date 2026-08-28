@@ -127,7 +127,7 @@ Deno.test("generated gate planning labels build jobs and carries each timeout", 
     kind: "generated",
     reportStage: "build",
     willRun: true,
-    timeoutS: 17,
+    timeout: { seconds: 17, key: "[generated.reference].timeout" },
   }]);
 });
 

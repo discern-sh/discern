@@ -27,9 +27,10 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import process from "process";
-import { isAbsolute } from "@std/path";
+import { isAbsolute, join } from "@std/path";
 import { z } from "@zod/zod";
 import {
+  CONFIG_REL,
   findRoot,
   NO_PROJECT_MESSAGE,
   notInitializedResult,
@@ -41,7 +42,7 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
-import { pathExists } from "../../shared/fs_presence.ts";
+import { fileExists, pathExists } from "../../shared/fs_presence.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { serializeResult } from "../../shared/result_serialization.ts";
@@ -1183,13 +1184,16 @@ export const TOOLS: McpTool[] = orderTools([
       "dry_run to preview the plan without creating anything.",
     inputSchema: {
       name: z.string().optional().describe(
-        "Optional name for the worktree — a short slug or a few words describing this " +
-          "task (e.g. `fix-upload-retry` or `fix the upload retry path`). You don't need " +
-          "to format it: discern normalises whatever you pass into a branch-safe slug " +
-          "(case, spaces, and punctuation are fixed; an over-long name is shortened; an " +
-          "unusable one — all punctuation, emoji — falls back to a random codename). " +
-          "Omit for a random codename. data.name_note reports any normalisation or " +
-          "fallback so you can retry with a cleaner name if you care.",
+        "Optional task title and worktree-id seed. discern preserves the supplied " +
+          "text in data.task.title and normalizes the id. Omit for a random codename.",
+      ),
+      title: z.string().optional().describe(
+        "Optional display title when it should differ from `name`. With no `name`, " +
+          "this title also seeds the worktree id.",
+      ),
+      brief: z.string().optional().describe(
+        "Optional one-line task brief. The new worktree stores it for status, Desk " +
+          "detail, and visible agent handoff.",
       ),
       from: z.string().optional().describe(
         "Branch the new worktree from this ref (a branch, tag, or commit) instead " +
@@ -1217,6 +1221,8 @@ export const TOOLS: McpTool[] = orderTools([
       startToolResult(root, {
         dryRun: args.dry_run === true,
         name: args.name ?? "",
+        title: args.title,
+        brief: args.brief,
         from: args.from,
       }),
   }),
@@ -1358,7 +1364,13 @@ async function updateToolResult(
  */
 async function startToolResult(
   root: string,
-  opts: { dryRun?: boolean; name?: string; from?: string | undefined },
+  opts: {
+    dryRun?: boolean;
+    name?: string;
+    title?: string | undefined;
+    brief?: string | undefined;
+    from?: string | undefined;
+  },
 ): Promise<DiscernResult> {
   const ctx = await lifecycleContext(
     root,
@@ -1369,6 +1381,8 @@ async function startToolResult(
       dryRun: opts.dryRun ?? false,
       worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
       name: opts.name ?? "",
+      ...(opts.title !== undefined ? { title: opts.title } : {}),
+      ...(opts.brief !== undefined ? { brief: opts.brief } : {}),
       ...(opts.from !== undefined ? { from: opts.from } : {}),
     });
     // Over MCP, start ALSO re-aims the live server's working root at the new worktree
@@ -1482,17 +1496,22 @@ function defaultInstalledVersion(): Promise<string | undefined> {
 /**
  * The MCP server's **working root** — the directory its verbs operate on, held as one
  * mutable value because the OS process cwd is frozen at spawn and unusable for this
- * (ADR 0062). Initialized to the spawn root (`findRoot()`), and re-pointed on exactly
- * two lifecycle transitions: `discern_start` aims it at the worktree it just created,
- * `discern_accept` resets it to the spawn root. `undefined` when the server spawned
- * outside a discern project — {@link runTool}'s `not_initialized` guard handles that.
+ * (ADR 0062). Initialized to the spawn root (`findRoot()`), and re-pointed on two
+ * lifecycle transitions: `discern_start` aims it at the worktree it just created,
+ * `discern_accept` resets it to the spawn root. One repair exists besides those:
+ * when the held root's checkout vanishes between calls, dispatch refuses and
+ * re-aims back at the spawn root while it remains a live project. `undefined`
+ * when the server spawned outside a discern project — {@link runTool}'s
+ * `not_initialized` guard handles that.
  * The verb cores stay pure functions of an explicit `root`; this is only the
  * server-layer default they receive, resolved per call in {@link runTool}.
  */
 export class WorkingRoot {
   #root: string | undefined;
+  readonly #spawn: string | undefined;
   constructor(spawnRoot: string | undefined) {
     this.#root = spawnRoot;
+    this.#spawn = spawnRoot;
   }
   /** The current working root — the directory the next verb call operates on. */
   get(): string | undefined {
@@ -1501,6 +1520,11 @@ export class WorkingRoot {
   /** Re-point the working root (a lifecycle re-aim). */
   set(root: string): void {
     this.#root = root;
+  }
+  /** The immutable spawn-time root — the recovery target when the held root's
+   * checkout vanishes between calls (its worktree removed by another session). */
+  spawnRoot(): string | undefined {
+    return this.#spawn;
   }
 }
 
@@ -1732,6 +1756,25 @@ async function completeToolCall(
   return renderMcpResult(result);
 }
 
+/** The refusal served when the held working root stopped being a discern
+ * project between calls: the worktree it named was removed — typically because
+ * that effort landed. States the vanished path, then the live next action. */
+function vanishedHeldRootMessage(
+  gone: string,
+  home: string | undefined,
+): string {
+  const state =
+    `The checkout these tools were aimed at is gone: ${gone} no longer holds ` +
+    `a discern.toml — usually because that effort landed and its worktree was ` +
+    `removed.`;
+  return home === undefined
+    ? `${state} Pass an absolute \`path\` inside the intended discern project ` +
+      `or worktree.`
+    : `${state} The tools now target ${home}, the checkout this server ` +
+      `started in. Retry there, or pass an absolute \`path\` to aim this ` +
+      `call at another project or worktree.`;
+}
+
 /**
  * Resolve and run one tool call. The per-call root is the explicit
  * `path` argument when given (ADR 0062 §2 — resolved through `findRoot`, so any
@@ -1784,7 +1827,42 @@ async function dispatchToolCall(
       ),
     };
   }
-  const root = pathArg ? await findRoot(pathArg) : working.get();
+  let root = pathArg ? await findRoot(pathArg) : working.get();
+  // The held working root is remembered state, not caller input: the worktree
+  // it names can vanish between calls of this long-lived server — a sibling
+  // session lands the effort, or the directory is dropped by hand. Trusting it
+  // blindly hands the verb a vanished directory, so a routine "that effort is
+  // over" state reads as a crash inside discern. Verify the marker first (an
+  // explicit `path` was already vetted by findRoot), refuse with the story, and
+  // repair the held root to the spawn checkout when that is still a project.
+  if (
+    root !== undefined && pathArg === undefined &&
+    !(await fileExists(join(root, CONFIG_REL)))
+  ) {
+    const spawn = working.spawnRoot();
+    const home = spawn !== undefined && spawn !== root &&
+        (await fileExists(join(spawn, CONFIG_REL)))
+      ? spawn
+      : undefined;
+    if (home !== undefined) {
+      working.set(home);
+    }
+    if (tool.rootIndependent !== true) {
+      return {
+        result: notInitializedResult(
+          verbOf(tool.name),
+          vanishedHeldRootMessage(root, home),
+        ),
+        recording: home === undefined
+          ? undefined
+          : beginMcpRecording(home, verbOf(tool.name), args, mcpClient),
+      };
+    }
+    // A root-independent answer never depended on the vanished root: continue
+    // against the repaired home, or with no root at all — the branch below
+    // serves it from the process cwd exactly as when no root resolves.
+    root = home;
+  }
   if (root === undefined) {
     // A root-independent tool (discern_docs) serves the same answer from anywhere —
     // discern's OWN bundled docs, present in every install — so it must not be refused

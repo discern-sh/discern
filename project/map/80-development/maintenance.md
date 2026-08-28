@@ -4,11 +4,20 @@ aliases:
   - duplication census
   - clone groups
   - duplicated lines
+  - dead exports
+  - complexity census
+  - FTA
 ---
 
 # Maintenance
 
-_Use measured evidence to remove incidental repetition without merging code that has different reasons to change._
+_Use measured evidence to remove unreachable code, incidental repetition, and concentrated responsibilities without distorting ownership to improve a number._
+
+## Keep direct exports reachable
+
+Run `deno task dead-exports` to scan the canonical authored-Deno universe. The detector reports direct named declarations that are referenced only by their own `export` modifier. The repository test holds this census at zero, so a new declaration cannot acquire artificial reachability merely by being exported.
+
+The detector is conservative. Public modules, declaration files, re-exports, namespace imports, and dynamic imports remain live because a repository-local static scan cannot prove which member an external or runtime consumer selects. [`dead_exports_lib.ts`](../../../scripts/dead_exports_lib.ts) records the exceptional generated-copy root whose consumer imports the projected module rather than its authored source. The existing byte-parity test binds that projection to the source. A new exception needs equivalent external evidence; it is not a general allowlist.
 
 ## Read a clone diagnostic
 
@@ -27,3 +36,11 @@ The detector ignores comments, whitespace, local identifier spelling, literal va
 After a focused cleanup, run the relevant tests and `deno task duplication-census`. If `duplicated_lines` falls, run `discern standards --pin duplicated_lines` so the lower ceiling becomes the next branch's baseline. Keep each cleanup behavior-preserving and atomic. The cleanup ledger in [`project/TODO.md`](../../TODO.md) stays open while defensible incidental groups remain; a broad campaign to manufacture a convenient number is not a maintenance goal.
 
 The Gate runs the census when a declared input changes and may replay its prior reading otherwise. It does not use a detector cache. Generated ownership and source membership come from the same configuration and Git-derived structural-scope authorities used elsewhere in the repository.
+
+## Read the complexity tail
+
+Run `deno task complexity` for the pinned FTA report. The wrapper projects the exact canonical authored-Deno source set into an owned temporary directory and fails if FTA omits a supported source, returns a duplicate, or analyzes an unexpected file. The omission of declaration files by FTA remains explicit. Generated projections stay visible in the report but do not consume a maintenance budget.
+
+Read the production, tooling, and test lanes separately. Each lane ranks FTA score, `cyclo` count, physical lines, and full-history Git touches independently. These are file-level advisory signals. Function-level cognitive complexity remains outside the measurement. In particular, a large declarative catalogue can have a high score without hiding a tangled algorithm. There is no repository-wide average and no cap tied to today's single worst file.
+
+Only the extreme tail blocks: a non-generated file whose score exceeds 100 or whose `cyclo` count exceeds 200. Every existing member has an exact, reviewed score and `cyclo` ceiling in [`complexity_hotspots.ts`](../../../scripts/complexity_hotspots.ts). A new member, a regression beyond either file budget, or a registry row whose file has improved below both thresholds fails the census. When a behavior-preserving decomposition clears both thresholds, remove that row and pin `complexity_hotspots`; the falling Standard holds the legacy-tail population so it can only shrink.

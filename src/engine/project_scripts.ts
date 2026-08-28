@@ -26,7 +26,6 @@ import { terminalLine } from "../lib/terminal.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { integrationBranch } from "./worktree/git.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
-import type { DiscernResult } from "../shared/result.ts";
 import type { ScriptsData } from "../shared/result_schemas.ts";
 import {
   pathExists,
@@ -168,29 +167,6 @@ export async function inspectDeskProjectScriptsWithConfig(
         : scripts[0]?.reason ??
           `No executable Project Scripts exist in ${directory.abs}.`,
     }),
-  };
-}
-
-/** Discover the Project Scripts configured by the checkout rooted at `root`. */
-export async function listProjectScripts(
-  root: string,
-): Promise<ProjectScript[]> {
-  return await listProjectScriptsWithConfig(root, await loadConfig(root));
-}
-
-/** Build the bare `scripts --json` listing from one resolved checkout. */
-export async function projectScriptsResult(
-  root: string,
-): Promise<DiscernResult<ScriptsData>> {
-  const config = await loadConfig(root);
-  const directory = resolveScriptsDir(root, config);
-  return {
-    ok: true,
-    verb: "scripts",
-    data: {
-      scripts: await discoverProjectScripts(directory.abs),
-      directory: directory.rel,
-    },
   };
 }
 

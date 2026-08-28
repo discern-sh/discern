@@ -20,9 +20,6 @@ import {
   type StandardJobs,
 } from "./standards.ts";
 
-/** Compatibility name for the gate-facing view of the shared standard jobs. */
-export type GateStandardJobs = StandardJobs;
-
 // Preserve the established module surface while the implementations live at
 // the shared seams both gate and standalone execution consume.
 export {

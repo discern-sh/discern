@@ -9,6 +9,7 @@ import {
   TERMINAL_CAPTURE_GEOMETRIES,
   type TerminalCaptureGeometryName,
 } from "../tests/fixtures/terminal_command_capture.ts";
+import { withRealPtyBoundary } from "../tests/real_pty.ts";
 import type {
   PtyInputPhase,
   PtyInputStep,
@@ -300,20 +301,25 @@ async function main(args: readonly string[]): Promise<void> {
     const input = options.script === undefined
       ? undefined
       : await readInputScript(options.script);
-    const capture = await captureDiscernCommand({
-      executable,
-      name: options.name,
-      args: options.args,
-      cwd: options.cwd,
-      geometry: TERMINAL_CAPTURE_GEOMETRIES[options.geometry],
-      color: options.color,
-      locale: options.locale,
-      env: {
-        DISCERN_DOCS_DIR: join(REPO_ROOT, "project", "map"),
-        DISCERN_TEMPLATES_DIR: join(REPO_ROOT, "templates"),
-      },
-      ...(input === undefined ? {} : { input, static: false }),
-    });
+    const capture = await withRealPtyBoundary({
+      name: "terminal review capture",
+      contracts: ["control-rendering", "platform-transport"],
+      canary: false,
+    }, () =>
+      captureDiscernCommand({
+        executable,
+        name: options.name,
+        args: options.args,
+        cwd: options.cwd,
+        geometry: TERMINAL_CAPTURE_GEOMETRIES[options.geometry],
+        color: options.color,
+        locale: options.locale,
+        env: {
+          DISCERN_DOCS_DIR: join(REPO_ROOT, "project", "map"),
+          DISCERN_TEMPLATES_DIR: join(REPO_ROOT, "templates"),
+        },
+        ...(input === undefined ? {} : { input, static: false }),
+      }));
     await ensureDir(dirname(options.output));
     await Deno.writeTextFile(
       options.output,

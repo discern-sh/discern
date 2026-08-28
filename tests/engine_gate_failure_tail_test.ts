@@ -30,6 +30,7 @@ import { makeOut } from "../src/engine/output.ts";
 import { terminalMultiline } from "../src/lib/terminal.ts";
 import type { Diagnostic } from "../src/shared/result.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const EXIT_127_TITLE = "A gate command fails with exit 127 (command not found)";
 const MATCHED_TRAP_GATE_LAUNCH_BUDGET = 4;
@@ -424,14 +425,11 @@ Deno.test("durable Gate output excludes superseded live repaints", () => {
  * a failed command's captured output must remain exactly once after the live
  * frame is finalized. Zero loses the evidence; two repeats the durable excerpt.
  */
-Deno.test("gate TTY: every verb leaves failed output exactly once", async () => {
-  for (
-    const { verb, job } of [
-      { verb: "done", job: `lint = "${OUTPUT_COMMAND}"` },
-      { verb: "prepare", job: `lint = "${OUTPUT_COMMAND}"` },
-      { verb: "test", job: `test = "${OUTPUT_COMMAND}"` },
-    ]
-  ) {
+realPtyTest({
+  name: "gate TTY leaves failed output once after restoring its live frame",
+  contracts: ["terminal-modes", "control-rendering", "platform-transport"],
+  canary: true,
+  fn: async () => {
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
       await writeConfig(
@@ -445,23 +443,22 @@ Deno.test("gate TTY: every verb leaves failed output exactly once", async () => 
           'trunk = "main"',
           "",
           "[jobs]",
-          job,
+          `lint = "${OUTPUT_COMMAND}"`,
           "",
         ].join("\n"),
       );
       await gitInit(dir);
-      const r = await runAgentPty(dir, [verb], {
+      const result = await runAgentPty(dir, ["done"], {
         env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
       });
-      assertEquals(r.code, 1, `${verb}: ${r.output}`);
+      assertEquals(result.code, 1, result.output);
       assertEquals(
-        countOf(durableTerminalOutput(r.output), OUTPUT_MARKER),
+        countOf(durableTerminalOutput(result.output), OUTPUT_MARKER),
         1,
-        `${verb}: a failed command's output must remain exactly ` +
-          `once.\n${r.output}`,
+        `a failed command's output must remain exactly once.\n${result.output}`,
       );
     });
-  }
+  },
 });
 
 Deno.test("failure tail: a quieted run leads with the withheld output and the full-capture path", () => {

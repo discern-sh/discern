@@ -23,6 +23,7 @@ import type {
 import type { DetectedAgentBinary } from "../../lib/detect_agents.ts";
 import type { AgentName } from "../../lib/config.ts";
 import { providerFor } from "../../lib/providers.ts";
+import type { AgentCliPromptArgument } from "../../lib/providers.ts";
 import { compactDuration } from "../output.ts";
 import type { DeskProjectScript } from "../project_scripts.ts";
 import {
@@ -76,9 +77,11 @@ export const DESK_ACTIONS = [
   "accept",
   "update",
   "agent",
+  "follow_up",
   "scripts",
   "jump",
   "inspect",
+  "rename",
   "grant",
   "revoke_grant",
   "reclaim",
@@ -179,8 +182,23 @@ export interface DeskAgentLaunch {
   readonly kind: "open" | "continue";
   readonly label: string;
   readonly args: readonly string[];
+  readonly promptArgument?: AgentCliPromptArgument;
   readonly availability?: "enabled" | "disabled";
   readonly reason?: string;
+}
+
+/** Resolve a stored brief through a provider-declared, documented argv option. */
+export function agentLaunchArgs(
+  launch: DeskAgentLaunch,
+  brief: string | undefined,
+): { readonly args: readonly string[]; readonly briefPassed: boolean } {
+  if (brief === undefined || launch.promptArgument === undefined) {
+    return { args: launch.args, briefPassed: false };
+  }
+  return {
+    args: [...launch.args, launch.promptArgument.flag, brief],
+    briefPassed: true,
+  };
 }
 
 /** The human task name plus an optional minted-id disambiguator. */
@@ -671,9 +689,11 @@ const ACTION_ALLOWED_WHILE_RUNNING = {
   accept: false,
   update: false,
   agent: false,
+  follow_up: true,
   scripts: false,
   jump: true,
   inspect: true,
+  rename: false,
   grant: false,
   revoke_grant: false,
   reclaim: false,
@@ -916,6 +936,28 @@ export const DESK_ACTION_REGISTRY = {
       );
     },
   },
+  follow_up: {
+    group: "work",
+    label: (_context: DeskActionLabelContext): string =>
+      "Start a follow-up from this task",
+    command: (context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "start", "--from", context.branch],
+      workingDirectory: "main",
+    }),
+    consequence: (context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Current task checkout and branch"],
+        [`Create a new task from the committed tip of ${context.branch}`],
+        [],
+        ["The follow-up has its own worktree and branch"],
+      ),
+    confirmation: NO_CONFIRMATION,
+    availability: (facts: DeskActionFacts): string | undefined =>
+      facts.entry.git_unavailable === true
+        ? "Git state is unreadable. Repair Git before starting a follow-up."
+        : undefined,
+    recommended: (_facts: DeskActionFacts): boolean => false,
+  },
   scripts: {
     group: "work",
     label: (_context: DeskActionLabelContext): string => "Run a Project Script",
@@ -990,6 +1032,32 @@ export const DESK_ACTION_REGISTRY = {
       (facts.collisions.length > 0 ||
         (["failed", "blocked"].includes(facts.statusKind) &&
           !hasAvailableAgent(facts))),
+  },
+  rename: {
+    group: "manage",
+    label: (_context: DeskActionLabelContext): string => "Change task title",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "worktree", "rename", "<title>"],
+      workingDirectory: "task",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Worktree id, branch, path, brief, and creation source"],
+        ["Update the human display title"],
+        [],
+        ["A later title change can replace it"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Change",
+    },
+    availability: (facts: DeskActionFacts): string | undefined =>
+      facts.entry.git_unavailable === true
+        ? "Git state is unreadable. Repair Git before changing the title."
+        : undefined,
+    recommended: (_facts: DeskActionFacts): boolean => false,
   },
   grant: {
     group: "manage",
@@ -1329,8 +1397,7 @@ export function buildDeskBoardDecision(
         unlanded.length === 1 ? "has" : "have"
       } no worktree`,
       ...(only === undefined ? {} : { detail: only }),
-      nextAction:
-        "Open a branch with discern start --from <branch> before continuing it.",
+      nextAction: "Choose a branch under Work without a worktree.",
     });
   }
   const contained = data.contained_refs ?? [];
@@ -1403,6 +1470,9 @@ export function buildAgentLaunches(
         kind: action.kind,
         label: action.label,
         args: action.args,
+        ...(action.promptArgument === undefined
+          ? {}
+          : { promptArgument: action.promptArgument }),
         availability: found === undefined ? "disabled" : "enabled",
         ...(reason === undefined ? {} : { reason }),
       });

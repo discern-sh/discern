@@ -152,11 +152,6 @@ export function loadDocsSite(): Promise<DocsSite> {
   return sitePromise;
 }
 
-/** Strip the reading-order prefix from a section directory name. */
-export function sectionSlugOf(dir: string): string {
-  return dir.replace(/^\d+-/, "");
-}
-
 /** Discover public guides and decisions, then assemble their route and nav indexes. */
 async function buildDocsSite(): Promise<DocsSite> {
   const tree = await discoverDocs({ cwd: REPO_ROOT, dir: MANUAL_DIR });

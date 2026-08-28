@@ -664,8 +664,3 @@ export async function planTrackedRefresh(
     errors,
   };
 }
-
-/** Paths only, for lifecycle conflict and commit enrollment. */
-export function trackedRefreshPaths(plan: TrackedRefreshPlan): string[] {
-  return plan.changes.map((change) => change.path);
-}

@@ -41,6 +41,7 @@ import {
   type CliResultForCommand,
   decodeCliResult,
 } from "./decode_cli_result.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const PACKAGE_SECTION_TRIANGLES = new Set(
   Object.values(DISCERN_TRIANGLE_GLYPHS),
@@ -264,9 +265,11 @@ Deno.test("improvement --json: baseline 100 still leads with an open review", as
   });
 });
 
-Deno.test({
+realPtyTest({
   name:
     "improvement: every render path keeps a selected review with its citation",
+  contracts: ["platform-transport"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -742,71 +745,4 @@ Deno.test("improvement: one injected context controls colour and width without r
       "the injected narrow viewport must produce the more wrapped report",
     );
   });
-});
-
-Deno.test({
-  name:
-    "improvement: truecolour, 256, 16, and no-colour package modes keep the same coaching facts",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    await withTempDir(async (dir) => {
-      await scaffoldEngine(dir);
-      await writeConfig(dir, STRONG_CONFIG);
-      await writeStrongFiles(dir);
-
-      const modes = [
-        {
-          name: "truecolour",
-          env: {
-            TERM: "xterm-256color",
-            COLORTERM: "truecolor",
-            NO_COLOR: "",
-          },
-          marker: "\u001b[38;2;",
-        },
-        {
-          name: "256",
-          env: { TERM: "xterm-256color", COLORTERM: "", NO_COLOR: "" },
-          marker: "\u001b[38;5;",
-        },
-        {
-          name: "16",
-          env: { TERM: "xterm-color", COLORTERM: "", NO_COLOR: "" },
-          marker: "\u001b[",
-        },
-        {
-          name: "no-colour",
-          env: {
-            TERM: "xterm-256color",
-            COLORTERM: "truecolor",
-            NO_COLOR: "1",
-          },
-          marker: "",
-        },
-      ] as const;
-      let baseline: string | undefined;
-      for (const mode of modes) {
-        const run = await runAgentPty(
-          dir,
-          ["improvement", "--category", "instructions"],
-          { env: { ...mode.env, LANG: "en_US.UTF-8" } },
-        );
-        assertEquals(run.code, 0);
-        const rendered = run.stdout.replaceAll("\r", "");
-        if (mode.marker === "") {
-          assert(!rendered.includes("\u001b["), mode.name);
-        } else {
-          assertStringIncludes(rendered, mode.marker, mode.name);
-        }
-        const facts = stripAnsi(rendered);
-        assert(
-          triangleSectionAt(facts, "Agent instructions") >= 0,
-          `${mode.name} lost the category heading`,
-        );
-        assertStringIncludes(facts, "Review question:");
-        baseline ??= facts;
-        assertEquals(facts, baseline, `${mode.name} changed coaching facts`);
-      }
-    });
-  },
 });

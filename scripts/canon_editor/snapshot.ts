@@ -88,17 +88,11 @@ export const citationRefSchema = z.object({
   slug: z.string().optional(),
   label: z.string(),
 });
-/** One validated cross-reference. */
-export type CitationRef = z.output<typeof citationRefSchema>;
-
 /** One direction of an entry's citation web. */
 export const outwardCitationSchema = z.object({
   field: z.string(),
   refs: z.array(citationRefSchema).readonly(),
 });
-/** One validated outward citation group. */
-export type OutwardCitation = z.output<typeof outwardCitationSchema>;
-
 /** An inbound citation: who cites this entry, and through which field. */
 export const inwardCitationSchema = z.object({
   registry: z.string(),

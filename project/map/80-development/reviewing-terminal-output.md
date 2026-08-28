@@ -107,7 +107,7 @@ The capture condition states the complete screen the named frame will be used to
 
 ## What the task captures
 
-[`terminal_command_capture.ts`](../../../tests/fixtures/terminal_command_capture.ts) composes the repository's shared PTY process driver ([`pty_process.ts`](../../../tests/fixtures/pty_process.ts)) with the published `@discern-sh/design-system/cli/projection` surface. The driver sets the kernel terminal size before the command starts. It also supports readiness-gated input and named intermediate frames for interactive command capture; non-interactive command captures need neither.
+[`terminal_command_capture.ts`](../../../tests/fixtures/terminal_command_capture.ts) composes the repository's shared PTY process driver ([`pty_process.ts`](../../../tests/fixtures/pty_process.ts)) with the published `@discern-sh/design-system/cli/projection` surface. The driver sets the kernel terminal size before the command starts. It also supports readiness-gated input and named intermediate frames for interactive command capture; non-interactive command captures need neither. Capture tasks declare the control-rendering and platform-transport contracts through the same [`real_pty.ts`](../../../tests/real_pty.ts) authority as the test canaries.
 
 The task compiles the current checkout to a temporary binary before the PTY run. This keeps Deno launcher's own startup controls out of discern's screen while ensuring the capture represents the current source rather than a frozen `dist/` build. A `docs` capture points that binary at the checkout's current `project/map`, so it does not depend on docs bundled into an older executable. The temporary binary is removed after the artifact is written. Interactive captures retain each named frame and project the last settled full-frame repaint instead of a transcript containing superseded picker frames.
 
@@ -119,7 +119,7 @@ The package projection validates the captured styled output and owns its convers
 
 ## Flagship evidence
 
-The reviewed fixtures under [`tests/fixtures/terminal_captures/`](../../../tests/fixtures/terminal_captures/) cover `discern status`, `discern doctor`, root `--help`, and a successful six-job `discern done` summary at 80 by 24. Each command has normalized JSON capture data and its package-projected HTML. [`flagship_terminal_capture_test.ts`](../../../tests/flagship_terminal_capture_test.ts) creates two fresh repositories, captures both runs with one current-source binary, requires byte-identical results, validates package projection, and compares both artifact forms byte for byte.
+The reviewed fixtures under [`tests/fixtures/terminal_captures/`](../../../tests/fixtures/terminal_captures/) cover `discern status`, `discern doctor`, root `--help`, and a successful six-job `discern done` summary at 80 by 24. Each command has normalized JSON capture data and its package-projected HTML. [`flagship_terminal_capture_test.ts`](../../../tests/flagship_terminal_capture_test.ts) captures each command once with one current-source binary, validates package projection, and compares both artifact forms byte for byte. Deterministic serialization and projection tests exercise repeatability without opening a second pseudo-terminal.
 
 The flagship scenario applies named normalizers at capture time. They replace only volatile scalar facts:
 
@@ -141,12 +141,13 @@ Do not update a fixture merely to make the test green. A failed comparison means
 
 ## Implementation map
 
-| Concern                                                                        | Authority                                                                                               |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Real PTY execution, geometry, readiness-gated input, named intermediate frames | [`tests/fixtures/pty_process.ts`](../../../tests/fixtures/pty_process.ts)                               |
-| Controlled command capture and package projection                              | [`tests/fixtures/terminal_command_capture.ts`](../../../tests/fixtures/terminal_command_capture.ts)     |
-| One-command review artifact task                                               | [`scripts/terminal_capture.ts`](../../../scripts/terminal_capture.ts)                                   |
-| Local-only browser review server                                               | [`scripts/terminal_review.ts`](../../../scripts/terminal_review.ts)                                     |
-| Flagship scenario and scalar normalizers                                       | [`tests/fixtures/flagship_terminal_captures.ts`](../../../tests/fixtures/flagship_terminal_captures.ts) |
-| Fixture regeneration                                                           | [`scripts/terminal_capture_fixtures.ts`](../../../scripts/terminal_capture_fixtures.ts)                 |
-| Determinism, normalizer, projection, and exact-artifact proof                  | [`tests/flagship_terminal_capture_test.ts`](../../../tests/flagship_terminal_capture_test.ts)           |
+| Concern                                                                        | Authority                                                                                                                  |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Real PTY execution, geometry, readiness-gated input, named intermediate frames | [`tests/fixtures/pty_process.ts`](../../../tests/fixtures/pty_process.ts)                                                  |
+| Controlled command capture and package projection                              | [`tests/fixtures/terminal_command_capture.ts`](../../../tests/fixtures/terminal_command_capture.ts)                        |
+| One-command review artifact task                                               | [`scripts/terminal_capture.ts`](../../../scripts/terminal_capture.ts)                                                      |
+| Local-only browser review server                                               | [`scripts/terminal_review.ts`](../../../scripts/terminal_review.ts)                                                        |
+| Flagship scenario and scalar normalizers                                       | [`tests/fixtures/flagship_terminal_captures.ts`](../../../tests/fixtures/flagship_terminal_captures.ts)                    |
+| Fixture regeneration                                                           | [`scripts/terminal_capture_fixtures.ts`](../../../scripts/terminal_capture_fixtures.ts)                                    |
+| Normalizer, real-transport, projection, and exact-artifact proof               | [`tests/flagship_terminal_capture_test.ts`](../../../tests/flagship_terminal_capture_test.ts)                              |
+| Real-PTY contract declarations and future-consumer enrollment                  | [`tests/real_pty.ts`](../../../tests/real_pty.ts), [`tests/real_pty_guard_test.ts`](../../../tests/real_pty_guard_test.ts) |

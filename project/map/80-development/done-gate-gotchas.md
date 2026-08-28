@@ -90,11 +90,11 @@ stage = "generated_drift"
 
 ### A command hangs, then fails with a timeout
 
-**Symptom.** `discern done` sits on a stage with no further output. After `[gate].timeout` seconds (default 600), it fails that stage with a diagnostic that the command "timed out … and was killed". The command works when you run it by hand.
+**Symptom.** `discern done` sits on a stage with no further output. After the job's time budget runs out (the global `[gate].timeout`, default 600 seconds, or the job's own `timeout` entry), it fails that stage with a diagnostic that the command "timed out … and was killed". The diagnostic names the config key whose budget fired. The command works when you run it by hand.
 
 **Cause.** A Gate command fails to finish. A watch-mode test runner or development server wired into a job can create this state. In your terminal, the command may choose a single run. The Gate runs it with standard input closed, no terminal (TTY), and piped output, where many runners watch for file changes and wait indefinitely. The Gate exports `CI=1` with `NO_COLOR` and `TERM=dumb` to select single-run behavior. A runner that ignores `CI` still hangs, so the timeout watchdog kills the process group and fails the stage. The same timeout occurs when the command exits and leaves a background process holding its output stream open. The watchdog kills the group and releases the held pipes.
 
-**Fix.** Wire the command in its single-run form, using the flag or script that runs once and exits. Exclude `--watch`, interactive modes, and long-lived servers. If the command needs more time than the budget, raise `[gate].timeout`. Setting it to `0` disables the bound and permits an indefinite hang.
+**Fix.** Wire the command in its single-run form, using the flag or script that runs once and exits. Exclude `--watch`, interactive modes, and long-lived servers. If the command needs more time than the budget, raise the config key the diagnostic names: the job's own `timeout` entry, or the global `[gate].timeout`. Setting a budget to `0` disables its bound and permits an indefinite hang.
 
 ```gotcha-match
 evidence = 'timed out after \d+s and was killed'

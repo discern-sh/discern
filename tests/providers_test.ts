@@ -149,6 +149,23 @@ Deno.test("the registry is total: every known agent has a complete provider", ()
   assertEquals(Object.keys(PROVIDERS).length, AGENT_NAMES.length);
 });
 
+Deno.test("provider prompt arguments are documented, separate argv options", () => {
+  for (const name of AGENT_NAMES) {
+    for (const action of PROVIDERS[name].cli.actions) {
+      const prompt = action.promptArgument;
+      if (prompt === undefined) continue;
+      assert(
+        /^--[a-z0-9][a-z0-9-]*$/u.test(prompt.flag),
+        `${name}:${action.kind}: prompt flag must be one standalone long option`,
+      );
+      assert(
+        /^https:\/\//u.test(prompt.documentation),
+        `${name}:${action.kind}: prompt option needs public provider documentation`,
+      );
+    }
+  }
+});
+
 Deno.test("every native provider declares an MCP timeout capability", () => {
   assertEquals(
     Object.keys(NATIVE_MCP_TIMEOUT_POLICY).sort(),

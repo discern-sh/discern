@@ -152,6 +152,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "the setup-step journal directory — registry-resolved .git-internal state whose file replacement uses the atomic writer",
   ],
   [
+    "src/engine/worktree/task_metadata.ts",
+    "human task metadata — registry-resolved worktree-local Git-admin state outside the project tree",
+  ],
+  [
     "src/engine/gate/proof.ts",
     "the gate proof — .git-internal, outside the project tree",
   ],
@@ -182,6 +186,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   [
     "src/engine/desk/tip_state.ts",
     "the desk tip seen-state — .git-internal, outside the project tree",
+  ],
+  [
+    "src/engine/desk/preferences.ts",
+    "safe repository-local Desk preferences — .git-internal, outside the project tree",
   ],
   [
     "src/engine/continuations/store.ts",

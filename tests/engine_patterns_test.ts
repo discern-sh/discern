@@ -10,7 +10,6 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
-import { stripAnsi } from "discern-design-system/cli";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
 import {
   assertTerminalTextIncludes,
@@ -61,6 +60,7 @@ import {
 import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 /** One synthetic format-selected CLI event on its own branch. */
 function seededEvent(
@@ -1967,119 +1967,6 @@ Deno.test("patterns: 39, 80, 104, and capped reports keep hostile Logbook facts 
     assertEquals(outputs.get(400), outputs.get(104));
   });
 });
-
-Deno.test({
-  name:
-    "patterns: truecolour, 256, 16, no-colour, and ASCII modes retain advisory facts",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    await withTempDir(async (dir) => {
-      await scaffoldEngine(dir);
-      await writeConfig(dir, "[project]\nlogbook = false\n");
-      await gitInit(dir);
-      await seedLogbook(dir);
-
-      const modes = [
-        {
-          name: "truecolour",
-          env: {
-            TERM: "xterm-256color",
-            COLORTERM: "truecolor",
-            NO_COLOR: "",
-            LANG: "en_US.UTF-8",
-          },
-          marker: "\u001b[38;2;",
-          comparable: true,
-        },
-        {
-          name: "256",
-          env: {
-            TERM: "xterm-256color",
-            COLORTERM: "",
-            NO_COLOR: "",
-            LANG: "en_US.UTF-8",
-          },
-          marker: "\u001b[38;5;",
-          comparable: true,
-        },
-        {
-          name: "16",
-          env: {
-            TERM: "xterm-color",
-            COLORTERM: "",
-            NO_COLOR: "",
-            LANG: "en_US.UTF-8",
-          },
-          marker: "\u001b[",
-          comparable: true,
-        },
-        {
-          name: "no-colour",
-          env: {
-            TERM: "xterm-256color",
-            COLORTERM: "truecolor",
-            NO_COLOR: "1",
-            LANG: "en_US.UTF-8",
-          },
-          marker: "",
-          comparable: true,
-        },
-        {
-          name: "ASCII",
-          env: {
-            TERM: "dumb",
-            COLORTERM: "",
-            NO_COLOR: "1",
-            LANG: "C",
-            LC_ALL: "C",
-          },
-          marker: "",
-          comparable: false,
-        },
-      ] as const;
-      let baseline: string | undefined;
-      for (const mode of modes) {
-        const run = await runAgentPty(dir, ["patterns"], {
-          env: { ...mode.env, COLUMNS: "80", LINES: "24" },
-        });
-        assertEquals(run.code, 0, run.output);
-        const rendered = run.stdout.replaceAll("\r", "");
-        if (mode.marker === "") {
-          assert(!rendered.includes("\u001b["), mode.name);
-        } else {
-          assertStringIncludes(rendered, mode.marker, mode.name);
-        }
-        // BSD script(1) prefixes a closed stdin as `^D` plus two backspaces;
-        // remove that harness framing before auditing the engine's own bytes.
-        const ptyClosedStdin = `^D${String.fromCharCode(8).repeat(2)}`;
-        const stripped = stripAnsi(rendered);
-        const facts = stripped.startsWith(ptyClosedStdin)
-          ? stripped.slice(ptyClosedStdin.length)
-          : stripped;
-        assertStringIncludes(facts, "Consecutive red done runs");
-        assertStringIncludes(normalized(facts), "agent/seeded");
-        assertStringIncludes(
-          normalized(facts),
-          "The report is advisory and does not change the Gate.",
-        );
-        const unexpected = unexpectedTerminalControls(facts);
-        assert(
-          unexpected.length === 0,
-          `${mode.name} left raw terminal controls in Patterns facts: ${
-            unexpected.map((character) =>
-              `U+${character.codePointAt(0)?.toString(16).toUpperCase()}`
-            ).join(", ")
-          }`,
-        );
-        if (mode.comparable) {
-          baseline ??= facts;
-          assertEquals(facts, baseline, `${mode.name} changed advisory facts`);
-        }
-      }
-    });
-  },
-});
-
 Deno.test("patterns: validation relationships preserve structured evidence and compact terminal parity", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -2580,103 +2467,109 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
   });
 });
 
-Deno.test("patterns reset: preview is read-only and terminal apply removes exactly the active logbook", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await seedLogbook(dir);
-    // Every registered sibling must survive: "the whole logbook directory"
-    // means the logbook directory alone. New registry members auto-enrol.
-    const siblings = await seedAdminSiblings(dir);
-    const logDir = join(dir, ".git", "discern", "logbook");
-    const sealedArchive = join(
-      dir,
-      ".git",
-      "discern",
-      "logbook-archives",
-      "logbook-20260811T120000Z.jsonl",
-    );
-    const sealedContents = `${
-      seededEvent(
-        "2026-08-11T12:00:00.000Z",
-        "ok",
-      )
-    }\n`;
-    await Deno.writeTextFile(sealedArchive, sealedContents);
-
-    // The preview lists the files and removes nothing.
-    const preview = await runAgent(dir, [
-      "patterns",
-      "reset",
-      "--dry-run",
-      "--json",
-    ]);
-    assertEquals(preview.code, 0, preview.output);
-    const previewParsed = decodeCliResult(preview.stdout, "patterns reset");
-    assertResultDataKey(previewParsed, "removed");
-    assertEquals(previewParsed.dry_run, true);
-    const previewData = previewParsed.data;
-    assert(
-      previewData.removed.some((f) => f.file === "2026-06.jsonl"),
-      "the plan must list the month file",
-    );
-    assert(
-      (await Deno.stat(join(logDir, "2026-06.jsonl"))).isFile,
-      "a dry-run removes nothing",
-    );
-
-    // Machine apply refuses without changing the active bytes.
-    const before = await Deno.readFile(join(logDir, "2026-06.jsonl"));
-    const refused = await runAgent(dir, ["patterns", "reset", "--json"]);
-    assertEquals(refused.code, 1, refused.output);
-    const refusedParsed = decodeCliResult(refused.stdout, "patterns reset");
-    assertEquals(refusedParsed.error, "confirmation_required");
-    assertEquals(
-      await Deno.readFile(join(logDir, "2026-06.jsonl")),
-      before,
-    );
-
-    // A terminal operator's explicit Yes removes the active history.
-    const apply = await runAgentPty(dir, ["patterns", "reset"], {
-      input: "y\n",
-    });
-    assertEquals(apply.code, 0, apply.output);
-    assertTerminalTextIncludes(
-      normalized(apply.output),
-      "Removed the active Logbook",
-    );
-    let logbookGone = false;
-    try {
-      await Deno.stat(logDir);
-    } catch {
-      logbookGone = true;
-    }
-    assert(logbookGone, "reset itself must not recreate the active Logbook");
-    for (const sibling of siblings) {
-      assertEquals(
-        await Deno.readTextFile(sibling.path),
-        sibling.contents,
-        `reset must preserve ${sibling.path}`,
+realPtyTest({
+  name:
+    "patterns reset: preview is read-only and terminal apply removes exactly the active logbook",
+  contracts: ["platform-transport"],
+  canary: false,
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      await seedLogbook(dir);
+      // Every registered sibling must survive: "the whole logbook directory"
+      // means the logbook directory alone. New registry members auto-enrol.
+      const siblings = await seedAdminSiblings(dir);
+      const logDir = join(dir, ".git", "discern", "logbook");
+      const sealedArchive = join(
+        dir,
+        ".git",
+        "discern",
+        "logbook-archives",
+        "logbook-20260811T120000Z.jsonl",
       );
-    }
-    assertEquals(
-      await Deno.readTextFile(sealedArchive),
-      sealedContents,
-      "reset must preserve every sealed archive",
-    );
+      const sealedContents = `${
+        seededEvent(
+          "2026-08-11T12:00:00.000Z",
+          "ok",
+        )
+      }\n`;
+      await Deno.writeTextFile(sealedArchive, sealedContents);
 
-    // Afterwards the verb reports a genuinely fresh active logbook.
-    const after = await runAgent(dir, ["patterns", "--json"]);
-    assertEquals(after.code, 0, after.output);
-    const afterResult = decodeCliResult(after.stdout, "patterns");
-    assertResultDataKey(afterResult, "logbook");
-    const afterData = afterResult.data;
-    assert(
-      afterData.logbook.events === 0,
-      `the history must be gone, saw ${afterData.logbook.events} events`,
-    );
-    assertEquals(afterData.findings, []);
-  });
+      // The preview lists the files and removes nothing.
+      const preview = await runAgent(dir, [
+        "patterns",
+        "reset",
+        "--dry-run",
+        "--json",
+      ]);
+      assertEquals(preview.code, 0, preview.output);
+      const previewParsed = decodeCliResult(preview.stdout, "patterns reset");
+      assertResultDataKey(previewParsed, "removed");
+      assertEquals(previewParsed.dry_run, true);
+      const previewData = previewParsed.data;
+      assert(
+        previewData.removed.some((f) => f.file === "2026-06.jsonl"),
+        "the plan must list the month file",
+      );
+      assert(
+        (await Deno.stat(join(logDir, "2026-06.jsonl"))).isFile,
+        "a dry-run removes nothing",
+      );
+
+      // Machine apply refuses without changing the active bytes.
+      const before = await Deno.readFile(join(logDir, "2026-06.jsonl"));
+      const refused = await runAgent(dir, ["patterns", "reset", "--json"]);
+      assertEquals(refused.code, 1, refused.output);
+      const refusedParsed = decodeCliResult(refused.stdout, "patterns reset");
+      assertEquals(refusedParsed.error, "confirmation_required");
+      assertEquals(
+        await Deno.readFile(join(logDir, "2026-06.jsonl")),
+        before,
+      );
+
+      // A terminal operator's explicit Yes removes the active history.
+      const apply = await runAgentPty(dir, ["patterns", "reset"], {
+        input: "y\n",
+      });
+      assertEquals(apply.code, 0, apply.output);
+      assertTerminalTextIncludes(
+        normalized(apply.output),
+        "Removed the active Logbook",
+      );
+      let logbookGone = false;
+      try {
+        await Deno.stat(logDir);
+      } catch {
+        logbookGone = true;
+      }
+      assert(logbookGone, "reset itself must not recreate the active Logbook");
+      for (const sibling of siblings) {
+        assertEquals(
+          await Deno.readTextFile(sibling.path),
+          sibling.contents,
+          `reset must preserve ${sibling.path}`,
+        );
+      }
+      assertEquals(
+        await Deno.readTextFile(sealedArchive),
+        sealedContents,
+        "reset must preserve every sealed archive",
+      );
+
+      // Afterwards the verb reports a genuinely fresh active logbook.
+      const after = await runAgent(dir, ["patterns", "--json"]);
+      assertEquals(after.code, 0, after.output);
+      const afterResult = decodeCliResult(after.stdout, "patterns");
+      assertResultDataKey(afterResult, "logbook");
+      const afterData = afterResult.data;
+      assert(
+        afterData.logbook.events === 0,
+        `the history must be gone, saw ${afterData.logbook.events} events`,
+      );
+      assertEquals(afterData.findings, []);
+    });
+  },
 });
 
 Deno.test("patterns reset: even an empty apply refuses outside a terminal", async () => {

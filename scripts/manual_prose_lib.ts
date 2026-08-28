@@ -11,7 +11,7 @@ import {
   fleschKincaidGrade,
   type ProseCounts,
 } from "./plain_reading_grade_lib.ts";
-import { blankFrontmatter, proseWordCount } from "./prose_lib.ts";
+import { blankFrontmatter } from "./prose_lib.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 
 /** One published manual page and the exact prose projections it supplies. */
@@ -123,16 +123,6 @@ export function manualProseSource(
   stage: StagedManualProse,
 ): string {
   return stage.sources.get(resolve(path)) ?? path;
-}
-
-/** Words in published reader-visible prose; metadata and code do not count. */
-export function manualProseWordCount(
-  pages: readonly ManualProsePage[],
-): number {
-  return pages.reduce(
-    (total, page) => total + proseWordCount(page.measuredProse),
-    0,
-  );
 }
 
 /**

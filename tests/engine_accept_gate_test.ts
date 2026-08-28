@@ -51,6 +51,7 @@ import {
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 type AcceptWireData = Exclude<
   NonNullable<CliResultForCommand<"accept">["data"]>,
@@ -457,47 +458,52 @@ Deno.test("accept: an update that still passes the gate lands normally", async (
   });
 });
 
-Deno.test("accept TTY: a proofless validation shows the full gate moving live", async () => {
-  await withTempDir(async (dir) => {
-    await mainWithCheck(dir);
-    const wt = await addWorktree(dir, "visible-validation");
-    await commitBranchWork(wt);
-    await writeConfig(
-      wt,
-      CONFIG_CHECK.replace(
-        'lint = "sh check.sh"',
-        'format = "sleep 1"\ntest = "true"',
-      ),
-    );
-    await commitCurrentWorktree(wt, "Wire a delayed validation gate");
+realPtyTest({
+  name: "accept TTY: a proofless validation shows the full gate moving live",
+  contracts: ["platform-transport"],
+  canary: false,
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await mainWithCheck(dir);
+      const wt = await addWorktree(dir, "visible-validation");
+      await commitBranchWork(wt);
+      await writeConfig(
+        wt,
+        CONFIG_CHECK.replace(
+          'lint = "sh check.sh"',
+          'format = "sleep 1"\ntest = "true"',
+        ),
+      );
+      await commitCurrentWorktree(wt, "Wire a delayed validation gate");
 
-    const accepted = await runAgentPty(wt, ["accept", "--confirmed"], {
-      env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
+      const accepted = await runAgentPty(wt, ["accept", "--confirmed"], {
+        env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
+      });
+      assertEquals(accepted.code, 0, accepted.output);
+
+      const validation = accepted.stdout.indexOf(
+        "Validating the branch against the full gate",
+      );
+      const initialFrame = accepted.stdout.indexOf("\x1b[?25l", validation);
+      const firstRedraw = accepted.stdout.indexOf("\x1b[1G", initialFrame);
+      const restored = accepted.stdout.indexOf("\x1b[?25h", firstRedraw);
+      const passed = accepted.stdout.indexOf(
+        "Gate passed against the tree to be landed",
+      );
+      assert(
+        validation >= 0 && initialFrame > validation &&
+          firstRedraw > initialFrame && restored > firstRedraw &&
+          passed > restored,
+        accepted.output,
+      );
+      const frame = accepted.stdout.slice(initialFrame, restored);
+      assertTerminalTextIncludes(frame, "format started");
+      assertTerminalTextIncludes(frame, "format passed");
+      assertTerminalTextIncludes(frame, "test started");
+      assertTerminalTextIncludes(frame, "test passed");
+      assertEquals(frame.includes("Gate progress"), false);
     });
-    assertEquals(accepted.code, 0, accepted.output);
-
-    const validation = accepted.stdout.indexOf(
-      "Validating the branch against the full gate",
-    );
-    const initialFrame = accepted.stdout.indexOf("\x1b[?25l", validation);
-    const firstRedraw = accepted.stdout.indexOf("\x1b[1G", initialFrame);
-    const restored = accepted.stdout.indexOf("\x1b[?25h", firstRedraw);
-    const passed = accepted.stdout.indexOf(
-      "Gate passed against the tree to be landed",
-    );
-    assert(
-      validation >= 0 && initialFrame > validation &&
-        firstRedraw > initialFrame && restored > firstRedraw &&
-        passed > restored,
-      accepted.output,
-    );
-    const frame = accepted.stdout.slice(initialFrame, restored);
-    assertTerminalTextIncludes(frame, "format started");
-    assertTerminalTextIncludes(frame, "format passed");
-    assertTerminalTextIncludes(frame, "test started");
-    assertTerminalTextIncludes(frame, "test passed");
-    assertEquals(frame.includes("Gate progress"), false);
-  });
+  },
 });
 
 // ── the fast path: a fresh finish makes accept cheap ───────────────────────────

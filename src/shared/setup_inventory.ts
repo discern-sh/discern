@@ -94,5 +94,3 @@ export async function deriveSetupCompletionInventory(
     },
   };
 }
-
-export const _setupInventoryTest = { openLedgerItems };

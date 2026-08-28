@@ -13,7 +13,7 @@ export interface WorktreeTaskLabel {
 /** Turn a discern worktree id (`<name>-<hex>`) back into the task name a
  * person supplied. Git identity stays separate from this display label. */
 export function taskLabel(
-  entry: Pick<StatusFleetEntry, "id" | "path">,
+  entry: Pick<StatusFleetEntry, "id" | "path" | "task">,
 ): WorktreeTaskLabel {
   const canonical = entry.id?.trim();
   const pathIdentity = basename(entry.path).trim();
@@ -25,9 +25,10 @@ export function taskLabel(
   const match = /^(.*)-([0-9a-f]{6})$/i.exec(id);
   const stem = match?.[1] ?? id;
   const words = stem.replaceAll("-", " ").trim();
-  const name = words === ""
+  const fallbackName = words === ""
     ? "Unnamed task"
     : `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+  const name = entry.task?.title ?? fallbackName;
   const disambiguator = match?.[2];
   return disambiguator === undefined ? { name } : { name, disambiguator };
 }

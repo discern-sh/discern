@@ -24,6 +24,7 @@ import {
   verbatimStepLabel,
 } from "../../shared/result.ts";
 import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
+import type { JobTimeout } from "../jobs/types.ts";
 
 /** The denominator that turns a raw count into a rate, resolved to the shape the
  * executor acts on: either a second emitted metric, or a built-in extent discern
@@ -69,9 +70,10 @@ export interface PlannedStandard {
    * when every change since the last recorded measurement falls outside them,
    * the gate replays that value. Absent = always measure. */
   inputs?: string[];
-  /** Per-job `timeout` override for this measurement job (seconds; `0` disables
-   * the bound), replacing the global `[gate].timeout` in every surface. */
-  timeoutS?: number;
+  /** Per-job `timeout` override for this measurement job with its config key
+   * (`seconds: 0` disables the bound), replacing the global `[gate].timeout` in
+   * every surface. */
+  timeout?: JobTimeout;
 }
 
 /** What one Standard's Gate-facing measurement should do. Standalone
@@ -121,7 +123,7 @@ export function standardExecutionIdentity(
   return {
     command: standard.command,
     cwd: root,
-    timeoutS: standard.timeoutS ?? defaultTimeoutS,
+    timeoutS: standard.timeout?.seconds ?? defaultTimeoutS,
   };
 }
 
@@ -265,7 +267,14 @@ export function buildStandardPlan(cfg: DiscernConfig): StandardPlan {
         margin: spec.margin,
         gateMeasure: spec.measure === "gate",
         ...(inputs !== undefined ? { inputs } : {}),
-        ...(spec.timeout !== undefined ? { timeoutS: spec.timeout } : {}),
+        ...(spec.timeout !== undefined
+          ? {
+            timeout: {
+              seconds: spec.timeout,
+              key: `[standards.${name}].timeout`,
+            },
+          }
+          : {}),
         ...(per !== undefined ? { per } : {}),
       };
     },

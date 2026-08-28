@@ -3,13 +3,12 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   gitInit,
-  runAgent,
-  runAgentPty,
   runAgentPtyWithViewport,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const CSI = "\x1b[";
 const REPAINT = `${CSI}1G`;
@@ -60,9 +59,11 @@ function testOutput(output: string): string {
   return output.slice(start);
 }
 
-Deno.test({
+realPtyTest({
   name:
     "test TTY failure leaves one captured output, final detail, and remedy below compact live progress",
+  contracts: ["terminal-modes", "control-rendering", "platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -89,160 +90,11 @@ Deno.test({
     });
   },
 });
-
-Deno.test({
-  name:
-    "test static modes never move the cursor and preserve their ordinary transcript",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    const cases = [
-      {
-        label: "plain grouped",
-        args: ["test", "--plain"],
-        env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "false" },
-        stream: false,
-        ascii: false,
-        pty: true,
-      },
-      {
-        label: "CI grouped",
-        args: ["test"],
-        env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "1" },
-        stream: false,
-        ascii: false,
-        pty: true,
-      },
-      {
-        label: "pipe grouped",
-        args: ["test"],
-        env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "false" },
-        stream: false,
-        ascii: false,
-        pty: false,
-      },
-      {
-        label: "TERM=dumb",
-        args: ["test"],
-        env: { TERM: "dumb", NO_COLOR: "1", CI: "false" },
-        stream: false,
-        ascii: false,
-        pty: true,
-      },
-      {
-        label: "ASCII",
-        args: ["test", "--plain"],
-        env: {
-          TERM: "xterm",
-          LANG: "C",
-          LC_ALL: "C",
-          NO_COLOR: "1",
-          CI: "false",
-        },
-        stream: false,
-        ascii: true,
-        pty: true,
-      },
-      {
-        label: "plain streamed",
-        args: ["test", "--plain"],
-        env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "false" },
-        stream: true,
-        ascii: false,
-        pty: true,
-      },
-      {
-        label: "CI streamed",
-        args: ["test"],
-        env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "1" },
-        stream: true,
-        ascii: false,
-        pty: true,
-      },
-      {
-        label: "pipe streamed",
-        args: ["test"],
-        env: { TERM: "xterm-256color", NO_COLOR: "1", CI: "false" },
-        stream: true,
-        ascii: false,
-        pty: false,
-      },
-    ] as const;
-    for (const testCase of cases) {
-      await withTempDir(async (dir) => {
-        await testRepo(
-          dir,
-          "echo $((900+9))-TEST-STATIC",
-          testCase.stream,
-        );
-        const result = testCase.pty
-          ? await runAgentPty(dir, [...testCase.args], {
-            env: { ...testCase.env },
-          })
-          : await runAgent(dir, [...testCase.args], {
-            env: { ...testCase.env },
-          });
-        assertEquals(result.code, 0, `${testCase.label}: ${result.output}`);
-        assertEquals(
-          result.output.includes(CSI),
-          false,
-          `${testCase.label}: ${result.output}`,
-        );
-        assertEquals(
-          occurrences(result.output, "909-TEST-STATIC"),
-          1,
-          `${testCase.label}: ${result.output}`,
-        );
-        assertTerminalTextIncludes(result.output, "Running tests");
-        assertTerminalTextIncludes(result.output, "Tests passed.");
-        assert(
-          result.output.indexOf("Running tests") <
-              result.output.indexOf("909-TEST-STATIC") &&
-            result.output.indexOf("909-TEST-STATIC") <
-              result.output.indexOf("Tests passed."),
-          `${testCase.label}: ${result.output}`,
-        );
-        assertEquals(result.output.includes("[pending]"), false);
-        assertEquals(result.output.includes("[running]"), false);
-        if (testCase.stream) {
-          assertEquals(result.output.includes("Test progress"), false);
-          assertTerminalTextIncludes(
-            result.output,
-            "── test │ 909-TEST-STATIC",
-          );
-        } else {
-          assertEquals(result.output.includes("── test │"), false);
-          if (testCase.pty) {
-            assertTerminalTextIncludes(result.output, "Test progress");
-            assertTerminalTextIncludes(result.output, "test [passed]");
-          } else {
-            assertEquals(result.output.includes("Test progress"), false);
-            assertTerminalTextIncludes(result.output, "── test ─ ok");
-          }
-        }
-        if (!testCase.pty) {
-          assertEquals(
-            result.stderr,
-            "",
-            `${testCase.label}: ${result.output}`,
-          );
-        }
-        if (testCase.ascii) {
-          const product = testOutput(result.output);
-          const dashboard = product.slice(product.indexOf("Test progress"));
-          assertEquals(
-            [...dashboard].some((value) => (value.codePointAt(0) ?? 0) > 0x7f),
-            false,
-            dashboard,
-          );
-        }
-      });
-    }
-  },
-});
-
-Deno.test({
+realPtyTest({
   name:
     "test live dashboard changes styling only between color and no-color terminals",
+  contracts: ["control-rendering", "terminal-modes"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {

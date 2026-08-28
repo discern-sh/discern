@@ -42,6 +42,7 @@ import { SETUP_RESULT_MAX_CHARS } from "../src/shared/setup_pages.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { readyForSetupDone } from "./fixtures/setup_completion_harness.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const HIDE_CURSOR = `${CSI}?25l`;
@@ -205,40 +206,45 @@ Deno.test("setup done human output relays the same canonical Proof line stored f
   });
 });
 
-Deno.test("setup done TTY uses the live activity frame for both composite gates", async () => {
-  await withTempDir(async (dir) => {
-    await readyForDone(dir, "sleep 1");
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+realPtyTest({
+  name: "setup done TTY uses the live activity frame for both composite gates",
+  contracts: ["platform-transport"],
+  canary: false,
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await readyForDone(dir, "sleep 1");
+      await git(dir, "add", "-A");
+      await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
 
-    const done = await runAgentPty(dir, ["setup", "done"], {
-      env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
+      const done = await runAgentPty(dir, ["setup", "done"], {
+        env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
+      });
+      assertEquals(done.code, 0, done.output);
+
+      const probeLead = done.stdout.indexOf(
+        "Proving your project runs inside a worktree",
+      );
+      const probeFrame = done.stdout.indexOf(HIDE_CURSOR, probeLead);
+      const finalFrame = done.stdout.indexOf(HIDE_CURSOR, probeFrame + 1);
+      assert(
+        probeLead >= 0 && probeFrame > probeLead && finalFrame > probeFrame,
+        done.output,
+      );
+      for (
+        const [start, end] of [
+          [probeFrame, finalFrame],
+          [finalFrame, done.stdout.length],
+        ] as const
+      ) {
+        const transcript = done.stdout.slice(start, end);
+        assertStringIncludes(transcript, REPAINT);
+        assertTerminalTextIncludes(transcript, "test started");
+        assertTerminalTextIncludes(transcript, "test passed");
+        assertStringIncludes(transcript, SHOW_CURSOR);
+        assertEquals(transcript.includes("Gate progress"), false);
+      }
     });
-    assertEquals(done.code, 0, done.output);
-
-    const probeLead = done.stdout.indexOf(
-      "Proving your project runs inside a worktree",
-    );
-    const probeFrame = done.stdout.indexOf(HIDE_CURSOR, probeLead);
-    const finalFrame = done.stdout.indexOf(HIDE_CURSOR, probeFrame + 1);
-    assert(
-      probeLead >= 0 && probeFrame > probeLead && finalFrame > probeFrame,
-      done.output,
-    );
-    for (
-      const [start, end] of [
-        [probeFrame, finalFrame],
-        [finalFrame, done.stdout.length],
-      ] as const
-    ) {
-      const transcript = done.stdout.slice(start, end);
-      assertStringIncludes(transcript, REPAINT);
-      assertTerminalTextIncludes(transcript, "test started");
-      assertTerminalTextIncludes(transcript, "test passed");
-      assertStringIncludes(transcript, SHOW_CURSOR);
-      assertEquals(transcript.includes("Gate progress"), false);
-    }
-  });
+  },
 });
 
 Deno.test("setup done blocks when the refresh proof only partially completes", async () => {

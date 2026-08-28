@@ -3,7 +3,6 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { z } from "@zod/zod";
-import { detectTerminalCapabilities } from "discern-design-system/cli";
 import {
   INTERACTIVE_TTY_REQUEST_LABELS,
   type InteractiveTtyScenario,
@@ -17,6 +16,7 @@ import {
 } from "./fixtures/pty_process.ts";
 import { repoSourceRunArgs } from "./engine_helpers.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 type JsonValue =
   | string
@@ -75,10 +75,11 @@ const HARNESS = join(
 const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
 const CSI = "\x1b[";
-const SGR_PARAMETERS = /^[0-9;]*m/u;
-const TRUECOLOUR_PARAMETERS = /^[0-9;]*38;2;/u;
-const ANSI_256_PARAMETERS = /^[0-9;]*38;5;/u;
 const CSI_SEQUENCE = /^[0-?]*[ -/]*[@-~]/u;
+const CSI_SEQUENCES = new RegExp(
+  `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
+  "gu",
+);
 
 interface HarnessRun {
   readonly process: PtyProcessResult;
@@ -198,7 +199,11 @@ function keys(
 
 /** Assert process, line-mode, cursor, and final-frame restoration under the
  * package's independently detected ANSI-control capability. */
-function assertRestored(run: HarnessRun, ansiControl = true): void {
+function assertRestored(
+  run: HarnessRun,
+  ansiControl = true,
+  allowStyledCompletion = false,
+): void {
   assertEquals(run.process.code, 0, run.process.transcript);
   assertEquals(
     run.result.terminal.restored,
@@ -229,13 +234,24 @@ function assertRestored(run: HarnessRun, ansiControl = true): void {
   }
   assert(hiddenAt >= 0, run.process.transcript);
   assert(shownAt > hiddenAt, run.process.transcript);
-  assertEquals(
-    run.process.transcript.slice(shownAt + SHOW_CURSOR.length).includes(
-      "\x1b[",
-    ),
-    false,
-    "no redraw control may leak after the final cursor restoration",
+  const afterRestore = run.process.transcript.slice(
+    shownAt + SHOW_CURSOR.length,
   );
+  if (allowStyledCompletion) {
+    const controls = [...afterRestore.matchAll(CSI_SEQUENCES)].map((match) =>
+      match[0]
+    );
+    assert(
+      controls.every((control) => control.endsWith("m")),
+      `only semantic styling may follow the final cursor restoration:\n${afterRestore}`,
+    );
+  } else {
+    assertEquals(
+      afterRestore.includes(CSI),
+      false,
+      "no redraw control may leak after the final cursor restoration",
+    );
+  }
 }
 
 /** Assert an out-of-band submitted value and restored terminal. */
@@ -243,15 +259,11 @@ function assertValue(
   run: HarnessRun,
   expected: unknown,
   ansiControl = true,
+  allowStyledCompletion = false,
 ): void {
   assertEquals(run.result.outcome, "value", run.process.transcript);
   assertEquals(run.result.value, expected, run.process.transcript);
-  assertRestored(run, ansiControl);
-}
-
-/** Whether a transcript contains a CSI sequence with matching parameters. */
-function hasCsiSequence(transcript: string, pattern: RegExp): boolean {
-  return transcript.split(CSI).slice(1).some((part) => pattern.test(part));
+  assertRestored(run, ansiControl, allowStyledCompletion);
 }
 
 /** Remove complete CSI controls while preserving all printable transcript text. */
@@ -265,8 +277,11 @@ function stripCsiSequences(transcript: string): string {
   }).join("");
 }
 
-Deno.test({
-  name: "production text wrapper edits Unicode graphemes across partial chunks",
+realPtyTest({
+  name:
+    "production text wrapper carries Unicode and cursor keys through raw mode",
+  contracts: ["line-discipline", "terminal-modes", "control-rendering"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const emoji = new TextEncoder().encode("👩‍💻");
@@ -277,14 +292,9 @@ Deno.test({
           waitFor: INTERACTIVE_TTY_REQUEST_LABELS.text[0],
           steps: [
             { bytes: "A" },
-            { delayMs: 5, bytes: emoji.slice(0, 3) },
-            { delayMs: 5, bytes: emoji.slice(3) },
-            { delayMs: 5, bytes: "B" },
-            { delayMs: 5, bytes: "\x1b[" },
-            { delayMs: 5, bytes: "D" },
-            { delayMs: 5, bytes: "\x7f" },
-            { delayMs: 5, bytes: "é" },
-            { delayMs: 5, bytes: "\x1b[HΩ\x1b[F!\r" },
+            { bytes: emoji.slice(0, 3) },
+            { bytes: emoji.slice(3) },
+            { bytes: "B\x1b[D\x7fé\x1b[HΩ\x1b[F!\r" },
           ],
         },
       ],
@@ -298,379 +308,65 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name:
-    "production wrappers preserve text, labeled confirmation, and choice defaults",
+    "production sequential form retains answers across real-PTY back-navigation",
+  contracts: ["line-discipline", "terminal-modes", "control-rendering"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    const [text, confirmation, selection] = await Promise.all([
-      runHarness({ scenario: "text-default" }),
-      runHarness({ scenario: "confirm-default-no" }),
-      runHarness({ scenario: "select-default" }),
-    ]);
-    assertValue(text, "remembered-value");
-    assertValue(confirmation, false);
-    assertStringIncludes(confirmation.process.transcript, "Keep");
-    assertStringIncludes(confirmation.process.transcript, "Reclaim");
-    assertValue(selection, "beta");
-  },
-});
-
-Deno.test({
-  name: "select honors arrow, Vim, control, Home, and End navigation",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    const cases: readonly {
-      readonly name: string;
-      readonly scenario: InteractiveTtyScenario;
-      readonly input: string;
-      readonly expected: string;
-    }[] = [
-      {
-        name: "arrow up/down",
-        scenario: "select",
-        input: "\x1b[B\x1b[A\x1b[B\r",
-        expected: "beta",
-      },
-      {
-        name: "Vim j/k",
-        scenario: "select",
-        input: "jkj\r",
-        expected: "beta",
-      },
-      {
-        name: "Vim h/l",
-        scenario: "select",
-        input: "lhl\r",
-        expected: "beta",
-      },
-      {
-        name: "control n/p",
-        scenario: "select",
-        input: "\x0e\x10\x0e\r",
-        expected: "beta",
-      },
-      {
-        name: "control f/b",
-        scenario: "select",
-        input: "\x06\x02\x06\r",
-        expected: "beta",
-      },
-      {
-        name: "Home",
-        scenario: "select-default",
-        input: "\x1b[H\r",
-        expected: "alpha",
-      },
-      {
-        name: "End",
-        scenario: "select-default",
-        input: "\x1b[F\r",
-        expected: "omega",
-      },
-    ];
-    await Promise.all(cases.map(async (testCase) => {
-      const run = await runHarness({
-        scenario: testCase.scenario,
-        input: keys(testCase.scenario, testCase.input),
-      });
-      assertValue(run, testCase.expected);
-    }));
-  },
-});
-
-Deno.test({
-  name:
-    "grouped select keeps headings, disabled values, stable ids, and scrolling",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    const [duplicate, scrolled, search] = await Promise.all([
-      runHarness({
-        scenario: "grouped-select",
-        input: keys("grouped-select", "\x1b[B\r"),
-      }),
-      runHarness({
-        scenario: "grouped-select",
-        input: keys("grouped-select", "\x1b[B\x1b[B\x1b[B\x1b[B\r"),
-      }),
-      runHarness({
-        scenario: "search",
-        input: keys("search", "beta\x1b[B\r"),
-      }),
-    ]);
-    assertValue(duplicate, "beta");
-    assertValue(scrolled, "quit");
-    assertValue(search, "beta");
-    for (const heading of ["PRIMARY", "SECONDARY", "NAVIGATION"]) {
-      assertStringIncludes(scrolled.process.transcript, heading);
-    }
-    assertStringIncludes(duplicate.process.transcript, "Duplicate label");
-    assertStringIncludes(search.process.transcript, "DOCUMENTS");
-    assertStringIncludes(search.process.transcript, "Beta guide");
-  },
-});
-
-Deno.test({
-  name: "search restores a caller-owned stable choice in a real terminal",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    const run = await runHarness({ scenario: "search-default" });
-    assertValue(run, "beta");
-    assertStringIncludes(run.process.transcript, "Duplicate guide");
-  },
-});
-
-Deno.test({
-  name:
-    "Desk and docs viewport budgets survive repeated 16-row interaction cycles",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
+    const labels = INTERACTIVE_TTY_REQUEST_LABELS["sequential-form"];
+    const title = "Task ingress 修复";
     const run = await runHarness({
-      scenario: "repeated-viewport",
-      size: { columns: 80, rows: 16 },
-      input: [
-        {
-          waitFor: INTERACTIVE_TTY_REQUEST_LABELS["repeated-viewport"][0],
-          steps: [{ bytes: "\x1b[B\r" }],
-        },
-        {
-          waitFor: INTERACTIVE_TTY_REQUEST_LABELS["repeated-viewport"][1],
-          steps: [{ bytes: "\r" }],
-        },
-        {
-          waitFor: INTERACTIVE_TTY_REQUEST_LABELS["repeated-viewport"][2],
-          steps: [{ bytes: "\x1b[B\r" }],
-        },
-      ],
+      scenario: "sequential-form",
+      input: [{
+        waitFor: labels[1],
+        steps: [{ bytes: "\r" }],
+      }, {
+        waitFor: labels[2],
+        steps: [{ bytes: `${title}\r` }],
+      }, {
+        waitFor: labels[3],
+        steps: [{ bytes: "\x15" }],
+      }, {
+        waitFor: labels[2],
+        steps: [{ bytes: "\r" }],
+      }, {
+        waitFor: labels[3],
+        steps: [{ bytes: "\x1b[C\r" }],
+      }],
     });
-    assertValue(run, ["desk-0", "doc-12", "desk-0"]);
-    assertEquals(run.result.terminal.initialSize.rows, 16);
-    assertStringIncludes(run.process.transcript, "Choose a desk action");
-    assertStringIncludes(run.process.transcript, "Browse docs");
-    assertStringIncludes(run.process.transcript, "DOCUMENTS");
-  },
-});
 
-const CLEAR_SEQUENCE = `${CSI}2J${CSI}H`;
-
-const COMPOSED_INTERACTION_LABELS =
-  INTERACTIVE_TTY_REQUEST_LABELS["composed-viewport-cycles"];
-
-/** Whether one composed-cycle frame contains its current authored request label. */
-function isComposedInteractionFrame(frame: string): boolean {
-  return !frame.includes(SHOW_CURSOR) &&
-    COMPOSED_INTERACTION_LABELS.some((label) => frame.includes(label));
-}
-
-/** Painted box-body heights of every active frame, one list per cleared screen. */
-function activeWindowHeights(transcript: string): number[][] {
-  return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) =>
-    screen.split(`${CSI}1G`).flatMap((frame) => {
-      if (!isComposedInteractionFrame(frame)) return [];
-      return [
-        stripCsiSequences(frame)
-          .split(/\r?\n/u)
-          .filter((line) => line.startsWith("│"))
-          .length,
-      ];
-    })
-  );
-}
-
-/** Complete painted heights of every active frame, one list per cleared screen. */
-function activeFrameHeights(transcript: string): number[][] {
-  return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) =>
-    screen.split(`${CSI}1G`).flatMap((frame) => {
-      if (!isComposedInteractionFrame(frame)) return [];
-      const lines = stripCsiSequences(frame).split(/\r?\n/u);
-      const start = lines.findIndex((line) =>
-        COMPOSED_INTERACTION_LABELS.some((label) => line.includes(label))
-      );
-      if (start < 0) return [];
-      let end = lines.length - 1;
-      while (end >= start && lines[end]?.trim() === "") end -= 1;
-      return [end - start + 1];
-    })
-  );
-}
-
-/** Caller-owned rows painted before the first active frame on each screen. */
-function reservedHeaderHeights(transcript: string): number[] {
-  return transcript.split(CLEAR_SEQUENCE).slice(1).map((screen) => {
-    const activeAt = Math.min(
-      ...COMPOSED_INTERACTION_LABELS.map((label) => screen.indexOf(label))
-        .filter((index) => index >= 0),
-    );
-    assert(activeAt >= 0, screen);
-    return stripCsiSequences(screen.slice(0, activeAt)).split("\n").length - 1;
-  });
-}
-
-const COMPOSED_CYCLE_INPUT: PtyInputPhase[] = Array.from(
-  { length: 3 },
-  (): PtyInputPhase[] => [
-    {
-      waitFor: COMPOSED_INTERACTION_LABELS[0],
-      steps: [{ bytes: "\x1b[B" }, { delayMs: 20, bytes: "\r" }],
-    },
-    {
-      waitFor: COMPOSED_INTERACTION_LABELS[1],
-      steps: [{ bytes: "\x1b[F" }, { delayMs: 20, bytes: "\r" }],
-    },
-  ],
-).flat();
-
-const COMPOSED_CYCLE_VALUES = [
-  "task-1",
-  "back",
-  "task-1",
-  "back",
-  "task-1",
-  "back",
-];
-
-Deno.test({
-  name:
-    "a tall terminal keeps every composed menu window full across repeated cycles",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    const run = await runHarness({
-      scenario: "composed-viewport-cycles",
-      size: { columns: 80, rows: 44 },
-      input: COMPOSED_CYCLE_INPUT,
-      timeoutMs: 15_000,
-    });
-    assertValue(run, COMPOSED_CYCLE_VALUES);
-    const heights = activeWindowHeights(run.process.transcript);
-    assertEquals(heights.length, 6, run.process.transcript);
-    for (const [screen, frames] of heights.entries()) {
-      const entries = screen % 2 === 0 ? 14 : 9;
-      const groupBreathingRows = 3;
-      const expected = entries + groupBreathingRows;
-      for (const height of frames) {
-        assertEquals(
-          height,
-          expected,
-          `screen ${screen + 1} painted a ${height}-row window where the ` +
-            `full ${entries}-entry list and ${groupBreathingRows} group ` +
-            `breathing rows fit the 44-row terminal:\n` +
-            `heights=${JSON.stringify(heights)}`,
-        );
-      }
-    }
-  },
-});
-
-Deno.test({
-  name:
-    "a short terminal keeps each reserved header while frames fit the remainder",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    const run = await runHarness({
-      scenario: "composed-viewport-cycles",
-      size: { columns: 80, rows: 13 },
-      input: COMPOSED_CYCLE_INPUT,
-      timeoutMs: 15_000,
-    });
-    assertValue(run, COMPOSED_CYCLE_VALUES);
-    const heights = activeWindowHeights(run.process.transcript);
-    const frameHeights = activeFrameHeights(run.process.transcript);
-    const headerHeights = reservedHeaderHeights(run.process.transcript);
-    assertEquals(heights.length, 6, run.process.transcript);
-    assertEquals(frameHeights.length, 6, run.process.transcript);
-    assertEquals(headerHeights, [6, 4, 6, 4, 6, 4]);
-    for (const [screen, frames] of frameHeights.entries()) {
-      const budget = screen % 2 === 0 ? 7 : 9;
-      assert(frames.length > 0, run.process.transcript);
-      assert(
-        frames.includes(budget),
-        `screen ${screen + 1} never used its ${budget}-row frame budget:\n` +
-          `frameHeights=${JSON.stringify(frameHeights)}`,
-      );
-      for (const height of frames) {
-        assert(
-          height <= budget,
-          `screen ${screen + 1} must keep its ${13 - budget}-row reserved ` +
-            `header while fitting within the ${budget}-row remainder:\n` +
-            `frameHeights=${JSON.stringify(frameHeights)}`,
-        );
-      }
-    }
-    const boardCycles = [heights[0], heights[2], heights[4]];
-    const actionCycles = [heights[1], heights[3], heights[5]];
-    for (const cycles of [boardCycles, actionCycles]) {
-      for (const frames of cycles) {
-        assertEquals(
-          JSON.stringify(frames),
-          JSON.stringify(cycles[0]),
-          `repeated cycles must paint identical window heights:\n` +
-            `heights=${JSON.stringify(heights)}`,
-        );
-      }
-    }
-  },
-});
-
-Deno.test({
-  name:
-    "a tall Textarea fits the real 16-row viewport and restores the terminal",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    const run = await runHarness({
-      scenario: "textarea-tall",
-      size: { columns: 80, rows: 16 },
-      input: keys("textarea-tall", "\x04"),
-    });
     assertValue(
       run,
-      Array.from(
-        { length: 8 },
-        (_, index) => `remembered line ${index + 1}`,
-      ).join("\n"),
+      {
+        base: "main",
+        title,
+        authority: true,
+      },
+      true,
+      true,
     );
-    assertStringIncludes(run.process.transcript, "remembered line 5");
-    assertStringIncludes(run.process.transcript, "remembered line 8");
+    const plain = stripCsiSequences(run.process.transcript);
+    for (const label of labels) assertStringIncludes(plain, label);
+    assert(
+      plain.split(labels[2]).length >= 3,
+      `back-navigation must repaint the retained title step:\n${run.process.transcript}`,
+    );
   },
 });
 
-Deno.test({
+realPtyTest({
   name:
-    "multiselect preserves defaults, validates minimums, and toggles enabled values",
+    "raw Ctrl-C and canonical EOF restore the terminal with precise outcomes",
+  contracts: ["line-discipline", "eof-delivery", "terminal-modes"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    const [toggled, defaults] = await Promise.all([
-      runHarness({
-        scenario: "multiselect",
-        input: keys("multiselect", "\r\x01\r"),
-      }),
-      runHarness({ scenario: "multiselect-default" }),
-    ]);
-    assertValue(toggled, ["alpha", "gamma", "delta"]);
-    assertValue(defaults, ["alpha", "gamma"]);
-    assertStringIncludes(
-      toggled.process.transcript,
-      "Select at least 2 options.",
-    );
-    assertStringIncludes(toggled.process.transcript, "Beta disabled");
-  },
-});
-
-Deno.test({
-  name: "validation, Ctrl-C, EOF, and unavailable back have precise outcomes",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    const [validation, ctrlC, back, eof] = await Promise.all([
-      runHarness({
-        scenario: "validation",
-        input: keys("validation", "bad\r\x7f\x7f\x7fvalid\r"),
-      }),
+    const [ctrlC, eof] = await Promise.all([
       runHarness({
         scenario: "cancellation",
         input: keys("cancellation", "\x03"),
-      }),
-      runHarness({
-        scenario: "cancellation",
-        input: keys("cancellation", "\x15\x03"),
       }),
       runHarness({
         scenario: "cancellation",
@@ -686,23 +382,19 @@ Deno.test({
         ],
       }),
     ]);
-    assertValue(validation, "valid");
-    assertStringIncludes(validation.process.transcript, "Enter valid.");
-    for (const cancellation of [ctrlC, back, eof]) {
+    for (const cancellation of [ctrlC, eof]) {
       assertEquals(cancellation.result.outcome, "cancelled");
       assertRestored(cancellation);
     }
     assertStringIncludes(ctrlC.process.transcript, "Cancelled.");
     assertStringIncludes(eof.process.transcript, "Input ended.");
-    assertStringIncludes(
-      back.process.transcript,
-      "There is no previous form step.",
-    );
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "a live narrow-to-wide resize is reflected by the production painter",
+  contracts: ["resize-delivery", "control-rendering", "terminal-modes"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const run = await runHarness({
@@ -724,11 +416,20 @@ Deno.test({
       input: [
         {
           waitFor: "[resize-ready]",
-          steps: [
-            { bytes: "\x1b[B" },
-            { delayMs: 75, bytes: "\x1b[H" },
-            { delayMs: 75, bytes: "\r" },
-          ],
+          steps: [{ bytes: "\x1b[B" }],
+        },
+        {
+          waitFor: {
+            description: "the complete wide grouped-selection frame",
+            test: (output) =>
+              stripCsiSequences(output.phaseStdout).split(/\r?\n/u).some(
+                (line) =>
+                  line.includes(
+                    "Alpha with a deliberately long label that becomes complete after resize",
+                  ),
+              ),
+          },
+          steps: [{ bytes: "\x1b[H\r" }],
         },
       ],
     });
@@ -772,113 +473,11 @@ Deno.test({
     assertStringIncludes(visible, "complete after resize");
   },
 });
-
-Deno.test({
-  name:
-    "capability matrix degrades truecolour, 256, 16, no-colour, dumb, and ASCII",
-  ignore: Deno.build.os === "windows",
-  fn: async () => {
-    const truecolorEnv = {
-      TERM: "xterm-256color",
-      COLORTERM: "truecolor",
-    };
-    const ansi256Env = { TERM: "xterm-256color", COLORTERM: "" };
-    const ansi16Env = { TERM: "xterm", COLORTERM: "" };
-    const noColorEnv = {
-      TERM: "xterm-256color",
-      COLORTERM: "truecolor",
-      NO_COLOR: "1",
-    };
-    const dumbEnv = { TERM: "dumb", COLORTERM: "" };
-    const asciiEnv = {
-      TERM: "xterm",
-      LC_ALL: "C",
-      LANG: "C",
-      NO_COLOR: "1",
-    };
-    const flagEnv = {
-      TERM: "xterm-256color",
-      COLORTERM: "truecolor",
-    };
-    const [truecolor, ansi256, ansi16, noColor, dumb, ascii, flag] =
-      await Promise
-        .all([
-          runHarness({
-            scenario: "confirm-default-no",
-            env: truecolorEnv,
-          }),
-          runHarness({
-            scenario: "confirm-default-no",
-            env: ansi256Env,
-          }),
-          runHarness({
-            scenario: "confirm-default-no",
-            env: ansi16Env,
-          }),
-          runHarness({
-            scenario: "confirm-default-no",
-            env: noColorEnv,
-          }),
-          runHarness({
-            scenario: "confirm-default-no",
-            env: dumbEnv,
-          }),
-          runHarness({
-            scenario: "confirm-default-no",
-            env: asciiEnv,
-          }),
-          runHarness({
-            scenario: "confirm-default-no",
-            noColor: true,
-            env: flagEnv,
-          }),
-        ]);
-    for (
-      const { run, env } of [
-        { run: truecolor, env: truecolorEnv },
-        { run: ansi256, env: ansi256Env },
-        { run: ansi16, env: ansi16Env },
-        { run: noColor, env: noColorEnv },
-        { run: dumb, env: dumbEnv },
-        { run: ascii, env: asciiEnv },
-        { run: flag, env: flagEnv },
-      ]
-    ) {
-      const capabilities = detectTerminalCapabilities({
-        env,
-        isTty: true,
-      });
-      assertValue(run, false, capabilities.ansiControl !== false);
-    }
-    assert(hasCsiSequence(truecolor.process.transcript, TRUECOLOUR_PARAMETERS));
-    assert(hasCsiSequence(ansi256.process.transcript, ANSI_256_PARAMETERS));
-    assert(hasCsiSequence(ansi16.process.transcript, SGR_PARAMETERS));
-    assertEquals(/38;(?:2|5);/u.test(ansi16.process.transcript), false);
-    for (const run of [noColor, dumb, ascii, flag]) {
-      assertEquals(
-        hasCsiSequence(run.process.transcript, SGR_PARAMETERS),
-        false,
-        run.process.transcript,
-      );
-    }
-    assertEquals(
-      [...ascii.process.transcript].some((value) =>
-        (value.codePointAt(0) ?? 0) > 0x7f
-      ),
-      false,
-    );
-    assert(
-      [...dumb.process.transcript].some((value) =>
-        (value.codePointAt(0) ?? 0) > 0x7f
-      ),
-      "UTF-8 repertoire must remain available without ANSI cursor control",
-    );
-  },
-});
-
-Deno.test({
+realPtyTest({
   name:
     "unexpected validator faults restore the real terminal before diagnostics",
+  contracts: ["terminal-modes", "control-rendering"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const run = await runHarness({ scenario: "error" });

@@ -73,16 +73,17 @@ For the authored prose presentation of the same prepared result, run `discern do
 
 ## Where it lives in code
 
-| Concern                       | Source                                                              |
-| ----------------------------- | ------------------------------------------------------------------- |
-| Gate order and preconditions  | [`finish.ts`](../../../src/engine/gate/finish.ts)                   |
-| Terminal failure tail         | [`failure_tail.ts`](../../../src/engine/gate/failure_tail.ts)       |
-| Pure diagnostic presentation  | [`presentation.ts`](../../../src/engine/gate/presentation.ts)       |
-| Job-to-diagnostic projection  | [`plan.ts`](../../../src/engine/gate/plan.ts)                       |
-| Generated-artifact drift      | [`generated_drift.ts`](../../../src/engine/gate/generated_drift.ts) |
-| Captured-output normalization | [`result.ts`](../../../src/shared/result.ts)                        |
-| Timeout and process cleanup   | [`command.ts`](../../../src/engine/jobs/command.ts)                 |
-| Built-in write probes         | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)      |
+| Concern                          | Source                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------- |
+| Gate order and preconditions     | [`finish.ts`](../../../src/engine/gate/finish.ts)                               |
+| Repository-preflight diagnostics | [`preflight_diagnostics.ts`](../../../src/engine/gate/preflight_diagnostics.ts) |
+| Terminal failure tail            | [`failure_tail.ts`](../../../src/engine/gate/failure_tail.ts)                   |
+| Pure diagnostic presentation     | [`presentation.ts`](../../../src/engine/gate/presentation.ts)                   |
+| Job-to-diagnostic projection     | [`plan.ts`](../../../src/engine/gate/plan.ts)                                   |
+| Generated-artifact drift         | [`generated_drift.ts`](../../../src/engine/gate/generated_drift.ts)             |
+| Captured-output normalization    | [`result.ts`](../../../src/shared/result.ts)                                    |
+| Timeout and process cleanup      | [`command.ts`](../../../src/engine/jobs/command.ts)                             |
+| Built-in write probes            | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)                  |
 
 ## Current state & gotchas
 
