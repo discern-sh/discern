@@ -443,7 +443,7 @@ Deno.test("the watch task delegates to the source-driven site watcher", async ()
   const root = await readConfig(join(REPO, "deno.json"));
   assertEquals(
     root.tasks?.watch,
-    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch",
+    "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_TRUNK,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch",
   );
 
   assertEquals(SITE_BUILD_INPUTS.length > 0, true);
