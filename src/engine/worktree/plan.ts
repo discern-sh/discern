@@ -312,10 +312,16 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
 
 // ── start ─────────────────────────────────────────────────────────────────────
 
+/** One external resource identity the new worktree setup will create. */
+export interface StartResourcePlan {
+  readonly name: string;
+  readonly identity: string;
+}
+
 /** The plan a `discern start` would carry out: create a fresh linked worktree at a
  * resolved sibling location on its own branch, then run its first-time setup. The
- * id/branch are minted while building this (a fresh id each run), so the preview
- * shows concrete, representative values. */
+ * id and branch are minted while building this. A caller such as the Desk may
+ * retain this plan through confirmation and apply those same concrete values. */
 export interface StartPlan {
   /** The freshly-minted worktree id. */
   id: string;
@@ -332,6 +338,8 @@ export interface StartPlan {
   title: string;
   /** Optional one-line task brief preserved in worktree task metadata. */
   brief?: string;
+  /** External resource identities setup will create for this worktree. */
+  resources: readonly StartResourcePlan[];
   /** A normalisation/fallback note when the caller named the worktree (see
    * `chooseWorktreeName`) — surfaced in the dry-run preview so the caller sees the
    * name it would actually get. Absent for an unnamed (codename) start. */
@@ -351,6 +359,15 @@ export function startPlanToEngine(plan: StartPlan): EnginePlan {
   if (plan.brief !== undefined) {
     details.push(`Brief:        ${plan.brief}`);
   }
+  details.push(
+    plan.resources.length === 0
+      ? "Resources:    none"
+      : `Resources:    ${
+        plan.resources.map((resource) =>
+          `${resource.name}=${resource.identity}`
+        ).join(", ")
+      }`,
+  );
   if (plan.note !== undefined) {
     details.push(`Name:         ${plan.note}`);
   }

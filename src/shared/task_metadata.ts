@@ -25,8 +25,18 @@ export const TASK_TITLE_SOURCES = [
 ] as const;
 export type TaskTitleSource = (typeof TASK_TITLE_SOURCES)[number];
 
-/** Control and line-separator characters that cannot enter terminal text. */
-const UNSAFE_SINGLE_LINE_TEXT = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u;
+/** Control, format, and line-separator characters unsafe for terminal text. */
+const UNSAFE_SINGLE_LINE_TEXT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+
+/** Keep a legacy identity label valid for the public task schema. */
+function boundedFallbackTaskTitle(value: string): string {
+  const safe = value.replace(
+    new RegExp(UNSAFE_SINGLE_LINE_TEXT.source, "gu"),
+    " ",
+  ).trim();
+  const title = safe === "" ? "Unnamed task" : safe;
+  return [...title].slice(0, TASK_TITLE_MAX_CODE_POINTS).join("");
+}
 
 /** Count Unicode code points without splitting surrogate pairs. */
 export function taskTextLength(value: string): number {
@@ -136,7 +146,7 @@ export function fallbackTaskMetadataData(
 ): TaskMetadataData {
   return {
     ...identity,
-    title,
+    title: boundedFallbackTaskTitle(title),
     title_source: unavailableReason === undefined
       ? "identity-fallback"
       : "unavailable-fallback",

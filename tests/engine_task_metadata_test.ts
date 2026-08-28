@@ -7,6 +7,7 @@ import {
   assert,
   assertEquals,
   assertExists,
+  assertRejects,
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
@@ -17,12 +18,21 @@ import type {
   TaskRenameData,
 } from "../src/shared/result_schemas.ts";
 import {
+  fallbackTaskMetadataData,
   StoredTaskMetadataSchema,
   TASK_BRIEF_MAX_CODE_POINTS,
   TASK_TITLE_MAX_CODE_POINTS,
+  TaskMetadataDataSchema,
   taskTextLength,
 } from "../src/shared/task_metadata.ts";
 import { taskMetadataPath } from "../src/engine/worktree/task_metadata.ts";
+import { Logger } from "../src/lib/log.ts";
+import {
+  applyStartPlan,
+  buildStartPlan,
+  lifecycleContext,
+  WorktreeGitError,
+} from "../src/engine/worktree/lifecycle.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import {
@@ -86,6 +96,8 @@ Deno.test("task metadata schemas preserve Unicode bytes and bound single-line in
       "   ",
       "line one\nline two",
       `control${String.fromCharCode(7)}`,
+      "hidden\u200Bformat",
+      "reversed\u202Etext",
       "x".repeat(TASK_TITLE_MAX_CODE_POINTS + 1),
     ]
   ) {
@@ -98,6 +110,14 @@ Deno.test("task metadata schemas preserve Unicode bytes and bound single-line in
       JSON.stringify(invalid),
     );
   }
+
+  const fallback = fallbackTaskMetadataData(
+    { id: "legacy", branch: "agent/legacy" },
+    `legacy\u200B${"x".repeat(TASK_TITLE_MAX_CODE_POINTS + 20)}`,
+  );
+  assertEquals(taskTextLength(fallback.title), TASK_TITLE_MAX_CODE_POINTS);
+  assertEquals(fallback.title.includes("\u200B"), false);
+  assertEquals(TaskMetadataDataSchema.safeParse(fallback).success, true);
 });
 
 Deno.test("start, status, and rename round-trip human wording without changing Git identity", async () => {
@@ -164,6 +184,73 @@ Deno.test("start, status, and rename round-trip human wording without changing G
 
     const renamedRow = await fleetRow(dir, data.branch);
     assertEquals(renamedRow.task, renamedTask.task);
+  });
+});
+
+Deno.test("a retained start preview applies the same identity and exact base", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const ctx = await lifecycleContext(
+      dir,
+      new Logger({ json: true, noColor: true }),
+      dir,
+    );
+    const prepared = await buildStartPlan(ctx, {
+      worktreeRoot: `${dir}.worktrees`,
+      title: "Retain preview identity 修复",
+      brief:
+        "Apply the exact id, branch, path, and base shown before confirmation.",
+    });
+    const applied = await applyStartPlan(ctx, prepared);
+    assert(applied.ok);
+    assertExists(applied.data);
+    assertEquals(applied.data.id, prepared.plan.id);
+    assertEquals(applied.data.branch, prepared.plan.branch);
+    assertEquals(applied.data.path, prepared.plan.worktreePath);
+    assertEquals(applied.data.task.title, prepared.plan.title);
+    assertEquals(applied.data.task.brief, prepared.plan.brief);
+    assertEquals(
+      await gitOut(applied.data.path, "rev-parse", "HEAD"),
+      prepared.plan.fromCommit,
+    );
+  });
+});
+
+Deno.test("a retained start preview refuses when its source moves", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const base = await addWorktree(dir, "moving-base");
+    const ctx = await lifecycleContext(
+      dir,
+      new Logger({ json: true, noColor: true }),
+      dir,
+    );
+    const prepared = await buildStartPlan(ctx, {
+      worktreeRoot: `${dir}.worktrees`,
+      title: "Stale preview",
+      from: "agent/moving-base",
+    });
+    await Deno.writeTextFile(join(base, "move-base.txt"), "new base\n");
+    await git(base, "add", "move-base.txt");
+    await git(base, "commit", "-q", "-m", "move base", "--no-gpg-sign");
+
+    await assertRejects(
+      () => applyStartPlan(ctx, prepared),
+      WorktreeGitError,
+      "moved after the start preview",
+    );
+    assertEquals(await targetExists(prepared.plan.worktreePath), false);
+    const branch = await runAgent(dir, [
+      "status",
+      "--json",
+    ]);
+    assertEquals(branch.code, 0, branch.output);
+    assertEquals(
+      await gitOut(dir, "branch", "--list", prepared.plan.branch),
+      "",
+    );
   });
 });
 

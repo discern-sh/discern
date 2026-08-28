@@ -25,6 +25,8 @@ import {
   resolve,
 } from "@std/path";
 import { type Logger, loggerSink } from "../../lib/log.ts";
+import { terminalLine } from "../../lib/terminal.ts";
+import { renderResultSummaryCli } from "discern-design-system/cli";
 import { adrIndexState } from "../../lib/adr_index.ts";
 import {
   canInteract,
@@ -34,6 +36,7 @@ import {
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
+import { commandEvidence } from "../../shared/command_evidence.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
@@ -138,6 +141,7 @@ import {
   type SetupPlan,
   setupPlanToEngine,
   type SetupStepDesc,
+  type StartPlan,
   startPlanToEngine,
   type TaskRenamePlan,
   taskRenamePlanToEngine,
@@ -194,6 +198,7 @@ import { sha256Hex } from "../../shared/sha256.ts";
 import {
   recordedTaskMetadataData,
   type StoredTaskMetadata,
+  TASK_METADATA_SCHEMA_VERSION,
   validateTaskText,
 } from "../../shared/task_metadata.ts";
 import { buildStandardPlan } from "../gate/standard_plan.ts";
@@ -5317,34 +5322,31 @@ async function assertProjectRootIsRepoToplevel(
   }
 }
 
+/** Inputs shared by standalone start and the Desk's retained preview. */
+export interface StartRequestOptions {
+  readonly worktreeRoot: string;
+  readonly name?: string;
+  readonly title?: string;
+  readonly brief?: string;
+  readonly from?: string;
+}
+
 /**
- * Perform `discern start` and return its {@link DiscernResult} — the plan (dry-run)
- * or the created worktree — without emitting or exiting. The single source the CLI's
- * `--json` ({@link start}) and the MCP server both render. Runs from the MAIN
- * checkout only ({@link assertOpSide}); an agent already inside a worktree
- * must not spin up a pointless sibling, so it refuses there (mapped to
- * `precondition_failed` by {@link worktreeErrorResult}). It MINTS a fresh, unique id
- * (collision-checked against existing branches/dirs), creates the linked worktree at
- * `<worktreeRoot>/<id>` on `<branch_prefix><id>` — branched from the TRUNK (or
- * `opts.from`, any ref: the landing model composes freely on the pull axis), never
- * from whatever branch the main checkout happens to be parked on — and runs its
- * first-time setup via the shared {@link createAndSetupWorktree} (which discards
- * the partial worktree on any failure). `worktreeRoot` is supplied by the caller
- * (the dispatcher / MCP server resolve it via `resolveWorktreeRoot`), keeping this
- * engine core free of the placement convention. The result carries the new worktree's
- * `data.path` and a hint to re-root: nothing relocates the caller's session for it.
+ * A concrete start plan retained across one human preview and confirmation.
+ * The executor revalidates its source, branch, and path before applying it.
  */
-export async function startResult(
+export interface PreparedStart {
+  readonly plan: StartPlan;
+  readonly taskMetadata: StoredTaskMetadata;
+  readonly reproduceCmd: string;
+  readonly nameHint?: FiredHint;
+}
+
+/** Build one concrete, read-only start plan. */
+export async function buildStartPlan(
   ctx: LifecycleContext,
-  opts: {
-    dryRun?: boolean;
-    worktreeRoot: string;
-    name?: string;
-    title?: string;
-    brief?: string;
-    from?: string;
-  },
-): Promise<DiscernResult<StartData>> {
+  opts: StartRequestOptions,
+): Promise<PreparedStart> {
   await assertOpSide("start", ctx.cwd);
   await assertProjectRootIsRepoToplevel(ctx, "start");
   const startPoint = await resolveStartPoint(ctx, opts.from);
@@ -5379,40 +5381,101 @@ export async function startResult(
   );
   const title = suppliedTitle ?? taskLabel({ id, path: dir }).name;
   const taskMetadata: StoredTaskMetadata = {
-    schema_version: 1,
+    schema_version: TASK_METADATA_SCHEMA_VERSION,
     title,
     ...(suppliedBrief === undefined ? {} : { brief: suppliedBrief }),
     created_from: startPoint,
   };
+  const resources = readResourceSpecs(ctx.config).map((resource) => ({
+    name: resource.name,
+    identity: resourceForId(settings.slug, id, resource.name),
+  }));
+  const plan: StartPlan = {
+    id,
+    branch,
+    worktreePath: dir,
+    from: startPoint.ref,
+    fromCommit: startPoint.commit,
+    title,
+    ...(suppliedBrief === undefined ? {} : { brief: suppliedBrief }),
+    resources,
+    ...(note === undefined ? {} : { note }),
+  };
+  const reproduceCmd = commandEvidence([
+    "discern",
+    "start",
+    ...(suppliedName === undefined ? [] : ["--name", suppliedName]),
+    ...(opts.title === undefined ? [] : ["--title", opts.title]),
+    ...(suppliedBrief === undefined ? [] : ["--brief", suppliedBrief]),
+    ...(opts.from === undefined ? [] : ["--from", opts.from]),
+  ]);
+  return {
+    plan,
+    taskMetadata,
+    reproduceCmd,
+    ...(nameHint === undefined ? {} : { nameHint }),
+  };
+}
 
-  if (opts.dryRun ?? false) {
-    return previewResult(
-      "start",
-      startPlanToEngine(
-        note !== undefined
-          ? {
-            id,
-            branch,
-            worktreePath: dir,
-            from: startPoint.ref,
-            fromCommit: startPoint.commit,
-            title,
-            ...(suppliedBrief === undefined ? {} : { brief: suppliedBrief }),
-            note,
-          }
-          : {
-            id,
-            branch,
-            worktreePath: dir,
-            from: startPoint.ref,
-            fromCommit: startPoint.commit,
-            title,
-            ...(suppliedBrief === undefined ? {} : { brief: suppliedBrief }),
-          },
-      ),
+/** Refuse a retained preview when its source or destination has changed. */
+async function assertStartPlanCurrent(
+  ctx: LifecycleContext,
+  prepared: PreparedStart,
+): Promise<IdentitySettings> {
+  await assertOpSide("start", ctx.cwd);
+  await assertProjectRootIsRepoToplevel(ctx, "start");
+  const settings = await loadIdentitySettings(ctx.root);
+  if (
+    deriveIdentity(prepared.plan.id, settings).branch !== prepared.plan.branch
+  ) {
+    throw new WorktreeGitError(
+      "Worktree identity settings changed after the start preview. Review a new plan before creating the task.",
     );
   }
+  const currentCommit = await resolveCommitRef(ctx.root, prepared.plan.from);
+  if (currentCommit !== prepared.plan.fromCommit) {
+    throw new WorktreeGitError(
+      `Source ${prepared.plan.from} moved after the start preview. Review a new plan before creating the task.`,
+    );
+  }
+  const run = makeGitRunner(ctx);
+  const branchTaken = (await run([
+    "show-ref",
+    "--verify",
+    "--quiet",
+    `refs/heads/${prepared.plan.branch}`,
+  ])).success;
+  if (branchTaken || await pathExists(prepared.plan.worktreePath)) {
+    throw new WorktreeGitError(
+      `The previewed task identity ${prepared.plan.id} is no longer available. Review a new start plan before creating the task.`,
+    );
+  }
+  return settings;
+}
 
+/**
+ * Perform `discern start` and return its {@link DiscernResult} — the plan (dry-run)
+ * or the created worktree — without emitting or exiting. The single source the CLI's
+ * `--json` ({@link start}) and the MCP server both render. Runs from the MAIN
+ * checkout only ({@link assertOpSide}); an agent already inside a worktree
+ * must not spin up a pointless sibling, so it refuses there (mapped to
+ * `precondition_failed` by {@link worktreeErrorResult}). It MINTS a fresh, unique id
+ * (collision-checked against existing branches/dirs), creates the linked worktree at
+ * `<worktreeRoot>/<id>` on `<branch_prefix><id>` — branched from the TRUNK (or
+ * `opts.from`, any ref: the landing model composes freely on the pull axis), never
+ * from whatever branch the main checkout happens to be parked on — and runs its
+ * first-time setup via the shared {@link createAndSetupWorktree} (which discards
+ * the partial worktree on any failure). `worktreeRoot` is supplied by the caller
+ * (the dispatcher / MCP server resolve it via `resolveWorktreeRoot`), keeping this
+ * engine core free of the placement convention. The result carries the new worktree's
+ * `data.path` and a hint to re-root: nothing relocates the caller's session for it.
+ */
+export async function applyStartPlan(
+  ctx: LifecycleContext,
+  prepared: PreparedStart,
+): Promise<DiscernResult<StartData>> {
+  const settings = await assertStartPlanCurrent(ctx, prepared);
+  const { plan, taskMetadata } = prepared;
   // Advisory, not a gate: uncommitted work in the main checkout never follows a
   // new worktree (it branches from a committed ref), so say where it stays.
   const mainChanges = parsePorcelainZ(
@@ -5424,57 +5487,63 @@ export async function startResult(
   const dirtyNote = mainChanges > 0
     ? fire(HINTS["start-main-changes-stay"], {
       changes: mainChanges,
-      startPoint: startPoint.ref,
+      startPoint: plan.from,
     })
     : undefined;
   if (dirtyNote !== undefined) {
     ctx.log.info(dirtyNote.text);
   }
 
-  ctx.log.heading(`Starting a new worktree (${id})…`);
+  ctx.log.heading(`Starting a new worktree (${plan.id})…`);
   await createAndSetupWorktree(
     ctx.root,
-    dir,
-    branch,
+    plan.worktreePath,
+    plan.branch,
     ctx.log,
-    { id, settings },
-    startPoint.ref,
+    { id: plan.id, settings },
+    plan.fromCommit,
     {
       verb: "start",
-      reproduceCmd: [
-        "discern start",
-        ...(suppliedName === undefined ? [] : ["--name", suppliedName]),
-        ...(opts.title === undefined ? [] : ["--title", opts.title]),
-        ...(suppliedBrief === undefined ? [] : ["--brief", suppliedBrief]),
-        ...(opts.from === undefined ? [] : ["--from", opts.from]),
-      ].join(" "),
+      reproduceCmd: prepared.reproduceCmd,
       taskMetadata,
     },
   );
-  ctx.log.ok(`Worktree '${id}' is ready at ${dir} (from ${startPoint.ref}).`);
+  ctx.log.humanLine(
+    ctx.log.terminal.presenter.present(renderResultSummaryCli, {
+      state: "passed",
+      fact: terminalLine(
+        `Worktree '${plan.id}' is ready at ${plan.worktreePath} from ${plan.from}.`,
+      ),
+      nextAction: terminalLine(`Continue in ${plan.worktreePath}`),
+      maxWidth: ctx.log.terminal.size.columns,
+    }),
+  );
 
   // `git worktree add` checks out `.gitmodules` but leaves every submodule
   // directory empty; when no configured command populates them, the gate is
   // about to run against missing trees — disclose at the moment they appear.
-  const submoduleNote =
-    (await hasGitmodules(dir)) && !submoduleCommandWired(ctx.config)
-      ? fire(HINTS["start-submodules-empty"])
-      : undefined;
+  const submoduleNote = (await hasGitmodules(plan.worktreePath)) &&
+      !submoduleCommandWired(ctx.config)
+    ? fire(HINTS["start-submodules-empty"])
+    : undefined;
 
   const landingAuthority = await inspectLandingAuthority(
-    dir,
+    plan.worktreePath,
     ctx.config.repository.trunk,
   );
   const authorityProjection = prospectiveLandingAuthorityProjection(
     landingAuthority,
   );
   const data: StartData = {
-    id,
-    branch,
-    path: dir,
-    from: startPoint.ref,
-    task: recordedTaskMetadataData({ id, branch }, taskMetadata),
-    ...(note !== undefined ? { name_note: note } : {}),
+    id: plan.id,
+    branch: plan.branch,
+    path: plan.worktreePath,
+    from: plan.from,
+    task: recordedTaskMetadataData(
+      { id: plan.id, branch: plan.branch },
+      taskMetadata,
+    ),
+    ...(plan.note === undefined ? {} : { name_note: plan.note }),
     ...(authorityProjection !== undefined
       ? { landing_authority: authorityProjection }
       : {}),
@@ -5485,7 +5554,7 @@ export async function startResult(
         kind: "git",
         label: BUILT_IN_STEP_LABELS.addWorktree,
         disposition: "run",
-        note: `${dir} on ${branch} (from ${startPoint.ref})`,
+        note: `${plan.worktreePath} on ${plan.branch} (from ${plan.from})`,
       },
       outcome: "ok",
     },
@@ -5508,13 +5577,14 @@ export async function startResult(
       outcome: "ok",
     },
   ]);
-  result.message = `Created worktree '${id}' at ${dir} (branch ${branch}).`;
+  result.message =
+    `Created worktree '${plan.id}' at ${plan.worktreePath} (branch ${plan.branch}).`;
   result.data = data;
-  const reRoot = fire(HINTS["start-re-root"], { dir });
+  const reRoot = fire(HINTS["start-re-root"], { dir: plan.worktreePath });
   // A normalisation/fallback note leads the hints, so the caller — and the human
   // reading over its shoulder — see what the worktree was actually named.
   result.hints = hintTexts([
-    ...(nameHint !== undefined ? [nameHint] : []),
+    ...(prepared.nameHint !== undefined ? [prepared.nameHint] : []),
     reRoot,
     ...(authorityProjection !== undefined
       ? [
@@ -5529,6 +5599,17 @@ export async function startResult(
     ...(dirtyNote !== undefined ? [dirtyNote] : []),
   ]);
   return result;
+}
+
+/** Build a fresh plan, then preview or apply it through one result boundary. */
+export async function startResult(
+  ctx: LifecycleContext,
+  opts: StartRequestOptions & { readonly dryRun?: boolean },
+): Promise<DiscernResult<StartData>> {
+  const prepared = await buildStartPlan(ctx, opts);
+  return opts.dryRun ?? false
+    ? previewResult("start", startPlanToEngine(prepared.plan))
+    : await applyStartPlan(ctx, prepared);
 }
 
 /** True when the checkout at `dir` carries a tracked `.gitmodules`. */
