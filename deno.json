@@ -48,6 +48,7 @@
     "ambient-boundaries": "deno run scripts/ambient_state_boundary_counts.ts",
     "cast-census": "deno run --allow-read --allow-run=git scripts/cast_census.ts",
     "duplication-census": "deno run --allow-read --allow-run=git scripts/duplication_census.ts",
+    "dead-exports": "deno run --allow-read --allow-run=git scripts/dead_exports.ts",
     "lint-suppressions": "deno run --allow-read --allow-run=git scripts/lint_suppressions.ts",
     "silent-error-boundaries": "deno run --allow-read --allow-run=git scripts/silent_error_boundaries.ts",
     "subprocess-spawn-boundaries": "deno run --allow-read --allow-run=git scripts/subprocess_spawn_boundaries.ts",
