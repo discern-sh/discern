@@ -568,11 +568,17 @@ function withFixAvailable(
     : diagnostics;
 }
 
+/** The stable `rule` identifier every timeout diagnostic carries, so a
+ * reduction that keeps only diagnostic classes (the logbook) can still tell a
+ * watchdog kill from any other failure of the same tool. */
+export const TIMEOUT_DIAGNOSTIC_RULE = "timeout";
+
 /**
  * The one-line message for a Tier-0 (unstructured) job failure, keyed off the
  * OUTCOME, never off which tool produced it:
  *  - a job the watchdog tree-killed for never exiting (`timedOut`) names the
- *    usual culprit (a watch-mode runner / hung dev server) and the two ways out;
+ *    fired budget and the config key that set it, then routes the two causes
+ *    (work slower than the budget; a command that never exits on its own);
  *  - exit 127 is the shell's "command not found" — in a fresh worktree the giveaway
  *    is an untracked tool/dependency dir that never got converged, so the hint points
  *    at checkout-shared `[repository].ensure` rather than leaving a bare
@@ -585,7 +591,7 @@ function withFixAvailable(
  */
 export function jobFailureMessage(label: string, r: JobResult): string {
   if (r.timedOut !== undefined) {
-    return `${label} timed out after ${r.timedOut.seconds}s and was killed — the command (or a background process it left holding its output stream) never finished within the budget. A watch-mode test runner, a dev server that never exits, or a tool that daemonizes mid-run will hang the gate; wire it in its single-run (CI) form, or give a legitimately long-running command a bigger budget — a \`timeout\` on its own config entry, or the global [gate].timeout.`;
+    return `${label} timed out after ${r.timedOut.seconds}s and was killed: the budget comes from \`${r.timedOut.key}\`. If the work needs more time, raise \`${r.timedOut.key}\`. If the command never exits on its own (a watch-mode test runner, a dev server, a tool that daemonizes mid-run, or a background process left holding the job's output stream), wire its single-run (CI) form.`;
   }
   if (r.failureMessage !== undefined) {
     return r.failureMessage;
@@ -665,6 +671,11 @@ export async function serializeJobSteps(
             severity: "error",
             message: jobFailureMessage(j.label, r),
             reproduce_cmd: j.command,
+            // The structured marker beside the prose: reductions that drop the
+            // message (logbook diagnostic classes) keep the timeout attribution.
+            ...(r.timedOut !== undefined
+              ? { rule: TIMEOUT_DIAGNOSTIC_RULE }
+              : {}),
             ...(fixAvailable === true ? { fix_available: true } : {}),
             ...outputFields,
           });

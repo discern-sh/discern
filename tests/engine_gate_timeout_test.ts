@@ -22,6 +22,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { join } from "@std/path";
 import { runParallel } from "../src/engine/jobs/runner.ts";
+import type { JobTimeout } from "../src/engine/jobs/types.ts";
 import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import {
   KNOWN_JOBS,
@@ -167,6 +168,8 @@ async function waitForExit(pid: number): Promise<void> {
 
 Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a genuine timeout failure", async () => {
   await withTempDir(async (dir) => {
+    const written: string[] = [];
+    const decoder = new TextDecoder();
     const pending = runParallel([
       // Record the backgrounded grandchild's PID so the test can prove the whole
       // process GROUP died, not just the direct `sh`.
@@ -181,7 +184,9 @@ Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a
       failFast: true,
       color: false,
       timeout: { seconds: 1, key: "[gate].timeout" },
-      write: () => {},
+      write: (chunk) => {
+        written.push(decoder.decode(chunk));
+      },
     });
     const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
       join(dir, TIMEOUT_READY_FILE),
@@ -205,6 +210,12 @@ Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a
       "a timeout is a real failure, not a cancelled sibling",
     );
     assert((hang?.code ?? 0) !== 0, "a tree-killed job reports non-zero");
+    // The live status banner self-identifies the timeout too — a watcher of
+    // the run should never have to map a bare exit code back to a kill.
+    assertStringIncludes(
+      written.join(""),
+      "FAILED (timed out after 1s)",
+    );
     assert(
       elapsed < DIRECT_WATCHDOG_CEILING_MS,
       `the watchdog should fire within a ~1s budget, took ${elapsed}ms`,
@@ -325,10 +336,11 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
     assertEquals(obj.data.failed_stage, "check/test");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === "test");
     assert(diag !== undefined, `expected a diagnostic for test: ${r.stdout}`);
-    // The message is bounded, plain, and names the likely cause + the way out.
+    // The message is bounded, plain, names the likely cause + the way out, and
+    // attributes the kill to the config key whose budget fired.
     assertStringIncludes(diag.message, "timed out");
     assertStringIncludes(diag.message, "watch-mode");
-    assertStringIncludes(diag.message, "[gate].timeout");
+    assertTimeoutAttribution(diag, "[gate].timeout");
     // Bounded: the gate returned in seconds, not the 9999s the command wanted.
     assert(
       elapsed < FULL_GATE_POST_READY_CEILING_MS,
@@ -338,6 +350,20 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
 });
 
 // ── the class guard: the timeout applies to EVERY stage kind (ADR 0051) ──────────
+
+/**
+ * Every timeout diagnostic must self-identify as a timeout in a structured,
+ * relay-surviving way: the message binds the fired budget to the config key
+ * that set it, and `rule` marks the class so downstream reductions (the
+ * logbook's diagnostic classes) keep the attribution without the prose.
+ */
+function assertTimeoutAttribution(
+  diag: { message: string; rule?: string | undefined },
+  budgetKey: string,
+): void {
+  assertStringIncludes(diag.message, `the budget comes from \`${budgetKey}\``);
+  assertEquals(diag.rule, "timeout");
+}
 
 /**
  * Drive a never-exiting command wired into some stage kind through the full
@@ -394,10 +420,11 @@ async function assertStageKindTimesOut(opts: {
       diag !== undefined,
       `expected a timeout diagnostic for ${opts.jobLabel}: ${r.stdout}`,
     );
-    // The SAME actionable diagnostic reaches every stage kind — not a bare exit code.
+    // The SAME actionable diagnostic reaches every stage kind — not a bare exit
+    // code — and it attributes the kill to the run-level budget's config key.
     assertStringIncludes(diag.message, "timed out");
     assertStringIncludes(diag.message, "watch-mode");
-    assertStringIncludes(diag.message, "[gate].timeout");
+    assertTimeoutAttribution(diag, "[gate].timeout");
     assert(
       elapsed < FULL_GATE_POST_READY_CEILING_MS,
       `${opts.jobLabel}: the ready watchdog should fire within budget, took ${elapsed}ms`,
@@ -548,6 +575,7 @@ Deno.test("timeout override: 0 disables the bound for that job alone", async () 
 async function assertOverrideBoundsOwnJob(opts: {
   wiring: (command: string) => string[];
   jobLabel: string;
+  budgetKey: string;
 }): Promise<void> {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -588,6 +616,9 @@ async function assertOverrideBoundsOwnJob(opts: {
       `expected a timeout diagnostic for ${opts.jobLabel}: ${r.stdout}`,
     );
     assertStringIncludes(diag.message, "timed out after 1s");
+    // The diagnostic names the OVERRIDE's key — the budget that fired — not
+    // the run-level default the sibling kept.
+    assertTimeoutAttribution(diag, opts.budgetKey);
     // The sibling under the global budget is untouched.
     // deno-lint-ignore no-explicit-any
     const sibling = (obj.steps ?? []).find((s: any) => s.label === "lint");
@@ -610,6 +641,7 @@ Deno.test("timeout override: the capability table form { run, timeout } bounds i
       `test = { run = ${JSON.stringify(command)}, timeout = 1 }`,
     ],
     jobLabel: "test",
+    budgetKey: "[jobs.test].timeout",
   });
 });
 
@@ -625,6 +657,7 @@ Deno.test("timeout override: [jobs.<name>].timeout bounds its job", async () => 
       "timeout = 1",
     ],
     jobLabel: "slowcheck",
+    budgetKey: "[jobs.slowcheck].timeout",
   });
 });
 
@@ -671,6 +704,7 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
     );
     assert(diag !== undefined, `expected a timeout diagnostic: ${r.stdout}`);
     assertStringIncludes(diag.message, "timed out after 1s");
+    assertTimeoutAttribution(diag, "[scopes.widget].timeout");
     assert(
       elapsed < FULL_GATE_POST_READY_CEILING_MS,
       `bounded by the override after readiness, took ${elapsed}ms`,
@@ -696,6 +730,17 @@ Deno.test("timeout override: every job-bearing record family accepts the per-job
     );
   }
   assert(jobBearing >= 3, "expected checks, scopes, and standards to enrol");
+});
+
+// The forcing function for timeout ATTRIBUTION: the budget and the config key
+// that set it are one value, so a future planner — whatever names it uses —
+// cannot bound a job without recording where the bound came from, and the
+// diagnostic can always name the key. This is the compile-time guard; the
+// fixture tests above prove each of today's planners states its real key.
+Deno.test("timeout attribution: a budget cannot be declared without its config key", () => {
+  // @ts-expect-error — JobTimeout pairs the seconds with the config key that set them
+  const sibling: JobTimeout = { seconds: 5 };
+  assertEquals(typeof sibling, "object");
 });
 
 Deno.test("timeout override: the bare command-or-list capability form parses and runs unchanged", async () => {

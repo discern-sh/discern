@@ -101,7 +101,10 @@ function banner(result: JobResult, terminal: TerminalContext): Uint8Array {
     : result.cancelled === true
     ? terminal.role("cancelled", "muted")
     : result.timedOut !== undefined
-    ? terminal.tone(`FAILED (timed out after ${result.timedOut.seconds}s)`, "danger")
+    ? terminal.tone(
+      `FAILED (timed out after ${result.timedOut.seconds}s)`,
+      "danger",
+    )
     : terminal.tone(`FAILED (exit ${result.code})`, "danger");
   return ENCODER.encode(
     `${terminal.role(terminalLine(`── ${result.label} ─`), "muted")} ${tail}\n`,

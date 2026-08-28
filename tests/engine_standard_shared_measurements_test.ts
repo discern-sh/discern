@@ -1,7 +1,12 @@
 /** Focused coverage for one process serving multiple Standard metrics. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import {
+  type LogbookEvent,
+  parseLogbookLine,
+} from "../src/engine/logbook/schema.ts";
 import {
   git,
   gitInit,
@@ -444,6 +449,111 @@ Deno.test("shared Standard measurement: cancellation fans out without a second p
         typeof step.durationS === "number" && step.durationS >= 0
       ),
       JSON.stringify(result.steps),
+    );
+  });
+});
+
+/** All well-formed logbook events under the fixture's git dir, in line order. */
+async function readLogbookEvents(dir: string): Promise<LogbookEvent[]> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  const names: string[] = [];
+  for await (const entry of Deno.readDir(logDir)) {
+    if (entry.isFile && entry.name.endsWith(".jsonl")) {
+      names.push(entry.name);
+    }
+  }
+  const events: LogbookEvent[] = [];
+  for (const name of names.sort()) {
+    const text = await Deno.readTextFile(join(logDir, name));
+    for (const line of text.split("\n")) {
+      if (line.trim() === "") continue;
+      const parsed = parseLogbookLine(line);
+      if (parsed.kind === "event") {
+        events.push(parsed.event);
+      }
+    }
+  }
+  return events;
+}
+
+Deno.test("shared Standard measurement: a timeout fans out naming each member's own budget key", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // The incident shape: several Standards share one slow measurement
+    // command. The leader carries its own `timeout`; the sibling inherits the
+    // run-level [gate].timeout of the same length, so the process is shared
+    // (equal effective budget) while the provenance differs per member.
+    const command = "sleep 30";
+    await writeConfig(
+      dir,
+      [
+        standardsConfig([
+          {
+            name: "coverage",
+            direction: "up",
+            limit: 80,
+            timeout: 1,
+            run: command,
+          },
+          {
+            name: "module_coverage",
+            metric: "module_coverage_failures",
+            direction: "down",
+            limit: 0,
+            run: command,
+          },
+        ]),
+        "[gate]",
+        "timeout = 1",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    const run = await runAgent(dir, ["standards", "--json"]);
+    assertEquals(run.code, 1, run.output);
+    const result = decodeCliResult(run.stdout, "standards");
+    const byTool = new Map(
+      (result.diagnostics ?? []).map((diagnostic) => [
+        diagnostic.tool,
+        diagnostic,
+      ]),
+    );
+    const leader = byTool.get("coverage");
+    const member = byTool.get("module_coverage");
+    assert(leader !== undefined && member !== undefined, run.stdout);
+    // Every fanned diagnostic self-identifies as a timeout, and each names
+    // the key THAT member's config sets — the leader its own `timeout`, the
+    // sibling the inherited run-level default.
+    for (const diagnostic of [leader, member]) {
+      assertStringIncludes(diagnostic.message, "timed out after 1s");
+      assertEquals(diagnostic.rule, "timeout");
+    }
+    assertStringIncludes(
+      leader.message,
+      "the budget comes from `[standards.coverage].timeout`",
+    );
+    assertStringIncludes(
+      member.message,
+      "the budget comes from `[gate].timeout`",
+    );
+
+    // The attribution survives the logbook's metadata-only reduction: the
+    // recorded diagnostic classes keep `rule: "timeout"` with no message
+    // body, so a later reader can tell a timeout from a metric regression.
+    const events = await readLogbookEvents(dir);
+    const recorded = events.findLast((event) =>
+      event.kind === "verb" && event.verb === "standards"
+    );
+    assert(
+      recorded !== undefined && recorded.kind === "verb",
+      "expected a recorded standards event",
+    );
+    assertEquals(
+      (recorded.diagnostics ?? [])
+        .map((diagnostic) => `${diagnostic.tool}:${diagnostic.rule}`)
+        .sort(),
+      ["coverage:timeout", "module_coverage:timeout"],
     );
   });
 });

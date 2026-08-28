@@ -15,12 +15,7 @@ import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
 import { activeInvocationId } from "../logbook/invocation_context.ts";
-import type {
-  Job,
-  JobOutputObserver,
-  JobResult,
-  JobTimeout,
-} from "./types.ts";
+import type { Job, JobOutputObserver, JobResult, JobTimeout } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
 import { selfShimPath, shellCommand } from "../../shared/subprocess.ts";
 import { terminalLine } from "../../lib/terminal.ts";

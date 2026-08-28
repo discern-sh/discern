@@ -138,7 +138,10 @@ export async function runWhenCommand(
         cwd: root,
         stream: false,
         write: () => {},
-        timeout: { seconds: timeoutS, key: "the checkpoint trigger's fixed budget" },
+        timeout: {
+          seconds: timeoutS,
+          key: "the checkpoint trigger's fixed budget",
+        },
         keepOutput: true,
         protocolOutputMaxBytes: CHECKPOINT_WHEN_OUTPUT_BYTES,
         signal: tracked.signal,
