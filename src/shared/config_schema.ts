@@ -101,6 +101,48 @@ export class ConfigParseError extends Error {
   }
 }
 
+/**
+ * A config read that found no file: the checkout the root names is gone, or
+ * holds no discern install. A trusted root can stop being true between calls —
+ * a worktree is removed once its effort lands — so the config chokepoints raise
+ * this typed error and the shared failure boundary refuses gracefully, instead
+ * of the raw filesystem error being classified as a crash inside discern.
+ */
+export class ConfigMissingError extends Error {
+  /** The absolute config path the read attempted. */
+  readonly path: string;
+  constructor(path: string, options?: ErrorOptions) {
+    super(
+      `No config file at ${path}: the checkout this command targeted no ` +
+        `longer exists, or is not a discern project. Move into an existing ` +
+        `discern project, or target one explicitly.`,
+      options,
+    );
+    this.name = "ConfigMissingError";
+    this.path = path;
+  }
+}
+
+/**
+ * Read a config file, converting a missing file — including a vanished
+ * ancestor directory — into {@link ConfigMissingError}. The single reader
+ * behind every live-config load, so no surface can reintroduce the raw
+ * filesystem throw.
+ */
+export async function readConfigFile(path: string): Promise<string> {
+  try {
+    return await Deno.readTextFile(path);
+  } catch (err) {
+    if (
+      err instanceof Deno.errors.NotFound ||
+      err instanceof Deno.errors.NotADirectory
+    ) {
+      throw new ConfigMissingError(path, { cause: err });
+    }
+    throw err;
+  }
+}
+
 // ── shared building blocks (reused by the live config AND the document) ────────
 
 /** TOML bare-key shape, enforced for job/scope/standard/resource names. The ONE
@@ -1348,12 +1390,13 @@ export function parseConfigOrThrow(text: string): DiscernConfig {
 
 /**
  * Load, parse, and validate `discern.toml` under a project `root`, returning the
- * fully-typed object. Throws on a missing file, a syntax error, or a schema
- * violation.
+ * fully-typed object. Throws {@link ConfigMissingError} on a missing file,
+ * {@link ConfigParseError} on a syntax error, or {@link ConfigValidationError}
+ * on a schema violation.
  */
 export async function loadConfig(root: string): Promise<DiscernConfig> {
   const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
-  const config = parseConfigOrThrow(await Deno.readTextFile(join(root, rel)));
+  const config = parseConfigOrThrow(await readConfigFile(join(root, rel)));
   const reads = await Promise.all(
     Object.entries(config.checkpoints).flatMap(([id, entry]) =>
       entry.question_file === undefined ? [] : [

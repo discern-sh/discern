@@ -18,9 +18,17 @@
 import { parse } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
-import { ConfigParseError, tomlSyntaxHint } from "./config_schema.ts";
+import {
+  ConfigParseError,
+  readConfigFile,
+  tomlSyntaxHint,
+} from "./config_schema.ts";
 
-export { ConfigParseError, tomlSyntaxHint } from "./config_schema.ts";
+export {
+  ConfigMissingError,
+  ConfigParseError,
+  tomlSyntaxHint,
+} from "./config_schema.ts";
 
 /** True for a non-null, non-array object (a TOML table). */
 function isTable(v: unknown): v is Record<string, unknown> {
@@ -46,7 +54,7 @@ export class RawConfig {
   /** Read `discern.toml` under a project `root` as a raw, un-validated view. */
   static async load(root: string): Promise<RawConfig> {
     const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
-    return new RawConfig(await Deno.readTextFile(join(root, rel)));
+    return new RawConfig(await readConfigFile(join(root, rel)));
   }
 
   /** Resolve a dotted key to its raw parsed value, or undefined. */

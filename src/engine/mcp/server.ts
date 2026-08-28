@@ -27,9 +27,10 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import process from "process";
-import { isAbsolute } from "@std/path";
+import { isAbsolute, join } from "@std/path";
 import { z } from "@zod/zod";
 import {
+  CONFIG_REL,
   findRoot,
   NO_PROJECT_MESSAGE,
   notInitializedResult,
@@ -41,7 +42,7 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
-import { pathExists } from "../../shared/fs_presence.ts";
+import { fileExists, pathExists } from "../../shared/fs_presence.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { serializeResult } from "../../shared/result_serialization.ts";
@@ -1482,17 +1483,22 @@ function defaultInstalledVersion(): Promise<string | undefined> {
 /**
  * The MCP server's **working root** — the directory its verbs operate on, held as one
  * mutable value because the OS process cwd is frozen at spawn and unusable for this
- * (ADR 0062). Initialized to the spawn root (`findRoot()`), and re-pointed on exactly
- * two lifecycle transitions: `discern_start` aims it at the worktree it just created,
- * `discern_accept` resets it to the spawn root. `undefined` when the server spawned
- * outside a discern project — {@link runTool}'s `not_initialized` guard handles that.
+ * (ADR 0062). Initialized to the spawn root (`findRoot()`), and re-pointed on two
+ * lifecycle transitions: `discern_start` aims it at the worktree it just created,
+ * `discern_accept` resets it to the spawn root. One repair exists besides those:
+ * when the held root's checkout vanishes between calls, dispatch refuses and
+ * re-aims back at the spawn root while it remains a live project. `undefined`
+ * when the server spawned outside a discern project — {@link runTool}'s
+ * `not_initialized` guard handles that.
  * The verb cores stay pure functions of an explicit `root`; this is only the
  * server-layer default they receive, resolved per call in {@link runTool}.
  */
 export class WorkingRoot {
   #root: string | undefined;
+  readonly #spawn: string | undefined;
   constructor(spawnRoot: string | undefined) {
     this.#root = spawnRoot;
+    this.#spawn = spawnRoot;
   }
   /** The current working root — the directory the next verb call operates on. */
   get(): string | undefined {
@@ -1501,6 +1507,11 @@ export class WorkingRoot {
   /** Re-point the working root (a lifecycle re-aim). */
   set(root: string): void {
     this.#root = root;
+  }
+  /** The immutable spawn-time root — the recovery target when the held root's
+   * checkout vanishes between calls (its worktree removed by another session). */
+  spawnRoot(): string | undefined {
+    return this.#spawn;
   }
 }
 
@@ -1732,6 +1743,25 @@ async function completeToolCall(
   return renderMcpResult(result);
 }
 
+/** The refusal served when the held working root stopped being a discern
+ * project between calls: the worktree it named was removed — typically because
+ * that effort landed. States the vanished path, then the live next action. */
+function vanishedHeldRootMessage(
+  gone: string,
+  home: string | undefined,
+): string {
+  const state =
+    `The checkout these tools were aimed at is gone: ${gone} no longer holds ` +
+    `a discern.toml — usually because that effort landed and its worktree was ` +
+    `removed.`;
+  return home === undefined
+    ? `${state} Pass an absolute \`path\` inside the intended discern project ` +
+      `or worktree.`
+    : `${state} The tools now target ${home}, the checkout this server ` +
+      `started in. Retry there, or pass an absolute \`path\` to aim this ` +
+      `call at another project or worktree.`;
+}
+
 /**
  * Resolve and run one tool call. The per-call root is the explicit
  * `path` argument when given (ADR 0062 §2 — resolved through `findRoot`, so any
@@ -1784,7 +1814,42 @@ async function dispatchToolCall(
       ),
     };
   }
-  const root = pathArg ? await findRoot(pathArg) : working.get();
+  let root = pathArg ? await findRoot(pathArg) : working.get();
+  // The held working root is remembered state, not caller input: the worktree
+  // it names can vanish between calls of this long-lived server — a sibling
+  // session lands the effort, or the directory is dropped by hand. Trusting it
+  // blindly hands the verb a vanished directory, so a routine "that effort is
+  // over" state reads as a crash inside discern. Verify the marker first (an
+  // explicit `path` was already vetted by findRoot), refuse with the story, and
+  // repair the held root to the spawn checkout when that is still a project.
+  if (
+    root !== undefined && pathArg === undefined &&
+    !(await fileExists(join(root, CONFIG_REL)))
+  ) {
+    const spawn = working.spawnRoot();
+    const home = spawn !== undefined && spawn !== root &&
+        (await fileExists(join(spawn, CONFIG_REL)))
+      ? spawn
+      : undefined;
+    if (home !== undefined) {
+      working.set(home);
+    }
+    if (tool.rootIndependent !== true) {
+      return {
+        result: notInitializedResult(
+          verbOf(tool.name),
+          vanishedHeldRootMessage(root, home),
+        ),
+        recording: home === undefined
+          ? undefined
+          : beginMcpRecording(home, verbOf(tool.name), args, mcpClient),
+      };
+    }
+    // A root-independent answer never depended on the vanished root: continue
+    // against the repaired home, or with no root at all — the branch below
+    // serves it from the process cwd exactly as when no root resolves.
+    root = home;
+  }
   if (root === undefined) {
     // A root-independent tool (discern_docs) serves the same answer from anywhere —
     // discern's OWN bundled docs, present in every install — so it must not be refused
