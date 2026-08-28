@@ -1,7 +1,7 @@
 ---
 id: explanation-proof
 title: "Proof"
-description: "Understand what a green Gate and its Proof establish, why Proof goes stale, and who can authorize landing."
+description: "What a green Gate and its Proof establish, how green differs from landed, who authorizes a landing, and why Proof goes stale."
 order: 30
 publish: true
 kind: explanation
@@ -23,76 +23,104 @@ redirect_from:
 
 # Proof
 
-Understand what a green Gate and its Proof establish, why Proof goes stale, and who can authorize landing.
+When an agent finishes a task, discern provides the agent with Proof — evidence that their clean, committed change has passed the Gate.
 
-An agent hands you a green Gate result and a Proof line. You can review a named change with its check results already established. You still decide whether the evidence is enough for this change and whether the change may land.
+A coding agent hands a change back and declares: "I'm done!". But how can you be sure they really are? Checking every claim yourself quickly gets tedious, and the time required to check it accurately doesn't scale as your project grows.
+
+discern uses Proof to do the checking for you. Proof confirms which checks ran, what they covered, and whether anything has moved since the Gate went green. 
+
+Proof is computed deterministically from the state of the agent's worktree. A valid Proof is tied to one exact commit, so a later edit invalidates an earlier Proof.
+
+On completion, the agent hands you a Proof line — a one-sentence summary of the Proof's raw data — so you can decide whether the change is ready to land. For example:
+
+> Proof: gate passed on `agent/user-onboarding-fixes-0a7563` @ c5a02addf12a · 6 files +568 −345 vs main · standards held, 8 improved · 1 checkpoint declared met · full proof: `discern status --verbose`
+
+Proof is provided on completion, but landing is a separate decision. Your authority decides what ultimately gets merged in to the project. If you accept the change, discern records the full Proof as a durable Git note on the landed commit.
 
 ## What green establishes
 
-The project's final quality check (the Gate) runs the jobs, scope checks, and Standards that the project declared. Green means those checks passed for the tree the Gate evaluated. It does not establish that the change has no defects, is secure, or is ready for production. It also supplies no landing authority.
+The Gate is the project's own "definition of done". It runs the jobs the project declares (build, lint, tests), the scope checks for the areas the change touched, and the project's Standards, its quality metrics that may only improve. Green means those declared checks passed for the tree the Gate evaluated.
 
-Proof is the review evidence that one clean, committed change passed the Gate. discern records it only when the worktree is on a branch ahead of trunk, the working tree is clean, and the same commit remains checked out before and after the Gate runs.
+Green is a machine verdict with a stated scope. It doesn't establish that the change is free of defects, secure, or ready for production, and it doesn't replace running the code for yourself.
 
-The Proof line abbreviates that commit so it is readable. The worktree's stored evidence binds the full `HEAD`, and a landed Proof note binds the full commit object. `discern status --verbose` retrieves the review page for the current Proof.
+A green Gate doesn't move any code automatically. The change remains on its branch, in an isolated worktree, until someone accepts it. Passing the Gate makes the change eligible for acceptance. Who makes that decision, and with what authority, is covered in [Who supplies what](#who-supplies-what).
 
-A Gate can finish green without recording Proof. This happens when the worktree is dirty, `HEAD` moves during the run, or discern cannot establish a reviewable branch identity. The result remains useful for iteration, but there is no exact clean commit to hand over. Commit the intended tree and run `discern done` again.
+## The exact commit it covers
+
+A reviewer's first question about evidence is whether it describes the code in front of them. Before any job runs, the Gate confirms the worktree's committed state and working tree. After the run it checks these again, and records Proof only when the passing result still describes the same clean commit on a branch ahead of the trunk. The Proof line summarizes the state for a human reader; the stored evidence binds the full hash.
+
+A green run can finish without earning Proof. When the worktree holds uncommitted changes or the branch has fallen behind the trunk, `discern done` can still pass, but its result will say why Proof wasn't recorded. For the agent to *prove* they're done, they simply commit the final tree and run `discern done` again on the clean commit.
+
+A failing run doesn't provide Proof. Instead, it guides the agent towards the failure so they can resolve it. [Fix a red Gate](../10-guides/fix-a-red-gate.md) explains this further.
 
 ## From green to live
 
-These states answer different questions. Trunk is the project's main shared branch, usually `main`.
+A passing run is the first step on the way to shipping your software project:  
 
-| State                | What it tells you                                                                                                                                                             |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Green**            | The declared Gate checks passed for the evaluated tree. Green alone does not say the branch may land, and a dirty run may have no Proof.                                      |
-| **Ready for review** | The handoff includes current Proof for a clean commit, plus the behavior and risks the reviewer needs to consider. Ready for review is the name for this human review moment. |
-| **Accepted**         | The owner has authorized this change, or a recorded grant covers its paths. If `discern accept` has not completed successfully, trunk has not moved.                          |
-| **Landed**           | `discern accept` verified the authority and fast-forwarded the exact validated commit onto trunk.                                                                             |
-| **Released or live** | The project's release or deployment process made the landed work available. discern does not infer this state from green or landed.                                           |
+| State                | What it tells you                                                                                                                |
+| -------------------- |----------------------------------------------------------------------------------------------------------------------------------|
+| **Green**            | The declared checks passed for the tree the Gate evaluated. Green alone doesn't say the branch may land.                         |
+| **Ready for review** | Current Proof exists for a clean commit, and the handoff includes the behavior and risks the owner needs to weigh.               |
+| **Accepted**         | The owner authorized the change, or a recorded grant covers its paths. Until `discern accept` completes, the trunk hasn't moved. |
+| **Landed**           | `discern accept` verified the authority and fast-forwarded the validated commit onto the trunk.                                  |
+| **Released or live** | The project's release process made the landed work available. discern doesn't infer this state from green or landed.             |
 
-Passing the Gate makes a change eligible for a decision. The successful `discern accept` operation is the repository event that lands it.
+Acceptance fast-forwards the exact validated commit onto the trunk, then removes the worktree. Although the branch may be gone, the evidence lives on: the [proof note](../30-reference/proof-and-checkpoint-formats.md#proof-notes) attached to the landed commit records what passed, the declared conclusions, and the authority that permitted the landing. A future maintainer can recover what was checked without digging through old conversations.
+
+Everything after a change lands on the trunk (releases, deployment, and so on) belongs to the project. discern doesn't deploy anything on your behalf, or even push commits remotely (in fact, it's [completely offline](../../map/00-orientation/trust-and-data.md)).
 
 ## Why Proof becomes stale
 
-Proof binds the candidate and its declaration evidence:
+Proof describes the exact state of one Git tree, so it lasts only as long as the tree does. Anything that changes what would land, makes it stale:
 
-- the full commit and clean working tree that the Gate evaluated;
-- the checkpoint declarations recorded for that subject, including each conclusion and rationale.
+- a new commit, or an amended commit;
+- a staged file, an uncommitted edit, or an untracked file;
+- regenerated output: a `discern prepare` rewrite changes the tree like any other edit until it's committed and validated again;
+- a changed checkpoint conclusion or rationale, even when the commit itself hasn't moved. Acceptance depends upon those judgments, so the evidence requires them too.
 
-For ordinary work, any later commit, amend, staged file, uncommitted edit, or untracked file changes the candidate. Proof can no longer describe what would land. A generated rewrite is an ordinary edit for this purpose. If `discern prepare` reformats a file or refreshes generated output after Proof was recorded, review the rewrite, commit it, and run `discern done` on the new clean tree.
+Proof vouches only for the tree that passed, but followup changes are routine. Simply review and commit the later change, and run `discern done` again: fresh Proof replaces the old one.
 
-A changed checkpoint conclusion or rationale also makes Proof stale, even when `HEAD` has not moved. The evidence must describe both the code and the declared judgments that acceptance would carry.
+When nothing changes, the same process works in your favor. On an unchanged tree, `discern done` returns the current green Proof without re-running the project's checks, and `discern accept` reuses existing Proof instead of running the Gate twice.
 
-`discern standards --pin` is a narrow product-managed exception that can carry honored Proof across its own limits-only commit. The [Proof and checkpoint formats reference](../30-reference/proof-and-checkpoint-formats.md) covers that exception and the stored identities.
+## Who supplies what
 
-## Machine results, declared conclusions, and authority
+Reviewing a change often involves more than simply asking "did the tests pass?". Some questions just can't be settled by a command's exit status.
 
-A checkpoint is a change-triggered judgment stop. It asks an agent to consider a question that a command cannot settle from exit status alone.
+For those, a project configures [checkpoints](checkpoints.md): judgment stops that pair a trigger with a written question to the agent. When a change matches a checkpoint trigger, `discern done` refuses to run until the agent weighs the question and records a conclusion — either declared met, or declared unmet — with a short rationale written for the owner.
 
-| Evidence or decision                     | Who supplies it                                                                                                                           |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Gate jobs, scope checks, and Standards   | discern runs the project commands and records their machine results.                                                                      |
-| Checkpoint conclusion                    | The agent declares `met` or `unmet`. Proof labels that conclusion as declared judgment; machine verification applies to the Gate results. |
-| Landing authority                        | The owner supplies conversation consent or a recorded grant; discern verifies that evidence against the current change.                   |
-| Variance for a declared-unmet checkpoint | The owner authorizes the exact current exception in the current conversation. Standing and effort grants never cover a variance.          |
-| Released or live state                   | The project's release process establishes it.                                                                                             |
+Proof distinguishes between the kinds of evidence it provides:
 
-A declared-unmet checkpoint does not turn a green Gate red. Its rationale remains visible in Proof, and acceptance stops until the owner either authorizes that exact variance or asks for the change to satisfy the checkpoint. A grant is recorded owner permission bounded to named scopes or one effort. A variance is separate, one-time authority for the current declared-unmet conclusion.
+- Job, scope, and Standard results are **verified**: a machine produced them, and a machine can _reproduce_ them.
+- Checkpoint conclusions are **declared**: they're the agent's recorded judgment, and Proof labels them as such.
+- A landing is **authorized**: a person supplies the permission, and discern reports it alongside the current change.
 
-If uncertainty prevented a checkpoint from being enforced, Proof keeps that checkpoint drop visible. The [Checkpoints explanation](checkpoints.md) covers declarations, drops, and variance in depth.
+A declared-unmet conclusion doesn't turn a green Gate red. Its rationale stays visible in Proof, and acceptance stops until the owner either asks for the change to satisfy the checkpoint or authorizes that exact variance in the current conversation. Grants never cover a variance: the point of the rationale is that a person reads it.
+
+When the agent couldn't determine whether a checkpoint applied, Proof names what was skipped and why, so a green run can't hide an unenforced judgment. A CI run (`discern done --ci`) reports the questions that still await review without answering them, and its report-only evidence cannot be used to land.
+
+`discern accept` moves the trunk only when it can verify landing authority — a recorded permission for the work to land:
+
+| Source             | What it is                                                                                            | Covers                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Conversation**   | The owner approves in the current conversation, and the agent runs `discern accept --confirmed`.      | That one landing.                                            |
+| **Standing grant** | Scopes the owner has recorded on the trunk (documentation, for example).                              | Any landing whose changed files stay inside a granted scope. |
+| **Effort grant**   | Permission recorded in advance for one worktree when its work is delegated from [the Desk](../10-guides/delegate-work.md). | That worktree's landing, once green.                         |
+
+Without authority, `discern accept` doesn't change anything: it reports what would have landed, and routes the change back for review. Authority is resolved from recorded evidence on every call, never from an agent's memory of an earlier conversation.
 
 ### Approve a Standard limit proposal
 
-A Proof can also carry a proposed change to a Standard limit. This is an owner decision separate from landing authority. `discern accept` first serves the current Standard, value, reason, and approval token without changing the repository. After the owner approves that exact proposal in the current conversation, follow the complete acceptance command in the result.
+A change can cross one of the project's Standard limits for a defensible reason. When the owner agrees the limit should move, the branch carries a proposal, and the Proof presents it. It names the Standard being revised, its current and proposed limits, the measured value, and the reason for changing it. `discern accept` refuses until the owner approves that exact proposal in the conversation. Grants and general permission to land don't bypass this approval.
 
-A standing grant, effort grant, checkpoint variance, or general permission to land does not approve a Standard limit proposal. [Set and raise Standards](../10-guides/set-and-raise-standards.md) covers the proposal workflow; the [formats reference](../30-reference/proof-and-checkpoint-formats.md) holds its exact fields.
+If the owner declines, the agent must restore the trunk limit in the branch, commit the restoration, and run `discern done` again under ordinary enforcement. [Set and raise Standards](../10-guides/set-and-raise-standards.md) covers proposing, measuring, and pinning limits.
 
 ## Choose the next action
 
-- **There is no current Proof:** run `discern prepare`, review any rewrites, commit the final tree, then run `discern done`.
-- **Proof is current:** inspect it with `discern status --verbose`, exercise the changed behavior, and review the outcome, risks, and open decisions.
+- **Proof hasn't been recorded yet:** run `discern prepare`, review any rewrites, commit the final tree, then run `discern done`.
+- **Proof is current:** open it in the worktree with `discern status --verbose`, exercise the changed behavior, and weigh the outcome, risks, and open decisions.
 - **Proof is stale:** decide whether to keep or undo the later change, commit the intended result, and run `discern done` again.
-- **A checkpoint is declared unmet:** read its rationale. The owner can require a change or authorize the exact variance in the current conversation.
-- **The change is accepted but has not landed:** follow the authority-aware `discern accept` result for this worktree. Success is the evidence that trunk moved.
-- **The change has landed:** follow the project's release process if it has one. Do not describe it as released or live until that process says so.
+- **A checkpoint is declared unmet:** read its rationale, then either ask for the change to satisfy it or authorize that exact variance in the conversation.
+- **The change is accepted but hasn't landed:** follow the authority-aware `discern accept` result for that worktree. Success is the evidence that the trunk moved.
+- **The change has landed:** follow the project's release process if it has one. The work isn't released or live until that process says so.
 
-[Finish and land a change](../10-guides/finish-and-land-a-change.md) gives the end-to-end procedure. [MCP and results](../30-reference/mcp-and-results.md) and [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) hold the exact result fields and durable formats.
+[Finish and land a change](../10-guides/finish-and-land-a-change.md) gives the end-to-end procedure. [Checkpoints](checkpoints.md) covers declarations, drops, and variance in depth. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) holds the exact fields and durable formats.
