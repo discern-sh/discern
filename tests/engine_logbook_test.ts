@@ -25,15 +25,13 @@ import {
   defaultMapPath,
   git,
   gitInit,
+  readLogbookEvents as readEvents,
   runAgent,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
-import {
-  type LogbookEvent,
-  parseLogbookLine,
-} from "../src/engine/logbook/schema.ts";
+import type { LogbookEvent } from "../src/engine/logbook/schema.ts";
 import { beginRecording } from "../src/engine/logbook/record.ts";
 import {
   runTool,
@@ -49,32 +47,6 @@ import {
 } from "../src/shared/result_capture.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { verbNeedsSetup } from "../src/shared/setup_state.ts";
-
-/** All well-formed events across the project's logbook, in file line order. */
-async function readEvents(dir: string): Promise<LogbookEvent[]> {
-  const logDir = join(dir, ".git", "discern", "logbook");
-  const events: LogbookEvent[] = [];
-  let names: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(logDir)) {
-      if (entry.isFile && entry.name.endsWith(".jsonl")) {
-        names.push(entry.name);
-      }
-    }
-  } catch {
-    return events; // no logbook — the caller asserts on emptiness
-  }
-  names = names.sort();
-  for (const name of names) {
-    const text = await Deno.readTextFile(join(logDir, name));
-    for (const line of text.split("\n").filter((l) => l !== "")) {
-      const parsed = parseLogbookLine(line);
-      assert(parsed.kind === "event", `unparseable logbook line: ${line}`);
-      events.push(parsed.event);
-    }
-  }
-  return events;
-}
 
 /** Just the verb events, in order. */
 function verbEvents(

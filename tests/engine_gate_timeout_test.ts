@@ -274,31 +274,22 @@ Deno.test("gate timeout: an escaped descendant holding the pipes cannot wedge th
   }, { prefix: "discern-timeout-escape-" });
 });
 
-Deno.test("gate timeout: a job that finishes within budget is untouched", async () => {
-  const r = await runParallel([{ label: "quick", command: "true" }], {
-    cwd: Deno.cwd(),
-    stream: false,
-    failFast: true,
-    color: false,
-    timeout: { seconds: 30, key: "[gate].timeout" },
-    write: () => {},
+// A fast job is untouched under a generous budget AND under 0 (bound disabled):
+// neither may brand it a timeout or kill it spuriously.
+for (const seconds of [30, 0]) {
+  Deno.test(`gate timeout: a ${seconds}s budget leaves a fast job untouched`, async () => {
+    const r = await runParallel([{ label: "quick", command: "true" }], {
+      cwd: Deno.cwd(),
+      stream: false,
+      failFast: true,
+      color: false,
+      timeout: { seconds, key: "[gate].timeout" },
+      write: () => {},
+    });
+    assertEquals(r.ok, true);
+    assertEquals(r.results[0]?.timedOut, undefined);
   });
-  assertEquals(r.ok, true);
-  assertEquals(r.results[0]?.timedOut, undefined);
-});
-
-Deno.test("gate timeout: 0 disables the watchdog (no spurious kill of a fast job)", async () => {
-  const r = await runParallel([{ label: "quick", command: "true" }], {
-    cwd: Deno.cwd(),
-    stream: false,
-    failFast: true,
-    color: false,
-    timeout: { seconds: 0, key: "[gate].timeout" },
-    write: () => {},
-  });
-  assertEquals(r.ok, true);
-  assertEquals(r.results[0]?.timedOut, undefined);
-});
+}
 
 Deno.test("gate timeout: a never-exiting test command fails `discern done` with the watch-mode diagnostic", async () => {
   await withTempDir(async (dir) => {

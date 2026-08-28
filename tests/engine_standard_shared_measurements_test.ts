@@ -1,15 +1,11 @@
 /** Focused coverage for one process serving multiple Standard metrics. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
-import {
-  type LogbookEvent,
-  parseLogbookLine,
-} from "../src/engine/logbook/schema.ts";
 import {
   git,
   gitInit,
+  readLogbookEvents,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -452,29 +448,6 @@ Deno.test("shared Standard measurement: cancellation fans out without a second p
     );
   });
 });
-
-/** All well-formed logbook events under the fixture's git dir, in line order. */
-async function readLogbookEvents(dir: string): Promise<LogbookEvent[]> {
-  const logDir = join(dir, ".git", "discern", "logbook");
-  const names: string[] = [];
-  for await (const entry of Deno.readDir(logDir)) {
-    if (entry.isFile && entry.name.endsWith(".jsonl")) {
-      names.push(entry.name);
-    }
-  }
-  const events: LogbookEvent[] = [];
-  for (const name of names.sort()) {
-    const text = await Deno.readTextFile(join(logDir, name));
-    for (const line of text.split("\n")) {
-      if (line.trim() === "") continue;
-      const parsed = parseLogbookLine(line);
-      if (parsed.kind === "event") {
-        events.push(parsed.event);
-      }
-    }
-  }
-  return events;
-}
 
 Deno.test("shared Standard measurement: a timeout fans out naming each member's own budget key", async () => {
   await withTempDir(async (dir) => {
