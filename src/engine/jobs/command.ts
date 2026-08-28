@@ -15,7 +15,12 @@ import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
 import { activeInvocationId } from "../logbook/invocation_context.ts";
-import type { Job, JobOutputObserver, JobResult } from "./types.ts";
+import type {
+  Job,
+  JobOutputObserver,
+  JobResult,
+  JobTimeout,
+} from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
 import { selfShimPath, shellCommand } from "../../shared/subprocess.ts";
 import { terminalLine } from "../../lib/terminal.ts";
@@ -45,13 +50,13 @@ export interface SpawnOptions {
   /** Sink for streamed lines (the runner passes the same sink it uses for banners). */
   write: (chunk: Uint8Array) => void;
   /**
-   * Per-command time budget in SECONDS (`[gate].timeout`, or the job's own
-   * `timeout` override). A job that has not exited within it is tree-killed and
-   * resolves as a GENUINE failure carrying `timedOutAfterS` — so a watch-mode
-   * runner or a hung dev server can never make the gate wait forever. Omitted or
-   * `<= 0` means no bound (the unit-test default).
+   * Per-command time budget (`[gate].timeout`, or the job's own `timeout`
+   * override) with the config key that set it. A job that has not exited within
+   * it is tree-killed and resolves as a GENUINE failure carrying `timedOut` — so
+   * a watch-mode runner or a hung dev server can never make the gate wait
+   * forever. Omitted or `seconds <= 0` means no bound (the unit-test default).
    */
-  timeoutS?: number;
+  timeout?: JobTimeout;
   /** Attach the captured output to the result even on a CLEAN exit — for a job
    * whose verdict is judged from its output rather than its exit code. */
   keepOutput?: boolean;
@@ -314,16 +319,17 @@ export async function spawnJob(
   // Watchdog: a job that never exits within its budget is tree-killed — reusing the
   // SAME SIGTERM→SIGKILL escalation (`onAbort`) that fail-fast/external cancellation
   // uses — but recorded as a GENUINE timeout failure, not a cancelled sibling. Set
-  // `timedOutAfterS` only when the timer actually fires, so its presence is the
-  // "did it time out?" flag and the value is the budget the diagnostic reports.
-  let timedOutAfterS: number | undefined;
+  // `timedOut` only when the timer actually fires, so its presence is the
+  // "did it time out?" flag and it carries the budget (seconds + the config key
+  // that set them) the diagnostic reports.
+  let timedOut: JobTimeout | undefined;
   let timeoutTimer: TimeoutHandle | undefined;
-  const budgetS = opts.timeoutS;
-  if (budgetS !== undefined && budgetS > 0) {
+  const budget = opts.timeout;
+  if (budget !== undefined && budget.seconds > 0) {
     timeoutTimer = scheduler.scheduleTimeout(() => {
-      timedOutAfterS = budgetS;
+      timedOut = budget;
       onAbort();
-    }, budgetS * 1000);
+    }, budget.seconds * 1000);
   }
 
   // `chunks` holds the full output for the buffered human write + diagnostic
@@ -453,13 +459,13 @@ export async function spawnJob(
   // past the budget, and its own exit code would report ok, silently swallowing
   // the recorded timeout. Everything downstream (ok/failed, banners, fail-fast,
   // diagnostics) keys off `code`, so enforce the invariant at the producer:
-  // timedOutAfterS present ⇒ code !== 0.
+  // timedOut present ⇒ code !== 0.
   // A timed-out job is a genuine failure, never a cancelled sibling. An abort
   // observed before full settlement is cancellation even if the direct child
   // already exited 0; force that interrupted result non-zero so the stage
   // cannot report green.
-  const cancelled = timedOutAfterS === undefined && abortedBeforeSettlement;
-  const code = (timedOutAfterS !== undefined || cancelled) && exitCode === 0
+  const cancelled = timedOut === undefined && abortedBeforeSettlement;
+  const code = (timedOut !== undefined || cancelled) && exitCode === 0
     ? 1
     : exitCode;
   const durationS = Math.round((clock.monotonicNow() - start) / 1000);
@@ -473,8 +479,8 @@ export async function spawnJob(
   if (cancelled) {
     result.cancelled = true;
   }
-  if (timedOutAfterS !== undefined) {
-    result.timedOutAfterS = timedOutAfterS;
+  if (timedOut !== undefined) {
+    result.timedOut = timedOut;
   }
   // Attach the FULL captured output on a GENUINE failure (not a cancelled sibling)
   // — or unconditionally for a keepOutput job, whose verdict is judged from the

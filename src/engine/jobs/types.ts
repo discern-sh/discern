@@ -1,5 +1,22 @@
 /** Shared types for the gate's job runner. */
 
+/** The config key that sets the run-level time budget every job inherits. */
+export const GATE_TIMEOUT_KEY = "[gate].timeout";
+
+/**
+ * One per-command time budget and the config key that set it. The pair is one
+ * value so no producer can bound a job without recording where the bound came
+ * from — when the watchdog fires, the diagnostic names both the seconds and the
+ * key, and a budget with unnameable provenance cannot be constructed.
+ */
+export interface JobTimeout {
+  /** The budget in seconds; `0` disables the bound. */
+  seconds: number;
+  /** The config key that set this budget (e.g. `[standards.coverage].timeout`),
+   * spelled the way the entry is authored so the diagnostic can name it. */
+  key: string;
+}
+
 /** A unit of gate work: a labelled shell command. */
 export interface Job {
   /** Stable label (a declared job name, or `scope:<name>`). Carries no spaces. */
@@ -7,11 +24,11 @@ export interface Job {
   /** The command string, run via `sh -c`. An empty string becomes the `:` no-op. */
   command: string;
   /**
-   * Per-job time budget override (seconds): replaces the run-level budget for THIS
-   * job only (`0` disables the bound for it). Absent means inherit the run-level
-   * budget — the `[gate].timeout` global.
+   * Per-job time budget override: replaces the run-level budget for THIS job
+   * only (`seconds: 0` disables the bound for it). Absent means inherit the
+   * run-level budget — the {@link GATE_TIMEOUT_KEY} global.
    */
-  timeoutS?: number;
+  timeout?: JobTimeout;
   /** Retain the job's captured output on the result even when it exits clean —
    * for a job whose verdict is decided from its output, not its exit code. */
   keepOutput?: boolean;
@@ -58,14 +75,15 @@ export interface JobResult {
    */
   cancelled?: boolean;
   /**
-   * The per-command time budget (seconds) this job blew through: present ONLY when
-   * the job was tree-killed by the gate's watchdog for never exiting (`[gate].timeout`).
-   * A GENUINE failure (not a cancelled sibling), it carries the budget so the
-   * diagnostic can name it. Presence, not the value, is the "did it time out?" flag —
-   * and it forces a non-zero `code`, even when the direct child exited clean (a
-   * command that daemonized), so no consumer keying off `code` can report it ok.
+   * The time budget this job blew through — seconds AND the config key that set
+   * them: present ONLY when the job was tree-killed by the gate's watchdog for
+   * never exiting. A GENUINE failure (not a cancelled sibling), it carries both
+   * halves so the diagnostic names the budget and its source. Presence, not the
+   * value, is the "did it time out?" flag — and it forces a non-zero `code`,
+   * even when the direct child exited clean (a command that daemonized), so no
+   * consumer keying off `code` can report it ok.
    */
-  timedOutAfterS?: number;
+  timedOut?: JobTimeout;
   /**
    * A failure summary from a {@link Job.evaluate} verdict — the words the
    * diagnostic should lead with when the job's failure is a judgement over its

@@ -13,7 +13,12 @@
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { bestEffortSync } from "../../shared/best_effort.ts";
-import type { Job, JobResult } from "../jobs/types.ts";
+import {
+  GATE_TIMEOUT_KEY,
+  type Job,
+  type JobResult,
+  type JobTimeout,
+} from "../jobs/types.ts";
 import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
 import { byteWriter, makeOut, type Out } from "../output.ts";
 import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
@@ -192,7 +197,7 @@ export async function runGroup(
       return {
         label: j.label,
         command: j.command,
-        ...(j.timeoutS !== undefined ? { timeoutS: j.timeoutS } : {}),
+        ...(j.timeout !== undefined ? { timeout: j.timeout } : {}),
         ...(evaluate !== undefined ? { evaluate, keepOutput: true } : {}),
       };
     });
@@ -297,6 +302,12 @@ export async function runJobGroups(
  * gate verb: any run whose context comes from this one place carries the cap,
  * and {@link runGroup} decides per group whether to draw on it.
  */
+/** The run-level time budget every gate job inherits, paired with the config
+ * key that set it so a fired watchdog can name its source. */
+export function gateTimeoutBudget(cfg: DiscernConfig): JobTimeout {
+  return { seconds: cfg.gate.timeout, key: GATE_TIMEOUT_KEY };
+}
+
 export function gateRunContext(
   root: string,
   cfg: DiscernConfig,
@@ -320,7 +331,7 @@ export function gateRunContext(
       cwd: root,
       stream: policy.capture === "streamed-capped",
       failFast: cfg.gate.fail_fast,
-      timeoutS: cfg.gate.timeout,
+      timeout: gateTimeoutBudget(cfg),
       ...(signal !== undefined ? { signal } : {}),
       color,
       terminal,

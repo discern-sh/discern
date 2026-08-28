@@ -22,7 +22,7 @@ import type {
   PreviewActionData,
 } from "../../shared/result_schemas.ts";
 import type { GateMode } from "../../shared/checkpoint_drops.ts";
-import type { JobResult } from "../jobs/types.ts";
+import type { JobResult, JobTimeout } from "../jobs/types.ts";
 import {
   fire,
   type FiredHint,
@@ -68,9 +68,9 @@ export interface PlannedJob {
    * logical step but sets this false; its per-Standard result is synthesized
    * from the shared process evidence after the leader settles. */
   runsProcess?: boolean;
-  /** Per-job `timeout` override, replacing the global `[gate].timeout` for this
-   * job only (`0` disables the bound for it). */
-  timeoutS?: number;
+  /** Per-job `timeout` override with its config key, replacing the global
+   * `[gate].timeout` for this job only (`seconds: 0` disables the bound). */
+  timeout?: JobTimeout;
   /** Overrides the serialized step note (the default is the command when the job
    * runs) — a standard's measurement note, a replay/deferral explanation. */
   note?: string;
@@ -138,7 +138,7 @@ export function planStageJobs(cfg: DiscernConfig, stage: Stage): PlannedJob[] {
     kind: j.kind,
     reportStage: stage,
     willRun: true,
-    ...(j.timeoutS !== undefined ? { timeoutS: j.timeoutS } : {}),
+    ...(j.timeout !== undefined ? { timeout: j.timeout } : {}),
   }));
 }
 
@@ -167,7 +167,14 @@ export function planScopeGates(
       kind: "scope-gate",
       reportStage: "scope_gates",
       willRun: changed.includes(scope),
-      ...(spec.timeout !== undefined ? { timeoutS: spec.timeout } : {}),
+      ...(spec.timeout !== undefined
+        ? {
+          timeout: {
+            seconds: spec.timeout,
+            key: `[scopes.${scope}].timeout`,
+          },
+        }
+        : {}),
     });
   }
   return out;
@@ -564,7 +571,7 @@ function withFixAvailable(
 /**
  * The one-line message for a Tier-0 (unstructured) job failure, keyed off the
  * OUTCOME, never off which tool produced it:
- *  - a job the watchdog tree-killed for never exiting (`timedOutAfterS`) names the
+ *  - a job the watchdog tree-killed for never exiting (`timedOut`) names the
  *    usual culprit (a watch-mode runner / hung dev server) and the two ways out;
  *  - exit 127 is the shell's "command not found" — in a fresh worktree the giveaway
  *    is an untracked tool/dependency dir that never got converged, so the hint points
@@ -577,8 +584,8 @@ function withFixAvailable(
  * until the matchers move with it.
  */
 export function jobFailureMessage(label: string, r: JobResult): string {
-  if (r.timedOutAfterS !== undefined) {
-    return `${label} timed out after ${r.timedOutAfterS}s and was killed — the command (or a background process it left holding its output stream) never finished within the budget. A watch-mode test runner, a dev server that never exits, or a tool that daemonizes mid-run will hang the gate; wire it in its single-run (CI) form, or give a legitimately long-running command a bigger budget — a \`timeout\` on its own config entry, or the global [gate].timeout.`;
+  if (r.timedOut !== undefined) {
+    return `${label} timed out after ${r.timedOut.seconds}s and was killed — the command (or a background process it left holding its output stream) never finished within the budget. A watch-mode test runner, a dev server that never exits, or a tool that daemonizes mid-run will hang the gate; wire it in its single-run (CI) form, or give a legitimately long-running command a bigger budget — a \`timeout\` on its own config entry, or the global [gate].timeout.`;
   }
   if (r.failureMessage !== undefined) {
     return r.failureMessage;
@@ -643,7 +650,7 @@ export async function serializeJobSteps(
         // it; its plain-language message (below) names the likely cause instead.
         // An evaluated verdict (`failureMessage`) IS the diagnostic — its output
         // is evidence, not a machine format to parse.
-        const normalized = r.timedOutAfterS === undefined &&
+        const normalized = r.timedOut === undefined &&
             r.failureMessage === undefined && r.output !== undefined
           ? normalizeDiagnostics(r.output, j.label, j.command)
           : undefined;

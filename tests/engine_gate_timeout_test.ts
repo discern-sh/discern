@@ -180,7 +180,7 @@ Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a
       stream: false,
       failFast: true,
       color: false,
-      timeoutS: 1,
+      timeout: { seconds: 1, key: "[gate].timeout" },
       write: () => {},
     });
     const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
@@ -191,8 +191,13 @@ Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a
 
     const hang = r.results.find((x) => x.label === "hang");
     assertEquals(r.ok, false);
-    // It timed out: the budget is recorded, so the diagnostic can name it…
-    assertEquals(hang?.timedOutAfterS, 1, JSON.stringify(hang));
+    // It timed out: the budget AND its config key are recorded, so the
+    // diagnostic can name both.
+    assertEquals(
+      hang?.timedOut,
+      { seconds: 1, key: "[gate].timeout" },
+      JSON.stringify(hang),
+    );
     // …and it is a GENUINE failure, never a cancelled sibling (whose output is dropped).
     assertEquals(
       hang?.cancelled,
@@ -231,7 +236,7 @@ Deno.test("gate timeout: an escaped descendant holding the pipes cannot wedge th
       stream: false,
       failFast: true,
       color: false,
-      timeoutS: 2,
+      timeout: { seconds: 2, key: "[gate].timeout" },
       write: () => {},
     });
     const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
@@ -244,7 +249,7 @@ Deno.test("gate timeout: an escaped descendant holding the pipes cannot wedge th
     assertEquals(r.ok, false);
     // The timeout is recorded AND is a failure — never `ok` with the budget
     // swallowed just because the direct shell exited clean.
-    assertEquals(escape?.timedOutAfterS, 2, JSON.stringify(escape));
+    assertEquals(escape?.timedOut?.seconds, 2, JSON.stringify(escape));
     assert(
       (escape?.code ?? 0) !== 0,
       "a timed-out job must report non-zero even when its shell exited clean",
@@ -264,11 +269,11 @@ Deno.test("gate timeout: a job that finishes within budget is untouched", async 
     stream: false,
     failFast: true,
     color: false,
-    timeoutS: 30,
+    timeout: { seconds: 30, key: "[gate].timeout" },
     write: () => {},
   });
   assertEquals(r.ok, true);
-  assertEquals(r.results[0]?.timedOutAfterS, undefined);
+  assertEquals(r.results[0]?.timedOut, undefined);
 });
 
 Deno.test("gate timeout: 0 disables the watchdog (no spurious kill of a fast job)", async () => {
@@ -277,11 +282,11 @@ Deno.test("gate timeout: 0 disables the watchdog (no spurious kill of a fast job
     stream: false,
     failFast: true,
     color: false,
-    timeoutS: 0,
+    timeout: { seconds: 0, key: "[gate].timeout" },
     write: () => {},
   });
   assertEquals(r.ok, true);
-  assertEquals(r.results[0]?.timedOutAfterS, undefined);
+  assertEquals(r.results[0]?.timedOut, undefined);
 });
 
 Deno.test("gate timeout: a never-exiting test command fails `discern done` with the watch-mode diagnostic", async () => {
@@ -479,14 +484,18 @@ Deno.test("timeout override: a job's own budget bounds only that job — sibling
     const pending = runParallel([
       // Overridden down to 1s: killed. The sibling sleeps past that override but
       // well inside the run-level budget: untouched.
-      { label: "tight", command: readyThen("sleep 9999"), timeoutS: 1 },
+      {
+        label: "tight",
+        command: readyThen("sleep 9999"),
+        timeout: { seconds: 1, key: "[jobs.tight].timeout" },
+      },
       { label: "roomy", command: "sleep 2" },
     ], {
       cwd: dir,
       stream: false,
       failFast: false,
       color: false,
-      timeoutS: 30,
+      timeout: { seconds: 30, key: "[gate].timeout" },
       write: () => {},
     });
     const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
@@ -496,8 +505,13 @@ Deno.test("timeout override: a job's own budget bounds only that job — sibling
     );
     const tight = r.results.find((x) => x.label === "tight");
     const roomy = r.results.find((x) => x.label === "roomy");
-    assertEquals(tight?.timedOutAfterS, 1, JSON.stringify(tight));
-    assertEquals(roomy?.timedOutAfterS, undefined, JSON.stringify(roomy));
+    // The fired watchdog records the OVERRIDE's key, not the run-level one.
+    assertEquals(
+      tight?.timedOut,
+      { seconds: 1, key: "[jobs.tight].timeout" },
+      JSON.stringify(tight),
+    );
+    assertEquals(roomy?.timedOut, undefined, JSON.stringify(roomy));
     assertEquals(roomy?.code, 0);
     assert(
       elapsed < OVERRIDE_WATCHDOG_CEILING_MS,
@@ -509,16 +523,20 @@ Deno.test("timeout override: a job's own budget bounds only that job — sibling
 Deno.test("timeout override: 0 disables the bound for that job alone", async () => {
   const r = await runParallel([
     // The run-level budget is 1s; the override lifts it for this job only.
-    { label: "unbounded", command: "sleep 2", timeoutS: 0 },
+    {
+      label: "unbounded",
+      command: "sleep 2",
+      timeout: { seconds: 0, key: "[jobs.unbounded].timeout" },
+    },
   ], {
     cwd: Deno.cwd(),
     stream: false,
     failFast: true,
     color: false,
-    timeoutS: 1,
+    timeout: { seconds: 1, key: "[gate].timeout" },
     write: () => {},
   });
-  assertEquals(r.results[0]?.timedOutAfterS, undefined);
+  assertEquals(r.results[0]?.timedOut, undefined);
   assertEquals(r.results[0]?.code, 0);
 });
 

@@ -76,9 +76,9 @@ import type {
   StandardLimitProposalData,
   StandardsData,
 } from "../../shared/result_schemas.ts";
-import type { JobResult } from "../jobs/types.ts";
+import type { JobResult, JobTimeout } from "../jobs/types.ts";
 import type { RunOptions } from "../jobs/runner.ts";
-import { type JobEvaluators, runGroup } from "./execute.ts";
+import { gateTimeoutBudget, type JobEvaluators, runGroup } from "./execute.ts";
 import { buildTestRunSlots, type TestRunSlots } from "./test_slots.ts";
 import { renderSlotWait } from "./slot_wait_render.ts";
 import { type JobGroup, type PlannedJob, serializeJobSteps } from "./plan.ts";
@@ -421,7 +421,7 @@ export function plannedStandardJob(
       note:
         `${standard.command} (measurement process shared with ${opts.sharedWith})`,
     }),
-    ...(standard.timeoutS !== undefined ? { timeoutS: standard.timeoutS } : {}),
+    ...(standard.timeout !== undefined ? { timeout: standard.timeout } : {}),
   };
 }
 
@@ -530,7 +530,7 @@ export function buildStandardJobs(
   root: string,
   resolved: ResolvedStandard[],
   opts: {
-    defaultTimeoutS: number;
+    defaultTimeout: JobTimeout;
     jobLabel?: (name: string) => string;
     proposals?: ReadonlyMap<string, StandardLimitProposalData>;
   },
@@ -544,7 +544,7 @@ export function buildStandardJobs(
   const measurementPlan = buildStandardMeasurementPlan(
     root,
     resolved,
-    opts.defaultTimeoutS,
+    opts.defaultTimeout.seconds,
   );
   const measurementByName = new Map<
     string,
@@ -670,11 +670,22 @@ export function buildStandardJobs(
       if (!synthesized.has(leaderLabel)) {
         for (const member of measurement.standards) {
           const memberLabel = labelFor(member.name);
+          // Sharing requires an identical effective budget, so a fired
+          // watchdog's seconds are every member's own — but the KEY can differ
+          // (one member's own `timeout`, another the inherited default), so
+          // each fanned result carries the member's provenance and its
+          // diagnostic names the key that member's config sets.
+          const memberTimedOut = processResult.timedOut === undefined
+            ? undefined
+            : member.timeout ?? opts.defaultTimeout;
           synthesized.set(memberLabel, {
             ...processResult,
             label: memberLabel,
+            ...(memberTimedOut !== undefined
+              ? { timedOut: memberTimedOut }
+              : {}),
           });
-          if (processResult.timedOutAfterS !== undefined) {
+          if (processResult.timedOut !== undefined) {
             outcomes.set(member.name, {
               ...standardReadingBase(member),
               measurement: "measured",
@@ -837,7 +848,7 @@ async function executeStandardPlan(
   root: string,
   verification: TrunkLimitsVerification | undefined,
   opts: {
-    timeoutS: number;
+    timeout: JobTimeout;
     slots: TestRunSlots | undefined;
     verificationPlan?: StandardPlan;
     replayValues?: Readonly<Record<string, number>>;
@@ -882,7 +893,7 @@ async function executeStandardPlan(
       };
     }),
     {
-      defaultTimeoutS: opts.timeoutS,
+      defaultTimeout: opts.timeout,
       jobLabel: (name) => name,
       ...(verification === undefined
         ? {}
@@ -910,7 +921,7 @@ async function executeStandardPlan(
     cwd: root,
     stream: false,
     failFast: false,
-    timeoutS: opts.timeoutS,
+    timeout: opts.timeout,
     color: colorEnabled(),
     quiet: true,
     ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
@@ -1078,7 +1089,7 @@ export async function measureStandardEvidence(
     root,
     undefined,
     {
-      timeoutS: cfg.gate.timeout,
+      timeout: gateTimeoutBudget(cfg),
       slots,
       ...(signal === undefined ? {} : { signal }),
     },
@@ -1549,7 +1560,7 @@ async function pinStandardsResult(
     root,
     verification,
     {
-      timeoutS: cfg.gate.timeout,
+      timeout: gateTimeoutBudget(cfg),
       slots,
       verificationPlan: plan,
       ...(replayValues === undefined || replayFrom === undefined
@@ -1848,7 +1859,7 @@ export async function standardsResult(
             root,
             verification,
             {
-              timeoutS: cfg.gate.timeout,
+              timeout: gateTimeoutBudget(cfg),
               slots,
               ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
             },

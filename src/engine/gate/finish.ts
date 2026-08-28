@@ -37,6 +37,7 @@ import {
   gateOutputTtyWidth,
   gateRunContext,
   type GateRunPolicy,
+  gateTimeoutBudget,
   resolveGateRunPolicy,
   runGroup,
 } from "./execute.ts";
@@ -944,7 +945,7 @@ async function runGate(
     )
     : resolveStandardActionsFromConfig(stdPlan.standards);
   const gateStandards = buildStandardJobs(root, resolved, {
-    defaultTimeoutS: cfg.gate.timeout,
+    defaultTimeout: gateTimeoutBudget(cfg),
     proposals: standardLimitProposals,
   });
   const ctGroups = checkTestGroups(cfg, gateStandards.jobs);

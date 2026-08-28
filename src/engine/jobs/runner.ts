@@ -22,6 +22,7 @@ import type {
   Job,
   JobOutputObserver,
   JobResult,
+  JobTimeout,
   StageRunResult,
 } from "./types.ts";
 import { spawnJob, type SpawnOptions } from "./command.ts";
@@ -63,12 +64,13 @@ export interface RunOptions {
   /** Explicit package presentation facts for the status banners. */
   terminal?: TerminalContext;
   /**
-   * Per-command time budget in SECONDS (`[gate].timeout`), applied to EVERY job in
-   * the run. A job that never exits within it is tree-killed and fails with a
-   * timeout diagnostic — so the gate can't hang on a watch-mode runner or a dev
-   * server. Omitted (the unit-test default) means no bound.
+   * Per-command time budget (`[gate].timeout`) with the config key that set it,
+   * applied to EVERY job in the run. A job that never exits within it is
+   * tree-killed and fails with a timeout diagnostic naming the budget and its
+   * key — so the gate can't hang on a watch-mode runner or a dev server.
+   * Omitted (the unit-test default) means no bound.
    */
-  timeoutS?: number;
+  timeout?: JobTimeout;
   /** Sink for human output (banners + buffered job output). Default: stderr. */
   write?: (chunk: Uint8Array) => void;
   /**
@@ -91,12 +93,15 @@ const ENCODER = new TextEncoder();
 const defaultWrite: (chunk: Uint8Array) => void = byteWriter("stderr");
 
 /** Render the per-job status line. A fail-fast-cancelled sibling is labelled
- * `cancelled`, not `FAILED` — it wasn't a real failure, just killed mid-run. */
+ * `cancelled`, not `FAILED` — it wasn't a real failure, just killed mid-run. A
+ * timed-out job self-identifies here too, not only in its diagnostic. */
 function banner(result: JobResult, terminal: TerminalContext): Uint8Array {
   const tail = result.code === 0
     ? terminal.tone("ok", "success")
     : result.cancelled === true
     ? terminal.role("cancelled", "muted")
+    : result.timedOut !== undefined
+    ? terminal.tone(`FAILED (timed out after ${result.timedOut.seconds}s)`, "danger")
     : terminal.tone(`FAILED (exit ${result.code})`, "danger");
   return ENCODER.encode(
     `${terminal.role(terminalLine(`── ${result.label} ─`), "muted")} ${tail}\n`,
@@ -105,9 +110,9 @@ function banner(result: JobResult, terminal: TerminalContext): Uint8Array {
 
 /**
  * The spawn options for one job under a run: the run-level settings plus the
- * job's own overrides. The per-job `timeoutS` REPLACES the run-level budget for
- * that job alone (`0` disables the bound for it); every sibling keeps the
- * run-level budget. Shared by runParallel and runSerial so the override
+ * job's own overrides. The per-job `timeout` REPLACES the run-level budget for
+ * that job alone (`seconds: 0` disables the bound for it); every sibling keeps
+ * the run-level budget. Shared by runParallel and runSerial so the override
  * semantics can't diverge between the two schedulers.
  */
 function spawnOptions(
@@ -117,14 +122,14 @@ function spawnOptions(
   stream: boolean,
   write: (chunk: Uint8Array) => void,
 ): SpawnOptions {
-  const timeoutS = job.timeoutS ?? opts.timeoutS;
+  const timeout = job.timeout ?? opts.timeout;
   return {
     cwd: opts.cwd,
     ...(opts.env !== undefined ? { env: opts.env } : {}),
     signal,
     stream,
     write,
-    ...(timeoutS !== undefined ? { timeoutS } : {}),
+    ...(timeout !== undefined ? { timeout } : {}),
     ...(job.keepOutput === true ? { keepOutput: true } : {}),
     ...(opts.outputObserver === undefined
       ? {}
@@ -140,7 +145,7 @@ function spawnOptions(
 async function evaluateResult(job: Job, result: JobResult): Promise<JobResult> {
   if (
     job.evaluate === undefined || result.cancelled === true ||
-    result.timedOutAfterS !== undefined
+    result.timedOut !== undefined
   ) {
     return result;
   }

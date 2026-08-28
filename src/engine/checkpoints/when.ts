@@ -138,7 +138,7 @@ export async function runWhenCommand(
         cwd: root,
         stream: false,
         write: () => {},
-        timeoutS,
+        timeout: { seconds: timeoutS, key: "the checkpoint trigger's fixed budget" },
         keepOutput: true,
         protocolOutputMaxBytes: CHECKPOINT_WHEN_OUTPUT_BYTES,
         signal: tracked.signal,
@@ -187,13 +187,13 @@ export async function runWhenCommand(
         `checkpoint '${checkpointId}': the when command produced no result; the trigger fails open and did not fire.`,
     };
   }
-  if (result.result.timedOutAfterS !== undefined) {
+  if (result.result.timedOut !== undefined) {
     return {
       kind: "error",
       reason: "when_timeout",
       advisory:
         `checkpoint '${checkpointId}': the when command did not finish within ` +
-        `${result.result.timedOutAfterS}s; the trigger fails open and did not fire.`,
+        `${result.result.timedOut.seconds}s; the trigger fails open and did not fire.`,
     };
   }
   if (result.result.cancelled === true || tracked.signal.aborted) {
