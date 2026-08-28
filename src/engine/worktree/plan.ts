@@ -19,6 +19,7 @@ import {
   verbatimStepLabel,
 } from "../../shared/result.ts";
 import type { ResolvedGeneratedGroup } from "../../shared/generated_artifacts.ts";
+import type { JobTimeout } from "../jobs/types.ts";
 import type { IgnoredFileChangeSummary } from "./ignored.ts";
 import type { LedgerItem } from "./resources.ts";
 import { DROP_RECOVERY_REF_LIMIT } from "./recovery_refs.ts";
@@ -75,7 +76,7 @@ export interface AcceptPlan {
   smokeSteps: Array<{
     label: string;
     command: string;
-    timeoutS?: number | undefined;
+    timeout?: JobTimeout | undefined;
   }>;
   /** Whether any external resource is declared (→ a teardown step). */
   hasResources: boolean;

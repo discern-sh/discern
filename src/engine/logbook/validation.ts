@@ -214,7 +214,9 @@ export interface ValidationPlannedJob {
   readonly kind: string;
   readonly reportStage: string;
   readonly willRun: boolean;
-  readonly timeoutS?: number | undefined;
+  readonly timeout?:
+    | { readonly seconds: number; readonly key: string }
+    | undefined;
 }
 
 export interface ValidationJobGroup {

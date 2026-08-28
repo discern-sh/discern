@@ -43,7 +43,14 @@ import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
-import { readTextIfExists } from "../src/shared/fs_presence.ts";
+import {
+  readDirIfExists,
+  readTextIfExists,
+} from "../src/shared/fs_presence.ts";
+import {
+  type LogbookEvent,
+  parseLogbookLine,
+} from "../src/engine/logbook/schema.ts";
 import { fakeEnv, quietDenoRunArgs, REAL_TEMPLATES } from "./helpers.ts";
 import { suiteTempDir } from "./temp_dir.ts";
 import {
@@ -164,6 +171,36 @@ export function defaultMapPath(root: string, ...parts: string[]): string {
 }
 
 export { suiteTempDir };
+
+/**
+ * All well-formed logbook events under a fixture's git dir, in file-then-line
+ * order — the one reader every logbook-asserting engine test shares. Returns
+ * `[]` when no logbook directory exists yet (the caller asserts on emptiness);
+ * throws on a line no schema recognizes, so a fixture's own writes stay
+ * checked. Filter at the call site for a verb- or kind-specific view.
+ */
+export async function readLogbookEvents(dir: string): Promise<LogbookEvent[]> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  const entries = await readDirIfExists(logDir);
+  if (entries === undefined) {
+    return [];
+  }
+  const names = entries
+    .filter((entry) => entry.isFile && entry.name.endsWith(".jsonl"))
+    .map((entry) => entry.name);
+  const events: LogbookEvent[] = [];
+  for (const name of names.sort()) {
+    const text = await Deno.readTextFile(join(logDir, name));
+    for (const line of text.split("\n").filter((value) => value !== "")) {
+      const parsed = parseLogbookLine(line);
+      if (parsed.kind !== "event") {
+        throw new Error(`unparseable logbook line: ${line}`);
+      }
+      events.push(parsed.event);
+    }
+  }
+  return events;
+}
 
 /**
  * Build the environment for an engine subprocess: colour off, git isolated,

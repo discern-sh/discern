@@ -507,7 +507,7 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
     .map((job) => ({
       label: job.label,
       command: job.command,
-      ...(job.timeoutS !== undefined ? { timeoutS: job.timeoutS } : {}),
+      ...(job.timeout !== undefined ? { timeout: job.timeout } : {}),
     }));
   const projected = acceptPlanToEngine({
     worktreeBranch: "the worktree branch",

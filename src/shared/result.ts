@@ -362,7 +362,10 @@ export interface Diagnostic {
   line?: number | undefined;
   /** Tier 1: 1-based column. */
   col?: number | undefined;
-  /** Tier 1: the tool's rule/code identifier (an eslint rule, a `TSxxxx` code). */
+  /** Tier 1: the tool's rule/code identifier (an eslint rule, a `TSxxxx` code).
+   * Engine-authored failure classes use a stable identifier here too — a
+   * watchdog kill carries `timeout` — so metadata-only reductions keep the
+   * class without the message. */
   rule?: string | undefined;
   /** Tier 2: present when a wired fixer may auto-resolve this non-fix job failure. */
   fix_available?: boolean | undefined;

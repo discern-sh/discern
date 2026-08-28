@@ -165,17 +165,9 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     path: "tests/engine_gate_timeout_test.ts",
     enclosingFunction: "<module>",
     primitive: "cwd",
-    operation: "run the within-budget watchdog fixture",
+    operation: "run the untouched-fast-job watchdog fixtures",
     reason:
-      "The watchdog integration test runs its real child command from the invoking checkout.",
-  },
-  "engine-gate-timeout-unbounded-job-cwd": {
-    path: "tests/engine_gate_timeout_test.ts",
-    enclosingFunction: "<module>",
-    primitive: "cwd",
-    operation: "run the disabled-watchdog fixture",
-    reason:
-      "The watchdog integration test runs its unbounded real child command from the invoking checkout.",
+      "The watchdog integration test runs its real child command from the invoking checkout, once per budget case (generous and disabled).",
   },
   "engine-gate-timeout-zero-override-cwd": {
     path: "tests/engine_gate_timeout_test.ts",

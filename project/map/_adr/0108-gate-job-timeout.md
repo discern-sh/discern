@@ -46,3 +46,14 @@ Two invariants close the hole, both funnelled through the one kill path every ca
 - **`timedOutAfterS` forces a non-zero `code`** at the producer, so every consumer keying off the exit code (ok/failed, banners, fail-fast, diagnostics) reports a fired watchdog as the genuine failure it is, even when the direct child exited clean.
 
 The class guard gained the escaped-descendant member: a detached, own-session pipe-holder driven through the runner (watchdog and external-abort variants) and through the full `done`, asserting the run stays bounded and the timeout is diagnosed, never swallowed.
+
+## Update — a fired watchdog names the config key that set its budget
+
+Five on-demand coverage measurements timed out at their full `[standards.coverage].timeout` budget of 1200 seconds across three days, and every supervising agent relayed them as generic coverage failures. The diagnostic did say "timed out after 1200s", but it hedged the source ("a `timeout` on its own config entry, or the global [gate].timeout"), and nothing structured survived into the logbook: a recorded standards event reduced the failure to its tool name plus a 1200-second duration, indistinguishable from a metric regression.
+
+Two invariants close the attribution gap, both driven from one type:
+
+- **A budget travels with its config key.** `JobTimeout {seconds, key}` is the only way to bound a job. Each planner states the key it read (`[jobs.<name>].timeout`, `[scopes.<name>].timeout`, `[standards.<name>].timeout`, `[generated.<name>].timeout`, or the run-level `[gate].timeout`), the watchdog records the pair on `JobResult.timedOut`, and the diagnostic names both the seconds and the key ("the budget comes from `[standards.coverage].timeout`") before routing the two causes. A shared Standard measurement re-keys the fanned result per member: sharing equalizes the seconds while each member keeps its own provenance.
+- **The class marker outlives the prose.** Every timeout diagnostic carries `rule: "timeout"`, so the logbook's metadata-only diagnostic classes — and any other reduction that drops the message — still distinguish a watchdog kill from an ordinary failure. The live status banner reads `FAILED (timed out after Ns)`.
+
+The class guard extends the existing parameterized coverage: every stage kind and every override key asserts the named-key binding and the `rule` marker, the shared-measurement fan-out proves per-member re-keying down into the recorded logbook classes, and a compile-time guard rejects any budget that carries no config key, so a future planner cannot reintroduce an unattributed timeout.

@@ -1068,7 +1068,7 @@ async function executionEnvelope(
       kind: job.kind,
       stage: job.reportStage,
       willRun: job.willRun,
-      timeoutS: job.timeoutS ?? null,
+      timeoutS: job.timeout?.seconds ?? null,
     });
     if (definition === undefined) {
       addIncomplete(incomplete, {

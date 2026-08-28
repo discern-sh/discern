@@ -192,6 +192,14 @@ Deno.test("standards: a per-standard timeout bounds the standalone measurement",
     const result = parseStandardsJson(run.stdout);
     const diagnostic = (result.diagnostics ?? [])[0];
     assertStringIncludes(diagnostic?.message ?? "", "timed out after 1s");
+    // A timeout-killed Standard self-identifies as a timeout: the message
+    // binds the fired budget to the Standard's own config key, and `rule`
+    // marks the class for every downstream reduction of the diagnostic.
+    assertStringIncludes(
+      diagnostic?.message ?? "",
+      "the budget comes from `[standards.slow].timeout`",
+    );
+    assertEquals(diagnostic?.rule, "timeout");
     assertStringIncludes(diagnostic?.reproduce_cmd ?? "", "sleep 30");
     assertEquals((result.steps ?? [])[0]?.duration_s, 1);
   });

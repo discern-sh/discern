@@ -354,6 +354,13 @@ Deno.test("a standard's own `timeout` bounds its gate measurement job while sibl
     );
     assert(diag !== undefined, r.stdout);
     assertStringIncludes(diag.message, "timed out after 1s");
+    // The gate-path Standard diagnostic attributes the kill to the Standard's
+    // own `timeout` key, structurally marked as a timeout.
+    assertStringIncludes(
+      diag.message,
+      "the budget comes from `[standards.slow].timeout`",
+    );
+    assertEquals(diag.rule, "timeout");
     const lint = (obj.steps ?? []).find((s) => s.label === "lint");
     assertEquals(lint?.outcome, "ok");
     assert(elapsed < 30_000, `bounded by the override, took ${elapsed}ms`);

@@ -19,6 +19,7 @@ import {
   toCommandList,
 } from "../../shared/config_schema.ts";
 import { isKnownJob, jobStage, type Stage } from "../../shared/capabilities.ts";
+import type { JobTimeout } from "../jobs/types.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
 import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
@@ -38,9 +39,10 @@ export interface StageJob {
   label: string;
   command: string;
   kind: "known" | "custom" | "generated";
-  /** Per-job `timeout` override from the config value, replacing the global
-   * `[gate].timeout` for this job only (`0` disables the bound for it). */
-  timeoutS?: number;
+  /** Per-job `timeout` override from the config value with its config key,
+   * replacing the global `[gate].timeout` for this job only (`seconds: 0`
+   * disables the bound for it). */
+  timeout?: JobTimeout;
 }
 
 /** The declared jobs that run in `stage`, in config order. */
@@ -53,12 +55,15 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
         continue;
       }
       const timeoutS = commandTimeout(value);
+      const timeout: JobTimeout | undefined = timeoutS === undefined
+        ? undefined
+        : { seconds: timeoutS, key: `[jobs.${name}].timeout` };
       toCommandList(value).forEach((command, i) => {
         jobs.push({
           label: i === 0 ? name : `${name}#${i + 1}`,
           command: expandSourcePathReferences(command, config),
           kind: "known",
-          ...(timeoutS !== undefined ? { timeoutS } : {}),
+          ...(timeout !== undefined ? { timeout } : {}),
         });
       });
       continue;
@@ -81,7 +86,14 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
       label: name,
       command: run,
       kind: "custom",
-      ...(spec.timeout !== undefined ? { timeoutS: spec.timeout } : {}),
+      ...(spec.timeout !== undefined
+        ? {
+          timeout: {
+            seconds: spec.timeout,
+            key: `[jobs.${name}].timeout`,
+          },
+        }
+        : {}),
     });
   }
 
@@ -91,7 +103,14 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
         label: `generated:${group.name}`,
         command: group.run,
         kind: "generated",
-        ...(group.timeout !== undefined ? { timeoutS: group.timeout } : {}),
+        ...(group.timeout !== undefined
+          ? {
+            timeout: {
+              seconds: group.timeout,
+              key: `[generated.${group.name}].timeout`,
+            },
+          }
+          : {}),
       });
     }
   }

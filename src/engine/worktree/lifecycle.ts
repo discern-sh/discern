@@ -2110,7 +2110,7 @@ async function buildAcceptPlan(
       .map((job) => ({
         label: job.label,
         command: job.command,
-        ...(job.timeoutS !== undefined ? { timeoutS: job.timeoutS } : {}),
+        ...(job.timeout !== undefined ? { timeout: job.timeout } : {}),
       })),
     hasResources: readResourceSpecs(ctx.config).length > 0,
     ignoredFileChanges,
@@ -2793,7 +2793,7 @@ async function runLandingSmoke(
       kind: "known",
       reportStage: "test",
       willRun: true,
-      ...(job.timeoutS !== undefined ? { timeoutS: job.timeoutS } : {}),
+      ...(job.timeout !== undefined ? { timeout: job.timeout } : {}),
     })),
   };
   log.info("Running the smoke job in the landing checkout...");
@@ -4504,7 +4504,12 @@ function updateGeneratedJobGroup(
       kind: "custom",
       reportStage: "build",
       willRun: true,
-      ...(group.timeout === undefined ? {} : { timeoutS: group.timeout }),
+      ...(group.timeout === undefined ? {} : {
+        timeout: {
+          seconds: group.timeout,
+          key: `[generated.${group.name}].timeout`,
+        },
+      }),
     })),
   };
 }
