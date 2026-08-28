@@ -113,7 +113,7 @@ Repeating the request at its bound commit is a no-op. On a descendant, the same 
 discern accept --confirmed --approve-standard <token>
 ```
 
-Repeat `--approve-standard` for every proposal. Tokens must equal the current set; grants, generic consent, checkpoint variances, and earlier tokens do not approve it. Acceptance lands the proved commit without another limit edit.
+Repeat `--approve-standard` for every proposal. Tokens must equal the current set. Grants, generic consent, checkpoint variances, and earlier tokens do not approve it. Acceptance lands the proved commit without another limit edit.
 
 If the owner declines, leave acceptance stopped, restore the trunk limit in the branch, commit that restoration, and run `discern done` under ordinary enforcement.
 

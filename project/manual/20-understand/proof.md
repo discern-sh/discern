@@ -52,7 +52,7 @@ The Proof pins a reviewable `HEAD` even if trunk advances. Without a verified gr
 
 ### Proposal-bearing Proof
 
-A live proposal admits an otherwise-forbidden limit only when a fresh value equals its record, including for on-demand and replay-eligible Standards. Proof retains the limits, measurement, delta, reason, paths, fingerprint, immutable origin and measured parent, and current bound descendant ([ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
+A live proposal admits an otherwise-forbidden limit only when a fresh value equals its record. This includes on-demand and replay-eligible Standards. Proof retains the limits, measurement, delta, reason, paths, fingerprint, immutable origin and measured parent, and current bound descendant ([ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
 
 The Proof line states the open proposal as awaiting the owner's exact approval. The page presents the proposal before routine Standard results. Compact JSON, Markdown, Model Context Protocol results, status, and proof notes retain the structured proposal. A green proposal-bearing Proof establishes Gate success for that committed tree; it grants neither landing authority nor proposal approval.
 
