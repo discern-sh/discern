@@ -66,7 +66,7 @@ Choose a coherent risk metric; leave broader inventories advisory. Then ask whet
 - A **quality that scales** rises with the tree, such as coverage or alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](https://discern.sh/docs/decisions/0057-rate-standards)).
 - A **growing total** rises with each shipped feature, such as an asset size or word count. A ceiling pinned at today's value fails the next legitimate change. The resulting pressure can shrink unrelated content or trade readability for bytes while the Gate remains green. Prefer the rate that states the real claim. Where only the total will do, set a `margin` and treat raising the limit as a routine owner decision.
 
-Report a breach the work itself caused instead of engineering the number back down. After the intended tree is committed, a targeted measured breach can become a Standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that proposal ([ADR 0161](https://discern.sh/docs/decisions/0161-growth-proof-standards-and-breach-escalation), [ADR 0339](https://discern.sh/docs/decisions/0339-proposed-standard-limits-and-shared-measurements), [ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
+Report a breach caused by committed work instead of engineering the number down. `discern standards propose` measures the named Standard and carries its proposed limit to owner review; without that record, never-loosen enforcement remains ([ADR 0161](https://discern.sh/docs/decisions/0161-growth-proof-standards-and-breach-escalation), [ADR 0339](https://discern.sh/docs/decisions/0339-proposed-standard-limits-and-shared-measurements), [ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
 
 discern's own [duplication census](https://github.com/jackwh/discern/blob/main/project/map/80-development/duplication-census.md) is a down-only Standard. It charges the non-overlapping normalized lines contributed by each additional source occurrence.
 
@@ -94,26 +94,26 @@ The gate runner supplies timeouts, process-tree kill, durations, interruption, a
 
 ## Propose a new limit
 
-`discern standards propose <name> --reason "…"` records a Standard breach for an owner decision. The transaction requires:
+`discern standards propose <name> --reason "…"` finalizes a breach for owner review. Run it once after the implementation is complete and committed. It requires:
 
 - a clean worktree branch at a committed `HEAD`;
 - the unchanged trunk definition and limit;
 - configured `inputs`; and
 - at least one changed path that matches those inputs.
 
-Treat proposal creation as a finalization step. Finish the implementation, commit the intended tree, then run the proposal command once. It measures only the named Standard through the shared measurement planner. A prior process-backed value for the same clean `HEAD` can be reused. The command records the reason verbatim; it must contain 1–500 visible characters on one line and no obvious secret.
+The command measures only the named Standard or reuses same-`HEAD` evidence. A breach creates one config-only commit whose limit equals that reading. The verbatim reason must contain 1–500 visible characters on one line and no obvious secret. `--dry-run` runs no command and changes no config, Git, Proof, or proposal state.
 
-The initial transaction changes the limit to the measured value in one config-only commit. Its worktree-local record separates the immutable proposal origin from the renewable live binding: proposal commit and measured parent, current bound commit, definition fingerprint, trunk baseline, measurement, delta, reason, and responsible paths. `--dry-run` shows the targeted measurement and possible write without running the command or changing config, Git history, Proof, or proposal state.
+The record separates immutable origin (proposal commit and measured parent) from its renewable bound commit. It also retains the definition fingerprint, trunk baseline, measurement, delta, reason, and responsible paths.
 
-Repeating the same request on its bound commit changes nothing. A later descendant can renew the same proposal without another Git commit when the original proposal commit remains in its ancestry, the current trunk is contained, and the Standard definition, trunk limit, reason, proposed value, fresh targeted measurement, and responsible input attribution remain unchanged. Renewal updates only the worktree-local bound commit, current trunk commit, and responsible paths; it invalidates prior Proof so the Gate judges the descendant. A different tuple or measured value cannot renew. The refusal directs the agent to restore the trunk limit before creating a different proposal. A stale proposal authorizes nothing and restores ordinary enforcement.
+Repeating the request at its bound commit is a no-op. On a descendant, the same command remeasures and renews the binding without a commit only when the origin remains an ancestor, current trunk is contained, and definition, baseline, reason, value, and attribution remain unchanged. Renewal updates the bound commit, trunk commit, and paths, then clears prior Proof. A different tuple refuses and directs restoration of the trunk limit; stale records authorize nothing.
 
-`discern done` remeasures a live proposal and records the Standard limit proposal prominently in Proof. `discern accept` then refuses read-only and serves one approval token per proposal. The token is a 64-character lowercase hexadecimal digest of the exact Standard, value, and reason. It makes a copied approval command stale when any of those facts changes; it is not a separate source of authority. Relay each Standard, proposed value, delta, reason, and responsible path to the owner. After the owner approves those tuples in the current conversation, run the complete command returned by the refusal:
+`discern done` remeasures the proposal and records it in Proof. `discern accept` then refuses read-only and serves one token bound to each Standard, value, and reason. Relay those facts, the delta, and responsible paths. After the owner approves the current tuples, run the complete returned command:
 
 ```sh
 discern accept --confirmed --approve-standard <token>
 ```
 
-Repeat `--approve-standard` for every proposal. The supplied tokens must equal the current proposal set. Standing grants, effort grants, generic landing consent, checkpoint variances, and earlier tokens do not approve Standard limit proposals. Acceptance lands the proposal commit that passed the Gate. It does not edit the limit or create a later commit.
+Repeat `--approve-standard` for every proposal. Tokens must equal the current set; grants, generic consent, checkpoint variances, and earlier tokens do not approve it. Acceptance lands the proved commit without another limit edit.
 
 If the owner declines, leave acceptance stopped, restore the trunk limit in the branch, commit that restoration, and run `discern done` under ordinary enforcement.
 
@@ -133,7 +133,7 @@ An owner may loosen a limit directly on trunk ([ADR 0003](https://discern.sh/doc
 
 ## Capture an improvement
 
-`discern standards --pin coverage` uses `margin`, tightens `coverage`, and commits `discern.toml`. It reuses every available same-commit value and measures selected values that are still missing. A named pin narrows execution to its targets only when an honored Gate Proof already validates the complete clean tree. Without that Proof, every Standard still validates before discern changes only the named limit. The commit keeps your Git identity and adds `discern` as a co-author because discern composed the diff ([ADR 0203](https://discern.sh/docs/decisions/0203-discern-co-authors-only-commits-it-composes)). A write-access probe runs first. A denial returns `error = "write_access"` ([ADR 0152](https://discern.sh/docs/decisions/0152-slow-workflows-prove-write-authority-first), [ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
+`discern standards --pin coverage` reuses available same-commit values and measures missing targets. An honored Gate Proof permits target-only execution; otherwise every Standard validates before only `coverage` changes. Pin applies `margin`, commits `discern.toml`, and carries Proof. The commit keeps your Git identity and adds discern as co-author ([ADR 0203](https://discern.sh/docs/decisions/0203-discern-co-authors-only-commits-it-composes)). A failed write probe returns `error = "write_access"` ([ADR 0152](https://discern.sh/docs/decisions/0152-slow-workflows-prove-write-authority-first), [ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
 
 Pin records a clean `HEAD` before reading values and rechecks before editing. A mismatch writes nothing. Restore a stable `HEAD` and rerun. You can pin behind trunk. A hint says the values describe that tree, the limit may fail after `discern update`, and recommends updating first.
 
@@ -155,5 +155,4 @@ Pin records a clean `HEAD` before reading values and rechecks before editing. A 
 
 - `inputs` is a correctness boundary: omitting a file the metric reads can replay a stale value.
 - A Standard limit proposal requires `inputs` because its owner decision names the responsible changed paths.
-- Proposal creation belongs after the intended tree is committed. Eligible descendant renewal exists for required follow-up work; it is not an intermediate commit loop.
 - An unreadable trunk produces a prominent `UNVERIFIED` warning; the gate records it in the result and proof. Fetch trunk where standards run.
