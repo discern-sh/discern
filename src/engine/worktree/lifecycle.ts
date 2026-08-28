@@ -2811,7 +2811,7 @@ async function runLandingSmoke(
     out,
     slots,
   );
-  const serialized = await serializeJobSteps([group], results);
+  const serialized = await serializeJobSteps(mainRepo, [group], results);
   if (failedStage === null) {
     log.ok("Landing-checkout smoke passed.");
   } else {
@@ -4544,7 +4544,7 @@ async function runUpdateGeneratedGroups(
       context.out,
       context.slots,
     );
-    const serialized = await serializeJobSteps([group], run.results);
+    const serialized = await serializeJobSteps(ctx.root, [group], run.results);
     const executed: string[] = [];
     const successful = new Set<string>();
     for (const configured of groups) {

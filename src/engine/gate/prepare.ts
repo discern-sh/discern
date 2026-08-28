@@ -227,10 +227,12 @@ async function runPrepareGate(
     failedStage = after.failedStage;
   }
   const beforeSerialized = await serializeJobSteps(
+    root,
     [...plan.beforeRefresh],
     results,
   );
   const afterSerialized = await serializeJobSteps(
+    root,
     [...plan.afterRefresh],
     results,
   );

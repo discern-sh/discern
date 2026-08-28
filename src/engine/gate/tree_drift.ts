@@ -139,6 +139,7 @@ export async function treeDriftDiagnostic(
   const more = paths.length > 10 ? `, … (+${paths.length - 10} more)` : "";
   const diff = await runGit(["diff", "--", ...paths], { cwd: root });
   const outputFields = await diagnosticOutputFields(
+    root,
     `The gate dirtied ${paths.length} tracked file(s) that were committed-clean at ` +
       `the start of this run, leaving uncommitted changes:\n` +
       strands.flatMap((s) =>

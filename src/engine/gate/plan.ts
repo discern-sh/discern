@@ -600,6 +600,7 @@ export function jobFailureMessage(label: string, r: JobResult): string {
  * (it wasn't a real failure, just killed mid-run).
  */
 export async function serializeJobSteps(
+  root: string,
   groups: JobGroup[],
   results: Map<string, JobResult>,
 ): Promise<
@@ -651,7 +652,7 @@ export async function serializeJobSteps(
           diagnostics.push(...withFixAvailable(normalized, fixAvailable));
         } else {
           const outputFields = r.output !== undefined
-            ? await diagnosticOutputFields(r.output)
+            ? await diagnosticOutputFields(root, r.output)
             : undefined;
           diagnostics.push({
             tool: j.label,
@@ -676,15 +677,18 @@ export async function serializeJobSteps(
  * changed) ride in `data`.
  */
 export async function buildGateResult(
+  root: string,
   plan: GatePlan,
   results: Map<string, JobResult>,
   failedStage: FailedStage | null,
 ): Promise<DiscernResult<GateData>> {
-  return (await buildGateResultWithHints(plan, results, failedStage)).result;
+  return (await buildGateResultWithHints(root, plan, results, failedStage))
+    .result;
 }
 
 /** The gate result plus its in-process fired hints for finish's final assembly. */
 export async function buildGateResultWithHints(
+  root: string,
   plan: GatePlan,
   results: Map<string, JobResult>,
   failedStage: FailedStage | null,
@@ -694,6 +698,7 @@ export async function buildGateResultWithHints(
   firedHints: FiredHint[];
 }> {
   const { steps, diagnostics, hints } = await serializeJobSteps(
+    root,
     plan.groups,
     results,
   );

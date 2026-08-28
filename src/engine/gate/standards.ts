@@ -924,7 +924,7 @@ async function executeStandardPlan(
     jobs.evaluators,
   );
   jobs.settle(jobResults);
-  const serialized = await serializeJobSteps([group], jobResults);
+  const serialized = await serializeJobSteps(root, [group], jobResults);
   const executedByName = new Map<string, StepResult>(
     serialized.steps.map((result) => [result.step.label, result]),
   );

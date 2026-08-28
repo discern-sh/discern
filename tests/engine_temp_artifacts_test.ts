@@ -25,6 +25,7 @@ import {
   TEMP_ARTIFACT_SUFFIX,
   TEMP_ARTIFACT_TTL_MS,
 } from "../src/shared/temp_artifacts.ts";
+import { tempArtifactScopeFor } from "../src/engine/temp_artifact_scope.ts";
 import {
   sweepDueTempArtifacts,
   TEMP_ARTIFACT_SWEEP_INTERVAL_MS,
@@ -65,6 +66,13 @@ Deno.test("temp artifacts: every registered family is reaped past the TTL — ne
         await fileAged(
           dir,
           `${prefix}stale${TEMP_ARTIFACT_SUFFIX}`,
+          TEMP_ARTIFACT_TTL_MS + HOUR_MS,
+        ),
+        // A scope-labeled name (`<prefix><project>-<worktree>-<random>`) is
+        // still inside the family's prefix+suffix retention contract.
+        await fileAged(
+          dir,
+          `${prefix}my-app-wt-feature-stale${TEMP_ARTIFACT_SUFFIX}`,
           TEMP_ARTIFACT_TTL_MS + HOUR_MS,
         ),
       );
@@ -131,15 +139,25 @@ Deno.test("temp artifacts: makeTempArtifactDir mints its registered prefix", asy
       keyof typeof TEMP_ARTIFACT_DIR_KINDS
     >
   ) {
-    const path = await makeTempArtifactDir(kind);
-    try {
-      assert(
-        basename(path).startsWith(TEMP_ARTIFACT_DIR_KINDS[kind]),
-        `a '${kind}' directory must carry its registered prefix: ${path}`,
-      );
-      assert((await Deno.stat(path)).isDirectory);
-    } finally {
-      await Deno.remove(path, { recursive: true }).catch(() => undefined);
+    for (
+      const [scope, expected] of [
+        [undefined, TEMP_ARTIFACT_DIR_KINDS[kind]],
+        [
+          { project: "my-app", worktree: "wt-feature" },
+          `${TEMP_ARTIFACT_DIR_KINDS[kind]}my-app-wt-feature-`,
+        ],
+      ] as const
+    ) {
+      const path = await makeTempArtifactDir(kind, scope);
+      try {
+        assert(
+          basename(path).startsWith(expected),
+          `a '${kind}' directory must carry its registered prefix and scope label: ${path}`,
+        );
+        assert((await Deno.stat(path)).isDirectory);
+      } finally {
+        await Deno.remove(path, { recursive: true }).catch(() => undefined);
+      }
     }
   }
 });
@@ -319,23 +337,84 @@ Deno.test("temp artifacts: independent callers share one repository-wide sweep i
 });
 
 Deno.test("temp artifacts: creation goes through the registry, so what is minted is what gets reaped", async () => {
+  // Driven off the registry: a kind added to TEMP_ARTIFACT_KINDS enrols in
+  // every row here — the unscoped shape, the labeled shape, the sanitizer,
+  // and the no-partial-label rule — with no test edit.
+  const rows: Array<{
+    scope: Parameters<typeof makeTempArtifact>[1];
+    label: string;
+    why: string;
+  }> = [
+    { scope: undefined, label: "", why: "no scope mints the plain shape" },
+    {
+      scope: { project: "my-app", worktree: "wt-feature" },
+      label: "my-app-wt-feature-",
+      why: "a scope labels the name `<prefix><project>-<worktree>-<random>`",
+    },
+    {
+      scope: { project: "My App!", worktree: "WT/1" },
+      label: "my-app-wt-1-",
+      why: "scope parts are slug-sanitized before entering a filename",
+    },
+    {
+      scope: { project: "", worktree: "wt-feature" },
+      label: "",
+      why: "a half-empty scope mints unlabeled — a partial label misattributes",
+    },
+  ];
   for (
     const kind of Object.keys(TEMP_ARTIFACT_KINDS) as Array<
       keyof typeof TEMP_ARTIFACT_KINDS
     >
   ) {
-    const path = await makeTempArtifact(kind);
-    try {
-      const name = basename(path);
-      assert(
-        name.startsWith(TEMP_ARTIFACT_KINDS[kind]) &&
-          name.endsWith(TEMP_ARTIFACT_SUFFIX),
-        `a '${kind}' artifact must carry its registered prefix and the shared suffix: ${name}`,
-      );
-    } finally {
-      await Deno.remove(path).catch(() => undefined);
+    for (const row of rows) {
+      const path = await makeTempArtifact(kind, row.scope);
+      try {
+        const name = basename(path);
+        const prefix = `${TEMP_ARTIFACT_KINDS[kind]}${row.label}`;
+        assert(
+          name.startsWith(prefix) && name.endsWith(TEMP_ARTIFACT_SUFFIX),
+          `a '${kind}' artifact must be named '${prefix}<random>${TEMP_ARTIFACT_SUFFIX}' (${row.why}): ${name}`,
+        );
+        assert(
+          name.length > prefix.length + TEMP_ARTIFACT_SUFFIX.length,
+          `a '${kind}' artifact keeps a random tail beyond its label: ${name}`,
+        );
+      } finally {
+        await Deno.remove(path).catch(() => undefined);
+      }
     }
   }
+});
+
+Deno.test("temp artifacts: an oversized scope clamps instead of overflowing the filename", async () => {
+  const path = await makeTempArtifact("job", {
+    project: "p".repeat(200),
+    worktree: "w".repeat(200),
+  });
+  try {
+    const name = basename(path);
+    assert(
+      name.startsWith(TEMP_ARTIFACT_KINDS.job) &&
+        name.endsWith(TEMP_ARTIFACT_SUFFIX),
+      `a clamped name keeps the family prefix and suffix: ${name}`,
+    );
+    assert(
+      name.length < 160,
+      `an unbounded config value must not approach the OS filename limit: ${name}`,
+    );
+  } finally {
+    await Deno.remove(path).catch(() => undefined);
+  }
+});
+
+Deno.test("temp artifact scope: no repository resolves to no label, never a failure", async () => {
+  await withTempDir(async (dir) => {
+    assertEquals(
+      await tempArtifactScopeFor(join(dir, "not-a-repo")),
+      undefined,
+    );
+  });
 });
 
 Deno.test("engine suite: spawned-engine artifacts land in the suite temp home, not the shared OS temp dir", async () => {
@@ -373,6 +452,14 @@ Deno.test("engine suite: spawned-engine artifacts land in the suite temp home, n
       `a spawned engine minted ${artifact} outside the injected suite temp ` +
         `home ${home} — engineEnv must inject TMPDIR so parallel suites ` +
         `cannot pollute or scan the shared OS temp dir`,
+    );
+    // The minted name carries the checkout's scope — `[project].slug` plus the
+    // main checkout's trunk-derived worktree id — so concurrent projects stay
+    // attributable in a shared temp dir.
+    assert(
+      basename(artifact).startsWith("discern-job-engine-test-main-"),
+      `a gate job artifact must be labeled with its checkout's project and ` +
+        `worktree ids: ${basename(artifact)}`,
     );
   });
 });
