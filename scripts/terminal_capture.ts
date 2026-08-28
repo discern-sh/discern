@@ -13,6 +13,7 @@ import type {
   PtyInputPhase,
   PtyInputStep,
 } from "../tests/fixtures/pty_process.ts";
+import { ptyOutputContains } from "../tests/fixtures/pty_process.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -212,8 +213,9 @@ function parseInputStep(value: unknown, label: string): PtyInputStep {
 }
 
 /** Parse readiness-gated PTY phases from one ignored review script. */
-async function readInputScript(path: string): Promise<PtyInputPhase[]> {
-  const source: unknown = JSON.parse(await Deno.readTextFile(path));
+export function parseTerminalCaptureInputScript(
+  source: unknown,
+): PtyInputPhase[] {
   if (!Array.isArray(source) || source.length === 0) {
     throw new TypeError("capture script must be a non-empty array of phases");
   }
@@ -229,10 +231,33 @@ async function readInputScript(path: string): Promise<PtyInputPhase[]> {
     if (markers === undefined) {
       throw new TypeError(`${label}.waitFor must be a string or string array`);
     }
-    if (
-      phase.captureAs !== undefined && typeof phase.captureAs !== "string"
-    ) {
-      throw new TypeError(`${label}.captureAs must be a string`);
+    if (phase.captureAs !== undefined) {
+      throw new TypeError(
+        `${label}.captureAs was replaced by capture { name, when }`,
+      );
+    }
+    const captureSource = phase.capture === undefined
+      ? undefined
+      : record(phase.capture, `${label}.capture`);
+    const captureName = captureSource?.name;
+    if (captureName !== undefined && typeof captureName !== "string") {
+      throw new TypeError(`${label}.capture.name must be a string`);
+    }
+    const captureMarkers = captureSource === undefined
+      ? undefined
+      : typeof captureSource.when === "string"
+      ? captureSource.when
+      : Array.isArray(captureSource.when) && captureSource.when.length > 0 &&
+          captureSource.when.every((marker) => typeof marker === "string")
+      ? captureSource.when as [string, ...string[]]
+      : undefined;
+    if (captureSource !== undefined && captureName === undefined) {
+      throw new TypeError(`${label}.capture.name must be a string`);
+    }
+    if (captureSource !== undefined && captureMarkers === undefined) {
+      throw new TypeError(
+        `${label}.capture.when must be a string or string array`,
+      );
     }
     if (!Array.isArray(phase.steps) || phase.steps.length === 0) {
       throw new TypeError(`${label}.steps must be a non-empty array`);
@@ -242,10 +267,25 @@ async function readInputScript(path: string): Promise<PtyInputPhase[]> {
     ) as [PtyInputStep, ...PtyInputStep[]];
     return {
       waitFor: markers,
-      ...(phase.captureAs === undefined ? {} : { captureAs: phase.captureAs }),
+      ...(captureSource === undefined || captureName === undefined ||
+          captureMarkers === undefined
+        ? {}
+        : {
+          capture: {
+            name: captureName,
+            when: ptyOutputContains(captureMarkers),
+          },
+        }),
       steps,
     };
   });
+}
+
+/** Read readiness-gated PTY phases from one ignored review script. */
+async function readInputScript(path: string): Promise<PtyInputPhase[]> {
+  return parseTerminalCaptureInputScript(
+    JSON.parse(await Deno.readTextFile(path)),
+  );
 }
 
 /** Compile, capture, project, and report the one resulting artifact path. */

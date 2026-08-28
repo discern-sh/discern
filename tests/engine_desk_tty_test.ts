@@ -19,6 +19,7 @@ import {
   deskOrphanBranch,
   deskProof,
   deskRunningAction,
+  type DeskTtyCapture,
   type DeskTtyInputPhase,
   type DeskTtyRunResult,
   type DeskVisibleFrame,
@@ -41,6 +42,48 @@ const TASK_ACTION_BACK_SELECTED = [
   "Choose an action",
   "› [●] Back",
 ] as const;
+
+/** Capture only after the visible Desk frame exposes its complete focus state. */
+function focusedCapture(
+  name: string,
+  firstText: string,
+  ...remainingText: string[]
+): DeskTtyCapture {
+  return {
+    name,
+    when: {
+      includes: [firstText, ...remainingText],
+      focusMarkers: 1,
+    },
+  };
+}
+
+/** Capture a non-picker frame only after all asserted visible text exists. */
+function textCapture(
+  name: string,
+  firstText: string,
+  ...remainingText: string[]
+): DeskTtyCapture {
+  return {
+    name,
+    when: { includes: [firstText, ...remainingText] },
+  };
+}
+
+/** Capture a filtered frame whose selected member is intentionally offscreen. */
+function unfocusedCapture(
+  name: string,
+  firstText: string,
+  ...remainingText: string[]
+): DeskTtyCapture {
+  return {
+    name,
+    when: {
+      includes: [firstText, ...remainingText],
+      focusMarkers: 0,
+    },
+  };
+}
 
 /** Require one named semantic frame and keep failures transcript-oriented. */
 function frame(
@@ -124,10 +167,10 @@ function assertHealthySession(
 }
 
 /** Select the last root action (Quit) after capturing the ready frame. */
-function rootExitInput(captureAs = "root"): readonly DeskTtyInputPhase[] {
+function rootExitInput(captureName = "root"): readonly DeskTtyInputPhase[] {
   return [{
     waitFor: EMPTY_ROOT_READY,
-    captureAs,
+    capture: focusedCapture(captureName, "Start a task", "Quit"),
     chunks: [{ keys: ["end", "enter"] }],
   }];
 }
@@ -143,7 +186,7 @@ Deno.test({
         colorMode: "no-color-env",
         input: [{
           waitFor: ["Choose a Desk command", "Start a task"],
-          captureAs: "root",
+          capture: focusedCapture("root", "Start a task", "3 more"),
           chunks: [{ keys: ["end", "enter"] }],
         }],
         env: { LANG: "C", LC_ALL: "C" },
@@ -174,18 +217,18 @@ Deno.test({
         colorMode: "no-color-flag",
         input: [{
           waitFor: TASK_ROOT_READY,
-          captureAs: "root",
+          capture: focusedCapture("root", "Focused task"),
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: TASK_ACTION_READY,
           chunks: [{ keys: ["end"] }],
         }, {
           waitFor: TASK_ACTION_BACK_SELECTED,
-          captureAs: "action",
+          capture: focusedCapture("action", "Choose an action", "Back"),
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: TASK_ROOT_READY,
-          captureAs: "back-at-root",
+          capture: focusedCapture("back-at-root", "Focused task"),
           chunks: [{ keys: ["end", "enter"] }],
         }],
       });
@@ -216,7 +259,11 @@ Deno.test({
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: ["Choose an action", "Run final checks"],
-          captureAs: "action-with-disabled-reasons",
+          capture: focusedCapture(
+            "action-with-disabled-reasons",
+            "Choose an action",
+            "Run final checks",
+          ),
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: [
@@ -224,11 +271,14 @@ Deno.test({
             "Cancel",
             "Run",
           ],
-          captureAs: "safe-confirmation",
+          capture: textCapture("safe-confirmation", "› Cancel", "Run"),
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: TASK_ACTION_READY,
-          captureAs: "cancelled-action",
+          capture: focusedCapture(
+            "cancelled-action",
+            "Choose an action",
+          ),
           chunks: [{ keys: ["end", "enter"] }],
         }, {
           waitFor: TASK_ROOT_READY,
@@ -284,7 +334,11 @@ Deno.test({
             "Final checks passed and Proof was refreshed.",
             "press ↵ to return to the desk",
           ],
-          captureAs: "gate-result",
+          capture: textCapture(
+            "gate-result",
+            "Final checks passed and Proof was refreshed.",
+            "press ↵ to return to the desk",
+          ),
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: [
@@ -292,7 +346,11 @@ Deno.test({
             "Choose an action",
             "Review and land on main",
           ],
-          captureAs: "proof-led-action",
+          capture: focusedCapture(
+            "proof-led-action",
+            "Proof honored for this commit",
+            "Review and land on main",
+          ),
           chunks: [{ keys: ["end", "enter"] }],
         }, {
           waitFor: TASK_ROOT_READY,
@@ -359,11 +417,21 @@ Deno.test({
             "Stored Proof",
             "View actual diff",
           ],
-          captureAs: "proof-review",
+          capture: textCapture(
+            "proof-review",
+            "Proof: review pager fixture",
+            "Stored Proof",
+            "Open in editor",
+            "$VISUAL or $EDITOR",
+          ),
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: ["Review Review pager", "View actual diff"],
-          captureAs: "pager-return",
+          capture: textCapture(
+            "pager-return",
+            "Review Review pager",
+            "View actual diff",
+          ),
           chunks: [{ keys: ["end", "enter"] }],
         }, {
           waitFor: TASK_ACTION_READY,
@@ -404,7 +472,10 @@ Deno.test({
           colorMode: "no-color-env",
           input: [{
             waitFor: TASK_ROOT_READY,
-            captureAs: `${key}-at-root`,
+            capture: focusedCapture(
+              `${key}-at-root`,
+              "Choose a task or Desk command",
+            ),
             chunks: [{
               keys: [key],
               ...(key === "escape" ? { allowLoneEscape: true } : {}),
@@ -426,16 +497,21 @@ Deno.test({
               chunks: [{ keys: ["enter"] }],
             }, {
               waitFor: TASK_ACTION_READY,
-              captureAs: `${key}-at-action`,
+              capture: focusedCapture(
+                `${key}-at-action`,
+                "Choose an action",
+              ),
               chunks: [{
                 keys: [key],
                 ...(key === "escape" ? { allowLoneEscape: true } : {}),
               }],
             }, {
               waitFor: TASK_ROOT_READY,
-              captureAs: `${key}-returned-to-root`,
-              settleMs: 500,
-              chunks: [{ keys: ["ctrl-c"] }],
+              capture: focusedCapture(
+                `${key}-returned-to-root`,
+                "Cancellation task",
+              ),
+              chunks: [{ settleMs: 500, keys: ["ctrl-c"] }],
             }],
           });
         if (key === "escape") {
@@ -487,7 +563,7 @@ async function thresholdFrame(taskCount: number): Promise<DeskVisibleFrame> {
   return await withDeskTtyProject(
     deskFleetFixture(entries),
     async (project) => {
-      const captureAs = `${taskCount}-tasks`;
+      const captureName = `${taskCount}-tasks`;
       const input: readonly DeskTtyInputPhase[] = taskCount > 8
         ? [{
           waitFor: [
@@ -495,12 +571,16 @@ async function thresholdFrame(taskCount: number): Promise<DeskVisibleFrame> {
             "Type to filter",
             "Threshold task",
           ],
-          captureAs,
+          capture: unfocusedCapture(
+            captureName,
+            "Type to filter",
+            "Threshold task",
+          ),
           chunks: [{ keys: ["ctrl-c"] }],
         }]
         : [{
           waitFor: ["Choose a task or Desk command", "Threshold task"],
-          captureAs,
+          capture: focusedCapture(captureName, "Threshold task"),
           chunks: [{ keys: ["end"] }],
         }, {
           waitFor: ["› [●] Quit"],
@@ -513,7 +593,7 @@ async function thresholdFrame(taskCount: number): Promise<DeskVisibleFrame> {
         timeoutMs: 30_000,
       });
       assertHealthySession(result);
-      const root = frame(result, captureAs);
+      const root = frame(result, captureName);
       if (taskCount > 8) {
         assertEquals(root.focusMarkers.length, 0, root.text);
       } else {
@@ -577,11 +657,14 @@ Deno.test({
             "›",
             "Unicode 修复终端布局和证明显示",
           ],
-          captureAs: "50-task-root",
+          capture: focusedCapture(
+            "50-task-root",
+            "Unicode 修复终端布局和证明显示",
+          ),
           chunks: [{ keys: ["enter"] }],
         }, {
           waitFor: TASK_ACTION_READY,
-          captureAs: "50-task-detail",
+          capture: focusedCapture("50-task-detail", "Choose an action"),
           chunks: [{ keys: ["end", "enter"] }],
         }, {
           waitFor: [
@@ -672,17 +755,20 @@ Deno.test({
           colorMode: "no-color-env",
           input: [{
             waitFor: TASK_ROOT_READY,
-            captureAs: "narrow",
+            capture: focusedCapture(
+              "narrow",
+              "Choose a task or Desk command",
+            ),
             chunks: [{ resize: { columns: 120, rows: 50 } }, {
               keys: ["down"],
             }],
           }, {
             waitFor: TASK_START_SELECTED,
-            captureAs: "wide",
+            capture: focusedCapture("wide", "› [●] Start a task"),
             chunks: [{ keys: ["up", "enter"] }],
           }, {
             waitFor: TASK_ACTION_READY,
-            captureAs: "full-detail",
+            capture: focusedCapture("full-detail", "Choose an action"),
             chunks: [{ keys: ["end"] }],
           }, {
             waitFor: TASK_ACTION_BACK_SELECTED,

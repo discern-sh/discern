@@ -22,13 +22,32 @@ export interface PtyInputStep {
   readonly allowLoneEscape?: boolean;
 }
 
+/** Output accumulated from the real PTY at one observable instant. */
+export interface PtyObservedOutput {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly transcript: string;
+  readonly phaseStdout: string;
+  readonly phaseStderr: string;
+}
+
+/** Positive observable condition that makes one keyframe safe to capture. */
+export interface PtyOutputCondition {
+  readonly description: string;
+  readonly test: (output: PtyObservedOutput) => boolean;
+}
+
+/** One named keyframe and the condition that proves it is ready. */
+export interface PtyKeyframeCapture {
+  readonly name: string;
+  readonly when: PtyOutputCondition;
+}
+
 /** Input that cannot begin until the child has rendered a named marker. */
 export interface PtyInputPhase {
   readonly waitFor: string | readonly [string, ...string[]];
-  /** Bounded pause after readiness so a multi-write frame can settle. */
-  readonly settleMs?: number;
-  /** Save the rendered transcript when this phase becomes ready. */
-  readonly captureAs?: string;
+  /** Save the transcript only after its own positive readiness condition. */
+  readonly capture?: PtyKeyframeCapture;
   readonly steps: readonly [PtyInputStep, ...PtyInputStep[]];
 }
 
@@ -75,6 +94,22 @@ interface OutputCursor {
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+/** Build a keyframe condition from markers observed in order on one stream. */
+export function ptyOutputContains(
+  requestedMarkers: string | readonly [string, ...string[]],
+): PtyOutputCondition {
+  const markers = typeof requestedMarkers === "string"
+    ? [requestedMarkers]
+    : [...requestedMarkers];
+  assertOutputMarkers(markers, "PTY keyframe readiness");
+  return {
+    description: `output markers ${JSON.stringify(markers)}`,
+    test: (output: PtyObservedOutput): boolean =>
+      containsSequence(output.phaseStdout, 0, markers) ||
+      containsSequence(output.phaseStderr, 0, markers),
+  };
 }
 
 /** Launch any command through the platform script(1) PTY and feed raw chunks. */
@@ -181,6 +216,13 @@ export async function runPtyProcess(
     outputFinished = true;
     notifyOutput();
   });
+  const observedOutput = (cursor: OutputCursor): PtyObservedOutput => ({
+    stdout: observedStdout,
+    stderr: observedStderr,
+    transcript: observedStdout + observedStderr,
+    phaseStdout: observedStdout.slice(cursor.stdout),
+    phaseStderr: observedStderr.slice(cursor.stderr),
+  });
   const waitForOutput = async (
     requestedMarkers: string | readonly [string, ...string[]],
     cursor: OutputCursor,
@@ -188,9 +230,7 @@ export async function runPtyProcess(
     const markers = typeof requestedMarkers === "string"
       ? [requestedMarkers]
       : requestedMarkers;
-    if (markers.some((marker) => marker.length === 0)) {
-      throw new TypeError("PTY input readiness marker must not be empty");
-    }
+    assertOutputMarkers(markers, "PTY input readiness");
     while (
       !containsSequence(observedStdout, cursor.stdout, markers) &&
       !containsSequence(observedStderr, cursor.stderr, markers)
@@ -198,6 +238,19 @@ export async function runPtyProcess(
       if (outputFinished) {
         throw new Error(
           `pseudo-terminal command exited before rendering input markers ${JSON.stringify(markers)}`,
+        );
+      }
+      await new Promise<void>((resolve) => outputWaiters.push(resolve));
+    }
+  };
+  const waitForOutputCondition = async (
+    condition: PtyOutputCondition,
+    cursor: OutputCursor,
+  ): Promise<void> => {
+    while (!condition.test(observedOutput(cursor))) {
+      if (outputFinished) {
+        throw new Error(
+          `pseudo-terminal command exited before satisfying keyframe condition ${JSON.stringify(condition.description)}`,
         );
       }
       await new Promise<void>((resolve) => outputWaiters.push(resolve));
@@ -236,20 +289,15 @@ export async function runPtyProcess(
           JSON.stringify(phase.waitFor);
         await waitForOutput(phase.waitFor, cursor);
         inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} ready`;
-        const settleMs = phase.settleMs ?? 0;
-        if (settleMs > 0) {
-          await realDelay("pty-input-phase-settle", settleMs);
-        }
-        if (phase.captureAs !== undefined) {
-          if (phase.captureAs.length === 0) {
-            throw new TypeError("PTY keyframe name must not be empty");
-          }
-          if (Object.hasOwn(keyframes, phase.captureAs)) {
-            throw new TypeError(
-              `PTY keyframe name must be unique: ${phase.captureAs}`,
-            );
-          }
-          keyframes[phase.captureAs] = observedStdout + observedStderr;
+        const capture = phase.capture;
+        if (capture !== undefined) {
+          inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} ` +
+            `waiting to capture ${JSON.stringify(capture.name)} when ` +
+            capture.when.description;
+          await waitForOutputCondition(capture.when, cursor);
+          keyframes[capture.name] = observedOutput(cursor).transcript;
+          inputProgress = `phase ${phaseIndex + 1}/${inputPhases.length} ` +
+            `captured ${JSON.stringify(capture.name)}`;
         }
         const nextCursor: OutputCursor = {
           stdout: observedStdout.length,
@@ -448,10 +496,22 @@ function validateInput(
 ): void {
   if (phases === undefined) return;
   let pendingLoneEscape = false;
+  const keyframeNames = new Set<string>();
   for (const phase of phases) {
-    const settleMs = phase.settleMs ?? 0;
-    if (!Number.isSafeInteger(settleMs) || settleMs < 0 || settleMs > 1_000) {
-      throw new TypeError("PTY phase settle time must be between 0 and 1000ms");
+    const capture = phase.capture;
+    if (capture !== undefined) {
+      if (capture.name.length === 0) {
+        throw new TypeError("PTY keyframe name must not be empty");
+      }
+      if (keyframeNames.has(capture.name)) {
+        throw new TypeError(
+          `PTY keyframe name must be unique: ${capture.name}`,
+        );
+      }
+      if (capture.when.description.length === 0) {
+        throw new TypeError("PTY keyframe readiness description must not be empty");
+      }
+      keyframeNames.add(capture.name);
     }
     for (const step of phase.steps) {
       const bytes = inputBytes(step);
@@ -466,6 +526,15 @@ function validateInput(
       pendingLoneEscape = bytes[bytes.length - 1] === ESCAPE_BYTE &&
         step.allowLoneEscape !== true;
     }
+  }
+}
+
+function assertOutputMarkers(
+  markers: readonly string[],
+  label: string,
+): void {
+  if (markers.some((marker) => marker.length === 0)) {
+    throw new TypeError(`${label} marker must not be empty`);
   }
 }
 

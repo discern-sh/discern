@@ -57,13 +57,6 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     reason:
       "This legacy interactive scenario observes behavior during a deliberately elapsed startup window and exposes no positive readiness signal.",
   },
-  "pty-input-phase-settle": {
-    path: "tests/fixtures/pty_process.ts",
-    enclosing: "runPtyProcess",
-    operation: "hold a readiness keyframe until its multi-write frame settles",
-    reason:
-      "The PTY output has no frame-complete protocol beyond the scenario's declared quiet interval.",
-  },
   "pty-child-frame-completion": {
     path: "tests/fixtures/pty_child_program.ts",
     enclosing: "multi-write-frame",

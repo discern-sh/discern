@@ -66,23 +66,32 @@ Keep the before and after options identical unless the dimensions, locale, color
 
 ### Capture an interactive journey
 
-An interactive capture reads readiness-gated input phases from an ignored JSON file. Each phase waits for one marker or an ordered marker sequence before sending its steps. An optional `captureAs` records the settled screen after those markers appear and before the phase sends input:
+An interactive capture reads readiness-gated input phases from an ignored JSON file. Each phase waits for one marker or an ordered marker sequence before sending its steps. An optional `capture` names a frame and gives it an independent positive output condition under `when`; the phase sends input only after both its input readiness and capture readiness hold:
 
 ```json
 [
   {
     "waitFor": "○ Quit",
-    "captureAs": "picker",
+    "capture": {
+      "name": "picker",
+      "when": ["discern documentation", "○ Quit"]
+    },
     "steps": [{ "bytes": "\u001b[B\u001b[B\r" }]
   },
   {
     "waitFor": ["Welcome to discern.", "Press Enter to continue."],
-    "captureAs": "document",
+    "capture": {
+      "name": "document",
+      "when": ["Welcome to discern.", "Press Enter to continue."]
+    },
     "steps": [{ "bytes": "\r" }]
   },
   {
     "waitFor": ["discern documentation", "○ Quit"],
-    "captureAs": "restored",
+    "capture": {
+      "name": "restored",
+      "when": ["discern documentation", "○ Quit"]
+    },
     "steps": [{ "bytes": "\u001b", "allowLoneEscape": true }]
   }
 ]
@@ -94,7 +103,7 @@ Pass the file with `--script`. With no `--keyframe`, the artifact shows the jour
 deno task terminal:capture docs-reader --script .scratch/terminal-captures/docs-reader.json --keyframe document -- docs
 ```
 
-Use `delayMs` only when elapsed time is itself part of the interaction. Prefer an observable `waitFor` marker for ordinary readiness. A step that intentionally sends a lone Escape byte must declare `allowLoneEscape: true`; otherwise the driver rejects a plan whose scheduling could change a multi-byte key sequence into cancellation.
+The capture condition states the complete screen the named frame will be used to judge. Use `delayMs` only when elapsed time is itself part of the interaction. Prefer an observable `waitFor` marker for ordinary input readiness. A step that intentionally sends a lone Escape byte must declare `allowLoneEscape: true`; otherwise the driver rejects a plan whose scheduling could change a multi-byte key sequence into cancellation.
 
 ## What the task captures
 
