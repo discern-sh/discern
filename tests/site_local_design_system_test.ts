@@ -7,8 +7,61 @@ import {
   isLocalPackageResolution,
   localDesignSystemConfig,
   parseLocalDesignSystemArgs,
+  serverArgs,
+  watchTaskCommand,
 } from "../scripts/site_local_design_system.ts";
 import { withTempDir } from "./helpers.ts";
+
+Deno.test("the linked server derives its sandbox from the watch task", () => {
+  const args = serverArgs(
+    "/tmp/link/deno.json",
+    "/tmp/future-component-system",
+    "deno run --watch --allow-read --allow-run --allow-env=PORT,EXAMPLE site/dev.ts --watch",
+  );
+  const entryIndex = args.findIndex((argument) =>
+    argument.endsWith("site/dev.ts")
+  );
+  assertEquals(entryIndex > 0, true, args.join(" "));
+  const sandbox = args.slice(0, entryIndex);
+  assertEquals(sandbox.includes("--allow-env=PORT,EXAMPLE"), true);
+  assertEquals(sandbox.includes("--allow-read"), true);
+  assertEquals(sandbox.includes("--allow-run"), true);
+  assertEquals(sandbox.includes("--allow-write"), true);
+  assertEquals(
+    args.slice(entryIndex + 1),
+    [
+      "--watch",
+      "--build-config",
+      "/tmp/link/deno.json",
+      "--watch-input",
+      join("/tmp/future-component-system", "src"),
+      "--watch-input",
+      join("/tmp/future-component-system", "deno.json"),
+    ],
+  );
+
+  assertThrows(
+    () => serverArgs("/tmp/link/deno.json", "/tmp/pkg", "deno fmt"),
+    Error,
+    "watch task",
+  );
+  assertThrows(
+    () =>
+      serverArgs(
+        "/tmp/link/deno.json",
+        "/tmp/pkg",
+        "deno run --allow-read site/main.ts",
+      ),
+    Error,
+    "site/dev.ts",
+  );
+
+  assertEquals(
+    watchTaskCommand({ tasks: { watch: "deno run site/dev.ts" } }),
+    "deno run site/dev.ts",
+  );
+  assertThrows(() => watchTaskCommand({}), Error, "watch task");
+});
 
 Deno.test("the local design-system config overlays a link without mutating the consumer config", () => {
   const base = {

@@ -4,6 +4,7 @@
  */
 
 import { dirname, fromFileUrl, join, resolve, toFileUrl } from "@std/path";
+import { denoRunInvocation } from "../site/dev.ts";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
@@ -218,18 +219,47 @@ function buildArgs(configPath: string): string[] {
   ];
 }
 
-/** Arguments for a linked server whose every rebuild retains the override. */
-function serverArgs(configPath: string, packageRoot: string): string[] {
+/** The consumer config's watch task command, the linked server's flag source. */
+export function watchTaskCommand(rootConfig: JsonObject): string {
+  const tasks = rootConfig.tasks;
+  const command =
+    typeof tasks === "object" && tasks !== null && !Array.isArray(tasks)
+      ? (tasks as JsonObject).watch
+      : undefined;
+  if (typeof command !== "string") {
+    throw new Error("the consumer config declares no watch task to derive");
+  }
+  return command;
+}
+
+/**
+ * Arguments for a linked server whose every rebuild retains the override. The
+ * sandbox comes from the watch task's own permission flags, so the preview's
+ * environment needs stay declared in exactly one place, plus the write access
+ * the linked rebuild adds.
+ */
+export function serverArgs(
+  configPath: string,
+  packageRoot: string,
+  watchCommand: string,
+): string[] {
+  const invocation = denoRunInvocation(watchCommand);
+  if (
+    invocation === undefined ||
+    invocation.entry.replace(/^\.\//, "") !== "site/dev.ts"
+  ) {
+    throw new Error(
+      "the watch task no longer runs site/dev.ts directly; realign the " +
+        "linked design-system server with the preview runtime",
+    );
+  }
   return [
     "run",
     "--config",
     configPath,
     "--watch",
-    "--allow-read",
+    ...invocation.permissionFlags,
     "--allow-write",
-    "--allow-run",
-    "--allow-net=127.0.0.1",
-    "--allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN",
     join(REPO_ROOT, "site/dev.ts"),
     "--watch",
     "--build-config",
@@ -303,9 +333,11 @@ async function main(): Promise<number> {
     console.log(`Using local design system: ${packageRoot}`);
     console.log(`Resolved runtime: ${resolution}`);
     const exitCode = await inheritedCommand(
-      options.buildOnly
-        ? buildArgs(temporaryConfig)
-        : serverArgs(temporaryConfig, packageRoot),
+      options.buildOnly ? buildArgs(temporaryConfig) : serverArgs(
+        temporaryConfig,
+        packageRoot,
+        watchTaskCommand(rootConfig),
+      ),
     );
     if (options.buildOnly && exitCode === 0) {
       console.log(

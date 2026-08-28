@@ -605,6 +605,86 @@ async function runPreviewProbe(
   };
 }
 
+/** Authored TypeScript that states a restricted env grant anywhere in the repo. */
+async function authoredSpawnSources(): Promise<AuthoredSource[]> {
+  const sources: AuthoredSource[] = [];
+  for (
+    const path of await structuralGuardScope({
+      guard: "tests/site_development_test.ts#preview-env-grant-census",
+      universe: "authored-ts",
+    })
+  ) {
+    const text = await Deno.readTextFile(join(REPO, path));
+    if (!text.includes("--allow-env=")) continue;
+    sources.push({ path, text });
+  }
+  return sources;
+}
+
+/**
+ * Array literals pairing a restricted `--allow-env=` grant with a preview
+ * entry. Hand-restated grants drift behind the preview runtime's environment
+ * reads; the one legal flag source is the `deno.json` task, read through
+ * `denoRunInvocation`.
+ */
+function handRolledPreviewEnvGrants(
+  sources: readonly AuthoredSource[],
+  runtimeModules: ReadonlySet<string>,
+): string[] {
+  const project = new Project({ useInMemoryFileSystem: true });
+  const offenders: string[] = [];
+  for (const source of sources) {
+    const file = project.createSourceFile(source.path, source.text, {
+      overwrite: true,
+    });
+    for (
+      const array of file.getDescendantsOfKind(
+        SyntaxKind.ArrayLiteralExpression,
+      )
+    ) {
+      const literals = array
+        .getDescendantsOfKind(SyntaxKind.StringLiteral)
+        .map((literal) => literal.getLiteralValue());
+      if (
+        literals.some((value) => value.startsWith("--allow-env=")) &&
+        literals.some((value) => runtimeModules.has(normalizedTaskEntry(value)))
+      ) {
+        offenders.push(`${source.path}:${array.getStartLineNumber()}`);
+      }
+    }
+  }
+  return offenders;
+}
+
+Deno.test("the preview-grant census catches a freshly hand-rolled sibling", () => {
+  const runtime = new Set(["site/showcase.ts"]);
+  assertEquals(
+    handRolledPreviewEnvGrants([{
+      path: "scripts/unrelated.ts",
+      text: 'const args = ["run", "--allow-env=PORT", "./site/showcase.ts"];\n',
+    }], runtime),
+    ["scripts/unrelated.ts:1"],
+  );
+  assertEquals(
+    handRolledPreviewEnvGrants([{
+      path: "scripts/innocent.ts",
+      text: 'const args = ["--allow-env=NODE_ENV", "site/build.ts"];\n',
+    }], runtime),
+    [],
+  );
+});
+
+Deno.test("hand-rolled preview permission grants stay outlawed in authored sources", async () => {
+  const runtime = previewRuntimeModules(await authoredSiteSources());
+  assertEquals(
+    handRolledPreviewEnvGrants(await authoredSpawnSources(), runtime),
+    [],
+    "spawns of the preview runtime must derive their permission flags from " +
+      "the deno.json task through denoRunInvocation, not restate an " +
+      "--allow-env list",
+  );
+});
+
 Deno.test("the preview census parses invocations and reaches the runtime", () => {
   assertEquals(
     denoRunInvocation(
