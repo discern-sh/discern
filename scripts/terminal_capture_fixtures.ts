@@ -13,6 +13,7 @@ import {
   serializeTerminalCapture,
 } from "../tests/fixtures/terminal_command_capture.ts";
 import { withToolTempDir } from "./temp_dir.ts";
+import { withRealPtyBoundary } from "../tests/real_pty.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -24,7 +25,11 @@ async function main(): Promise<void> {
       Deno.build.os === "windows" ? "discern.exe" : "discern",
     );
     await compileDiscernCaptureBinary(REPO_ROOT, executable);
-    const captures = await captureFlagshipTerminalScreens(executable);
+    const captures = await withRealPtyBoundary({
+      name: "flagship terminal fixture generation",
+      contracts: ["control-rendering", "platform-transport"],
+      canary: false,
+    }, () => captureFlagshipTerminalScreens(executable));
     await ensureDir(FLAGSHIP_CAPTURE_DIRECTORY);
     for (const command of FLAGSHIP_COMMANDS) {
       const capture = captures[command.name];

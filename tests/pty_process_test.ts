@@ -7,6 +7,7 @@ import {
 import { fromFileUrl, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { ptyOutputContains, runPtyProcess } from "./fixtures/pty_process.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const PTY_CHILD_PROGRAM = join(
@@ -21,8 +22,10 @@ function childArgs(scenario: string, ...args: string[]): string[] {
   return ["run", "--quiet", "-A", PTY_CHILD_PROGRAM, scenario, ...args];
 }
 
-Deno.test({
+realPtyTest({
   name: "PTY input requires an opt-in before continuing a lone Escape write",
+  contracts: ["line-discipline"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await assertRejects(
@@ -60,9 +63,11 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name:
     "PTY input waits for observed child readiness instead of elapsed startup time",
+  contracts: ["line-discipline", "platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const result = await runPtyProcess({
@@ -87,8 +92,10 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "PTY completion timeout starts after the final scripted input phase",
+  contracts: ["process-lifecycle"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const result = await runPtyProcess({
@@ -110,8 +117,10 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "PTY user-input modes keep the wrapper pipe open until the child exits",
+  contracts: ["eof-delivery", "platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const modes = [
@@ -149,8 +158,10 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "PTY wrapper cannot consume the command's SHELL override",
+  contracts: ["platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -200,8 +211,10 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "PTY keyframe waits for its own condition after early input readiness",
+  contracts: ["platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const result = await runPtyProcess({
@@ -227,8 +240,10 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "PTY ordered readiness markers capture a complete multi-write frame",
+  contracts: ["platform-transport"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const result = await runPtyProcess({
@@ -254,8 +269,10 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "PTY input phases accept a positive condition over fresh output",
+  contracts: ["platform-transport"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const result = await runPtyProcess({
@@ -274,8 +291,10 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "PTY process applies scripted terminal geometry",
+  contracts: ["resize-delivery", "control-rendering"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const result = await runPtyProcess({
@@ -296,8 +315,10 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "PTY timeout kills the real descendant after observed readiness",
+  contracts: ["signal-delivery", "process-lifecycle"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {

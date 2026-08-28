@@ -357,6 +357,91 @@ Deno.test("grouped select keeps headings structural and ids stable across reorde
   );
 });
 
+Deno.test("interaction defaults stay semantic across text, confirmation, and selection", async () => {
+  const text = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await requestText(
+      { message: "Text", default: "remembered-value" },
+      scriptedRuntime(text),
+    ),
+    "remembered-value",
+  );
+
+  const confirmation = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await requestConfirmation("Confirm", {
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Reclaim",
+    }, scriptedRuntime(confirmation)),
+    false,
+  );
+  assertStringIncludes(confirmation.writes.join(""), "Keep");
+  assertStringIncludes(confirmation.writes.join(""), "Reclaim");
+
+  const selection = new ScriptedTerminal(["\r"]);
+  assertEquals(
+    await requestSelection({
+      message: "Choose",
+      default: "beta",
+      options: [
+        { id: "alpha", name: "Alpha", value: "alpha" },
+        { id: "beta", name: "Beta", value: "beta" },
+        { id: "omega", name: "Omega", value: "omega" },
+      ],
+    }, scriptedRuntime(selection)),
+    "beta",
+  );
+});
+
+Deno.test("selection navigation preserves every supported byte-sequence variant", async () => {
+  const cases: readonly {
+    readonly input: string;
+    readonly expected: string;
+    readonly default?: string;
+  }[] = [
+    { input: "\x1b[B\x1b[A\x1b[B\r", expected: "beta" },
+    { input: "jkj\r", expected: "beta" },
+    { input: "lhl\r", expected: "beta" },
+    { input: "\x0e\x10\x0e\r", expected: "beta" },
+    { input: "\x06\x02\x06\r", expected: "beta" },
+    { input: "\x1b[H\r", expected: "alpha", default: "beta" },
+    { input: "\x1b[F\r", expected: "omega", default: "beta" },
+  ];
+  for (const testCase of cases) {
+    const io = new ScriptedTerminal([testCase.input]);
+    assertEquals(
+      await requestSelection({
+        message: "Choose",
+        ...(testCase.default === undefined
+          ? {}
+          : { default: testCase.default }),
+        options: [
+          { id: "alpha", name: "Alpha", value: "alpha" },
+          { id: "beta", name: "Beta", value: "beta" },
+          { id: "omega", name: "Omega", value: "omega" },
+        ],
+      }, scriptedRuntime(io)),
+      testCase.expected,
+    );
+  }
+});
+
+Deno.test("text editing preserves fragmented Unicode and cursor operations deterministically", async () => {
+  const emoji = encoder.encode("👩‍💻");
+  const io = new FakeTerminalIO([
+    encoder.encode("A"),
+    emoji.slice(0, 3),
+    emoji.slice(3),
+    encoder.encode("B\x1b[D\x7fé\x1b[HΩ\x1b[F!\r"),
+  ], { ansiControl: true, columns: 60, rows: 24 });
+  assertEquals(
+    await requestText("Edit", scriptedRuntime(io)),
+    "ΩAéB!",
+  );
+  assertEquals(io.rawTransitions, [true, false]);
+});
+
 Deno.test("choice descriptions stay semantic, searchable, and control-free", async () => {
   const io = new ScriptedTerminal(["nested/path.md\r\r"]);
   assertEquals(

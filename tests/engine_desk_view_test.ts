@@ -13,11 +13,13 @@ import {
   type DeskRow,
 } from "../src/engine/desk/model.ts";
 import {
+  DESK_FILTER_THRESHOLD,
   deskActionGroups,
   deskCompositionReserveRows,
   type DeskReview,
   deskReviewGroups,
   deskRootSelectionGroups,
+  deskRootUsesSearch,
   deskRowLayout,
   renderDeskActionFailure,
   renderDeskActionPlan,
@@ -113,6 +115,42 @@ Deno.test("Desk row breakpoints map 40, 60, 80, and 120 columns deliberately", (
   assertEquals(deskRowLayout(60), "medium");
   assertEquals(deskRowLayout(80), "medium");
   assertEquals(deskRowLayout(120), "wide");
+});
+
+Deno.test("Desk filtering begins exactly above the direct-scan threshold", () => {
+  assertEquals(DESK_FILTER_THRESHOLD, 8);
+  assertEquals(deskRootUsesSearch(8), false);
+  assertEquals(deskRootUsesSearch(9), true);
+});
+
+Deno.test("a 50-task Unicode fleet projects bounded selectable content", () => {
+  const unicode = entry("unicode-修复终端布局和证明显示-a1b2c3");
+  const entries = [
+    unicode,
+    ...Array.from(
+      { length: 49 },
+      (_, index) =>
+        entry(`routine-task-${index + 1}-${String(index).padStart(6, "0")}`),
+    ),
+  ];
+  const size = { columns: 120, rows: 50 };
+  const groups = deskRootSelectionGroups({
+    rows: rows(entries),
+    hasProjectScripts: false,
+    viewport: size,
+    terminal: terminal(size, { color: true }),
+  });
+  const items = groups.flatMap((group) => group.items).filter((item) =>
+    !item.value.startsWith("\x00")
+  );
+  assertEquals(items.length, 50);
+  assertStringIncludes(
+    items.find((item) => item.value === unicode.path)?.name ?? "",
+    "修复终端布局和证明显示",
+  );
+  for (const item of items) {
+    assert(measureText(item.name) <= size.columns - 8, item.name);
+  }
 });
 
 Deno.test("root rows stay bounded without coupling a short task to the longest title", () => {

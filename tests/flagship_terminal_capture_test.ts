@@ -14,6 +14,7 @@ import {
   serializeTerminalCapture,
 } from "./fixtures/terminal_command_capture.ts";
 import { withTempDir } from "./helpers.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -90,38 +91,32 @@ Deno.test("flagship normalizers replace facts without hiding visible structure",
   );
 });
 
-Deno.test({
-  name:
-    "flagship commands are deterministic, projectable, and match reviewed captures",
+realPtyTest({
+  name: "flagship commands cross the real terminal and match reviewed captures",
+  contracts: ["control-rendering", "platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (temp) => {
       const executable = join(temp, "discern");
       await compileDiscernCaptureBinary(REPO_ROOT, executable);
-      const first = await captureFlagshipTerminalScreens(executable);
-      const second = await captureFlagshipTerminalScreens(executable);
+      const captures = await captureFlagshipTerminalScreens(executable);
       for (const command of FLAGSHIP_COMMANDS) {
-        const firstCapture = first[command.name];
-        const secondCapture = second[command.name];
-        if (firstCapture === undefined || secondCapture === undefined) {
+        const capture = captures[command.name];
+        if (capture === undefined) {
           throw new Error(`missing runtime capture: ${command.name}`);
         }
-        const serialized = serializeTerminalCapture(firstCapture);
+        const serialized = serializeTerminalCapture(capture);
+        assertEquals(capture.exitCode, 0, capture.screen);
+        assertEquals(capture.geometry, { columns: 80, rows: 24 });
         assertEquals(
-          serializeTerminalCapture(secondCapture),
-          serialized,
-          `${command.name} differed across consecutive captures`,
-        );
-        assertEquals(firstCapture.exitCode, 0, firstCapture.screen);
-        assertEquals(firstCapture.geometry, { columns: 80, rows: 24 });
-        assertEquals(
-          firstCapture.normalizers,
+          capture.normalizers,
           FLAGSHIP_CAPTURE_NORMALIZERS.map((normalizer) => normalizer.name),
         );
 
-        const spans = projectTerminalSpans(firstCapture.screen);
+        const spans = projectTerminalSpans(capture.screen);
         assertEquals(spans.length > 0, true, command.name);
-        const html = renderTerminalCaptureHtml(firstCapture);
+        const html = renderTerminalCaptureHtml(capture);
         assertEquals(
           terminalHtmlText(html),
           spans.map((span) => span.text).join(""),

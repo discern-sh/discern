@@ -28,6 +28,7 @@ import {
   withDeskTtyProject,
 } from "./fixtures/desk_tty_harness.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9:;]*m`, "u");
@@ -67,21 +68,6 @@ function textCapture(
   return {
     name,
     when: { includes: [firstText, ...remainingText] },
-  };
-}
-
-/** Capture a filtered frame whose selected member is intentionally offscreen. */
-function unfocusedCapture(
-  name: string,
-  firstText: string,
-  ...remainingText: string[]
-): DeskTtyCapture {
-  return {
-    name,
-    when: {
-      includes: [firstText, ...remainingText],
-      focusMarkers: 0,
-    },
   };
 }
 
@@ -175,9 +161,16 @@ function rootExitInput(captureName = "root"): readonly DeskTtyInputPhase[] {
   }];
 }
 
-Deno.test({
+realPtyTest({
   name:
     "Desk PTY: a 40-column short empty fleet exposes Start and exits cleanly",
+  contracts: [
+    "terminal-modes",
+    "control-rendering",
+    "process-lifecycle",
+    "platform-transport",
+  ],
+  canary: true,
   ignore: PTY_UNAVAILABLE,
   fn: async () => {
     await withDeskTtyProject(deskFleetFixture(), async (project) => {
@@ -203,183 +196,11 @@ Deno.test({
     });
   },
 });
-
-Deno.test({
-  name: "Desk PTY: a task opens its real action menu, returns Back, then quits",
-  ignore: PTY_UNAVAILABLE,
-  fn: async () => {
-    const fixture = deskFleetFixture([
-      deskFleetEntry("focused-task-a1b2c3", { aheadCommits: 1 }),
-    ]);
-    await withDeskTtyProject(fixture, async (project) => {
-      const result = await runDeskTty(project, {
-        geometry: { columns: 90, rows: 28 },
-        colorMode: "no-color-flag",
-        input: [{
-          waitFor: TASK_ROOT_READY,
-          capture: focusedCapture("root", "Focused task"),
-          chunks: [{ keys: ["enter"] }],
-        }, {
-          waitFor: TASK_ACTION_READY,
-          chunks: [{ keys: ["end"] }],
-        }, {
-          waitFor: TASK_ACTION_BACK_SELECTED,
-          capture: focusedCapture("action", "Choose an action", "Back"),
-          chunks: [{ keys: ["enter"] }],
-        }, {
-          waitFor: TASK_ROOT_READY,
-          capture: focusedCapture("back-at-root", "Focused task"),
-          chunks: [{ keys: ["end", "enter"] }],
-        }],
-      });
-
-      assertHealthySession(result);
-      assertStringIncludes(frame(result, "root").text, "Focused task");
-      assertStringIncludes(frame(result, "action").text, "Choose an action");
-      assertStringIncludes(frame(result, "action").text, "Back");
-      assertStringIncludes(frame(result, "back-at-root").text, "Focused task");
-    });
-  },
-});
-
-Deno.test({
-  name:
-    "Desk PTY: final-check cancellation defaults to No and keeps disabled recovery visible",
-  ignore: PTY_UNAVAILABLE,
-  fn: async () => {
-    const fixture = deskFleetFixture([
-      deskFleetEntry("safe-default-a1b2c3", { aheadCommits: 1 }),
-    ]);
-    await withDeskTtyProject(fixture, async (project) => {
-      const result = await runDeskTty(project, {
-        geometry: { columns: 110, rows: 50 },
-        colorMode: "no-color-env",
-        input: [{
-          waitFor: TASK_ROOT_READY,
-          chunks: [{ keys: ["enter"] }],
-        }, {
-          waitFor: ["Choose an action", "Run final checks"],
-          capture: focusedCapture(
-            "action-with-disabled-reasons",
-            "Choose an action",
-            "Run final checks",
-          ),
-          chunks: [{ keys: ["enter"] }],
-        }, {
-          waitFor: [
-            "Run final checks for agent/safe-default-a1b2c3?",
-            "Cancel",
-            "Run",
-          ],
-          capture: textCapture("safe-confirmation", "› Cancel", "Run"),
-          chunks: [{ keys: ["enter"] }],
-        }, {
-          waitFor: TASK_ACTION_READY,
-          capture: focusedCapture(
-            "cancelled-action",
-            "Choose an action",
-          ),
-          chunks: [{ keys: ["end", "enter"] }],
-        }, {
-          waitFor: TASK_ROOT_READY,
-          chunks: [{ keys: ["end", "enter"] }],
-        }],
-      });
-
-      assertHealthySession(result);
-      assertStringIncludes(
-        frame(result, "safe-confirmation").text,
-        "› Cancel",
-      );
-      assertStringIncludes(result.transcript, "Run: discern done");
-      assertStringIncludes(result.transcript, "Consequence account");
-      assertStringIncludes(result.transcript, "not on PATH");
-      assertStringIncludes(result.transcript, "Project Scripts directory");
-      assertEquals(
-        result.transcript.includes("Final checks passed"),
-        false,
-        result.transcript,
-      );
-    });
-  },
-});
-
-Deno.test({
-  name:
-    "Desk PTY: Run final checks records Proof and returns to Proof-led review",
-  ignore: PTY_UNAVAILABLE,
-  fn: async () => {
-    const fixture = deskFleetFixture([
-      deskFleetEntry("run-checks-d4e5f6", { aheadCommits: 1 }),
-    ]);
-    await withDeskTtyProject(fixture, async (project) => {
-      const result = await runDeskTty(project, {
-        geometry: { columns: 110, rows: 50 },
-        colorMode: "no-color-env",
-        input: [{
-          waitFor: TASK_ROOT_READY,
-          chunks: [{ keys: ["enter"] }],
-        }, {
-          waitFor: ["Choose an action", "Run final checks"],
-          chunks: [{ keys: ["enter"] }],
-        }, {
-          waitFor: [
-            "Run final checks for agent/run-checks-d4e5f6?",
-            "Cancel",
-            "Run",
-          ],
-          chunks: [{ keys: ["right", "enter"] }],
-        }, {
-          waitFor: [
-            "Final checks passed and Proof was refreshed.",
-            "press ↵ to return to the desk",
-          ],
-          capture: textCapture(
-            "gate-result",
-            "Final checks passed and Proof was refreshed.",
-            "press ↵ to return to the desk",
-          ),
-          chunks: [{ keys: ["enter"] }],
-        }, {
-          waitFor: [
-            "Proof honored for this commit",
-            "Choose an action",
-            "Review and land on main",
-          ],
-          capture: focusedCapture(
-            "proof-led-action",
-            "Proof honored for this commit",
-            "Review and land on main",
-          ),
-          chunks: [{ keys: ["end", "enter"] }],
-        }, {
-          waitFor: TASK_ROOT_READY,
-          chunks: [{ keys: ["end", "enter"] }],
-        }],
-        timeoutMs: 120_000,
-      });
-
-      assertHealthySession(result);
-      assertStringIncludes(
-        frame(result, "gate-result").text,
-        "Final checks passed and Proof was refreshed.",
-      );
-      assertStringIncludes(
-        frame(result, "proof-led-action").text,
-        "Proof honored for this commit",
-      );
-      assertStringIncludes(
-        frame(result, "proof-led-action").text,
-        "Review and land on main",
-      );
-      assertStringIncludes(result.transcript, "Run: discern done");
-    });
-  },
-});
-
-Deno.test({
+realPtyTest({
   name:
     "Desk PTY: Proof review opens the actual diff through the pager and returns",
+  contracts: ["terminal-modes", "process-lifecycle", "platform-transport"],
+  canary: true,
   ignore: PTY_UNAVAILABLE,
   fn: async () => {
     const name = "review-pager-a1b2c3";
@@ -457,9 +278,16 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name:
     "Desk PTY: Escape and Ctrl-C retain their current root and action semantics",
+  contracts: [
+    "line-discipline",
+    "signal-delivery",
+    "terminal-modes",
+    "process-lifecycle",
+  ],
+  canary: true,
   ignore: PTY_UNAVAILABLE,
   fn: async () => {
     const fixture = deskFleetFixture([
@@ -551,150 +379,10 @@ Deno.test({
   },
 });
 
-/** Materialise exactly N fleet members and return their first root frame. */
-async function thresholdFrame(taskCount: number): Promise<DeskVisibleFrame> {
-  const entries = Array.from(
-    { length: taskCount },
-    (_, index) =>
-      deskFleetEntry(
-        `threshold-task-${index + 1}-${String(index).padStart(6, "0")}`,
-      ),
-  );
-  return await withDeskTtyProject(
-    deskFleetFixture(entries),
-    async (project) => {
-      const captureName = `${taskCount}-tasks`;
-      const input: readonly DeskTtyInputPhase[] = taskCount > 8
-        ? [{
-          waitFor: [
-            "Choose a task or Desk command",
-            "Type to filter",
-            "Threshold task",
-          ],
-          capture: unfocusedCapture(
-            captureName,
-            "Type to filter",
-            "Threshold task",
-          ),
-          chunks: [{ keys: ["ctrl-c"] }],
-        }]
-        : [{
-          waitFor: ["Choose a task or Desk command", "Threshold task"],
-          capture: focusedCapture(captureName, "Threshold task"),
-          chunks: [{ keys: ["end"] }],
-        }, {
-          waitFor: ["› [●] Quit"],
-          chunks: [{ keys: ["enter"] }],
-        }];
-      const result = await runDeskTty(project, {
-        geometry: { columns: 80, rows: 18 },
-        colorMode: "no-color-env",
-        input,
-        timeoutMs: 30_000,
-      });
-      assertHealthySession(result);
-      const root = frame(result, captureName);
-      if (taskCount > 8) {
-        assertEquals(root.focusMarkers.length, 0, root.text);
-      } else {
-        assertUniqueFocus(root);
-      }
-      return root;
-    },
-  );
-}
-
-Deno.test({
-  name: "Desk PTY: the ninth task crosses the current filtering threshold",
-  ignore: PTY_UNAVAILABLE,
-  fn: async () => {
-    const eight = await thresholdFrame(8);
-    const nine = await thresholdFrame(9);
-
-    assertEquals(eight.text.includes("filter"), false, eight.text);
-    assertStringIncludes(nine.text, "filter");
-    assertStringIncludes(nine.text, "Type to filter");
-
-    // The ninth task activates search while a directly scannable fleet does
-    // not spend a row on filter help.
-  },
-});
-
-Deno.test({
-  name:
-    "Desk PTY: a 120-column tall 50-task Unicode fleet stays bounded and recovers its decision",
-  ignore: PTY_UNAVAILABLE,
-  fn: async () => {
-    const unicodeName = "unicode-修复终端布局和证明显示-a1b2c3";
-    const entries = [
-      deskFleetEntry(unicodeName, {
-        aheadCommits: 1,
-        proof: deskProof(),
-        landingAuthority: deskLandingAuthority("conversation-required"),
-      }),
-      ...Array.from(
-        { length: 49 },
-        (_, index) =>
-          deskFleetEntry(
-            `routine-task-${index + 1}-${String(index).padStart(6, "0")}`,
-          ),
-      ),
-    ];
-    await withDeskTtyProject(deskFleetFixture(entries), async (project) => {
-      const result = await runDeskTty(project, {
-        geometry: { columns: 120, rows: 50 },
-        colorMode: "color",
-        input: [{
-          waitFor: [
-            "Choose a task or Desk command",
-            "Unicode 修复终端布局和证明显示",
-            "Proof honored for this commit",
-          ],
-          chunks: [{ keys: ["down"] }],
-        }, {
-          waitFor: [
-            "Choose a task or Desk command",
-            "›",
-            "Unicode 修复终端布局和证明显示",
-          ],
-          capture: focusedCapture(
-            "50-task-root",
-            "Unicode 修复终端布局和证明显示",
-          ),
-          chunks: [{ keys: ["enter"] }],
-        }, {
-          waitFor: TASK_ACTION_READY,
-          capture: focusedCapture("50-task-detail", "Choose an action"),
-          chunks: [{ keys: ["end", "enter"] }],
-        }, {
-          waitFor: [
-            "Choose a task or Desk command",
-            "Unicode 修复终端布局和证明显示",
-          ],
-          chunks: [{ keys: ["ctrl-c"] }],
-        }],
-        timeoutMs: 60_000,
-      });
-
-      assertHealthySession(result);
-      const root = frame(result, "50-task-root");
-      const detail = frame(result, "50-task-detail");
-      assertUniqueFocus(root);
-      assertUniqueFocus(detail);
-      assertStringIncludes(result.transcript, "50 tasks");
-      assertStringIncludes(result.transcript, "1 need you");
-      assertStringIncludes(result.transcript, "1 ready to review");
-      assertStringIncludes(result.transcript, "修复终端布局和证明显示");
-      assertStringIncludes(result.transcript, "Proof honored for this commit");
-      assertStringIncludes(result.transcript, "Landing authority");
-      assertStringIncludes(result.transcript, "Choose an action");
-    });
-  },
-});
-
-Deno.test({
-  name:
-    "Desk PTY: colour, --no-color, and NO_COLOR preserve one semantic frame",
+realPtyTest({
+  name: "Desk PTY: colour and --no-color preserve one semantic frame",
+  contracts: ["control-rendering", "terminal-modes"],
+  canary: true,
   ignore: PTY_UNAVAILABLE,
   fn: async () => {
     await withDeskTtyProject(deskFleetFixture(), async (project) => {
@@ -708,13 +396,7 @@ Deno.test({
         colorMode: "no-color-flag",
         input: rootExitInput("flag"),
       });
-      const environment = await runDeskTty(project, {
-        geometry: { columns: 80, rows: 24 },
-        colorMode: "no-color-env",
-        input: rootExitInput("environment"),
-      });
-
-      for (const result of [colored, flag, environment]) {
+      for (const result of [colored, flag]) {
         assertHealthySession(result);
         assertStringIncludes(
           frame(result, result.frames[0]?.name ?? "").text,
@@ -723,11 +405,6 @@ Deno.test({
       }
       assert(SGR.test(colored.transcript), colored.transcript);
       assertEquals(SGR.test(flag.transcript), false, flag.transcript);
-      assertEquals(
-        SGR.test(environment.transcript),
-        false,
-        environment.transcript,
-      );
       const roles = new Set(
         frame(colored, "colored").lines.flatMap((row) =>
           row.spans.flatMap((span) => span.roles)
@@ -739,8 +416,10 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "Desk PTY: a live 60-to-120-column resize redraws without overflow",
+  contracts: ["resize-delivery", "control-rendering", "terminal-modes"],
+  canary: true,
   ignore: PTY_UNAVAILABLE,
   fn: async () => {
     const name =

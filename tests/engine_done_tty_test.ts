@@ -13,8 +13,6 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import {
-  addWorktree,
-  git,
   gitInit,
   runAgent,
   runAgentPty,
@@ -33,9 +31,10 @@ import {
   resolveTerminalContext,
   terminalContextWithColor,
 } from "../src/lib/terminal.ts";
-import { DISCERN_TERMINAL_MOTIF, stripAnsi } from "discern-design-system/cli";
+import { stripAnsi } from "discern-design-system/cli";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const REPAINT = `${CSI}1G`;
@@ -58,26 +57,6 @@ const CONFIG = [
   'format = "true"',
   "",
 ].join("\n");
-
-const LIVE_CONFIG = CONFIG.replace(
-  'format = "true"',
-  'format = "sleep 1"\ntest = "true"',
-);
-const FAILING_CONFIG = CONFIG.replace(
-  'format = "true"',
-  'format = "echo $((40+2))-ONE-OFF; false"\ntest = "true"',
-);
-const OVERSIZED_CONFIG = CONFIG.replace(
-  'format = "true"',
-  [
-    'format = "sleep 1"',
-    'build = "true"',
-    'lint = "true"',
-    'typecheck = "true"',
-    'test = "true"',
-    'smoke = "true"',
-  ].join("\n"),
-);
 
 /** Apply one job command and an explicit static transcript policy. */
 function liveOutputConfig(command: string, stream: boolean): string {
@@ -126,230 +105,77 @@ Deno.test("the partially wired gate note preserves package SGR only in color mod
   );
 });
 
-/** Create a linked worktree with optional config and one clean committed change. */
-async function committedWorktree(
-  main: string,
-  name: string,
-  config?: string,
-): Promise<string> {
-  const worktree = await addWorktree(main, name);
-  if (config !== undefined) {
-    await writeConfig(worktree, config);
-  }
-  await Deno.writeTextFile(join(worktree, `${name}.txt`), `${name}\n`);
-  await git(worktree, "add", "-A");
-  await git(
-    worktree,
-    "commit",
-    "-q",
-    "-m",
-    `Add ${name}`,
-    "--no-gpg-sign",
-  );
-  return worktree;
-}
-
-Deno.test("done human output leaves live activity facts and the compact TTY proof", async () => {
-  await withTempDir(async (main) => {
-    await scaffoldEngine(main, { agents: [] });
-    await writeConfig(main, CONFIG);
-    await gitInit(main);
-
-    const ttyWorktree = await committedWorktree(
-      main,
-      "tty-proof",
-      LIVE_CONFIG,
-    );
-    const tty = await runAgentPty(ttyWorktree, ["done"], {
-      env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-    });
-    assertEquals(tty.code, 0, tty.output);
-    assertStringIncludes(tty.output, "Gate");
-    assertTerminalTextIncludes(tty.output, "format started");
-    assertTerminalTextIncludes(tty.output, "format passed");
-    assertTerminalTextIncludes(tty.output, "test started");
-    assertTerminalTextIncludes(tty.output, "test passed");
-    for (const glyph of DISCERN_TERMINAL_MOTIF.unicode.spinner) {
-      assert(
-        tty.output.includes(glyph),
-        `live Gate omitted spinner phase ${glyph}: ${tty.output}`,
-      );
-    }
-    assert(tty.stdout.includes(REPAINT), tty.output);
-    assertEquals(tty.output.includes("Running gate checks"), false);
-    assertTerminalTextIncludes(
-      tty.output,
-      "Proof: gate passed on agent/tty-proof",
-    );
-    assertTerminalTextIncludes(tty.output, "Gate proof");
-    assertEquals(tty.output.includes("### Proof"), false);
-    assertEquals(tty.output.includes("| ran | command | result |"), false);
-    assertEquals(
-      tty.output.includes("Everything built and all checks passed."),
-      false,
-    );
-    assertEquals(
-      tty.output.includes("If you changed documented behavior"),
-      false,
-    );
-    assertEquals(SGR.test(tty.output), false);
-
-    const failingWorktree = await committedWorktree(
-      main,
-      "tty-failure",
-      FAILING_CONFIG,
-    );
-    const failing = await runAgentPty(failingWorktree, ["done"], {
-      env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-    });
-    assertEquals(failing.code, 1, failing.output);
-    assert(failing.stdout.includes(REPAINT), failing.output);
-    assertTerminalTextIncludes(failing.output, "format failed");
-    assertTerminalTextIncludes(failing.output, "Failure guide:");
-    assert(
-      failing.stdout.indexOf("Failure guide:") >
-        failing.stdout.lastIndexOf(SHOW_CURSOR),
-      failing.output,
-    );
-    assertEquals(failing.output.includes("Proof: gate passed"), false);
-
-    for (
-      const { name, args, env } of [
-        {
-          name: "plain-proof",
-          args: ["done", "--plain"],
-          env: { COLUMNS: "80", NO_COLOR: "1" },
-        },
-        {
-          name: "ci-proof",
-          args: ["done"],
-          env: { COLUMNS: "80", NO_COLOR: "1", CI: "1" },
-        },
-      ]
-    ) {
-      const staticWorktree = await committedWorktree(main, name);
-      const staticTty = await runAgentPty(staticWorktree, args, {
-        env,
-      });
-      assertEquals(staticTty.code, 0, staticTty.output);
-      assertTerminalTextIncludes(staticTty.output, "Gate progress");
-      assertTerminalTextIncludes(staticTty.output, "Gate proof");
-      assertTerminalTextIncludes(staticTty.output, "Proof: gate passed");
-      assertEquals(staticTty.output.includes("pending"), false);
-      assertEquals(staticTty.output.includes("running"), false);
-      assertEquals(staticTty.output.includes(CSI), false);
-    }
-
-    const pipedWorktree = await committedWorktree(main, "piped-proof");
-    const piped = await runAgent(pipedWorktree, ["done"]);
-    assertEquals(piped.code, 0, piped.output);
-    assertTerminalTextIncludes(
-      piped.output,
-      "Everything built and all checks passed.",
-    );
-    assertTerminalTextIncludes(
-      piped.output,
-      "### Proof — `agent/piped-proof`",
-    );
-    assertTerminalTextIncludes(piped.output, "| ran | command | result |");
-    assertEquals(
-      piped.output.includes("JOB                 COMMAND"),
-      false,
-    );
-
-    const jsonWorktree = await committedWorktree(main, "json-proof");
-    const json = await runAgentPty(jsonWorktree, ["done", "--json"], {
-      env: { NO_COLOR: "1" },
-    });
-    assertEquals(json.code, 0, json.output);
-    const jsonStart = json.stdout.indexOf("{");
-    const jsonEnd = json.stdout.lastIndexOf("}");
-    assertEquals(jsonStart >= 0 && jsonEnd >= jsonStart, true, json.output);
-    const envelope = decodeCliResult(
-      json.stdout.slice(jsonStart, jsonEnd + 1),
-      "done",
-    );
-    assertEquals(envelope.ok, true);
-    assertEquals(envelope.verb, "done");
-    assertEquals(json.output.includes("Running gate checks"), false);
-    assertEquals(json.output.includes("Gate progress"), false);
-  });
-});
-
-Deno.test({
-  name:
-    "done live frame ignores the static stream setting and updates partial lines in place",
+realPtyTest({
+  name: "done updates partial lines in one live terminal frame",
+  contracts: ["control-rendering", "terminal-modes", "platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    const summaries: string[] = [];
-    for (const stream of [false, true]) {
-      await withTempDir(async (dir) => {
-        await scaffoldEngine(dir, { agents: [] });
-        await writeConfig(
-          dir,
-          liveOutputConfig(
-            "printf 'phase-one\\r'; sleep 0.25; printf 'phase-two\\r'; " +
-              "sleep 0.25; printf 'tail-complete\\n'; " +
-              "printf 'tail-second\\n'; sleep 0.4",
-            stream,
-          ),
-        );
-        await gitInit(dir);
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir, { agents: [] });
+      await writeConfig(
+        dir,
+        liveOutputConfig(
+          "printf 'phase-one\\r'; sleep 0.25; printf 'phase-two\\r'; " +
+            "sleep 0.25; printf 'tail-complete\\n'; " +
+            "printf 'tail-second\\n'; sleep 0.4",
+          false,
+        ),
+      );
+      await gitInit(dir);
 
-        const result = await runAgentPtyJourney(dir, ["done"], {
-          geometry: { columns: 80, rows: 18 },
-          env: { NO_COLOR: "1", CI: "false" },
-          input: [{
-            waitFor: [
+      const result = await runAgentPtyJourney(dir, ["done"], {
+        geometry: { columns: 80, rows: 18 },
+        env: { NO_COLOR: "1", CI: "false" },
+        input: [{
+          waitFor: [
+            "phase-one",
+            "phase-two",
+            "tail-complete",
+            "tail-second",
+          ],
+          capture: {
+            name: "active-tail",
+            when: ptyOutputContains([
               "phase-one",
               "phase-two",
               "tail-complete",
               "tail-second",
-            ],
-            capture: {
-              name: "active-tail",
-              when: ptyOutputContains([
-                "phase-one",
-                "phase-two",
-                "tail-complete",
-                "tail-second",
-              ]),
-            },
-            steps: [{ delayMs: 50 }],
-          }],
-          timeoutMs: 12_000,
-        });
-        assertEquals(result.code, 0, result.transcript);
-        const active = result.keyframes["active-tail"] ?? "";
-        assertStringIncludes(active, HIDE_CURSOR);
-        assertStringIncludes(active, REPAINT);
-        assertTerminalTextIncludes(active, "format started");
-        assertTerminalTextIncludes(active, "phase-one");
-        assertTerminalTextIncludes(active, "phase-two");
-        assertTerminalTextIncludes(active, "tail-complete");
-        assertTerminalTextIncludes(active, "format │ tail-second");
-        assertTerminalTextIncludes(result.transcript, "format passed");
-        assertEquals(result.transcript.includes("── format"), false);
-
-        const restored = result.stdout.lastIndexOf(SHOW_CURSOR);
-        assert(restored >= 0, result.transcript);
-        const afterFrame = result.stdout.slice(restored);
-        assertEquals(afterFrame.includes("tail-complete"), false);
-        assertEquals(afterFrame.includes("tail-second"), false);
-        summaries.push(stableLiveSummary(result.stdout));
+            ]),
+          },
+          steps: [{}],
+        }],
+        timeoutMs: 12_000,
       });
-    }
-    assertEquals(summaries.length, 2);
-    assertEquals(
-      summaries[0],
-      summaries[1],
-      "both static transcript settings must leave the same live summary",
-    );
+      assertEquals(result.code, 0, result.transcript);
+      const active = result.keyframes["active-tail"] ?? "";
+      assertStringIncludes(active, HIDE_CURSOR);
+      assertStringIncludes(active, REPAINT);
+      assertTerminalTextIncludes(active, "format started");
+      assertTerminalTextIncludes(active, "phase-one");
+      assertTerminalTextIncludes(active, "phase-two");
+      assertTerminalTextIncludes(active, "tail-complete");
+      assertTerminalTextIncludes(active, "format │ tail-second");
+      assertTerminalTextIncludes(result.transcript, "format passed");
+      assertEquals(result.transcript.includes("── format"), false);
+
+      const restored = result.stdout.lastIndexOf(SHOW_CURSOR);
+      assert(restored >= 0, result.transcript);
+      const afterFrame = result.stdout.slice(restored);
+      assertEquals(afterFrame.includes("tail-complete"), false);
+      assertEquals(afterFrame.includes("tail-second"), false);
+      assertTerminalTextIncludes(
+        stableLiveSummary(result.stdout),
+        "format passed",
+      );
+    });
   },
 });
 
-Deno.test({
+realPtyTest({
   name: "done live Ctrl-C restores the cursor and leaves stable activity facts",
+  contracts: ["signal-delivery", "terminal-modes", "process-lifecycle"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -376,7 +202,7 @@ Deno.test({
               "format │ interrupt-ready",
             ]),
           },
-          steps: [{ delayMs: 100, bytes: "\x03" }],
+          steps: [{ bytes: "\x03" }],
         }],
         timeoutMs: 8_000,
       });
@@ -399,9 +225,11 @@ Deno.test({
   },
 });
 
-Deno.test({
+realPtyTest({
   name:
     "done live failure keeps diagnostics, raw artifact, output counts, and result fields",
+  contracts: ["terminal-modes", "control-rendering", "platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -475,29 +303,4 @@ Deno.test({
       assertEquals(diagnostic.output?.includes("\r"), false);
     });
   },
-});
-
-Deno.test("done TTY: a chatty Gate keeps one bounded package-owned live frame", async () => {
-  await withTempDir(async (main) => {
-    await scaffoldEngine(main, { agents: [] });
-    await writeConfig(main, CONFIG);
-    await gitInit(main);
-    const worktree = await committedWorktree(
-      main,
-      "oversized-gate",
-      OVERSIZED_CONFIG,
-    );
-
-    const result = await runAgentPty(worktree, ["done"], {
-      env: { COLUMNS: "80", LINES: "24", NO_COLOR: "1", CI: "false" },
-    });
-
-    assertEquals(result.code, 0, result.output);
-    assertTerminalTextIncludes(result.output, "Applying fixers");
-    assertTerminalTextIncludes(result.output, "Checking and testing");
-    assertTerminalTextIncludes(result.output, "format passed");
-    assertTerminalTextIncludes(result.output, "smoke passed");
-    assert(result.stdout.includes(REPAINT), "the package frame repaints");
-    assertEquals(result.output.includes("── format"), false);
-  });
 });

@@ -10,6 +10,7 @@ import {
   terminalCaptureCompileArguments,
   type TerminalCommandCapture,
 } from "./fixtures/terminal_command_capture.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -33,8 +34,10 @@ Deno.test("terminal capture compilation bypasses the mutable npm workspace", () 
   assertEquals(args.at(-1), "/project/src/main.ts");
 });
 
-Deno.test({
+realPtyTest({
   name: "command capture forces its geometry and terminal environment",
+  contracts: ["resize-delivery", "control-rendering", "platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const capture = await captureDiscernCommand({

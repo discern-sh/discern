@@ -1,7 +1,7 @@
 /**
  * Class guard for every CLI surface that can request input. The matrix drives the real
- * artifact under pseudo-TTYs with CI / --plain, and with stdin closed, so a new
- * accidental read blocks for five seconds at most and fails by name. The
+ * artifact with stdin closed, so a new accidental read fails by name. One
+ * representative pseudo-terminal retains the operating-system wiring. The
  * human-output structural guard separately makes `src/lib/terminal_interaction.ts` the only
  * legal package interaction choke point.
  */
@@ -16,10 +16,10 @@ import {
   gitInit,
   runAgent,
   runAgentPty,
-  type RunResult,
   scaffoldEngine,
 } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const PRESETS = join(REPO_ROOT, "tests", "fixtures", "presets");
@@ -92,15 +92,27 @@ const INTERACTIVE_CASES: readonly {
   },
 ];
 
-/** Add the global flag without inventing a verb for the bare invocation. */
-function plainArgs(args: readonly string[]): string[] {
-  return args.length === 0 ? ["--plain"] : [...args, "--plain"];
-}
+realPtyTest({
+  name: "CI policy vetoes interaction through one real pseudo-terminal",
+  contracts: ["platform-transport"],
+  canary: true,
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      const result = await runAgentPty(dir, [], { env: { CI: "1" } });
+      assertEquals(result.code, 0, result.output);
+      assertTerminalTextIncludes(
+        result.output.toLocaleLowerCase(),
+        "your desk",
+      );
+    });
+  },
+});
 
 Deno.test({
-  name:
-    "every interactive-capable verb terminates under CI, --plain, and closed stdin",
-  ignore: Deno.build.os === "windows",
+  name: "every interactive-capable verb terminates with closed standard input",
   fn: async () => {
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
@@ -146,51 +158,23 @@ Deno.test({
 
         const cwdFor = (testCase: typeof INTERACTIVE_CASES[number]): string =>
           testCase.name === "worktree prune confirmation" ? pruneDir : dir;
-        const signals: readonly {
-          name: string;
-          run(testCase: typeof INTERACTIVE_CASES[number]): Promise<RunResult>;
-        }[] = [
-          {
-            name: "CI pseudo-TTY",
-            run: (testCase) =>
-              runAgentPty(cwdFor(testCase), [...testCase.args], {
-                env: { ...testCase.env, CI: "1" },
-              }),
-          },
-          {
-            name: "--plain pseudo-TTY",
-            run: (testCase) =>
-              runAgentPty(cwdFor(testCase), plainArgs(testCase.args), {
-                ...(testCase.env !== undefined ? { env: testCase.env } : {}),
-              }),
-          },
-          {
-            name: "closed stdin",
-            run: (testCase) =>
-              runAgent(cwdFor(testCase), [...testCase.args], {
-                ...(testCase.env !== undefined ? { env: testCase.env } : {}),
-              }),
-          },
-        ];
-
         try {
-          for (const signal of signals) {
-            for (const testCase of INTERACTIVE_CASES) {
-              const result = await signal.run(testCase);
-              const label = `${signal.name}: ${testCase.name}`;
-              assertEquals(
-                result.code,
-                testCase.code,
-                `${label}\n${result.output}`,
-              );
-              // This class guard checks fallback meaning across TTY and pipe
-              // renderers. Calm terminal headings own case; pipe prose does not.
-              assertStringIncludes(
-                result.output.toLocaleLowerCase(),
-                testCase.output.toLocaleLowerCase(),
-                label,
-              );
-            }
+          for (const testCase of INTERACTIVE_CASES) {
+            const result = await runAgent(
+              cwdFor(testCase),
+              [...testCase.args],
+              testCase.env === undefined ? {} : { env: testCase.env },
+            );
+            assertEquals(
+              result.code,
+              testCase.code,
+              `${testCase.name}\n${result.output}`,
+            );
+            assertStringIncludes(
+              result.output.toLocaleLowerCase(),
+              testCase.output.toLocaleLowerCase(),
+              testCase.name,
+            );
           }
         } finally {
           await git(

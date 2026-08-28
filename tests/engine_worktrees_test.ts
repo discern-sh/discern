@@ -29,6 +29,7 @@ import {
   scaffoldEngine,
   writeExecutable,
 } from "./engine_helpers.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const NOW = Date.parse("2026-08-23T12:00:00Z");
 
@@ -296,9 +297,11 @@ Deno.test("worktrees reports a missing equivalent directory before opening its n
   );
 });
 
-Deno.test({
+realPtyTest({
   name:
     "discern worktrees opens a real child shell at the cwd-equivalent directory",
+  contracts: ["platform-transport"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {

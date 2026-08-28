@@ -22,6 +22,7 @@ import {
 } from "../art/terminal/triangle.ts";
 import { DISCERN_ART_VARIANTS } from "../art/terminal/brand.ts";
 import { runPtyProcess } from "./fixtures/pty_process.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 const DECODER = new TextDecoder();
@@ -201,8 +202,10 @@ Deno.test("deno task art prints the complete plain-text gallery", async () => {
   );
 });
 
-Deno.test({
+realPtyTest({
   name: "deno task art renders its Unicode gallery without permission prompts",
+  contracts: ["platform-transport"],
+  canary: false,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     const result = await runPtyProcess({

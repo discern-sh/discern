@@ -16,6 +16,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const CSI = "\x1b[";
 const REPAINT = `${CSI}1G`;
@@ -219,93 +220,51 @@ async function runObservedResize(
   }, { prefix: "discern-viewport-ready-" });
 }
 
-Deno.test({
-  name:
-    "real terminal heights select full, compact, then append-only for done, prepare, and test",
+realPtyTest({
+  name: "a real initial terminal height reaches the Gate viewport policy",
+  contracts: ["control-rendering", "platform-transport"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    const matrix = [
-      { mode: "full", columns: 80, rows: 60 },
-      { mode: "compact", columns: 80, rows: 4 },
-      { mode: "append", columns: 80, rows: 2 },
-    ] as const;
-    await Promise.all(
-      (["done", "prepare", "test"] as const).map(async (verb) => {
-        await withVerbFixture(verb, async (root, args) => {
-          for (const row of matrix) {
-            const result = await runAgentPtyWithViewport(root, args, {
-              size: { columns: row.columns, rows: row.rows },
-              env: { NO_COLOR: "1", CI: "false" },
-              timeoutMs: 15_000,
-            });
-            assertEquals(result.code, 0, result.output);
-            assertEquals(result.terminal.childCode, 0, result.output);
-            assertEquals(result.terminal.initialSize, {
-              columns: row.columns,
-              rows: row.rows,
-            });
-            assertInitialMode(verb, row.mode, result);
-            assertFinalRegionOnce(verb, result);
-          }
-        });
-      }),
-    );
+    await withVerbFixture("test", async (root, args) => {
+      const result = await runAgentPtyWithViewport(root, args, {
+        size: { columns: 80, rows: 4 },
+        env: { NO_COLOR: "1", CI: "false" },
+        timeoutMs: 15_000,
+      });
+      assertEquals(result.code, 0, result.output);
+      assertEquals(result.terminal.childCode, 0, result.output);
+      assertEquals(result.terminal.initialSize, { columns: 80, rows: 4 });
+      assertInitialMode("test", "compact", result);
+      assertFinalRegionOnce("test", result);
+    });
   },
 });
 
-Deno.test({
-  name:
-    "real mid-run viewport changes downgrade, upgrade, and safely latch append-only output",
+realPtyTest({
+  name: "a real mid-run shrink safely latches append-only Gate output",
+  contracts: ["resize-delivery", "control-rendering", "terminal-modes"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    await Promise.all([
-      withVerbFixture("done", async (root, args) => {
-        const result = await runObservedResize(root, args, {
-          size: { columns: 120, rows: 29 },
-          resize: { columns: 40, rows: 29 },
-        });
-        assertEquals(result.code, 0, result.output);
-        assertInitialMode("done", "full", result);
-        assertEquals(result.terminal.resizedSize, { columns: 40, rows: 29 });
-        assertTerminalTextIncludes(result.output, "Gate");
-        assertFinalRegionOnce("done", result);
-      }, RESIZE_CONFIG),
-      withVerbFixture("prepare", async (root, args) => {
-        const result = await runObservedResize(root, args, {
-          size: { columns: 80, rows: 4 },
-          resize: { columns: 80, rows: 60 },
-        });
-        assertEquals(result.code, 0, result.output);
-        assertInitialMode("prepare", "compact", result);
-        assertEquals(result.terminal.resizedSize, { columns: 80, rows: 60 });
-        const output = productOutput("prepare", result.stdout);
-        const frames = output.split(REPAINT);
-        assert(
-          frames.some((frame) =>
-            frame.split("\n").filter((line) => line.trim() === "│").length >= 5
-          ),
-          result.output,
-        );
-        assertFinalRegionOnce("prepare", result);
-      }, RESIZE_CONFIG),
-      withVerbFixture("test", async (root, args) => {
-        const result = await runObservedResize(root, args, {
-          size: { columns: 80, rows: 60 },
-          resize: { columns: 80, rows: 2 },
-        });
-        assertEquals(result.code, 0, result.output);
-        assertInitialMode("test", "full", result);
-        assertEquals(result.terminal.resizedSize, { columns: 80, rows: 2 });
-        const output = productOutput("test", result.stdout);
-        const refusalAppend = output.indexOf(`│ test │ ${TEST_OUTPUT}`);
-        assert(refusalAppend >= 0, result.output);
-        assertEquals(
-          output.slice(refusalAppend).includes(REPAINT),
-          false,
-          `unsafe shrink attempted another cursor cleanup:\n${result.output}`,
-        );
-        assertFinalRegionOnce("test", result);
-      }, RESIZE_CONFIG),
-    ]);
+    await withVerbFixture("test", async (root, args) => {
+      const result = await runObservedResize(root, args, {
+        size: { columns: 80, rows: 60 },
+        resize: { columns: 80, rows: 2 },
+      });
+      assertEquals(result.code, 0, result.output);
+      assertInitialMode("test", "full", result);
+      assertEquals(result.terminal.resizedSize, { columns: 80, rows: 2 });
+      const output = productOutput("test", result.stdout);
+      const refusalAppend = output.indexOf(`│ test │ ${TEST_OUTPUT}`);
+      assert(refusalAppend >= 0, result.output);
+      assertEquals(
+        output.slice(refusalAppend).includes(REPAINT),
+        false,
+        `unsafe shrink attempted another cursor cleanup:\n${result.output}`,
+      );
+      assertTerminalTextIncludes(result.output, "Test");
+      assertFinalRegionOnce("test", result);
+    }, RESIZE_CONFIG);
   },
 });

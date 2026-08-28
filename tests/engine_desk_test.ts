@@ -18,6 +18,7 @@ import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, runAgentPty, scaffoldEngine } from "./engine_helpers.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const DESK_SESSION = { [DESK_SESSION_ENV]: "1" };
 
@@ -77,8 +78,10 @@ Deno.test("desk without a TTY: refuses with a pointer at status", async () => {
   });
 });
 
-Deno.test({
+realPtyTest({
   name: "discern desk opens its production grouped interaction on a real PTY",
+  contracts: ["line-discipline", "terminal-modes", "control-rendering"],
+  canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {

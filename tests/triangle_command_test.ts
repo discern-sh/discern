@@ -24,6 +24,7 @@ import type { TerminalAnimationEnvironment } from "../src/lib/terminal_animation
 import { runAgentPty } from "./engine_helpers.ts";
 import { fromFileUrl } from "@std/path";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { realPtyTest } from "./real_pty.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
 const CSI = `${String.fromCharCode(27)}[`;
@@ -148,22 +149,27 @@ Deno.test("triangle Markdown preserves the exact gasket geometry", () => {
   );
 });
 
-Deno.test("triangle keeps Unicode in a Codex-style dumb UTF-8 terminal", async () => {
-  const result = await runAgentPty(ROOT, ["triangle"], {
-    env: {
-      TERM: "dumb",
-      NO_COLOR: "1",
-      LC_ALL: "C.UTF-8",
-      LANG: "C.UTF-8",
-    },
-  });
-  assertEquals(result.code, 0, result.output);
-  assertTerminalTextIncludes(result.output, `       ${DISCERN_MARK}`);
-  assertTerminalTextIncludes(
-    result.output,
-    `      ${DISCERN_MARK} ${DISCERN_TRIANGLE_GLYPHS.upLeft}`,
-  );
-  assertStringIncludes(result.output, DISCERN_WORDMARK);
-  assertEquals(result.output.includes("> ^"), false);
-  assertEquals(result.output.includes(CSI), false);
+realPtyTest({
+  name: "triangle keeps Unicode in a Codex-style dumb UTF-8 terminal",
+  contracts: ["platform-transport"],
+  canary: false,
+  fn: async () => {
+    const result = await runAgentPty(ROOT, ["triangle"], {
+      env: {
+        TERM: "dumb",
+        NO_COLOR: "1",
+        LC_ALL: "C.UTF-8",
+        LANG: "C.UTF-8",
+      },
+    });
+    assertEquals(result.code, 0, result.output);
+    assertTerminalTextIncludes(result.output, `       ${DISCERN_MARK}`);
+    assertTerminalTextIncludes(
+      result.output,
+      `      ${DISCERN_MARK} ${DISCERN_TRIANGLE_GLYPHS.upLeft}`,
+    );
+    assertStringIncludes(result.output, DISCERN_WORDMARK);
+    assertEquals(result.output.includes("> ^"), false);
+    assertEquals(result.output.includes(CSI), false);
+  },
 });
