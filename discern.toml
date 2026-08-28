@@ -918,6 +918,34 @@
       "discern.toml",
     ]
 
+  # File-complexity tail standard — pinned FTA analyzes the exact canonical
+  # authored-Deno universe and fails if it silently omits a supported source.
+  # The report keeps production, tooling, and tests separate and ranks score,
+  # cyclomatic complexity, lines, and full-history touches independently.
+  # Generated projections remain visible but spend no budget. Each reviewed
+  # non-generated file above score 100 or cyclo 200 has its own ceiling in the
+  # hotspot registry; new, regressed, and stale rows fail. Decompose a real
+  # responsibility, remove its row once both thresholds clear, then pin this
+  # Standard so the legacy tail can only shrink.
+  [standards.complexity_hotspots]
+    direction = "down"
+    limit = 18
+    run = "deno task complexity"
+    inputs = [
+      "*.ts",
+      "*.tsx",
+      "*.mts",
+      "*.cts",
+      "*.js",
+      "*.jsx",
+      "*.mjs",
+      "*.cjs",
+      "fta.json",
+      "deno.json",
+      "deno.lock",
+      "discern.toml",
+    ]
+
   # Deno-lint suppression standard — hold the raw count of both recognized
   # comment directives (`deno-lint-ignore` and `deno-lint-ignore-file`) at or
   # below a falling ceiling. The structural detector scans every authored

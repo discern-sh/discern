@@ -9,6 +9,7 @@ import {
   processExitBoundaryCount,
   processOutputBoundaryCount,
 } from "../src/shared/process_boundaries.ts";
+import { COMPLEXITY_HOTSPOT_BUDGETS } from "../scripts/complexity_hotspots.ts";
 
 Deno.test("mechanical census Standards are distinct falling ceilings", async () => {
   const standards = (await loadConfig(REPO_ROOT)).standards;
@@ -50,5 +51,12 @@ Deno.test("mechanical census Standards are distinct falling ceilings", async () 
     standards.process_exit_boundaries?.limit,
     processExitBoundaryCount(),
     "the exit ceiling starts at the exact registry population the guard validates",
+  );
+  assertEquals(standards.complexity_hotspots?.direction, "down");
+  assertEquals(standards.complexity_hotspots?.run, "deno task complexity");
+  assertEquals(
+    standards.complexity_hotspots?.limit,
+    COMPLEXITY_HOTSPOT_BUDGETS.length,
+    "the complexity ceiling starts at the exact reviewed hotspot registry population",
   );
 });

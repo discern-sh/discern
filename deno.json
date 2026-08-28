@@ -49,6 +49,7 @@
     "cast-census": "deno run --allow-read --allow-run=git scripts/cast_census.ts",
     "duplication-census": "deno run --allow-read --allow-run=git scripts/duplication_census.ts",
     "dead-exports": "deno run --allow-read --allow-run=git scripts/dead_exports.ts",
+    "complexity": "deno run --allow-read --allow-write --allow-env --allow-run=git,sh scripts/complexity.ts",
     "lint-suppressions": "deno run --allow-read --allow-run=git scripts/lint_suppressions.ts",
     "silent-error-boundaries": "deno run --allow-read --allow-run=git scripts/silent_error_boundaries.ts",
     "subprocess-spawn-boundaries": "deno run --allow-read --allow-run=git scripts/subprocess_spawn_boundaries.ts",
@@ -81,6 +82,7 @@
   "imports": {
     "/assets/scheduler.js": "./site/pages/assets/scheduler.js",
     "@dprint/formatter": "npm:@dprint/formatter@0.5.1",
+    "fta-cli": "npm:fta-cli@3.0.1",
     "@modelcontextprotocol/sdk/server/mcp.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/mcp.js",
     "@modelcontextprotocol/sdk/server/stdio.js": "npm:@modelcontextprotocol/sdk@^1.29.0/server/stdio.js",
     "process": "node:process",
@@ -88,6 +90,7 @@
     "os": "node:os",
     "fs": "node:fs",
     "fs/promises": "node:fs/promises",
+    "module": "node:module",
     "ts-morph": "jsr:@ts-morph/ts-morph@^28.0.0",
     "zlib": "node:zlib",
     "@zod/zod": "jsr:@zod/zod@^4.4.3",
