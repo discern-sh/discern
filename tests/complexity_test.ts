@@ -2,6 +2,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import { COMPLEXITY_HOTSPOT_BUDGETS } from "../scripts/complexity_hotspots.ts";
 import {
   complexityHotspotFindings,
@@ -12,6 +13,21 @@ import {
   rankComplexity,
 } from "../scripts/complexity_lib.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { decodeWith } from "./decode_cli_result.ts";
+
+const DenoFtaImportSchema = z.object({
+  imports: z.object({ "fta-cli": z.literal("npm:fta-cli@3.0.1") }),
+});
+const FtaConfigSchema = z.object({
+  exclude_under: z.literal(0),
+  include_comments: z.literal(false),
+  extensions: z.tuple([
+    z.literal(".mts"),
+    z.literal(".cts"),
+    z.literal(".mjs"),
+    z.literal(".cjs"),
+  ]),
+}).strict();
 
 Deno.test("FTA parsing and enrollment reject silent source omissions", () => {
   const metrics = parseFtaJson(JSON.stringify([
@@ -139,11 +155,13 @@ Deno.test("hotspot budgets become stale once a file leaves the extreme tail", ()
 });
 
 Deno.test("FTA configuration pins the qualified analyzer and exact extensions", async () => {
-  const denoConfig = JSON.parse(
+  const denoConfig = decodeWith(
+    DenoFtaImportSchema,
     await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
   );
   assertEquals(denoConfig.imports["fta-cli"], "npm:fta-cli@3.0.1");
-  const ftaConfig = JSON.parse(
+  const ftaConfig = decodeWith(
+    FtaConfigSchema,
     await Deno.readTextFile(join(REPO_ROOT, "fta.json")),
   );
   assertEquals(ftaConfig, {
