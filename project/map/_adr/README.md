@@ -341,6 +341,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0353 — Desk actions are registry facts reviewed before effects](0353-desk-actions-are-registry-facts-reviewed-before-effects.md)
 - [0354 — Standard proposals renew descendant evidence through target-scoped measurement](0354-standard-proposals-renew-descendant-evidence.md)
 - [0355 — Real PTY tests declare operating-system boundary contracts](0355-real-pty-tests-declare-os-boundary-contracts.md)
+- [0356 — Task metadata follows the worktree identity](0356-task-metadata-follows-the-worktree-identity.md)
 
 <!-- END GENERATED: current ADR records -->
 
