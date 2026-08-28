@@ -87,8 +87,8 @@ export const COMPLEXITY_HOTSPOT_BUDGETS = [
   },
   {
     file: "src/engine/gate/finish.ts",
-    maxScore: 117.09,
-    maxCyclo: 315,
+    maxScore: 113.42,
+    maxCyclo: 300,
     owner: "gate engine",
     reason:
       "Finish orchestration still owns several result and diagnostic responsibilities.",

@@ -57,18 +57,10 @@ import {
   UNCHANGED_TREE_RERUN_SLUG,
 } from "./proof.ts";
 import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
-import {
-  type AdrNumberDuplicate,
-  duplicateAdrNumbers,
-} from "../../lib/adr_numbers.ts";
-import {
-  checkDocsIntegrity,
-  DOCS_INTEGRITY_REMEDIES,
-  type DocsIntegrityFinding,
-  type DocsIntegrityRule,
-} from "../../lib/map_integrity.ts";
+import { duplicateAdrNumbers } from "../../lib/adr_numbers.ts";
+import { checkDocsIntegrity } from "../../lib/map_integrity.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
-import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
+import { adrIndexState } from "../../lib/adr_index.ts";
 import { buildGateProof } from "./proof_render.ts";
 import { renderSlotWait } from "./slot_wait_render.ts";
 import { renderDoneTtyProofPanel, renderDoneTtySummary } from "./done_tty.ts";
@@ -114,7 +106,16 @@ import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { renderGatePlan } from "./presentation.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
-import { diagnosticOutputFields } from "./diagnostic_output.ts";
+import {
+  adrIndexDiagnostic,
+  adrNumbersDiagnostic,
+  instructionDiagnostic,
+  mapIntegrityDiagnostic,
+  skillFrontmatterDiagnostic,
+  skillsDiagnostic,
+  trackedArtifactsDiagnostic,
+  trackedRefreshDiagnostic,
+} from "./preflight_diagnostics.ts";
 import { classifyScopeImpact } from "../scopes/scopes.ts";
 import {
   type CheckpointPreflight,
@@ -178,327 +179,15 @@ import {
   type LandingAuthorityResolution,
 } from "../worktree/landing_authority.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
-import {
-  checkInstructionCurrent,
-  type InstructionDriftEntry,
-} from "../instruction_render.ts";
-import {
-  checkSkillsCurrent,
-  checkSkillsWellformed,
-  type SkillsDriftEntry,
-  type SkillWellformedness,
-} from "../../lib/skills.ts";
-import {
-  gitLsFilesCommand,
-  type TrackedDiscernIgnoredArtifacts,
-  trackedDiscernIgnoredArtifacts,
-  trackedDiscernIgnoredArtifactsHint,
-} from "../../lib/agent_gitignore.ts";
+import { checkInstructionCurrent } from "../instruction_render.ts";
+import { checkSkillsCurrent, checkSkillsWellformed } from "../../lib/skills.ts";
+import { trackedDiscernIgnoredArtifacts } from "../../lib/agent_gitignore.ts";
 import {
   writePreflightDiagnostic,
   type WritePreflightFailure,
   writePreflightFailureMessage,
 } from "../../shared/write_preflight.ts";
-import {
-  planTrackedRefresh,
-  type TrackedRefreshPlan,
-} from "../tracked_refresh.ts";
-
-/**
- * A compact, plain-text summary of how a stale generated file differs from what
- * `discern refresh` would write — the non-blank lines present in the file but NOT
- * in the recompiled body (what a refresh would remove, a hand-edit included).
- * Bounded so it never floods the diagnostic.
- */
-function driftDiff(entry: InstructionDriftEntry): string {
-  const expected = new Set(entry.expected.split("\n"));
-  const added = (entry.actual ?? "").split("\n")
-    .filter((l) => l.trim() !== "" && !expected.has(l));
-  const shown = added.slice(0, 12).map((l) => `  + ${l}`);
-  if (added.length > shown.length) {
-    shown.push(`  … and ${added.length - shown.length} more line(s)`);
-  }
-  const head =
-    `${entry.path}: differs from what \`discern refresh\` would write.`;
-  return added.length > 0
-    ? `${head}\n  These lines are in the file but not the recompiled output (a refresh removes them):\n${
-      shown.join("\n")
-    }`
-    : `${head}\n  (the file is missing content a refresh would restore.)`;
-}
-
-/**
- * The Tier-0 {@link Diagnostic} for a stale agent file: the `discern
- * refresh` reproduce command, the redirect (edits belong in `[instructions].sources`,
- * not the generated file), and a capped diff of what a refresh would change — the
- * rescue, since the untracked file has no `git diff` to fall back on.
- */
-async function instructionDiagnostic(
-  root: string,
-  stale: InstructionDriftEntry[],
-): Promise<Diagnostic> {
-  const files = stale.map((d) => d.path).join(", ");
-  const outputFields = await diagnosticOutputFields(
-    root,
-    `Agent files are out of date: ${files}.\n` +
-      "Run `discern refresh` to regenerate them. If you meant to change the " +
-      "instructions, edit your [instructions].sources (e.g. instructions.md) instead — a direct " +
-      "edit to a generated file is overwritten on the next refresh.\n\n" +
-      stale.map(driftDiff).join("\n\n"),
-  );
-  return {
-    tool: "instructions",
-    severity: "error",
-    message: `agent file(s) out of date: ${files}`,
-    reproduce_cmd: "discern refresh",
-    ...outputFields,
-  };
-}
-
-/** The Tier-0 diagnostic for a non-empty read-only tracked-refresh plan. */
-async function trackedRefreshDiagnostic(
-  root: string,
-  plan: TrackedRefreshPlan,
-): Promise<Diagnostic> {
-  const paths = plan.changes.map((change) => change.path);
-  const details = plan.changes.map((change) => {
-    const effects = [
-      change.bytesChanged ? "bytes" : undefined,
-      change.modeChanged ? "mode" : undefined,
-    ].filter((effect): effect is string => effect !== undefined).join(" + ");
-    return `  - ${change.path} (${effects}; ${change.kinds.join(" + ")})`;
-  });
-  const failures = plan.errors.map((error) => `  - ${error}`);
-  const outputFields = await diagnosticOutputFields(
-    root,
-    "Tracked refresh artifacts are not converged. Running `discern refresh` " +
-      "would change the tree, so this commit cannot earn a gate proof.\n\n" +
-      (details.length > 0 ? `Planned changes:\n${details.join("\n")}\n` : "") +
-      (failures.length > 0
-        ? `\nPlanning errors:\n${failures.join("\n")}\n`
-        : "") +
-      "\nRun `discern refresh`, review and commit the named tracked files, then " +
-      "re-run `discern done`.",
-  );
-  return {
-    tool: "refresh",
-    severity: "error",
-    message: paths.length > 0
-      ? `tracked refresh artifacts out of date: ${paths.join(", ")}`
-      : "tracked refresh convergence could not be planned",
-    reproduce_cmd: "discern refresh",
-    ...outputFields,
-  };
-}
-
-/**
- * A diagnostic for stale MATERIALIZED skills: which dirs/skills drifted from the
- * effective set, and the `discern refresh` that re-materializes them. The skills
- * analog of {@link instructionDiagnostic} — same redirect (edit the source, not the
- * generated copy), so the two generated-artifact failures read identically.
- */
-async function skillsDiagnostic(
-  root: string,
-  stale: SkillsDriftEntry[],
-): Promise<Diagnostic> {
-  const dirs = [...new Set(stale.map((d) => d.dir))].join(", ");
-  const outputFields = await diagnosticOutputFields(
-    root,
-    `Materialized skills are out of date in: ${dirs}.\n` +
-      "Run `discern refresh` to re-materialize them. If you meant to change a skill, " +
-      "edit its source under [skills].dir (or `discern skills eject` a bundled one) — a " +
-      "direct edit to a materialized copy is overwritten on the next refresh.\n\n" +
-      stale.map((d) => `  • ${d.detail}`).join("\n"),
-  );
-  return {
-    tool: "skills",
-    severity: "error",
-    message: `materialized skills out of date: ${dirs}`,
-    reproduce_cmd: "discern refresh",
-    ...outputFields,
-  };
-}
-
-/**
- * A diagnostic for MALFORMED skill frontmatter: each offending SKILL.md and its
- * problems, verbatim from the well-formedness check. Unlike the currency
- * failures, `discern refresh` cannot clear this — the SOURCE file is what every
- * consumer misreads — so the remedy is an edit, and the diagnostic says so.
- */
-async function skillFrontmatterDiagnostic(
-  root: string,
-  malformed: SkillWellformedness[],
-): Promise<Diagnostic> {
-  const files = malformed.map((m) => m.file).join(", ");
-  const outputFields = await diagnosticOutputFields(
-    root,
-    `Skill frontmatter that agent runtimes cannot read:\n\n` +
-      malformed.map((m) =>
-        `${m.file}:\n${m.issues.map((i) => `  • ${i}`).join("\n")}`
-      ).join("\n\n") +
-      "\n\nEdit each named source file. A SKILL.md opens with a `---`-fenced " +
-      "YAML block whose `name:` and `description:` are non-empty strings; " +
-      "a value containing `:` must be quoted.",
-  );
-  return {
-    tool: "skill-frontmatter",
-    severity: "error",
-    message: `invalid SKILL.md frontmatter: ${files}`,
-    reproduce_cmd: "discern done",
-    ...outputFields,
-  };
-}
-
-/**
- * A diagnostic for DUPLICATED ADR numbers: each number and the record files
- * claiming it. Neither refresh nor a re-run clears this — the records are
- * different files whose merge was clean, so the remedy is renumbering the
- * newer one, and the diagnostic says which files are in contention.
- */
-async function adrNumbersDiagnostic(
-  root: string,
-  dupes: AdrNumberDuplicate[],
-): Promise<Diagnostic> {
-  const numbers = dupes.map((d) => d.number).join(", ");
-  const outputFields = await diagnosticOutputFields(
-    root,
-    `ADR numbers claimed by more than one record:\n\n` +
-      dupes.map((d) =>
-        `${d.number}:\n${d.paths.map((p) => `  - ${p}`).join("\n")}`
-      ).join("\n\n") +
-      "\n\nKeep the number on the record that landed first (or the superseded " +
-      "record that retired it), and move the newer record to the next free " +
-      "number — filename, title, and any references to it.",
-  );
-  return {
-    tool: "adr-numbers",
-    severity: "error",
-    message: `ADR number(s) claimed by more than one record: ${numbers}`,
-    reproduce_cmd: "discern done",
-    ...outputFields,
-  };
-}
-
-/**
- * A diagnostic for MAP & INSTRUCTIONS integrity findings: every finding as
- * `file:line`, grouped by rule with each rule's remedy stated once — the fix
- * is at the point of failure, and one loop from the diagnostic clears it.
- * `discern refresh` cannot help here: the SOURCE files carry the defect, so
- * the remedy is always an edit (or, for a stale example, a registry fix).
- */
-async function mapIntegrityDiagnostic(
-  root: string,
-  findings: DocsIntegrityFinding[],
-): Promise<Diagnostic[]> {
-  const byRule = new Map<DocsIntegrityRule, DocsIntegrityFinding[]>();
-  for (const finding of findings) {
-    byRule.set(finding.rule, [...(byRule.get(finding.rule) ?? []), finding]);
-  }
-  const sections = [...byRule.entries()].map(([rule, group]) =>
-    `${rule}:\n` +
-    group.map((f) => `  ${f.file}:${f.line} ${f.detail}`).join("\n") +
-    `\n  fix: ${DOCS_INTEGRITY_REMEDIES[rule]}`
-  );
-  const outputFields = await diagnosticOutputFields(
-    root,
-    "The map or instructions references things a reader cannot follow:\n\n" +
-      sections.join("\n\n"),
-  );
-  return findings.map((finding) => ({
-    tool: "map-integrity",
-    severity: "error",
-    message:
-      `map or instructions integrity (${finding.rule}): ${finding.detail}`,
-    reproduce_cmd: "discern done",
-    file: finding.file,
-    line: finding.line,
-    rule: finding.rule,
-    ...outputFields,
-  }));
-}
-
-/**
- * A diagnostic for the maintained ADR index. STALE — the record lists between
- * the markers do not match the record files, and `discern refresh` rewrites
- * them (the currency remedy, with the capped drift diff). INVALID — the index
- * cannot be derived; the remedy follows the state's cause, so the reader is
- * never pointed at the wrong artifact: a record whose heading defeats the
- * derivation (edit that record), a start marker whose end marker is gone
- * (repair the README's pair), or an unexpected derivation failure (fix what
- * the issue reports).
- */
-function adrIndexInvalidRemedy(
-  state: Extract<AdrIndexState, { kind: "invalid" }>,
-): string {
-  switch (state.cause) {
-    case "record":
-      return "Fix the named record file — its first heading must carry the " +
-        "record's number and a title — then run `discern refresh`.";
-    case "markers":
-      return `Repair the marker pair in ${state.path}: restore the missing ` +
-        "END marker named above after its BEGIN marker (or remove the pair " +
-        "to retire the maintained list). The record files may all be fine. " +
-        "Then run `discern refresh`.";
-    case "error":
-      return "The derivation itself failed. Fix the underlying problem " +
-        "reported above, then run `discern refresh`.";
-  }
-}
-
-/** Turn an ADR index marker or title failure into an actionable map diagnostic. */
-async function adrIndexDiagnostic(
-  root: string,
-  state: Extract<AdrIndexState, { kind: "stale" | "invalid" }>,
-): Promise<Diagnostic> {
-  const outputFields = await diagnosticOutputFields(
-    root,
-    state.kind === "stale"
-      ? `The maintained ADR index is out of date: ${state.path}.\n` +
-        "Run `discern refresh` to regenerate the record lists between its " +
-        "markers, and commit the rewritten file. If you meant to change the " +
-        "framing prose, edit outside the marked blocks — a refresh rewrites " +
-        "only the lists.\n\n" +
-        driftDiff({
-          path: state.path,
-          reason: "stale",
-          expected: state.expected,
-          actual: state.current,
-        })
-      : `The maintained ADR index in ${state.path} cannot be derived:\n\n` +
-        `  ${state.issue}\n\n` +
-        adrIndexInvalidRemedy(state),
-  );
-  return {
-    tool: "adr-index",
-    severity: "error",
-    message: state.kind === "stale"
-      ? `maintained ADR index out of date: ${state.path}`
-      : `maintained ADR index cannot be derived: ${state.path}`,
-    reproduce_cmd: state.kind === "stale" ? "discern refresh" : "discern done",
-    ...outputFields,
-  };
-}
-
-/** Explain which discern-managed ignored artifacts Git tracks and how to repair them. */
-async function trackedArtifactsDiagnostic(
-  root: string,
-  tracked: TrackedDiscernIgnoredArtifacts,
-): Promise<Diagnostic> {
-  const outputFields = await diagnosticOutputFields(
-    root,
-    `${trackedDiscernIgnoredArtifactsHint(tracked).text}\n\n` +
-      `Tracked paths:\n${tracked.paths.map((p) => `  - ${p}`).join("\n")}`,
-  );
-  return {
-    tool: "tracked-artifacts",
-    severity: "error",
-    message: `discern-managed ignored artifacts are tracked by Git: ${
-      tracked.paths.join(", ")
-    }`,
-    reproduce_cmd: gitLsFilesCommand(tracked.repairTargets),
-    ...outputFields,
-  };
-}
+import { planTrackedRefresh } from "../tracked_refresh.ts";
 
 /** Run the gate once: plan, apply, build the result. */
 async function runGate(
