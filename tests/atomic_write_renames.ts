@@ -23,6 +23,12 @@ export const REGISTERED_RENAMES = [
       "The signal handler must restore the executable synchronously before process exit.",
   },
   {
+    path: "scripts/coverage_profiles.ts",
+    enclosingFunction: "worker",
+    reason:
+      "Sharding relocates immutable raw coverage profiles between owned scratch directories, replacing nothing.",
+  },
+  {
     path: "scripts/vale_toolchain.ts",
     enclosingFunction: "reclaimStaleLock",
     reason:
