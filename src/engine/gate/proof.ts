@@ -73,6 +73,7 @@ import {
 } from "../../shared/write_preflight.ts";
 import {
   canonicalProof,
+  canonicalStandardLimitProposals,
   type GateData,
   type GateProofCheckData,
   type GateStandard,
@@ -84,6 +85,24 @@ type AdminStatePaths = Readonly<
   Record<ValidationAdminStateKey, string | undefined>
 >;
 type GateProofRecordData = NonNullable<GateData["gate_proof"]>;
+
+/** Normalize proposal tuples in an older structured Proof before the current
+ * tolerant schema validates the remaining fields. */
+function canonicalProofInput(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return value;
+  }
+  const record: Record<string, unknown> = { ...value };
+  const proposals = record.standard_proposals;
+  if (!Array.isArray(proposals)) {
+    return record;
+  }
+  const normalized = canonicalStandardLimitProposals(proposals);
+  if (normalized === undefined) {
+    return record;
+  }
+  return { ...record, standard_proposals: normalized };
+}
 
 /** Brand for a successful, real write probe. Proof writers require this token,
  * making "probe before persist" a compile-time rule at every call site. */
@@ -635,7 +654,9 @@ export async function inspectGateProof(
         : rest.slice("data: ".length, eol);
       try {
         const parsed: unknown = JSON.parse(raw);
-        const validated = TolerantProofSchema.safeParse(parsed);
+        const validated = TolerantProofSchema.safeParse(
+          canonicalProofInput(parsed),
+        );
         if (validated.success) {
           proofData = canonicalProof(validated.data);
         }
@@ -1066,23 +1087,39 @@ export async function recordFreshStandardMeasurementEvidence(
   }
   const evidenceHead = pin.head;
   const values: Record<string, number> = {};
-  const failed: string[] = [];
   for (const reading of measured) {
-    if (reading.value === undefined || !Number.isFinite(reading.value)) {
-      failed.push(reading.name);
-    } else {
+    if (reading.value !== undefined && Number.isFinite(reading.value)) {
       values[reading.name] = reading.value;
     }
   }
   let written = false;
   await bestEffort("proof-fresh-standard-evidence-record", async () => {
+    const existing = parseFreshStandardMeasurementEvidence(
+      await readTextIfExists(path) ?? "",
+    );
+    const mergedValues = existing?.head === evidenceHead
+      ? { ...existing.values }
+      : {};
+    const mergedFailed = new Set(
+      existing?.head === evidenceHead ? existing.failed : [],
+    );
+    for (const reading of measured) {
+      const value = values[reading.name];
+      if (value === undefined) {
+        delete mergedValues[reading.name];
+        mergedFailed.add(reading.name);
+      } else {
+        mergedValues[reading.name] = value;
+        mergedFailed.delete(reading.name);
+      }
+    }
     await atomicReplaceJson(
       path,
       {
         version: 1,
         head: evidenceHead,
-        values,
-        failed: failed.sort(),
+        values: mergedValues,
+        failed: [...mergedFailed].sort(),
       } satisfies FreshStandardMeasurementEvidence,
       { mode: 0o600, sync: false, trailingNewline: true },
     );

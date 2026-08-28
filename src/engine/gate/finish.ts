@@ -85,7 +85,7 @@ import {
   sameStandardLimitProposalSet,
   staleProposalDiagnostic,
   standardLimitProposalIdentity,
-} from "./standard_proposals.ts";
+} from "./standard_proposal_state.ts";
 import {
   gateStandardsData,
   planStandardJobsFromConfig,

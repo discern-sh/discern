@@ -66,7 +66,7 @@ Choose a coherent risk metric; leave broader inventories advisory. Then ask whet
 - A **quality that scales** rises with the tree, such as coverage or alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](https://discern.sh/docs/decisions/0057-rate-standards)).
 - A **growing total** rises with each shipped feature, such as an asset size or word count. A ceiling pinned at today's value fails the next legitimate change. The resulting pressure can shrink unrelated content or trade readability for bytes while the Gate remains green. Prefer the rate that states the real claim. Where only the total will do, set a `margin` and treat raising the limit as a routine owner decision.
 
-Report a breach the work itself caused instead of engineering the number back down. A fresh measured breach can become a Standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that exact proposal ([ADR 0161](https://discern.sh/docs/decisions/0161-growth-proof-standards-and-breach-escalation), [ADR 0339](https://discern.sh/docs/decisions/0339-proposed-standard-limits-and-shared-measurements)).
+Report a breach caused by committed work instead of engineering the number down. `discern standards propose` measures the named Standard and carries its proposed limit to owner review; without that record, never-loosen enforcement remains ([ADR 0161](https://discern.sh/docs/decisions/0161-growth-proof-standards-and-breach-escalation), [ADR 0339](https://discern.sh/docs/decisions/0339-proposed-standard-limits-and-shared-measurements), [ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
 
 discern's own [duplication census](https://github.com/jackwh/discern/blob/main/project/map/80-development/duplication-census.md) is a down-only Standard. It charges the non-overlapping normalized lines contributed by each additional source occurrence.
 
@@ -94,25 +94,26 @@ The gate runner supplies timeouts, process-tree kill, durations, interruption, a
 
 ## Propose a new limit
 
-`discern standards propose <name> --reason "…"` records a Standard breach for an owner decision. The transaction requires:
+`discern standards propose <name> --reason "…"` finalizes a breach for owner review. Run it once after the implementation is complete and committed. It requires:
 
 - a clean worktree branch at a committed `HEAD`;
-- a fresh process-backed breach from `discern standards` or the Gate on that commit;
 - the unchanged trunk definition and limit;
 - configured `inputs`; and
 - at least one changed path that matches those inputs.
 
-discern records the reason verbatim. It must contain 1–500 visible characters on one line and no obvious secret. The command changes the limit to the measured value in a config-only commit. Its worktree-local record contains the Standard, both commits, definition fingerprint, trunk baseline, measurement, delta, reason, and responsible paths. `--dry-run` shows this plan without changing the config, Git history, Proof, or proposal state.
+The command measures only the named Standard or reuses same-`HEAD` evidence. A breach creates one config-only commit whose limit equals that reading. The verbatim reason must contain 1–500 visible characters on one line and no obvious secret. `--dry-run` runs no command and changes no config, Git, Proof, or proposal state.
 
-Repeating the same request changes nothing. Replacing only the reason updates the proposal record and invalidates prior Proof without adding a commit. A moved commit, trunk, definition, limit, responsible-input boundary, or fresh measurement makes the record stale. A stale proposal authorizes nothing and restores ordinary enforcement.
+The record separates immutable origin (proposal commit and measured parent) from its renewable bound commit. It also retains the definition fingerprint, trunk baseline, measurement, delta, reason, and responsible paths.
 
-`discern done` remeasures a live proposal and records the Standard limit proposal prominently in Proof. `discern accept` then refuses read-only and serves one approval token per proposal. The token is a 64-character lowercase hexadecimal digest of the exact Standard, value, and reason. It makes a copied approval command stale when any of those facts changes; it is not a separate source of authority. Relay each Standard, proposed value, delta, reason, and responsible path to the owner. After the owner approves those tuples in the current conversation, run the complete command returned by the refusal:
+Repeating the request at its bound commit is a no-op. On a descendant, the same command remeasures and renews the binding without a commit only when the origin remains an ancestor, current trunk is contained, and definition, baseline, reason, value, and attribution remain unchanged. Renewal updates the bound commit, trunk commit, and paths, then clears prior Proof. A different tuple refuses and directs restoration of the trunk limit; stale records authorize nothing.
+
+`discern done` remeasures the proposal and records it in Proof. `discern accept` then refuses read-only and serves one token bound to each Standard, value, and reason. Relay those facts, the delta, and responsible paths. After the owner approves the current tuples, run the complete returned command:
 
 ```sh
 discern accept --confirmed --approve-standard <token>
 ```
 
-Repeat `--approve-standard` for every proposal. The supplied tokens must equal the current proposal set. Standing grants, effort grants, generic landing consent, checkpoint variances, and earlier tokens do not approve Standard limit proposals. Acceptance lands the proposal commit that passed the Gate. It does not edit the limit or create a later commit.
+Repeat `--approve-standard` for every proposal. Tokens must equal the current set. Grants, generic consent, checkpoint variances, and earlier tokens do not approve it. Acceptance lands the proved commit without another limit edit.
 
 If the owner declines, leave acceptance stopped, restore the trunk limit in the branch, commit that restoration, and run `discern done` under ordinary enforcement.
 
@@ -120,35 +121,35 @@ If the owner declines, leave acceptance stopped, restore the trunk limit in the 
 
 A failure puts its reason, value, limit, and command in `diagnostics[]`. [Tool result contracts](../30-reference/mcp-and-results.md) defines the public shape.
 
-| Failure                                    | Response                                                                                                                                                            |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The metric regressed                       | Move it the right way within the task's scope. When the change caused the breach, measure the clean commit and run `discern standards propose <name> --reason "…"`. |
-| The branch redefined an existing Standard  | Restore the trunk definition. For an intentional change, ask the owner to change trunk, then update the worktree.                                                   |
-| The branch weakened or deleted a limit     | Restore the trunk value. Tell the owner if the old limit is no longer valid.                                                                                        |
-| The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                                                                               |
-| The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate.                                                   |
+| Failure                                    | Response                                                                                                                                                                                                               |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The metric regressed                       | Move it the right way within the task's scope. When the change caused the breach, finish and commit the clean tree, then run `discern standards propose <name> --reason "…"`; the command measures the named Standard. |
+| The branch redefined an existing Standard  | Restore the trunk definition. For an intentional change, ask the owner to change trunk, then update the worktree.                                                                                                      |
+| The branch weakened or deleted a limit     | Restore the trunk value. Tell the owner if the old limit is no longer valid.                                                                                                                                           |
+| The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                                                                                                                                  |
+| The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate.                                                                                                      |
 
 An owner may loosen a limit directly on trunk ([ADR 0003](https://discern.sh/docs/decisions/0003-named-metric-standards)).
 
 ## Capture an improvement
 
-`discern standards --pin coverage` reuses a Proof or measures, uses `margin`, tightens `coverage`, and commits `discern.toml`. The commit keeps your Git identity and adds `discern` as a co-author because discern composed the diff ([ADR 0203](https://discern.sh/docs/decisions/0203-discern-co-authors-only-commits-it-composes)). A write-access probe runs first. A denial returns `error = "write_access"` ([ADR 0152](https://discern.sh/docs/decisions/0152-slow-workflows-prove-write-authority-first)).
+`discern standards --pin coverage` reuses available same-commit values and measures missing targets. An honored Gate Proof permits target-only execution; otherwise every Standard validates before only `coverage` changes. Pin applies `margin`, commits `discern.toml`, and carries Proof. The commit keeps your Git identity and adds discern as co-author ([ADR 0203](https://discern.sh/docs/decisions/0203-discern-co-authors-only-commits-it-composes)). A failed write probe returns `error = "write_access"` ([ADR 0152](https://discern.sh/docs/decisions/0152-slow-workflows-prove-write-authority-first), [ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
 
 Pin records a clean `HEAD` before reading values and rechecks before editing. A mismatch writes nothing. Restore a stable `HEAD` and rerun. You can pin behind trunk. A hint says the values describe that tree, the limit may fail after `discern update`, and recommends updating first.
 
 ## Where it lives in code
 
-| Concern                                   | Source                                                                                                                                                                                                                             |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Config fields and validation              | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts)                                                                                                                                      |
-| Pure standard plan                        | [`standard_plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_plan.ts)                                                                                                                                 |
-| Shared trunk definition and limit check   | [`standard_limits.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_limits.ts)                                                                                                                             |
-| Proposed limit plan and transaction       | [`standard_proposal_plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposal_plan.ts), [`standard_proposals.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposals.ts) |
-| Shared measurement and pin execution      | [`standards.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standards.ts)                                                                                                                                         |
-| Gate replay and deferral policy           | [`standards_gate.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standards_gate.ts)                                                                                                                               |
-| Human Standard presentation               | [`presentation.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/presentation.ts)                                                                                                                                   |
-| Parallel scheduling and process-tree kill | [`runner.ts`](https://github.com/jackwh/discern/blob/main/src/engine/jobs/runner.ts)                                                                                                                                               |
-| Built-in write probes                     | [`write_preflight.ts`](https://github.com/jackwh/discern/blob/main/src/shared/write_preflight.ts)                                                                                                                                  |
+| Concern                                     | Source                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config fields and validation                | [`config_schema.ts`](https://github.com/jackwh/discern/blob/main/src/shared/config_schema.ts)                                                                                                                                                                                                                                                              |
+| Pure standard plan                          | [`standard_plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_plan.ts)                                                                                                                                                                                                                                                         |
+| Shared trunk definition and limit check     | [`standard_limits.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_limits.ts)                                                                                                                                                                                                                                                     |
+| Proposed limit plan, state, and transaction | [`standard_proposal_plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposal_plan.ts), [`standard_proposal_state.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposal_state.ts), [`standard_proposals.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standard_proposals.ts) |
+| Shared measurement and pin execution        | [`standards.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standards.ts)                                                                                                                                                                                                                                                                 |
+| Gate replay and deferral policy             | [`standards_gate.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/standards_gate.ts)                                                                                                                                                                                                                                                       |
+| Human Standard presentation                 | [`presentation.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/presentation.ts)                                                                                                                                                                                                                                                           |
+| Parallel scheduling and process-tree kill   | [`runner.ts`](https://github.com/jackwh/discern/blob/main/src/engine/jobs/runner.ts)                                                                                                                                                                                                                                                                       |
+| Built-in write probes                       | [`write_preflight.ts`](https://github.com/jackwh/discern/blob/main/src/shared/write_preflight.ts)                                                                                                                                                                                                                                                          |
 
 ## Current state & gotchas
 

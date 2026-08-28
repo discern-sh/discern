@@ -200,6 +200,8 @@ function standardProposalsSection(
       `  - Reason: ${proposal.reason}`,
       `  - Evidence: ${proposal.evidence_paths.map(code).join(", ")}`,
       `  - Bound to ${
+        code(proposal.bound_commit.slice(0, 12))
+      }; proposal commit ${
         code(proposal.commit.slice(0, 12))
       }; generic landing grants and checkpoint variances do not approve it.`,
     );

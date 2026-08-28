@@ -618,10 +618,10 @@ export const TOOLS: McpTool[] = orderTools([
         "Override the clean-worktree guard while authoring or debugging standards; ignored with pin (default false).",
       ),
       pin: z.boolean().optional().describe(
-        "Capture measured improvements: tighten each limit to the measured value, commit it alone, and carry the gate proof forward. Requires a clean worktree (default false).",
+        "Capture measured improvements, commit the limit change alone, and carry Gate Proof forward. Reuses available same-commit values and measures missing selected values (default false).",
       ),
       pin_names: z.array(z.string()).optional().describe(
-        "With pin, restrict pinning to these standards (default: every standard with slack).",
+        "With pin, change only these Standards. Measurement also narrows to them when honored Gate Proof already validates the clean tree; otherwise the complete Standard set is validated (default: every Standard with slack).",
       ),
       ...PATH_PARAM,
     },
@@ -640,13 +640,14 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: StandardsProposeOutputSchema,
     annotations: PROPOSAL,
     description:
-      "Propose a new limit for a Standard breached by this change. Requires a " +
-      "clean worktree branch and a fresh numeric breach " +
-      "from discern_standards on current HEAD. It commits only the proposed " +
-      "limit and records the Standard, value, delta, reason, definition, trunk " +
-      "baseline, and responsible input paths. The resulting Gate Proof still " +
-      "cannot land until the owner explicitly approves this exact proposal; " +
-      "generic landing authority never covers it. Safe to repeat.",
+      "Finalize a proposed limit for a Standard breached by this change. Run " +
+      "after the intended tree is committed and clean. The tool measures only " +
+      "the named Standard, then commits only the proposed limit and records its " +
+      "value, delta, reason, definition, trunk baseline, and responsible input " +
+      "paths. Repeating an unchanged proposal on an eligible descendant renews " +
+      "its measured binding without another commit. A changed tuple or value " +
+      "refuses. The resulting Gate Proof cannot land until the owner approves " +
+      "the current proposal; generic landing authority never covers it.",
     inputSchema: {
       name: z.string().min(1).describe("The exact configured Standard name."),
       reason: z.string().min(1).max(500).describe(
@@ -657,11 +658,12 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       ...PATH_PARAM,
     },
-    run: (root, args) =>
+    run: (root, args, signal) =>
       standardsProposeResult(root, {
         name: args.name,
         reason: args.reason,
         dryRun: args.dry_run === true,
+        signal,
       }),
   }),
   defineTool({

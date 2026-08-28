@@ -1668,7 +1668,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "Pruning requires positive ownership evidence, so a malformed local manifest cannot authorize deletion of any skill directory.",
   },
   "standard-proposal-store-decode-fallback": {
-    path: "src/engine/gate/standard_proposals.ts",
+    path: "src/engine/gate/standard_proposal_state.ts",
     enclosingFunction: "parseProposalStore",
     operation: "reject malformed Standard limit proposal authority state",
     kind: "direct",

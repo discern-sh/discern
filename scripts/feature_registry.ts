@@ -682,13 +682,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "standards-pin",
         title: "Capturing a gain",
         what:
-          "`discern standards --pin` tightens each improved limit to the newly measured value and commits the change on its own, carrying Proof across the pin commit. It measures once: a green check records the measurement that the pin replays.",
+          "`discern standards --pin` tightens each improved limit and commits the change on its own, carrying Proof across the pin commit. It reuses available values from the same clean commit and runs missing selected measurements. Named measurement narrows after Gate Proof validates the complete tree.",
         why:
           "Tightening is mechanical and provable; a hand-edit can't tell a real gain from a quiet loosening.",
         plain: {
           title: "Saving an improvement",
           what:
-            "`discern standards --pin` tightens each improved limit to the newly measured value, and saves that change on its own, carrying Proof across the save. It measures once: a passing check records the measurement, and the pin reuses it.",
+            "`discern standards --pin` tightens each improved limit and saves that change on its own, carrying Proof across the save. It reuses available values from the same clean version and runs any selected measurements still missing. Named measurement narrows after the full version has passed its checks.",
           why:
             "Tightening is mechanical and provable; a hand-edited number cannot show whether it was a real gain or a quiet weakening.",
         },
@@ -697,11 +697,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "standards-escalation",
         title: "Breach escalation",
         what:
-          "A limit the work itself breached is an owner decision: the built-in instructions have agents cut waste they added and report genuine growth, rather than move a limit to pass.",
+          "A limit the work itself breached becomes a visible owner decision. After the intended tree is committed, the proposal command measures that Standard and records the value, reason, and responsible paths for Proof and acceptance.",
         plain: {
           title: "When the work itself crosses a limit",
           what:
-            "A limit the work itself crossed is a decision for the person in charge: discern's built-in instructions tells coding agents to remove waste they added and to report genuine growth, rather than to move a limit so the work passes.",
+            "When the work itself crosses a limit, the person responsible decides whether it should move. After the intended version is saved as a change, discern measures that quality again and carries the value, reason, and responsible files into the final review.",
         },
       },
     ],

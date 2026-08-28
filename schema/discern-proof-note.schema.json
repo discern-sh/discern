@@ -200,6 +200,9 @@
               "commit": {
                 "type": "string"
               },
+              "bound_commit": {
+                "type": "string"
+              },
               "measured_commit": {
                 "type": "string"
               },
@@ -246,6 +249,7 @@
             "required": [
               "standard",
               "commit",
+              "bound_commit",
               "measured_commit",
               "definition_fingerprint",
               "trunk",
@@ -331,6 +335,9 @@
               "commit": {
                 "type": "string"
               },
+              "bound_commit": {
+                "type": "string"
+              },
               "measured_commit": {
                 "type": "string"
               },
@@ -377,6 +384,7 @@
             "required": [
               "standard",
               "commit",
+              "bound_commit",
               "measured_commit",
               "definition_fingerprint",
               "trunk",

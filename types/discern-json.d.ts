@@ -267,6 +267,7 @@ export type DiscernProof = {
   standard_proposals?: Array<{
     standard: string;
     commit: string;
+    bound_commit: string;
     measured_commit: string;
     definition_fingerprint: string;
     trunk: string;
@@ -436,6 +437,7 @@ export type DiscernProofSummary = {
   standard_proposals?: Array<{
     standard: string;
     commit: string;
+    bound_commit: string;
     measured_commit: string;
     definition_fingerprint: string;
     trunk: string;
@@ -4659,10 +4661,11 @@ export type DiscernStandardsResult = DiscernResultState & {
       measured: number;
     }>;
     proposal?: {
-      status: "recorded" | "replaced" | "unchanged" | "recovered";
+      status: "recorded" | "rebound" | "replaced" | "unchanged" | "recovered";
       proposal: {
         standard: string;
         commit: string;
+        bound_commit: string;
         measured_commit: string;
         definition_fingerprint: string;
         trunk: string;
@@ -4829,10 +4832,11 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
       measured: number;
     }>;
     proposal?: {
-      status: "recorded" | "replaced" | "unchanged" | "recovered";
+      status: "recorded" | "rebound" | "replaced" | "unchanged" | "recovered";
       proposal: {
         standard: string;
         commit: string;
+        bound_commit: string;
         measured_commit: string;
         definition_fingerprint: string;
         trunk: string;
@@ -7523,6 +7527,7 @@ export type DiscernAcceptResult = DiscernResultState & {
     standard_approvals?: Array<{
       standard: string;
       commit: string;
+      bound_commit: string;
       measured_commit: string;
       definition_fingerprint: string;
       trunk: string;
@@ -7539,6 +7544,7 @@ export type DiscernAcceptResult = DiscernResultState & {
       proposal: {
         standard: string;
         commit: string;
+        bound_commit: string;
         measured_commit: string;
         definition_fingerprint: string;
         trunk: string;

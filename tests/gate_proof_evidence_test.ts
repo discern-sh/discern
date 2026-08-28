@@ -35,6 +35,10 @@ const LastGateRunMarkerSchema = z.object({
   mode: z.enum(["strict", "report"]).optional(),
 });
 
+const MutableProofFixtureSchema = z.object({
+  standard_proposals: z.array(z.record(z.string(), z.unknown())),
+}).passthrough();
+
 const T0 = "2026-01-01T00:00:00.000Z";
 
 /** A committed clean repo with one declared-met openQuestion. */
@@ -164,6 +168,68 @@ Deno.test("proof marker: a pre-evidence marker keeps its tree-only semantics (fa
     );
     assert(unmet.ok);
     assertEquals((await inspectGateProof(dir)).status, "honored");
+  });
+});
+
+Deno.test("proof marker: a pre-rebinding Standard proposal binds to its proposal commit", async () => {
+  await withTempDir(async (dir) => {
+    await declaredRepo(dir);
+    const head = await gitOut(dir, "rev-parse", "HEAD");
+    const preflight = await preflightAdminStateWrites(dir);
+    assert(preflight.ok);
+    const proof = ProofSchema.parse({
+      branch: "agent/legacy-proposal",
+      trunk: "main",
+      head: head.slice(0, 12),
+      files_total: 1,
+      insertions: 1,
+      deletions: 0,
+      line: "Proof line.",
+      markdown: "Proof page.",
+      standard_proposals: [{
+        standard: "sources",
+        commit: head,
+        bound_commit: head,
+        measured_commit: head,
+        definition_fingerprint: "definition-fingerprint",
+        trunk: "main",
+        trunk_commit: head,
+        direction: "down",
+        trunk_limit: 1,
+        proposed_limit: 2,
+        measurement: 2,
+        delta: 1,
+        reason: "The accepted feature adds one required source.",
+        evidence_paths: ["src/feature.ts"],
+      }],
+    });
+    const recorded = await recordGateOutcome(
+      dir,
+      preflight.authority,
+      true,
+      await pinValidatedTree(dir),
+      proof,
+    );
+    assertEquals(recorded.status, "recorded");
+    assert(recorded.path !== undefined);
+
+    const lines = (await Deno.readTextFile(recorded.path)).split("\n");
+    const dataIndex = lines.findIndex((line) => line.startsWith("data: "));
+    assert(dataIndex >= 0);
+    const data = decodeWith(
+      MutableProofFixtureSchema,
+      lines[dataIndex]?.slice("data: ".length) ?? "",
+    );
+    delete data.standard_proposals[0]?.bound_commit;
+    lines[dataIndex] = `data: ${JSON.stringify(data)}`;
+    await Deno.writeTextFile(recorded.path, lines.join("\n"));
+
+    const inspected = await inspectGateProof(dir);
+    assertEquals(inspected.status, "honored");
+    assertEquals(
+      inspected.proof_data?.standard_proposals?.[0]?.bound_commit,
+      head,
+    );
   });
 });
 

@@ -5,8 +5,8 @@
  * may only rise, a ceiling only fall) and MEASURED vs limit (run the command,
  * read the `DISCERN_METRIC <name> <number>` line — last wins). This is the
  * ON-DEMAND pass — the gate enforces both halves itself on every `done` run
- * (`standards_gate.ts`, ADR 0133); this verb ALWAYS measures (never replays),
- * covering deferred standards, explicit re-measurement, CI, and pinning.
+ * (`standards_gate.ts`, ADR 0133); a plain invocation always measures (never
+ * replays), covering deferred standards, explicit re-measurement, and CI.
  * Every structurally valid standard runs even if another fails.
  *
  * Built on the plan/apply seam (ADR 0027): a pure {@link StandardPlan} (which
@@ -15,12 +15,12 @@
  * plan and touches nothing (no git, no measurement); `--json` SERIALIZES the
  * (plan, results) through the shared renderer.
  *
- * The check → pin flow measures ONCE: a green check over a clean tree records a
- * measurement proof (`proof.ts`) naming every measured value against the exact
- * HEAD, and a `--pin` on that same clean HEAD replays those values instead of
- * re-running the measurements — re-checking only the never-loosen half from the
- * invocation's trunk snapshot, since that baseline can advance while HEAD stands
- * still.
+ * The check → pin flow reuses each available same-HEAD value. When an honored
+ * Gate Proof already validates the complete clean tree, a named pin executes
+ * only its selected Standards and measures any selected on-demand values absent
+ * from that evidence. Without that Proof, pin still validates the complete
+ * Standard set before changing only the selected limits. Every invocation
+ * re-checks the never-loosen half from its live trunk snapshot.
  */
 
 import {
@@ -32,7 +32,7 @@ import { colorEnabled, makeOut, outSink } from "../output.ts";
 import {
   buildStandardMeasurementPlan,
   buildStandardPlan,
-  perNote,
+  buildStandardSelectionPlan,
   type PlannedStandard,
   type ResolvedStandard,
   type StandardAction,
@@ -109,7 +109,7 @@ import { writeDiscernToml } from "../../lib/tidy_format.ts";
 import {
   inspectActiveStandardLimitProposals,
   staleProposalDiagnostic,
-} from "./standard_proposals.ts";
+} from "./standard_proposal_state.ts";
 
 export { readTrunkConfig, type TrunkConfigRead } from "./standard_limits.ts";
 
@@ -235,8 +235,9 @@ export function compareValueToLimit(
         reason:
           `standard '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. ` +
           `Raise it within the scope of your task; never lower the floor. ` +
-          `If the work itself shrank what this measures, take a fresh standalone ` +
-          `measurement and run \`discern standards propose ${name} --reason "…"\`; ` +
+          `If the work itself shrank what this measures, commit the final clean ` +
+          `tree and run \`discern standards propose ${name} --reason "…"\`; ` +
+          `the proposal command measures this Standard. ` +
           `propping the number up with unrelated changes is worse than the breach.`,
       };
     }
@@ -259,8 +260,9 @@ export function compareValueToLimit(
       reason:
         `standard '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. ` +
         `Bring it down within the scope of your task; never raise the ceiling. ` +
-        `If the work itself grew what this measures, take a fresh standalone ` +
-        `measurement and run \`discern standards propose ${name} --reason "…"\`; ` +
+        `If the work itself grew what this measures, commit the final clean ` +
+        `tree and run \`discern standards propose ${name} --reason "…"\`; ` +
+        `the proposal command measures this Standard. ` +
         `offsetting the number with unrelated changes is worse than the breach.${growHint}`,
     };
   }
@@ -833,10 +835,13 @@ function standaloneMeasurementNote(
 async function executeStandardPlan(
   plan: StandardPlan,
   root: string,
-  verification: TrunkLimitsVerification,
+  verification: TrunkLimitsVerification | undefined,
   opts: {
     timeoutS: number;
     slots: TestRunSlots | undefined;
+    verificationPlan?: StandardPlan;
+    replayValues?: Readonly<Record<string, number>>;
+    replayFrom?: string;
     signal?: AbortSignal;
   },
 ): Promise<StandardExecution> {
@@ -857,19 +862,31 @@ async function executeStandardPlan(
       diagnostics: [integrityDiagnostic(mismatch)],
     };
   }
+  const blockedStandards = verification?.blockedStandards ?? new Set<string>();
   const runnable = plan.standards.filter((standard) =>
-    !verification.blockedStandards.has(standard.name)
+    !blockedStandards.has(standard.name)
   );
   const jobs = buildStandardJobs(
     root,
-    runnable.map((standard) => ({
-      standard,
-      action: { kind: "measure" as const },
-    })),
+    runnable.map((standard): ResolvedStandard => {
+      const replayValue = opts.replayValues?.[standard.name];
+      return {
+        standard,
+        action: opts.replayFrom !== undefined && replayValue !== undefined
+          ? {
+            kind: "replay",
+            value: replayValue,
+            from: opts.replayFrom,
+          }
+          : { kind: "measure" },
+      };
+    }),
     {
       defaultTimeoutS: opts.timeoutS,
       jobLabel: (name) => name,
-      proposals: verification.proposals,
+      ...(verification === undefined
+        ? {}
+        : { proposals: verification.proposals }),
     },
   );
   const plannedByName = new Map<string, PlanStep>(
@@ -924,8 +941,17 @@ async function executeStandardPlan(
       integrityFailed = true;
       break;
     }
-    if (verification.blockedStandards.has(standard.name)) {
-      results.push({ step, outcome: "failed" });
+    if (blockedStandards.has(standard.name)) {
+      const replayed = opts.replayValues?.[standard.name];
+      const replayNote = replayed === undefined || opts.replayFrom === undefined
+        ? undefined
+        : `${step.note ?? standard.name}; measured ${
+          fmtRate(replayed)
+        } reused from the green check at ${opts.replayFrom.slice(0, 7)}`;
+      results.push({
+        step: replayNote === undefined ? step : { ...step, note: replayNote },
+        outcome: "failed",
+      });
       outcomes.push({ standard, held: false });
       continue;
     }
@@ -953,14 +979,26 @@ async function executeStandardPlan(
     const durationS = jobResults.get(standard.name)?.durationS;
     outcomes.push({
       standard,
-      held: executed.outcome === "ok",
+      // A replay deliberately serializes as a skipped process step, but its
+      // Standard verdict still says whether the value held. Mutation and
+      // failure hints consume that semantic verdict, not scheduler activity.
+      held: verdict?.held ?? executed.outcome === "ok",
       ...(outcome?.value !== undefined ? { value: outcome.value } : {}),
       ...(durationS !== undefined ? { durationS } : {}),
     });
   }
-  results.push(...standaloneVerificationSteps(plan, verification));
+  if (verification !== undefined) {
+    results.push(
+      ...standaloneVerificationSteps(
+        opts.verificationPlan ?? plan,
+        verification,
+      ),
+    );
+  }
   const diagnostics = [
-    ...standaloneVerificationDiagnostics(verification),
+    ...(verification === undefined
+      ? []
+      : standaloneVerificationDiagnostics(verification)),
     ...serialized.diagnostics,
     ...(integrityFailed
       ? [integrityDiagnostic(standardPlanIntegrityResult(plan, steps))]
@@ -979,7 +1017,7 @@ async function executeStandardPlan(
     }
   );
   return {
-    ok: !verification.blocking && runnerOk && !integrityFailed,
+    ok: !(verification?.blocking ?? false) && runnerOk && !integrityFailed,
     results,
     outcomes,
     readings,
@@ -1004,6 +1042,61 @@ function standardExecutionResult(execution: StandardExecution): DiscernResult {
   return {
     ...result,
     data: { standards: execution.readings } satisfies StandardsData,
+  };
+}
+
+/** Process-backed evidence for one named Standard operation. Proposal creation
+ * and renewal use this boundary after validating their own Git and authority
+ * preconditions. It executes the canonical target-only selection, records only
+ * measured readings, and reports whether the exact clean tree accepted that
+ * evidence. A breached metric leaves `executionOk` false while retaining its
+ * numeric reading for the proposal decision. */
+export interface StandardEvidenceMeasurement {
+  readonly plan: StandardPlan;
+  readonly readings: readonly GateStandard[];
+  readonly diagnostics: readonly Diagnostic[];
+  readonly executionOk: boolean;
+  readonly evidenceRecorded: boolean;
+  readonly pin: ValidatedTreePin;
+  readonly waitedMs?: number;
+}
+
+/** Measure one named Standard set through the shared process-group executor. */
+export async function measureStandardEvidence(
+  root: string,
+  cfg: DiscernConfig,
+  plan: StandardPlan,
+  names: readonly string[],
+  authority: AdminStateWriteAuthority,
+  signal?: AbortSignal,
+): Promise<StandardEvidenceMeasurement> {
+  const selection = buildStandardSelectionPlan(plan, names, true);
+  const pin = await pinValidatedTree(root);
+  const slots = buildTestRunSlots(root, cfg);
+  const execution = await executeStandardPlan(
+    selection.execution,
+    root,
+    undefined,
+    {
+      timeoutS: cfg.gate.timeout,
+      slots,
+      ...(signal === undefined ? {} : { signal }),
+    },
+  );
+  const evidenceRecorded = await recordFreshStandardMeasurementEvidence(
+    root,
+    authority,
+    execution.readings,
+    pin,
+  );
+  return {
+    plan: selection.execution,
+    readings: execution.readings,
+    diagnostics: execution.diagnostics,
+    executionOk: execution.ok,
+    evidenceRecorded,
+    pin,
+    ...(slots?.waitedMs === undefined ? {} : { waitedMs: slots.waitedMs }),
   };
 }
 
@@ -1050,103 +1143,6 @@ async function recordCheckMeasurements(
 }
 
 // ── `--pin`: capture a measured improvement into the limit (ADR 0106) ──────────
-
-/** The measured values a pin may reuse instead of re-measuring: the measurement
- * proof must be honored (recorded by a green check against this exact HEAD, tree
- * still clean) and name every planned standard. Anything short of that returns
- * undefined — a cache miss the caller answers by measuring fresh, never an error. */
-async function reusableMeasurements(
-  root: string,
-  plan: StandardPlan,
-): Promise<Record<string, number> | undefined> {
-  const proof = await inspectStandardMeasurements(root);
-  if (proof.status !== "honored") {
-    return undefined;
-  }
-  const complete = plan.standards.every((r) =>
-    proof.values[r.name] !== undefined
-  );
-  return complete ? proof.values : undefined;
-}
-
-/**
- * Rebuild a {@link StandardExecution} from the measurement proof's values.
- * The caller's one Tier-1 snapshot supplies the live never-loosen verdict; the
- * measured-vs-limit half needs no rerun because the same clean HEAD fixes both
- * the values and limits, and only an all-green check records a proof.
- */
-function replayExecutionFromProof(
-  plan: StandardPlan,
-  values: Record<string, number>,
-  verification: TrunkLimitsVerification,
-): StandardExecution {
-  const results: StepResult[] = [];
-  const outcomes: StandardOutcome[] = [];
-  const readings: GateStandard[] = [];
-  const diagnostics = standaloneVerificationDiagnostics(verification);
-  let ok = !verification.blocking;
-  for (const standard of plan.standards) {
-    const value = values[standard.name];
-    if (value === undefined) {
-      // Unreachable — the caller replays only a proof naming every planned
-      // standard — but fail closed as a plain failure rather than pinning blind.
-      ok = false;
-      const reason =
-        `standard '${standard.name}': the measurement proof carries no value for it. Re-run \`discern standards\` to measure.`;
-      results.push({
-        step: {
-          kind: "standard",
-          label: verbatimStepLabel(standard.name),
-          disposition: "run",
-        },
-        outcome: "failed",
-      });
-      outcomes.push({ standard, held: false });
-      readings.push({
-        name: standard.name,
-        direction: standard.direction,
-        limit: standard.limit,
-        margin: standard.margin,
-        measurement: "skipped",
-      });
-      diagnostics.push({
-        tool: standard.name,
-        severity: "error",
-        message: reason,
-        reproduce_cmd: "discern standards",
-      });
-      continue;
-    }
-    const held = !verification.blockedStandards.has(standard.name);
-    results.push({
-      step: {
-        kind: "standard",
-        label: verbatimStepLabel(standard.name),
-        disposition: "run",
-        note: `${standard.direction}, limit ${standard.limit}${
-          perNote(standard.per, standard.scale)
-        }, measured ${fmtRate(value)} (reused from the green check)`,
-      },
-      outcome: held ? "ok" : "failed",
-    });
-    outcomes.push({ standard, held, value });
-    readings.push({
-      name: standard.name,
-      direction: standard.direction,
-      limit: standard.limit,
-      margin: standard.margin,
-      measurement: "replayed",
-      value,
-      ...standardPinEvidence(standard, value),
-      ...(held ? { verdict: heldVerdict(standard, value) } : {}),
-    });
-    if (!held) {
-      ok = false;
-    }
-  }
-  results.push(...standaloneVerificationSteps(plan, verification));
-  return { ok, results, outcomes, readings, diagnostics };
-}
 
 /** One limit the pin pass will tighten: the standard, the value it measured, and the
  * new limit computed from it (measured ∓ margin, in the tightening direction). */
@@ -1461,9 +1457,6 @@ async function pinStandardsResult(
     });
   }
 
-  // Which standards a pin considers: all of them, or the named subset.
-  const filter = opts.names.length > 0 ? new Set(opts.names) : undefined;
-
   if (opts.dryRun) {
     // A dry-run renders the pin plan and runs NOTHING — the same contract as every
     // other discern dry-run (ADR 0027). It cannot report what a pin WOULD change:
@@ -1471,15 +1464,23 @@ async function pinStandardsResult(
     // a dry-run promises not to run. The plain check already measured — a green
     // result's hints name any pinnable slack — so check → pin needs no preview
     // measurement in between.
-    const steps: PlanStep[] = plan.standards
-      .filter((r) => filter === undefined || filter.has(r.name))
+    const proof = await inspectGateProof(root);
+    const selection = buildStandardSelectionPlan(
+      plan,
+      opts.names,
+      proof.status === "honored",
+    );
+    const targets = new Set(selection.targets.map((standard) => standard.name));
+    const steps: PlanStep[] = selection.execution.standards
       .map((r) => ({
         kind: "standard",
         label: verbatimStepLabel(r.name),
         disposition: "run",
-        note: `would measure ${r.metric}, then tighten the ${
-          r.direction === "up" ? "floor" : "ceiling"
-        } past ${r.limit} by any slack beyond margin ${r.margin}`,
+        note: targets.has(r.name)
+          ? `would measure ${r.metric}, then tighten the ${
+            r.direction === "up" ? "floor" : "ceiling"
+          } past ${r.limit} by any slack beyond margin ${r.margin}`
+          : `would measure ${r.metric} to verify the complete Standard set before changing only the named limit`,
       }));
     return standardsBuild(
       previewResult("standards", {
@@ -1523,6 +1524,11 @@ async function pinStandardsResult(
   // Capture the pre-pin vouch BEFORE anything changes: only an honored proof may be
   // carried across the commit we are about to make (ADR 0106 / 0067).
   const priorProof = await inspectGateProof(root);
+  const selection = buildStandardSelectionPlan(
+    plan,
+    opts.names,
+    priorProof.status === "honored",
+  );
 
   const verification = opts.verification;
   if (verification === undefined) {
@@ -1530,26 +1536,46 @@ async function pinStandardsResult(
       "internal error: a real standards pin has no trunk-limits verification",
     );
   }
-  // A green check on this exact clean HEAD already paid for every measurement and
-  // recorded a measurement proof; replay its values rather than measuring again.
-  const reused = await reusableMeasurements(root, plan);
+  // Reuse every same-HEAD value already recorded. The selected executor measures
+  // only missing members, sharing processes among those members by identity.
+  const measured = await inspectStandardMeasurements(root);
+  const replayValues = measured.status === "honored"
+    ? measured.values
+    : undefined;
+  const replayFrom = replayValues === undefined ? undefined : treePin.head;
   const slots = buildTestRunSlots(root, cfg);
-  const execution = reused !== undefined
-    ? replayExecutionFromProof(plan, reused, verification)
-    : await executeStandardPlan(plan, root, verification, {
+  const execution = await executeStandardPlan(
+    selection.execution,
+    root,
+    verification,
+    {
       timeoutS: cfg.gate.timeout,
       slots,
+      verificationPlan: plan,
+      ...(replayValues === undefined || replayFrom === undefined
+        ? {}
+        : { replayValues, replayFrom }),
       ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
-    });
+    },
+  );
   const slotWaits = slots?.waits ?? [];
   const { ok, outcomes } = execution;
-  const reuseHint = reused !== undefined
+  const reusedCount =
+    selection.execution.standards.filter((standard) =>
+      replayValues?.[standard.name] !== undefined
+    ).length;
+  const reuseHint = reusedCount > 0
     ? fire(HINTS["standards-pin-reused-measurements"])
     : undefined;
 
   // A red standard blocks the whole pin: don't capture a state the gate wouldn't hold.
   if (!ok) {
-    const failing = outcomes.filter((o) => !o.held).map((o) => o.standard.name);
+    const failing = [
+      ...new Set([
+        ...outcomes.filter((o) => !o.held).map((o) => o.standard.name),
+        ...verification.blockedStandards,
+      ]),
+    ];
     return standardsBuild(
       standardExecutionResult(execution),
       [
@@ -1560,9 +1586,10 @@ async function pinStandardsResult(
     );
   }
 
-  const considered = filter === undefined
-    ? outcomes
-    : outcomes.filter((o) => filter.has(o.standard.name));
+  const targets = new Set(selection.targets.map((standard) => standard.name));
+  const considered = outcomes.filter((outcome) =>
+    targets.has(outcome.standard.name)
+  );
 
   const pins: PinnedStandard[] = [];
   const steps: StepResult[] = [];

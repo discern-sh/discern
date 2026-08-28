@@ -35,7 +35,7 @@ The Proof pins a reviewable `HEAD` even if trunk advances. Without a verified gr
 
 ## Proposal-bearing Proof
 
-A live Standard limit proposal lets the Gate explain one otherwise-forbidden limit change. The Gate forces a fresh measurement for that Standard, including `measure = "on-demand"` and replay-eligible entries. The measured value must equal the proposal. Proof then carries the Standard, trunk and proposed limits, measurement, signed delta, verbatim reason, responsible paths, definition fingerprint, and commit identities.
+A live Standard limit proposal lets the Gate explain one otherwise-forbidden limit change. The Gate forces a fresh measurement for that Standard, including `measure = "on-demand"` and replay-eligible entries. The measured value must equal the proposal. Proof carries the Standard, trunk and proposed limits, measurement, signed delta, verbatim reason, responsible paths, definition fingerprint, immutable proposal commit and measured parent, and the current descendant commit to which renewed evidence is bound ([ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
 
 The Proof line states the open proposal as awaiting the owner's exact approval. The page presents the proposal before routine Standard results. Compact JSON, Markdown, Model Context Protocol results, status, and proof notes retain the structured proposal. A green proposal-bearing Proof establishes Gate success for that committed tree; it grants neither landing authority nor proposal approval.
 
@@ -72,7 +72,7 @@ discern stores the validated commit, structured Proof, and both renderings in th
 | `discern setup done`   | Replays current Proof read-only or validates an existing clean marker. New completion commits and probes one marker, then runs the Gate last. Failure removes only its exact owned tip; changed state is retained.                                                                                                                                                                                                         |
 | `discern setup accept` | Requires the complete current setup Proof before preview or apply. It refuses invalid evidence without moving refs, proves a moved-trunk merge separately, lands the full commit pinned by Proof, and writes the same durable Proof note as normal acceptance.                                                                                                                                                             |
 
-Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. A changed checkpoint conclusion or rationale invalidates it at an unchanged `HEAD`: the marker binds to the declaration evidence it recorded, so acceptance never honors a Proof whose agent-declared conclusions have moved ([ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)). A changed, revoked, or stale Standard proposal also invalidates reuse at the same `HEAD`. The live proposal set must equal the Proof set. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the Gate Proof forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
+Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. A changed checkpoint conclusion or rationale invalidates it at an unchanged `HEAD`: the marker binds to the declaration evidence it recorded, so acceptance never honors a Proof whose agent-declared conclusions have moved ([ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)). A changed, revoked, rebound, or stale Standard proposal also invalidates reuse at the same `HEAD`. The live proposal set, including each renewable bound commit, must equal the Proof set. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the Gate Proof forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md), [ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
 
 ## After landing
 
@@ -91,21 +91,21 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 
 ## Where it lives in code
 
-| Concern                         | Source                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------- |
-| Marker identity and validation  | [`proof.ts`](../../../src/engine/gate/proof.ts)                           |
-| Proposal authority and currency | [`standard_proposals.ts`](../../../src/engine/gate/standard_proposals.ts) |
-| Write-authority probe           | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)            |
-| Operation exclusion             | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)              |
-| Proof facts and markdown        | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts)             |
-| Pure human presentation         | [`presentation.ts`](../../../src/engine/gate/presentation.ts)             |
-| Live TTY effects and viewport   | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)                     |
-| `done` proof panel              | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)                     |
-| `done` integration              | [`finish.ts`](../../../src/engine/gate/finish.ts)                         |
-| `prepare` integration           | [`prepare.ts`](../../../src/engine/gate/prepare.ts)                       |
-| Landing validation              | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)               |
-| Setup validation                | [`setup.ts`](../../../src/commands/setup.ts)                              |
-| Setup landing validation        | [`setup_accept.ts`](../../../src/commands/setup_accept.ts)                |
+| Concern                         | Source                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------- |
+| Marker identity and validation  | [`proof.ts`](../../../src/engine/gate/proof.ts)                                     |
+| Proposal authority and currency | [`standard_proposal_state.ts`](../../../src/engine/gate/standard_proposal_state.ts) |
+| Write-authority probe           | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)                      |
+| Operation exclusion             | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)                        |
+| Proof facts and markdown        | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts)                       |
+| Pure human presentation         | [`presentation.ts`](../../../src/engine/gate/presentation.ts)                       |
+| Live TTY effects and viewport   | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)                               |
+| `done` proof panel              | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)                               |
+| `done` integration              | [`finish.ts`](../../../src/engine/gate/finish.ts)                                   |
+| `prepare` integration           | [`prepare.ts`](../../../src/engine/gate/prepare.ts)                                 |
+| Landing validation              | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                         |
+| Setup validation                | [`setup.ts`](../../../src/commands/setup.ts)                                        |
+| Setup landing validation        | [`setup_accept.ts`](../../../src/commands/setup_accept.ts)                          |
 
 ## Current state & gotchas
 

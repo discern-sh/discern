@@ -82,8 +82,8 @@ _Quality limits move in one direction. A floor may only rise, a ceiling may only
 - **Pin headroom** — `margin` is the headroom a pin leaves when tightening a limit, for metrics that drift on unrelated commits.
 - **Input-keyed replay** — `inputs` names the paths a metric reads. When nothing under them changed since the last recorded measurement, the gate replays the recorded value instead of re-measuring. _A docs-only change pays seconds for a coverage standard, and the never-loosen check still runs._
 - **On-demand measurement** — `measure = "on-demand"` defers a metric too slow for every gate run to `discern standards`; the limit check itself has no off switch.
-- **Capturing a gain** — `discern standards --pin` tightens each improved limit to the newly measured value and commits the change on its own, carrying Proof across the pin commit. It measures once: a green check records the measurement that the pin replays. _Tightening is mechanical and provable; a hand-edit can't tell a real gain from a quiet loosening._
-- **Breach escalation** — A limit the work itself breached is an owner decision: the built-in instructions have agents cut waste they added and report genuine growth, rather than move a limit to pass.
+- **Capturing a gain** — `discern standards --pin` tightens each improved limit and commits the change on its own, carrying Proof across the pin commit. It reuses available values from the same clean commit and runs missing selected measurements. Named measurement narrows after Gate Proof validates the complete tree. _Tightening is mechanical and provable; a hand-edit can't tell a real gain from a quiet loosening._
+- **Breach escalation** — A limit the work itself breached becomes a visible owner decision. After the intended tree is committed, the proposal command measures that Standard and records the value, reason, and responsible paths for Proof and acceptance.
 
 ## Isolated worktrees
 

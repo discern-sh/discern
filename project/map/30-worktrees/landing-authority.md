@@ -71,7 +71,7 @@ If the owner declines, leave acceptance stopped. Restore the trunk limit in the 
 | Resolution and vocabulary | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts), [`consent.ts`](../../../src/shared/consent.ts)                             |
 | Standing grants           | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                                              |
 | Effort grants             | [`effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts), [`effort_grant_writer.ts`](../../../src/engine/worktree/effort_grant_writer.ts)      |
-| Standard limit approval   | [`standard_proposals.ts`](../../../src/engine/gate/standard_proposals.ts), [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                  |
+| Standard limit approval   | [`standard_proposal_state.ts`](../../../src/engine/gate/standard_proposal_state.ts), [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)        |
 | Results and surface guard | [`result_schemas.ts`](../../../src/shared/result_schemas.ts), [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts) |
 
 ## Current state & gotchas

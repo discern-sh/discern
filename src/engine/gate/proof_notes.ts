@@ -14,6 +14,7 @@ import { PROOF_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
 import {
   type AcceptanceEvidenceData,
   canonicalProof,
+  canonicalStandardLimitProposals,
   type DurableProofClaim,
   type Proof,
   type ProofIssuer,
@@ -654,6 +655,12 @@ function proofFromProofPayload(
         ...drop,
       })),
     }),
+    ...(payload.proof.standard_proposals === undefined ? {} : {
+      standard_proposals: payload.proof.standard_proposals.map((proposal) => ({
+        ...proposal,
+        evidence_paths: [...proposal.evidence_paths],
+      })),
+    }),
     line,
     markdown,
   };
@@ -679,6 +686,41 @@ function decodeDsseBase64(value: string): Uint8Array | undefined {
   }
 }
 
+/** Normalize a proposal array on one loose compatibility record. Malformed
+ * arrays remain in place so the tolerant schema still rejects them. */
+function canonicalProposalRecord(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return value;
+  }
+  const record: Record<string, unknown> = { ...value };
+  if (record.standard_proposals === undefined) {
+    return record;
+  }
+  const proposals = canonicalStandardLimitProposals(
+    record.standard_proposals,
+  );
+  return proposals === undefined
+    ? record
+    : { ...record, standard_proposals: proposals };
+}
+
+/** Normalize pre-rebinding proposal tuples at every durable payload location
+ * before the tolerant note schema validates the remaining envelope. */
+function canonicalProofNotePayloadInput(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return value;
+  }
+  const record: Record<string, unknown> = { ...value };
+  record.proof = canonicalProposalRecord(record.proof);
+  if (
+    typeof record.acceptance === "object" && record.acceptance !== null &&
+    !Array.isArray(record.acceptance)
+  ) {
+    record.acceptance = canonicalProposalRecord(record.acceptance);
+  }
+  return record;
+}
+
 /** Decode the envelope once and parse the same bytes a future verifier checks. */
 function parseProofNotePayload(
   encoded: string,
@@ -701,7 +743,9 @@ function parseProofNotePayload(
     if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
-  const payload = TolerantProofNotePayloadSchema.safeParse(parsed);
+  const payload = TolerantProofNotePayloadSchema.safeParse(
+    canonicalProofNotePayloadInput(parsed),
+  );
   return payload.success ? payload.data : undefined;
 }
 
@@ -722,7 +766,9 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
     return undefined;
   }
   if (!("payloadType" in parsed)) {
-    const legacy = TolerantProofSchema.safeParse(parsed);
+    const legacy = TolerantProofSchema.safeParse(
+      canonicalProposalRecord(parsed),
+    );
     return legacy.success
       ? { kind: "proof", proof: canonicalProof(legacy.data) }
       : undefined;

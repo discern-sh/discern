@@ -57,7 +57,7 @@ Choose a coherent risk metric; leave broader inventories advisory. Then ask whet
 - A **quality that scales** rises with the tree, such as coverage or alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).
 - A **growing total** rises with each shipped feature, such as an asset size or word count. A ceiling pinned at today's value fails the next legitimate change. The resulting pressure can shrink unrelated content or trade readability for bytes while the Gate remains green. Prefer the rate that states the real claim. Where only the total will do, set a `margin` and treat raising the limit as a routine owner decision.
 
-Report a breach the work itself caused instead of engineering the number back down. A fresh measured breach can become a Standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that exact proposal ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
+Report a breach the work itself caused instead of engineering the number back down. After the intended tree is committed, a targeted measured breach can become a Standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that proposal ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md), [ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
 
 discern's own [duplication census](../80-development/duplication-census.md) is a down-only Standard. It charges the non-overlapping normalized lines contributed by each additional source occurrence.
 
@@ -88,14 +88,15 @@ The gate runner supplies timeouts, process-tree kill, durations, interruption, a
 `discern standards propose <name> --reason "…"` records a Standard breach for an owner decision. The transaction requires:
 
 - a clean worktree branch at a committed `HEAD`;
-- a fresh process-backed breach from `discern standards` or the Gate on that commit;
 - the unchanged trunk definition and limit;
 - configured `inputs`; and
 - at least one changed path that matches those inputs.
 
-discern records the reason verbatim. It must contain 1–500 visible characters on one line and no obvious secret. The command changes the limit to the measured value in a config-only commit. Its worktree-local record contains the Standard, both commits, definition fingerprint, trunk baseline, measurement, delta, reason, and responsible paths. `--dry-run` shows this plan without changing the config, Git history, Proof, or proposal state.
+Treat proposal creation as a finalization step. Finish the implementation, commit the intended tree, then run the proposal command once. It measures only the named Standard through the shared measurement planner. A prior process-backed value for the same clean `HEAD` can be reused. The command records the reason verbatim; it must contain 1–500 visible characters on one line and no obvious secret.
 
-Repeating the same request changes nothing. Replacing only the reason updates the proposal record and invalidates prior Proof without adding a commit. A moved commit, trunk, definition, limit, responsible-input boundary, or fresh measurement makes the record stale. A stale proposal authorizes nothing and restores ordinary enforcement.
+The initial transaction changes the limit to the measured value in one config-only commit. Its worktree-local record separates the immutable proposal origin from the renewable live binding: proposal commit and measured parent, current bound commit, definition fingerprint, trunk baseline, measurement, delta, reason, and responsible paths. `--dry-run` shows the targeted measurement and possible write without running the command or changing config, Git history, Proof, or proposal state.
+
+Repeating the same request on its bound commit changes nothing. A later descendant can renew the same proposal without another Git commit when the original proposal commit remains in its ancestry, the current trunk is contained, and the Standard definition, trunk limit, reason, proposed value, fresh targeted measurement, and responsible input attribution remain unchanged. Renewal updates only the worktree-local bound commit, current trunk commit, and responsible paths; it invalidates prior Proof so the Gate judges the descendant. A different tuple or measured value cannot renew. The refusal directs the agent to restore the trunk limit before creating a different proposal. A stale proposal authorizes nothing and restores ordinary enforcement.
 
 `discern done` remeasures a live proposal and records the Standard limit proposal prominently in Proof. `discern accept` then refuses read-only and serves one approval token per proposal. The token is a 64-character lowercase hexadecimal digest of the exact Standard, value, and reason. It makes a copied approval command stale when any of those facts changes; it is not a separate source of authority. Relay each Standard, proposed value, delta, reason, and responsible path to the owner. After the owner approves those tuples in the current conversation, run the complete command returned by the refusal:
 
@@ -111,38 +112,39 @@ If the owner declines, leave acceptance stopped, restore the trunk limit in the 
 
 A failure puts its reason, value, limit, and command in `diagnostics[]`. [Tool result contracts](../70-reference/mcp-and-results.md) defines the public shape.
 
-| Failure                                    | Response                                                                                                                                                            |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The metric regressed                       | Move it the right way within the task's scope. When the change caused the breach, measure the clean commit and run `discern standards propose <name> --reason "…"`. |
-| The branch redefined an existing Standard  | Restore the trunk definition. For an intentional change, ask the owner to change trunk, then update the worktree.                                                   |
-| The branch weakened or deleted a limit     | Restore the trunk value. Tell the owner if the old limit is no longer valid.                                                                                        |
-| The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                                                                               |
-| The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate.                                                   |
+| Failure                                    | Response                                                                                                                                                                                                               |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The metric regressed                       | Move it the right way within the task's scope. When the change caused the breach, finish and commit the clean tree, then run `discern standards propose <name> --reason "…"`; the command measures the named Standard. |
+| The branch redefined an existing Standard  | Restore the trunk definition. For an intentional change, ask the owner to change trunk, then update the worktree.                                                                                                      |
+| The branch weakened or deleted a limit     | Restore the trunk value. Tell the owner if the old limit is no longer valid.                                                                                                                                           |
+| The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                                                                                                                                  |
+| The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate.                                                                                                      |
 
 An owner may loosen a limit directly on trunk ([ADR 0003](../_adr/0003-named-metric-standards.md)).
 
 ## Capture an improvement
 
-`discern standards --pin coverage` reuses a Proof or measures, uses `margin`, tightens `coverage`, and commits `discern.toml`. The commit keeps your Git identity and adds `discern` as a co-author because discern composed the diff ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)). A write-access probe runs first. A denial returns `error = "write_access"` ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
+`discern standards --pin coverage` uses `margin`, tightens `coverage`, and commits `discern.toml`. It reuses every available same-commit value and measures selected values that are still missing. A named pin narrows execution to its targets only when an honored Gate Proof already validates the complete clean tree. Without that Proof, every Standard still validates before discern changes only the named limit. The commit keeps your Git identity and adds `discern` as a co-author because discern composed the diff ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)). A write-access probe runs first. A denial returns `error = "write_access"` ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md), [ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
 
 Pin records a clean `HEAD` before reading values and rechecks before editing. A mismatch writes nothing. Restore a stable `HEAD` and rerun. You can pin behind trunk. A hint says the values describe that tree, the limit may fail after `discern update`, and recommends updating first.
 
 ## Where it lives in code
 
-| Concern                                   | Source                                                                                                                                                       |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Config fields and validation              | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                                                   |
-| Pure standard plan                        | [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts)                                                                                              |
-| Shared trunk definition and limit check   | [`standard_limits.ts`](../../../src/engine/gate/standard_limits.ts)                                                                                          |
-| Proposed limit plan and transaction       | [`standard_proposal_plan.ts`](../../../src/engine/gate/standard_proposal_plan.ts), [`standard_proposals.ts`](../../../src/engine/gate/standard_proposals.ts) |
-| Shared measurement and pin execution      | [`standards.ts`](../../../src/engine/gate/standards.ts)                                                                                                      |
-| Gate replay and deferral policy           | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts)                                                                                            |
-| Human Standard presentation               | [`presentation.ts`](../../../src/engine/gate/presentation.ts)                                                                                                |
-| Parallel scheduling and process-tree kill | [`runner.ts`](../../../src/engine/jobs/runner.ts)                                                                                                            |
-| Built-in write probes                     | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)                                                                                               |
+| Concern                                     | Source                                                                                                                                                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config fields and validation                | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                                                                                                                                        |
+| Pure standard plan                          | [`standard_plan.ts`](../../../src/engine/gate/standard_plan.ts)                                                                                                                                                                                   |
+| Shared trunk definition and limit check     | [`standard_limits.ts`](../../../src/engine/gate/standard_limits.ts)                                                                                                                                                                               |
+| Proposed limit plan, state, and transaction | [`standard_proposal_plan.ts`](../../../src/engine/gate/standard_proposal_plan.ts), [`standard_proposal_state.ts`](../../../src/engine/gate/standard_proposal_state.ts), [`standard_proposals.ts`](../../../src/engine/gate/standard_proposals.ts) |
+| Shared measurement and pin execution        | [`standards.ts`](../../../src/engine/gate/standards.ts)                                                                                                                                                                                           |
+| Gate replay and deferral policy             | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts)                                                                                                                                                                                 |
+| Human Standard presentation                 | [`presentation.ts`](../../../src/engine/gate/presentation.ts)                                                                                                                                                                                     |
+| Parallel scheduling and process-tree kill   | [`runner.ts`](../../../src/engine/jobs/runner.ts)                                                                                                                                                                                                 |
+| Built-in write probes                       | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)                                                                                                                                                                                    |
 
 ## Current state & gotchas
 
 - `inputs` is a correctness boundary: omitting a file the metric reads can replay a stale value.
 - A Standard limit proposal requires `inputs` because its owner decision names the responsible changed paths.
+- Proposal creation belongs after the intended tree is committed. Eligible descendant renewal exists for required follow-up work; it is not an intermediate commit loop.
 - An unreadable trunk produces a prominent `UNVERIFIED` warning; the gate records it in the result and proof. Fetch trunk where standards run.

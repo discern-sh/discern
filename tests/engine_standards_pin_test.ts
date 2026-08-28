@@ -2,11 +2,12 @@
  * Engine tests for `standards --pin` (ADR 0106) — capturing a measured improvement
  * into the limit instead of hand-editing discern.toml.
  *
- * `--pin` measures every standard, tightens each asked-for limit that improved past
- * its margin toward the measured value, commits that change on its own (comment-
- * preservingly), and carries a gate proof forward across the gate-neutral
- * commit so `accept` skips the redundant re-run. These tests drive the real engine
- * through `runAgent` and assert on the config, the commit, and the proof file.
+ * `--pin` validates every Standard unless current Gate Proof already proves the
+ * complete clean tree, tightens each asked-for limit that improved past its margin,
+ * commits that change on its own (comment-preservingly), and carries a Gate Proof
+ * forward across the gate-neutral commit so `accept` skips the redundant re-run.
+ * These tests drive the real engine through `runAgent` and assert on the config,
+ * the commit, and the proof file.
  *
  * The proof lives at `.git/discern/gate-proof` in a plain repo (what
  * `git rev-parse --git-path` resolves), so a test can seed a prior finish vouch by
@@ -45,6 +46,7 @@ interface StandardSpec {
   per?: string;
   scale?: string;
   margin?: string;
+  measure?: "gate" | "on-demand";
 }
 
 /** A discern.toml with one or more `[standards.<name>]` tables, with a comment above
@@ -68,6 +70,7 @@ function pinConfig(...standards: StandardSpec[]): string {
       ...(r.per ? [`per = ${r.per}`] : []),
       ...(r.scale ? [`scale = ${r.scale}`] : []),
       ...(r.margin ? [`margin = ${r.margin}`] : []),
+      ...(r.measure ? [`measure = "${r.measure}"`] : []),
       `run = "${r.run}"`,
     );
   }
@@ -343,6 +346,271 @@ Deno.test("pin: names restrict the pin to those standards", async () => {
       !body.includes("bundle"),
       "only the named standard is in the commit",
     );
+  });
+});
+
+Deno.test("pin: honored Gate Proof narrows named measurement to the selected standards", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig(
+        {
+          name: "selected",
+          direction: "up",
+          limit: "80",
+          measure: "on-demand",
+          run:
+            "printf x >> .git/selected-runs; echo 'DISCERN_METRIC selected 95'",
+        },
+        {
+          name: "unrelated",
+          direction: "down",
+          limit: "100",
+          measure: "on-demand",
+          run:
+            "printf x >> .git/unrelated-runs; echo 'DISCERN_METRIC unrelated 40'",
+        },
+      ),
+    );
+    await gitInit(dir);
+    const done = await runAgent(dir, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+
+    const preview = await runAgent(dir, [
+      "standards",
+      "--pin",
+      "selected",
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(preview.code, 0, preview.output);
+    assertEquals(
+      decodeCliResult(preview.stdout, "standards").plan?.steps.map((step) =>
+        step.label
+      ),
+      ["selected"],
+    );
+
+    const pinned = await runAgent(dir, [
+      "standards",
+      "--pin",
+      "selected",
+      "--json",
+    ]);
+    assertEquals(pinned.code, 0, pinned.output);
+    assertEquals(
+      (await readTextIfExists(join(dir, ".git", "selected-runs")))?.length,
+      1,
+    );
+    assertEquals(
+      await readTextIfExists(join(dir, ".git", "unrelated-runs")),
+      undefined,
+    );
+    const config = await readConfig(dir);
+    assertEquals(limitOf(config, "selected"), "95");
+    assertEquals(limitOf(config, "unrelated"), "100");
+  });
+});
+
+Deno.test("pin: target-only measurement still reports an unselected live-trunk limit failure", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig(
+        {
+          name: "selected",
+          direction: "up",
+          limit: "70",
+          run:
+            "printf x >> .git/selected-runs; echo 'DISCERN_METRIC selected 95'",
+        },
+        {
+          name: "unselected_guard",
+          direction: "up",
+          limit: "80",
+          run:
+            "printf x >> .git/unselected-runs; echo 'DISCERN_METRIC unselected_guard 95'",
+        },
+      ),
+    );
+    await gitInit(dir);
+    await git(dir, "checkout", "-q", "-b", "work");
+    const done = await runAgent(dir, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+
+    await git(dir, "checkout", "-q", "main");
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      (await readConfig(dir)).replace("limit = 80", "limit = 90"),
+    );
+    await git(dir, "commit", "-aqm", "raise unselected floor", "--no-gpg-sign");
+    await git(dir, "checkout", "-q", "work");
+    const before = await gitOut(dir, "rev-parse", "HEAD");
+
+    const pin = await runAgent(dir, [
+      "standards",
+      "--pin",
+      "selected",
+      "--json",
+    ]);
+    assertEquals(pin.code, 1, pin.output);
+    const result = decodeCliResult(pin.stdout, "standards");
+    assertHasHint(result, HINTS["standards-pin-blocked"], {
+      failingNames: ["unselected_guard"],
+    });
+    assert(
+      result.diagnostics?.some((diagnostic) =>
+        diagnostic.tool === "unselected_guard" &&
+        diagnostic.message.includes("the floor only rises")
+      ),
+    );
+    assert(
+      result.steps?.every((step) =>
+        !(step.note ?? "").includes("deleted on this branch")
+      ),
+      "an unselected configured Standard must not be presented as deleted",
+    );
+    assertEquals(
+      (await readTextIfExists(join(dir, ".git", "selected-runs")))?.length,
+      1,
+      "the selected Gate measurement should be reused",
+    );
+    assertEquals(
+      (await readTextIfExists(join(dir, ".git", "unselected-runs")))?.length,
+      1,
+      "the unselected Standard should not be re-measured",
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
+    assertEquals(limitOf(await readConfig(dir), "selected"), "70");
+  });
+});
+
+Deno.test("pin: without Gate Proof a named request still validates every Standard", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig(
+        {
+          name: "selected",
+          direction: "up",
+          limit: "80",
+          run:
+            "printf x >> .git/selected-runs; echo 'DISCERN_METRIC selected 95'",
+        },
+        {
+          name: "red_sibling",
+          direction: "down",
+          limit: "100",
+          run:
+            "printf x >> .git/red-sibling-runs; echo 'DISCERN_METRIC red_sibling 150'",
+        },
+      ),
+    );
+    await gitInit(dir);
+    const before = await gitOut(dir, "rev-parse", "HEAD");
+
+    const preview = await runAgent(dir, [
+      "standards",
+      "--pin",
+      "selected",
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(preview.code, 0, preview.output);
+    assertEquals(
+      decodeCliResult(preview.stdout, "standards").plan?.steps.map((step) =>
+        step.label
+      ),
+      ["selected", "red_sibling"],
+    );
+
+    const refused = await runAgent(dir, [
+      "standards",
+      "--pin",
+      "selected",
+      "--json",
+    ]);
+    assertEquals(refused.code, 1, refused.output);
+    assertEquals(
+      (await readTextIfExists(join(dir, ".git", "selected-runs")))?.length,
+      1,
+    );
+    assertEquals(
+      (await readTextIfExists(join(dir, ".git", "red-sibling-runs")))?.length,
+      1,
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
+    assertEquals(limitOf(await readConfig(dir), "selected"), "80");
+  });
+});
+
+Deno.test("pin: target selection reuses available values and measures only missing targets", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig(
+        {
+          name: "already_measured",
+          direction: "up",
+          limit: "80",
+          run:
+            "printf x >> .git/already-runs; echo 'DISCERN_METRIC already_measured 95'",
+        },
+        {
+          name: "missing_target",
+          direction: "down",
+          limit: "100",
+          measure: "on-demand",
+          run:
+            "printf x >> .git/missing-runs; echo 'DISCERN_METRIC missing_target 40'",
+        },
+        {
+          name: "unrelated",
+          direction: "down",
+          limit: "100",
+          measure: "on-demand",
+          run:
+            "printf x >> .git/unrelated-runs; echo 'DISCERN_METRIC unrelated 50'",
+        },
+      ),
+    );
+    await gitInit(dir);
+    const done = await runAgent(dir, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    assertEquals(
+      (await readTextIfExists(join(dir, ".git", "already-runs")))?.length,
+      1,
+    );
+
+    const pinned = await runAgent(dir, [
+      "standards",
+      "--pin",
+      "already_measured",
+      "missing_target",
+      "--json",
+    ]);
+
+    assertEquals(pinned.code, 0, pinned.output);
+    assertEquals(
+      (await readTextIfExists(join(dir, ".git", "already-runs")))?.length,
+      1,
+    );
+    assertEquals(
+      (await readTextIfExists(join(dir, ".git", "missing-runs")))?.length,
+      1,
+    );
+    assertEquals(
+      await readTextIfExists(join(dir, ".git", "unrelated-runs")),
+      undefined,
+    );
+    const config = await readConfig(dir);
+    assertEquals(limitOf(config, "already_measured"), "95");
+    assertEquals(limitOf(config, "missing_target"), "40");
+    assertEquals(limitOf(config, "unrelated"), "100");
   });
 });
 

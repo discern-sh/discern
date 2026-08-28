@@ -1,14 +1,16 @@
 /**
  * `discern standards propose` — the effectful shell around the pure proposed
- * Standard limit plan. The command consumes a fresh red measurement on clean HEAD,
- * makes one config-only commit, and atomically records the exact proposal in
- * worktree-local Git administration state. A recovery journal bridges the only
- * multi-write gap: commit made, proposal record not yet finalized.
+ * Standard limit plans. On a final clean HEAD, the command measures only its
+ * named Standard, then either makes one config-only proposal commit or renews an
+ * unchanged proposal's descendant binding without changing Git history. The
+ * proposal record is atomic worktree-local Git administration state. A recovery
+ * journal bridges the initial transaction's only multi-write gap: commit made,
+ * proposal record not yet finalized.
  */
 
 import { dirname, isAbsolute, join } from "@std/path";
 import { z } from "@zod/zod";
-import { loadConfig } from "../../shared/config_schema.ts";
+import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import {
   commitDiscernChanges,
@@ -17,7 +19,6 @@ import {
 import { emitResult } from "../../shared/emit.ts";
 import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { readTextIfExists } from "../../shared/fs_presence.ts";
-import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import type {
   Diagnostic,
   DiscernResult,
@@ -42,20 +43,21 @@ import {
 import { TomlEditor } from "../../lib/toml_edit.ts";
 import { writeDiscernToml } from "../../lib/tidy_format.ts";
 import { colorEnabled, makeOut, outSink } from "../output.ts";
-import { pathMatchesPattern } from "../scopes/glob.ts";
-import { collectPaths, repoPathPrefix } from "../scopes/scopes.ts";
+import { collectPaths } from "../scopes/scopes.ts";
 import { integrationBranch } from "../worktree/git.ts";
 import {
   buildStandardLimitProposalPlan,
+  buildStandardLimitProposalRebindPlan,
   type PlannedStandardLimitProposal,
   type StandardLimitProposalPlan,
+  type StandardLimitProposalRefusal,
 } from "./standard_proposal_plan.ts";
 import { validateStandardLimitReason } from "../../shared/standard_limit_reason.ts";
 import { buildStandardPlan, type PlannedStandard } from "./standard_plan.ts";
+import { measureStandardEvidence } from "./standards.ts";
 import {
   readTrunkConfig,
   standardDefinitionFingerprint,
-  type TrunkConfigRead,
 } from "./standard_limits.ts";
 import {
   type AdminStateWriteAuthority,
@@ -65,83 +67,37 @@ import {
   preflightAdminStateWrites,
 } from "./proof.ts";
 import { renderPlan, renderStepResults } from "../../shared/result.ts";
+import {
+  inspectActiveStandardLimitProposals,
+  PROPOSAL_STORE_VERSION,
+  proposalCommitShape,
+  readProposalStore,
+  type StandardLimitProposalStore,
+} from "./standard_proposal_state.ts";
+export {
+  type ActiveStandardLimitProposals,
+  cloneStandardLimitProposal,
+  inspectActiveStandardLimitProposals,
+  sameStandardLimitProposalSet,
+  staleProposalDiagnostic,
+  standardLimitProposalIdentity,
+} from "./standard_proposal_state.ts";
 
-const PROPOSAL_STORE_VERSION = 1;
 const PROPOSAL_TRANSACTION_VERSION = 1;
-
-const StandardLimitProposalStoreSchema = z.strictObject({
-  version: z.literal(PROPOSAL_STORE_VERSION),
-  proposals: z.array(StandardLimitProposalSchema),
-}).refine(
-  ({ proposals }) =>
-    new Set(proposals.map((proposal) => proposal.standard)).size ===
-      proposals.length,
-  "proposal Standards must be unique",
-);
-type StandardLimitProposalStore = z.infer<
-  typeof StandardLimitProposalStoreSchema
->;
 
 const StandardLimitProposalTransactionSchema = z.strictObject({
   version: z.literal(PROPOSAL_TRANSACTION_VERSION),
   branch: z.string().min(1),
   source_commit: z.string().min(1),
   config_path: z.string().min(1),
-  proposal: StandardLimitProposalSchema.omit({ commit: true }),
+  proposal: StandardLimitProposalSchema.omit({
+    commit: true,
+    bound_commit: true,
+  }),
 });
 type StandardLimitProposalTransaction = z.infer<
   typeof StandardLimitProposalTransactionSchema
 >;
-
-export interface ActiveStandardLimitProposals {
-  readonly active: ReadonlyMap<string, StandardLimitProposalData>;
-  readonly stale: readonly {
-    readonly proposal: StandardLimitProposalData;
-    readonly reason: string;
-  }[];
-}
-
-/** Copy one proposal tuple so persisted/Proof/transaction evidence never
- * aliases a mutable array supplied by another layer. */
-export function cloneStandardLimitProposal(
-  proposal: StandardLimitProposalData,
-): StandardLimitProposalData {
-  return { ...proposal, evidence_paths: [...proposal.evidence_paths] };
-}
-
-/** Canonical exact identity shared by Gate reuse and acceptance. */
-export function standardLimitProposalIdentity(
-  proposal: StandardLimitProposalData,
-): string {
-  return JSON.stringify([
-    proposal.standard,
-    proposal.commit,
-    proposal.measured_commit,
-    proposal.definition_fingerprint,
-    proposal.trunk,
-    proposal.trunk_commit,
-    proposal.direction,
-    proposal.trunk_limit,
-    proposal.proposed_limit,
-    proposal.measurement,
-    proposal.delta,
-    proposal.reason,
-    proposal.evidence_paths,
-  ]);
-}
-
-/** Exact unordered-set equality for proposal authority. */
-export function sameStandardLimitProposalSet(
-  left: readonly StandardLimitProposalData[],
-  right: readonly StandardLimitProposalData[],
-): boolean {
-  const keys = (items: readonly StandardLimitProposalData[]): string[] =>
-    items.map(standardLimitProposalIdentity).sort();
-  const leftKeys = keys(left);
-  const rightKeys = keys(right);
-  return leftKeys.length === rightKeys.length &&
-    leftKeys.every((key, index) => key === rightKeys[index]);
-}
 
 /** Proposal write authority, branded so executor calls cannot mix worktrees. */
 declare const PROPOSAL_WRITE_AUTHORITY: unique symbol;
@@ -240,54 +196,6 @@ async function preflightProposalWrites(
   };
 }
 
-/** Parse the one iterable authority file; malformed state is fail-closed. */
-function parseProposalStore(
-  raw: string,
-): StandardLimitProposalStore | undefined {
-  try {
-    return decodeJson(
-      StandardLimitProposalStoreSchema,
-      raw,
-      "Standard limit proposal record",
-    );
-  } catch {
-    // discern-best-effort: standard-proposal-store-decode-fallback
-    return undefined;
-  }
-}
-
-/** Read absent state as an empty store, while preserving malformed/unreadable. */
-async function readProposalStore(
-  root: string,
-): Promise<
-  | { readonly status: "ok"; readonly store: StandardLimitProposalStore }
-  | { readonly status: "malformed" | "unavailable"; readonly reason: string }
-> {
-  const path = await gitAdminStatePath(root, "standardLimitProposals");
-  if (path === undefined) {
-    return {
-      status: "unavailable",
-      reason: "Git could not resolve the proposal record",
-    };
-  }
-  let raw: string;
-  try {
-    raw = await Deno.readTextFile(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return { status: "ok", store: { version: 1, proposals: [] } };
-    }
-    return { status: "unavailable", reason: errText(error) };
-  }
-  const store = parseProposalStore(raw);
-  return store === undefined
-    ? {
-      status: "malformed",
-      reason: "the Standard proposal record is malformed",
-    }
-    : { status: "ok", store };
-}
-
 /** Atomically replace the iterable proposal authority. */
 async function writeProposalStore(
   authority: StandardProposalWriteAuthority,
@@ -296,7 +204,7 @@ async function writeProposalStore(
   await atomicReplaceJson(
     authority.proposalPath,
     {
-      version: 1,
+      version: PROPOSAL_STORE_VERSION,
       proposals: [...proposals],
     } satisfies StandardLimitProposalStore,
     { mode: 0o600, sync: true, trailingNewline: true },
@@ -327,195 +235,6 @@ async function gitValue(
   const result = await runGit(args, { cwd: root });
   const value = result.stdout.trim();
   return result.success && value !== "" ? value : undefined;
-}
-
-/** Verify that the proposal commit is the one config-only child of its measured
- * source. This makes a hand-written admin record insufficient to waive Tier 1. */
-async function proposalCommitShape(
-  root: string,
-  proposal: StandardLimitProposalData,
-  configRel: string,
-): Promise<string | undefined> {
-  const prefix = await repoPathPrefix(root);
-  if (prefix === undefined) {
-    return "its project path inside the repository cannot be read";
-  }
-  const parents = await runGit(
-    ["rev-list", "--parents", "--max-count=1", proposal.commit, "--"],
-    { cwd: root },
-  );
-  if (!parents.success) {
-    return "its proposal commit cannot be read";
-  }
-  const fields = parents.stdout.trim().split(/\s+/);
-  if (
-    fields.length !== 2 || fields[0] !== proposal.commit ||
-    fields[1] !== proposal.measured_commit
-  ) {
-    return "its proposal commit is not the single child of the measured commit";
-  }
-  const diff = await runGit(
-    [
-      "diff",
-      "--name-only",
-      "--no-renames",
-      "-z",
-      proposal.measured_commit,
-      proposal.commit,
-      "--",
-    ],
-    { cwd: root },
-  );
-  if (!diff.success || diff.stdout !== `${prefix}${configRel}\0`) {
-    return `its proposal commit changes something other than ${configRel}`;
-  }
-  return undefined;
-}
-
-/** Validate one persisted record against current HEAD, trunk, and config. */
-async function proposalStaleness(
-  root: string,
-  proposal: StandardLimitProposalData,
-  trunk: TrunkConfigRead,
-  mainBranch: string,
-  byName: ReadonlyMap<string, PlannedStandard>,
-  head: string,
-  configRel: string,
-): Promise<string | undefined> {
-  if (proposal.commit !== head) {
-    return `it names commit ${proposal.commit.slice(0, 12)}, not current HEAD ${
-      head.slice(0, 12)
-    }`;
-  }
-  if (trunk.kind !== "parsed") {
-    return "the current trunk Standard definition cannot be read";
-  }
-  if (proposal.trunk !== mainBranch || proposal.trunk_commit !== trunk.commit) {
-    return `the trunk moved or changed identity (recorded ${proposal.trunk}@${
-      proposal.trunk_commit.slice(0, 12)
-    }, now ${mainBranch}@${trunk.commit.slice(0, 12)})`;
-  }
-  const standard = byName.get(proposal.standard);
-  if (standard === undefined) {
-    return "the Standard was deleted or renamed";
-  }
-  const trunkLimit = trunk.config.getNumber(standard.limitKey);
-  if (trunkLimit === undefined || trunkLimit !== proposal.trunk_limit) {
-    return "the trunk limit changed";
-  }
-  if (
-    standard.direction !== proposal.direction ||
-    standard.limit !== proposal.proposed_limit ||
-    proposal.measurement !== proposal.proposed_limit ||
-    proposal.delta !== proposal.proposed_limit - proposal.trunk_limit
-  ) {
-    return "the direction, proposed limit, measurement, or delta changed";
-  }
-  if (
-    await standardDefinitionFingerprint(standard.name, standard.spec) !==
-      proposal.definition_fingerprint
-  ) {
-    return "the Standard definition changed";
-  }
-  const inputs = standard.inputs;
-  if (
-    inputs === undefined || inputs.length === 0 ||
-    proposal.evidence_paths.length === 0 ||
-    proposal.evidence_paths.some((path) =>
-      !inputs.some((pattern) => pathMatchesPattern(path, pattern))
-    )
-  ) {
-    return "the configured inputs no longer cover every responsible path";
-  }
-  const shape = await proposalCommitShape(root, proposal, configRel);
-  if (shape !== undefined) {
-    return shape;
-  }
-  return undefined;
-}
-
-/** Inspect proposal authority for Gate and acceptance. Stale entries are never
- * active and carry their exact recovery reason for result diagnostics. */
-export async function inspectActiveStandardLimitProposals(
-  root: string,
-  mainBranch: string,
-  standards: readonly PlannedStandard[],
-): Promise<ActiveStandardLimitProposals> {
-  const read = await readProposalStore(root);
-  if (read.status !== "ok") {
-    return {
-      active: new Map(),
-      stale: [],
-    };
-  }
-  const [head, trunk] = await Promise.all([
-    gitValue(root, ["rev-parse", "HEAD"]),
-    readTrunkConfig(root, mainBranch),
-  ]);
-  if (head === undefined) {
-    return {
-      active: new Map(),
-      stale: read.store.proposals.map((proposal) => ({
-        proposal,
-        reason: "current HEAD cannot be read",
-      })),
-    };
-  }
-  const configRel = (await installedConfigRel(root)) ?? CONFIG_REL;
-  const byName = new Map(
-    standards.map((standard) => [standard.name, standard]),
-  );
-  const freshEvidence = await inspectFreshStandardMeasurementEvidence(root);
-  const active = new Map<string, StandardLimitProposalData>();
-  const stale: {
-    proposal: StandardLimitProposalData;
-    reason: string;
-  }[] = [];
-  for (const proposal of read.store.proposals) {
-    const reason = await proposalStaleness(
-      root,
-      proposal,
-      trunk,
-      mainBranch,
-      byName,
-      head,
-      configRel,
-    );
-    const refreshedValue = freshEvidence.status === "honored"
-      ? freshEvidence.evidence.values[proposal.standard]
-      : undefined;
-    const refreshFailed = freshEvidence.status === "honored" &&
-      freshEvidence.evidence.failed.includes(proposal.standard);
-    const measurementReason = refreshFailed
-      ? "the latest fresh measurement failed"
-      : refreshedValue !== undefined && refreshedValue !== proposal.measurement
-      ? `the latest fresh measurement is ${refreshedValue}, not the recorded ${proposal.measurement}`
-      : undefined;
-    if (reason === undefined && measurementReason === undefined) {
-      active.set(proposal.standard, proposal);
-    } else {
-      stale.push({
-        proposal,
-        reason: reason ?? measurementReason ?? "unknown",
-      });
-    }
-  }
-  return { active, stale };
-}
-
-/** A stale proposal is a focused diagnostic only when its Standard still needs
- * the never-loosen exception; otherwise it is inert persisted admin state. */
-export function staleProposalDiagnostic(
-  standard: string,
-  reason: string,
-): Diagnostic {
-  return {
-    tool: `standard:${standard}`,
-    severity: "error",
-    message:
-      `standard '${standard}' has a stale proposed limit: ${reason}. The proposal authorizes nothing; restore the trunk limit or take a fresh breached measurement and run \`discern standards propose ${standard} --reason "…"\` again.`,
-    reproduce_cmd: "discern standards",
-  };
 }
 
 /** Read and validate a recovery journal. */
@@ -584,6 +303,7 @@ async function recoverProposalTransaction(
   const proposal: StandardLimitProposalData = {
     ...transaction.proposal,
     commit: head,
+    bound_commit: head,
   };
   const shape = await proposalCommitShape(
     authority.root,
@@ -635,6 +355,14 @@ async function applyProposalPlan(
   plan: StandardLimitProposalPlan,
   authority: StandardProposalWriteAuthority,
 ): Promise<StandardLimitProposalData> {
+  if (
+    await gitValue(root, ["rev-parse", "HEAD"]) !==
+      plan.proposal.measured_commit || !(await isWorktreeFullyClean(root))
+  ) {
+    throw new Error(
+      "HEAD or the worktree moved after measurement; no proposal write started",
+    );
+  }
   const transaction: StandardLimitProposalTransaction = {
     version: 1,
     branch,
@@ -685,7 +413,11 @@ async function applyProposalPlan(
       "the proposed-limit commit completed, but its object id could not be read; retry the command to recover the proposal record",
     );
   }
-  const proposal: StandardLimitProposalData = { ...plan.proposal, commit };
+  const proposal: StandardLimitProposalData = {
+    ...plan.proposal,
+    commit,
+    bound_commit: commit,
+  };
   await persistProposal(authority, proposal);
   await removeTransaction(authority.transactionPath);
   return proposal;
@@ -698,7 +430,12 @@ function proposalSteps(plan: EnginePlan): StepResult[] {
 
 /** Build one successful proposal transaction result. */
 function proposalResult(
-  status: "recorded" | "replaced" | "unchanged" | "recovered",
+  status:
+    | "recorded"
+    | "rebound"
+    | "replaced"
+    | "unchanged"
+    | "recovered",
   proposal: StandardLimitProposalData,
   plan?: EnginePlan,
 ): DiscernResult<StandardsData> {
@@ -732,6 +469,178 @@ function proposalFailure(
   };
 }
 
+/** Project a pure proposal-plan refusal into the verb's result envelope. */
+function proposalPlanFailure(
+  refusal: StandardLimitProposalRefusal,
+): DiscernResult {
+  return {
+    ok: false,
+    verb: "standards propose",
+    error: refusal.error,
+    message: refusal.message,
+  };
+}
+
+type ProposalMeasurement =
+  | { readonly ok: true; readonly value: number }
+  | { readonly ok: false; readonly result: DiscernResult };
+
+interface StableProposalMeasurementContext {
+  readonly root: string;
+  readonly cfg: DiscernConfig;
+  readonly plan: ReturnType<typeof buildStandardPlan>;
+  readonly standard: PlannedStandard;
+  readonly head: string;
+  readonly mainBranch: string;
+  readonly trunkCommit: string;
+  readonly signal?: AbortSignal;
+}
+
+/** Reuse exact-HEAD process evidence when present; otherwise measure only the
+ * named Standard through the shared execution planner. */
+async function proposalMeasurement(
+  root: string,
+  cfg: DiscernConfig,
+  plan: ReturnType<typeof buildStandardPlan>,
+  standard: PlannedStandard,
+  authority: StandardProposalWriteAuthority,
+  signal?: AbortSignal,
+): Promise<ProposalMeasurement> {
+  const fresh = await inspectFreshStandardMeasurementEvidence(root);
+  const recorded = fresh.status === "honored" &&
+      !fresh.evidence.failed.includes(standard.name)
+    ? fresh.evidence.values[standard.name]
+    : undefined;
+  if (recorded !== undefined) {
+    return { ok: true, value: recorded };
+  }
+  const measured = await measureStandardEvidence(
+    root,
+    cfg,
+    plan,
+    [standard.name],
+    authority.admin,
+    signal,
+  );
+  const reading = measured.readings.find((entry) =>
+    entry.name === standard.name && entry.measurement === "measured"
+  );
+  if (!measured.evidenceRecorded) {
+    const pinned = measured.pin.head === undefined
+      ? "the starting HEAD could not be read"
+      : !measured.pin.clean
+      ? "the worktree was not clean when measurement began"
+      : "HEAD or the worktree changed while the measurement ran";
+    return {
+      ok: false,
+      result: proposalFailure(
+        "precondition_failed",
+        `standard '${standard.name}' produced no renewable exact-HEAD evidence because ${pinned}. Restore a clean committed tree, then retry the same proposal command.`,
+      ),
+    };
+  }
+  if (reading?.value === undefined || !Number.isFinite(reading.value)) {
+    const diagnostic = measured.diagnostics.find((entry) =>
+      entry.tool === standard.name
+    ) ?? measured.diagnostics[0];
+    return {
+      ok: false,
+      result: proposalFailure(
+        "precondition_failed",
+        `standard '${standard.name}' did not yield a numeric metric in its targeted measurement${
+          diagnostic === undefined ? "" : `: ${diagnostic.message}`
+        }. Fix the command or emitted metric, then retry this proposal command; it measures only the named Standard.`,
+        diagnostic,
+      ),
+    };
+  }
+  return { ok: true, value: reading.value };
+}
+
+/** Measure once, then reject evidence if any tree identity moved meanwhile. */
+async function stableProposalMeasurement(
+  context: StableProposalMeasurementContext,
+  authority: StandardProposalWriteAuthority,
+  destination: "proposal commit" | "proposal could be renewed",
+): Promise<ProposalMeasurement> {
+  const measured = await proposalMeasurement(
+    context.root,
+    context.cfg,
+    context.plan,
+    context.standard,
+    authority,
+    context.signal,
+  );
+  if (!measured.ok) return measured;
+  const [currentHead, currentTrunk, clean] = await Promise.all([
+    gitValue(context.root, ["rev-parse", "HEAD"]),
+    readTrunkConfig(context.root, context.mainBranch),
+    isWorktreeFullyClean(context.root),
+  ]);
+  if (
+    currentHead !== context.head || currentTrunk.kind !== "parsed" ||
+    currentTrunk.commit !== context.trunkCommit || !clean
+  ) {
+    return {
+      ok: false,
+      result: proposalFailure(
+        "proposal_stale",
+        `standard '${context.standard.name}' was measured, but HEAD, the worktree, or ${context.mainBranch} moved before its ${destination}. Commit the final clean tree, update from ${context.mainBranch} if needed, then retry the same proposal command.`,
+      ),
+    };
+  }
+  return measured;
+}
+
+/** Whether one immutable proposal commit remains in the current history. */
+async function isAncestorOf(
+  root: string,
+  ancestor: string,
+  descendant: string,
+): Promise<boolean> {
+  const result = await runGit(
+    ["merge-base", "--is-ancestor", ancestor, descendant],
+    { cwd: root },
+  );
+  return result.success;
+}
+
+/** A truthful no-effect preview before the target's numeric reading is known. */
+function proposalMeasurementPreview(
+  standard: PlannedStandard,
+  mode: "record" | "rebind",
+): EnginePlan {
+  return {
+    title: mode === "record"
+      ? "Standard limit proposal"
+      : "Standard limit proposal renewal",
+    details: [`standard: ${standard.name}`],
+    steps: [
+      {
+        kind: "standard",
+        label: verbatimStepLabel(standard.name),
+        disposition: "run",
+        note: `measure only ${standard.metric} on the current clean HEAD`,
+      },
+      ...(mode === "record"
+        ? [{
+          kind: "git" as const,
+          label: verbatimStepLabel(`propose-${standard.name}`),
+          disposition: "run" as const,
+          note:
+            "if the value breaches the trunk limit, create one config-only proposal commit",
+        }]
+        : [{
+          kind: "standard" as const,
+          label: verbatimStepLabel(`rebind-${standard.name}`),
+          disposition: "run" as const,
+          note:
+            "if the proposal tuple and value are unchanged, renew its worktree-local evidence binding without a commit",
+        }]),
+    ],
+  };
+}
+
 /** Compute/apply one proposal transaction. */
 export async function standardsProposeResult(
   root: string,
@@ -739,6 +648,7 @@ export async function standardsProposeResult(
     readonly name: string;
     readonly reason: string;
     readonly dryRun?: boolean;
+    readonly signal?: AbortSignal;
   },
 ): Promise<DiscernResult> {
   const reason = validateStandardLimitReason(opts.reason);
@@ -854,29 +764,6 @@ export async function standardsProposeResult(
   const stale = inspection.stale.find((entry) =>
     entry.proposal.standard === opts.name
   );
-  if (stale !== undefined && standard.limit !== stale.proposal.trunk_limit) {
-    return proposalFailure(
-      "proposal_stale",
-      staleProposalDiagnostic(opts.name, stale.reason).message,
-    );
-  }
-
-  const evidence = await inspectFreshStandardMeasurementEvidence(root);
-  if (evidence.status !== "honored") {
-    return proposalFailure(
-      "precondition_failed",
-      `standard '${opts.name}' has no fresh measured breach on current clean HEAD (${evidence.status}). Run \`discern standards\`; after it reports the breach, retry this exact proposal.`,
-    );
-  }
-  const measurement = evidence.evidence.values[opts.name];
-  if (
-    measurement === undefined || evidence.evidence.failed.includes(opts.name)
-  ) {
-    return proposalFailure(
-      "precondition_failed",
-      `standard '${opts.name}' did not yield a numeric metric in the fresh measurement. Fix its command or emitted metric and re-run \`discern standards\` before proposing a new limit.`,
-    );
-  }
   const trunk = await readTrunkConfig(root, mainBranch);
   if (trunk.kind !== "parsed") {
     return proposalFailure(
@@ -895,6 +782,10 @@ export async function standardsProposeResult(
       `standard '${opts.name}' has no numeric limit on ${mainBranch}; it is new or malformed, not an existing held bound eligible for a proposed limit.`,
     );
   }
+  const definitionFingerprint = await standardDefinitionFingerprint(
+    standard.name,
+    standard.spec,
+  );
   const changedPaths = await collectPaths(root, trunk.commit, head);
   if (changedPaths === null) {
     return proposalFailure(
@@ -902,33 +793,132 @@ export async function standardsProposeResult(
       "discern could not enumerate the changed paths responsible for this measurement; fix the Git diff and retry.",
     );
   }
-  const decision = buildStandardLimitProposalPlan({
+  const proposalContext = {
     standard,
     reason: reason.reason,
     head,
-    definitionFingerprint: await standardDefinitionFingerprint(
-      standard.name,
-      standard.spec,
-    ),
+    definitionFingerprint,
     trunk: mainBranch,
     trunkCommit: trunk.commit,
     trunkLimit,
-    measurement,
     changedPaths,
-  });
-  if (!decision.ok) {
-    return {
-      ok: false,
-      verb: "standards propose",
-      error: decision.error,
-      message: decision.message,
+  };
+  const measurementContext: StableProposalMeasurementContext = {
+    root,
+    cfg,
+    plan,
+    standard,
+    head,
+    mainBranch,
+    trunkCommit: trunk.commit,
+    ...(opts.signal === undefined ? {} : { signal: opts.signal }),
+  };
+
+  // A stale record whose branch still carries the proposed limit may renew only
+  // its evidence binding. Restoring the trunk limit instead starts a new proposal
+  // transaction and replaces the stale record through the ordinary path below.
+  if (stale !== undefined && standard.limit !== trunkLimit) {
+    const [originIsAncestor, trunkIsContained, originShapeError] = await Promise
+      .all([
+        isAncestorOf(root, stale.proposal.commit, head),
+        isAncestorOf(root, trunk.commit, head),
+        proposalCommitShape(
+          root,
+          stale.proposal,
+          (await installedConfigRel(root)) ?? CONFIG_REL,
+        ),
+      ]);
+    const rebindContext = {
+      ...proposalContext,
+      proposal: stale.proposal,
+      originIsAncestor,
+      trunkIsContained,
+      ...(originShapeError === undefined ? {} : { originShapeError }),
     };
+    const preliminary = buildStandardLimitProposalRebindPlan({
+      ...rebindContext,
+      measurement: stale.proposal.measurement,
+    });
+    if (!preliminary.ok) {
+      return proposalPlanFailure(preliminary);
+    }
+    if (opts.dryRun ?? false) {
+      return previewResult(
+        "standards propose",
+        proposalMeasurementPreview(standard, "rebind"),
+      );
+    }
+    if (authority === undefined) {
+      throw new Error(
+        "internal error: proposal renewal has no write authority",
+      );
+    }
+    const measured = await stableProposalMeasurement(
+      measurementContext,
+      authority,
+      "proposal could be renewed",
+    );
+    if (!measured.ok) {
+      return measured.result;
+    }
+    const rebound = buildStandardLimitProposalRebindPlan({
+      ...rebindContext,
+      measurement: measured.value,
+    });
+    if (!rebound.ok) {
+      return proposalPlanFailure(rebound);
+    }
+    try {
+      await persistProposal(authority, rebound.plan.proposal);
+      await clearGateProof(root);
+      return proposalResult(
+        "rebound",
+        rebound.plan.proposal,
+        rebound.plan.engine,
+      );
+    } catch (error) {
+      return proposalFailure(
+        "proposal_failed",
+        `could not renew the Standard proposal binding: ${
+          errText(error)
+        }. The Git history and configured limit were not changed; retry the same command.`,
+      );
+    }
   }
+
   if (opts.dryRun ?? false) {
-    return previewResult("standards propose", decision.plan.engine);
+    const previewMeasurement = standard.direction === "down"
+      ? trunkLimit + 1
+      : trunkLimit - 1;
+    const previewDecision = buildStandardLimitProposalPlan({
+      ...proposalContext,
+      measurement: previewMeasurement,
+    });
+    if (!previewDecision.ok) {
+      return proposalPlanFailure(previewDecision);
+    }
+    return previewResult(
+      "standards propose",
+      proposalMeasurementPreview(standard, "record"),
+    );
   }
   if (authority === undefined) {
     throw new Error("internal error: proposal apply has no write authority");
+  }
+  const measured = await stableProposalMeasurement(
+    measurementContext,
+    authority,
+    "proposal commit",
+  );
+  if (!measured.ok) {
+    return measured.result;
+  }
+  const decision = buildStandardLimitProposalPlan({
+    ...proposalContext,
+    measurement: measured.value,
+  });
+  if (!decision.ok) {
+    return proposalPlanFailure(decision);
   }
   try {
     const proposal = await applyProposalPlan(
