@@ -9,7 +9,9 @@
  * run), so without retention the OS temp dir accumulates tens of thousands of
  * orphaned logs — and on a size-limited tmpfs `/tmp`, eventually starves unrelated
  * programs (ADR 0117). Runtime artifact creation therefore goes through
- * {@link makeTempArtifact} or {@link makeTempArtifactDir}. The repo-wide raw
+ * {@link makeTempArtifact} or {@link makeTempArtifactDir}, and each artifact's
+ * name carries its minting checkout's {@link TempArtifactScope} so concurrent
+ * projects stay attributable in the shared temp dir. The repo-wide raw
  * directory guard recognizes this module alongside the separate test and
  * tooling lifetime authorities; the temp-file guard classifies the one
  * immediately removed write-authority probe separately because it creates
@@ -31,6 +33,7 @@ import { tmpdir } from "os";
 import { join } from "@std/path";
 import { bestEffort } from "./best_effort.ts";
 import { SYSTEM_CLOCK } from "./clock.ts";
+import { sanitizeSlug } from "./slug.ts";
 
 /** The registry: one filename prefix per artifact family. The prefixes are the
  * retention contract — {@link pruneStaleTempArtifacts} reaps exactly these. */
@@ -64,6 +67,49 @@ export const TEMP_ARTIFACT_DIR_KINDS = {
 } as const;
 
 export type TempArtifactDirKind = keyof typeof TEMP_ARTIFACT_DIR_KINDS;
+
+/**
+ * The minting checkout's identity, embedded in every artifact name directly
+ * after its family prefix: `<prefix><project>-<worktree>-<random><suffix>`.
+ * The OS temp dir is one flat namespace shared by every discern project on
+ * the machine — without the label, an agent inspecting "the newest job log"
+ * can read another project's. `undefined` means no checkout identity exists
+ * at the minting site (a crash outside any repository, the no-root shim);
+ * the name then stays `<prefix><random><suffix>`. The parameter is required
+ * so every new call site decides its scope explicitly. Because the label
+ * sits BETWEEN prefix and random tail, the retention contract — prefix +
+ * suffix matching in {@link pruneStaleTempArtifacts} — is unchanged.
+ */
+export interface TempArtifactScope {
+  /** The project slug (`[project].slug`). */
+  readonly project: string;
+  /** The checkout's worktree id (a main checkout carries its trunk id). */
+  readonly worktree: string;
+}
+
+/** The longest label a filename embeds. Slug and id are unbounded in config;
+ * filenames are not. The random tail — never the label — carries uniqueness,
+ * so clamping costs only legibility. */
+const MAX_SCOPE_LABEL_CHARS = 80;
+
+/** The `<project>-<worktree>-` infix for `scope`, `""` when absent — or when
+ * either part sanitizes away, because a partial label misattributes, which is
+ * exactly what the label exists to prevent. The ONE definition of the labeled
+ * name shape: every registered family mints through it. */
+function scopeLabel(scope: TempArtifactScope | undefined): string {
+  if (scope === undefined) {
+    return "";
+  }
+  const project = sanitizeSlug(scope.project);
+  const worktree = sanitizeSlug(scope.worktree);
+  if (project === "" || worktree === "") {
+    return "";
+  }
+  const label = `${project}-${worktree}`
+    .slice(0, MAX_SCOPE_LABEL_CHARS)
+    .replace(/-+$/, "");
+  return `${label}-`;
+}
 
 /** Every artifact family shares the suffix, so the prune match stays narrow. */
 export const TEMP_ARTIFACT_SUFFIX = ".log";
@@ -183,14 +229,18 @@ class SmallestCandidates {
 }
 
 /**
- * Create one OS-temp artifact file for `kind`. The returned path is what rides
- * in the result envelope (`output_path`). Creation failures propagate — callers
- * already treat artifact creation as best-effort. No sweep happens here (see
- * the module doc): retention runs at the gate-verb entries, off the kill path.
+ * Create one OS-temp artifact file for `kind`, named for `scope` (see
+ * {@link TempArtifactScope}). The returned path is what rides in the result
+ * envelope (`output_path`). Creation failures propagate — callers already
+ * treat artifact creation as best-effort. No sweep happens here (see the
+ * module doc): retention runs at the gate-verb entries, off the kill path.
  */
-export function makeTempArtifact(kind: TempArtifactKind): Promise<string> {
+export function makeTempArtifact(
+  kind: TempArtifactKind,
+  scope: TempArtifactScope | undefined,
+): Promise<string> {
   return Deno.makeTempFile({
-    prefix: TEMP_ARTIFACT_KINDS[kind],
+    prefix: `${TEMP_ARTIFACT_KINDS[kind]}${scopeLabel(scope)}`,
     suffix: TEMP_ARTIFACT_SUFFIX,
   });
 }
@@ -199,12 +249,17 @@ export function makeTempArtifact(kind: TempArtifactKind): Promise<string> {
  * Create one OS-temp artifact DIRECTORY for `kind`. Same contract as
  * {@link makeTempArtifact}, directory-shaped: randomly named (a predictable
  * path in a shared temp dir would let another local user pre-plant it), and
- * reaped recursively once its mtime ages past the TTL.
+ * reaped recursively once its mtime ages past the TTL. Today's one runtime
+ * family (the shim) is minted precisely when no repository root is at hand,
+ * so its live call passes no scope.
  */
 export function makeTempArtifactDir(
   kind: TempArtifactDirKind,
+  scope: TempArtifactScope | undefined,
 ): Promise<string> {
-  return Deno.makeTempDir({ prefix: TEMP_ARTIFACT_DIR_KINDS[kind] });
+  return Deno.makeTempDir({
+    prefix: `${TEMP_ARTIFACT_DIR_KINDS[kind]}${scopeLabel(scope)}`,
+  });
 }
 
 /** Testable inputs for one bounded page of the artifact population. */

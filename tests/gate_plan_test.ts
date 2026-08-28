@@ -210,7 +210,7 @@ Deno.test("buildGateResult: serializes plan+results into the DiscernResult envel
     ok(l);
   }
   ok("scope:widget");
-  const result = await buildGateResult(plan, results, null);
+  const result = await buildGateResult(".", plan, results, null);
   const steps = result.steps ?? [];
 
   assertEquals(result.ok, true);
@@ -246,7 +246,7 @@ Deno.test("buildGateResult: an aborted stage leaves later jobs skipped; the fail
       }),
     ],
   ]);
-  const result = await buildGateResult(plan, results, "fix");
+  const result = await buildGateResult(".", plan, results, "fix");
   const steps = result.steps ?? [];
   const step = (label: string) => steps.find((s) => s.step.label === label);
 
@@ -267,6 +267,7 @@ Deno.test("buildGateResult: every failed stage carries its remedy in the JSON en
   const plan = buildGatePlan(FULL, []);
   for (const stage of FAILED_STAGES) {
     const result = await buildGateResult(
+      ".",
       plan,
       new Map<string, JobResult>(),
       stage,
@@ -293,7 +294,7 @@ Deno.test("buildGateResult: non-fix capability/check failures note a wired fix s
       }),
     ],
   ]);
-  const result = await buildGateResult(plan, results, "check/test");
+  const result = await buildGateResult(".", plan, results, "check/test");
   const diag = (result.diagnostics ?? []).find((d) => d.tool === "lint");
   assert(diag, "expected a diagnostic for the failed lint job");
   assertEquals(diag.fix_available, true);
@@ -305,6 +306,7 @@ Deno.test("buildGateResult: fix_available is absent without a fix-stage job and 
 lint = "eslint ."
 `);
   const noFixResult = await buildGateResult(
+    ".",
     buildGatePlan(noFix, []),
     new Map<string, JobResult>([
       [
@@ -325,6 +327,7 @@ lint = "eslint ."
   assertEquals(lint.fix_available, undefined);
 
   const scopeResult = await buildGateResult(
+    ".",
     buildGatePlan(FULL, ["widget"]),
     new Map<string, JobResult>([
       [
@@ -372,7 +375,7 @@ Deno.test("buildGateResult: a cancelled sibling is distinct from skipped and ear
       }),
     ],
   ]);
-  const result = await buildGateResult(plan, results, "check/test");
+  const result = await buildGateResult(".", plan, results, "check/test");
   const steps = result.steps ?? [];
   const step = (l: string) => steps.find((s) => s.step.label === l);
   assertEquals(step("lint")?.outcome, "failed");
@@ -419,6 +422,7 @@ Deno.test("buildGateResult: a LARGE SARIF output is normalized to one diagnostic
     ],
   ]);
   const result = await buildGateResult(
+    ".",
     buildGatePlan(FULL, []),
     results,
     "check/test",

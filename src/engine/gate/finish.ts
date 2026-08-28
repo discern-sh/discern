@@ -234,10 +234,12 @@ function driftDiff(entry: InstructionDriftEntry): string {
  * rescue, since the untracked file has no `git diff` to fall back on.
  */
 async function instructionDiagnostic(
+  root: string,
   stale: InstructionDriftEntry[],
 ): Promise<Diagnostic> {
   const files = stale.map((d) => d.path).join(", ");
   const outputFields = await diagnosticOutputFields(
+    root,
     `Agent files are out of date: ${files}.\n` +
       "Run `discern refresh` to regenerate them. If you meant to change the " +
       "instructions, edit your [instructions].sources (e.g. instructions.md) instead — a direct " +
@@ -255,6 +257,7 @@ async function instructionDiagnostic(
 
 /** The Tier-0 diagnostic for a non-empty read-only tracked-refresh plan. */
 async function trackedRefreshDiagnostic(
+  root: string,
   plan: TrackedRefreshPlan,
 ): Promise<Diagnostic> {
   const paths = plan.changes.map((change) => change.path);
@@ -267,6 +270,7 @@ async function trackedRefreshDiagnostic(
   });
   const failures = plan.errors.map((error) => `  - ${error}`);
   const outputFields = await diagnosticOutputFields(
+    root,
     "Tracked refresh artifacts are not converged. Running `discern refresh` " +
       "would change the tree, so this commit cannot earn a gate proof.\n\n" +
       (details.length > 0 ? `Planned changes:\n${details.join("\n")}\n` : "") +
@@ -294,10 +298,12 @@ async function trackedRefreshDiagnostic(
  * generated copy), so the two generated-artifact failures read identically.
  */
 async function skillsDiagnostic(
+  root: string,
   stale: SkillsDriftEntry[],
 ): Promise<Diagnostic> {
   const dirs = [...new Set(stale.map((d) => d.dir))].join(", ");
   const outputFields = await diagnosticOutputFields(
+    root,
     `Materialized skills are out of date in: ${dirs}.\n` +
       "Run `discern refresh` to re-materialize them. If you meant to change a skill, " +
       "edit its source under [skills].dir (or `discern skills eject` a bundled one) — a " +
@@ -320,10 +326,12 @@ async function skillsDiagnostic(
  * consumer misreads — so the remedy is an edit, and the diagnostic says so.
  */
 async function skillFrontmatterDiagnostic(
+  root: string,
   malformed: SkillWellformedness[],
 ): Promise<Diagnostic> {
   const files = malformed.map((m) => m.file).join(", ");
   const outputFields = await diagnosticOutputFields(
+    root,
     `Skill frontmatter that agent runtimes cannot read:\n\n` +
       malformed.map((m) =>
         `${m.file}:\n${m.issues.map((i) => `  • ${i}`).join("\n")}`
@@ -348,10 +356,12 @@ async function skillFrontmatterDiagnostic(
  * newer one, and the diagnostic says which files are in contention.
  */
 async function adrNumbersDiagnostic(
+  root: string,
   dupes: AdrNumberDuplicate[],
 ): Promise<Diagnostic> {
   const numbers = dupes.map((d) => d.number).join(", ");
   const outputFields = await diagnosticOutputFields(
+    root,
     `ADR numbers claimed by more than one record:\n\n` +
       dupes.map((d) =>
         `${d.number}:\n${d.paths.map((p) => `  - ${p}`).join("\n")}`
@@ -377,6 +387,7 @@ async function adrNumbersDiagnostic(
  * the remedy is always an edit (or, for a stale example, a registry fix).
  */
 async function mapIntegrityDiagnostic(
+  root: string,
   findings: DocsIntegrityFinding[],
 ): Promise<Diagnostic[]> {
   const byRule = new Map<DocsIntegrityRule, DocsIntegrityFinding[]>();
@@ -389,6 +400,7 @@ async function mapIntegrityDiagnostic(
     `\n  fix: ${DOCS_INTEGRITY_REMEDIES[rule]}`
   );
   const outputFields = await diagnosticOutputFields(
+    root,
     "The map or instructions references things a reader cannot follow:\n\n" +
       sections.join("\n\n"),
   );
@@ -435,9 +447,11 @@ function adrIndexInvalidRemedy(
 
 /** Turn an ADR index marker or title failure into an actionable map diagnostic. */
 async function adrIndexDiagnostic(
+  root: string,
   state: Extract<AdrIndexState, { kind: "stale" | "invalid" }>,
 ): Promise<Diagnostic> {
   const outputFields = await diagnosticOutputFields(
+    root,
     state.kind === "stale"
       ? `The maintained ADR index is out of date: ${state.path}.\n` +
         "Run `discern refresh` to regenerate the record lists between its " +
@@ -467,9 +481,11 @@ async function adrIndexDiagnostic(
 
 /** Explain which discern-managed ignored artifacts Git tracks and how to repair them. */
 async function trackedArtifactsDiagnostic(
+  root: string,
   tracked: TrackedDiscernIgnoredArtifacts,
 ): Promise<Diagnostic> {
   const outputFields = await diagnosticOutputFields(
+    root,
     `${trackedDiscernIgnoredArtifactsHint(tracked).text}\n\n` +
       `Tracked paths:\n${tracked.paths.map((p) => `  - ${p}`).join("\n")}`,
   );
@@ -662,7 +678,7 @@ async function runGate(
     const tracked = await trackedDiscernIgnoredArtifacts(root);
     if (tracked.paths.length > 0) {
       failedStage = "tracked_artifacts";
-      trackedArtifactsDiag = await trackedArtifactsDiagnostic(tracked);
+      trackedArtifactsDiag = await trackedArtifactsDiagnostic(root, tracked);
     }
   }
 
@@ -682,7 +698,7 @@ async function runGate(
       .filter((d) => d.reason === "stale");
     if (stale.length > 0) {
       failedStage = "instructions";
-      instructionDiag = await instructionDiagnostic(stale);
+      instructionDiag = await instructionDiagnostic(root, stale);
     }
   }
 
@@ -695,7 +711,7 @@ async function runGate(
       .filter((d) => d.reason === "stale");
     if (stale.length > 0) {
       failedStage = "skills";
-      skillsDiag = await skillsDiagnostic(stale);
+      skillsDiag = await skillsDiagnostic(root, stale);
     }
   }
 
@@ -710,7 +726,7 @@ async function runGate(
     const malformed = await checkSkillsWellformed(root, cfg);
     if (malformed.length > 0) {
       failedStage = "skill_frontmatter";
-      skillFrontmatterDiag = await skillFrontmatterDiagnostic(malformed);
+      skillFrontmatterDiag = await skillFrontmatterDiagnostic(root, malformed);
     }
   }
 
@@ -726,7 +742,7 @@ async function runGate(
     const dupes = await duplicateAdrNumbers(root, cfg.map.dir);
     if (dupes.length > 0) {
       failedStage = "adr_numbers";
-      adrNumbersDiag = await adrNumbersDiagnostic(dupes);
+      adrNumbersDiag = await adrNumbersDiagnostic(root, dupes);
     }
   }
 
@@ -743,7 +759,7 @@ async function runGate(
     const state = await adrIndexState(root, cfg.map.dir);
     if (state.kind === "stale" || state.kind === "invalid") {
       failedStage = "adr_index";
-      adrIndexDiag = await adrIndexDiagnostic(state);
+      adrIndexDiag = await adrIndexDiagnostic(root, state);
     }
   }
 
@@ -758,7 +774,7 @@ async function runGate(
     const refreshPlan = await planTrackedRefresh(root, cfg);
     if (refreshPlan.changes.length > 0 || refreshPlan.errors.length > 0) {
       failedStage = "refresh_drift";
-      trackedRefreshDiag = await trackedRefreshDiagnostic(refreshPlan);
+      trackedRefreshDiag = await trackedRefreshDiagnostic(root, refreshPlan);
     }
   }
 
@@ -782,7 +798,7 @@ async function runGate(
     );
     if (findings.length > 0) {
       failedStage = "map_integrity";
-      mapIntegrityDiagnostics = await mapIntegrityDiagnostic(findings);
+      mapIntegrityDiagnostics = await mapIntegrityDiagnostic(root, findings);
     }
   }
 
@@ -885,7 +901,10 @@ async function runGate(
           generatedAfter,
         );
         if (drift.groups.length > 0 || drift.unownedPaths.length > 0) {
-          generatedDiagnostics = await generatedBuildDriftDiagnostics(drift);
+          generatedDiagnostics = await generatedBuildDriftDiagnostics(
+            root,
+            drift,
+          );
           generatedFailureRemedies = [
             ...drift.groups.map(({ group }) =>
               fire(HINTS["gate-failure-generated-drift"], {
@@ -1057,13 +1076,14 @@ async function runGate(
     const refreshPlan = await planTrackedRefresh(root, cfg);
     if (refreshPlan.changes.length > 0 || refreshPlan.errors.length > 0) {
       failedStage = "refresh_drift";
-      trackedRefreshDiag = await trackedRefreshDiagnostic(refreshPlan);
+      trackedRefreshDiag = await trackedRefreshDiagnostic(root, refreshPlan);
     }
   }
 
   // 6. Assemble the executed plan + result, attaching the agent-facing hints —
   //    the same next-step advice the human tail prints, promoted into the envelope.
   const { result, firedHints: jobOutputHints } = await buildGateResultWithHints(
+    root,
     plan,
     results,
     failedStage,

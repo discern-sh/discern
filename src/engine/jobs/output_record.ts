@@ -1,6 +1,9 @@
 import { normalizeCapturedOutput } from "../../shared/result.ts";
 import { bestEffortSync } from "../../shared/best_effort.ts";
-import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
+import {
+  makeTempArtifact,
+  type TempArtifactScope,
+} from "../../shared/temp_artifacts.ts";
 
 export interface JobOutputSummary {
   /** Best-effort path to this job's full combined stdout+stderr capture. */
@@ -48,9 +51,11 @@ export class JobOutputRecorder {
     this.file = file;
   }
 
-  static async create(): Promise<JobOutputRecorder> {
+  static async create(
+    scope: TempArtifactScope | undefined,
+  ): Promise<JobOutputRecorder> {
     try {
-      const path = await makeTempArtifact("job");
+      const path = await makeTempArtifact("job", scope);
       const file = await Deno.open(path, {
         write: true,
         truncate: true,

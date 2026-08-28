@@ -1924,7 +1924,7 @@ export const HINTS = {
       label: "lint",
       errorLikeLines: 12,
       outputLines: 80,
-      outputPath: "/tmp/discern-job-lint.log",
+      outputPath: "/tmp/discern-job-my-app-wt-feature-1a2b3c.log",
     },
     template: ({ label, errorLikeLines, outputLines, outputPath }): string => {
       const where = outputPath === undefined

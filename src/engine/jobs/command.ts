@@ -17,6 +17,7 @@ import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
 import { activeInvocationId } from "../logbook/invocation_context.ts";
 import type { Job, JobOutputObserver, JobResult, JobTimeout } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
+import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
 import { selfShimPath, shellCommand } from "../../shared/subprocess.ts";
 import { terminalLine } from "../../lib/terminal.ts";
 import {
@@ -246,6 +247,12 @@ export async function spawnJob(
   const command = shellCommand(job.command);
   const clock = opts.clock ?? SYSTEM_CLOCK;
   const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
+  const protocolLimit = opts.protocolOutputMaxBytes;
+  // Resolved before the child exists: the first lookup per root may run git,
+  // and nothing may lengthen the spawn-to-abort-wiring window below.
+  const artifactScope = protocolLimit === undefined
+    ? await tempArtifactScopeFor(opts.cwd)
+    : undefined;
   const start = clock.monotonicNow();
 
   const child = new Deno.Command("sh", {
@@ -266,9 +273,8 @@ export async function spawnJob(
     detached: true,
   }).spawn();
   const pid = child.pid;
-  const protocolLimit = opts.protocolOutputMaxBytes;
   const outputRecorder = protocolLimit === undefined
-    ? await JobOutputRecorder.create()
+    ? await JobOutputRecorder.create(artifactScope)
     : undefined;
 
   // The readers draining the child's pipes, registered so the kill path can

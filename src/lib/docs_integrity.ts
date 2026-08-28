@@ -175,8 +175,8 @@ export const SKILL_CITATION_TOKEN: RegExp = new RegExp(
 
 /** The citation grammar loose in running text, for bare-token sweeps. The
  * lookbehind drops tokens reached mid-word: dotfile/path/scoped-package
- * namespaces (`.discern-bundled-docs`, `/tmp/discern-job-lint.log`) and
- * slug fragments (`0119-bare-discern-opens-…`) are spellings, not citations. */
+ * namespaces (`.discern-bundled-docs`, `/tmp/discern-job-my-app-wt-feature-….log`)
+ * and slug fragments (`0119-bare-discern-opens-…`) are spellings, not citations. */
 export const SKILL_CITATION_BARE: RegExp = new RegExp(
   `(?<![\\w@/.-])${SKILL_CITATION_CORE}\\b`,
   "g",

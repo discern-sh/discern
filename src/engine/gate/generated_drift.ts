@@ -181,6 +181,7 @@ function boundedPaths(paths: readonly string[]): string {
 
 /** Explain which declared outputs a green generator left stale and how to reproduce it. */
 async function groupDriftDiagnostic(
+  root: string,
   drift: GeneratedGroupDrift,
 ): Promise<Diagnostic> {
   const { group, paths } = drift;
@@ -199,12 +200,13 @@ async function groupDriftDiagnostic(
       paths.length === 1 ? "artifact" : "artifacts"
     }: ${boundedPaths(paths)}`,
     reproduce_cmd: group.run,
-    ...await diagnosticOutputFields(output),
+    ...await diagnosticOutputFields(root, output),
   };
 }
 
 /** Report build outputs that no generated-group declaration owns. */
 async function undercoverageDiagnostic(
+  root: string,
   drift: GeneratedBuildDrift,
 ): Promise<Diagnostic> {
   const candidates = drift.candidates.map((group) =>
@@ -233,17 +235,20 @@ async function undercoverageDiagnostic(
     reproduce_cmd: drift.candidates.length === 1
       ? drift.candidates[0]?.run ?? "discern done"
       : "discern done",
-    ...await diagnosticOutputFields(output),
+    ...await diagnosticOutputFields(root, output),
   };
 }
 
 /** Build one stale-artifact diagnostic per group plus any coverage diagnostic. */
 export async function generatedBuildDriftDiagnostics(
+  root: string,
   drift: GeneratedBuildDrift,
 ): Promise<Diagnostic[]> {
-  const diagnostics = await Promise.all(drift.groups.map(groupDriftDiagnostic));
+  const diagnostics = await Promise.all(
+    drift.groups.map((group) => groupDriftDiagnostic(root, group)),
+  );
   if (drift.unownedPaths.length > 0) {
-    diagnostics.push(await undercoverageDiagnostic(drift));
+    diagnostics.push(await undercoverageDiagnostic(root, drift));
   }
   return diagnostics;
 }

@@ -21,6 +21,7 @@
 
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import { cksumString } from "../../shared/crc.ts";
+import { sanitizeSlug } from "../../shared/slug.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { runGit } from "../../shared/subprocess.ts";
@@ -49,6 +50,7 @@ import {
 } from "../../shared/worktree_identity_fields.ts";
 
 export {
+  sanitizeSlug,
   WORKTREE_FIELDS,
   WORKTREE_IDENTITY_FIELDS,
   type WorktreeField,
@@ -121,18 +123,6 @@ export class IdentityError extends Error {
     this.name = "IdentityError";
     this.code = code;
   }
-}
-
-/**
- * Lowercase, collapse every run of non-`[a-z0-9]` to a single dash, and trim
- * leading/trailing dashes.
- */
-export function sanitizeSlug(raw: string): string {
-  return raw
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "");
 }
 
 /**
