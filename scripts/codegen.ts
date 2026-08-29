@@ -22,6 +22,7 @@ import {
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
   renderConfigSchemaJson,
+  renderManualConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
 import {
   renderCliReferenceDoc,
@@ -258,7 +259,7 @@ await write(configReference, renderedConfigReference);
 await write(
   manualConfigReference,
   renderGeneratedManualDocument(
-    renderedConfigReference,
+    renderManualConfigReferenceDoc(),
     "70-reference/config-reference.md",
     "30-reference/config-reference.md",
     { id: "reference-config", order: 30 },
