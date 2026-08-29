@@ -2,7 +2,8 @@
 
 **Status:** Binding procedure for the public manual\
 **Applies to:** `project/manual/` tutorials, guides, explanations, reference, and troubleshooting\
-**Reference pair:** `project/manual/20-understand/proof.md` and `project/manual/10-guides/wait-for-another-task.md`
+**Reference pair:** `project/manual/20-understand/proof.md` and `project/manual/10-guides/wait-for-another-task.md`\
+**Change control:** An edit to this procedure or to the reference pair binds only after the owner has approved the exact new text.
 
 The public manual helps a human understand, adopt, and direct discern while giving a coding agent the same accurate body to act from. It is human product documentation: warmer and more explanatory than a specification, more exact than marketing, and independent of the surface that renders it.
 
@@ -24,7 +25,7 @@ The first sentence is appealing because the second sentence gives “checking”
 
 ### Write for the human, name the actor
 
-The human's surface-level impression matters first because the human decides whether to trust, install, and use discern. Coding agents remain equally important readers, but the body normally describes them rather than addressing them as an ambiguous “you.”
+The human's surface-level impression matters first because the human decides whether to trust, install, and use discern. Coding agents remain equally important readers, but they consult the manual on demand and extract the same facts at any register, so the register optimizes for the human. On every page, of every kind, the addressee is the human; agents are described, never addressed as an ambiguous “you.”
 
 Treat the human, the coding agent, and the project as distinct participants. This is the same three-part relationship used by the [visual identity](visual-identity.md):
 
@@ -34,9 +35,13 @@ Treat the human, the coding agent, and the project as distinct participants. Thi
 
 Use “you” when the human reader is genuinely the actor, such as reviewing Proof or deciding whether a change should land. When a command belongs to the coding agent, say “the agent runs…” This keeps responsibility clear without making either participant feel like an afterthought.
 
+The actors vary by page; the addressee doesn't. A page about work only agents perform is still written to the human who directs and benefits from it, and the human's addressability doesn't shrink because the mechanics belong to the agent. Agents take “they” (“the agent commits, then they rerun the Gate”), or “your agent” when the sentence speaks to the human about their own.
+
 ### Show the product when there is something worth seeing
 
 Prefer one authentic artifact over another paragraph of description. A Proof line, a short result, a configuration fragment, or an observable file can make an abstract promise tangible. The artifact must come from, or be validated against, the current product and must work in an external project; repository-only fixtures are not public examples.
+
+When an operation exists on both the agent surface and the command line, show the MCP call as the leading artifact — the tool name with its arguments in a fenced block — and the command-line equivalent after it. MCP is the primary surface, and readers anchor on a page's first code block; don't let that anchor be the secondary surface. The wait guide demonstrates the pattern.
 
 Do not force an artifact into a page whose subject has no useful visible form. Demonstrate a real product object only when it materially improves understanding.
 
@@ -46,7 +51,13 @@ A sequence of correct “what” sentences can still leave the reader without a 
 
 Vary sentence length and structure. Use contractions where they sound natural, familiar situations a reader can recognize, and an occasional question the reader is likely to ask. A short sentence can land an important fact; a paragraph of short subject–verb–object sentences becomes tiring.
 
+A recognizable scene may quote its moment — the Proof explanation opens on an agent's “I'm done!” — and quoted speech inside a scene is characterization, not authorial emphasis. Spend such moments where attention is decided: the opening above the first H2, or a completion. Keep them out of sentences that state scope, state, or authority.
+
 Repeat a central distinction when the reader meets it in a new context. The Proof explanation establishes green versus landed in prose, reinforces it in the state table, and applies it again in the next-action list. That repetition teaches. Repeating the same wording without adding a new use does not.
+
+### Document the process; discern teaches agents at need
+
+An agent-driven capability doesn't need its every outcome enumerated in the body. discern's results and hints deliver the next valid action at the moment a state is actually reached, and the bundled Skills carry the operating procedure. The manual therefore explains what lets the human understand, predict, and trust the flow: the situation, its shape (start, unfinished, refused, success), and the human's stake in each part. If a detail's only reader is an agent already inside the flow, it belongs to Reference or to those runtime surfaces, not to the page body. The wait guide holds this line: it teaches the four outcomes and their meaning, and leaves timeout derivation, handle storage, and exit codes to Reference.
 
 ## Evidence before prose
 
@@ -172,7 +183,7 @@ Reject a draft that becomes any of these:
 - **repository-only shorthand:** local paths, test fixtures, ADR numbers, or team vocabulary are required to understand the page;
 - **duplicate reference:** a guide or explanation carries exhaustive flags, fields, defaults, limits, or transport tables already owned by Reference;
 - **marketing flourish:** emotional language hides the exact state, scope, or next valid action;
-- **agent blame:** prose mocks, judges, or anthropomorphizes the coding agent instead of describing the product boundary;
+- **agent blame:** prose mocks or judges the coding agent instead of describing the product boundary — describing agents as colleagues (“they,” a sibling, the fleet) is house style, not blame;
 - **false certainty:** green becomes “correct,” Proof becomes defect detection, landed becomes live, or old conversation becomes authority;
 - **surface-specific body copy:** website, terminal, MCP, or raw readers receive a different authored explanation.
 
