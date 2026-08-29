@@ -783,8 +783,8 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "The job summary remains complete without an output path, while publishing a file that did not close cleanly would be misleading.",
   },
   "lifecycle-drop-identity-settings-fallback": {
-    path: "src/engine/worktree/lifecycle.ts",
-    enclosingFunction: "buildDropPlan",
+    path: "src/engine/worktree/removal_plan.ts",
+    enclosingFunction: "buildRemovalPlan",
     operation:
       "continue exact path matching without unavailable identity settings",
     kind: "direct",
@@ -794,8 +794,8 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "Drop can still match canonical paths and basenames, while identity matching is omitted instead of guessing from invalid configuration.",
   },
   "lifecycle-drop-row-identity-fallback": {
-    path: "src/engine/worktree/lifecycle.ts",
-    enclosingFunction: "buildDropPlan",
+    path: "src/engine/worktree/removal_plan.ts",
+    enclosingFunction: "buildRemovalPlan",
     operation: "omit one worktree from identity-based drop matching",
     kind: "direct",
     shape: "async",
