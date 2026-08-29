@@ -144,14 +144,17 @@
 # A job needing its own time budget takes the table form — the `timeout` (seconds)
 # replaces the global [gate].timeout for that job only, 0 disables its bound:
 #   test = { run = "npm test", timeout = 1200 }
-# OMIT an individual known job you truly do not have yet. A config with no known
-# jobs wired is only a bootstrap state: the gate can pass without its built-in
-# protections, so `discern doctor` reports it as a warning. `discern setup` has
-# your coding agent fill these by sniffing the repo; `discern doctor` shows which
-# known names and custom jobs are wired.
+# OMIT an individual known job while its command is not wired. When that job does
+# not exist in the project's lifecycle, record it under [assurance] below.
+# If applicable known jobs exist but none are wired, the config is only in a
+# bootstrap state: the gate can pass without project protections, so `discern
+# doctor` reports it as a warning. `discern setup` has your coding agent fill
+# these from repository evidence; `discern doctor` shows which known names and
+# custom jobs are wired.
 #
 # `discern prepare` is the fast inner loop: it runs the fix-stage jobs, regenerates
-# every `[generated]` group, then runs the check-stage jobs — never build jobs or tests.
+# every `[generated]` group, completes refresh convergence, then runs the check-stage
+# jobs — never other build jobs or tests.
 #
 # `smoke` is the project's fast readiness check — real config and essential shared
 # runtime dependencies that Discern cannot infer. Keep it much faster than `test`:
@@ -161,9 +164,10 @@
 # plus `run` (a command or list). `provides` is an optional free-text label;
 # `timeout` has the same per-job meaning as above. Known names MUST NOT declare
 # `stage`: their stage comes from the list above.
-# Commands, scope paths and gates, generated paths and runs, and Standard
-# `run`/`inputs`/`per` globs accept `${<config-key>}` references for every
-# configured source in the paths registry. Unregistered braced forms stay
+# Commands, scope paths and gates, generated paths and runs, checkpoint paths,
+# and Standard `run`/`inputs`/`per` globs accept `${<config-key>}` references
+# for every configured source in the paths registry, plus the configured
+# gotchas doc (`${project.gotchas_doc}`). Unregistered braced forms stay
 # untouched, so ordinary shell expansion keeps working.
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -234,6 +238,18 @@
 # explicitly absent here. This declaration never changes Gate scheduling.
 # Author changes with `discern config set-job <known-name> --not-applicable`
 # or `--applicable`; a configured known job cannot also appear in this list.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# [assurance] — explicit applicability for setup coverage. Every known job is
+# applicable by default. List a job only when that lifecycle does not exist in
+# this project. This changes setup assurance and its denominator. Gate scheduling
+# still comes from [jobs], and a configured job cannot appear in this list.
+# Author the declaration through:
+#   discern config set-job build --not-applicable
+# Restore applicability through:
+#   discern config set-job build --applicable
+# ─────────────────────────────────────────────────────────────────────────────
+
 [assurance]
   not_applicable = []
 
@@ -1307,13 +1323,81 @@
     ]
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # [checkpoints.<name>] — change-triggered review rules: a deterministic trigger
-  # decides when a diff makes a named question relevant; the agent judges it and
-  # records a conclusion that travels with the Proof as agent evidence. The
-  # config at an effort's merge-base with the trunk governs it, so these entries
-  # take effect for new efforts once they land. This repo ships the built-in set
-  # and runs under it: the full field reference lives in the config template and
-  # `discern docs`.
+  # [checkpoints.<name>] — change-triggered review rules. A deterministic trigger
+  # decides when a diff makes a named question relevant; the agent judges the
+  # question and records its conclusion, which travels with the gate's results
+  # as agent judgment, kept distinct from machine results. The configuration that
+  # governs an effort is the one at its merge-base with the trunk, so editing
+  # these tables on a branch never changes that branch's own gate. None
+  # configured means none fire.
+  #
+  # Each [checkpoints.<name>] table declares one:
+  #   scope      selector: a configured [scopes.<name>] whose paths choose the
+  #              matched set (one selector — use scope OR paths, never both)
+  #   paths      selector: globs choosing the matched set (same dialect as scopes)
+  #   include_generated
+  #              true includes paths owned by governing [generated.<name>].paths;
+  #              false (the default) evaluates authored change only
+  #   exclude_paths
+  #              checkpoint-specific noise to remove after the selector and
+  #              before every condition, threshold, subject, evidence, and
+  #              `when` match (same glob dialect as paths)
+  #   kinds      narrow evidence to "added", "modified", or "deleted"
+  #   adds_matching
+  #              narrow to text files with an added line containing any
+  #              configured case-sensitive literal UTF-8 byte substring
+  #   removes_matching
+  #              narrow to text files with a removed line containing any
+  #              configured case-sensitive literal UTF-8 byte substring
+  #              (each content field accepts 1–16 distinct patterns of 1–128
+  #              UTF-8 bytes; NUL and line separators are invalid)
+  #              matching admits 8 KiB lines, 65,536 changed-line facts,
+  #              256 KiB per file, 2 MiB attempted bytes, and 64 MiB comparison
+  #              work; unavailable facts fail open without partial matches
+  #   new_directory
+  #              narrow to added files whose parent held no admitted file at
+  #              the merge-base; root-level additions never qualify
+  #   binary     narrow to binary changes when true or text changes when false
+  #   similar_new_file
+  #              narrow to an added file whose name closely resembles an
+  #              existing sibling in the same directory
+  #   unless_changed
+  #              hold fire when any changed path matches one of these — each
+  #              entry a glob, or a configured scope name ("flag this change
+  #              class unless its counterpart moved too")
+  #   min_changed_files
+  #              fire only when at least this many matched files changed
+  #   min_changed_lines
+  #              fire only when the narrowed text evidence adds and removes at
+  #              least this many lines; binary files contribute zero
+  #   deletion_dominant
+  #              fire only when removals clearly outweigh additions in the
+  #              matched change (a big cut earns a look; an ordinary edit or a
+  #              balanced refactor does not)
+  #   min_commits fire only when merge-base..HEAD contains at least this many
+  #              commits, including merges; uncommitted work adds no commit
+  #   when       executable escape hatch for conditions the fields above cannot
+  #              express: a command run pre-flight with a short fixed timeout.
+  #              Exit 0 fires the trigger, exit 1 passes, and any other exit or
+  #              a timeout fails open (no fire) with an advisory. It may print
+  #              `DISCERN_MATCH <path>` lines to declare the matched paths
+  #              precisely; with selectors present, they pre-scope the diff and
+  #              `when` decides firing. `DISCERN_CHECKPOINT_INPUT` names the
+  #              temporary v1 JSON file containing the narrowed facts.
+  #   mode       "stop" (the default): `discern done` refuses to run the gate
+  #              until the agent declares the question met, or unmet with a
+  #              short rationale. "advise": delivered as an advisory instead;
+  #              never blocks.
+  #   question  the judgment prose the agent evaluates against the matched
+  #              change. Your own checkpoint sets this or question_file; a
+  #              shipped built-in inherits unless one source overrides it.
+  #   question_file
+  #              repository-relative Markdown question resolved from the
+  #              governing merge-base Git tree; mutually exclusive with
+  #              question, limited to a regular UTF-8 blob of at most 64 KiB
+  #   teach      optional lesson prose carried into renderings: why the
+  #              question matters and what good looks like.
+  #   reference  optional displayed pointer; discern does not load its content
   # ─────────────────────────────────────────────────────────────────────────────
 
   # Four stop checkpoints guard the knowledge surfaces — the ones that steer
