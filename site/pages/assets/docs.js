@@ -9,8 +9,6 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
   "use strict";
 
   const doc = document;
-  const root = doc.documentElement;
-  root.classList.add("docs-js");
   const $ = (selector, scope = doc) => scope.querySelector(selector);
   const $$ = (selector, scope = doc) =>
     Array.from(scope.querySelectorAll(selector));
@@ -159,19 +157,6 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
   const article = $(".doc-body");
 
   if (article) {
-    for (const heading of $$(":is(h2, h3, h4)[id]", article)) {
-      const label = (heading.textContent ?? "").trim();
-      const group = doc.createElement("div");
-      group.className = "discern-anchor-heading docs-heading-row";
-      const anchor = doc.createElement("a");
-      anchor.className = "discern-anchor-heading__anchor docs-anchor";
-      anchor.href = `#${heading.id}`;
-      anchor.textContent = "§";
-      anchor.setAttribute("aria-label", `Link to “${label}”`);
-      heading.before(group);
-      group.append(heading, anchor);
-    }
-
     for (const pre of $$(`pre`, article)) {
       const code = pre.querySelector("code");
       const lang = /language-([\w-]+)/.exec(code?.className ?? "")?.[1];
@@ -240,13 +225,6 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
         resetTimer = SYSTEM_SCHEDULER.scheduleTimeout(resetCopy, 2000);
       });
       (commandExecution ?? pre).append(copy);
-    }
-
-    for (const table of $$(".doc-body > table")) {
-      const wrap = doc.createElement("div");
-      wrap.className = "discern-table docs-table";
-      table.replaceWith(wrap);
-      wrap.append(table);
     }
   }
 

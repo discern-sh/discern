@@ -48,6 +48,9 @@ jobs:
           # gate stops re-downloading every dependency on each run.
           cache: true
 
+      - name: Install locked Deno dependencies
+        run: deno install --frozen
+
       # The repository task verifies the platform asset against tracked
       # integrity metadata, caches it under Git-admin state, and syncs styles.
       - name: Provision the pinned Vale toolchain

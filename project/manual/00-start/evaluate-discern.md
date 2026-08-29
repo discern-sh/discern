@@ -50,4 +50,4 @@ Trying discern doesn't take your work hostage. `discern uninstall` removes disce
 
 discern fits when a Git repository is receiving real work from coding agents and you want that work to arrive proved, isolated, and landed on your terms. It isn't a fit today if the project isn't in Git, or if no coding agent operates in it. It's also the wrong tool if you want a hosted dashboard over a team: discern runs locally, for the person responsible for the repository.
 
-If it fits, [First success](first-success.md) takes one repository through install, setup, and a first reviewed change. If it doesn't, you've spent five minutes and installed nothing.
+If it fits, [Install and set up discern](first-success.md) takes one repository through install, setup, and a first reviewed change. If it doesn't, you've spent five minutes and installed nothing.

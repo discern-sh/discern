@@ -383,10 +383,12 @@ Deno.test("the docs bundle excludes unrelated compositions and optional grain", 
 
 Deno.test("the docs bundle emits the glossary term and its hover-card dependency", async () => {
   const runtime = await bundleManifest("docs");
+  assert(runtime.selection.resolvedComponents.includes("table"));
   assert(runtime.selection.resolvedComponents.includes("glossary-term"));
   assert(runtime.selection.resolvedComponents.includes("hover-card"));
   assertEquals(runtime.outputs.scripts, ["discern.js"]);
   const css = await Deno.readTextFile(join(bundleRoot("docs"), "discern.css"));
+  assertStringIncludes(css, ".discern-table table");
   assertStringIncludes(css, ".discern-glossary-term");
   assertStringIncludes(css, ".discern-hover-card");
   assertStringIncludes(css, ".discern-dotted-underline");

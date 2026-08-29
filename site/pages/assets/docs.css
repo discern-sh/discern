@@ -169,14 +169,10 @@ body {
   font-size: 0.6875rem;
 }
 
-.docs-nav-scroll [data-nav-page] > a {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--discern-space-2);
-  align-items: baseline;
+.docs-nav-scroll [data-nav-section] > ul {
+  gap: 0;
 }
 
-.docs-nav-kind,
 .docs-page-kind {
   color: var(--discern-color-ink-faint);
   font: 500 0.625rem var(--discern-font-mono);
@@ -285,6 +281,16 @@ body {
   color: var(--discern-color-accent-600);
   font: 600 0.625rem var(--discern-font-mono);
   letter-spacing: 0.11em;
+}
+
+.doc-body.docs-authored-heading-numbers h2,
+.docs-manual-index h2 {
+  counter-increment: none;
+}
+
+.doc-body.docs-authored-heading-numbers h2::before,
+.docs-manual-index h2::before {
+  content: none;
 }
 
 .doc-body h3 {
@@ -459,6 +465,16 @@ body {
   margin: var(--discern-space-6) 0;
   border: 1px solid var(--discern-color-border);
   border-radius: var(--discern-radius-md);
+}
+
+.docs-table table {
+  min-inline-size: 100%;
+}
+
+.docs-table :is(th, td) {
+  min-inline-size: 7rem;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .doc-body tbody tr:last-child :is(td, th) {
@@ -736,6 +752,27 @@ body {
   font-family: var(--discern-font-mono);
 }
 
+.docs-front-doors {
+  margin-top: var(--discern-space-10);
+  padding: var(--discern-space-7);
+  border: 1px solid var(--discern-color-border);
+  border-radius: var(--discern-radius-lg);
+  background: color-mix(
+    in oklab,
+    var(--discern-color-surface-sunken) 62%,
+    transparent
+  );
+}
+
+.docs-front-doors h2 {
+  margin: 0 0 var(--discern-space-5);
+  font-size: var(--discern-font-size-display-sm);
+}
+
+.docs-front-doors .docs-chapter-leaves {
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
 .docs-chapters {
   max-width: var(--docs-content-width);
   margin-top: var(--discern-space-10);
@@ -764,6 +801,16 @@ body {
 
 .docs-complete-browse .docs-chapters {
   margin-top: 0;
+}
+
+.docs-complete-browse--expanded {
+  margin-top: var(--discern-space-12);
+}
+
+.docs-manual-details {
+  margin-top: var(--discern-space-12);
+  padding-top: var(--discern-space-3);
+  border-top: 1px solid var(--discern-color-border);
 }
 
 .docs-chapter {
@@ -1019,6 +1066,10 @@ body {
   .docs-chapter {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--discern-space-3);
+  }
+
+  .docs-front-doors {
+    padding: var(--discern-space-5);
   }
 
   .docs-pager {

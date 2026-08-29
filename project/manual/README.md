@@ -23,7 +23,7 @@ This manual serves two readers. If you're deciding whether discern belongs in yo
 
 <!-- BEGIN MANUAL FRONT DOORS -->
 
-- [Install discern and reach a first success](00-start/first-success.md)
+- [Install and set up discern](00-start/first-success.md)
 - [Finish and land a change](10-guides/finish-and-land-a-change.md)
 - [Understand Proof](20-understand/proof.md)
 - [Look up an exact contract](30-reference/README.md)

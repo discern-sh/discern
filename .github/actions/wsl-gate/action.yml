@@ -48,7 +48,7 @@ runs:
       run: |
         curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
         runuser -u gate -- env HOME=/home/gate \
-          bash -c 'cd /home/gate/discern && deno task vale:sync'
+          bash -c 'cd /home/gate/discern && deno install --frozen && deno task vale:sync'
 
     - name: Run the gate (discern done --ci, via the dev binary)
       shell: wsl-bash {0}

@@ -514,7 +514,7 @@ export async function runSiteSmoke(
     );
     sameSequence(
       "/docs authored front doors",
-      [...docs.querySelectorAll(".docs-manual-index #start-here + ul a")]
+      [...docs.querySelectorAll(".docs-front-doors .docs-chapter-leaves a")]
         .map((link) => link.getAttribute("href") ?? ""),
       site.frontDoors.map((page) => page.route),
       fail,

@@ -89,6 +89,36 @@ function missingPrettyReporter(document: GithubYaml): string[] {
     );
 }
 
+/** Recognize the locked install that serially converges Deno dependencies. */
+function isFrozenDenoInstall(value: unknown): boolean {
+  return typeof value === "string" &&
+    /(?:^|\s)deno install --frozen(?:\s|$)/.test(value);
+}
+
+/** Locate full-gate steps reached before their job converges Deno dependencies. */
+function missingFrozenInstall(document: GithubYaml): string[] {
+  const offenders: string[] = [];
+  for (const { path, value } of document.mappings) {
+    if (!Array.isArray(value.steps)) {
+      continue;
+    }
+    let dependenciesReady = false;
+    for (const [index, step] of value.steps.entries()) {
+      if (step === null || typeof step !== "object" || Array.isArray(step)) {
+        continue;
+      }
+      const run = (step as Record<string, unknown>).run;
+      if (isFullGateCommand(run) && !dependenciesReady) {
+        offenders.push(`${document.path}:${path}.steps[${index}].run`);
+      }
+      if (isFrozenDenoInstall(run)) {
+        dependenciesReady = true;
+      }
+    }
+  }
+  return offenders;
+}
+
 /** Slice one named workflow job up to the next sibling for focused policy assertions. */
 function job(source: string, name: string, next: string): string {
   const start = source.indexOf(`  ${name}:`);
@@ -196,6 +226,43 @@ jobs:
   };
   assertEquals(missingPrettyReporter(fixture), [
     "future-workflow.yml:$.jobs.container_gate.steps[0].env.DISCERN_GATE_TEST_REPORTER",
+  ]);
+});
+
+Deno.test("hosted full gates converge locked Deno dependencies before parallel jobs", async () => {
+  const documents = await githubYaml(
+    await structuralGuardScope({
+      guard: "tests/workflow_platform_test.ts#hosted-gate-dependencies",
+      universe: "authored-text",
+      narrow: {
+        reason:
+          "This dependency-convergence rule governs GitHub workflow and action YAML.",
+        include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
+      },
+    }),
+  );
+  assertEquals(
+    documents.flatMap(missingFrozenInstall),
+    [],
+    "every hosted full Gate must run deno install --frozen before its parallel jobs",
+  );
+});
+
+Deno.test("the dependency guard catches a future cold full-gate container", () => {
+  const fixture: GithubYaml = {
+    path: "future-action.yml",
+    mappings: yamlMappings(parseYaml(`
+runs:
+  using: composite
+  steps:
+    - name: Run a project helper
+      run: deno task prepare-assets
+    - name: Run the gate
+      run: deno task dev done --ci
+`)),
+  };
+  assertEquals(missingFrozenInstall(fixture), [
+    "future-action.yml:$.runs.steps[1].run",
   ]);
 });
 
