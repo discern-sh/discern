@@ -28,116 +28,66 @@ redirect_from:
 
 # Checkpoints
 
-Understand triggered judgment, met/unmet declarations, drops, and the owner's separate variance decision.
+Some review questions have no exit status. Is this migration's trade-off acceptable? Does this large deletion keep anything it shouldn't lose? Is this new dependency worth carrying? A test can't answer those, so they usually wait for a person — and as you delegate more work, they either interrupt you constantly or get skipped.
 
-# Checkpoints
+A checkpoint puts such a question into the project. It pairs a trigger, the kind of change that makes the question relevant, with a written question the coding agent must weigh and answer on the record before the Gate runs. The judgment happens at the moment a matching change exists, made by the agent who has the change in front of them, and the recorded answer travels with the evidence to your review.
 
-_A checkpoint serves a judgment at the moment a change makes it relevant, and the Gate records the answer._
+A checkpoint is one entry in `discern.toml`. A project that wants API changes considered before they land might keep:
 
-A [checkpoint](../30-reference/glossary.md#checkpoint) is one configured rule under `[checkpoints]`: a deterministic trigger paired with a [question](../30-reference/glossary.md#question), the judgment prose the agent evaluates against the matched change. Machine checks decide what a machine can decide; a checkpoint carries a question that still needs judgment — is this documentation worth its reading time, is this large cut proven safe, does a change in a risky region state what could break? discern verifies that the required conclusion exists and never verifies its truth. Every surface reports the answer as [declared met](../30-reference/glossary.md#declared-met) or [declared unmet](../30-reference/glossary.md#declared-unmet), kept apart from verified machine results and from owner authority. Terminal rows label either conclusion `Declared`; an unmet conclusion retains its separate attention and variance facts.
+```toml
+[checkpoints.api-compatibility]
+  paths = ["lib/api/**"]
+  mode = "stop"
+  question = "Does this change preserve compatibility for published API consumers, or state the break and its migration path?"
+```
 
-## What happens at the gate
+Any change under `lib/api/` now carries that question with it. A longer question can live in a tracked project file instead of the config; [Place and answer checkpoints](../10-guides/place-and-answer-checkpoints.md) covers authoring both.
 
-When a fired [`stop`](../30-reference/glossary.md#stop--advise) checkpoint awaits a conclusion, `discern done` refuses before any gate job with `error: "awaiting_declaration"`, batching every awaiting question with its matched paths in one refusal. No gate job ran and the project tree is unchanged; the [open question](../30-reference/glossary.md#open-question) record and a logbook line are the writes. The refusal names both recoveries:
+## What happens at the Gate
 
-- `discern done --met <id>` (repeatable) records that the question is satisfied for the current subject.
-- `discern done --unmet <id> --why "<rationale>"` (one per invocation) records that it is not.
+When a change matches a `stop` checkpoint, `discern done` refuses before any job runs and serves the open question (the question now awaiting an answer for this change) together with the files that matched. The agent weighs it against the change and records a conclusion:
 
-A declaring invocation records every valid conclusion first, then continues into the gate in the same run. An `advise` checkpoint serves its question and evidence through the advisory channel and blocks nothing; its firings are still recorded for the observed economics. The questions arrive early: `discern prepare` and `discern status` project each required `stop` [declaration](../30-reference/glossary.md#declaration) while the change is hot, and `discern done --dry-run` describes the same refusal-or-proceed decision without writing or refusing.
+- **Declared met:** the agent judges the question satisfied and runs `discern done --met api-compatibility`. The declaration is recorded and the Gate continues in the same run.
+- **Declared unmet:** the truthful answer is no, and satisfying the question sits outside this task. The agent runs `discern done --unmet api-compatibility --why "<rationale>"`, with a short rationale written for you. The Gate still runs and can pass; the consequence comes later, at landing.
 
-### CI reports review; it does not declare it
+The questions don't wait for the finish line. `discern prepare` and `discern status` name the questions a change has already triggered, so the agent can answer while the reasoning is fresh.
 
-`discern done --ci` is the explicit pull-request lane. It resolves the same governing policy and obligations, runs `when` during an actual run, and runs every machine Gate job. Fired stop questions appear as awaiting review, separately from declarations and machine results. Machine jobs alone determine the exit status.
+A checkpoint in `advise` mode serves its question the same way and blocks nothing. Use `stop` for a judgment that must be recorded before work can be called done, and `advise` for a prompt worth seeing.
 
-The lane writes no open question, declaration, or checkpoint Logbook observation. It rejects `--met`, `--unmet`, and `--why`; workflow YAML cannot stand in for an agent's judgment. `discern done --dry-run --ci` previews report mode without running `when`. The resulting Proof records that checkpoint review was reported and was not enforced, and acceptance requires a later ordinary `discern done` in the stateful worktree ([ADR 0307](https://discern.sh/docs/decisions/0307-ci-reports-checkpoint-review-and-proof-retains-drops)).
+## A declaration is the agent's judgment
 
-## Three kinds of evidence
+The Gate verifies that a required conclusion exists. It never verifies that the conclusion is right — no machine can. [Proof](proof.md) therefore keeps the vocabulary apart: job and Standard results are **verified**, machine-run and machine-measured, while checkpoint conclusions are **declared**, the agent's recorded judgment, labeled as such wherever they appear.
 
-| Evidence                | Source                  | Claim                                                    |
-| ----------------------- | ----------------------- | -------------------------------------------------------- |
-| Gate results, Standards | Machine                 | These checks passed.                                     |
-| Declarations            | Agent                   | The agent judged each question met or unmet.             |
-| Landing authority       | Owner or recorded grant | This work may land, with any named variances authorized. |
+That separation is what makes the record trustworthy. A declared-met conclusion tells you which questions were considered and by whom; it doesn't launder the agent's judgment into a machine result. When you review Proof, you can see both kinds of evidence and weigh them differently.
 
-The Proof renders declared conclusions separately from machine results, carries unmet rationales and the policy identity, and states when a decision is still open — a proof line carries `1 declared unmet — owner variance required to land`. Acceptance consumes the Proof and resolves the third row. The vocabulary stays disjoint: machine results are verified, conclusions are declared, and variances are authorized.
+## Declared unmet, and your variance
 
-## Subjects and reopening
+A declared-unmet conclusion is a valid, useful answer. The work can still go green, and it then waits. `discern accept` refuses to land while a current unmet conclusion stands, serving you the question, the matched files, and the agent's rationale.
 
-A fired `stop` checkpoint opens an effort-scoped open question in the worktree's Git administrative area; it survives session restarts and disappears with the worktree. The trigger opens the question but does not own its lifetime: once served, a readable governed question remains an obligation even if the current structural trigger becomes idle. An ungoverned historical question stays visible without interlocking.
+Only you can resolve that. Either ask for the change to satisfy the question, or authorize a **variance**: permission to land despite this unmet conclusion, given in the current conversation, naming the declared-unmet set as it stands. Recorded grants never cover a variance, and the agent can't accept its own judgment. The rationale exists so that a person reads it before the work becomes shared.
 
-A declaration binds to its subject: the resolved definition plus the matched paths' base and current content. Reopening is relevance-sensitive. An unrelated edit or an unrelated trunk advance leaves a conclusion standing; a change to matched content, to the matched set, or to the definition reopens it, and `discern checkpoints` reports `reopened` until a fresh declaration replaces it. Either conclusion may replace the other, and changed declaration evidence stales a recorded Proof at an unchanged `HEAD` without tripping the unchanged-tree rerun refusal. One read-only inspection combines this persisted lifetime and subject currency with the structural preview, so `checkpoints`, `prepare`, `status`, dry-run, and strict `done` agree on whether a conclusion is required.
+## The answer binds to the change
 
-## The trunk governs
+A declaration is an answer about the change the agent examined, so it stays valid only while that examination does. An unrelated edit elsewhere leaves the conclusion standing. A change to the matched content, to the set of matched files, or to the question itself reopens it, and the agent must declare again against the current state. `discern checkpoints` reports each question's state (open, declared met, declared unmet, or reopened) without changing anything.
 
-The policy for an effort is the `[checkpoints]` configuration at its merge-base with the trunk, so a branch edit cannot govern its own gate and a trunk landing cannot change a running effort. `discern update` advances the merge-base and with it the policy, and the Proof records the merge-base commit as the policy identity. Editing these tables on a branch governs other efforts once the edit lands, and `discern.toml` sits outside every configured scope, so the edit reaches owner review at acceptance. Governing resolution fails open: an entry the engine cannot resolve drops out instead of wedging the effort, and a structured checkpoint-drop record preserves why.
-
-## Question sources and references
-
-A project checkpoint sets `question` or `question_file`; a built-in may inherit or override either. `.md` has no magic meaning in `question`. `reference` is a displayed, unloaded pointer.
-
-`question_file` resolves from the governing merge-base Git tree ([ADR 0309](https://discern.sh/docs/decisions/0309-repository-question-files-are-governed-content)). It names a portable project-relative path outside `.git`: a regular blob, valid UTF-8, at most 65,536 bytes (64 KiB), with line endings retained. The repository is the boundary. The reader ignores the candidate worktree and rejects symlinks, environment variables, URLs, submodules, external paths, vaults, encryption, and remote transports. Resolved text becomes the ordinary question. Its path and content define the identity: candidate edits have no effect; a governing path or content update reopens it.
-
-Live loading rejects bad sources. Historical failures drop only that checkpoint and record its id, mode, policy commit, and reason. Every review surface serves the resolved question and any source or reference.
-
-Repository privacy is the only privacy: questions and references can appear in terminal, MCP, CI logs, Proof, and landing review. Never put secrets in either.
+Proof depends on the same binding: a changed conclusion or rationale makes recorded Proof stale even when the commit hasn't moved, because acceptance relies on those judgments along with the code.
 
 ## Trigger composition
 
-Trigger fields form one fixed conjunction. Values within `kinds`, `adds_matching`, `removes_matching`, and path lists use any-match semantics; every configured field must still hold. There is no Boolean expression language. Omit both selectors to watch the complete authored diff.
+A trigger describes the changes that make its question relevant, built from facts discern can read in the diff. It selects changed paths, by pattern or by a named scope, and can narrow from there: the kind of change, literal text being added or removed, the size of the change, and similar bounded facts. When the structured fields can't express the condition, a project command can make the final call. Every configured field must hold together for the checkpoint to fire, and a trigger with no path selector watches the complete diff. The [config reference](../30-reference/config-reference.md) lists every field and its semantics, and the recipes in [Place and answer checkpoints](../10-guides/place-and-answer-checkpoints.md) show combinations for common review moments.
 
-| Group                   | Field               | Effect                                                                                                                                         |
-| ----------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Selector and filter     | `scope`             | Select the paths of one configured `[scopes.<name>]`; use either `scope` or `paths`.                                                           |
-| Selector and filter     | `paths`             | Select changed paths with scope-dialect globs; use either `paths` or `scope`.                                                                  |
-| Selector and filter     | `include_generated` | Include paths owned by the governing `[generated]` model; generated paths are excluded by default.                                             |
-| Selector and filter     | `exclude_paths`     | Remove checkpoint-specific path noise before every later predicate, subject, evidence record, and command input.                               |
-| Narrowing predicate     | `kinds`             | Keep `added`, `modified`, or `deleted` changes.                                                                                                |
-| Narrowing predicate     | `adds_matching`     | Keep text files with an added line containing any configured case-sensitive literal UTF-8 substring.                                           |
-| Narrowing predicate     | `removes_matching`  | Keep text files with a removed line containing any configured case-sensitive literal UTF-8 substring.                                          |
-| Narrowing predicate     | `new_directory`     | Keep added files whose parent directory contained no admitted file at the merge-base.                                                          |
-| Narrowing predicate     | `binary`            | Keep binary changes when `true`, or text changes when `false`.                                                                                 |
-| Narrowing predicate     | `similar_new_file`  | Keep an added file whose name resembles an existing sibling; the sibling is related evidence.                                                  |
-| Condition or threshold  | `unless_changed`    | Veto when any filtered changed path matches a listed glob or configured scope, including a counterpart outside the selector.                   |
-| Condition or threshold  | `min_changed_files` | Require a minimum number of narrowed changed files.                                                                                            |
-| Condition or threshold  | `min_changed_lines` | Require a minimum total of added and removed text lines across narrowed evidence; binary files contribute 0.                                   |
-| Condition or threshold  | `deletion_dominant` | Require removals to clear the built-in floor and clearly outweigh additions.                                                                   |
-| Condition or threshold  | `min_commits`       | Require the merge-base-to-`HEAD` history to contain a minimum number of commits, including merges; uncommitted work contributes 0.             |
-| Executable escape hatch | `when`              | Run a final repository command when structured fields cannot express the condition; exit 0 fires, exit 1 passes, and other outcomes fail open. |
+## The trunk governs the questions
 
-Evaluation follows that table's pipeline ([ADR 0308](https://discern.sh/docs/decisions/0308-checkpoint-triggers-use-bounded-facts-and-versioned-input)). The governing generated-path classification establishes the default authored universe. The selector runs next, followed by `exclude_paths`. Narrowing runs in this order: `kinds`, `adds_matching`, `removes_matching`, `new_directory`, `binary`, and `similar_new_file`. Conditions then run in this order: `unless_changed`, `min_changed_files`, `min_changed_lines`, `deletion_dominant`, and `min_commits`. `when` runs last. Thresholds count narrowed changed evidence; a similar unchanged sibling never enters file or line totals.
+The checkpoint policy for a task comes from its branch's merge point with the trunk, the project's shared branch. A branch can't rewrite the question it is being asked, and a policy edit on a branch takes effect for other tasks only after it lands — where, like any `discern.toml` change, it reaches your review.
 
-`adds_matching` and `removes_matching` use case-sensitive literal UTF-8 byte substrings on individual lines. Each field accepts up to 16 distinct patterns of 1–128 UTF-8 bytes. Content collection admits lines up to 8 KiB, 65,536 changed-line facts, files up to 256 KiB, and 2 MiB of attempted bytes across admitted paths. Comparison work stops above 64 MiB. If a needed fact is unreadable, inconsistent, or over a bound, that checkpoint fails open with a durable drop. Partial matches and raw source lines never reach Proof.
+When uncertainty prevents a checkpoint from being enforced (a rule that can't be resolved, a trigger fact or question file that can't be read), the Gate may still pass, and the skip is recorded as a **drop** in the Proof: which checkpoint, and why. A green run can't hide an unenforced judgment.
 
-### Executable condition protocol
+Continuous integration keeps the same separation. `discern done --ci` runs the machine checks and reports which questions still await review, without answering them, and its report-only evidence can't be used to land. Workflow configuration can't stand in for judgment.
 
-`when = "<command>"` delegates the final firing decision to a repository command under a 10-second budget. An actual strict or CI run creates a mode-`0600` UTF-8 JSON file and exposes its absolute path through [`DISCERN_CHECKPOINT_INPUT`](../30-reference/proof-and-checkpoint-formats.md). Version 1 carries the checkpoint id and mode, governing policy commit, and the final path-sorted `changed_files` facts: `path`, `kind`, `insertions`, `deletions`, and `binary`. Optional `history` carries the commit count and ordered-history fingerprint. The input contains no raw source, question, rationale, environment dump, or secret.
+## Interruptions have to earn their keep
 
-The command may print `DISCERN_MATCH <path>` lines to narrow the subject to paths already present in `changed_files`; it cannot admit another path. With no valid declared match, the structural matched set remains. Exit 0 fires, exit 1 passes, and another exit, timeout, or execution failure fails open with a classified drop. The merge-base governs the command text, while its scripts, interpreters, dependencies, and configuration resolve from the candidate worktree. Read surfaces and dry runs create no input file and run no command, so they report the condition as undecided.
+A `stop` checkpoint taxes every matching change, so each one should earn its interruption the way a good reviewer's does. A rule agents need while shaping most decisions belongs in the always-loaded instructions; a repeatable method belongs in a Skill; a rule a machine can decide belongs in a Gate job or a Standard; a decision only you may make stays with consent at landing. A checkpoint earns its place when a specific kind of change raises a question that genuinely needs judgment at that moment.
 
-## Fail-open evidence
+A fresh install activates a small built-in set (one, for example, asks whether a deletion-heavy change is proven safe), and the project adds its own. The record shows how the economics work out in practice: how often each checkpoint fires and how it was answered, so a dead, noisy, or frequently varied question can be reworded or retired. [Improve the practice](../10-guides/improve-the-practice.md) covers reading that evidence.
 
-When uncertainty prevents enforcement, the Gate may remain green, but the loss cannot disappear into transient copy. One typed checkpoint-drop registry covers policy-level uncertainty before an entry is knowable and entry-level uncertainty after resolution. Entry records carry checkpoint id, mode, governing policy commit, stable reason, and a bounded account. Policy records carry the policy commit when knowable and use `null` for unknowable id and mode.
-
-Gate JSON and Markdown, the Proof, `status`, acceptance preview and consent review, and the landed DSSE note retain the same records. Missing historical configuration is the ordinary absence of policy, while unreadable Git/configuration is a drop. Trigger vetoes are ordinary decisions and never drops. A drop remains fail-open evidence rather than becoming an undeclared variance.
-
-## Declared unmet, and the owner's variance
-
-Sometimes the truthful conclusion is that the question is not satisfied and satisfying it sits outside this effort. Record that with `discern done --unmet <id> --why "<rationale>"`. The rationale is required, one paragraph of 1–500 characters. Write it for the owner (the tradeoff that made the conclusion right) and put no secrets in it: it is durable Proof evidence, served at the landing review and never written into the metadata-only [Logbook](../30-reference/logbook.md).
-
-The gate still runs and can go green, and the work then waits for a decision. A current declared-unmet conclusion makes `discern accept` refuse with `error: "awaiting_variance"`, serving the question, the matched evidence, and the rationale. The owner authorizes each named [variance](../30-reference/glossary.md#variance) in the current conversation with `discern accept --confirmed --variance <id>`; the id set must equal the declared-unmet set. Recorded standing and effort grants never authorize a variance. Each authorization binds to the exact declaration and the landed commit, and changes no future policy.
-
-## The shipped set
-
-A fresh install's config activates 10 built-ins. Four `stop` members guard knowledge surfaces that steer future sessions: `map-focus` (a broad map change must reduce future reading), `instruction-economy` (the configured instruction sources must earn their always-loaded cost), `skills-playbook` (a skill is an executable playbook), and `gotchas-playbook` (failure memory stays symptom, cause, and proven recovery; it remains inactive until `[project].gotchas_doc` names a document).
-
-Six `advise` members read change facts without interlocking code changes: `deletion-heavy-change`, `parallel-implementation`, `new-binary-asset`, `effort-sprawl`, `docs-drift` (a substantial change moved nothing in the map), and `commit-story`. `new-binary-asset` considers added binary files and asks about provenance, permission, need, size, and the review and update route. `commit-story` keeps matched-file breadth as its trigger because a change that wide carries a history worth preserving.
-
-Referencing a built-in id enables it, any field set on the entry overrides the seed, and deleting the entry disables it. Setting `question` or `question_file` replaces the shipped judgment with authored prose. Stack-aware examples (`new-dependency`, `shrinking-tests`, `sensitive-paths`) ship commented out for the owner to point at real paths. `discern checkpoints` prints the governing table with each resolved question, source path and reference when present, trigger, and mode.
-
-Copyable combinations live in [checkpoint recipes](../10-guides/place-and-answer-checkpoints.md): nine common review moments with advice on `stop` versus `advise` and a realistic declared-unmet outcome.
-
-## Scarcity and graduation
-
-A `stop` checkpoint taxes every matching change, so each must earn its stop the way a good reviewer's interruption does. The placement ladder decides the rung: prose an agent needs while shaping most decisions belongs in the instructions; a recurring method belongs in a skill; a judgment caught as a narrow change completes belongs in a checkpoint; a rule a machine can decide belongs in a gate job or a standard; a decision only the owner may make belongs to consent or a recorded grant. A question earns a checkpoint when a diff introduces its violations; one that accrues by time or absence stays with the improvement review in [improvement](../10-guides/improve-the-practice.md). The loop closes in both directions: `discern improvement` recommends capturing a recurring finding class as a checkpoint when project-local evidence supports it, and a question that becomes mechanically decidable moves down the ladder through the `discern-set-the-standard` outlaw procedure. Review the observed economics in `discern checkpoints` and [`discern patterns`](evidence-and-improvement.md) — per-checkpoint fires and declared-unmet and variance shares, with hygiene advisories for a dead, noisy, or frequently varied checkpoint. To author one, reach for the bundled `discern-place-a-checkpoint` skill.
-
-Open question states, declaration flags, and the command protocol are in [checkpoint state and declarations](../30-reference/proof-and-checkpoint-formats.md); the trigger fields are in the [config reference](../30-reference/config-reference.md).
+[Place and answer checkpoints](../10-guides/place-and-answer-checkpoints.md) is the working procedure, with recipes for common review moments. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) holds the exact states, declaration fields, and trigger protocol, and the [config reference](../30-reference/config-reference.md) lists every trigger field.
