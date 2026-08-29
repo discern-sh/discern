@@ -67,6 +67,8 @@ export class WorktreeTargetError extends WorktreeGitError {
 interface TargetCandidate extends ResolvedWorktreeTarget {
   /** Human-readable canonical identity for ambiguity output. */
   label: string;
+  /** The caller supplied this row's branch/ref, rather than another alias. */
+  directRef: boolean;
 }
 
 /** Resolve the stable discern id for one live registration. */
@@ -129,6 +131,7 @@ async function matchingRegistrations(
       label: row.branch === ""
         ? `${row.path} at ${row.head}`
         : `${row.branch} (${row.path})`,
+      directRef: input === row.branch || input === row.ref,
     });
   }
   return [...matches.values()];
@@ -161,6 +164,7 @@ async function matchingParked(
       ref,
       commit: row.head,
       label: `${row.branch} (parked worktree ${row.id})`,
+      directRef: input === row.branch || input === ref,
     });
   }
   return [...matches.values()];
@@ -183,6 +187,7 @@ async function matchingDerivedBranch(
     ref,
     commit: resolved.commit,
     label: `${branch} (worktree id ${input})`,
+    directRef: false,
   };
 }
 
@@ -289,6 +294,9 @@ export async function resolveWorktreeTarget(
         commit: gitRef.commit,
       };
     }
+    if (worktree?.directRef) {
+      return { ...worktree, ref: input, commit: gitRef.commit };
+    }
     return worktree ?? {
       input,
       ...(gitRef.ref.startsWith("refs/heads/")
@@ -309,7 +317,7 @@ export async function resolveWorktreeTarget(
     return { input, branch, ref: `refs/heads/${branch}` };
   }
   throw new WorktreeTargetError(
-    `Unknown ref or worktree '${target}'. It doesn't identify a branch, tag, commit, registered worktree, or parked worktree in this repository. List worktrees with \`discern status\` or local refs with \`git branch\`, choose one, then re-run ${options.command}.` +
+    `Unknown ref '${target}', and no worktree matches it. It doesn't identify a branch, tag, commit, registered worktree, or parked worktree in this repository. List worktrees with \`discern status\` or local refs with \`git branch\`, choose one, then re-run ${options.command}.` +
       (gitRef.evidence === "" ? "" : `\n(git: ${gitRef.evidence})`),
   );
 }

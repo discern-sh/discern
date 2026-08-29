@@ -61,28 +61,31 @@ Deno.test("worktree target resolver: branch and commit consumers share aliases w
     const path = await Deno.realPath(worktree);
     const head = await gitOut(worktree, "rev-parse", "HEAD");
     const forms = [
-      "source-target",
-      path,
-      "agent/source-target",
-      "refs/heads/agent/source-target",
+      { value: "source-target", sourceRef: "refs/heads/agent/source-target" },
+      { value: path, sourceRef: "refs/heads/agent/source-target" },
+      { value: "agent/source-target", sourceRef: "agent/source-target" },
+      {
+        value: "refs/heads/agent/source-target",
+        sourceRef: "refs/heads/agent/source-target",
+      },
     ];
 
-    for (const value of forms) {
-      const branch = await resolveWorktreeTarget(dir, value, {
+    for (const form of forms) {
+      const branch = await resolveWorktreeTarget(dir, form.value, {
         cwd: dir,
         mode: "branch",
         command: "discern await",
       });
-      assertEquals(branch.branch, "agent/source-target", value);
-      assertEquals(branch.commit, head, value);
+      assertEquals(branch.branch, "agent/source-target", form.value);
+      assertEquals(branch.commit, head, form.value);
 
-      const source = await resolveWorktreeTarget(dir, value, {
+      const source = await resolveWorktreeTarget(dir, form.value, {
         cwd: dir,
         mode: "commit",
         command: "discern update --from",
       });
-      assertEquals(source.ref, "refs/heads/agent/source-target", value);
-      assertEquals(source.commit, head, value);
+      assertEquals(source.ref, form.sourceRef, form.value);
+      assertEquals(source.commit, head, form.value);
     }
 
     await git(dir, "worktree", "remove", worktree);

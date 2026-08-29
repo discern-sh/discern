@@ -298,8 +298,8 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         ),
         target(
           "stable",
-          "each literal branch returned by discern_start",
-          "The exact branch returned by `discern_start`",
+          "each exact worktree selector returned by discern_start",
+          "An exact stable selector returned by `discern_start`",
         ),
         target(
           "stable",

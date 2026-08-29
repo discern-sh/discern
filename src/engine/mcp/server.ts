@@ -839,7 +839,7 @@ export const TOOLS: McpTool[] = orderTools([
       "connects eligible findings with the same summary/observed distinction, " +
       "a bounded evidence boundary, one diagnostic_action, and a falsifier; " +
       "interpretation is a compatibility alias equal to summary. Treat " +
-      "estimated values only as estimates, cohort rows as descriptive rather " +
+      "estimated values only as estimates, cohort findings as descriptive rather " +
       "than comparative judgments, and adjacency as non-causal. " +
       "data.detectors includes fired, quiet, and insufficient-evidence states; " +
       "do not treat limited history as a clean bill. The default keeps a " +
