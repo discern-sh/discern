@@ -766,6 +766,104 @@ Deno.test("the coding-agent hint stays inside the interactive manual picker", as
   });
 });
 
+Deno.test("reader results hide source comments while raw and export retain them", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const env = { DISCERN_DOCS_DIR: docs };
+    const comment = "<!-- source note: `phantom-capability` -->";
+    const inlineControl = "<!-- literal-inline-control -->";
+    const fencedControl = "<!-- literal-fenced-control -->";
+    const conceptsPath = join(docs, "00-start", "concepts.md");
+    const conceptsSource = `${await Deno.readTextFile(conceptsPath)}\n` +
+      `Visible recovery context.\n\n${comment}\n\n` +
+      `Use \`${inlineControl}\` literally.\n\n` +
+      `\`\`\`markdown\n${fencedControl}\n\`\`\`\n`;
+    await Deno.writeTextFile(conceptsPath, conceptsSource);
+
+    const json = await runCli(["docs", "concepts", "--json"], dir, env);
+    const content = decodeDocsData(json.stdout, "doc").doc.content;
+    assert(!content.includes("phantom-capability"));
+    assertStringIncludes(content, `\`${inlineControl}\``);
+    assertStringIncludes(content, fencedControl);
+
+    for (
+      const args of [
+        ["docs", "concepts", "--markdown"],
+        ["docs", "concepts", "--plain"],
+      ]
+    ) {
+      const result = await runCli(args, dir, env);
+      assertEquals(result.code, 0, result.stdout + result.stderr);
+      assert(!result.stdout.includes("phantom-capability"), args.join(" "));
+    }
+
+    const phantom = await runCli(
+      ["docs", "--search", "phantom-capability", "--json"],
+      dir,
+      env,
+    );
+    assertEquals(decodeDocsData(phantom.stdout, "results").results, []);
+    const literal = await runCli(
+      ["docs", "--search", inlineControl, "--json"],
+      dir,
+      env,
+    );
+    assertEquals(
+      decodeDocsData(literal.stdout, "results").results[0]?.target,
+      "00-start/concepts",
+    );
+
+    const raw = await runCli(["docs", "concepts", "--raw"], dir, env);
+    assertEquals(raw.stdout, conceptsSource);
+    const exported = await runCli(["docs", "--export", "public"], dir, env);
+    assertStringIncludes(exported.stdout, comment);
+    assertStringIncludes(exported.stdout, inlineControl);
+
+    const mapSource = [
+      "# Reader projection",
+      "",
+      "Visible Map context.",
+      "",
+      comment,
+      "",
+      `Use \`${inlineControl}\` literally.`,
+      "",
+      "```markdown",
+      fencedControl,
+      "```",
+      "",
+    ].join("\n");
+    await Deno.writeTextFile(join(dir, "docs", "reader.md"), mapSource);
+    const map = await runCli(["map", "reader", "--json"], dir);
+    const mapResult = decodeCliResult(map.stdout, "map");
+    assertResultDataKey(mapResult, "doc");
+    assertExists(mapResult.data.doc);
+    assert(!mapResult.data.doc.content.includes("phantom-capability"));
+    assertStringIncludes(mapResult.data.doc.content, inlineControl);
+    assertStringIncludes(mapResult.data.doc.content, fencedControl);
+
+    const mapPhantom = await runCli(
+      ["map", "--search", "phantom-capability", "--json"],
+      dir,
+    );
+    const mapPhantomResult = decodeCliResult(mapPhantom.stdout, "map");
+    assertResultDataKey(mapPhantomResult, "results");
+    assertEquals(mapPhantomResult.data.results, []);
+    const mapLiteral = await runCli(
+      ["map", "--search", inlineControl, "--json"],
+      dir,
+    );
+    const mapLiteralResult = decodeCliResult(mapLiteral.stdout, "map");
+    assertResultDataKey(mapLiteralResult, "results");
+    assertEquals(mapLiteralResult.data.results?.[0]?.target, "reader");
+
+    const mapRaw = await runCli(["map", "reader", "--raw"], dir);
+    assertEquals(mapRaw.stdout, mapSource);
+    const mapExport = await runCli(["map", "--export", "all"], dir);
+    assertStringIncludes(mapExport.stdout, comment);
+  });
+});
+
 Deno.test("docs terminal facts are inert while machine Markdown stays exact", async () => {
   await withTempDir(async (dir) => {
     const docs = await makeDocsFixture(dir);

@@ -37,7 +37,7 @@ import {
   SEPARATOR,
 } from "@std/path";
 import { Logger } from "../lib/log.ts";
-import { renderMarkdown } from "../lib/markdown.ts";
+import { readerVisibleMarkdown, renderMarkdown } from "../lib/markdown.ts";
 import { pageThrough } from "../lib/pager.ts";
 import { renderAlignedRows, truncateText } from "../lib/text.ts";
 import {
@@ -565,7 +565,8 @@ async function verbTree(
  */
 function renderableBody(desc: DocsVerb, content: string): string {
   const { body } = parseFrontmatter(content);
-  return desc.verb === "docs" ? stripAdrCitations(body) : body;
+  const visible = readerVisibleMarkdown(body);
+  return desc.verb === "docs" ? stripAdrCitations(visible) : visible;
 }
 
 /** Add a human terminal footer without changing JSON, export, or raw bodies. */

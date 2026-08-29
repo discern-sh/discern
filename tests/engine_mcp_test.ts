@@ -94,6 +94,8 @@ import {
 } from "./engine_helpers.ts";
 import { assertHasMcpHint } from "./mcp_hint_asserts.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
+import { canonicalDocTarget, discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
 
 const ENCODER = new TextEncoder();
 
@@ -1566,6 +1568,7 @@ interface DocumentToolCoreContract {
 
 interface DocumentToolCoreResponses {
   readonly index: McpToolResponse;
+  readonly doc: McpToolResponse;
   readonly miss: McpToolResponse;
   readonly search: McpToolResponse;
 }
@@ -1608,7 +1611,7 @@ async function exerciseDocumentToolCore(
     search.result.structuredContent.data.results[0].match,
     "complete",
   );
-  return { index, miss, search };
+  return { index, doc, miss, search };
 }
 
 Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and reports misses", async () => {
@@ -1621,7 +1624,9 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
     });
     await Deno.writeTextFile(
       defaultMapPath(dir, "00-orientation", "concepts.md"),
-      "# Concepts\n\nThe core ideas of the project.\n",
+      "# Concepts\n\nThe core ideas of the project.\n\n" +
+        "<!-- source note: `map-phantom-capability` -->\n\n" +
+        "Use `<!-- map-literal-control -->` literally.\n",
     );
     await Deno.writeTextFile(
       defaultMapPath(dir, "00-orientation", "task-left.md"),
@@ -1660,6 +1665,9 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
     const searchData = core.search.result.structuredContent.data;
     assertEquals(searchData.results[0].target, "00-orientation/concepts");
     assertEquals("score" in searchData.results[0], false);
+    const mapContent = core.doc.result.structuredContent.data.doc.content;
+    assert(!mapContent.includes("map-phantom-capability"));
+    assertStringIncludes(mapContent, "<!-- map-literal-control -->");
 
     // A top-level region is both a compact index target and a search scope.
     const region = await mcp.callTool(6, "discern_map", {
@@ -1700,6 +1708,18 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
       ),
     );
 
+    const phantom = await mcp.callTool(9, "discern_map", {
+      search: "map-phantom-capability",
+    });
+    assertEquals(phantom.result.structuredContent.data.results, []);
+    const literal = await mcp.callTool(10, "discern_map", {
+      search: "<!-- map-literal-control -->",
+    });
+    assertEquals(
+      literal.result.structuredContent.data.results[0].target,
+      "00-orientation/concepts",
+    );
+
     assertEquals(await mcp.close(), 0);
   });
 });
@@ -1710,6 +1730,18 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     await gitInit(dir);
     const staged = join(dir, "staged-manual");
     await stageBundledManual(REPO_AUTHORED_PATHS.manual, staged);
+    const manualComment = "<!-- source note: `manual-phantom-capability` -->";
+    const manualLiteral = "<!-- manual-literal-control -->";
+    const configReference = join(
+      staged,
+      "30-reference",
+      "config-reference.md",
+    );
+    await Deno.writeTextFile(
+      configReference,
+      `${await Deno.readTextFile(configReference)}\n${manualComment}\n\n` +
+        `Use \`${manualLiteral}\` literally.\n`,
+    );
     // The host project has its own map — discern_docs must ignore it and serve
     // discern's bundled documentation (resolved module-relative to this repo).
     await Deno.mkdir(defaultMapPath(dir), { recursive: true });
@@ -1748,6 +1780,9 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       ),
       "discern_docs excludes every internal subtree",
     );
+    const configContent = core.doc.result.structuredContent.data.doc.content;
+    assert(!configContent.includes("manual-phantom-capability"));
+    assertStringIncludes(configContent, manualLiteral);
 
     // A frontmatter alias resolves like a slug ("config" is a declared alias
     // of the config reference).
@@ -1865,6 +1900,18 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       "Only you can resolve that",
     );
 
+    const phantom = await mcp.callTool(14, "discern_docs", {
+      search: "manual-phantom-capability",
+    });
+    assertEquals(phantom.result.structuredContent.data.results, []);
+    const literal = await mcp.callTool(15, "discern_docs", {
+      search: manualLiteral,
+    });
+    assertEquals(
+      literal.result.structuredContent.data.results[0].target,
+      "30-reference/config-reference",
+    );
+
     assertEquals(await mcp.close(), 0);
   });
 });
@@ -1880,6 +1927,15 @@ Deno.test("discern mcp: docs tool and resources serve exactly the staged public 
       staged,
     );
     const expectedPaths = copied.map((rel) => `staged-docs/${rel}`);
+    const stagedTree = await discoverDocs({ cwd: dir, dir: staged });
+    assert(stagedTree !== undefined);
+    const projection = await buildManualProjection(stagedTree.entries);
+    const expectedIdentities = projection.pages.map((page) => ({
+      target: canonicalDocTarget(page.entry),
+      page_id: page.id,
+      manual_kind: page.kind,
+      path: page.entry.path,
+    }));
 
     await using mcp = await spawnMcp(dir, { DISCERN_DOCS_DIR: staged });
     await mcp.send({
@@ -1901,6 +1957,22 @@ Deno.test("discern mcp: docs tool and resources serve exactly the staged public 
       (doc: { path: string }) => doc.path,
     );
     assertEquals(toolPaths, expectedPaths);
+    assertEquals(
+      tool.result.structuredContent.data.docs.map(
+        (doc: {
+          target: string;
+          page_id?: string;
+          manual_kind?: string;
+          path: string;
+        }) => ({
+          target: doc.target,
+          page_id: doc.page_id,
+          manual_kind: doc.manual_kind,
+          path: doc.path,
+        }),
+      ),
+      expectedIdentities,
+    );
 
     await mcp.send({
       jsonrpc: "2.0",
@@ -1909,11 +1981,21 @@ Deno.test("discern mcp: docs tool and resources serve exactly the staged public 
       params: { uri: "discern://docs" },
     });
     const resource = await mcp.recv();
-    const resourcePaths = decodeWith(
+    const resourceDocs = decodeWith(
       DocsDataSchema,
       resource.result.contents[0].text,
-    ).docs?.map((doc) => doc.path) ?? [];
+    ).docs ?? [];
+    const resourcePaths = resourceDocs.map((doc) => doc.path);
     assertEquals(resourcePaths, expectedPaths);
+    assertEquals(
+      resourceDocs.map((doc) => ({
+        target: doc.target,
+        page_id: doc.page_id,
+        manual_kind: doc.manual_kind,
+        path: doc.path,
+      })),
+      expectedIdentities,
+    );
     assert(
       resourcePaths.every((path: string) =>
         !path.includes("withheld") && !path.includes("_adr")
@@ -4211,7 +4293,9 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     });
     await Deno.writeTextFile(
       defaultMapPath(dir, "00-orientation", "concepts.md"),
-      "# Concepts\n\nThe core ideas of the project.\n",
+      "# Concepts\n\nThe core ideas of the project.\n\n" +
+        "<!-- source note: `resource-map-phantom` -->\n\n" +
+        "Use `<!-- resource-map-literal -->` literally.\n",
     );
     await using mcp = await spawnMcp(dir);
     await mcp.send({
@@ -4229,7 +4313,11 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     // resources/list → the fixed resources (gated like their tools, all on here).
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "resources/list" });
     const list = await mcp.recv();
-    const uris = (list.result.resources as { uri: string }[]).map((r) => r.uri);
+    const resources = list.result.resources as {
+      uri: string;
+      description?: string;
+    }[];
+    const uris = resources.map((r) => r.uri);
     for (
       const u of [
         "discern://status",
@@ -4241,6 +4329,16 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     ) {
       assert(uris.includes(u), `${u} missing from ${JSON.stringify(uris)}`);
     }
+    const docsResource = resources.find((r) => r.uri === "discern://docs");
+    const mapResource = resources.find((r) => r.uri === "discern://map");
+    assertStringIncludes(
+      docsResource?.description ?? "",
+      "complete published product manual",
+    );
+    assertStringIncludes(
+      mapResource?.description ?? "",
+      "configured project Map",
+    );
 
     // resources/templates/list → the {+target} doc templates. The `+` is RFC 6570
     // reserved-expansion so a slash-bearing target (section/slug, a path) resolves;
@@ -4251,11 +4349,19 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       method: "resources/templates/list",
     });
     const templates = await mcp.recv();
-    const tpl = (templates.result.resourceTemplates as {
+    const resourceTemplates = templates.result.resourceTemplates as {
       uriTemplate: string;
-    }[]).map((t) => t.uriTemplate);
+      description?: string;
+    }[];
+    const tpl = resourceTemplates.map((t) => t.uriTemplate);
     assert(tpl.includes("discern://map/{+target}"), JSON.stringify(tpl));
     assert(tpl.includes("discern://docs/{+target}"), JSON.stringify(tpl));
+    assertStringIncludes(
+      resourceTemplates.find((t) =>
+        t.uriTemplate === "discern://docs/{+target}"
+      )?.description ?? "",
+      "discern's complete published product manual",
+    );
 
     // read discern://status → a fresh JSON snapshot (the data payload, not the
     // envelope).
@@ -4329,6 +4435,20 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     const docsPage = await mcp.recv();
     assertEquals(docsPage.result.contents[0].mimeType, "text/markdown");
     assert(docsPage.result.contents[0].text.includes("config reference"));
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 81,
+      method: "resources/read",
+      params: { uri: "discern://docs/README" },
+    });
+    const docsHome = await mcp.recv();
+    assertStringIncludes(
+      docsHome.result.contents[0].text,
+      "# The discern manual",
+    );
+    assert(
+      !docsHome.result.contents[0].text.includes("BEGIN MANUAL FRONT DOORS"),
+    );
 
     // read discern://map (index) + the seeded project doc (Markdown).
     await mcp.send({
@@ -4356,6 +4476,11 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     assert(
       doc.result.contents[0].text.includes("The core ideas of the project"),
       "the docs template serves the doc's Markdown content",
+    );
+    assert(!doc.result.contents[0].text.includes("resource-map-phantom"));
+    assertStringIncludes(
+      doc.result.contents[0].text,
+      "<!-- resource-map-literal -->",
     );
 
     assertEquals(await mcp.close(), 0);
