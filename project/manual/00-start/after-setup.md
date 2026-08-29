@@ -27,14 +27,14 @@ These are project sources. They carry your project's knowledge, they're yours to
 
 <!-- discern-workflow:artifact-ownership -->
 
-| Path                      | Ownership     | What it contains                                                       | How to change it                                         |
-| ------------------------- | ------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
-| `discern/instructions.md` | Project-owned | Instructions shared by every configured coding agent.                  | Edit the Markdown, then run `discern refresh`.           |
-| `discern/map/`            | Project-owned | The maintained project guide (the Map) agents keep current.            | Edit the authored Markdown. `[map].dir` can relocate it. |
-| `discern/TODO.md`         | Project-owned | Deferred work the agents keep visible.                                 | Edit it like any tracked project file.                   |
-| `discern/brief.md`        | Project-owned | The project description recorded during setup, when one was captured.  | Update it when the project's purpose materially moves.   |
-| `discern/skills/`         | Project-owned | Skills your project authors or overrides, once it has any.             | Add or edit each Skill at its source.                    |
-| `discern/scripts/`        | Project-owned | Project-specific executables reached through `discern scripts`.        | Edit and test the executable itself.                     |
+| Path                      | Ownership     | What it contains                                                      | How to change it                                         |
+| ------------------------- | ------------- | --------------------------------------------------------------------- | -------------------------------------------------------- |
+| `discern/instructions.md` | Project-owned | Instructions shared by every configured coding agent.                 | Edit the Markdown, then run `discern refresh`.           |
+| `discern/map/`            | Project-owned | The maintained project guide (the Map) agents keep current.           | Edit the authored Markdown. `[map].dir` can relocate it. |
+| `discern/TODO.md`         | Project-owned | Deferred work the agents keep visible.                                | Edit it like any tracked project file.                   |
+| `discern/brief.md`        | Project-owned | The project description recorded during setup, when one was captured. | Update it when the project's purpose materially moves.   |
+| `discern/skills/`         | Project-owned | Skills your project authors or overrides, once it has any.            | Add or edit each Skill at its source.                    |
+| `discern/scripts/`        | Project-owned | Project-specific executables reached through `discern scripts`.       | Edit and test the executable itself.                     |
 
 <!-- /discern-workflow -->
 

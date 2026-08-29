@@ -35,13 +35,13 @@ This manual serves two readers. If you're deciding whether discern belongs in yo
 
 Every published page lives in one section, and the sections are organized by the job you came with:
 
-| Section                                         | Its job                                                                            |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [Start](00-start/README.md)                     | Evaluate discern, reach a first landed change, and understand what setup added.    |
-| [Guides](10-guides/README.md)                   | Accomplish one outcome from a named starting state and recognize the result.       |
-| [Understand](20-understand/README.md)           | Build the mental models: states, evidence, and who holds which authority.          |
-| [Reference](30-reference/README.md)             | Look up exact commands, configuration, formats, files, platforms, and defaults.    |
-| [Troubleshooting](40-troubleshooting/README.md) | Go from an observable symptom to a safe recovery and a clear stopping point.       |
+| Section                                         | Its job                                                                         |
+| ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| [Start](00-start/README.md)                     | Evaluate discern, reach a first landed change, and understand what setup added. |
+| [Guides](10-guides/README.md)                   | Accomplish one outcome from a named starting state and recognize the result.    |
+| [Understand](20-understand/README.md)           | Build the mental models: states, evidence, and who holds which authority.       |
+| [Reference](30-reference/README.md)             | Look up exact commands, configuration, formats, files, platforms, and defaults. |
+| [Troubleshooting](40-troubleshooting/README.md) | Go from an observable symptom to a safe recovery and a clear stopping point.    |
 
 ## Read it anywhere
 
