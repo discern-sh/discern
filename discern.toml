@@ -295,6 +295,8 @@
   # The Big Picture: everything meaningful an external reader would want to know
   # in order to get themselves up-to-speed with discern. These paths are kept
   # inside the Map and are used by the maintainer with `discern map --export`.
+  # Exact CLI and config reference retired from the Map with the manual split:
+  # export them from the product manual with `discern docs --export public`.
   [scopes.big-picture]
     paths = [
       "${map.dir}_internal/brand/positioning.md",
@@ -303,8 +305,6 @@
       "${map.dir}00-orientation/concepts.md",
       "${map.dir}00-orientation/glossary.md",
       "${map.dir}_internal/feature-canon.md",
-      "${map.dir}70-reference/config-reference.md",
-      "${map.dir}70-reference/cli-reference.md",
       "${map.dir}_internal/hint-inventory.md",
       "${map.dir}_internal/tip-inventory.md",
       "${map.dir}00-orientation/trust-and-data.md",
@@ -404,9 +404,6 @@
       "types/discern-json.d.ts",
       "${map.dir}00-orientation/glossary.md",
       "${map.dir}00-orientation/the-practice.md",
-      "${map.dir}70-reference/cli-reference.md",
-      "${map.dir}70-reference/config-reference.md",
-      "${map.dir}70-reference/environment-variables.md",
       "project/manual/30-reference/glossary.md",
       "project/manual/30-reference/cli-reference.md",
       "project/manual/30-reference/config-reference.md",

@@ -20,23 +20,15 @@ import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import {
   renderConfigDocSchemaJson,
-  renderConfigReferenceDoc,
   renderConfigSchemaJson,
   renderManualConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
-import {
-  renderCliReferenceDoc,
-  renderManualCliReferenceDoc,
-} from "../src/shared/cli_reference_codegen.ts";
+import { renderManualCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
 import { renderCrossAgentReferenceDoc } from "./cross_agent_registry.ts";
 import { renderAgentIntegrationCoverageDoc } from "./agent_integration_registry.ts";
-import {
-  ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
-  renderEnvironmentVariableReferenceDoc,
-  renderManualEnvironmentVariableReferenceDoc,
-} from "./environment_variable_reference.ts";
+import { renderManualEnvironmentVariableReferenceDoc } from "./environment_variable_reference.ts";
 import {
   renderGlossaryDoc,
   renderManualGlossaryDoc,
@@ -116,22 +108,6 @@ const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
 const mapDir = resolveMapDir(repoRoot, config).abs;
 const manualDir = resolveRepositoryManualDir(repoRoot).abs;
-const configReference = relative(
-  repoRoot,
-  join(mapDir, "70-reference", "config-reference.md"),
-);
-const cliReference = relative(
-  repoRoot,
-  join(mapDir, "70-reference", "cli-reference.md"),
-);
-const environmentVariableReference = relative(
-  repoRoot,
-  join(mapDir, ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL),
-);
-const mcpReference = relative(
-  repoRoot,
-  join(mapDir, "70-reference", "mcp-and-results.md"),
-);
 const hintInventory = relative(
   repoRoot,
   join(mapDir, "_internal", "hint-inventory.md"),
@@ -200,10 +176,6 @@ const installSurface = relative(
   repoRoot,
   join(mapDir, "80-development", "install-surface.md"),
 );
-const artifactOwnership = relative(
-  repoRoot,
-  join(mapDir, "70-reference", "artifact-ownership.md"),
-);
 const registryAtlas = relative(
   repoRoot,
   join(mapDir, REGISTRY_ATLAS_PAGE_REL),
@@ -258,8 +230,6 @@ await write(
   "schema/discern-setup-config.schema.json",
   renderConfigDocSchemaJson(),
 );
-const renderedConfigReference = renderConfigReferenceDoc();
-await write(configReference, renderedConfigReference);
 await write(
   manualConfigReference,
   renderGeneratedManualDocument(
@@ -271,8 +241,6 @@ await write(
   ),
 );
 console.log("Regenerating the CLI reference from the live command registry:");
-const renderedCliReference = renderCliReferenceDoc(buildCli(false));
-await write(cliReference, renderedCliReference);
 await write(
   manualCliReference,
   renderGeneratedManualDocument(
@@ -285,12 +253,6 @@ await write(
 );
 console.log(
   "Regenerating the environment-variable reference from its definitions:",
-);
-const renderedEnvironmentVariableReference =
-  renderEnvironmentVariableReferenceDoc();
-await write(
-  environmentVariableReference,
-  renderedEnvironmentVariableReference,
 );
 await write(
   manualEnvironmentVariableReference,
@@ -413,13 +375,6 @@ console.log("Regenerating the project artifact ownership inventory:");
 const inventory = renderArtifactInventory(
   projectArtifactPaths(parseConfigOrThrow("")),
 );
-const artifactOwnershipDoc = await Deno.readTextFile(
-  join(repoRoot, artifactOwnership),
-);
-await write(
-  artifactOwnership,
-  replaceArtifactInventory(artifactOwnershipDoc, inventory),
-);
 const manualArtifactOwnershipDoc = await Deno.readTextFile(
   join(repoRoot, manualArtifactOwnership),
 );
@@ -445,16 +400,6 @@ await write(
 await write("types/discern-json.d.ts", renderResultTypesDts());
 console.log(
   "Regenerating the public schema reference from PUBLIC_SCHEMA_PUBLICATIONS:",
-);
-const mcpReferenceDoc = await Deno.readTextFile(
-  join(repoRoot, mcpReference),
-);
-await write(
-  mcpReference,
-  replacePublicSchemaReference(
-    mcpReferenceDoc,
-    renderPublicSchemaReference(),
-  ),
 );
 const manualMcpReferenceDoc = await Deno.readTextFile(
   join(repoRoot, manualMcpReference),

@@ -130,6 +130,8 @@ The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[
 
 The published [JSON Schema](https://discern.sh/schema/v1/discern-config.schema.json) is the external machine-readable contract. For editing and validation recovery, see [Configuration and setup troubleshooting](../40-troubleshooting/setup-and-integrations.md).
 
+Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger. `[scopes.instructions]` carries the project brief, instruction sources, authored skills, and materialized skills directories. The `[acceptance]` example names only `map`, so agent-instruction changes require owner review. Upgrade leaves existing named scopes unchanged; owners of earlier installs split their scope manually to adopt this boundary.
+
 ## `[meta]`
 
 Installer bookkeeping. `schema_version` is the migration anchor; edit by hand only to force a re-migration.

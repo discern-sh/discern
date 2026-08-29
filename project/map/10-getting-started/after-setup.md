@@ -62,4 +62,4 @@ Git ignores materialized Skill directories such as `.agents/skills/` and `.claud
 
 The first `discern start` creates a sibling directory named `<repo>.worktrees/` by default. Each child is an isolated workspace for one task (a Git worktree). `discern accept` removes a landed worktree. `discern worktree prune` clears merged or orphaned leftovers.
 
-Next, follow the [setup walkthrough](walkthrough.md) or go to the [FAQ](faq.md) if the diff does not match this guide.
+Next, follow the [setup walkthrough](walkthrough.md), or go to the manual's [troubleshooting section](https://discern.sh/docs/troubleshooting) if the diff does not match this guide.

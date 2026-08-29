@@ -5,7 +5,7 @@ import {
   type LogbookPoweredCapability,
   logbookPoweredPhraseList,
 } from "../src/shared/logbook_powered.ts";
-import { renderConfigReferenceDoc } from "../src/shared/config_codegen.ts";
+import { renderManualConfigReferenceDoc } from "../src/shared/config_codegen.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
@@ -110,7 +110,7 @@ Deno.test("the logbook reference page names every logbook-powered capability", a
 
 Deno.test("the generated config reference carries the rendered capability list", () => {
   assertStringIncludes(
-    renderConfigReferenceDoc(),
+    renderManualConfigReferenceDoc(),
     logbookPoweredPhraseList(),
     "the logbook key's describe() must render logbookPoweredPhraseList()",
   );

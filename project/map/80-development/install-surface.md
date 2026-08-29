@@ -12,7 +12,7 @@ _The engineering inventory of every project-tree path discern writes or maintain
 
 `discern setup` writes configuration, authored Markdown, provider integration entries, and generated agent artifacts into a project. Every registered path declares a [File ownership](../00-orientation/glossary.md#file-ownership) bucket. Provider-created machine-local state is declared separately as provider-local because discern keeps it ignored and never generates it ([ADR 0170](../_adr/0170-file-ownership-is-registry-data.md)).
 
-File ownership governs edits and overwrites. Copyright and license follow authorship. [Apache-2.0](../70-reference/project-payload-license.md) covers discern-authored portions of canonical project artifacts. Neighboring project, user, provider, and third-party material keeps its existing terms.
+File ownership governs edits and overwrites. Copyright and license follow authorship. [Apache-2.0](https://discern.sh/docs/reference/licenses) covers discern-authored portions of canonical project artifacts. Neighboring project, user, provider, and third-party material keeps its existing terms.
 
 ## Ownership contracts
 

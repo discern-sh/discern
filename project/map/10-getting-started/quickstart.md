@@ -81,6 +81,6 @@ The change stays in its worktree until the Gate passes and recorded authority pe
 **Choose what happens next**
 
 - **Recommended:** Follow the [walkthrough](walkthrough.md) through one complete session.
-- **Something went wrong:** Match the symptom in the [FAQ](faq.md) to its fix.
+- **Something went wrong:** Match the symptom in the manual's [troubleshooting section](https://discern.sh/docs/troubleshooting) to its fix.
 
 <!-- /discern-workflow -->

@@ -4,10 +4,8 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join } from "@std/path";
 import {
   ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
-  renderEnvironmentVariableReferenceDoc,
   renderManualEnvironmentVariableReferenceDoc,
 } from "../scripts/environment_variable_reference.ts";
 import { renderGeneratedManualDocument } from "../scripts/manual_codegen.ts";
@@ -83,22 +81,6 @@ Deno.test("environment definitions have valid groups, names, and documentation p
   );
 });
 
-Deno.test("the configured map's environment reference matches the generator", async () => {
-  const path = join(
-    REPO_AUTHORED_PATHS.map,
-    ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
-  );
-  const committed = await Deno.readTextFile(path);
-  assertEquals(
-    committed,
-    await canonicalGeneratedMarkdown(
-      path,
-      renderEnvironmentVariableReferenceDoc(),
-    ),
-    `${REPO_AUTHORED_PATHS.mapRel}/${ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL} is stale — run \`deno task codegen\``,
-  );
-});
-
 Deno.test("the public manual's environment reference matches the registry", async () => {
   const tree = await discoverDocs({
     cwd: REPO_ROOT,
@@ -123,7 +105,7 @@ Deno.test("the public manual's environment reference matches the registry", asyn
 });
 
 Deno.test("the generated reference publishes each public definition and no internal definition", () => {
-  const document = renderEnvironmentVariableReferenceDoc();
+  const document = renderManualEnvironmentVariableReferenceDoc();
   const documented = documentedEnvironmentNames(document);
   for (
     const definition of Object.values(
@@ -174,7 +156,7 @@ Deno.test("future public definitions auto-render while future internal definitio
       reason: "A synthetic internal control.",
     },
   } as const satisfies DiscernEnvironmentVariableDefinition;
-  const document = renderEnvironmentVariableReferenceDoc(
+  const document = renderManualEnvironmentVariableReferenceDoc(
     DISCERN_ENVIRONMENT_VARIABLE_GROUPS,
     {
       ...DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,

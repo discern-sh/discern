@@ -5,7 +5,7 @@
  * `config_codegen.ts`, ADR 0026).
  *
  * Two consumers:
- *  - `scripts/codegen.ts` renders {@link renderCliReferenceDoc} into the map's
+ *  - `scripts/codegen.ts` renders {@link renderManualCliReferenceDoc} into the manual's
  *    committed CLI reference; a sync test asserts the committed file equals the
  *    generator output, so a verb or flag change that isn't regenerated fails the
  *    gate.
@@ -413,11 +413,6 @@ export function renderCliReferenceModel(
       : []),
     "",
   ].join("\n");
-}
-
-/** Render the Map projection without changing its established bytes. */
-export function renderCliReferenceDoc(root: unknown): string {
-  return renderCliReferenceModel(cliCommandModel(root), false);
 }
 
 /** Render the complete public-manual projection from the same live tree. */

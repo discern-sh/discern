@@ -122,11 +122,6 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "project/map/70-reference/cli-reference.md",
-        kind: "generated-file",
-        banner: true,
-      },
-      {
         path: "project/manual/30-reference/cli-reference.md",
         kind: "generated-file",
         banner: true,
@@ -312,11 +307,6 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/environment_variables_codegen_test.ts",
     ],
     artifacts: [
-      {
-        path: "project/map/70-reference/environment-variables.md",
-        kind: "generated-file",
-        banner: true,
-      },
       {
         path: "project/manual/30-reference/environment-variables.md",
         kind: "generated-file",
@@ -805,11 +795,6 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         path: "schema/discern-setup-config.schema.json",
         kind: "generated-file",
         banner: false,
-      },
-      {
-        path: "project/map/70-reference/config-reference.md",
-        kind: "generated-file",
-        banner: true,
       },
       {
         path: "project/manual/30-reference/config-reference.md",
@@ -2299,10 +2284,6 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "project/map/70-reference/mcp-and-results.md",
-        kind: "maintained-block",
-      },
-      {
         path: "project/manual/30-reference/mcp-and-results.md",
         kind: "maintained-block",
       },
@@ -2765,10 +2746,6 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/paths_write_surface_test.ts",
     ],
     artifacts: [
-      {
-        path: "project/map/70-reference/artifact-ownership.md",
-        kind: "maintained-block",
-      },
       {
         path: "project/manual/30-reference/files-and-ownership.md",
         kind: "maintained-block",

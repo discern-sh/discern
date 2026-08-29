@@ -59,5 +59,5 @@ The prerelease migrations remain visible in the decision records as project hist
 
 ## See also
 
-- [config-reference.md](../70-reference/config-reference.md) lists every section and key the migrated config must satisfy.
+- [The manual's config reference](https://discern.sh/docs/reference/config-reference) lists every section and key the migrated config must satisfy.
 - The migration system's founding decision ([ADR 0014](../_adr/0014-versioned-migration-system.md)).

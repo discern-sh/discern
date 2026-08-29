@@ -11,7 +11,7 @@ aliases:
 
 _Start with a real review question, then choose the narrowest structured trigger that introduces it._
 
-These entries combine fields from [trigger composition](checkpoints.md#trigger-composition). Copy one into `discern.toml`, replace the generic paths and literal patterns with the project's authorities, and let it govern new efforts after landing. Use `stop` when every match deserves a recorded answer before the Gate. Use `advise` when the selector is a useful heuristic or an omission can be legitimate without owner ceremony. The [config reference](../70-reference/config-reference.md#checkpointsname) is the field authority.
+These entries combine fields from [trigger composition](checkpoints.md#trigger-composition). Copy one into `discern.toml`, replace the generic paths and literal patterns with the project's authorities, and let it govern new efforts after landing. Use `stop` when every match deserves a recorded answer before the Gate. Use `advise` when the selector is a useful heuristic or an omission can be legitimate without owner ceremony. The [config reference](https://discern.sh/docs/reference/config-reference#checkpointsname) is the field authority.
 
 ## Source change without tests
 

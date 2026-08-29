@@ -60,7 +60,7 @@ Gate hints use a stricter threshold and fewer partners. They run at the end of a
 
 A repeated relationship asks you to inspect the pair. When the files express an essential invariant, add a forcing function driven by the canonical set so future members enroll automatically. Incidental co-change needs no rule ([ADR 0051](../_adr/0051-canonical-set-parity.md)).
 
-The subsystem is core. It is read-only and self-calibrating. `in_gate` controls whether the Gate pays its cost ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in [config-reference.md](../70-reference/config-reference.md#coupling).
+The subsystem is core. It is read-only and self-calibrating. `in_gate` controls whether the Gate pays its cost ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in the manual's [`[coupling]` table](https://discern.sh/docs/reference/config-reference#coupling).
 
 The result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md).
 

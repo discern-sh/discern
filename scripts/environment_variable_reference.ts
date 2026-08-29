@@ -106,16 +106,6 @@ function renderEnvironmentVariableReferenceDocument(
   ].join("\n");
 }
 
-/** Render the established Map projection. */
-export function renderEnvironmentVariableReferenceDoc(
-  groups: readonly DiscernEnvironmentVariableGroup[] =
-    DISCERN_ENVIRONMENT_VARIABLE_GROUPS,
-  definitions: Readonly<Record<string, DiscernEnvironmentVariableDefinition>> =
-    DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
-): string {
-  return renderEnvironmentVariableReferenceDocument(groups, definitions);
-}
-
 /** Render the external-reader manual projection from the same definitions. */
 export function renderManualEnvironmentVariableReferenceDoc(
   groups: readonly DiscernEnvironmentVariableGroup[] =

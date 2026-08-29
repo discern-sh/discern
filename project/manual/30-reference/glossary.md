@@ -80,7 +80,7 @@ What `discern accept` does: land a worktree's reviewed branch on the [trunk](#tr
 
 ### Advisory
 
-A read-only finding surface: [coupling](../10-guides/improve-the-practice.md), [patterns](../20-understand/evidence-and-improvement.md), [impact](cli-reference.md#discern-impact), and [improvement](../10-guides/improve-the-practice.md) point to work and never block. The [gate](#gate) and [standards](#standard) are the only enforcement surfaces.
+A read-only finding surface: [coupling](../10-guides/improve-the-practice.md), [patterns](../20-understand/evidence-and-improvement.md), [impact](https://discern.sh/docs/reference/cli-reference#discern-impact), and [improvement](../10-guides/improve-the-practice.md) point to work and never block. The [gate](#gate) and [standards](#standard) are the only enforcement surfaces.
 
 ### Agent file
 
@@ -152,7 +152,7 @@ The audit `discern improvement` serves: subjective [questions](#question) evalua
 
 ### Installer
 
-The verbs that install and maintain discern in a project: `setup`, `upgrade`, [doctor](cli-reference.md#discern-doctor), `config`, and `preset`. Some inspect and some write; all run and exit, and discern is never a runtime dependency of the project. Covered in [Getting started](../00-start/README.md).
+The verbs that install and maintain discern in a project: `setup`, `upgrade`, [doctor](https://discern.sh/docs/reference/cli-reference#discern-doctor), `config`, and `preset`. Some inspect and some write; all run and exit, and discern is never a runtime dependency of the project. Covered in [Getting started](../00-start/README.md).
 
 ### Instruction source
 

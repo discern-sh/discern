@@ -130,7 +130,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 117     | —                | node `canonical-sets`       |
 
-117 sets · 165 guard tests · 67 committed artifacts.
+117 sets · 165 guard tests · 62 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -331,11 +331,6 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `project/manual/30-reference/mcp-and-results.md`           | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                           | —                                             |
 | `project/map/00-orientation/glossary.md`                   | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                               | —                                             |
 | `project/map/00-orientation/the-practice.md`               | generated file   | [`practice-tenets`](#practice-tenets--practice-canon)                                                             | —                                             |
-| `project/map/70-reference/artifact-ownership.md`           | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      | —                                             |
-| `project/map/70-reference/cli-reference.md`                | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                                | —                                             |
-| `project/map/70-reference/config-reference.md`             | generated file   | [`config-tables`](#config-tables--config-tables)                                                                  | —                                             |
-| `project/map/70-reference/environment-variables.md`        | generated file   | [`environment-variables`](#environment-variables--discern-environment-variables)                                  | —                                             |
-| `project/map/70-reference/mcp-and-results.md`              | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                           | —                                             |
 | `project/map/80-development/install-surface.md`            | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      | —                                             |
 | `project/map/_internal/agent-integration-coverage.md`      | generated file   | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                    | —                                             |
 | `project/map/_internal/brand/README.md`                    | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                             |
@@ -420,7 +415,7 @@ The top-level command vocabulary: every verb the dispatcher accepts through the 
   - `scripts`
   - `mcp`
 - Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/instruction_corpus_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
-- Artifacts: `project/map/70-reference/cli-reference.md`, `project/manual/30-reference/cli-reference.md`
+- Artifacts: `project/manual/30-reference/cli-reference.md`
 - Glossary: each member is held named-or-recorded-absent by `tests/glossary_enrolment_test.ts`
 - Feature canon: claimed as the `verb` surface set
 
@@ -664,7 +659,7 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_TEST_ACCEPT_RELEASE`
   - `DISCERN_LIB`
 - Guards: `tests/environment_variables_enrolment_test.ts`, `tests/environment_variables_codegen_test.ts`
-- Artifacts: `project/map/70-reference/environment-variables.md`, `project/manual/30-reference/environment-variables.md`
+- Artifacts: `project/manual/30-reference/environment-variables.md`
 - Glossary: not enrolled — the environment-variable reference owns these process-channel spellings
 - Feature canon: not enrolled — the registry spans installer, runtime, Worktree, development, and test infrastructure across several documented capabilities
 
@@ -1031,7 +1026,7 @@ Every top-level table in the config schema.
   - `coupling`
   - `scripts`
 - Guards: `tests/config_codegen_test.ts`, `tests/config_banner_parity_test.ts`, `tests/config_set_schema_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/generated_artifacts_test.ts`, `tests/agent_gitattributes_test.ts`
-- Artifacts: `schema/discern-config.schema.json`, `schema/discern-setup-config.schema.json`, `project/map/70-reference/config-reference.md`, `project/manual/30-reference/config-reference.md`
+- Artifacts: `schema/discern-config.schema.json`, `schema/discern-setup-config.schema.json`, `project/manual/30-reference/config-reference.md`
 - Glossary: not enrolled — the config reference documents every table and key
 - Feature canon: claimed as the `config` surface set
 
@@ -2650,7 +2645,7 @@ The versioned public schema URLs and the root generated artifacts served at them
   - `https://discern.sh/schema/v1/discern-results.schema.json`
   - `https://discern.sh/schema/v1/discern-proof-note.schema.json`
 - Guards: `tests/config_codegen_test.ts`, `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`, `tests/reference_docs_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
-- Artifacts: `project/map/70-reference/mcp-and-results.md`, `project/manual/30-reference/mcp-and-results.md`, `schema/discern-proof-note.schema.json`
+- Artifacts: `project/manual/30-reference/mcp-and-results.md`, `schema/discern-proof-note.schema.json`
 - Glossary: not enrolled — the config and result references document these machine-contract locations
 - Feature canon: described by the `published-contracts` node
 
@@ -3443,7 +3438,7 @@ Every project-tree path discern writes or maintains, with its operational owners
   - `.cursor/hooks.json`
   - `.github/hooks/discern.json`
 - Guards: `tests/artifact_ownership_test.ts`, `tests/paths_write_surface_test.ts`
-- Artifacts: `project/map/70-reference/artifact-ownership.md`, `project/manual/30-reference/files-and-ownership.md`, `project/map/80-development/install-surface.md`
+- Artifacts: `project/manual/30-reference/files-and-ownership.md`, `project/map/80-development/install-surface.md`
 - Glossary: the "File ownership" entry carries the concept
 - Feature canon: described by the `ownership-buckets` node
 

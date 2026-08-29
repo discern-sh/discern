@@ -225,11 +225,6 @@ Deno.test("the ownership references match the canonical enumeration", async () =
       {
         root: REPO_AUTHORED_PATHS.map,
         rootRel: REPO_AUTHORED_PATHS.mapRel,
-        rel: "70-reference/artifact-ownership.md",
-      },
-      {
-        root: REPO_AUTHORED_PATHS.map,
-        rootRel: REPO_AUTHORED_PATHS.mapRel,
         rel: "80-development/install-surface.md",
       },
       {

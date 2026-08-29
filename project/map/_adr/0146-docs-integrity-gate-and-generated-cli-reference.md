@@ -19,7 +19,7 @@ Four architectural tests make doc drift a build failure (`tests/map_integrity_te
 
 The guarded corpus is the CURRENT map — every doc outside `_`-prefixed subtrees, root docs included. The `_` trees are exempt by design: ADRs are dated records, while `_internal` and the private tree carry no currency contract.
 
-The CLI reference (`70-reference/cli-reference.md`) is a **generated, committed artifact** off the same live command tree, emitted by `deno task codegen` and held by the codegen drift family (`tests/cli_reference_codegen_test.ts`): the committed page must equal the generator, generation must be total over the visible surface, and no hidden command may leak. It ships `publish: false` (as does its section README) until the reference tier's authoring pass publishes it; flipping the withhold is a deliberate generator edit. Provider docs get the same totality: every registry-supported agent must have an integration page, tied by the page title to the registry's own label.
+The CLI reference (now the manual's `30-reference/cli-reference.md`) is a **generated, committed artifact** off the same live command tree, emitted by `deno task codegen` and held by the codegen drift family (`tests/cli_reference_codegen_test.ts`): the committed page must equal the generator, generation must be total over the visible surface, and no hidden command may leak. It ships `publish: false` (as does its section README) until the reference tier's authoring pass publishes it; flipping the withhold is a deliberate generator edit. Provider docs get the same totality: every registry-supported agent must have an integration page, tied by the page title to the registry's own label.
 
 ## Consequences
 

@@ -55,7 +55,7 @@ discern doctor
 
 ## Installer behavior
 
-The installer's `DISCERN_*` inputs are listed in [Environment variables](environment-variables.md#installation). `NO_COLOR` disables styled installer output when set.
+The installer's `DISCERN_*` inputs are listed in [Environment variables](https://discern.sh/docs/reference/environment-variables#installation). `NO_COLOR` disables styled installer output when set.
 
 The installer makes up to three download attempts for transient failures. It places the binary and its `.sha256` file in a staging directory beside the install destination, so the final rename stays on one filesystem. It verifies the checksum before replacing an existing installation. If the installed command does not resolve on `PATH`, the installer prints a persistent shell-profile fix. It does not print the setup handoff until `discern` is directly usable.
 
@@ -83,11 +83,11 @@ For example:
 discern identity --resource database
 ```
 
-Linked identity checks the [id override](environment-variables.md#worktree-identity), env files, then Git metadata; main identity uses the configured trunk. A path argument inspects either checkout kind.
+Linked identity checks the [id override](https://discern.sh/docs/reference/environment-variables#worktree-identity), env files, then Git metadata; main identity uses the configured trunk. A path argument inspects either checkout kind.
 
 ## Worktree env files
 
-`[worktree].env_files` defaults to `.env` followed by `.env.local`; the last file defining a key wins. `[worktree].inherit_env` names values copied from the main checkout. The lifecycle writes the public values listed under [Worktree environment](environment-variables.md#worktree-environment) when their conditions apply. Resource commands receive the same handles in their process environment even when no env file exists. `discern identity --resource <name>` reports the resource handle directly.
+`[worktree].env_files` defaults to `.env` followed by `.env.local`; the last file defining a key wins. `[worktree].inherit_env` names values copied from the main checkout. The lifecycle writes the public values listed under [Worktree environment](https://discern.sh/docs/reference/environment-variables#worktree-environment) when their conditions apply. Resource commands receive the same handles in their process environment even when no env file exists. `discern identity --resource <name>` reports the resource handle directly.
 
 ## Worktree command tokens
 

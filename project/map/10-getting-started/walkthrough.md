@@ -64,4 +64,4 @@ On green, discern records a Proof for the clean commit. The agent reports the ch
 
 When you approve the landing, the agent runs `discern accept`. It fast-forwards the reviewed branch onto the trunk, destroys any worktree resources, removes the worktree directory, and deletes the merged branch ([ADR 0110](../_adr/0110-the-landing-model.md)).
 
-If any step differs from this tour, start with the [FAQ and troubleshooting guide](faq.md).
+If any step differs from this tour, start with the manual's [troubleshooting section](https://discern.sh/docs/troubleshooting).

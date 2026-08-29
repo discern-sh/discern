@@ -8,16 +8,14 @@ The public path from installing discern through setup, a first Gate-checked chan
 
 ## Files to produce
 
-| File                 | Shape           | Topic                                                                                                    |
-| -------------------- | --------------- | -------------------------------------------------------------------------------------------------------- |
-| `README.md`          | overview        | Public front door with the curated reading order.                                                        |
-| `quickstart.md`      | quickstart      | Approved quickstart exemplar; preserve its register and update only required links or location metadata. |
-| `walkthrough.md`     | guide           | Guided tour that adds detail after the quickstart.                                                       |
-| `after-setup.md`     | guide           | Guide to the files a reader sees after setup.                                                            |
-| `setup-decisions.md` | guide           | Guide to the durable choices setup records and how to revisit them.                                      |
-| `tasks.md`           | guide           | Task index that routes readers to the supported first-use workflows.                                     |
-| `faq.md`             | troubleshooting | Troubleshooting page led by `discern doctor`.                                                            |
-| `upgrade-discern.md` | guide           | Task guide for updating the binary and then the project.                                                 |
+| File                 | Shape      | Topic                                                                                                    |
+| -------------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
+| `README.md`          | overview   | Public front door with the curated reading order.                                                        |
+| `quickstart.md`      | quickstart | Approved quickstart exemplar; preserve its register and update only required links or location metadata. |
+| `walkthrough.md`     | guide      | Guided tour that adds detail after the quickstart.                                                       |
+| `after-setup.md`     | guide      | Guide to the files a reader sees after setup.                                                            |
+| `setup-decisions.md` | guide      | Guide to the durable choices setup records and how to revisit them.                                      |
+| `upgrade-discern.md` | guide      | Task guide for updating the binary and then the project.                                                 |
 
 ## Source files to read
 

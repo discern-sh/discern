@@ -22,7 +22,6 @@ import {
   isJsonObject,
   recordConfigPaths,
   renderConfigDocSchemaJson,
-  renderConfigReferenceDoc,
   renderConfigSchemaJson,
   renderManualConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
@@ -271,16 +270,6 @@ Deno.test("the generated applicability list enrolls exactly the canonical known 
 
 // ── docs config-reference ────────────────────────────────────────────────────
 
-Deno.test("the configured map's config reference matches the generator (run `deno task codegen`)", async () => {
-  const path = `${REPO_AUTHORED_PATHS.map}/70-reference/config-reference.md`;
-  const committed = await Deno.readTextFile(path);
-  assertEquals(
-    committed,
-    await canonicalGeneratedMarkdown(path, renderConfigReferenceDoc()),
-    `${REPO_AUTHORED_PATHS.mapRel}/70-reference/config-reference.md is stale — run \`deno task codegen\``,
-  );
-});
-
 Deno.test("the public manual's config reference matches the live schema projection", async () => {
   const tree = await discoverDocs({
     cwd: REPO_ROOT,
@@ -304,9 +293,8 @@ Deno.test("the public manual's config reference matches the live schema projecti
 });
 
 Deno.test("the generated config reference carries the section's full frontmatter", () => {
-  const doc = renderConfigReferenceDoc();
+  const doc = renderManualConfigReferenceDoc();
   assertStringIncludes(doc, "title: Config reference");
-  assertStringIncludes(doc, "order: 20");
   assertStringIncludes(doc, "publish: true");
   assertStringIncludes(doc, "  - discern.toml");
   assertStringIncludes(doc, "  - worktree.resources.<name>.create");
@@ -329,7 +317,7 @@ Deno.test("a future schema section and key auto-enrol in manual lookup and alias
 });
 
 Deno.test("the docs reference documents every section, with its describe() prose", () => {
-  const doc = renderConfigReferenceDoc();
+  const doc = renderManualConfigReferenceDoc();
   for (const section of configSectionNames()) {
     assert(
       doc.includes(`\`[${section}`),
@@ -359,7 +347,7 @@ Deno.test("the reference's [project].agents row matches what the resolver actual
   // and made the true "no agents" choice inexpressible. The key is now optional, so
   // the row must NOT advertise `[]` as its default, and its prose must document
   // both readings the resolver implements (omit → default pair, explicit [] → none).
-  const doc = renderConfigReferenceDoc();
+  const doc = renderManualConfigReferenceDoc();
   const row = doc.split("\n").find((l) =>
     l.startsWith("| `agents`") && l.includes("CLAUDE.md")
   );

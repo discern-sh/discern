@@ -12,7 +12,7 @@ _How one schema, one paths registry, and one comment-preserving writer read, res
 
 ## One typed schema
 
-The binary parses `discern.toml` with strict `@std/toml` and validates it against the Zod schema in [`config_schema.ts`](../../../src/shared/config_schema.ts) ([ADR 0026](../_adr/0026-typed-config-schema.md)). Everything that describes the config derives from that schema: the generated [config reference](../70-reference/config-reference.md), the editor JSON Schema, and the rules the Engine enforces. `deno task codegen` rewrites the satellites. The project's final quality check (the Gate) rejects drift.
+The binary parses `discern.toml` with strict `@std/toml` and validates it against the Zod schema in [`config_schema.ts`](../../../src/shared/config_schema.ts) ([ADR 0026](../_adr/0026-typed-config-schema.md)). Everything that describes the config derives from that schema: the generated [config reference](https://discern.sh/docs/reference/config-reference), the editor JSON Schema, and the rules the Engine enforces. `deno task codegen` rewrites the satellites. The project's final quality check (the Gate) rejects drift.
 
 ## Setup config documents
 
@@ -50,6 +50,6 @@ The value renderers apply the same read-after-write contract. `tomlNumber` probe
 
 ## See also
 
-- [config-reference.md](../70-reference/config-reference.md) — every section, key, type, and default (generated).
+- [The manual's config reference](https://discern.sh/docs/reference/config-reference) — every section, key, type, and default (generated).
 - [runtime-data-boundaries.md](../80-development/runtime-data-boundaries.md) — how JSON and subprocess values validate before acquiring runtime types.
 - [the-templating-engine.md](the-templating-engine.md) — how rendered instructions and skills consume the same resolved config.
