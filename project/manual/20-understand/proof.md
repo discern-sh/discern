@@ -23,7 +23,7 @@ redirect_from:
 
 # Proof
 
-A coding agent hands a change back and declares: "I'm done!". But how can you be sure they really are? Checking every claim yourself quickly gets tedious, and rerunning commands and comparing Git state becomes a second job as more work moves in parallel.
+A coding agent hands a change back and declares: "I'm done!". But how can you be sure? Checking every claim yourself quickly gets tedious, and rerunning commands and comparing Git state becomes a second job as more work moves in parallel.
 
 discern uses Proof to do that checking for you. It confirms that the project's declared checks ran and passed, records the exact commit they covered, and shows whether the evidence is still current. You can spend your review time on behavior, design, risk, and the decision to land.
 
