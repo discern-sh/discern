@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# desc: Serve discern.sh against a local design-system checkout without changing the JSR pin
+# desc: Serve discern.sh against a local design-system checkout; pass its path or set DISCERN_DESIGN_SYSTEM_PATH
 set -eu
 
 ROOT="${DISCERN_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"

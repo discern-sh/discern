@@ -19,10 +19,7 @@
 
 import { basename } from "@std/path";
 import { bestEffort } from "../../shared/best_effort.ts";
-import {
-  commandEvidence,
-  quoteCommandWord,
-} from "../../shared/command_evidence.ts";
+import { commandEvidence } from "../../shared/command_evidence.ts";
 import { DISCERN_DOCS_URL } from "../../shared/brand.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
@@ -321,6 +318,7 @@ export interface DeskRuntime {
   runScript(
     root: string,
     name: string,
+    args: readonly string[],
     env: Record<string, string>,
   ): DeskMaybePromise<number>;
   openBrowser(url: string): DeskMaybePromise<BrowserOpenResult>;
@@ -414,6 +412,7 @@ function showActionPlan(
 function showProjectScriptPlan(
   out: Out,
   script: DeskProjectScript,
+  args: readonly string[],
   workingDirectory: string,
   runtime: DeskRuntime,
 ): void {
@@ -421,6 +420,7 @@ function showProjectScriptPlan(
   const terminal = terminalContextAtSize(out.terminal, viewport);
   const frame = renderDeskProjectScriptPlan(
     script,
+    args,
     workingDirectory,
     viewport,
     terminal,
@@ -500,13 +500,14 @@ export async function runDeskInteractiveChild(
 export async function runDeskProjectScript(
   root: string,
   name: string,
+  args: readonly string[],
   env: Record<string, string>,
 ): Promise<number> {
   return await withOperationLock(
     root,
     { command: "scripts", hasOperands: true },
     () =>
-      runProjectScriptAt(root, name, [], {
+      runProjectScriptAt(root, name, [...args], {
         cwd: root,
         env,
         resumeAfterInterrupt: true,
@@ -514,27 +515,35 @@ export async function runDeskProjectScript(
   );
 }
 
+/** One literal argv tail entered in the Desk without invoking a shell. */
+export type ProjectScriptArgumentParse =
+  | { readonly ok: true; readonly args: readonly string[] }
+  | { readonly ok: false; readonly message: string };
+
+const SIMPLE_COMMAND_SHELL_SYNTAX = new Set([
+  ..."`$(){};&|<>*?[]#!~\n\r",
+]);
+
 /**
- * Parse a simple editor command into argv without invoking a shell.
- *
- * Single and double quotes group literal text; backslash escapes one following
- * character. Shell operators, expansions, globs, and unterminated quotes are
- * refused because the Desk must be able to show the exact argv it will run.
+ * Split one literal command line. The editor boundary may additionally refuse
+ * shell-looking syntax; Project Script arguments retain it as ordinary text.
  */
-function simpleCommandArgv(command: string): string[] | undefined {
+function parseLiteralArgv(
+  input: string,
+  refuseShellSyntax: boolean,
+): ProjectScriptArgumentParse {
   const args: string[] = [];
   let word = "";
   let started = false;
   let quote: "single" | "double" | undefined;
-  const shellSyntax = new Set([..."`$(){};&|<>*?[]#!~\n\r"]);
   const push = (): void => {
     if (!started) return;
     args.push(word);
     word = "";
     started = false;
   };
-  for (let index = 0; index < command.length; index++) {
-    const char = command[index] ?? "";
+  for (let index = 0; index < input.length; index++) {
+    const char = input[index] ?? "";
     if (quote === "single") {
       if (char === "'") quote = undefined;
       else word += char;
@@ -545,12 +554,19 @@ function simpleCommandArgv(command: string): string[] | undefined {
       if (char === '"') {
         quote = undefined;
       } else if (char === "\\") {
-        const next = command[index + 1];
-        if (next === undefined) return undefined;
+        const next = input[index + 1];
+        if (next === undefined) {
+          return {
+            ok: false,
+            message: "The argument line ends with an incomplete escape.",
+          };
+        }
         word += next;
         index++;
-      } else if (char === "$" || char === "`") {
-        return undefined;
+      } else if (
+        refuseShellSyntax && (char === "$" || char === "`")
+      ) {
+        return { ok: false, message: "Shell syntax is not accepted here." };
       } else {
         word += char;
       }
@@ -572,20 +588,56 @@ function simpleCommandArgv(command: string): string[] | undefined {
       continue;
     }
     if (char === "\\") {
-      const next = command[index + 1];
-      if (next === undefined) return undefined;
+      const next = input[index + 1];
+      if (next === undefined) {
+        return {
+          ok: false,
+          message: "The argument line ends with an incomplete escape.",
+        };
+      }
       word += next;
       started = true;
       index++;
       continue;
     }
-    if (shellSyntax.has(char)) return undefined;
+    if (refuseShellSyntax && SIMPLE_COMMAND_SHELL_SYNTAX.has(char)) {
+      return { ok: false, message: "Shell syntax is not accepted here." };
+    }
     word += char;
     started = true;
   }
-  if (quote !== undefined) return undefined;
+  if (quote !== undefined) {
+    return {
+      ok: false,
+      message: `The argument line has an unclosed ${quote} quote.`,
+    };
+  }
   push();
-  return args.length === 0 ? undefined : args;
+  return { ok: true, args };
+}
+
+/**
+ * Split an interactive argument line while preserving every non-separator
+ * character literally. Quotes group spaces and backslash escapes one following
+ * character; expansions and operators have no special meaning because the
+ * resulting argv never crosses a shell.
+ */
+export function parseProjectScriptArguments(
+  input: string,
+): ProjectScriptArgumentParse {
+  return parseLiteralArgv(input, false);
+}
+
+/**
+ * Parse a simple editor command into argv without invoking a shell.
+ *
+ * Single and double quotes group literal text; backslash escapes one following
+ * character. Shell operators, expansions, globs, and unterminated quotes are
+ * refused because the Desk must be able to show the exact argv it will run.
+ */
+function simpleCommandArgv(command: string): string[] | undefined {
+  const parsed = parseLiteralArgv(command, true);
+  return parsed.ok && parsed.args.length > 0 ? [...parsed.args] : undefined;
 }
 
 /** The real terminal/git implementation. Keeping the boundary in one value
@@ -732,7 +784,8 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       };
     }
   },
-  runScript: (root, name, env) => runDeskProjectScript(root, name, env),
+  runScript: (root, name, args, env) =>
+    runDeskProjectScript(root, name, args, env),
   openBrowser: (url) => openInBrowser(url),
   now: SYSTEM_CLOCK.wallNow,
   readTipState: (root) => readTipSeenState(root, KIT_VERSION),
@@ -1169,8 +1222,30 @@ async function authorizeProjectScript(
   script: DeskProjectScript,
   workingDirectory: string,
   runtime: DeskRuntime,
-): Promise<boolean> {
-  showProjectScriptPlan(out, script, workingDirectory, runtime);
+): Promise<readonly string[] | undefined> {
+  let argumentLine: string;
+  try {
+    argumentLine = await runtime.input({
+      message: `Arguments for Project Script ${script.name} (optional)`,
+      hint:
+        "Spaces separate arguments. Quote spaces. Values are literal; no shell expansion runs.",
+      placeholder: "Press Enter to run without arguments",
+      validate: (value) => {
+        const parsed = parseProjectScriptArguments(value);
+        return parsed.ok ? true : parsed.message;
+      },
+    });
+  } catch (error) {
+    if (!isInteractionCancelled(error)) throw error;
+    return undefined;
+  }
+  const parsed = parseProjectScriptArguments(argumentLine);
+  if (!parsed.ok) {
+    out.warn(parsed.message);
+    return undefined;
+  }
+  const args = parsed.args;
+  showProjectScriptPlan(out, script, args, workingDirectory, runtime);
   let route: string;
   try {
     route = await runtime.select({
@@ -1191,20 +1266,59 @@ async function authorizeProjectScript(
     });
   } catch (error) {
     if (!isInteractionCancelled(error)) throw error;
-    return false;
+    return undefined;
   }
   const executable = script.path ?? script.name;
   if (route === "show-command") {
-    echoCommand(out, displayedCommand(executable, []));
-    echoCommand(out, `discern scripts ${quoteCommandWord(script.name)}`);
+    echoCommand(out, displayedCommand(executable, args));
+    echoCommand(
+      out,
+      commandEvidence(["discern", "scripts", script.name, ...args]),
+    );
     await runtime.pause(out);
-    return false;
+    return undefined;
   }
-  if (route === BACK) return false;
-  return await runtime.confirm(
+  if (route === BACK) return undefined;
+  const confirmed = await runtime.confirm(
     `Run Project Script ${script.name} in ${workingDirectory}?`,
     { defaultTo: false, noLabel: "Cancel", yesLabel: "Run" },
   );
+  return confirmed ? args : undefined;
+}
+
+/** Collect, review, and run one Project Script through the Desk's sole argv path. */
+async function runAuthorizedProjectScript(
+  out: Out,
+  root: string,
+  script: DeskProjectScript,
+  workingDirectory: string,
+  contextLabel: string,
+  runtime: DeskRuntime,
+): Promise<boolean> {
+  const args = await authorizeProjectScript(
+    out,
+    script,
+    workingDirectory,
+    runtime,
+  );
+  if (args === undefined) return false;
+  echoCommand(
+    out,
+    `${
+      commandEvidence(["discern", "scripts", script.name, ...args])
+    }  (in ${contextLabel})`,
+  );
+  const code = await runtime.runScript(
+    root,
+    script.name,
+    args,
+    deskSessionEnv(),
+  );
+  if (code !== 0) {
+    out.warn(`Project Script exited with status ${code}.`);
+  }
+  await runtime.pause(out);
+  return true;
 }
 
 /** Offer the fleet as a grouped picker; resolves to a row path or a sentinel.
@@ -1261,19 +1375,14 @@ async function runRootProjectScript(
   if (script === undefined) {
     return;
   }
-  if (!(await authorizeProjectScript(out, script, root, runtime))) {
-    return;
-  }
-  echoCommand(out, `discern scripts ${script.name}  (in project root)`);
-  const code = await runtime.runScript(
+  await runAuthorizedProjectScript(
+    out,
     root,
-    script.name,
-    deskSessionEnv(),
+    script,
+    root,
+    "project root",
+    runtime,
   );
-  if (code !== 0) {
-    out.warn(`Project Script exited with status ${code}.`);
-  }
-  await runtime.pause(out);
 }
 
 /** Hand the online manual to the user's browser and keep a copyable fallback
@@ -2228,31 +2337,16 @@ async function dispatchAction(
       if (script === undefined) {
         return false;
       }
-      if (
-        !(await authorizeProjectScript(
-          out,
-          script,
-          script.workingDirectory ?? row.entry.path,
-          runtime,
-        ))
-      ) {
-        return false;
-      }
-      echoCommand(
+      const ran = await runAuthorizedProjectScript(
         out,
-        `discern scripts ${script.name}  (in ${target})`,
-      );
-      const code = await runtime.runScript(
         row.entry.path,
-        script.name,
-        deskSessionEnv(),
+        script,
+        script.workingDirectory ?? row.entry.path,
+        target,
+        runtime,
       );
-      if (code !== 0) {
-        out.warn(`Project Script exited with status ${code}.`);
-      }
-      await runtime.pause(out);
       // A Project Script can change project or Git state, so always re-survey.
-      return true;
+      return ran;
     }
     case "follow_up": {
       const path = await startTask(out, root, config, runtime, {
