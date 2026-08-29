@@ -20,11 +20,18 @@ import {
   withStagedManualProse,
 } from "../scripts/manual_prose_lib.ts";
 import { addsOrReplacesFrontDoor } from "../project/scripts/manual_front_door_checkpoint.ts";
+import { countManualFrontDoors } from "../scripts/manual_front_doors.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
+import { SEARCH_KIND_WEIGHT } from "../src/lib/docs_search.js";
 import {
   buildManualProjection,
+  manualFrontDoorDestinations,
+  manualFrontDoorEntries,
   type ManualProjection,
+  resolveManualLink,
+  staleManualAliasOwnerOverrides,
 } from "../src/lib/manual.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
 import {
   MANUAL_ALIAS_OWNER_OVERRIDES,
   MANUAL_KIND_REGISTRY,
@@ -60,6 +67,59 @@ Deno.test("manual kind policy is closed and every member owns one checkpoint", a
   for (const owner of Object.values(MANUAL_ALIAS_OWNER_OVERRIDES)) {
     assert(manual.byId.has(owner), `alias owner ${owner} must be published`);
   }
+  assertEquals(
+    staleManualAliasOwnerOverrides(manual.pages),
+    [],
+    "every MANUAL_ALIAS_OWNER_OVERRIDES key must still be claimed by a page",
+  );
+  assertEquals(
+    staleManualAliasOwnerOverrides(manual.pages, {
+      "name claimed by no page": "reference-cli",
+    }),
+    ["name claimed by no page"],
+  );
+});
+
+Deno.test("search kind weighting enrolls every registered manual kind", () => {
+  assertEquals(
+    Object.keys(SEARCH_KIND_WEIGHT).sort(),
+    [...MANUAL_KINDS, "other"].sort(),
+  );
+});
+
+Deno.test("every front-door surface projects the one authored README authority", async () => {
+  const manual = await repositoryManual();
+  const promoted = manual.frontDoors.map((page) => page.entry.relToDocs);
+  assert(promoted.length > 0);
+
+  const terminal = await manualFrontDoorEntries(
+    manual.pages.map((page) => page.entry),
+  );
+  assertEquals(terminal.map((entry) => entry.relToDocs), promoted);
+
+  const readme = await Deno.readTextFile(
+    join(REPO_AUTHORED_PATHS.manual, "README.md"),
+  );
+  const destinations = manualFrontDoorDestinations(readme);
+  assertEquals(
+    destinations.map((destination) =>
+      resolveManualLink("README.md", destination)
+    ),
+    promoted,
+  );
+
+  const measured = await countManualFrontDoors(REPO_ROOT);
+  assertEquals(measured, destinations.length);
+  assertEquals(measured, promoted.length);
+
+  const standard =
+    (await loadConfig(REPO_ROOT)).standards["manual_front_doors"];
+  assert(standard !== undefined, "the manual_front_doors standard is declared");
+  assertEquals(standard.direction, "down");
+  assert(
+    measured <= standard.limit,
+    `manual_front_doors measured ${measured}, above the ${standard.limit} ceiling`,
+  );
 });
 
 Deno.test("benefit obligations resolve both directions and reject stale identities", async () => {
@@ -97,6 +157,65 @@ Deno.test("benefit obligations resolve both directions and reject stale identiti
   assert(
     manualBenefitCoverageIssues(manual, undefined, ineligible).some((issue) =>
       issue.includes("ineligible kind reference")
+    ),
+  );
+
+  // A page withheld with publish:false never reaches the projection's byId
+  // map (tests/manual_projection_guard_test.ts proves that collapse), so an
+  // unpublished-but-present home is rejected exactly like a missing one.
+  const primaryHome = MANUAL_BENEFIT_OBLIGATIONS["shape-substantial-work"]?.[0];
+  assert(primaryHome !== undefined);
+  const withheldById = new Map(manual.byId);
+  withheldById.delete(primaryHome);
+  const withheld: ManualProjection = { ...manual, byId: withheldById };
+  assert(
+    manualBenefitCoverageIssues(withheld).some((issue) =>
+      issue.includes(`${primaryHome} does not exist or publish`)
+    ),
+  );
+
+  const mapOnly = {
+    ...MANUAL_BENEFIT_OBLIGATIONS,
+    "shape-substantial-work": ["00-orientation/system-map"],
+  };
+  assert(
+    manualBenefitCoverageIssues(manual, undefined, mapOnly).some((issue) =>
+      issue.includes("00-orientation/system-map does not exist or publish")
+    ),
+  );
+
+  const troubleshootingPage = manual.pages.find((page) =>
+    page.kind === "troubleshooting"
+  );
+  assert(troubleshootingPage !== undefined);
+  const troubleshooting = {
+    ...MANUAL_BENEFIT_OBLIGATIONS,
+    "shape-substantial-work": [troubleshootingPage.id],
+  };
+  assert(
+    manualBenefitCoverageIssues(manual, undefined, troubleshooting).some((
+      issue,
+    ) => issue.includes("ineligible kind troubleshooting")),
+  );
+
+  const doubled = {
+    ...MANUAL_BENEFIT_EXCLUSIONS,
+    "shape-substantial-work":
+      "A retained reason that cannot coexist with an obligation.",
+  };
+  assert(
+    manualBenefitCoverageIssues(manual, undefined, undefined, doubled).some((
+      issue,
+    ) => issue.includes("cannot be both obligated and excluded")),
+  );
+
+  const emptyHomes = {
+    ...MANUAL_BENEFIT_OBLIGATIONS,
+    "shape-substantial-work": [],
+  };
+  assert(
+    manualBenefitCoverageIssues(manual, undefined, emptyHomes).some((issue) =>
+      issue.includes("must name at least one page")
     ),
   );
 });

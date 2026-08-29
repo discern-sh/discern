@@ -6,7 +6,13 @@
  * the exact v1 facts handed to the public-document matcher.
  */
 
-import { assert, assertEquals, assertFalse } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertFalse,
+  assertStrictEquals,
+} from "@std/assert";
+import { MANUAL_FRONT_DOOR_CHECKPOINT_ID as MATCHER_FRONT_DOOR_CHECKPOINT_ID } from "../project/scripts/manual_front_door_checkpoint.ts";
 import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
 import { checkpointWhenInput } from "../src/engine/checkpoints/preflight.ts";
 import { evaluateStructuralTrigger } from "../src/engine/checkpoints/triggers.ts";
@@ -112,6 +118,12 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
   }
   assertFalse(Object.hasOwn(CONFIG.checkpoints, "public-doc-audience"));
 
+  // The matcher script re-exports the shared registry constant; a drifting
+  // local re-declaration would detach its output from this resolved policy.
+  assertStrictEquals(
+    MATCHER_FRONT_DOOR_CHECKPOINT_ID,
+    MANUAL_FRONT_DOOR_CHECKPOINT_ID,
+  );
   assertEquals(checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).mode, "stop");
   assertEquals(
     checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).selector?.globs,
