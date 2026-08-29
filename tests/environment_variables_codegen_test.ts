@@ -8,7 +8,9 @@ import { join } from "@std/path";
 import {
   ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
   renderEnvironmentVariableReferenceDoc,
+  renderManualEnvironmentVariableReferenceDoc,
 } from "../scripts/environment_variable_reference.ts";
+import { renderGeneratedManualDocument } from "../scripts/manual_codegen.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
 import {
@@ -94,6 +96,29 @@ Deno.test("the configured map's environment reference matches the generator", as
       renderEnvironmentVariableReferenceDoc(),
     ),
     `${REPO_AUTHORED_PATHS.mapRel}/${ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL} is stale — run \`deno task codegen\``,
+  );
+});
+
+Deno.test("the public manual's environment reference matches the registry", async () => {
+  const tree = await discoverDocs({
+    cwd: REPO_ROOT,
+    dir: REPO_AUTHORED_PATHS.manual,
+  });
+  assert(tree !== undefined);
+  const manual = await buildManualProjection(tree.entries);
+  const path =
+    `${REPO_AUTHORED_PATHS.manual}/30-reference/environment-variables.md`;
+  const rendered = renderGeneratedManualDocument(
+    renderManualEnvironmentVariableReferenceDoc(),
+    ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
+    "30-reference/environment-variables.md",
+    { id: "reference-environment-variables", order: 60 },
+    manual,
+  );
+  assertEquals(
+    await Deno.readTextFile(path),
+    await canonicalGeneratedMarkdown(path, rendered),
+    `${REPO_AUTHORED_PATHS.manualRel}/30-reference/environment-variables.md is stale — run \`deno task codegen\``,
   );
 });
 

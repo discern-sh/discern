@@ -1,7 +1,7 @@
 ---
 id: reference-config
 title: "Config reference"
-description: "Every discern.toml section, key, type, and default generated from the schema the binary enforces."
+description: "Every public discern.toml table, key, type, default, placeholder, and named-table rule generated from the schema the binary enforces."
 order: 30
 publish: true
 kind: reference
@@ -122,13 +122,13 @@ aliases:
 
 # `discern.toml` — config reference
 
-The file that configures a discern install.
+Look up every public `discern.toml` table, key, type, default, placeholder, and named-table rule. The tables below are generated from the same schema the installed binary validates.
 
-Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so the documentation matches what the engine enforces.
+Prerequisite: a `discern.toml` file or a planned configuration. A **Default** is the value discern uses when a key is absent. An em dash means the key has no schema default; it does not mean an empty value. Unknown top-level tables and keys are not supported unless the table is explicitly named with `<name>`.
 
 The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[generated.<name>]`, `[worktree.resources.<name>]`, `[standards.<name>]`, `[checkpoints.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
 
-Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger. `[scopes.instructions]` carries the project brief, instruction sources, authored skills, and materialized skills directories. The `[acceptance]` example names only `map`, so agent-instruction changes require owner review. Upgrade leaves existing named scopes unchanged; owners of earlier installs split their scope manually to adopt this boundary.
+The published [JSON Schema](https://discern.sh/schema/v1/discern-config.schema.json) is the external machine-readable contract. For editing and validation recovery, see [Configuration and setup troubleshooting](../40-troubleshooting/setup-and-integrations.md).
 
 ## `[meta]`
 

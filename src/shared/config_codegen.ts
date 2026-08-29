@@ -278,8 +278,11 @@ function configSearchAliases(schema: Record<string, unknown>): string[] {
  * `.describe(...)` annotations. Replaces a hand-maintained reference that would
  * drift from what the engine enforces.
  */
-export function renderConfigReferenceDoc(): string {
-  const root = z.toJSONSchema(configSchema, { io: "input" }) as Record<
+function renderConfigReferenceDocument(
+  manual: boolean,
+  schema: z.ZodType = configSchema,
+): string {
+  const root = z.toJSONSchema(schema, { io: "input" }) as Record<
     string,
     unknown
   >;
@@ -290,14 +293,16 @@ export function renderConfigReferenceDoc(): string {
     "config",
     ...configSearchAliases(root),
   ];
-  const namedTables = recordConfigPaths().map((path) =>
+  const namedTables = recordConfigPathsFromRoot(root).map((path) =>
     path === "jobs" ? "`[jobs.<name>]` for custom jobs" : `\`[${path}.<name>]\``
   )
     .join(", ");
   const out: string[] = [
     "---",
     "title: Config reference",
-    "description: Every discern.toml section, key, type, and default generated from the schema the binary enforces.",
+    manual
+      ? "description: Every public discern.toml table, key, type, default, placeholder, and named-table rule generated from the schema the binary enforces."
+      : "description: Every discern.toml section, key, type, and default generated from the schema the binary enforces.",
     "order: 20",
     "publish: true",
     "aliases:",
@@ -308,15 +313,25 @@ export function renderConfigReferenceDoc(): string {
     "",
     "# `discern.toml` — config reference",
     "",
-    typeof root.description === "string"
+    manual
+      ? "Look up every public `discern.toml` table, key, type, default, placeholder, and named-table rule. The tables below are generated from the same schema the installed binary validates."
+      : typeof root.description === "string"
       ? root.description
       : "The file that configures a discern install.",
     "",
-    "Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so the documentation matches what the engine enforces.",
+    manual
+      ? "Prerequisite: a `discern.toml` file or a planned configuration. A **Default** is the value discern uses when a key is absent. An em dash means the key has no schema default; it does not mean an empty value. Unknown top-level tables and keys are not supported unless the table is explicitly named with `<name>`."
+      : "Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so the documentation matches what the engine enforces.",
     "",
     `The named-table sections (${namedTables}) are repeatable: declare as many as you like, each with its own \`<name>\`.`,
     "",
-    "Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger. `[scopes.instructions]` carries the project brief, instruction sources, authored skills, and materialized skills directories. The `[acceptance]` example names only `map`, so agent-instruction changes require owner review. Upgrade leaves existing named scopes unchanged; owners of earlier installs split their scope manually to adopt this boundary.",
+    ...(manual
+      ? [
+        "The published [JSON Schema](https://discern.sh/schema/v1/discern-config.schema.json) is the external machine-readable contract. For editing and validation recovery, see [Configuration and setup troubleshooting](../40-troubleshooting/setup-and-integrations.md).",
+      ]
+      : [
+        "Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger. `[scopes.instructions]` carries the project brief, instruction sources, authored skills, and materialized skills directories. The `[acceptance]` example names only `map`, so agent-instruction changes require owner review. Upgrade leaves existing named scopes unchanged; owners of earlier installs split their scope manually to adopt this boundary.",
+      ]),
   ];
   for (const [section, schema] of Object.entries(props)) {
     if (isObject(schema)) {
@@ -324,6 +339,20 @@ export function renderConfigReferenceDoc(): string {
     }
   }
   return `${out.join("\n")}\n`;
+}
+
+/** Render the established Map projection. */
+export function renderConfigReferenceDoc(
+  schema: z.ZodType = configSchema,
+): string {
+  return renderConfigReferenceDocument(false, schema);
+}
+
+/** Render the external-reader manual projection from the same live schema. */
+export function renderManualConfigReferenceDoc(
+  schema: z.ZodType = configSchema,
+): string {
+  return renderConfigReferenceDocument(true, schema);
 }
 
 /** The live config's top-level section names, in schema order — used by the
@@ -350,6 +379,13 @@ export function recordConfigPaths(): string[] {
     string,
     unknown
   >;
+  return recordConfigPathsFromRoot(root);
+}
+
+/** Collect open-table paths from one already-generated schema root. */
+function recordConfigPathsFromRoot(
+  root: Record<string, unknown>,
+): string[] {
   const out: string[] = [];
   const walk = (node: Record<string, unknown>, prefix: string): void => {
     node = objectView(node);

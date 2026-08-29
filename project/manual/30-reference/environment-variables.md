@@ -1,7 +1,7 @@
 ---
 id: reference-environment-variables
 title: "Environment variables"
-description: "Every public DISCERN_* environment variable, grouped by purpose, with defaults and activation behavior."
+description: "Every public DISCERN_* input and exported value, with its source, scope, default, and consumer."
 order: 60
 publish: true
 kind: reference
@@ -31,9 +31,9 @@ aliases:
 
 # Environment variables
 
-_The public `DISCERN_*` inputs and exported values discern supports, grouped by purpose._
+Look up every supported public `DISCERN_*` process input and exported value. Each row states which boundary reads or writes it; descriptions state defaults and activation rules where the variable has them.
 
-Variables used only by discern's own processes, source checkout, and test suite are omitted.
+Prerequisite: the variable name or integration boundary. Values apply to the current process unless a row says discern exports or writes them. Internal process markers, source-checkout controls, and test-only variables are not public and are intentionally omitted.
 
 ## Installation
 

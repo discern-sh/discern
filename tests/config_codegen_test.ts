@@ -24,8 +24,13 @@ import {
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
   renderConfigSchemaJson,
+  renderManualConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
+import { discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
+import { renderGeneratedManualDocument } from "../scripts/manual_codegen.ts";
 import {
+  configSchema,
   DEFAULT_AGENTS,
   parseConfig,
   parseConfigOrThrow,
@@ -49,7 +54,7 @@ import {
   defaultInstructionScopePaths,
   defaultInstructionScopes,
 } from "../src/lib/config.ts";
-import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 import { generatedArtifactMarkerBody } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
@@ -276,6 +281,28 @@ Deno.test("the configured map's config reference matches the generator (run `den
   );
 });
 
+Deno.test("the public manual's config reference matches the live schema projection", async () => {
+  const tree = await discoverDocs({
+    cwd: REPO_ROOT,
+    dir: REPO_AUTHORED_PATHS.manual,
+  });
+  assert(tree !== undefined);
+  const manual = await buildManualProjection(tree.entries);
+  const path = `${REPO_AUTHORED_PATHS.manual}/30-reference/config-reference.md`;
+  const rendered = renderGeneratedManualDocument(
+    renderManualConfigReferenceDoc(),
+    "70-reference/config-reference.md",
+    "30-reference/config-reference.md",
+    { id: "reference-config", order: 30 },
+    manual,
+  );
+  assertEquals(
+    await Deno.readTextFile(path),
+    await canonicalGeneratedMarkdown(path, rendered),
+    `${REPO_AUTHORED_PATHS.manualRel}/30-reference/config-reference.md is stale — run \`deno task codegen\``,
+  );
+});
+
 Deno.test("the generated config reference carries the section's full frontmatter", () => {
   const doc = renderConfigReferenceDoc();
   assertStringIncludes(doc, "title: Config reference");
@@ -283,6 +310,22 @@ Deno.test("the generated config reference carries the section's full frontmatter
   assertStringIncludes(doc, "publish: true");
   assertStringIncludes(doc, "  - discern.toml");
   assertStringIncludes(doc, "  - worktree.resources.<name>.create");
+});
+
+Deno.test("a future schema section and key auto-enrol in manual lookup and aliases", () => {
+  const futureSchema = configSchema.extend({
+    future_contract: z.object({
+      exact_limit: z.number().default(7).describe(
+        "Synthetic future exact limit.",
+      ),
+    }).describe("Synthetic future public table."),
+  });
+  const document = renderManualConfigReferenceDoc(futureSchema);
+  assertStringIncludes(document, "## `[future_contract]`");
+  assertStringIncludes(document, "| `exact_limit`");
+  assertStringIncludes(document, "`7`");
+  const frontmatter = document.split("\n---\n")[0] ?? "";
+  assertStringIncludes(frontmatter, "  - future_contract.exact_limit");
 });
 
 Deno.test("the docs reference documents every section, with its describe() prose", () => {

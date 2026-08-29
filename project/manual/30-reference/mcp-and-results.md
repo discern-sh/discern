@@ -47,6 +47,8 @@ redirect_from:
 
 Look up MCP tools/resources, DiscernResult, JSON/Markdown delivery, schemas, versions, exits, and continuation/duration policy.
 
+Prerequisite: the command, tool, resource URI, result field, or schema id you need to look up. A configured project is required for project-operating tools; `discern_docs` is project-independent.
+
 ## Result formats and delivery
 
 _One policy-evaluated `DiscernResult` can be presented in the terminal, as authored Markdown, as compact JSON, or through MCP._
@@ -108,6 +110,30 @@ Choose among terminal, Markdown, JSON, and MCP delivery through [Result formats 
 | `discern_improvement`       | Rank the next improvement and return the supporting health audit.                                                                                                         | Read-only and idempotent.                                              |
 | `discern_checkpoints`       | Report governing checkpoints, strict obligations, open-question declaration state, and structural evidence.                                                               | Read-only and idempotent.                                              |
 
+The input object is strict: undeclared keys are rejected. Optional keys by tool are:
+
+| Tool                        | Accepted input keys                                            |
+| --------------------------- | -------------------------------------------------------------- |
+| `discern_status`            | `all`, `local`, `verbose`, `path`                              |
+| `discern_start`             | `name`, `title`, `brief`, `from`, `path`, `dry_run`            |
+| `discern_prepare`           | `path`                                                         |
+| `discern_done`              | `dry_run`, `ci`, `rerun`, `confirmed`, `met`, `unmet`, `path`  |
+| `discern_update`            | `from`, `dry_run`, `path`                                      |
+| `discern_await`             | `green`, `landed`, `trunk_moved`, `resume`, `timeout`, `path`  |
+| `discern_accept`            | `dry_run`, `confirmed`, `variance`, `approve_standard`, `path` |
+| `discern_test`              | `path`                                                         |
+| `discern_standards`         | `dry_run`, `force`, `pin`, `pin_names`, `path`                 |
+| `discern_standards_propose` | `name`, `reason`, `dry_run`, `path`                            |
+| `discern_impact`            | `path`                                                         |
+| `discern_coupling`          | `file`, `with`, `path`                                         |
+| `discern_patterns`          | `stats`, `all`, `logbook_file`, `path`                         |
+| `discern_checkpoints`       | `path`                                                         |
+| `discern_refresh`           | `dry_run`, `path`                                              |
+| `discern_map`               | `target`, `search`, `path`                                     |
+| `discern_docs`              | `target`, `search`                                             |
+| `discern_doctor`            | `verbose`, `path`                                              |
+| `discern_improvement`       | `category`, `min_score`, `path`                                |
+
 Every project-operating tool accepts an optional `path` that selects the discern project or worktree for that call. Pass an absolute filesystem path anywhere inside the intended checkout, including another repository in a multi-repo workspace. discern resolves the project root. Omit `path` to use the checkout the MCP server currently targets. Relative paths are rejected because the server's process directory is not the caller's directory. `discern_docs` needs no project. After a successful `discern_start`, later calls use the new worktree by default. After `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
 
 Tools that require completed setup return a controlled `not_set_up` result until setup finishes. A tool rejects undeclared input keys instead of dropping them.
@@ -117,6 +143,20 @@ Tools that require completed setup return a controlled `not_set_up` result until
 #### Startup discovery
 
 MCP `tools/list` returns full definitions. Clients choose the startup context. discern's instructions stay under 2KB and lead with status, start, prepare, done, update/await, and accept; test remains on demand.
+
+#### Call duration and continuation
+
+| Caller or provider                 | Configured client/tool limit | `discern_await` call budget |
+| ---------------------------------- | ---------------------------- | --------------------------- |
+| Claude Code                        | 3,600 seconds                | 3,300 seconds               |
+| Codex                              | 3,600 seconds                | 3,300 seconds               |
+| Gemini                             | 3,600 seconds                | 3,300 seconds               |
+| GitHub Copilot                     | 3,600 seconds                | 3,300 seconds               |
+| Cursor's shortest verified surface | 60 seconds                   | 45 seconds                  |
+| Unknown MCP client                 | Unknown                      | 45 seconds                  |
+| CLI                                | No MCP client limit          | 3,300 seconds               |
+
+The long profile reserves 300 seconds for delivery and cancellation. The strict profile reserves 15 seconds against Cursor's shortest verified surface. A watch returns immediately when its condition holds. When the budget expires first, the result is `ok: true`, `data.met: false`, and includes a 15-character `data.resume` handle. Continue with that handle; do not rebuild the watch from observed state. Handles are repository-local, expire after 7 days, and share a 512-record cap. CLI reports the not-yet result with exit `124`; MCP returns a normal tool result. `timeout` may shorten a call but cannot extend its selected profile.
 
 #### Find a map or manual page
 
@@ -152,6 +192,18 @@ Map search includes `publish: false`. Docs search covers the public manual. Both
 | `hints`       | Advisory               | Notices, boundaries, owner attention, and next actions. Failures carry an action. Hints never change `ok`. |
 | `error`       | Evaluated failures     | Stable classified-failure slug. Forbidden when `ok` is `true`.                                             |
 | `message`     | Evaluated failures     | Explanatory failure or refusal.                                                                            |
+| `waited_ms`   | Test-slot wait         | Milliseconds spent waiting for a configured concurrent-test slot.                                          |
+
+#### Closed result vocabularies
+
+- Step `kind`: `job`, `scope-gate`, `merge-check`, `standards-limits-check`, `tracked-artifacts-check`, `instructions-check`, `skills-check`, `tracked-refresh-check`, `resource-create`, `resource-destroy`, `git`, `task-metadata`, `setup-step`, `repository-ensure`, `checkout-clean-check`, `setup-ensure`, `env`, `refresh`, `tidy`, `standard`.
+- Step `disposition`: `run`, `skip`, `gate`.
+- Step `outcome`: `ok`, `failed`, `skipped`, `cancelled`.
+- Diagnostic `severity`: `error`, `warning`.
+- `failed_stage`: `fix`, `build`, `check`, `test`, `check/test`, `scope_gates`, `tree_drift`, `generated_drift`, `refresh_drift`, `tracked_artifacts`, `instructions`, `skills`, `skill_frontmatter`, `adr_numbers`, `adr_index`, `map_integrity`, `merge`, `standards`, `write_access`.
+- Advisory `kind`: `acceptance-cleanup-incomplete`, `checkpoint-evidence-dropped`, `checkout-clean-observation-unavailable`, `doctor-warning`, `execution-cap-unavailable`, `generated-attribute-pattern-untranslated`, `ignored-file-observation-unavailable`, `landing-authority-unverified`, `optional-resource-unavailable`, `proof-recording-unavailable`, `setup-forced-completion`, `setup-machinery-commit-failed`, `setup-marker-commit-failed`, `standards-limits-unverified`, `uninstall-strip-incomplete`.
+
+The registered `error` slugs are: `active_worktrees`, `ambiguous`, `apply_failed`, `awaiting_consent`, `awaiting_declaration`, `awaiting_variance`, `awaiting_standard_approval`, `below_min_score`, `brief_unparseable`, `checkout_failed`, `config_template_unavailable`, `confirmation_required`, `conflict`, `desk_already_active`, `detached_head`, `diagrams_misaligned`, `dirty_worktree`, `edit_error`, `gate_failed`, `gitignore_template_unavailable`, `identity_error`, `incomplete`, `internal_error`, `invalid_arguments`, `invalid_config`, `invalid_config_file`, `invalid_migrated_config`, `invalid_preset`, `invalid_settings_file`, `invalid_toml`, `invalid_value`, `no_docs`, `no_map`, `no_project`, `no_repository`, `no_such_step`, `no_target`, `not_found`, `not_initialized`, `not_main_checkout`, `not_on_trunk`, `not_set_up`, `not_setup_branch`, `partial_acceptance`, `partial_materialization`, `partial_refresh`, `pin_failed`, `proposal_failed`, `proposal_stale`, `precondition_failed`, `provisioned_resources`, `read_error`, `report_only_proof`, `renamed_command`, `renamed_config_key`, `schema_version_too_new`, `setup_plan_failed`, `skills_eject_failed`, `tables_malformed`, `templates_not_found`, `tidy_parse_failed`, `tidy_write_failed`, `uncommitted_changes`, `unchanged_tree_rerun`, `unknown_category`, `unknown_command`, `unknown_key`, `unknown_preset`, `unknown_standard`, and `write_access`.
 
 `ok: true` means every required outcome in the producing verb's completion policy holds. Required writes, validation, compilation, cleanup, and final checks cannot fail under a successful envelope. An explicitly optional degradation remains successful only when `advisories[]` carries its permitted `kind`, non-empty `evidence`, and `next_action`. Hints do not waive required work ([ADR 0349](https://discern.sh/docs/decisions/0349-top-level-success-follows-completion-policies)).
 
@@ -224,8 +276,9 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `0`                          | The command completed successfully, or a bare predicate such as `config has` / `impact --has` was true.                                      |
 | `1`                          | A controlled failure or refusal, a false bare predicate, or an enforcement threshold that was not met.                                       |
+| `124`                        | `discern await` reached its call budget before the condition held and returned a continuation handle.                                        |
 | `70`                         | discern itself crashed on an unexpected error. See [crash reports](../40-troubleshooting/crashes-and-local-state.md) for the local evidence. |
-| Project Script's own code    | `discern scripts <name>` passes through the script's exit code because the script owns its result contract.                                  |
+| Child command's own code     | `discern queue -- <command>` and `discern scripts <name>` pass through the child's exit code.                                                |
 | Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.                                           |
 
 Quiet result modes map exit `0` to evaluated `ok: true` and controlled nonzero to evaluated `ok: false`; a verb's manually reported zero cannot override a failed completion contract. Predicates using `--json` or `--markdown` always exit `0`; their boolean is in `data`. Bare `config has` and `impact --has` stay silent, exiting `0` or `1`. `identity` and config reads are bare unless `--json` or `--markdown` requests a result.

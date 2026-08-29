@@ -133,6 +133,7 @@ export type PublicSchemaArtifactHref = (
 /** Render the public schema registry as a reference-table block. */
 export function renderPublicSchemaReference(
   artifactHref: PublicSchemaArtifactHref = (path) => `../../../${path}`,
+  publications: readonly PublicSchemaPublication[] = PUBLIC_SCHEMA_PUBLICATIONS,
 ): string {
   return [
     PUBLIC_SCHEMA_REFERENCE_START,
@@ -140,7 +141,7 @@ export function renderPublicSchemaReference(
     "",
     "| Schema | Public `$id` | Repository artifact | Contract | Same-major changes |",
     "| --- | --- | --- | --- | --- |",
-    ...PUBLIC_SCHEMA_PUBLICATIONS.map((publication) =>
+    ...publications.map((publication) =>
       `| ${publication.label} | <${publication.id}> | ` +
       `[\`${publication.artifactPath}\`](${
         artifactHref(publication.artifactPath)
