@@ -1,6 +1,6 @@
-/* discern.sh/docs — modal navigation/search, contents scroll spy, and prose
+/* discern.sh document routes — modal navigation/search, contents scroll spy, and prose
    enhancements. Plain local modules, no third-party dependencies, no network
-   beyond the one-way fetch of /docs/index.json. */
+   beyond the active corpus's one-way search-index fetch. */
 import { activeTocIndex } from "./docs-toc.js";
 import { searchPages } from "./search.js";
 import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
@@ -68,7 +68,11 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
   let drawerOpen = false;
   let drawerReturnFocus = null;
 
-  const navScrollKey = "discern:docs-nav-scroll";
+  const documentCorpus = doc.body.dataset.documentCorpus ?? "manual";
+  const navigationLabel = documentCorpus === "map"
+    ? "Live Map navigation"
+    : "Manual navigation";
+  const navScrollKey = `discern:${documentCorpus}-nav-scroll`;
   const persistNavScroll = () => {
     if (!navScroll) return;
     try {
@@ -131,7 +135,7 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
       drawerReturnFocus = burger;
       nav.setAttribute("role", "dialog");
       nav.setAttribute("aria-modal", "true");
-      nav.setAttribute("aria-label", "Documentation navigation");
+      nav.setAttribute("aria-label", navigationLabel);
       queueMicrotask(focusFirstInDrawer);
     } else {
       nav.removeAttribute("role");
@@ -342,12 +346,24 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
   const list = $("[data-search-results]");
   const empty = $("[data-search-empty]");
   const status = $("[data-search-status]");
+  const showAll = $("[data-search-all]");
+  const searchBackdrop = $("[data-search-backdrop]");
 
-  if (palette && input && list && empty && status) {
+  if (palette && input && list && empty && status && showAll) {
     let pages = null;
     let loadState = "idle";
+    let allResults = [];
     let results = [];
     let selected = 0;
+    let expanded = false;
+    let fallbackDialog = false;
+    let searchReturnFocus = null;
+    const searchEndpoint = palette.dataset.searchEndpoint;
+    const searchBackground = [
+      $(".docs-skip"),
+      $(".docs-top"),
+      $(".docs-shell"),
+    ];
 
     const syncSelection = () => {
       const options = $$("[role=option]", list);
@@ -365,6 +381,7 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
     const render = () => {
       list.textContent = "";
       empty.hidden = true;
+      showAll.hidden = true;
       input.removeAttribute("aria-activedescendant");
       const query = input.value.trim();
       if (query === "") {
@@ -379,7 +396,7 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
       }
       if (loadState === "error") {
         empty.textContent =
-          "Search is unavailable. Use the documentation navigation or /docs index.";
+          "Search is unavailable. Use this page's navigation instead.";
         empty.hidden = false;
         status.textContent = "Search is unavailable";
         return;
@@ -409,7 +426,7 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
         const path = doc.createElement("span");
         path.className =
           "discern-search-palette__result-context docs-search-path";
-        path.textContent = `${page.section.toLowerCase()} ${page.route}`;
+        path.textContent = `${page.kind ?? page.section.toLowerCase()} · ${page.route}`;
         item.append(title, context, path);
         item.addEventListener("mouseenter", () => {
           selected = index;
@@ -420,14 +437,21 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
         });
         list.append(item);
       });
+      if (!expanded && allResults.length > results.length) {
+        showAll.textContent = `Show all ${allResults.length} results`;
+        showAll.hidden = false;
+      }
       syncSelection();
-      status.textContent = `${results.length} search result${
-        results.length === 1 ? "" : "s"
-      }`;
+      status.textContent = expanded || allResults.length === results.length
+        ? `${results.length} search result${results.length === 1 ? "" : "s"}`
+        : `${allResults.length} search results; showing ${results.length}`;
     };
 
     const update = () => {
-      results = pages ? searchPages(pages, input.value) : [];
+      allResults = pages
+        ? searchPages(pages, input.value, Number.POSITIVE_INFINITY)
+        : [];
+      results = expanded ? allResults : allResults.slice(0, 12);
       selected = 0;
       render();
     };
@@ -438,7 +462,8 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
       list.setAttribute("aria-busy", "true");
       update();
       try {
-        const response = await fetch("/docs/index.json");
+        if (!searchEndpoint) throw new Error("search endpoint unavailable");
+        const response = await fetch(searchEndpoint);
         if (!response.ok) throw new Error("search index unavailable");
         pages = (await response.json()).pages;
         loadState = "ready";
@@ -451,35 +476,71 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
       update();
     };
 
-    // The native dialog owns focus containment, Escape dismissal, background
-    // inerting via the top layer, and focus restoration to the opener.
+    const finishSearchClose = () => {
+      doc.body.classList.remove("docs-no-scroll");
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+      if (fallbackDialog) {
+        setInert(searchBackground, false);
+        if (searchBackdrop) searchBackdrop.hidden = true;
+        palette.removeAttribute("data-dialog-fallback");
+        restoreFocus(searchReturnFocus);
+      }
+      fallbackDialog = false;
+      searchReturnFocus = null;
+    };
+
+    // Native modal dialogs own focus containment, Escape dismissal, and the
+    // top-layer backdrop. The explicit fallback keeps the same contract in
+    // readers that implement <dialog> without showModal().
     const openSearch = () => {
       if (palette.open) return;
       if (drawerOpen) setDrawer(false, false);
-      palette.showModal();
+      searchReturnFocus = doc.activeElement;
+      if (typeof palette.showModal === "function") {
+        palette.showModal();
+      } else {
+        fallbackDialog = true;
+        palette.setAttribute("data-dialog-fallback", "");
+        palette.setAttribute("open", "");
+        setInert(searchBackground, true);
+        if (searchBackdrop) searchBackdrop.hidden = false;
+      }
       doc.body.classList.add("docs-no-scroll");
       input.setAttribute("aria-expanded", "true");
       input.value = "";
+      expanded = false;
       update();
       input.focus();
       load();
     };
 
     const closeSearch = () => {
-      if (palette.open) palette.close();
+      if (!palette.open) return;
+      if (!fallbackDialog && typeof palette.close === "function") {
+        palette.close();
+      } else {
+        palette.removeAttribute("open");
+        finishSearchClose();
+      }
     };
 
-    palette.addEventListener("close", () => {
-      doc.body.classList.remove("docs-no-scroll");
-      input.setAttribute("aria-expanded", "false");
-      input.removeAttribute("aria-activedescendant");
-    });
+    palette.addEventListener("close", finishSearchClose);
+    searchBackdrop?.addEventListener("click", closeSearch);
 
     palette.addEventListener("mousedown", (event) => {
       if (event.target === palette) closeSearch();
     });
 
-    input.addEventListener("input", update);
+    input.addEventListener("input", () => {
+      expanded = false;
+      update();
+    });
+    showAll.addEventListener("click", () => {
+      expanded = true;
+      update();
+      input.focus();
+    });
     input.addEventListener("keydown", (event) => {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
@@ -510,7 +571,17 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
         else openSearch();
         return;
       }
-      if (palette.open) return;
+      if (palette.open) {
+        if (fallbackDialog) {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            closeSearch();
+          } else {
+            trapFocus(event, focusablesIn(palette));
+          }
+        }
+        return;
+      }
       if (drawerOpen) {
         if (event.key === "Escape") {
           event.preventDefault();

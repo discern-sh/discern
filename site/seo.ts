@@ -9,7 +9,7 @@
 import { buildRedirectRegistry } from "../src/lib/docs.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { SELF_TITLED_PAGES, SOCIAL_PAGE_METADATA } from "./brand.ts";
-import type { DocsPage, DocsSite } from "./docs.ts";
+import type { DocsSite } from "./docs.ts";
 import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
@@ -128,12 +128,13 @@ function jsonForHtml(value: unknown): string {
 /** Turn a route segment into the human label used by breadcrumb data. */
 function routeLabel(segment: string): string {
   if (segment === "docs") return "Documentation";
+  if (segment === "map") return "Live Map";
   return segment.replaceAll("-", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /** Remove the site suffix from a document title for its breadcrumb label. */
 function breadcrumbTitle(title: string): string {
-  return title.replace(/ · discern\.sh docs$/, "");
+  return title.replace(/ · discern\.sh (?:docs|Map)$/, "");
 }
 
 /** Build route-specific Schema.org data for the page and its breadcrumbs. */
@@ -154,7 +155,10 @@ function structuredData(
       description,
     };
   }
-  if (route !== "/docs" && !route.startsWith("/docs/")) return undefined;
+  if (
+    route !== "/docs" && !route.startsWith("/docs/") && route !== "/map" &&
+    !route.startsWith("/map/")
+  ) return undefined;
 
   const segments = route.split("/").filter(Boolean);
   const elements: Array<Record<string, unknown>> = [
@@ -231,7 +235,8 @@ export function decorateHtmlPage(
   // Landing-family pages carry their own exact titles; every deeper page is
   // suffixed into the site template.
   const title = Object.hasOwn(SELF_TITLED_PAGES, route) ||
-      sourceTitle.endsWith(" · discern.sh docs")
+      sourceTitle.endsWith(" · discern.sh docs") ||
+      sourceTitle.endsWith(" · discern.sh Map")
     ? sourceTitle
     : `${sourceTitle} · discern.sh docs`;
   const description = boundedDescription(title, sourceDescription);
@@ -323,7 +328,7 @@ function markdownRoute(route: string): string {
  */
 export function buildSiteRedirectTable(
   liveRoutes: readonly string[],
-  pages: readonly Pick<DocsPage, "route" | "entry">[],
+  pages: readonly { route: string; entry: { redirectFrom: string[] } }[],
   staticRedirects: Readonly<Record<string, string>> = STATIC_REDIRECTS,
 ): SiteRedirectTable {
   const claims = buildRedirectRegistry(pages.map((page) => ({
@@ -333,7 +338,10 @@ export function buildSiteRedirectTable(
   const live = new Set(liveRoutes);
   const liveRepresentations = new Set(liveRoutes);
   for (const route of live) {
-    if (route === "/docs" || route.startsWith("/docs/")) {
+    if (
+      route === "/docs" || route.startsWith("/docs/") || route === "/map" ||
+      route.startsWith("/map/")
+    ) {
       liveRepresentations.add(markdownRoute(route));
     }
   }
@@ -379,7 +387,8 @@ export function buildSiteRedirectTable(
   // Raw Markdown mirrors follow the same one-hop move as their HTML route.
   for (const [source, target] of [...redirects]) {
     if (
-      source.startsWith("/docs") && target.startsWith("/docs") &&
+      (source.startsWith("/docs") || source.startsWith("/map")) &&
+      (target.startsWith("/docs") || target.startsWith("/map")) &&
       !source.endsWith(".md") && !target.endsWith(".md")
     ) {
       add(

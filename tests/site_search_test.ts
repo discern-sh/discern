@@ -292,7 +292,9 @@ Deno.test("search queries stay in the browser with no telemetry or persistence",
     ),
   ].map((match) => match[1]);
   assertEquals(statefulApis, ["fetch"]);
-  assertStringIncludes(searchSection, 'fetch("/docs/index.json")');
+  assertStringIncludes(searchSection, "palette.dataset.searchEndpoint");
+  assertStringIncludes(searchSection, "fetch(searchEndpoint)");
+  assertStringIncludes(searchSection, "Show all ${allResults.length} results");
   assertStringIncludes(
     searchSection,
     "No results. Try a command, config key, or exact error message.",

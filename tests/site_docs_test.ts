@@ -33,7 +33,6 @@ import {
 } from "../src/shared/manual.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
 import { docsResult } from "../src/commands/docs.ts";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
@@ -166,7 +165,7 @@ Deno.test("the published docs site covers exactly the manual registry", async ()
   }
 });
 
-Deno.test("the full nav contains every published page exactly once in model order", async () => {
+Deno.test("the manual cover stays small while its derived browse tree stays complete", async () => {
   const site = await loadDocsSite();
   const res = await get("/docs", BROWSER);
   const html = await res.text();
@@ -176,13 +175,29 @@ Deno.test("the full nav contains every published page exactly once in model orde
     .map((link) => link.getAttribute("href") ?? "");
   assertEquals(
     childRoutes,
-    site.sections.flatMap((section) => section.pages.map((page) => page.route)),
+    site.sections.map((section) => section.index.route),
   );
   assertEquals(new Set(childRoutes).size, childRoutes.length);
   assertEquals(
     [...nav?.querySelectorAll("[data-nav-page] > a") ?? []]
-      .filter((link) => link.textContent?.trim() === "Overview").length,
+      .filter((link) =>
+        link.querySelector(".docs-nav-page-title")?.textContent?.trim() ===
+          "Overview"
+      ).length,
     site.sections.length,
+  );
+  assertEquals(
+    [...dom.window.document.querySelectorAll(
+      ".docs-complete-browse .docs-chapter-leaves a",
+    )].map((link) => link.getAttribute("href")),
+    site.sections.flatMap((section) =>
+      section.pages.filter((page) => !page.isIndex).map((page) => page.route)
+    ),
+  );
+  assertEquals(
+    dom.window.document.querySelector(".docs-complete-browse details")
+      ?.hasAttribute("open"),
+    false,
   );
   assertEquals(
     nav?.querySelector("[data-nav-sections]")?.hasAttribute(
@@ -264,29 +279,28 @@ Deno.test("docs navigation foot keeps the three durable reference links visible"
   }
 });
 
-Deno.test("the manual cover and colophon expose current, agent-friendly metadata", async () => {
+Deno.test("the manual cover renders its authored root and raw-reader colophon", async () => {
   const site = await loadDocsSite();
   const guide = site.pages.find((page) => !page.isIndex);
   if (guide === undefined) throw new Error("docs fixture has no guide page");
 
   const indexDom = new JSDOM(await (await get("/docs", BROWSER)).text());
   assertEquals(
-    indexDom.window.document.querySelector(".discern-kicker__index")
+    indexDom.window.document.querySelector(".docs-manual-index h1")
       ?.textContent,
-    `v${KIT_VERSION}`,
+    site.landing.entry.title,
   );
   assertEquals(
-    indexDom.window.document.querySelector(".discern-kicker")?.textContent
-      ?.replace(/\s+/g, " ").trim(),
-    `v${KIT_VERSION}The Discern Manual`,
+    indexDom.window.document.querySelector(".docs-cover"),
+    null,
+    "the website does not replace the authored manual introduction",
   );
   assertEquals(
-    indexDom.window.document.querySelector(
-      ".docs-chapters > .discern-divider[role='separator']",
-    )?.className,
-    "discern-divider discern-divider--canvas discern-divider--plain",
+    [...indexDom.window.document.querySelectorAll(
+      ".docs-manual-index #start-here + ul a",
+    )].map((link) => link.getAttribute("href")),
+    site.frontDoors.map((page) => page.route),
   );
-  assert(DESIGN_SYSTEM_BUNDLES.docs.components.includes("divider"));
   indexDom.window.close();
 
   for (const route of ["/docs", guide.route]) {
@@ -1053,6 +1067,7 @@ Deno.test("the sitemap source contains instructions and project-history routes",
     ...site.pages.map((page) => page.route),
     site.decisions.route,
     ...site.decisions.pages.map((page) => page.route),
+    ...site.publicMap.sitemapRoutes,
   ]);
 });
 
