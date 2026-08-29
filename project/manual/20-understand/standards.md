@@ -18,7 +18,7 @@ redirect_from:
 
 A project earns an improvement: test coverage climbs, the bundle shrinks, the last lint suppressions come out. Months later the gain has eroded. Nobody decided to give it back; it slipped away one reasonable-looking change at a time. Asking agents to "keep quality high" doesn't prevent this, because an adjective can't be enforced. A number can.
 
-A Standard is a quality measure that can only improve. Each entry under `[standards]` in `discern.toml` names a measurement, which direction is better, and the current limit. Every Gate run measures it and compares the limit against the trunk's: a floor may only rise, a ceiling may only fall, and a change that would make the number worse fails.
+A Standard is a quality measure that can only improve. Each entry under `[standards]` in `discern.toml` names a measurement, which direction is better, and the current limit. Every run of the project's final quality check (the Gate) measures it and compares the limit against the trunk's: a floor may only rise, a ceiling may only fall, and a change that would make the number worse fails.
 
 A project holding the line on lint suppressions might keep:
 

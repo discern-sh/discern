@@ -29,7 +29,7 @@ One worktree lasts for its whole effort, through review feedback and resumed ses
 
 ## The trunk is what the project agrees on
 
-The trunk holds the project's accepted state while any number of branches remain in flight. Every worktree forks from it, and the Gate requires a branch to contain the current trunk before `discern done` can pass, because evidence is meaningful only against the state the work would join.
+The trunk holds the project's accepted state while any number of branches remain in flight. Every worktree forks from it, and the project's final quality check (the Gate) requires a branch to contain the current trunk before `discern done` can pass, because evidence is meaningful only against the state the work would join.
 
 An edit made directly on the trunk skips the worktree, the Gate, Proof, and review, and it leaks into every other task's next update. The practice keeps such edits rare in layers: the compiled instructions say worktree-first, a session that starts in the main checkout is reminded, and `discern status` warns when the main checkout is dirty. Decisions that belong to the shared state, such as moving a Standard's limit or changing `discern.toml` policy, are made on the trunk by you.
 

@@ -25,7 +25,7 @@ discern is a local, deterministic program. It contains no AI model, needs no API
 
 ## No model inside
 
-The Gate's verdict is the result of your project's own commands, run the same way every time. That's what makes the answer reproducible: however many times the Gate runs, the same tree gets the same treatment, with no model variance and no per-run cost. Where the practice needs judgment, a [checkpoint](checkpoints.md) question, the judgment comes from the coding agent operating discern and is recorded as declared. discern never calls a model to decide anything.
+The verdict of the project's final quality check (the Gate) is the result of your project's own commands, run the same way every time. That's what makes the answer reproducible: however many times the Gate runs, the same tree gets the same treatment, with no model variance and no per-run cost. Where the practice needs judgment, a [checkpoint](checkpoints.md) question, the judgment comes from the coding agent operating discern and is recorded as declared. discern never calls a model to decide anything.
 
 The boundary is worth stating precisely, because it describes discern itself and nothing more. Your coding agents reach their own model providers. Your project's commands, and any checkpoint command you configure, do whatever they do, network included. discern doesn't constrain them, and "no model inside" never means your agents stopped using one. It means the practice adds no model dependency, key, or hosted service of its own, and discern's own commands run without a network.
 

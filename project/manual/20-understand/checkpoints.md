@@ -30,7 +30,7 @@ redirect_from:
 
 Some review questions have no exit status. Is this migration's trade-off acceptable? Does this large deletion keep anything it shouldn't lose? Is this new dependency worth carrying? A test can't answer those, so they usually wait for a person — and as you delegate more work, they either interrupt you constantly or get skipped.
 
-A checkpoint puts such a question into the project. It pairs a trigger, the kind of change that makes the question relevant, with a written question the coding agent must weigh and answer on the record before the Gate runs. The judgment happens at the moment a matching change exists, made by the agent who has the change in front of them, and the recorded answer travels with the evidence to your review.
+A checkpoint puts such a question into the project. It pairs a trigger, the kind of change that makes the question relevant, with a written question the coding agent must weigh and answer on the record before the project's final quality check (the Gate) runs. The judgment happens at the moment a matching change exists, made by the agent who has the change in front of them, and the recorded answer travels with the evidence to your review.
 
 A checkpoint is one entry in `discern.toml`. A project that wants API changes considered before they land might keep:
 
