@@ -1,7 +1,7 @@
 ---
 id: reference-cli
 title: "CLI reference"
-description: "Every discern command and flag, generated from the live command registry."
+description: "Every public discern command, subcommand, argument, flag, alias, help boundary, and exit contract generated from the live command registry."
 order: 20
 publish: true
 kind: reference
@@ -72,7 +72,9 @@ aliases:
 
 # CLI reference
 
-Use this page to look up the exact syntax and flags for every visible `discern` command. The entries are generated from the command registry the binary dispatches on. `discern <command> --help` prints the same declarations in the terminal.
+Look up the exact syntax, arguments, flags, aliases, help ownership, and exit behavior for every public `discern` command. Command entries are generated from the command tree the installed binary dispatches.
+
+Prerequisite: none for syntax lookup. Commands that require a configured project return `not_set_up` until setup is complete.
 
 ## Global options
 
@@ -86,6 +88,30 @@ These options are inherited unless a command's entry says otherwise. Tokens beyo
 | `--no-color`      | Disable colour (also honours NO_COLOR and non-TTY output).                                                                                                                       |
 | `--plain`         | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.                                                                          |
 | `--theme <theme>` | Set the terminal theme. `auto` senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing. `light` and `dark` still force that variant. Default: `auto`. |
+
+## Help, version, and parser-owned flags
+
+No project setup is required to read help or the version. Cliffy, the live command parser, owns command usage, argument validation, aliases, and option help. `discern <command> --help` and `discern help <command>` read the same attached command tree as this page.
+
+| Spelling          | Scope         | Meaning                                                 |
+| ----------------- | ------------- | ------------------------------------------------------- |
+| `-h`, `--help`    | Every command | Show command help and exit without running the command. |
+| `-V`, `--version` | Root only     | Show the installed discern version and exit.            |
+
+`--md` is not supported. Use `--markdown`. Options after an exec-style boundary, including `discern queue --` and a Project Script name, belong to the child command rather than discern.
+
+## Exit behavior
+
+| Exit status   | Contract                                                                                                        |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `0`           | The command completed successfully. A bare predicate exits `0` when true.                                       |
+| `1`           | A controlled failure or refusal, a false bare predicate, or an unmet enforcement threshold.                     |
+| `124`         | `discern await` reached its call budget before the watched condition held. Its result includes a resume handle. |
+| `70`          | discern crashed on an unexpected internal error.                                                                |
+| Child status  | `discern queue -- <command>` and `discern scripts <name>` preserve the child command's exit status.             |
+| Signal status | An interrupted run preserves the conventional signal status, such as `130` for SIGINT or `143` for SIGTERM.     |
+
+Quiet JSON and Markdown results evaluate their completion policy before choosing the controlled exit status. Predicate result modes exit `0` and place the boolean in `data`; bare predicates use `0` or `1`.
 
 ## Your desk
 
@@ -774,3 +800,5 @@ Usage: `discern licenses [options]`
 The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents should connect automatically.
 
 Usage: `discern mcp [options]`
+
+For result-envelope fields and Model Context Protocol delivery, see [MCP and results](mcp-and-results.md). For symptom-led recovery, see [Troubleshooting](../40-troubleshooting/README.md).

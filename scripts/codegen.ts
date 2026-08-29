@@ -23,7 +23,10 @@ import {
   renderConfigReferenceDoc,
   renderConfigSchemaJson,
 } from "../src/shared/config_codegen.ts";
-import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
+import {
+  renderCliReferenceDoc,
+  renderManualCliReferenceDoc,
+} from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
 import { renderCrossAgentReferenceDoc } from "./cross_agent_registry.ts";
@@ -268,7 +271,7 @@ await write(cliReference, renderedCliReference);
 await write(
   manualCliReference,
   renderGeneratedManualDocument(
-    renderedCliReference,
+    renderManualCliReferenceDoc(buildCli(false)),
     "70-reference/cli-reference.md",
     "30-reference/cli-reference.md",
     { id: "reference-cli", order: 20 },

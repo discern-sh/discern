@@ -213,7 +213,11 @@ function optionsTable(node: CliCommand): string {
 
 /** The heading + body for one command (and, recursively, its visible
  * subcommands one heading level down). */
-function commandSection(node: CliCommand, depth: number): string {
+function commandSection(
+  node: CliCommand,
+  depth: number,
+  includeAliases = false,
+): string {
   const heading = "#".repeat(depth);
   const parts: string[] = [
     `${heading} \`${commandHeadingLabel(node)}\``,
@@ -222,13 +226,23 @@ function commandSection(node: CliCommand, depth: number): string {
     "",
     `Usage: \`${usageLine(node)}\``,
   ];
+  if (includeAliases && node.aliases.length > 0) {
+    const parent = node.path.slice(0, -1);
+    const aliases = node.aliases.map((alias) =>
+      `\`discern ${[...parent, alias].join(" ")}\``
+    );
+    parts.push("", `Aliases: ${aliases.join(", ")}.`);
+  }
   const table = optionsTable(node);
   if (table !== "") {
     parts.push("", table);
   }
   for (const child of node.children) {
     if (child.hidden) continue;
-    parts.push("", commandSection(child, Math.min(depth + 1, 6)));
+    parts.push(
+      "",
+      commandSection(child, Math.min(depth + 1, 6), includeAliases),
+    );
   }
   return parts.join("\n");
 }
@@ -240,12 +254,24 @@ function commandSection(node: CliCommand, depth: number): string {
  * straight off the registry. Search aliases are derived from the same tree,
  * so every visible command path is searchable without a second list to maintain.
  */
-export function renderCliReferenceDoc(root: unknown): string {
-  const model = cliCommandModel(root);
+export function renderCliReferenceModel(
+  model: CliCommand,
+  manual: boolean,
+): string {
   const byName = new Map(model.children.map((c) => [c.path[0] ?? "", c]));
-  const aliases = [...walkCliCommands(model)]
-    .filter((command) => command.path.length > 0 && !command.hidden)
-    .map((command) => `discern ${command.path.join(" ")}`);
+  const commands = [...walkCliCommands(model)]
+    .filter((command) => command.path.length > 0 && !command.hidden);
+  const aliases = commands.flatMap((command) => {
+    const canonical = `discern ${command.path.join(" ")}`;
+    if (!manual) return [canonical];
+    const parent = command.path.slice(0, -1);
+    return [
+      canonical,
+      ...command.aliases.map((alias) =>
+        `discern ${[...parent, alias].join(" ")}`
+      ),
+    ];
+  });
 
   const groups = COMMAND_GROUPS.map((group) => {
     const members = group.commands
@@ -257,7 +283,7 @@ export function renderCliReferenceDoc(root: unknown): string {
       "",
       `${group.note.charAt(0).toUpperCase()}${group.note.slice(1)}.`,
       "",
-      members.map((m) => commandSection(m, 3)).join("\n\n"),
+      members.map((m) => commandSection(m, 3, manual)).join("\n\n"),
     ].join("\n");
   }).filter((s) => s !== "");
 
@@ -269,10 +295,45 @@ export function renderCliReferenceDoc(root: unknown): string {
       return `| \`${cell(label)}\` | ${cell(o.description)} |`;
     });
 
+  const manualContract = manual
+    ? [
+      "## Help, version, and parser-owned flags",
+      "",
+      "No project setup is required to read help or the version. Cliffy, the live command parser, owns command usage, argument validation, aliases, and option help. `discern <command> --help` and `discern help <command>` read the same attached command tree as this page.",
+      "",
+      "| Spelling | Scope | Meaning |",
+      "| --- | --- | --- |",
+      `| \`${
+        IMPLICIT_COMMAND_FLAGS.join("\`, \`")
+      }\` | Every command | Show command help and exit without running the command. |`,
+      `| \`${
+        IMPLICIT_ROOT_FLAGS.join("\`, \`")
+      }\` | Root only | Show the installed discern version and exit. |`,
+      "",
+      "`--md` is not supported. Use `--markdown`. Options after an exec-style boundary, including `discern queue --` and a Project Script name, belong to the child command rather than discern.",
+      "",
+      "## Exit behavior",
+      "",
+      "| Exit status | Contract |",
+      "| --- | --- |",
+      "| `0` | The command completed successfully. A bare predicate exits `0` when true. |",
+      "| `1` | A controlled failure or refusal, a false bare predicate, or an unmet enforcement threshold. |",
+      "| `124` | `discern await` reached its call budget before the watched condition held. Its result includes a resume handle. |",
+      "| `70` | discern crashed on an unexpected internal error. |",
+      "| Child status | `discern queue -- <command>` and `discern scripts <name>` preserve the child command's exit status. |",
+      "| Signal status | An interrupted run preserves the conventional signal status, such as `130` for SIGINT or `143` for SIGTERM. |",
+      "",
+      "Quiet JSON and Markdown results evaluate their completion policy before choosing the controlled exit status. Predicate result modes exit `0` and place the boolean in `data`; bare predicates use `0` or `1`.",
+      "",
+    ]
+    : [];
+
   return [
     "---",
     "title: CLI reference",
-    "description: Every discern command and flag, generated from the live command registry.",
+    manual
+      ? "description: Every public discern command, subcommand, argument, flag, alias, help boundary, and exit contract generated from the live command registry."
+      : "description: Every discern command and flag, generated from the live command registry.",
     "order: 10",
     "publish: true",
     "aliases:",
@@ -283,7 +344,15 @@ export function renderCliReferenceDoc(root: unknown): string {
     "",
     "# CLI reference",
     "",
-    "Use this page to look up the exact syntax and flags for every visible `discern` command. The entries are generated from the command registry the binary dispatches on. `discern <command> --help` prints the same declarations in the terminal.",
+    manual
+      ? "Look up the exact syntax, arguments, flags, aliases, help ownership, and exit behavior for every public `discern` command. Command entries are generated from the command tree the installed binary dispatches."
+      : "Use this page to look up the exact syntax and flags for every visible `discern` command. The entries are generated from the command registry the binary dispatches on. `discern <command> --help` prints the same declarations in the terminal.",
+    ...(manual
+      ? [
+        "",
+        "Prerequisite: none for syntax lookup. Commands that require a configured project return `not_set_up` until setup is complete.",
+      ]
+      : []),
     "",
     "## Global options",
     "",
@@ -293,7 +362,24 @@ export function renderCliReferenceDoc(root: unknown): string {
     "| --- | --- |",
     ...globalRows,
     "",
+    ...manualContract,
     groups.join("\n\n"),
+    ...(manual
+      ? [
+        "",
+        "For result-envelope fields and Model Context Protocol delivery, see [MCP and results](mcp-and-results.md). For symptom-led recovery, see [Troubleshooting](../40-troubleshooting/README.md).",
+      ]
+      : []),
     "",
   ].join("\n");
+}
+
+/** Render the Map projection without changing its established bytes. */
+export function renderCliReferenceDoc(root: unknown): string {
+  return renderCliReferenceModel(cliCommandModel(root), false);
+}
+
+/** Render the complete public-manual projection from the same live tree. */
+export function renderManualCliReferenceDoc(root: unknown): string {
+  return renderCliReferenceModel(cliCommandModel(root), true);
 }
