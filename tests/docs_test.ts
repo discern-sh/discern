@@ -1315,9 +1315,29 @@ Deno.test("docs <near miss> --json suggests valid doc targets", async () => {
 Deno.test("docs <ambiguous> --json reports ambiguous with candidates", async () => {
   await withTempDir(async (dir) => {
     const docs = await makeDocsFixture(dir);
-    // README exists at the root and under 00-start/ → a bare "README" is ambiguous.
+    await Deno.writeTextFile(
+      join(docs, "00-start/shared.md"),
+      manualFixturePage(
+        "start-shared",
+        "Shared start",
+        "tutorial",
+        15,
+        "# Shared start\n",
+      ),
+    );
+    await Deno.writeTextFile(
+      join(docs, "10-guides/shared.md"),
+      manualFixturePage(
+        "guide-shared",
+        "Shared guide",
+        "guide",
+        15,
+        "# Shared guide\n",
+      ),
+    );
+    // Two leaves share this basename/slug; neither is an exact canonical target.
     const { code, stdout } = await runCli(
-      ["docs", "README", "--json"],
+      ["docs", "shared", "--json"],
       dir,
       { DISCERN_DOCS_DIR: docs },
     );
