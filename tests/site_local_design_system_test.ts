@@ -1,12 +1,12 @@
 /** Local design-system development keeps the published consumer pin untouched. */
 
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join } from "@std/path";
 import {
   assertLocalDesignSystemPackage,
   isLocalPackageResolution,
   localDesignSystemConfig,
-  parseLocalDesignSystemArgs,
+  resolveLocalDesignSystemArgs,
   serverArgs,
   watchTaskCommand,
 } from "../scripts/site_local_design_system.ts";
@@ -170,28 +170,51 @@ Deno.test("the temporary link resolves an unrelated local version without changi
   }, { prefix: "discern-local-package-guard-" });
 });
 
-Deno.test("local design-system arguments accept an explicit checkout or the dedicated environment fallback", () => {
+Deno.test("local design-system arguments resolve overrides before the conventional sibling checkout", async () => {
+  let mainCheckoutQueries = 0;
+  const mainCheckout = (): Promise<string> => {
+    mainCheckoutQueries += 1;
+    return Promise.resolve("/srv/nebula-client");
+  };
+
   assertEquals(
-    parseLocalDesignSystemArgs(
+    await resolveLocalDesignSystemArgs(
       ["--", "--build-only", "/tmp/component-worktree"],
       undefined,
+      mainCheckout,
     ),
     { buildOnly: true, packageRoot: "/tmp/component-worktree" },
   );
   assertEquals(
-    parseLocalDesignSystemArgs([], "/tmp/environment-worktree"),
+    await resolveLocalDesignSystemArgs(
+      [],
+      "/tmp/environment-worktree",
+      mainCheckout,
+    ),
     { buildOnly: false, packageRoot: "/tmp/environment-worktree" },
   );
-  assertThrows(
-    () => parseLocalDesignSystemArgs([], undefined),
-    Error,
-    "design-system checkout",
+  assertEquals(
+    await resolveLocalDesignSystemArgs([], undefined, mainCheckout),
+    { buildOnly: false, packageRoot: "/srv/discern-design-system" },
   );
-  assertThrows(
+  assertEquals(mainCheckoutQueries, 1);
+
+  await assertRejects(
     () =>
-      parseLocalDesignSystemArgs(
+      resolveLocalDesignSystemArgs(
+        [],
+        undefined,
+        () => Promise.resolve(undefined),
+      ),
+    Error,
+    "could not locate discern's main checkout",
+  );
+  await assertRejects(
+    () =>
+      resolveLocalDesignSystemArgs(
         ["/tmp/one", "/tmp/two"],
         undefined,
+        mainCheckout,
       ),
     Error,
     "one design-system checkout",
