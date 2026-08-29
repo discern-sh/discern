@@ -40,6 +40,8 @@ redirect_from:
 
 Look up Proof-note fields, checkpoint states, declarations, variance fields, and the `when` protocol.
 
+Prerequisite: a Proof field, checkpoint id/state, declaration, variance, or `when` input you need to interpret. Linked explanations add context but are not required to use these contracts.
+
 ## Proof notes
 
 _A green landing keeps its structured Proof beside the immutable trunk commit._
@@ -162,6 +164,35 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 
 ### Contract
 
+| Envelope field | Type | Required | Contract |
+| --- | --- | --- | --- |
+| `payloadType` | string | Yes | Exact public schema id plus `#/$defs/DiscernProofNotePayload`. |
+| `payload` | Base64 string | Yes | UTF-8 JSON bytes for the payload. |
+| `signatures` | array | Yes | Zero or more `{ keyid?, sig }` records; discern v1.0.0 writes an empty array. |
+
+| Payload field | Type | Required | Contract |
+| --- | --- | --- | --- |
+| `subject` | object | Yes | `{ commit }`, where `commit` is the full landed object id. |
+| `proof` | object | Yes | Stable Proof claim described below. |
+| `presentation` | object | Yes | Human `line` and full `markdown`; excluded from replay identity. |
+| `acceptance` | object | No | Consent, authorized variances, and approved Standard proposals. |
+| `issuer` | object | No | Reserved asserted `name`, `email`, and `key`; v1.0.0 writes none. |
+| `brief` | string | No | Reserved signed-intent reference; v1.0.0 writes none. |
+
+| `proof` field | Type | Required | Contract |
+| --- | --- | --- | --- |
+| `branch` | string | Yes | Validated effort branch. |
+| `trunk` | string | Yes | Integration branch used by the Gate. |
+| `head` | string | Yes | Validated commit id. |
+| `files_total` | number | Yes | Changed-file count. |
+| `insertions` | number | Yes | Added-line count. |
+| `deletions` | number | Yes | Removed-line count. |
+| `mode` | `strict` or `report` | No | `report` is CI review evidence and is not landing authority. |
+| `checkpoint_drops` | array | No | Bounded fail-open checkpoint accounts. |
+| `standard_proposals` | array | No | Commit-bound pending Standard proposals. |
+
+Acceptance has optional `consent`, `variances`, and `standard_proposals` fields. `consent.source` is `conversation`, `standing-grant`, or `effort-grant`; `scopes` is optional. Each `variances[]` member contains `checkpoint`, `definition_hash`, `subject`, and `why`. A Standard proposal contains `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and non-empty `evidence_paths`.
+
 - `payloadType` identifies the contract and compatibility major.
 - `payload` preserves the serialized claim. discern writes padded Base64; its reader accepts standard and Base64url alphabets, with or without padding.
 - `signatures` holds Base64 `sig` entries with optional `keyid`. A [standard signed envelope](https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md) has at least one. discern's unsigned extension has none.
@@ -272,7 +303,7 @@ A structurally holding checkpoint may delegate its final firing decision to `whe
 
 `changed_files` is sorted by path and contains the final structurally narrowed changed evidence. Each `kind` is `added`, `modified`, or `deleted`; line counts are non-negative integers and `binary` is a known Boolean. `history` is optional and, when present, describes the ordered merge-base-to-`HEAD` commit list. The object contains no raw file content, environment dump, question, rationale, or secret.
 
-The registered input file has mode `0600` and exists only while its command runs. discern removes it after fire, pass, invalid exit, timeout, cancellation, spawn failure, or input failure, completing cleanup before an interrupt can be re-raised. A cleanup failure or protocol output beyond 256 KiB fails the checkpoint open and leaves a typed drop. `discern checkpoints`, `status`, `prepare`, and every dry run create no input file and run no command.
+The registered input file has mode `0600` and exists only while its command runs. The fixed wall-clock budget is 10 seconds and retained protocol output is capped at 256 KiB. discern removes the file after fire, pass, invalid exit, timeout, cancellation, spawn failure, or input failure, completing cleanup before an interrupt can be re-raised. A cleanup failure or output beyond the cap fails the checkpoint open and leaves a typed drop. `discern checkpoints`, `status`, `prepare`, and every dry run create no input file and run no command.
 
 Exit 0 fires, exit 1 passes, and another exit or execution error fails open. `DISCERN_MATCH <path>` lines may narrow the matched set but cannot admit a path absent from `changed_files`. Without a valid declared match, the command retains the structural matched set.
 
