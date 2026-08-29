@@ -17,77 +17,74 @@ redirect_from:
 
 # Wait for another task
 
-When an agent's task depends on work another agent is still finishing, `discern_await` holds the session until that change is ready, then names the next step for the agent to take.
+When one task depends on work another coding agent is still finishing, the project owner shouldn't have to watch both sessions and carry the news between them. That coordination absorbs the time parallel work was meant to save.
 
-As a project grows, agents can often find themselves with a task which depends on work that's still in progress. Maybe another worktree is still running its Gate, or a branch hasn't landed on the trunk yet. Without a way to wait, an agent is forced to either poll `discern_status` on a guessed interval indefinitely, or the project owner has to keep track of which agents need to an update between sessions.
+`discern_await` gives the waiting agent a repository condition to wait for: a sibling becomes green, its work lands, or the trunk moves. The call returns when that condition holds and names the next step. If the reliable call window ends first, it provides a continuation for the same watch rather than leaving the agent to invent a polling loop.
 
-`discern_await` solves both. It holds one long blocking call open until the dependency resolves, then names the next step — so the agent can hit the ground running when they're able to get back to work.
-
-Most agent harnesses allow the agent to remain responsive during blocking calls, so a human can still update the agent early if needed. A few situations look like waits but call for something else — [When waiting is the wrong tool](#when-waiting-is-the-wrong-tool) lists them.
+This means the owner can start a dependent task without arranging the precise moment when its agent should return. Waiting is appropriate when repository state controls the next action; [some dependencies still need a person](#when-waiting-is-the-wrong-tool).
 
 ## Before starting
 
-- Resolve the exact branch name to watch. `discern_status` lists every active worktree, if it's not already known.
-- Run the wait from the agent's own worktree when they have one already, or from the main checkout otherwise.
-- If the dependency may already have resolved, call `discern_await` anyway. When a condition is already true, discern returns it met immediately. This allows the call to also provide the check, saving the need for additional tool calls.
+- Resolve the exact branch name to watch. `discern_status` from the main checkout lists the fleet; from a worktree, request the fleet view or run `discern status --all`.
+- Run the wait from the waiting agent's own worktree when it already has one, or from the main checkout when the dependent task hasn't started.
+- Call `discern_await` even when the dependency may already be ready. An already-met condition returns immediately, so a separate pre-check only adds work.
 
 ## Choose the condition
 
 Pass one condition per call, chosen from what the agent's task needs:
 
-| The agent's task needs                         | Condition           | It holds when                                                                                                                                  |
-|------------------------------------------------| ------------------- |------------------------------------------------------------------------------------------------------------------------------------------------|
-| To build on the target's work before it lands  | `--green <branch>`  | The target's worktree holds current [Proof](../20-understand/proof.md) for a clean commit. Landing the worktree also satisfies this condition. |
-| To receive the target's work through the trunk | `--landed <branch>` | The target worktree's changes are accepted and land on the [trunk](../20-understand/worktrees-and-trunk.md).                                   |
-| To react to any trunk movement                 | `--trunk-moved`     | The trunk differs from where it stood when the watch began. Satisfied by any commit on the trunk, whether landed through acceptance or not.    |
+| The agent's task needs                         | Condition           | It holds when                                                                                                                                     |
+| ---------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| To build on the target's work before it lands  | `--green <branch>`  | The target's worktree holds current [Proof](../20-understand/proof.md) for a clean commit. Landing that work also satisfies the condition.        |
+| To receive the target's work through the trunk | `--landed <branch>` | The target's changes have reached the [trunk](../20-understand/worktrees-and-trunk.md) through acceptance.                                        |
+| To react to any trunk movement                 | `--trunk-moved`     | The trunk differs from where it stood when the watch began. Any commit on the trunk can satisfy it, whether it arrived through acceptance or not. |
 
 Green and landed answer different questions:
 
-- `--green` says the target's exact commit passed its Gate. There may still be an agent actively modifying files in the worktree. 
-- `--landed` says its work has reached the trunk, following acceptance by the project owner.
+- `--green` says the target's exact commit passed its Gate. Its agent may still be working in that worktree, so the successful result identifies the commit to build on.
+- `--landed` says the target's work has reached the trunk through the separate acceptance step.
 
 A landing observed mid-watch satisfies `--green` too, so a dependency that finishes and lands while the agent watches isn't missed.
 
 `--landed` watches for arrival. It follows the branch's tip, so start the watch while the dependency is in flight. The watch survives branch deletion (acceptance removes a landed branch), and a fresh call can still recover a finished landing from its durable proof note.
 
-`--trunk-moved` is satisfied by _anyone_'s landing, or even a project owner committing directly to the trunk themselves. Use it when the agent needs to pick up whatever arrives next, rather than one named dependency.
+`--trunk-moved` is satisfied by any landing or by a direct commit to the trunk. Use it when the agent needs to respond to whatever arrives next rather than to one named dependency.
 
 ## Start the wait
 
-Suppose the agent's task needs the retry helper that `agent/upload-retry-b41f2c` is adding, and the agent needs to build on it before it lands:
+Suppose a task in an external project needs the retry helper being added on `agent/upload-retry-b41f2c`, and its agent can build on that helper before it lands.
 
-1. Call `discern_await` via the MCP tool, passing the worktree's absolute `path` and one of `green`, `landed`, or `trunk_moved`. Alternatively, run `discern await --green agent/upload-retry-b41f2c` from the CLI inside the worktree.
-2. Sit back and relax. discern will let you know when something changes.
+Through the primary agent surface, the coding agent calls `discern_await` with the dependent worktree's absolute `path` and `green: "agent/upload-retry-b41f2c"`. The same wait through the command line is:
 
-### Waiting effectively
+```sh
+discern await --green agent/upload-retry-b41f2c
+```
 
-* Scripts can chain on the exit status, which is `0` only when the condition is met, so `discern await --landed agent/upload-retry-b41f2c && discern update` proceeds only on arrival.
-* Omit `--timeout`. discern holds the call for the longest window the coding agent's vendor transport reliably supports, and returns as soon as the condition holds. An explicit `--timeout 0` checks once and returns straight away.
-* Canceling a held call ends it immediately, and starting the same condition again later is safe.
+Run the command inside the dependent worktree. Omit the timeout so discern chooses the longest reliable window for that surface. The call returns early as soon as the condition holds, and canceling it is safe if the dependency stops mattering.
 
 ## Continue an unresolved call
 
-* A call can reach the end of its window before the condition holds. When this happens, it responds with `ok: true` and `data.met: false`.
-* This isn't a refusal — the dependency simply isn't ready yet.
-* The result carries a continuation handle in `data.resume` and the exact command that continues the same watch. Through MCP, call `discern_await` again with the same `path` and the `resume` token provided. To resume on the CLI, pass the handle alone without condition flags: `discern await --resume C1-7K3M-PQ9D-YM`, for example.
-* Passing the resume handle allows discern to report if something happened between calls, ensuring the condition is still satisfied and no information gets lost between the gap.
-* Keep continuing with the newest handle until the condition holds or the dependency stops mattering.
+A call can reach the end of its reliable window before the condition holds. It then returns `ok: true` with `data.met: false`. This is an unfinished wait, not a refusal and not a reason to choose an arbitrary delay.
+
+Follow the continuation in the result. Through MCP, the agent calls `discern_await` again with the same `path` and the supplied `resume` value, without repeating a condition. The command-line result likewise provides the exact `discern await --resume …` command to run. That continuation preserves the original branch transition or trunk baseline, including a change that happened between calls.
+
+Continue with the newest handle until `data.met` is `true` or the dependency no longer matters.
 
 ## Handle a refusal
 
-When the response contains `ok: false`, this means the watch as posed can't be answered, and it won't offer a continuation to resume. Follow the recovery named in the result instead of retrying. The common cases:
+An `ok: false` result means the watch as posed can't be answered. It has no continuation, so follow its recovery instead of resuming it. Common cases include:
 
-- **A `--green` watch on a branch whose worktree is gone.** Proof lives in the branch's worktree and is removed with it, after a [reclaim](../40-troubleshooting/worktrees-and-resources.md) for example, so the condition can't become true anymore. The refusal points at the branch that now holds the work, or at `--landed` for the plain arrival question.
-- **A branch that doesn't resolve at all.** Either it was never started, or it landed and was cleaned up before the watch began. The refusal says which reading is likely. For a finished dependency, `--landed` can recover the landing from its proof note.
+- **A green watch whose worktree is gone.** Current Proof lives with the worktree, so a reclaimed branch can't later become green there. The refusal points to a branch that now contains the work, when one exists, or suggests a landed watch for the arrival question.
+- **A branch name that doesn't resolve.** The task may never have started, or it may have landed and been cleaned up before this watch began. The refusal explains the observed state; a landed watch can recover a completed landing from its proof note.
 
 ## Compose what arrived
 
-A met result names the agent's next step. The named step should be followed directly:
+A successful result names the agent's next step. Follow that hint directly:
 
-- **Green, and the branch is still live:** build on the exact commit the hint names, with `discern update --from <commit>` in the agent's worktree or `discern start --from <commit>` to create one. Compose from the commit rather than the branch name, as the branch is deleted after acceptance lands its changes.
-- **Landed, or the trunk moved:** bring the trunk in to the worktree with `discern_update`, or start a new worktree from it with `discern_start`.
+- **Green, while the branch is still live:** build on the exact commit in the hint with `discern update --from <commit>` in an existing worktree, or `discern start --from <commit>` for a new one. The commit is stable even if acceptance later deletes the branch name.
+- **Landed, or the trunk moved:** bring the trunk into an existing worktree with `discern_update`, or use `discern_start` when the dependent task still needs a worktree.
 
-The met result also names incoming files that overlap with files the agent changed. The agent is instructed to re-read them after updating, as a merge that applies cleanly can still conflict in meaning.
+The result also names incoming files that overlap with the agent's changes. Re-read those files after updating, because a merge can apply cleanly while combining incompatible assumptions.
 
 The wait is complete when the dependency is present in the agent's tree, meaning the files or behavior the task builds on exist where expected. Verify that, then continue the task.
 
@@ -95,7 +92,7 @@ The wait is complete when the dependency is present in the agent's tree, meaning
 
 - **The agent's own branch.** The agent should run the Gate or do the work. Awaiting themselves will never return.
 - **A helper or sub-task inside the same session.** `discern_await` watches other worktrees and the trunk. The session already tracks its own work.
-- **A decision only a person can make,** such as a review or an approval. Report the needed decision and stop. A held call can't hurry a human.
+- **A decision only a person can make,** such as review or approval. Report the needed decision and stop. A held call can't hurry a human.
 - **A dependency cut mid-wait.** The plan changed, so say so and move on. Ending the watch there is valid.
 
 Coding agents receive this procedure as the bundled `discern-await-the-fleet` [Skill](delegate-work.md#bundled-skills), so a task brief can name the Skill instead of restating these instructions. The [CLI reference](../30-reference/cli-reference.md#discern-await) lists every flag. [MCP and results](../30-reference/mcp-and-results.md) holds the result fields, the transport timeout bounds, and the exit-code contract. [Proof](../20-understand/proof.md) explains why green and landed stay separate states.
