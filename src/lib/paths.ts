@@ -227,6 +227,32 @@ export const MAP_SECTION_REGISTRY: readonly MapSectionRegistration[] = [
   { dir: "90-site", audience: "contributor" },
 ];
 
+/**
+ * The public Map exhibit route for one Map-relative Markdown path, or
+ * `undefined` when the path sits outside the registered numbered tiers. This
+ * derivation is the single authority for `/map/...` route shape: the website
+ * renders admitted pages at these routes, and cross-corpus links from the
+ * manual to the Map exhibit are rewritten through it. It answers route shape
+ * only — admission (publication, protected directories) stays with the
+ * exhibit's own predicate.
+ */
+export function publicMapExhibitRoute(relToMap: string): string | undefined {
+  if (relToMap === "README.md") return "/map";
+  const parts = relToMap.split("/");
+  const dir = parts[0];
+  if (dir === undefined || parts.length < 2) return undefined;
+  if (!MAP_SECTION_REGISTRY.some((section) => section.dir === dir)) {
+    return undefined;
+  }
+  const tail = parts.slice(1);
+  const filename = tail.at(-1) ?? "";
+  if (filename.toLowerCase() === "readme.md") tail.pop();
+  else tail[tail.length - 1] = filename.replace(/\.md$/iu, "");
+  return ["/map", dir.replace(/^\d+-/u, ""), ...tail]
+    .filter((segment) => segment.length > 0)
+    .join("/");
+}
+
 /** Resolve discern's fixed repository-owned manual source. */
 export function resolveRepositoryManualDir(root: string): ResolvedDir {
   return resolveDir(root, REPOSITORY_MANUAL_REL);

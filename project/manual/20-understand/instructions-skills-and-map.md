@@ -59,7 +59,7 @@ Nearby kinds of writing tend to blur together, and keeping them apart is part of
 - **Your project's own documentation** — its README, docs site, and comments — belongs to the project and its authors. discern doesn't touch documentation outside the paths the project supplies to it.
 - **The Map** is the agents' maintained account of your project, kept at the path your config names.
 - **This manual** is discern's product documentation. It describes discern, ships with the install, and is readable offline with `discern docs`.
-- **discern's own Map** is the live example: discern is developed under its own practice, and its repository's Map is public, so you can inspect what its agents understand about it — the same inspection your project's Map offers you.
+- **discern's own Map** is the live example: discern is developed under its own practice, and its Map is published [at discern.sh/map](https://discern.sh/map), so you can inspect what its agents understand about it — the same inspection your project's Map offers you.
 
 When a session produces a lesson worth keeping (a correction, a procedure that took real effort to derive, a decision nothing records), the bundled teach-the-project Skill routes it to the smallest durable home: an instruction line, a Skill, a Map page, or a decision record. That loop is what makes the practice accumulate: the next session starts where this one left off.
 

@@ -24,6 +24,7 @@ import {
 import {
   MAP_SECTION_REGISTRY,
   type MapSectionAudience,
+  publicMapExhibitRoute,
   resolveMapDir,
   resolveRepositoryManualDir,
 } from "../src/lib/paths.ts";
@@ -403,20 +404,11 @@ function publicMapSectionSlug(dir: string): string {
 
 /** Derive one canonical public Map route without a site-owned page list. */
 function publicMapPageRoute(entry: DocEntry): string {
-  if (entry.relToDocs === "README.md") return PUBLIC_MAP_ROUTE;
-  const registration = MAP_SECTION_REGISTRY.find((section) =>
-    section.dir === entry.section
-  );
-  if (registration === undefined) {
+  const route = publicMapExhibitRoute(entry.relToDocs);
+  if (route === undefined) {
     throw new Error(`map: no registered section for ${entry.relToDocs}`);
   }
-  const tail = entry.relToDocs.split("/").slice(1);
-  const filename = tail.at(-1) ?? "";
-  if (filename.toLowerCase() === "readme.md") tail.pop();
-  else tail[tail.length - 1] = filename.replace(/\.md$/i, "");
-  return [PUBLIC_MAP_ROUTE, publicMapSectionSlug(registration.dir), ...tail]
-    .filter(Boolean)
-    .join("/");
+  return route;
 }
 
 /**

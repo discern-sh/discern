@@ -2,6 +2,7 @@
 
 import * as posix from "@std/path/posix";
 import type { ManualPage, ManualProjection } from "../src/lib/manual.ts";
+import { publicMapExhibitRoute } from "../src/lib/paths.ts";
 import { MANUAL_ALIAS_OWNER_OVERRIDES } from "../src/shared/manual.ts";
 import {
   parseFrontmatter,
@@ -74,6 +75,11 @@ function manualDestination(
     if (mapRel.startsWith("_adr/")) {
       const slug = posix.basename(mapRel).replace(/\.md$/iu, "");
       return `https://discern.sh/docs/decisions/${slug}${fragment}`;
+    }
+    for (const candidate of candidates) {
+      const exhibitRoute = publicMapExhibitRoute(candidate);
+      if (exhibitRoute === undefined) continue;
+      return `https://discern.sh${exhibitRoute}${fragment}`;
     }
   }
   const kind = /\.[A-Za-z0-9]+$/u.test(resolved) ? "blob" : "tree";

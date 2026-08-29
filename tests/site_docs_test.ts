@@ -17,7 +17,8 @@ import {
 import { fromFileUrl } from "@std/path";
 import { DISCERN_FAVICON_PATH, DISCERN_MARK } from "../site/brand.ts";
 import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
-import { handler } from "../site/serve.ts";
+import { handler, liveHtmlRoutes } from "../site/serve.ts";
+import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
 import {
   createGlossaryProseRenderer,
   docsLlmsSection,
@@ -1174,6 +1175,100 @@ Deno.test("every local link in every published page resolves — no dead ends", 
       }
       failures.push(`${page.entry.path}: unresolved link ${dest}`);
     }
+  }
+  assertEquals(failures, []);
+});
+
+/**
+ * Flag absolute destinations an external reader could not reach from every
+ * projection: a discern.sh path that is not a live route or declared schema
+ * publication, or a repository link into Map content (which must travel
+ * through the framed /map exhibit or a decision route instead).
+ */
+function crossCorpusLinkFailures(
+  path: string,
+  body: string,
+  live: ReadonlySet<string>,
+  schemaIds: ReadonlySet<string>,
+): string[] {
+  const failures: string[] = [];
+  for (
+    const match of body.matchAll(
+      /https:\/\/(?:discern\.sh|github\.com\/jackwh\/discern)[^)\s>]*/g,
+    )
+  ) {
+    const url = new URL(match[0]);
+    if (url.hostname === "github.com") {
+      const repoPath = url.pathname.replace(
+        /^\/jackwh\/discern\/(?:blob|tree)\/[^/]+\//,
+        "",
+      );
+      if (repoPath === "project/map" || repoPath.startsWith("project/map/")) {
+        failures.push(
+          `${path}: ${match[0]} links Map content through the repository; ` +
+            "use the /map exhibit or a decision route",
+        );
+      }
+      continue;
+    }
+    if (url.pathname.startsWith("/schema/")) {
+      if (!schemaIds.has(`https://discern.sh${url.pathname}`)) {
+        failures.push(`${path}: undeclared schema publication ${match[0]}`);
+      }
+      continue;
+    }
+    if (!live.has(url.pathname)) {
+      failures.push(`${path}: ${match[0]} is not a live public route`);
+    }
+  }
+  return failures;
+}
+
+Deno.test("cross-corpus links stay inside the public projection on every surface", async () => {
+  const site = await loadDocsSite();
+  const live = new Set(liveHtmlRoutes(site));
+  const schemaIds = new Set(
+    PUBLIC_SCHEMA_PUBLICATIONS.map((publication) => publication.id as string),
+  );
+
+  // The guard bites: each escape class is a named failure.
+  const bad = crossCorpusLinkFailures(
+    "fixture.md",
+    "[repo Map](https://github.com/jackwh/discern/blob/main/project/map/00-orientation/system-map.md) " +
+      "[gone](https://discern.sh/docs/retired-nowhere) " +
+      "[unadmitted](https://discern.sh/map/internal/secret) " +
+      "[unknown schema](https://discern.sh/schema/v9/discern-imaginary.schema.json)",
+    live,
+    schemaIds,
+  );
+  assertEquals(bad.length, 4);
+  // A live exhibit route and a declared schema publication pass.
+  assertEquals(
+    crossCorpusLinkFailures(
+      "fixture.md",
+      `[exhibit](https://discern.sh/map) [schema](${
+        [...schemaIds][0] ?? "https://discern.sh/schema/none"
+      })`,
+      live,
+      schemaIds,
+    ),
+    [],
+  );
+
+  const failures: string[] = [];
+  const landing = await Deno.readTextFile(
+    new URL("../project/manual/README.md", import.meta.url),
+  );
+  const sources: Array<{ path: string; body: string }> = [{
+    path: "project/manual/README.md",
+    body: parseFrontmatter(landing).body,
+  }];
+  for (const page of site.pages) {
+    const raw = await Deno.readTextFile(page.entry.absPath);
+    sources.push({ path: page.entry.path, body: parseFrontmatter(raw).body });
+  }
+  for (const { path, body } of sources) {
+    failures.push(...crossCorpusLinkFailures(path, body, live, schemaIds));
   }
   assertEquals(failures, []);
 });

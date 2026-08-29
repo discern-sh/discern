@@ -49,4 +49,4 @@ These pages are one manual with several deliveries. The website at [discern.sh/d
 
 ## The manual and the Map
 
-This manual teaches the product. discern's own development also keeps a Map: the live account its coding agents maintain of its codebase, because discern is built under its own practice. You can inspect that Map [in the discern repository](https://github.com/jackwh/discern/tree/main/project/map). Read it as working evidence, and read the [decision records](https://discern.sh/docs/decisions) for why discern works the way it does; product guidance stays here in the manual.
+This manual teaches the product. discern's own development also keeps a Map: the live account its coding agents maintain of its codebase, because discern is built under its own practice. You can inspect that Map [at discern.sh/map](https://discern.sh/map). Read it as working evidence, and read the [decision records](https://discern.sh/docs/decisions) for why discern works the way it does; product guidance stays here in the manual.

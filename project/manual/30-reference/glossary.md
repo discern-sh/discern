@@ -120,11 +120,11 @@ The `discern` binary's semantic version, shown by `discern --version`. A newer b
 
 ### Engine
 
-The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no command from the project's stack; its verbs run the jobs, scopes, standards, and worktree settings a project declares, while its embedded [tidy](#tidy) formatter is limited to discern-owned surfaces. Contributors: see [engine internals](https://github.com/jackwh/discern/tree/main/project/map/50-engine-internals/).
+The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, `update`, `accept`, …), written in TypeScript and compiled into the binary. It ships no command from the project's stack; its verbs run the jobs, scopes, standards, and worktree settings a project declares, while its embedded [tidy](#tidy) formatter is limited to discern-owned surfaces. Contributors: see [engine internals](https://discern.sh/map/engine-internals).
 
 ### File ownership
 
-The operational buckets that decide what `discern upgrade` may touch: [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file). [Files & ownership](files-and-ownership.md) is the user-facing account; the [install surface](https://github.com/jackwh/discern/blob/main/project/map/80-development/install-surface.md) is the exhaustive inventory.
+The operational buckets that decide what `discern upgrade` may touch: [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file). [Files & ownership](files-and-ownership.md) is the user-facing account; the [install surface](https://discern.sh/map/development/install-surface) is the exhaustive inventory.
 
 ### Fleet
 

@@ -195,7 +195,7 @@ It keeps Project-owned files and `discern.toml`, and it names Shared settings th
 
 ## See also
 
-- [The install surface](https://github.com/jackwh/discern/blob/main/project/map/80-development/install-surface.md): the exhaustive engineering inventory by ownership bucket.
+- [The install surface](https://discern.sh/map/development/install-surface): the exhaustive engineering inventory by ownership bucket.
 - [Licenses for project payloads](licenses.md): the authorship boundary and downstream redistribution responsibility.
 - [Agent integrations](../10-guides/connect-a-coding-agent.md): the exact file table per coding agent.
 - [Trust and your data](../20-understand/local-control.md): the network, telemetry, and execution contract on one screen.
