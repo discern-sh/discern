@@ -188,3 +188,37 @@ Deno.test("manual CLI generation enrolls a future command alias and exact parser
   assertStringIncludes(document, "`-V`, `--version`");
   assertStringIncludes(document, "| `124` | `discern await`");
 });
+
+Deno.test("manual CLI generation retains the exact interactive documentation reader contract", () => {
+  for (
+    const term of [
+      "## Interactive documentation reader",
+      "`Tab`, `Shift-Tab`",
+      "`Page Up`, `Page Down`",
+      "`Home`, `End`",
+      "`[`, `]`",
+      "three picker entries or three document rows",
+      "at least 32 columns",
+      "picker-only layout needs 10 total rows",
+      "document-only needs 11",
+      "split layout begins at 18",
+      "`Press Enter to continue.`",
+      "`$PAGER`",
+      "Other external schemes are not supported.",
+    ]
+  ) {
+    assertStringIncludes(renderedManual, term);
+  }
+  const frontmatter = renderedManual.split("\n---\n")[0] ?? "";
+  for (
+    const alias of [
+      "interactive documentation reader",
+      "terminal reader controls",
+      "Tab picker",
+      "Press Enter to continue",
+      "$PAGER",
+    ]
+  ) {
+    assertStringIncludes(frontmatter, `  - \"${alias}\"`);
+  }
+});
