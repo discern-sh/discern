@@ -1310,6 +1310,82 @@ Deno.test("the search index and llms.txt cover every published page", async () =
   assertStringIncludes(docsLlmsSection(site), "## Documentation");
 });
 
+Deno.test("served HTML hides bare source comments that llms-full.txt preserves", async () => {
+  const site = await loadDocsSite();
+  // Scan every published source at test time for full-line HTML comments
+  // outside fenced code — no hand-kept page or comment list to go stale.
+  const commentLine = /^\s*(<!--.*?-->)\s*$/;
+  const commented: Array<{
+    page: DocsPage;
+    comments: string[];
+  }> = [];
+  for (const page of [site.landing, ...site.pages]) {
+    const { body } = parseFrontmatter(
+      await Deno.readTextFile(page.entry.absPath),
+    );
+    const comments: string[] = [];
+    let fence: string | undefined;
+    for (const line of body.split("\n")) {
+      if (fence !== undefined) {
+        if (line.trimStart().startsWith(fence)) fence = undefined;
+        continue;
+      }
+      const opening = /^\s*(```|~~~)/.exec(line)?.[1];
+      if (opening !== undefined) {
+        fence = opening;
+        continue;
+      }
+      const comment = commentLine.exec(line)?.[1];
+      if (comment !== undefined) comments.push(comment);
+    }
+    if (comments.length > 0) commented.push({ page, comments });
+  }
+
+  if (commented.length === 0) {
+    // Should the corpus ever lose its last bare source comment, keep the
+    // pages' render path guarded through the same HTML emitter they use: the
+    // comment disappears while a code-form literal survives as content.
+    const { html } = renderMarkdownHtml(
+      [
+        "# Source notes",
+        "",
+        "Before <!-- source note: `phantom-capability` --> after.",
+        "",
+        "Use `<!-- literal-inline-control -->` literally.",
+      ].join("\n"),
+    );
+    assert(!html.includes("phantom-capability"));
+    assertStringIncludes(html, htmlEsc("<!-- literal-inline-control -->"));
+  }
+  for (const { page, comments } of commented) {
+    const html = await (await get(page.route, BROWSER)).text();
+    for (const comment of comments) {
+      assert(!html.includes(comment), `${page.route} serves ${comment}`);
+      assert(
+        !html.includes(htmlEsc(comment)),
+        `${page.route} serves ${comment} as visible text`,
+      );
+    }
+  }
+
+  // /llms-full.txt is the source-preserving projection: the same comments
+  // survive there, because each page's chunk is byte-equal to its
+  // frontmatter-stripped source.
+  const full = await (await get("/llms-full.txt", CURL)).text();
+  const fallback = site.pages[0];
+  assert(fallback !== undefined);
+  const sample = commented[0] ?? { page: fallback, comments: [] };
+  const { body } = parseFrontmatter(
+    await Deno.readTextFile(sample.page.entry.absPath),
+  );
+  const url = `https://discern.sh${sample.page.route}`;
+  assertStringIncludes(
+    full,
+    `<!-- BEGIN ${url} -->\n\n${body.trim()}\n\n<!-- END ${url} -->`,
+  );
+  for (const comment of sample.comments) assertStringIncludes(full, comment);
+});
+
 Deno.test("the sitemap source contains instructions and project-history routes", async () => {
   const site = await loadDocsSite();
   assertEquals(site.sitemapRoutes, [

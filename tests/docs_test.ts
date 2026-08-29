@@ -1087,6 +1087,19 @@ Deno.test("docs search reports the full count beside its bounded projection", as
     assertEquals(data.results.length, 5);
     assertEquals(data.truncated, true);
     assert(data.results.every((entry) => entry.manual_kind === "guide"));
+
+    // A narrow query fits under the cap: everything counted is returned.
+    const narrow = await runCli(
+      ["docs", "--search", "concepts body", "--json"],
+      dir,
+      env,
+    );
+    assertEquals(narrow.code, 0, narrow.stdout + narrow.stderr);
+    const narrowData = decodeDocsData(narrow.stdout, "results");
+    assert(narrowData.results.length >= 1);
+    assert(narrowData.results.length <= 5);
+    assertEquals(narrowData.count, narrowData.results.length);
+    assertEquals(narrowData.truncated, false);
   });
 });
 

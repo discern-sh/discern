@@ -1636,6 +1636,12 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
       defaultMapPath(dir, "00-orientation", "task-right.md"),
       "# Velvet beacon\n",
     );
+    for (let index = 0; index < 6; index += 1) {
+      await Deno.writeTextFile(
+        defaultMapPath(dir, "00-orientation", `capped-${index}.md`),
+        `# Capped ${index}\n\nShared capped marker.\n`,
+      );
+    }
     await using mcp = await spawnMcp(dir);
     await mcp.initialize();
 
@@ -1720,6 +1726,16 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
       "00-orientation/concepts",
     );
 
+    // The bounded projection reports the full match count beside five results.
+    const capped = await mcp.callTool(11, "discern_map", {
+      search: "shared capped marker",
+    });
+    assertEquals(capped.result.isError, false);
+    const cappedData = capped.result.structuredContent.data;
+    assertEquals(cappedData.count, 6);
+    assertEquals(cappedData.results.length, 5);
+    assertEquals(cappedData.truncated, true);
+
     assertEquals(await mcp.close(), 0);
   });
 });
@@ -1740,7 +1756,8 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     await Deno.writeTextFile(
       configReference,
       `${await Deno.readTextFile(configReference)}\n${manualComment}\n\n` +
-        `Use \`${manualLiteral}\` literally.\n`,
+        `Use \`${manualLiteral}\` literally.\n\n` +
+        "The staged sentinel token is `vermilion-quasar-beacon`.\n",
     );
     // The host project has its own map — discern_docs must ignore it and serve
     // discern's bundled documentation (resolved module-relative to this repo).
@@ -1909,6 +1926,19 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     });
     assertEquals(
       literal.result.structuredContent.data.results[0].target,
+      "30-reference/config-reference",
+    );
+
+    // A narrow query stays untruncated: the count is exactly what it returns.
+    const narrow = await mcp.callTool(16, "discern_docs", {
+      search: "vermilion-quasar-beacon",
+    });
+    assertEquals(narrow.result.isError, false);
+    const narrowData = narrow.result.structuredContent.data;
+    assertEquals(narrowData.results.length, narrowData.count);
+    assertEquals(narrowData.truncated, false);
+    assertEquals(
+      narrowData.results[0].target,
       "30-reference/config-reference",
     );
 

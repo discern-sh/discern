@@ -273,5 +273,92 @@ This published fixture must join every complete delivery projection while the au
     assert(stagedTree !== undefined);
     const stagedProjection = await buildManualProjection(stagedTree.entries);
     assert(stagedProjection.byId.has(fresh.id));
+
+    // Terminal delivery: `docs --json` indexes the fresh page without any
+    // registration. The CLI renders the same `docsResult`/`treeResult` core
+    // the MCP `discern_docs` tool projects (src/engine/mcp/server.ts), so this
+    // one assertion covers the terminal and MCP shapes together.
+    await seedConfig(
+      dir,
+      '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n',
+    );
+    const cli = await runCli(["docs", "--json"], dir, {
+      DISCERN_DOCS_DIR: manualDir,
+    });
+    assertEquals(cli.code, 0, cli.stdout + cli.stderr);
+    const decoded = decodeCliResult(cli.stdout, "docs");
+    assertEquals(decoded.ok, true);
+    assertResultDataKey(decoded, "docs");
+    const cliDocs = decoded.data.docs;
+    assertExists(cliDocs);
+    const record = cliDocs.find((doc) => doc.page_id === fresh.id);
+    assertExists(record);
+    assertEquals(record.target, canonicalDocTarget(fresh.entry));
+    assertEquals(record.manual_kind, fresh.kind);
+
+    // Site delivery beyond navigation: rebuild the manual-derived site fields
+    // from the synthetic projection exactly as buildDocsSite composes them
+    // (tests/site_docs_test.ts pins that composition against the live site in
+    // "the sitemap source contains instructions and project-history routes");
+    // the non-manual route families stay the real corpus's, which the
+    // projections exercised below never consume.
+    const real = await loadDocsSite();
+    const landing: DocsLanding = {
+      routeKind: "manual",
+      route: "/docs",
+      entry: projection.landing.entry,
+      sourcePath: projection.landing.entry.relToDocs,
+      manualKind: projection.landing.kind,
+      sectionSlug: "",
+      isIndex: false,
+    };
+    const enrolled: DocsSite = {
+      ...real,
+      landing,
+      pages: site.pages,
+      sections: site.sections,
+      sitemapRoutes: [
+        landing.route,
+        ...site.pages.map((page) => page.route),
+        real.decisions.route,
+        ...real.decisions.pages.map((page) => page.route),
+        ...real.publicMap.sitemapRoutes,
+      ],
+    };
+    assert(enrolled.sitemapRoutes.includes(fresh.route));
+    assert(liveHtmlRoutes(enrolled).includes(fresh.route));
+
+    // llms.txt lists the fresh page exactly once; llms-full.txt carries its
+    // frontmatter-stripped source bytes in one addressed chunk.
+    const llms = docsLlmsSection(enrolled);
+    assertEquals(
+      llms.split(`](https://discern.sh${fresh.route})`).length - 1,
+      1,
+    );
+    const full = await docsLlmsFullText(enrolled);
+    const freshUrl = `https://discern.sh${fresh.route}`;
+    const { body } = parseFrontmatter(
+      await Deno.readTextFile(fresh.entry.absPath),
+    );
+    assertStringIncludes(
+      full,
+      `<!-- BEGIN ${freshUrl} -->\n\n${body.trim()}\n\n<!-- END ${freshUrl} -->`,
+    );
+
+    // The page's declared retired route joins the served redirect table with
+    // its raw Markdown mirror, both reaching the fresh page in one hop.
+    const table = buildSiteRedirectTable(liveHtmlRoutes(enrolled), [
+      enrolled.landing,
+      ...enrolled.pages,
+      ...real.decisions.pages,
+      real.publicMap.landing,
+      ...real.publicMap.pages,
+    ]);
+    assertEquals(table.issues, []);
+    assertEquals(table.redirects.get(retiredSource), fresh.route);
+    assertEquals(
+      table.redirects.get(`${retiredSource}.md`),
+      `${fresh.route}.md`,
+    );
   });
 });

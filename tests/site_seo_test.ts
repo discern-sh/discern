@@ -156,6 +156,19 @@ Deno.test("a destination-owned redirect_from fixture serves HTML and Markdown in
     markdown.headers.get("location"),
     canonicalUrl(`${target.route}.md`),
   );
+
+  // A declared redirect_from hop preserves the request's query string.
+  const withQuery = await handlerWithRouting(
+    new Request(`${SITE_ORIGIN}/docs/retired-fixture?from=old`, {
+      headers: BROWSER,
+    }),
+    routing,
+  );
+  assertEquals(withQuery.status, 308);
+  assertEquals(
+    withQuery.headers.get("location"),
+    `${canonicalUrl(target.route)}?from=old`,
+  );
 });
 
 Deno.test("redirect guards reject dead targets, collisions, chains, and loops", () => {
