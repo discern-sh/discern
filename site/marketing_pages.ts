@@ -31,6 +31,14 @@ export const MARKETING_PAGES = [
     prose: "guarded",
     negotiable: true,
   },
+  {
+    route: "/trust",
+    page: "pages/trust.html",
+    source: "site/page-src/trust.tsx",
+    register: "brand",
+    prose: "guarded",
+    negotiable: false,
+  },
 ] as const satisfies readonly MarketingPage[];
 
 export type MarketingRoute = (typeof MARKETING_PAGES)[number]["route"];

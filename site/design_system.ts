@@ -22,17 +22,14 @@ interface SiteDesignSystemBundle {
 export const DESIGN_SYSTEM_BUNDLES = {
   docs: {
     output: "pages/assets/design-system/docs/",
-    routes: ["/docs"],
+    routes: ["/docs", "/map"],
     groups: ["Docs"],
     components: [
       "icon",
       "icon-button",
       "theme-toggle",
       "brand",
-      "divider",
-      "heading",
       "kicker",
-      "table",
       "breadcrumbs",
       ...WORKFLOW_COMPONENTS,
       "table-of-contents",
@@ -42,7 +39,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
   },
   compositions: {
     output: "pages/assets/design-system/compositions/",
-    routes: ["/", "/agents"],
+    routes: ["/", "/agents", "/trust"],
     groups: ["Marketing", "Editorial"],
     components: [
       "icon",

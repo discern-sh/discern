@@ -9,9 +9,14 @@
  */
 
 import type { DocEntry } from "./docs.ts";
-import { SEARCH_FIELD_WEIGHT } from "./docs_search.js";
+import type { ManualKind } from "../shared/manual.ts";
+import { SEARCH_FIELD_WEIGHT, SEARCH_KIND_WEIGHT } from "./docs_search.js";
 import { parseFrontmatter } from "./frontmatter.ts";
-import { inlineToPlain, renderMarkdownHtml } from "./markdown.ts";
+import {
+  inlineToPlain,
+  readerVisibleMarkdown,
+  renderMarkdownHtml,
+} from "./markdown.ts";
 
 /** One route or canonical target eligible to contribute to a search index. */
 export interface SearchSource {
@@ -32,6 +37,9 @@ export interface SearchPage {
   title: string;
   section: string;
   description: string;
+  /** Editorial job for manual pages; neutral corpora carry null. */
+  kind: ManualKind | null;
+  /** Reader-authored task vocabulary from document aliases. */
   aliases: string[];
   headings: SearchHeading[];
   codeTerms: string[];
@@ -110,7 +118,7 @@ export function renderBrowserSearchModule(source: string): string {
 export function markdownSearchText(markdown: string): string {
   const lines: string[] = [];
   let inFence = false;
-  for (const raw of markdown.split(/\r?\n/)) {
+  for (const raw of readerVisibleMarkdown(markdown).split("\n")) {
     if (/^\s*(```|~~~)/.test(raw)) {
       inFence = !inFence;
       continue;
@@ -137,7 +145,7 @@ export function markdownSearchText(markdown: string): string {
 export function markdownCodeTerms(markdown: string): string[] {
   const terms: string[] = [];
   let fence: string[] | undefined;
-  for (const raw of markdown.split(/\r?\n/)) {
+  for (const raw of readerVisibleMarkdown(markdown).split("\n")) {
     if (/^\s*(```|~~~)/.test(raw)) {
       if (fence === undefined) {
         fence = [];
@@ -170,18 +178,20 @@ export function searchPageFromMarkdown(
   markdown: string,
 ): SearchPage {
   const { body } = parseFrontmatter(markdown);
-  const rendered = renderMarkdownHtml(body);
+  const visible = readerVisibleMarkdown(body);
+  const rendered = renderMarkdownHtml(visible);
   return {
     route: source.route,
     title: source.entry.title,
     section: source.section,
     description: source.entry.description,
+    kind: source.entry.manualKind ?? null,
     aliases: source.entry.aliases,
     headings: rendered.headings
       .filter((heading) => heading.depth >= 2)
       .map((heading) => ({ id: heading.id, text: heading.text })),
-    codeTerms: markdownCodeTerms(body),
-    body: markdownSearchText(body),
+    codeTerms: markdownCodeTerms(visible),
+    body: markdownSearchText(visible),
   };
 }
 
@@ -501,6 +511,7 @@ export function searchAgentPages(
       matchedKeys,
       exactPhraseWeight: phraseWeight,
       score: coverage * 1_000 + fieldScore +
+        (SEARCH_KIND_WEIGHT[page.kind ?? "other"] ?? 0) +
         (phraseWeight > 0 ? 2_000 + phraseWeight * 10 : 0),
     };
   });

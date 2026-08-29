@@ -35,6 +35,7 @@ export const COPIED_PAGE_ASSETS = [
   "agents.js",
   "landing-v3.css",
   "landing.js",
+  "trust.css",
 ] as const;
 
 /** Old generated pages removed on every build so local previews cannot retain them. */

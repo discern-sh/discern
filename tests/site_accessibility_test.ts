@@ -48,17 +48,20 @@ function get(path: string): Promise<Response> {
 
 /** Compose the real docs client and its browser scheduler for JSDOM evaluation. */
 async function executableDocsClient(): Promise<string> {
-  const [scheduler, client] = await Promise.all([
+  const [scheduler, matcher, client] = await Promise.all([
     Deno.readTextFile(
       new URL("../site/pages/assets/scheduler.js", import.meta.url),
+    ),
+    Deno.readTextFile(
+      new URL("../site/pages/assets/search.js", import.meta.url),
     ),
     Deno.readTextFile(
       new URL("../site/pages/assets/docs.js", import.meta.url),
     ),
   ]);
   return `${scheduler.replace(/^export /gm, "")}\n${
-    client.replace(/^import .*?;\n/gm, "")
-  }`;
+    matcher.replace(/^export /gm, "")
+  }\n${client.replace(/^import .*?;\n/gm, "")}`;
 }
 
 /** Load one canonical Workflow page with the production client ready to evaluate. */
@@ -109,13 +112,17 @@ async function seriousAxeFindings(path: string): Promise<string[]> {
     );
 }
 
-Deno.test("public marketing and representative docs pages have no serious or critical WCAG 2.2 AA findings", async () => {
+Deno.test("public marketing and representative document pages have no serious or critical WCAG 2.2 AA findings", async () => {
   const site = await loadDocsSite();
   const decision = site.decisions.pages[0];
   const routes = [
     ...Object.keys(PAGES),
     "/docs",
     ...site.sections.map((section) =>
+      section.pages.find((page) => !page.isIndex)?.route ?? section.index.route
+    ),
+    "/map",
+    ...site.publicMap.sections.map((section) =>
       section.pages.find((page) => !page.isIndex)?.route ?? section.index.route
     ),
     site.decisions.route,
@@ -230,7 +237,7 @@ Deno.test("navigation restores its position and keeps the current page visible",
   }
   navScroll.getBoundingClientRect = () => ({ top: 0, bottom: 300 } as DOMRect);
   current.getBoundingClientRect = () => ({ top: 340, bottom: 365 } as DOMRect);
-  dom.window.sessionStorage.setItem("discern:docs-nav-scroll", "180");
+  dom.window.sessionStorage.setItem("discern:manual-nav-scroll", "180");
   dom.window.eval(client);
   await Promise.resolve();
 
@@ -238,7 +245,7 @@ Deno.test("navigation restores its position and keeps the current page visible",
   navScroll.scrollTop = 312;
   navScroll.dispatchEvent(new dom.window.Event("scroll"));
   const persisted = dom.window.sessionStorage.getItem(
-    "discern:docs-nav-scroll",
+    "discern:manual-nav-scroll",
   );
   const routes = [
     ...navScroll.querySelectorAll("[data-nav-page] > a"),
@@ -332,6 +339,7 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
   Object.defineProperty(dom.window, "matchMedia", {
     value: () => drawerMedia,
   });
+  dom.window.document.querySelector(".docs-toc")?.remove();
   dom.window.eval(client);
 
   const document = dom.window.document;
@@ -424,7 +432,7 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
     label: "Close navigation",
     role: "dialog",
     modal: "true",
-    navLabel: "Documentation navigation",
+    navLabel: "Manual navigation",
     focusedFirstLink: true,
     backgroundInert: true,
     navInteractive: true,
@@ -448,6 +456,79 @@ Deno.test("mobile drawer performs the complete modal focus contract", async () =
   assertEquals(narrowAgain, {
     navInert: true,
     expanded: "false",
+  });
+});
+
+Deno.test("search keeps its modal focus contract without showModal support", async () => {
+  const html = await (await get("/docs")).text();
+  const client = await executableDocsClient();
+  const dom = new JSDOM(html, {
+    runScripts: "outside-only",
+    url: "https://discern.sh/docs",
+  });
+  Object.defineProperty(dom.window, "matchMedia", {
+    value: () => ({ matches: false, addEventListener: () => undefined }),
+  });
+  dom.window.document.querySelector(".docs-toc")?.remove();
+  dom.window.eval(client);
+
+  const document = dom.window.document;
+  const opener = document.querySelector<HTMLButtonElement>(
+    "[data-search-open]",
+  );
+  const palette = document.querySelector<HTMLDialogElement>("[data-search]");
+  const input = document.querySelector<HTMLInputElement>("[data-search-input]");
+  const close = document.querySelector<HTMLButtonElement>(
+    "[data-search-close]",
+  );
+  const background = [
+    document.querySelector<HTMLElement>(".docs-skip"),
+    document.querySelector<HTMLElement>(".docs-top"),
+    document.querySelector<HTMLElement>(".docs-shell"),
+  ].filter((element): element is HTMLElement => element !== null);
+  if (!opener || !palette || !input || !close) {
+    throw new Error("search fallback fixture has no complete modal surface");
+  }
+
+  opener.focus();
+  opener.click();
+  await Promise.resolve();
+  const opened = {
+    open: palette.hasAttribute("open"),
+    fallback: palette.hasAttribute("data-dialog-fallback"),
+    expanded: input.getAttribute("aria-expanded"),
+    focusedInput: document.activeElement === input,
+    backgroundInert: background.every((element) => element.inert),
+  };
+  close.focus();
+  document.dispatchEvent(
+    new dom.window.KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+  );
+  const wrapsToInput = document.activeElement === input;
+  document.dispatchEvent(
+    new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+  );
+  const closed = {
+    open: palette.hasAttribute("open"),
+    expanded: input.getAttribute("aria-expanded"),
+    restored: document.activeElement === opener,
+    backgroundInteractive: background.every((element) => !element.inert),
+  };
+  dom.window.close();
+
+  assertEquals(opened, {
+    open: true,
+    fallback: true,
+    expanded: "true",
+    focusedInput: true,
+    backgroundInert: true,
+  });
+  assertEquals(wrapsToInput, true);
+  assertEquals(closed, {
+    open: false,
+    expanded: "false",
+    restored: true,
+    backgroundInteractive: true,
   });
 });
 
@@ -523,6 +604,17 @@ Deno.test("responsive and client-generated accessibility contracts remain wired"
       /@media print/.test(css) && /\.docs-search/.test(css) &&
       /\.docs-copy/.test(css) && /\.doc-body/.test(css) &&
       /max-width:\s*none/.test(css),
+    ],
+    [
+      "narrow prose and exact raw links can reflow without widening the page",
+      /\.doc-body\s*\{[^}]*overflow-wrap:\s*anywhere/s.test(css) &&
+      /\.docs-colophon :is\(a, code\)\s*\{[^}]*overflow-wrap:\s*anywhere/s
+        .test(css),
+    ],
+    [
+      "forced-colour mode preserves borders and visible focus",
+      /@media \(forced-colors:\s*active\)/.test(css) &&
+      /outline-color:\s*Highlight/.test(css),
     ],
   ] as const;
 

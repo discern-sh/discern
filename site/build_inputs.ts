@@ -10,7 +10,7 @@ export const SITE_BUILD_INPUTS = [
   "site/workflow_registry.ts",
   "site/page-src",
   "project/manual",
-  "project/map/_adr",
+  "project/map",
   "src/lib/docs.ts",
   "src/lib/frontmatter.ts",
   "src/lib/manual.ts",

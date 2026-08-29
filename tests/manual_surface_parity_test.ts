@@ -55,8 +55,11 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
   ]);
   assertEquals(search.pages.map((page) => page.route), expectedRoutes);
 
+  // The sitemap also carries project history and the separately admitted Map.
+  // Select only the manual's canonical identities before comparing surfaces.
+  const expectedRouteSet = new Set(expectedRoutes);
   const manualSitemap = site.sitemapRoutes.filter((route) =>
-    route !== "/docs/decisions" && !route.startsWith("/docs/decisions/")
+    expectedRouteSet.has(route)
   );
   assertEquals(manualSitemap, expectedRoutes);
   const llms = docsLlmsSection(site);

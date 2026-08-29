@@ -190,6 +190,16 @@ export async function runSiteSmoke(
       title: page.entry.title,
     })),
   ];
+  const mapItems: InstructionItem[] = [
+    {
+      route: site.publicMap.landing.route,
+      title: site.publicMap.landing.entry.title,
+    },
+    ...site.publicMap.pages.map((page) => ({
+      route: page.route,
+      title: page.entry.title,
+    })),
+  ];
 
   const sitemapResponse = await get("/sitemap.xml");
   secure(sitemapResponse, "/sitemap.xml");
@@ -228,9 +238,12 @@ export async function runSiteSmoke(
     const document = dom.window.document;
     const title = document.title.trim();
     const exactTitle = SELF_TITLED_PAGES[route];
+    const documentSuffix = route === "/map" || route.startsWith("/map/")
+      ? " · discern.sh Map"
+      : " · discern.sh docs";
     const titledForSite = exactTitle !== undefined
       ? title === exactTitle
-      : title.endsWith(" · discern.sh docs");
+      : title.endsWith(documentSuffix);
     if (title === "" || !titledForSite) {
       fail(`${route}: invalid title ${JSON.stringify(title)}`);
     }
@@ -278,7 +291,8 @@ export async function runSiteSmoke(
       fail("/: missing SoftwareApplication JSON-LD");
     }
     if (
-      (route === "/docs" || route.startsWith("/docs/")) &&
+      (route === "/docs" || route.startsWith("/docs/") ||
+        route === "/map" || route.startsWith("/map/")) &&
       !structured.includes('"@type":"BreadcrumbList"')
     ) {
       fail(`${route}: missing BreadcrumbList JSON-LD`);
@@ -343,6 +357,8 @@ export async function runSiteSmoke(
     ...site.pages,
     { route: site.decisions.route, entry: site.decisions.index },
     ...site.decisions.pages,
+    site.publicMap.landing,
+    ...site.publicMap.pages,
   ];
   await parallel(rawPages, async (page) => {
     const source = await Deno.readTextFile(page.entry.absPath);
@@ -447,7 +463,13 @@ export async function runSiteSmoke(
 
   const redirectTable = buildSiteRedirectTable(
     expectedRoutes,
-    [site.landing, ...site.pages, ...site.decisions.pages],
+    [
+      site.landing,
+      ...site.pages,
+      ...site.decisions.pages,
+      site.publicMap.landing,
+      ...site.publicMap.pages,
+    ],
     STATIC_REDIRECTS,
   );
   failures.push(
@@ -462,8 +484,63 @@ export async function runSiteSmoke(
   if (docs === undefined) {
     fail("/docs: unavailable for surface parity");
   } else {
-    const nav: InstructionItem[] = [instructions[0] as InstructionItem];
+    const compactNav: InstructionItem[] = [instructions[0] as InstructionItem];
     for (const chapter of docs.querySelectorAll(".docs-nav-chapter")) {
+      const sectionTitle = chapter.querySelector(".docs-nav-label")?.textContent
+        ?.replace(/^\s*\d+\s*/, "").trim() ?? "";
+      for (
+        const [index, link] of [...chapter.querySelectorAll("ul a")].entries()
+      ) {
+        compactNav.push({
+          route: link.getAttribute("href") ?? "",
+          title: index === 0
+            ? sectionTitle
+            : (link.querySelector(".docs-nav-page-title")?.textContent ?? "")
+              .trim(),
+        });
+      }
+    }
+    sameItems(
+      "/docs compact nav",
+      compactNav,
+      [
+        instructions[0] as InstructionItem,
+        ...site.sections.map((section) => ({
+          route: section.index.route,
+          title: section.index.entry.title,
+        })),
+      ],
+      fail,
+    );
+    sameSequence(
+      "/docs authored front doors",
+      [...docs.querySelectorAll(".docs-manual-index #start-here + ul a")]
+        .map((link) => link.getAttribute("href") ?? ""),
+      site.frontDoors.map((page) => page.route),
+      fail,
+    );
+    sameItems(
+      "/docs complete browse",
+      [...docs.querySelectorAll(".docs-complete-browse a")].map((link) => ({
+        route: link.getAttribute("href") ?? "",
+        title: (link.textContent ?? "").trim(),
+      })),
+      instructions.slice(1),
+      fail,
+    );
+  }
+
+  const fullNavPage = site.pages.find((page) => !page.isIndex);
+  const fullNavDocument = fullNavPage === undefined
+    ? undefined
+    : htmlPages.get(fullNavPage.route)?.dom.window.document;
+  if (fullNavDocument === undefined) {
+    fail("manual leaf: unavailable for complete navigation parity");
+  } else {
+    const nav: InstructionItem[] = [instructions[0] as InstructionItem];
+    for (
+      const chapter of fullNavDocument.querySelectorAll(".docs-nav-chapter")
+    ) {
       const sectionTitle = chapter.querySelector(".docs-nav-label")?.textContent
         ?.replace(/^\s*\d+\s*/, "").trim() ?? "";
       for (
@@ -471,11 +548,37 @@ export async function runSiteSmoke(
       ) {
         nav.push({
           route: link.getAttribute("href") ?? "",
-          title: index === 0 ? sectionTitle : (link.textContent ?? "").trim(),
+          title: index === 0
+            ? sectionTitle
+            : (link.querySelector(".docs-nav-page-title")?.textContent ?? "")
+              .trim(),
         });
       }
     }
-    sameItems("/docs nav", nav, instructions, fail);
+    sameItems("manual leaf nav", nav, instructions, fail);
+  }
+
+  const mapDocument = htmlPages.get("/map")?.dom.window.document;
+  if (mapDocument === undefined) {
+    fail("/map: unavailable for surface parity");
+  } else {
+    const nav: InstructionItem[] = [mapItems[0] as InstructionItem];
+    for (const chapter of mapDocument.querySelectorAll(".docs-nav-chapter")) {
+      const sectionTitle = chapter.querySelector(".docs-nav-label")?.textContent
+        ?.replace(/^\s*\d+\s*/, "").trim() ?? "";
+      for (
+        const [index, link] of [...chapter.querySelectorAll("ul a")].entries()
+      ) {
+        nav.push({
+          route: link.getAttribute("href") ?? "",
+          title: index === 0
+            ? sectionTitle
+            : (link.querySelector(".docs-nav-page-title")?.textContent ?? "")
+              .trim(),
+        });
+      }
+    }
+    sameItems("/map nav", nav, mapItems, fail);
   }
 
   const searchResponse = await get("/docs/index.json");
@@ -485,9 +588,25 @@ export async function runSiteSmoke(
   };
   sameItems("search", search.pages, instructions, fail);
 
+  const mapSearchResponse = await get("/map/index.json");
+  secure(mapSearchResponse, "/map/index.json");
+  const mapSearch = await mapSearchResponse.json() as {
+    pages: Array<{ route: string; title: string }>;
+  };
+  sameItems("Map search", mapSearch.pages, mapItems, fail);
+  if (search.pages.some((page) => page.route.startsWith("/map"))) {
+    fail("manual search contains a Map route");
+  }
+  if (mapSearch.pages.some((page) => page.route.startsWith("/docs"))) {
+    fail("Map search contains a manual route");
+  }
+
   const llmsResponse = await get("/llms.txt");
   secure(llmsResponse, "/llms.txt");
   const llmsText = await llmsResponse.text();
+  if (llmsText.includes("https://discern.sh/map")) {
+    fail("llms.txt accidentally aggregates the public Map");
+  }
   const llms = llmsText.slice(llmsText.indexOf("## Documentation"))
     .split("\n")
     .flatMap((line): InstructionItem[] => {
@@ -522,6 +641,15 @@ export async function runSiteSmoke(
     "instructions sitemap",
     sitemapInstructions,
     instructions.map((item) => item.route),
+    fail,
+  );
+  const sitemapMap = routes.filter((route) =>
+    route === "/map" || route.startsWith("/map/")
+  );
+  sameSequence(
+    "Map sitemap",
+    sitemapMap,
+    mapItems.map((item) => item.route),
     fail,
   );
 
@@ -647,6 +775,7 @@ export async function runSiteSmoke(
     `${redirectTable.redirects.size} declared historical redirects`,
     `${checkedInternal.size} linked non-HTML internal endpoints`,
     `${instructions.length} instructions pages in cross-surface parity`,
+    `${mapItems.length} isolated public Map pages`,
     `${PUBLIC_SCHEMA_PUBLICATIONS.length} versioned public schemas byte-matched`,
     "RFC 9116 security.txt byte-matched",
   );

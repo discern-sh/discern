@@ -18,9 +18,15 @@ import {
   adrRecords,
   discoverDocs,
   type DocEntry,
+  isPublicDoc,
   publicDocs,
 } from "../src/lib/docs.ts";
-import { resolveMapDir, resolveRepositoryManualDir } from "../src/lib/paths.ts";
+import {
+  MAP_SECTION_REGISTRY,
+  type MapSectionAudience,
+  resolveMapDir,
+  resolveRepositoryManualDir,
+} from "../src/lib/paths.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import {
   buildManualProjection,
@@ -42,7 +48,6 @@ import {
   type GlossaryEntry,
   glossarySummary,
 } from "../scripts/glossary_registry.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
 import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
 import { buildSearchIndex } from "./search.ts";
@@ -61,6 +66,7 @@ const ADR_DIR = join(MAP_DIR, "_adr");
 const MANUAL_REPO_REL = relative(REPO_ROOT, MANUAL_DIR);
 const MAP_REPO_REL = relative(REPO_ROOT, MAP_DIR);
 const DECISIONS_ROUTE = "/docs/decisions";
+export const PUBLIC_MAP_ROUTE = "/map";
 const GLOSSARY_SOURCE_PATH = "30-reference/glossary.md";
 const DISCERN_BRAND_FRAGMENT = new URL(
   "pages/fragments/brand.html",
@@ -88,6 +94,22 @@ export interface DocsPage {
   isIndex: boolean;
 }
 
+/** One safely admitted page in discern's separately framed live Map. */
+export interface MapPage {
+  routeKind: "map";
+  /** Site route rooted at `/map`. */
+  route: string;
+  entry: DocEntry;
+  /** Map-relative source path that resolves local links. */
+  sourcePath: string;
+  /** URL segment for the registered numbered Map section. */
+  sectionSlug: string;
+  /** True for a section's README. */
+  isIndex: boolean;
+  /** Canonical reader tier from MAP_SECTION_REGISTRY. */
+  audience: MapSectionAudience;
+}
+
 /** One rendered project-history record outside the product-documentation nav. */
 export interface DecisionPage {
   routeKind: "decision";
@@ -99,7 +121,8 @@ export interface DecisionPage {
   superseded: boolean;
 }
 
-export type RoutedDocPage = DocsPage | DecisionPage;
+export type RoutedDocPage = DocsPage | MapPage | DecisionPage;
+type NavigablePage = DocsPage | MapPage;
 
 /** One published section, in reading order. */
 export interface DocsSection {
@@ -114,11 +137,33 @@ export interface DocsSection {
 }
 
 /** The manual's public front door, backed by its dedicated root README. */
-export interface DocsLanding {
+export interface DocsLanding extends DocsPage {
   route: "/docs";
-  entry: DocEntry;
-  sourcePath: string;
-  manualKind: ManualKind;
+  sectionSlug: "";
+  isIndex: false;
+}
+
+/** One registered section in the public Map exhibit. */
+export interface PublicMapSection {
+  dir: string;
+  slug: string;
+  title: string;
+  description: string;
+  audience: MapSectionAudience;
+  index: MapPage;
+  pages: MapPage[];
+}
+
+/** The safely admitted Map projection, kept separate from the manual model. */
+export interface PublicMapSite {
+  landing: MapPage;
+  pages: MapPage[];
+  byRoute: Map<string, MapPage>;
+  bySourcePath: Map<string, MapPage>;
+  sections: PublicMapSection[];
+  /** Every discovered page rejected by the canonical tier/publish policy. */
+  rejected: DocEntry[];
+  sitemapRoutes: string[];
 }
 
 /** The published docs site, derived once per process. */
@@ -140,6 +185,8 @@ export interface DocsSite {
     pages: DecisionPage[];
     byNumber: Map<string, DecisionPage>;
   };
+  /** discern's separately framed, safely admitted project Map. */
+  publicMap: PublicMapSite;
   /** Canonical HTML route source consumed by the sitemap implementation. */
   sitemapRoutes: string[];
 }
@@ -157,6 +204,13 @@ async function buildDocsSite(): Promise<DocsSite> {
   const tree = await discoverDocs({ cwd: REPO_ROOT, dir: MANUAL_DIR });
   if (!tree) throw new Error("docs: no manual tree found");
 
+  const mapTree = await discoverDocs({
+    cwd: REPO_ROOT,
+    dir: MAP_DIR,
+    includeInternal: true,
+  });
+  if (!mapTree) throw new Error("docs: no configured Map tree found");
+
   const adrTree = await discoverDocs({
     cwd: REPO_ROOT,
     dir: ADR_DIR,
@@ -166,12 +220,16 @@ async function buildDocsSite(): Promise<DocsSite> {
 
   const manual = await buildManualProjection(tree.entries);
   const projection = projectManualPages(manual);
+  const publicMap = projectPublicMapPages(mapTree.entries);
   const landingEntry = manual.landing.entry;
   const landing: DocsLanding = {
+    routeKind: "manual",
     route: "/docs",
     entry: landingEntry,
     sourcePath: landingEntry.relToDocs,
     manualKind: manual.landing.kind,
+    sectionSlug: "",
+    isIndex: false,
   };
   const publicDecisionEntries = publicDocs(adrTree.entries);
   const decisionIndexEntries = publicDecisionEntries.filter((entry) =>
@@ -204,13 +262,20 @@ async function buildDocsSite(): Promise<DocsSite> {
 
   const byRoute = new Map<string, RoutedDocPage>();
   const bySourcePath = new Map<string, RoutedDocPage>();
-  for (const page of [...projection.pages, ...decisionPages]) {
+  for (
+    const page of [
+      ...projection.pages,
+      ...publicMap.pages,
+      ...decisionPages,
+    ]
+  ) {
     if (byRoute.has(page.route)) {
       throw new Error(`docs: duplicate route ${page.route}`);
     }
     byRoute.set(page.route, page);
     bySourcePath.set(page.sourcePath, page);
   }
+  bySourcePath.set(landing.sourcePath, landing);
   for (const page of projection.pages) {
     for (const citation of page.entry.citedAdrs) {
       const decision = byNumber.get(citation.number);
@@ -244,11 +309,13 @@ async function buildDocsSite(): Promise<DocsSite> {
       pages: decisionPages,
       byNumber,
     },
+    publicMap,
     sitemapRoutes: [
       landing.route,
       ...projection.pages.map((page) => page.route),
       DECISIONS_ROUTE,
       ...decisionPages.map((page) => page.route),
+      ...publicMap.sitemapRoutes,
     ],
   };
 }
@@ -303,6 +370,145 @@ export function projectManualPages(
   return { pages, sections };
 }
 
+/** Whether a discovered Map entry belongs to the canonical public exhibit. */
+export function isPublicMapEntry(entry: DocEntry): boolean {
+  if (!isPublicDoc(entry)) return false;
+  const parts = entry.relToDocs.split("/");
+  if (
+    parts.some((part, index) =>
+      index < parts.length - 1 && part.startsWith("_")
+    )
+  ) {
+    return false;
+  }
+  if (entry.relToDocs === "README.md") return true;
+  const section = parts[0] ?? "";
+  return parts.length >= 2 &&
+    MAP_SECTION_REGISTRY.some((registration) => registration.dir === section);
+}
+
+/** Remove the numeric ordering prefix from one registered Map section. */
+function publicMapSectionSlug(dir: string): string {
+  return dir.replace(/^\d+-/, "");
+}
+
+/** Derive one canonical public Map route without a site-owned page list. */
+function publicMapPageRoute(entry: DocEntry): string {
+  if (entry.relToDocs === "README.md") return PUBLIC_MAP_ROUTE;
+  const registration = MAP_SECTION_REGISTRY.find((section) =>
+    section.dir === entry.section
+  );
+  if (registration === undefined) {
+    throw new Error(`map: no registered section for ${entry.relToDocs}`);
+  }
+  const tail = entry.relToDocs.split("/").slice(1);
+  const filename = tail.at(-1) ?? "";
+  if (filename.toLowerCase() === "readme.md") tail.pop();
+  else tail[tail.length - 1] = filename.replace(/\.md$/i, "");
+  return [PUBLIC_MAP_ROUTE, publicMapSectionSlug(registration.dir), ...tail]
+    .filter(Boolean)
+    .join("/");
+}
+
+/**
+ * Project the complete discovered Map through its canonical tier and publish
+ * policy. Discovery is intentionally widened first so protected directories
+ * are observable rejections rather than files the site never checked.
+ */
+export function projectPublicMapPages(
+  entries: readonly DocEntry[],
+): PublicMapSite {
+  const admitted = entries.filter(isPublicMapEntry);
+  const rejected = entries.filter((entry) => !isPublicMapEntry(entry));
+  const landingEntries = admitted.filter((entry) =>
+    entry.relToDocs === "README.md"
+  );
+  const landingEntry = landingEntries[0];
+  if (landingEntry === undefined || landingEntries.length !== 1) {
+    throw new Error(
+      `map: public exhibit must have one root README (found ${landingEntries.length})`,
+    );
+  }
+  const landing: MapPage = {
+    routeKind: "map",
+    route: PUBLIC_MAP_ROUTE,
+    entry: landingEntry,
+    sourcePath: landingEntry.relToDocs,
+    sectionSlug: "",
+    isIndex: false,
+    audience: "project",
+  };
+  const pages = admitted.flatMap((entry): MapPage[] => {
+    if (entry === landingEntry) return [];
+    const registration = MAP_SECTION_REGISTRY.find((section) =>
+      section.dir === entry.section
+    );
+    if (registration === undefined) return [];
+    return [{
+      routeKind: "map",
+      route: publicMapPageRoute(entry),
+      entry,
+      sourcePath: entry.relToDocs,
+      sectionSlug: publicMapSectionSlug(registration.dir),
+      isIndex: entry.slug.toLowerCase() === "readme",
+      audience: registration.audience,
+    }];
+  });
+  const sections: PublicMapSection[] = MAP_SECTION_REGISTRY.map(
+    (registration) => {
+      const sectionPages = pages.filter((page) =>
+        page.entry.section === registration.dir
+      );
+      const indexes = sectionPages.filter((page) => page.isIndex);
+      const index = indexes[0];
+      if (index === undefined || indexes.length !== 1) {
+        throw new Error(
+          `map: ${registration.dir} must have one public README (found ${indexes.length})`,
+        );
+      }
+      return {
+        dir: registration.dir,
+        slug: publicMapSectionSlug(registration.dir),
+        title: index.entry.title,
+        description: index.entry.description,
+        audience: registration.audience,
+        index,
+        pages: sectionPages,
+      };
+    },
+  );
+  const byRoute = new Map<string, MapPage>();
+  const bySourcePath = new Map<string, MapPage>([[
+    landing.sourcePath,
+    landing,
+  ]]);
+  for (const page of pages) {
+    if (byRoute.has(page.route)) {
+      throw new Error(`map: duplicate public route ${page.route}`);
+    }
+    byRoute.set(page.route, page);
+    bySourcePath.set(page.sourcePath, page);
+  }
+  const reachable = sections.flatMap((section) => section.pages);
+  if (
+    reachable.length !== pages.length ||
+    reachable.some((page, index) => page !== pages[index])
+  ) {
+    throw new Error(
+      "map: public page is not reachable from registered navigation",
+    );
+  }
+  return {
+    landing,
+    pages,
+    byRoute,
+    bySourcePath,
+    sections,
+    rejected,
+    sitemapRoutes: [landing.route, ...pages.map((page) => page.route)],
+  };
+}
+
 // ── Markdown rendering ─────────────────────────────────────────────────────
 
 /** One rendered heading, for the on-page contents rail. */
@@ -341,12 +547,15 @@ function normalizeRel(path: string): string | null {
  */
 function stripAuthoredLeafIndexes(
   md: string,
-  page: DocsPage,
+  page: NavigablePage,
   site: DocsSite,
 ): string {
   if (!page.isIndex) return md;
+  const sections = page.routeKind === "map"
+    ? site.publicMap.sections
+    : site.sections;
   const siblings = new Set(
-    site.sections.find((section) => section.index.route === page.route)?.pages
+    sections.find((section) => section.index.route === page.route)?.pages
       .filter((candidate) => !candidate.isIndex)
       .map((candidate) => candidate.sourcePath) ?? [],
   );
@@ -449,7 +658,11 @@ function rewriteDest(
         `${sourceRel}/README.md`.replace(/^\//, ""),
       ]
     ) {
-      const target = site.bySourcePath.get(candidate);
+      const target = page.routeKind === "manual"
+        ? site.bySourcePath.get(candidate)
+        : candidate.startsWith("_adr/")
+        ? site.bySourcePath.get(candidate)
+        : site.publicMap.bySourcePath.get(candidate);
       if (target) return target.route + frag;
     }
   }
@@ -650,12 +863,15 @@ export async function renderDoc(
   const raw = await Deno.readTextFile(page.entry.absPath);
   const { body } = parseFrontmatter(raw);
   const humanBody = stripAdrCitations(body);
-  const projectedBody = page.routeKind === "manual"
+  const projectedBody = page.routeKind !== "decision"
     ? stripAuthoredLeafIndexes(humanBody, page, site)
     : humanBody;
+  const renderProseText = page.routeKind === "manual"
+    ? createGlossaryProseRenderer(site)
+    : undefined;
   const { html, headings } = renderWorkflowMarkdown(
     rewriteLinks(projectedBody, page, site),
-    { renderProseText: createGlossaryProseRenderer(site) },
+    { ...(renderProseText === undefined ? {} : { renderProseText }) },
     page.sourcePath,
   );
   const toc: TocItem[] = headings
@@ -682,15 +898,34 @@ function sectionIndexOf(dir: string): string {
   return /^(\d+)-/.exec(dir)?.[1] ?? "§";
 }
 
-/** Render section navigation and mark the current guide for assistive technology. */
-function navHtml(site: DocsSite, current: DocsPage | null): string {
-  const sections = site.sections.map((section) => {
-    const leaves = section.pages.map((page) => {
+type DocumentCorpus = "manual" | "map";
+
+/** Human label for a page's editorial purpose or Map audience. */
+function pageKindLabel(page: NavigablePage): string {
+  const value = page.routeKind === "manual" ? page.manualKind : page.audience;
+  return value.replace(/^./, (character) => character.toUpperCase());
+}
+
+/** Render rooted corpus navigation and mark the current page for assistive technology. */
+function navHtml(
+  site: DocsSite,
+  corpus: DocumentCorpus,
+  current: NavigablePage | null,
+  compact: boolean,
+): string {
+  const source = corpus === "map" ? site.publicMap.sections : site.sections;
+  const sections = source.map((section) => {
+    const pages = compact ? [section.index] : section.pages;
+    const leaves = pages.map((page) => {
       const here = page.route === current?.route;
       return `<li data-nav-page><a href="${page.route}"${
         here ? ' aria-current="page"' : ""
-      }><span>${
+      } aria-label="${
+        esc(`${pageKindLabel(page)}: ${page.entry.title}`)
+      }"><span class="docs-nav-page-title">${
         page.isIndex ? "Overview" : esc(page.entry.title)
+      }</span><span class="docs-nav-kind" aria-hidden="true">${
+        esc(pageKindLabel(page))
       }</span></a></li>`;
     }).join("");
     // Emitted flat: this fragment repeats on every docs page, so template
@@ -722,21 +957,23 @@ function tocHtml(toc: TocItem[]): string {
 }
 
 /** Link the previous and next guides in global reading order. */
-function pagerHtml(site: DocsSite, page: DocsPage): string {
-  const i = site.pages.findIndex((p) => p.route === page.route);
-  const prev = i > 0 ? site.pages[i - 1] : undefined;
-  const next = i >= 0 && i < site.pages.length - 1
-    ? site.pages[i + 1]
-    : undefined;
+function pagerHtml(site: DocsSite, page: NavigablePage): string {
+  const pages = page.routeKind === "map" ? site.publicMap.pages : site.pages;
+  const i = pages.findIndex((candidate) => candidate.route === page.route);
+  const prev = i > 0 ? pages[i - 1] : undefined;
+  const next = i >= 0 && i < pages.length - 1 ? pages[i + 1] : undefined;
   if (!prev && !next) return "";
-  const cell = (p: DocsPage | undefined, rel: "prev" | "next"): string =>
+  const cell = (
+    p: NavigablePage | undefined,
+    rel: "prev" | "next",
+  ): string =>
     p
       ? `<a class="discern-pager__link discern-pager__link--${
         rel === "prev" ? "previous" : "next"
       }" rel="${rel}" href="${p.route}">
           <span class="discern-pager__direction">${
         rel === "prev" ? "Previous" : "Next"
-      }</span><span class="discern-pager__title">${
+      } · ${esc(pageKindLabel(p))}</span><span class="discern-pager__title">${
         esc(p.entry.title)
       }</span></a>`
       : `<span class="docs-pager-empty" aria-hidden="true"></span>`;
@@ -747,10 +984,18 @@ function pagerHtml(site: DocsSite, page: DocsPage): string {
 
 type BreadcrumbTarget = RoutedDocPage | "decisions" | null;
 
-/** The breadcrumb trail — the docs' titled ancestry, matching the nav. */
-function crumbsHtml(site: DocsSite, target: BreadcrumbTarget): string {
+/** The breadcrumb trail — the active corpus's titled ancestry. */
+function crumbsHtml(
+  site: DocsSite,
+  corpus: DocumentCorpus,
+  target: BreadcrumbTarget,
+): string {
+  const sections = corpus === "map" ? site.publicMap.sections : site.sections;
+  const root = corpus === "map"
+    ? { label: "Live Map", href: PUBLIC_MAP_ROUTE }
+    : { label: "Docs", href: "/docs" };
   const sectionTitle = (slug: string): string =>
-    site.sections.find((section) => section.slug === slug)?.title ?? slug;
+    sections.find((section) => section.slug === slug)?.title ?? slug;
   const ancestors: readonly { label: string; href: string }[] =
     target === "decisions"
       ? [{ label: "Docs", href: "/docs" }]
@@ -762,18 +1007,18 @@ function crumbsHtml(site: DocsSite, target: BreadcrumbTarget): string {
         { label: "Decisions", href: DECISIONS_ROUTE },
       ]
       : target.isIndex
-      ? [{ label: "Docs", href: "/docs" }]
+      ? [root]
       : [
-        { label: "Docs", href: "/docs" },
+        root,
         {
           label: sectionTitle(target.sectionSlug),
-          href: `/docs/${target.sectionSlug}`,
+          href: `${root.href}/${target.sectionSlug}`,
         },
       ];
   const current = target === "decisions"
     ? "Decisions"
     : target === null
-    ? "Docs"
+    ? root.label
     : target.routeKind === "decision"
     ? target.entry.title
     : target.isIndex
@@ -805,7 +1050,11 @@ interface ShellFrame {
   htmlTitle: string;
   description: string;
   /** The page the nav and breadcrumbs highlight; null on the index. */
-  current: DocsPage | null;
+  current: NavigablePage | null;
+  /** The isolated document corpus that owns navigation and search. */
+  corpus: DocumentCorpus;
+  /** Keep the manual cover's default wayfinding deliberately small. */
+  compactNavigation?: boolean;
   /** The page family represented in the breadcrumb trail. */
   breadcrumb: BreadcrumbTarget;
   /** Everything inside `<main>`, breadcrumbs excluded. */
@@ -820,6 +1069,19 @@ interface ShellFrame {
  * palette) around one `<main>`. Pages differ only in what they put inside it.
  */
 function shellFrame(site: DocsSite, frame: ShellFrame): string {
+  const map = frame.corpus === "map";
+  const rootRoute = map ? PUBLIC_MAP_ROUTE : "/docs";
+  const contextLabel = map ? "/map" : "/docs";
+  const corpusLabel = map ? "Live Map" : "Manual";
+  const searchLabel = map ? "the live Map" : "the manual";
+  const searchEndpoint = `${rootRoute}/index.json`;
+  const navFoot = map
+    ? `<a href="/docs">Product manual</a>
+      <a href="${DECISIONS_ROUTE}">Project decisions</a>
+      <a href="${GITHUB}/tree/main/${MAP_REPO_REL}">Repository Map&nbsp;↗</a>`
+    : `<a href="/docs/reference/glossary">Glossary</a>
+      <a href="/docs/reference/cli-reference">Commands</a>
+      <a href="/docs/reference/config-reference">Configuration</a>`;
   return `<!doctype html>
 <html lang="en" data-discern-root data-discern-theme="light">
 <head>
@@ -839,7 +1101,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <script defer src="${designSystemAssetPath("docs", "discern.js")}"></script>
 <script type="module" src="/assets/docs.js"></script>
 </head>
-<body>
+<body data-document-corpus="${frame.corpus}">
 <a class="discern-skip-link docs-skip" href="#doc">Skip to content</a>
 <header class="discern-docs-header docs-top">
   <div class="discern-docs-header__inner docs-top-inner">
@@ -851,13 +1113,13 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
       </button>
       <span class="docs-brand-lockup"><a class="docs-brand" href="/">
         ${discernBrandHtml()}</a><a
-        class="docs-brand-docs discern-mono" href="/docs">/docs</a></span>
+        class="docs-brand-docs discern-mono" href="${rootRoute}">${contextLabel}</a></span>
     </div>
     <div class="discern-docs-header__middle">
       <button class="docs-search-btn" type="button" data-search-open
-        aria-label="Search documentation">
+        aria-label="Search ${searchLabel}">
         <span class="discern-icon docs-search-icon">${ICONS.search}</span>
-        <span class="docs-search-btn-word">Search the manual</span>
+        <span class="docs-search-btn-word">Search ${searchLabel}</span>
         <kbd class="discern-kbd">⌘K</kbd>
       </button>
     </div>
@@ -875,30 +1137,29 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <div class="docs-shell">
   <div class="docs-veil" data-drawer-close hidden></div>
   <aside class="docs-nav" id="docs-nav">
-    <nav class="discern-docs-nav docs-nav-scroll" aria-label="Documentation">
-${navHtml(site, frame.current)}
+    <nav class="discern-docs-nav docs-nav-scroll" aria-label="${corpusLabel}">
+${navHtml(site, frame.corpus, frame.current, frame.compactNavigation === true)}
     </nav>
     <div class="docs-nav-foot discern-mono">
-      <a href="/docs/reference/glossary">Glossary</a>
-      <a href="/docs/reference/cli-reference">Commands</a>
-      <a href="/docs/reference/config-reference">Configuration</a>
+      ${navFoot}
     </div>
   </aside>
   <main id="doc" class="docs-main">
-    ${crumbsHtml(site, frame.breadcrumb)}
+    ${crumbsHtml(site, frame.corpus, frame.breadcrumb)}
     ${frame.mainHtml}
   </main>
   <div class="docs-rail">${frame.tocHtml}</div>
 </div>
+<div class="docs-search-backdrop" data-search-backdrop hidden></div>
 <dialog class="discern-search-palette docs-search" data-search
-  aria-label="Search documentation">
+  data-search-endpoint="${searchEndpoint}" aria-label="Search ${searchLabel}">
   <div class="discern-search-palette__field">
     <span class="discern-search-palette__icon" aria-hidden="true">
       <span class="discern-icon docs-search-icon">${ICONS.search}</span>
     </span>
     <input class="discern-search-palette__input" type="search"
-      placeholder="Search the manual…" data-search-input role="combobox"
-      aria-label="Search documentation" aria-autocomplete="list"
+      placeholder="Search ${searchLabel}…" data-search-input role="combobox"
+      aria-label="Search ${searchLabel}" aria-autocomplete="list"
       aria-expanded="false" aria-controls="docs-search-results"
       autocomplete="off" spellcheck="false" />
     <button class="discern-icon-button docs-search-close" type="button"
@@ -908,6 +1169,7 @@ ${navHtml(site, frame.current)}
     <ul class="discern-search-palette__list docs-search-results"
       id="docs-search-results" role="listbox"
       aria-label="Search results" data-search-results></ul>
+    <button class="docs-search-all" type="button" data-search-all hidden></button>
     <p class="discern-search-palette__empty" data-search-empty hidden></p>
   </div>
   <div class="docs-visually-hidden" role="status" aria-live="polite"
@@ -926,37 +1188,49 @@ ${navHtml(site, frame.current)}
 /** The colophon under every page: the plain-text edition, source, and history. */
 function colophonHtml(
   page: RoutedDocPage | null,
-  index: "docs" | "decisions" = "docs",
+  index: "docs" | "decisions" | "map" = "docs",
 ): string {
   const route = page?.route ??
-    (index === "decisions" ? DECISIONS_ROUTE : "/docs");
-  const docsPage = page?.routeKind === "manual"
-    ? esc(page.entry.slug)
-    : "&lt;page&gt;";
+    (index === "decisions"
+      ? DECISIONS_ROUTE
+      : index === "map"
+      ? PUBLIC_MAP_ROUTE
+      : "/docs");
+  const target = page === null ? "&lt;page&gt;" : esc(page.entry.slug);
+  const reader = page?.routeKind === "map" || index === "map" ? "map" : "docs";
   const pageSourceRoot = page?.routeKind === "manual"
     ? MANUAL_REPO_REL
     : MAP_REPO_REL;
   const source = page === null
     ? index === "decisions"
       ? `${GITHUB}/tree/main/${MAP_REPO_REL}/_adr`
+      : index === "map"
+      ? `${GITHUB}/tree/main/${MAP_REPO_REL}`
       : `${GITHUB}/tree/main/${MANUAL_REPO_REL}`
     : `${GITHUB}/blob/main/${pageSourceRoot}/${esc(page.sourcePath)}`;
+  const related = reader === "map"
+    ? `<a href="/docs">Product manual</a>
+        <a href="${DECISIONS_ROUTE}">Project decisions</a>`
+    : `<a href="/llms.txt">llms.txt</a>
+        <a href="${DECISIONS_ROUTE}">Project decisions</a>`;
   return `<footer class="docs-colophon">
       <span>Plain text for agents:
         <a class="discern-mono" href="${route}.md">curl&nbsp;discern.sh${route}.md</a>
-        or <code>discern docs ${docsPage} --raw</code></span>
+        or <code>discern ${reader} ${target} --raw</code></span>
       <span class="docs-colophon-links">
-        <a href="/llms.txt">llms.txt</a>
-        <a href="${DECISIONS_ROUTE}">Project decisions</a>
+        ${related}
         <a href="${source}">View source&nbsp;↗</a>
       </span>
     </footer>`;
 }
 
 /** The section landing's canonical leaf list, derived from DocEntry metadata. */
-function sectionLeafIndexHtml(site: DocsSite, page: DocsPage): string {
+function sectionLeafIndexHtml(site: DocsSite, page: NavigablePage): string {
   if (!page.isIndex) return "";
-  const section = site.sections.find((candidate) =>
+  const sections = page.routeKind === "map"
+    ? site.publicMap.sections
+    : site.sections;
+  const section = sections.find((candidate) =>
     candidate.index.route === page.route
   );
   if (section === undefined) {
@@ -1019,8 +1293,10 @@ export function docsShell(
     htmlTitle: `${page.entry.title} · discern.sh docs`,
     description: page.entry.description,
     current: page,
+    corpus: "manual",
     breadcrumb: page,
-    mainHtml: `<article class="doc-body">
+    mainHtml: `<p class="docs-page-kind">${esc(pageKindLabel(page))}</p>
+    <article class="doc-body">
 ${rendered.html}
 ${sectionLeafIndexHtml(site, page)}
     </article>
@@ -1031,13 +1307,11 @@ ${sectionLeafIndexHtml(site, page)}
   });
 }
 
-/** The /docs landing page: the manual's cover and table of contents. */
-export function docsIndexShell(site: DocsSite): string {
-  const frontDoors = site.frontDoors.map((page) =>
-    `<li><a href="${page.route}">${esc(page.entry.title)}</a>` +
-    `<span class="docs-leaf-desc">${esc(page.entry.description)}</span></li>`
-  ).join("");
-  const chapters = site.sections.map((section) => {
+/** Derive one complete browse tree from the active corpus's published model. */
+function completeBrowseHtml(
+  sections: readonly (DocsSection | PublicMapSection)[],
+): string {
+  return sections.map((section) => {
     const leaves = section.pages.filter((p) => !p.isIndex).map((p) =>
       `<li><a href="${p.route}">${esc(p.entry.title)}</a>
         <span class="docs-leaf-desc">${esc(p.entry.description)}</span></li>`
@@ -1053,38 +1327,127 @@ export function docsIndexShell(site: DocsSite): string {
       </div>
     </section>`;
   }).join("\n");
+}
 
-  const cover = `<header class="docs-cover">
-    <span class="discern-kicker"><span class="discern-kicker__index">v${
-    esc(KIT_VERSION)
-  }</span>The Discern Manual</span>
-    <h1>Read what your <em class="discern-heading__accent">agents</em> read.</h1>
-    <p class="docs-cover-lead">The same documentation <code>discern docs</code>
-    serves in a terminal, kept current by the agents that work on discern.
-    Text readers are first-class: <code>curl</code> any page — or append
-    <code>.md</code> — for the pristine Markdown.</p>
-  </header>
-  <section class="docs-chapter docs-front-doors" aria-labelledby="start-here">
-    <div class="docs-chapter-body">
-      <h2 id="start-here">Start here</h2>
-      <ul class="docs-chapter-leaves">${frontDoors}</ul>
-    </div>
+/** The /docs landing renders the authored manual root plus derived full browse. */
+export function docsIndexShell(
+  site: DocsSite,
+  rendered: RenderedDoc,
+): string {
+  const pageCount = 1 + site.pages.length;
+  const main = `<article class="doc-body docs-manual-index">
+${rendered.html}
+  </article>
+  <section class="docs-complete-browse" aria-label="Complete manual">
+    <details>
+      <summary>Browse all ${pageCount} published pages</summary>
+      <div class="docs-chapters">
+        ${completeBrowseHtml(site.sections)}
+      </div>
+    </details>
   </section>
-  <div class="docs-chapters">
-  <div class="discern-divider discern-divider--canvas discern-divider--plain"
-    role="separator"></div>
-  ${chapters}
-  </div>
   ${colophonHtml(null)}`;
 
   return shellFrame(site, {
-    htmlTitle: "Documentation · discern.sh docs",
-    description:
-      "The discern manual — the same documentation `discern docs` serves.",
+    htmlTitle: `${site.landing.entry.title} · discern.sh docs`,
+    description: site.landing.entry.description,
     current: null,
+    corpus: "manual",
+    compactNavigation: true,
     breadcrumb: null,
-    mainHtml: cover,
-    tocHtml: "",
+    mainHtml: main,
+    tocHtml: tocHtml(rendered.toc),
+  });
+}
+
+/** Frame the Map as inspectable internal-use evidence, not product documentation. */
+function mapExhibitLabelHtml(): string {
+  return `<aside class="docs-history-label docs-map-label">
+    <span class="discern-kicker">Live project exhibit</span>
+    <p>This is the account discern's coding agents maintain of discern for
+    project work and human audit. discern is developed under its own practice,
+    so the Map is working evidence from internal use—not independent validation
+    or product documentation. <a href="/docs">Use the manual to learn and work
+    with discern.</a></p>
+  </aside>`;
+}
+
+/** One safely admitted Map page through the shared document shell. */
+export function mapShell(
+  site: DocsSite,
+  page: MapPage,
+  rendered: RenderedDoc,
+): string {
+  return shellFrame(site, {
+    htmlTitle: mapPageHtmlTitle(site, page),
+    description: page.entry.description,
+    current: page,
+    corpus: "map",
+    breadcrumb: page,
+    mainHtml: `${mapExhibitLabelHtml()}
+    <p class="docs-page-kind">${esc(pageKindLabel(page))}</p>
+    <article class="doc-body docs-map-body">
+${rendered.html}
+${sectionLeafIndexHtml(site, page)}
+    </article>
+    ${pagerHtml(site, page)}
+    ${colophonHtml(page)}`,
+    tocHtml: tocHtml(rendered.toc),
+  });
+}
+
+/**
+ * Derive unique Map metadata titles without changing authored page headings.
+ * Repeated titles are qualified by their registered section; a same-section
+ * collision falls back to the stable public route.
+ */
+export function mapPageHtmlTitle(site: DocsSite, page: MapPage): string {
+  const peers = site.publicMap.pages.filter((candidate) =>
+    candidate.entry.title === page.entry.title
+  );
+  if (peers.length === 1) {
+    return `${page.entry.title} · discern.sh Map`;
+  }
+  const sameSection = peers.filter((candidate) =>
+    candidate.entry.section === page.entry.section
+  );
+  const section = site.publicMap.sections.find((candidate) =>
+    candidate.dir === page.entry.section
+  );
+  const qualifier = sameSection.length === 1 && section !== undefined
+    ? section.title
+    : page.route.slice(`${PUBLIC_MAP_ROUTE}/`.length).replaceAll("/", " › ");
+  return `${page.entry.title} — ${qualifier} · discern.sh Map`;
+}
+
+/** The rooted public Map exhibit, sourced from the configured Map README. */
+export function mapIndexShell(
+  site: DocsSite,
+  rendered: RenderedDoc,
+): string {
+  const map = site.publicMap;
+  const pageCount = 1 + map.pages.length;
+  const main = `${mapExhibitLabelHtml()}
+  <article class="doc-body docs-map-body docs-map-index">
+${rendered.html}
+  </article>
+  <section class="docs-complete-browse" aria-label="Complete public Map">
+    <details>
+      <summary>Browse all ${pageCount} admitted Map pages</summary>
+      <div class="docs-chapters">
+        ${completeBrowseHtml(map.sections)}
+      </div>
+    </details>
+  </section>
+  ${colophonHtml(null, "map")}`;
+  return shellFrame(site, {
+    htmlTitle: `${map.landing.entry.title} · discern.sh Map`,
+    description: map.landing.entry.description,
+    current: null,
+    corpus: "map",
+    breadcrumb: null,
+    mainHtml: main,
+    tocHtml: tocHtml(rendered.toc),
   });
 }
 
@@ -1135,6 +1498,7 @@ export function decisionsIndexShell(site: DocsSite): string {
     description:
       "Project-history records explaining the decisions behind discern.",
     current: null,
+    corpus: "manual",
     breadcrumb: "decisions",
     mainHtml: main,
     tocHtml: "",
@@ -1151,6 +1515,7 @@ export function decisionShell(
     htmlTitle: `${page.entry.title} · discern.sh docs`,
     description: page.entry.description,
     current: null,
+    corpus: "manual",
     breadcrumb: page,
     mainHtml: `${historyLabelHtml(page.superseded)}
     <article class="doc-body docs-decision-record">
@@ -1198,27 +1563,35 @@ export function docsLlmsSection(site: DocsSite): string {
 
 // ── The request handler ────────────────────────────────────────────────────
 
-let searchIndexCache: string | undefined;
+const searchIndexCache = new Map<DocumentCorpus, string>();
 
-/** Build and cache the browser search corpus for the public manual. */
-async function searchIndexJson(site: DocsSite): Promise<string> {
-  if (searchIndexCache !== undefined) return searchIndexCache;
+/** Build and cache one isolated browser search corpus. */
+async function searchIndexJson(
+  site: DocsSite,
+  corpus: DocumentCorpus,
+): Promise<string> {
+  const cached = searchIndexCache.get(corpus);
+  if (cached !== undefined) return cached;
+  const root = corpus === "map" ? site.publicMap.landing : site.landing;
+  const pages = corpus === "map" ? site.publicMap.pages : site.pages;
+  const sections = corpus === "map" ? site.publicMap.sections : site.sections;
   const index = await buildSearchIndex([
     {
-      route: site.landing.route,
-      section: "Manual",
-      entry: site.landing.entry,
+      route: root.route,
+      section: corpus === "map" ? "Live Map" : "Manual",
+      entry: root.entry,
     },
-    ...site.pages.map((page) => ({
+    ...pages.map((page) => ({
       route: page.route,
-      section: site.sections.find((section) =>
+      section: sections.find((section) =>
         section.slug === page.sectionSlug
       )?.title ?? "",
       entry: page.entry,
     })),
   ]);
-  searchIndexCache = JSON.stringify(index);
-  return searchIndexCache;
+  const serialized = JSON.stringify(index);
+  searchIndexCache.set(corpus, serialized);
+  return serialized;
 }
 
 /** Serve a cacheable successful body with its media type and optional negotiation variance. */
@@ -1232,34 +1605,39 @@ function respond(body: string, contentType: string, vary = false): Response {
 }
 
 /** Serve equivalent 404 help as plain text or minimal HTML according to reader negotiation. */
-function docsNotFound(asText: boolean): Response {
+function docsNotFound(asText: boolean, corpus: DocumentCorpus): Response {
+  const root = corpus === "map" ? PUBLIC_MAP_ROUTE : "/docs";
+  const noun = corpus === "map" ? "Map page" : "manual page";
   if (asText) {
     return new Response(
-      "404 — no such doc. The index lives at /docs (raw Markdown for text clients).\n",
+      `404 — no such ${noun}. The index lives at ${root} (raw Markdown for text clients).\n`,
       { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } },
     );
   }
   return new Response(
     `<!doctype html><meta charset="utf-8"><title>404 · discern docs</title>` +
       `<body style="font-family:ui-monospace,monospace;padding:4rem 1.5rem;color:#1A1814;background:#FBFAF7">` +
-      `<p style="max-width:34rem;line-height:1.7">404 — no such doc.<br>` +
-      `The index: <a href="/docs">discern.sh/docs</a></p>`,
+      `<p style="max-width:34rem;line-height:1.7">404 — no such ${noun}.<br>` +
+      `The index: <a href="${root}">discern.sh${root}</a></p>`,
     { status: 404, headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }
 
 /**
- * Serve one /docs request. `asText` is the caller's reader-negotiation
+ * Serve one manual, decision, or public-Map request. `asText` is the caller's reader-negotiation
  * verdict; the `.md` suffix forces Markdown for any reader.
  */
-export async function serveDocs(
+export async function serveDocuments(
   path: string,
   asText: boolean,
 ): Promise<Response> {
   const site = await loadDocsSite();
 
   if (path === "/docs/index.json") {
-    return respond(await searchIndexJson(site), "application/json");
+    return respond(await searchIndexJson(site, "manual"), "application/json");
+  }
+  if (path === `${PUBLIC_MAP_ROUTE}/index.json`) {
+    return respond(await searchIndexJson(site, "map"), "application/json");
   }
 
   const wantsMd = path.endsWith(".md");
@@ -1273,7 +1651,28 @@ export async function serveDocs(
         !wantsMd,
       );
     }
-    return respond(docsIndexShell(site), "text/html; charset=utf-8", true);
+    const rendered = await renderDoc(site.landing, site);
+    return respond(
+      docsIndexShell(site, rendered),
+      "text/html; charset=utf-8",
+      true,
+    );
+  }
+
+  if (routePath === PUBLIC_MAP_ROUTE) {
+    if (wantsMd || asText) {
+      return respond(
+        await Deno.readTextFile(site.publicMap.landing.entry.absPath),
+        "text/markdown; charset=utf-8",
+        !wantsMd,
+      );
+    }
+    const rendered = await renderDoc(site.publicMap.landing, site);
+    return respond(
+      mapIndexShell(site, rendered),
+      "text/html; charset=utf-8",
+      true,
+    );
   }
 
   if (routePath === site.decisions.route) {
@@ -1292,7 +1691,12 @@ export async function serveDocs(
   }
 
   const page = site.byRoute.get(routePath);
-  if (page === undefined) return docsNotFound(asText);
+  if (page === undefined) {
+    return docsNotFound(
+      asText,
+      routePath.startsWith(PUBLIC_MAP_ROUTE) ? "map" : "manual",
+    );
+  }
 
   if (wantsMd || asText) {
     const raw = await Deno.readTextFile(page.entry.absPath);
@@ -1302,6 +1706,8 @@ export async function serveDocs(
   return respond(
     page.routeKind === "decision"
       ? decisionShell(site, page, rendered)
+      : page.routeKind === "map"
+      ? mapShell(site, page, rendered)
       : docsShell(site, page, rendered),
     "text/html; charset=utf-8",
     true,

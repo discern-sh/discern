@@ -5,6 +5,7 @@ import { join, resolve } from "@std/path";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { renderAgents } from "../site/page-src/agents.tsx";
 import { COPY_PROMPT_TEXT, renderLanding } from "../site/page-src/landing.tsx";
+import { renderTrust } from "../site/page-src/trust.tsx";
 import { proseWordCount } from "../scripts/prose_lib.ts";
 import {
   projectSiteProse,
@@ -16,9 +17,14 @@ import {
 const ROOT = resolve(new URL("..", import.meta.url).pathname);
 
 Deno.test("every marketing page follows its prose policy", () => {
-  assertEquals(MARKETING_PAGES.map(({ route }) => route), ["/", "/agents"]);
+  assertEquals(MARKETING_PAGES.map(({ route }) => route), [
+    "/",
+    "/agents",
+    "/trust",
+  ]);
   assertStringIncludes(renderLanding(), "<!doctype html>");
   assertStringIncludes(renderAgents(), "<!doctype html>");
+  assertStringIncludes(renderTrust(), "<!doctype html>");
   const projected = projectSiteProse();
   assertEquals(
     projected.map(({ route }) => route),

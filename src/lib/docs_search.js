@@ -7,6 +7,7 @@
  *   title: string,
  *   section: string,
  *   description: string,
+ *   kind: "tutorial" | "guide" | "explanation" | "reference" | "troubleshooting" | null,
  *   aliases: string[],
  *   headings: SearchHeading[],
  *   codeTerms: string[],
@@ -28,6 +29,20 @@ export const SEARCH_FIELD_WEIGHT = Object.freeze({
   headings: 50,
   codeTerms: 30,
   body: 10,
+});
+
+/**
+ * Prefer task-shaped teaching and recovery pages when otherwise comparable.
+ * Exact title, alias, heading, and code matches still outweigh this bounded
+ * editorial tie-break, so an exact contract query continues to reach Reference.
+ */
+export const SEARCH_KIND_WEIGHT = Object.freeze({
+  tutorial: 14,
+  guide: 20,
+  explanation: 8,
+  reference: 0,
+  troubleshooting: 24,
+  other: 0,
 });
 
 /**
@@ -151,7 +166,7 @@ export function searchPages(pages, query, limit = 12) {
     results.push({
       page,
       heading: matchingHeading(page, terms, phrase),
-      score,
+      score: score + (SEARCH_KIND_WEIGHT[page.kind ?? "other"] ?? 0),
       snippet: snippetFor(page, terms, phrase),
     });
   }

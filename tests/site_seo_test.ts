@@ -11,7 +11,7 @@ import {
   DISCERN_MARK_OUTLINE_PATH,
   SELF_TITLED_PAGES,
 } from "../site/brand.ts";
-import { loadDocsSite } from "../site/docs.ts";
+import { loadDocsSite, mapPageHtmlTitle } from "../site/docs.ts";
 import {
   handler,
   handlerWithRouting,
@@ -220,7 +220,10 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
     page.route,
     `${page.entry.title} · discern.sh docs`,
   ]));
-  docsTitles.set("/docs", "Documentation · discern.sh docs");
+  docsTitles.set(
+    "/docs",
+    `${site.landing.entry.title} · discern.sh docs`,
+  );
   docsTitles.set(
     site.decisions.route,
     "Project decisions · discern.sh docs",
@@ -228,6 +231,18 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
   for (const page of site.decisions.pages) {
     docsTitles.set(page.route, `${page.entry.title} · discern.sh docs`);
   }
+  const mapTitles = new Map([
+    [
+      site.publicMap.landing.route,
+      `${site.publicMap.landing.entry.title} · discern.sh Map`,
+    ],
+    ...site.publicMap.pages.map((page) =>
+      [
+        page.route,
+        mapPageHtmlTitle(site, page),
+      ] as const
+    ),
+  ]);
   const routes = liveHtmlRoutes(site);
   const seenTitles = new Set<string>();
 
@@ -255,8 +270,11 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
         `${route} carries its own exact title`,
       );
     } else {
+      const suffix = route === "/map" || route.startsWith("/map/")
+        ? " · discern.sh Map"
+        : " · discern.sh docs";
       assert(
-        title.endsWith(" · discern.sh docs"),
+        title.endsWith(suffix),
         `${route} follows the site title template`,
       );
     }
@@ -264,6 +282,8 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
     seenTitles.add(title);
     const expectedDocsTitle = docsTitles.get(route);
     if (expectedDocsTitle !== undefined) assertEquals(title, expectedDocsTitle);
+    const expectedMapTitle = mapTitles.get(route);
+    if (expectedMapTitle !== undefined) assertEquals(title, expectedMapTitle);
     assert(
       description.length >= META_DESCRIPTION_MIN &&
         description.length <= META_DESCRIPTION_MAX,
@@ -286,7 +306,10 @@ Deno.test("every public HTML route has canonical, bounded social metadata and th
     if (route === "/") {
       assertStringIncludes(html, '"@type":"SoftwareApplication"');
     }
-    if (route === "/docs" || route.startsWith("/docs/")) {
+    if (
+      route === "/docs" || route.startsWith("/docs/") || route === "/map" ||
+      route.startsWith("/map/")
+    ) {
       assertStringIncludes(html, '"@type":"BreadcrumbList"', route);
       assert(!html.includes('"name":"Documentation · discern.sh docs"'));
     }

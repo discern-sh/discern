@@ -17,6 +17,7 @@ function page(
     title: route.slice(1),
     section: "Fixture",
     description: "",
+    kind: null,
     aliases: [],
     headings: [],
     codeTerms: [],
