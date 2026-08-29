@@ -1037,10 +1037,6 @@ const ICONS = {
     `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
 } as const;
 
-/** Resolve theme and enhancement layout before the first stylesheet paints. */
-const DOCS_BOOTSTRAP =
-  `${THEME_BOOTSTRAP}document.documentElement.classList.add("docs-js");`;
-
 interface ShellFrame {
   /** Contents of the `<title>` element. */
   htmlTitle: string;
@@ -1088,7 +1084,8 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <meta name="theme-color" content="#F6F5F8" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#22252C" media="(prefers-color-scheme: dark)" />
 <link rel="icon" href="${DISCERN_FAVICON_PATH}" />
-<script>${DOCS_BOOTSTRAP}</script>
+<script>${THEME_BOOTSTRAP}</script>
+<script>document.documentElement.classList.add("docs-js");</script>
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "fonts.css")}" />
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "discern.css")}" />
 <link rel="stylesheet" href="${THEME_STYLESHEET_PATH}" />
