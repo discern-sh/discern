@@ -20,7 +20,7 @@ redirect_from:
 
 Use this guide after `discern done`, `discern prepare`, or a focused test returns a failure. The aim is to turn the result into one bounded investigation, correct the underlying cause, and return to a clean full-Gate run that can produce Proof.
 
-The failed result is the starting evidence. Preserve it until you have used its diagnostic, captured output, and reproduction command.
+When the Gate fails, the failed result is the starting evidence. Preserve it until you have used its diagnostic, captured output, and reproduction command.
 
 ## Starting state
 
@@ -60,11 +60,21 @@ For a product bug, reproduce before changing code and leave a focused regression
 
 ## 3. Re-enter through the shortest safe loop
 
-**Coding agent:** During diagnosis, run the diagnostic's reproduction command or the project's focused test. When that passes, run:
+**Coding agent:** During diagnosis, run the diagnostic's reproduction command or the project's focused test. When that passes, prepare the complete tree.
+
+<!-- discern-workflow:command -->
+
+**Run in:** the assigned worktree root.
 
 ```sh
 discern prepare
 ```
+
+**Expected result:** Fixers, regeneration, refresh, and checks pass; any intended rewrites remain visible for review.
+
+**If this fails:** Treat its first diagnostic as the next bounded failure before committing.
+
+<!-- /discern-workflow -->
 
 `prepare` runs fixers, regeneration, instruction refresh, and checks without the full test stage. Review any files it rewrites. Commit the complete fix only after the tree has converged.
 

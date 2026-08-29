@@ -107,6 +107,30 @@ The Desk groups the fleet by current state and offers valid actions for the sele
 
 Treat the Desk as a decision surface. A tip below status is advisory, and a clean worktree remains occupied. Use `discern status --verbose` when you need the full evidence behind a row.
 
+The selected task determines which actions are available, recommended, disabled, or require confirmation. This guarded projection keeps their labels and command evidence aligned with the live Desk registry:
+
+<!-- BEGIN DESK ACTION REGISTRY -->
+
+| Id             | Group  | Contextual label                                                                | Command evidence                     | Confirmation                                                     |
+| -------------- | ------ | ------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
+| `done`         | Work   | Run final checks                                                                | `discern done`                       | No by default; Run                                               |
+| `accept`       | Review | Run final checks, then land on &lt;trunk&gt; / Review and land on &lt;trunk&gt; | `discern accept`                     | No by default; Land                                              |
+| `update`       | Manage | Update branch from &lt;trunk&gt;                                                | `discern update`                     | No by default; Update                                            |
+| `agent`        | Work   | Continue with an agent                                                          | `<configured-agent>`                 | None                                                             |
+| `follow_up`    | Work   | Start a follow-up from this task                                                | `discern start --from <branch>`      | None                                                             |
+| `scripts`      | Work   | Run a Project Script                                                            | `discern scripts <name>`             | No by default; Run                                               |
+| `jump`         | Work   | Open a shell                                                                    | `<user-shell>`                       | None                                                             |
+| `inspect`      | Review | Review Proof and changes                                                        | `git diff`                           | None                                                             |
+| `rename`       | Manage | Change task title                                                               | `discern worktree rename <title>`    | No by default; Change                                            |
+| `grant`        | Manage | Pre-authorize landing once green                                                | `discern desk`                       | No by default; Allow                                             |
+| `revoke_grant` | Manage | Revoke landing pre-authorization                                                | `discern desk`                       | No by default; Revoke                                            |
+| `reclaim`      | Manage | Reclaim checkout, keep branch (work contained in &lt;later-branch&gt;)          | `discern worktree prune --contained` | No by default; Reclaim                                           |
+| `drop`         | Danger | Drop worktree and branch                                                        | `discern worktree drop <path>`       | No by default; Drop, then type the branch before discarding work |
+
+<!-- END DESK ACTION REGISTRY -->
+
+Grant and revoke remain person-only actions inside `discern desk`. Every lifecycle action rechecks current state after confirmation.
+
 ## 7. Review returned work independently
 
 When a task reports green, **person or reviewing agent:** inspect the branch diff against the trunk, compare every deliverable with the brief, exercise the real outcome, and read its current Proof. Check for scope drift, a weakened test or policy, a hand-edited generated file, an uncured defect class, and decisions made without the required owner input.
