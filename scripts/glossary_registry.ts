@@ -811,8 +811,10 @@ function sortKey(term: string): string {
 }
 
 /** The registry alphabetized, the order the page renders in. */
-export function sortedGlossary(): GlossaryEntry[] {
-  return [...GLOSSARY].sort((a, b) =>
+export function sortedGlossary(
+  glossary: readonly GlossaryEntry[] = GLOSSARY,
+): GlossaryEntry[] {
+  return [...glossary].sort((a, b) =>
     sortKey(a.term) < sortKey(b.term) ? -1 : 1
   );
 }
@@ -823,8 +825,11 @@ export function sortedGlossary(): GlossaryEntry[] {
  * `discern map <term>` reaches the page without a hand-maintained synonym list
  * (the same move the CLI reference makes with command paths).
  */
-export function renderGlossaryDoc(): string {
-  const entries = sortedGlossary();
+function renderGlossaryDocument(
+  manual: boolean,
+  glossary: readonly GlossaryEntry[] = GLOSSARY,
+): string {
+  const entries = sortedGlossary(glossary);
   // Retired synonyms are aliases too: a search for a retired phrase should
   // land on the canonical term.
   const aliases = [
@@ -864,11 +869,29 @@ export function renderGlossaryDoc(): string {
     "",
     "# Glossary",
     "",
-    "_Every discern term, defined once and alphabetized. Each entry links the section that covers the mechanism in depth._",
+    manual
+      ? "Look up every canonical discern product term, alphabetized. No project context is required; linked explanations add context but are not prerequisites for the definition."
+      : "_Every discern term, defined once and alphabetized. Each entry links the section that covers the mechanism in depth._",
     "",
-    "These names are canonical — every page uses them identically, no synonyms ([ADR 0169](../_adr/0169-the-launch-glossary-canon.md)). For how they relate, read [concepts](concepts.md).",
+    manual
+      ? "Search aliases include canonical terms and retired synonyms. Definitions retain the canonical spelling used by commands, configuration, results, and the rest of the manual."
+      : "These names are canonical — every page uses them identically, no synonyms ([ADR 0169](../_adr/0169-the-launch-glossary-canon.md)). For how they relate, read [concepts](concepts.md).",
     "",
     sections.join("\n\n"),
     "",
   ].join("\n");
+}
+
+/** Render the established Map projection. */
+export function renderGlossaryDoc(
+  glossary: readonly GlossaryEntry[] = GLOSSARY,
+): string {
+  return renderGlossaryDocument(false, glossary);
+}
+
+/** Render the public-manual projection from the same term registry. */
+export function renderManualGlossaryDoc(
+  glossary: readonly GlossaryEntry[] = GLOSSARY,
+): string {
+  return renderGlossaryDocument(true, glossary);
 }

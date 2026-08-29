@@ -37,7 +37,10 @@ import {
   renderEnvironmentVariableReferenceDoc,
   renderManualEnvironmentVariableReferenceDoc,
 } from "./environment_variable_reference.ts";
-import { renderGlossaryDoc } from "./glossary_registry.ts";
+import {
+  renderGlossaryDoc,
+  renderManualGlossaryDoc,
+} from "./glossary_registry.ts";
 import {
   FEATURE_CANON_AGENT_BENEFITS_PAGE_REL,
   FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL,
@@ -346,7 +349,7 @@ await write(glossary, renderedGlossary);
 await write(
   manualGlossary,
   renderGeneratedManualDocument(
-    renderedGlossary,
+    renderManualGlossaryDoc(),
     "00-orientation/glossary.md",
     "30-reference/glossary.md",
     {
