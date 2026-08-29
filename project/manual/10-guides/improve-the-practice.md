@@ -21,162 +21,89 @@ redirect_from:
 
 # Improve the practice
 
-Inspect local evidence, coupling, and improvement findings, then make one bounded practice change.
+Use this guide when the project has no immediate workflow failure, but you want the next improvement to come from observed evidence rather than a generic checklist. discern can rank a next action across its installed practice, show recurring local patterns, and identify files that often change together. These are advisory surfaces; the person decides what work is worth doing.
 
-## The continuous-improvement coach
+The outcome is one bounded change with a named reason, owner, verification, and destination. A score or finding alone does not alter the Gate.
 
-_`discern improvement` reports the project's objective baseline, keeps judgment work visible, and recommends one next action._
+## Starting state
 
-Run the coach after the current change is under control: the Gate reports whether this tree passed; the coach points to the highest-weighted improvement available next ([ADR 0079](https://discern.sh/docs/decisions/0079-improvement-is-a-coach-not-an-audit)).
+- Run read-only review against the trunk when you want the state shared by future tasks. Use a task worktree when investigating an in-flight change.
+- The Logbook is enabled when you expect `discern patterns` to use recent local activity. Its records stay local and contain metadata, not code or command output.
+- The person can decide whether a recommendation belongs in the current backlog and whether it changes project policy.
 
-### Read the report
+## 1. Ask for the highest-value next action
 
-Every successful run reports:
-
-- **Automated practice health**, a weighted score over facts discern can prove;
-- the count of objective rules that are `partial` or `fail`;
-- the number of qualitative reviews still open;
-- one `next_action` — a fix, a review, or an evidence-backed owner decision;
-- checkpoint `recommendations` backed by recorded evidence;
-- category detail, shown weakest first;
-- project-scope advice from the local logbook under `history.findings`.
-
-A deterministic rule checks a concrete fact, such as whether tests are configured. A qualitative review asks an agent to inspect cited project material. Reviews remain open beside a `100/100` automated score because the binary does not claim judgments it cannot prove ([ADR 0029](https://discern.sh/docs/decisions/0029-best-practices-audit)).
-
-### Presentation authority
-
-The catalogue, evaluation, order, score, reviews, findings, and next action remain facts; the renderer maps them to package Components and adds no judgment. One terminal snapshot per invocation caps the report at 104 columns; safe text escapes untrusted controls.
-
-### Findings from the logbook
-
-The `From the Logbook` group carries recorded conditions that may need an owner decision. Every item retains its detector id, plain-count evidence, ranking strength, and recommended next step. A proposed instructions line, config change, class guard, or Standards stanza remains a proposal for you to decide ([ADR 0160](https://discern.sh/docs/decisions/0160-local-logbook-advisory-readers)).
-
-This group is separate from the static catalogue. It changes no category score, weak-rule count, qualitative review, `ok`, or `--min-score` result. Inline detectors read at most the newest 200 logbook events here; longer analyses stay under `discern patterns`. Findings are strongest-first and disappear when the recent window is quiet, setup is unfinished, or recording is off.
-
-### The checkpoint loop
-
-Configured checkpoints join the improvement audit ([ADR 0301](https://discern.sh/docs/decisions/0301-the-coach-closes-the-checkpoint-loop)): one serving a canonical question verbatim marks that review boundary-guarded; any other renders an audit row under `checkpoints`, identical in id and prose to `discern checkpoints`. Recorded evidence (a frequently-varied checkpoint, a recurring diff-introduced finding class) surfaces under `recommendations` as an owner decision with its counts, and variance prose keeps the declared-unmet conclusion.
-
-### How the next action is chosen
-
-Objective gaps lead. The coach chooses the fix that recovers the most weighted score; catalog order breaks a tie. With the baseline clear, an evidence-backed owner decision leads; otherwise the first applicable qualitative review does. The question, source, excerpt, and teaching travel together through terminal, JSON, Markdown, and MCP presentations.
-
-### Categories
-
-| Category       | What the coach inspects                                                                           |
-| -------------- | ------------------------------------------------------------------------------------------------- |
-| `gate`         | Tests, static analysis, structured diagnostics, formatting, depth, isolation, and feedback speed. |
-| `setup`        | Completed setup and useful failure memory.                                                        |
-| `instructions` | Substantive authored instructions and current compiled files.                                     |
-| `map`          | A navigable Map, decision records, and documentation accuracy.                                    |
-| `worktrees`    | Isolation for shared external resources.                                                          |
-| `standards`    | At least one defended Standard and sensible use of rates.                                         |
-| `checkpoints`  | The placement ladder and configured checkpoints audited project-wide.                             |
-| `skills`       | Repeated workflows captured as executable, verifiable Skills.                                     |
-
-Every category applies to every install; discern has no feature-toggle layer ([ADR 0101](https://discern.sh/docs/decisions/0101-retire-the-features-toggles)).
-
-### Run it
+**Person or coding agent:** Run:
 
 ```sh
-discern improvement
-discern improvement --plain
-discern improvement --category gate
-discern improvement --json
-discern improvement --min-score 70
+discern improvement --markdown
 ```
 
-The default command offers an interactive category detail view on a terminal. `--plain` prints the full static report. `--category` focuses one area. `--min-score` turns the score into an optional failure signal: below the floor returns `ok: false` with `error: "below_min_score"`.
+The result combines deterministic checks with open review questions across the Gate, setup, instructions, Map, worktrees, Standards, Checkpoints, and Skills. Read `data.next_action`, its evidence, and any decision it assigns to the person.
 
-The old `audit` name has no alias. `improve` is accepted as a grammatical variant and normalizes to `improvement`.
+Use a category only when you have already bounded the review:
 
-The result fields and Model Context Protocol wrapper are in [MCP tools & results](../30-reference/mcp-and-results.md).
+```sh
+discern improvement --category standards --markdown
+```
 
-### Where it lives in code
+Do not chase the numeric health score by changing unrelated work. The score summarizes the current audit; the evidence and recommended action explain what would improve the practice.
 
-| Concern                                | Source                                                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Category and rule catalog              | [`rules.ts`](https://github.com/jackwh/discern/blob/main/src/engine/improve/rules.ts)                        |
-| Rule and report vocabulary             | [`types.ts`](https://github.com/jackwh/discern/blob/main/src/engine/improve/types.ts)                        |
-| Scoring, prioritization, and rendering | [`improve.ts`](https://github.com/jackwh/discern/blob/main/src/engine/improve/improve.ts)                    |
-| Scope and tier routing                 | [`routing.ts`](https://github.com/jackwh/discern/blob/main/src/engine/logbook/routing.ts)                    |
-| Responsive and closed-set coverage     | [`engine_improvement_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_improvement_test.ts) |
+## 2. Add local history when it can answer the question
 
-### Current state & gotchas
+**Coding agent:** Run `discern patterns` when the recommendation concerns repeated behavior, Gate fit, funnel flow, or Standard movement.
 
-- The score covers deterministic rules only. Do not report it as a measure of overall project maturity.
-- `--min-score` enforces the automated floor; open qualitative reviews do not change `ok`.
-- Historical findings sit outside the score and never change `--min-score`; a recommendation they back stays advice.
-- The relevant source files contain no unfinished-work markers for coach behavior.
+```sh
+discern patterns --markdown
+```
 
-## Coupling
+Each finding should state observed counts and a next investigation. Below its evidence threshold, the result reports insufficient evidence. Treat that as an unknown, not as proof that the pattern is absent.
 
-_`discern coupling` names files that usually move together, with the history behind each suggestion._
+The person may decline collection by setting `[project].logbook = false`. Existing records remain until an owner confirms their reset or archive; the [Logbook reference](../30-reference/logbook.md) owns those operations.
 
-`discern coupling` reads Git history for files that repeatedly change together, such as a schema and its validator or an implementation and its test. It reports relationships and evidence. The result is an [advisory](../30-reference/glossary.md#advisory). You decide whether each relationship matters ([ADR 0084](https://discern.sh/docs/decisions/0084-co-change-coupling-advisory)).
+## 3. Check related files while a change is open
 
-### Choose a mode
+`discern coupling` reads Git history and never blocks. With no arguments, it reports habitual partners missing from the current change:
 
 ```sh
 discern coupling
-discern coupling src/shared/result.ts
-discern coupling src/shared/result.ts src/shared/result_schemas.ts
 ```
 
-| Invocation | Mode       | What it reports                                                                 |
-| ---------- | ---------- | ------------------------------------------------------------------------------- |
-| No path    | Diff-aware | Partners missing from the branch's committed and uncommitted change set.        |
-| 1 path     | Query      | The file's strongest co-change partners, useful before editing it.              |
-| 2 paths    | Evidence   | The recent commits where both files changed, with each file's own commit count. |
+For one file or a pair:
 
-Diff-aware mode includes commits ahead of trunk and worktree edits. Evidence mode shows subjects and dates before you turn a pattern into a rule.
-
-### Read the evidence
-
-Each partner carries plain counts:
-
-- `from`, the changed or queried source file;
-- `path`, the suggested partner;
-- `cochanges`, the recent commits that touched both;
-- `of`, the recent commits that touched `from`;
-- `confidence`, the share represented by `cochanges`;
-- `lift`, the association relative to the partner's background frequency.
-
-Before the `<2` check, basket-size fence, or counts, coupling removes neutral paths and paths owned by `[generated.<name>]`. It removes paths from a commit, preserving authored pairs beside a declared output. Neutrality comes from scope rules. Generated ownership remains separate and applies to non-neutral paths.
-
-Declared outputs are projections and never candidate siblings. Explicit queries name the owner in `excluded_generated`. Evidence omits counts and commit rows when a generated group owns either argument. The model drops sweeping commits, requires repeated and statistically significant co-change, ranks, and caps results ([ADR 0247](https://discern.sh/docs/decisions/0247-generated-artifacts-regenerate-never-merge)).
-
-### Keep it in the gate
-
-Fresh configs append the diff-aware advisory to green `discern prepare` and `discern done` results:
-
-```toml
-[coupling]
-in_gate = true
+```sh
+discern coupling path/to/file
+discern coupling path/to/file path/to/partner
 ```
 
-Gate hints use a stricter threshold and fewer partners. They run at the end of a successful, set-up result and add only `hints[]`. Set `in_gate = false` to keep the standalone command without the Gate advisory ([ADR 0196](https://discern.sh/docs/decisions/0196-coupling-advice-runs-with-the-gate-by-default)).
+**Coding agent:** Inspect the cited history and decide whether the partner belongs in this change. A historical relationship is evidence to review, not an instruction to edit every related file. Record why a named partner was included or left unchanged when the choice is material to review.
 
-### Decide what to enforce
+## 4. Route the finding to one change type
 
-A repeated relationship asks you to inspect the pair. When the files express an essential invariant, add a forcing function driven by the canonical set so future members enroll automatically. Incidental co-change needs no rule ([ADR 0051](https://discern.sh/docs/decisions/0051-canonical-set-parity)).
+**Person and coding agent:** Choose the smallest project surface that addresses the evidence:
 
-The subsystem is core. It is read-only and self-calibrating. `in_gate` controls whether the Gate pays its cost ([ADR 0101](https://discern.sh/docs/decisions/0101-retire-the-features-toggles)). The full config reference is in [config-reference.md](../30-reference/config-reference.md#coupling).
+| Finding | Appropriate change |
+| --- | --- |
+| A declared check is missing, slow, or misleading | Adjust the owning Gate job or scope and exercise its failure path. |
+| A deterministic number should never regress | Add or tune a Standard through [Set and raise Standards](set-and-raise-standards.md). |
+| A narrow change needs a recurring judgment | Place or tune a Checkpoint through [Place and answer Checkpoints](place-and-answer-checkpoints.md). |
+| Agents repeat a multi-step method poorly | Create or improve a Skill. |
+| Every session needs one standing rule | Update the authored project instructions. |
+| Durable project context is false or missing | Update the owning Map page. |
+| The observation is weak or the cost exceeds the value | Record no project change; keep or gather the stated evidence. |
 
-The result fields and Model Context Protocol arguments are in [MCP tools & results](../30-reference/mcp-and-results.md).
+Policy changes remain the person's decision. An advisory cannot authorize a new blocker, weaken a Standard, or move the trunk.
 
-### Where it lives in code
+## 5. Implement and verify one bounded improvement
 
-| Concern                              | Source                                                                                                                                                                       |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mining, ranking, and all three modes | [`coupling.ts`](https://github.com/jackwh/discern/blob/main/src/engine/coupling/coupling.ts)                                                                                 |
-| Result data schema                   | [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts)                                                                              |
-| Gate and prepare integration         | [`finish.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/finish.ts), [`prepare.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/prepare.ts) |
-| Behavioral coverage                  | [`engine_coupling_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_coupling_test.ts)                                                                       |
+**Coding agent:** Start or continue one owned worktree for the selected action. State the current evidence, expected improvement, and a way to observe it after the change.
 
-### Current state & gotchas
+Exercise the relevant path: a failing and passing detector for a Standard or Gate job, a representative trigger for a Checkpoint, a real request for a Skill, or a fresh session for instructions. Run `discern prepare`, commit, and run the full Gate.
 
-- Each invocation recomputes the model; there is no persisted cache.
-- Neutral-path classification comes from the same scope rules as the gate. A path classified as neutral contributes no edges.
-- If Git history cannot be read, the advisory returns no partners and does not fail the command or Gate.
-- The relevant source files contain no unfinished-work markers for coupling behavior.
+After landing, rerun the original advisory from the trunk. The old finding should be resolved, narrowed, or replaced by a clear next action. A changed score without that behavioral result is insufficient.
+
+## Completion
+
+The review is complete when one finding has traceable evidence and an owner decision. The improvement is complete when one project authority changed, its real path was exercised, the full Gate passed, and the original observation shows the intended result after landing.
+
+Read [Evidence and improvement](../20-understand/evidence-and-improvement.md) for the model and [MCP tools and results](../30-reference/mcp-and-results.md) for structured fields. If the review exposes an operational failure, use [Troubleshooting](../40-troubleshooting/README.md).
