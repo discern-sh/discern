@@ -661,12 +661,14 @@ Deno.test("action plans use package command, procedure, consequence, and warning
       confirmation: "required",
       destructive: "undeclared",
     },
+    ["--target", "review environment"],
     "/tmp/project",
     size,
     terminal(size),
   );
   const scriptText = stripAnsi(script.text).replaceAll(/\s+/gu, " ");
   assertStringIncludes(scriptText, "'/tmp/project scripts/$release'");
+  assertStringIncludes(scriptText, "--target 'review environment'");
   assertStringIncludes(scriptText, "Publish the current checkout");
   assertStringIncludes(scriptText, "Confirmation policy: required");
   assertStringIncludes(scriptText, "Destructive policy: undeclared");
