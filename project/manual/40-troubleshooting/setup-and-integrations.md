@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-setup-and-integrations
 title: "Setup and integrations"
-description: "Recover when setup or provider integration cannot begin, resume, prove, land, activate, or agree on a setup step."
+description: "Recover when installation, setup, or a coding-agent integration can't begin, resume, prove, land, or activate — without replaying effects or starting over."
 order: 20
 publish: true
 kind: troubleshooting
@@ -15,6 +15,12 @@ aliases:
   - "worktree setup recovery"
   - "setup step journal"
   - "ambiguous setup step"
+  - "command not found"
+  - "not_initialized"
+  - "write_access"
+  - "schema_version_too_new"
+  - "partial_refresh"
+  - "unsupported platform"
 redirect_from:
   - "/docs/reference/setup-command-boundaries"
   - "/docs/reference/worktree-setup-step-recovery"
@@ -22,64 +28,80 @@ redirect_from:
 
 # Setup and integrations
 
-Recover when setup or provider integration cannot begin, resume, prove, land, activate, or agree on a setup step.
+You're installing discern, connecting a coding agent, or returning to a setup that stopped partway — and something won't begin, resume, or take effect. Setup is built for this moment: every effect is consent-gated, every phase is resumable, and an interrupted run picks up where it stopped rather than replaying writes. The recovery is almost never to start over, and never to delete what a previous attempt created.
 
-## Setup command boundaries
+If setup completed long ago and the problem is a failing Gate or a worktree, this page isn't the match — start from the [troubleshooting index](README.md) instead.
 
-_Setup keeps consent, provider authority, landing authority, and observed write access separate._
+## `discern: command not found`
 
-### Authority is specific
+The binary isn't on the shell's `PATH`. Open a new shell and run `which discern`; if it prints nothing, add the install directory the installer reported to your shell's `PATH`. One case catches people connecting agents: a coding agent may launch a _non-interactive_ shell that reads different startup files, so a command that works in your terminal can be missing in the agent's. Make sure that shell sees the same `PATH`, or give the agent the absolute path to the binary.
 
-Owner consent authorizes the setup act, provider authorization controls process access, and a landing grant covers trunk advancement. Each effectful command still performs a point-in-time write preflight; success cannot grant or persist provider authority. A denied Logbook write remains advisory.
+## Setup won't start
 
-Before consent, setup recommends the strongest suitable model and records the executing agent's self-declared identifier, or `unreported`. The owner may continue or switch through the provider's model selector; [Setup decisions](../00-start/first-success.md) explains that boundary.
+Each of these stops before any effect, and the message says which you have:
 
-### The effect plan owns required writes
+- **No project found.** discern reports that this directory and its parents have no `discern.toml`, and offers the two exits: run `discern setup` to create one here, or move into the project that has one.
+- **Unsupported platform.** discern runs on macOS and Linux (x86-64 and ARM64); on Windows, run it under WSL2. [Platforms and providers](../30-reference/platforms-and-providers.md) has the exact support matrix.
+- **The project's config is newer than the binary.** A newer discern already upgraded this repository, so an older binary refuses to touch it rather than downgrade the schema. Update the binary first — [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md) covers upgrading — then rerun what you were doing.
+- **A required write was denied.** Effectful setup commands probe the exact paths their plan needs before touching anything. A denial names the path and preserves the phase; grant the current invocation access to that path and rerun. A successful probe confirms access at that moment only — discern doesn't change your system's permissions, and can't.
 
-`discern setup verify` and dry runs perform no probe. After consent and read-only preconditions, each effectful command derives and probes required targets from its execution plan:
+## Setup was interrupted
 
-| Command        | Required surfaces checked before effects                                               |
-| -------------- | -------------------------------------------------------------------------------------- |
-| `setup begin`  | Selected scaffold paths and the Git branch, ref, index, and commit surfaces.           |
-| `setup done`   | Completion config and commit state, the Git common directory, and probe-worktree root. |
-| `setup accept` | Checkout, ref advancement or merge, and setup-branch deletion.                         |
+An interrupted `discern setup begin`, `done`, or `accept` leaves durable phase state behind. Run `discern setup` (or `discern status`) and it reports the phase it reached, the branch it's on, and the bounded next step — resuming never replays completed writes.
 
-A denial returns `write_access` with the path and retry while preserving the phase. Successful probes leave no temporary entry; later effects retain their ordinary recovery.
+A couple of interruption shapes deserve their own recognition:
 
-Setup and upgrade treat generated agent instructions as a required late outcome. Their structured results use `data.instruction_refresh`: `status: "complete"` carries the compiled artifacts, including an empty list when everything was already current; `status: "partial"` carries completed artifacts, non-empty failure evidence, `effects_preserved: true`, and a safe-to-retry `discern refresh` recovery. A partial refresh makes top-level `ok` false and the CLI exit nonzero while preserving every earlier scaffold or migration effect. Callers do not infer completion from an empty list or warning prose ([ADR 0349](https://discern.sh/docs/decisions/0349-top-level-success-follows-completion-policies)).
+- **The result was cut off but the work finished.** If a `setup done` result was truncated — a dropped session, a closed terminal — repeat `discern setup done` on the unchanged commit. It returns the same Proof and completion facts, explicitly marked as replayed, without rerunning effects or the Gate. Never rerun an effectful command merely to re-read output you lost; the replay path exists so you don't have to.
+- **A project-authored worktree setup step is stuck.** Projects can declare their own per-worktree setup commands, and each records `running` before it starts and `completed` after it succeeds. A step still marked `running` means the process stopped between the two — and discern refuses to guess whether the command's external effect happened. Observe that effect yourself (did the database appear? the seed load?), then record your observation:
 
-Project-authored `[worktree.setup].steps` use a separate per-worktree journal. [Recover an interrupted worktree setup step](setup-and-integrations.md) defines its states and owner-confirmed recovery commands.
+  ```sh
+  discern worktree setup --mark-step-complete <id> --confirmed
+  ```
 
-### Prove, land, then verify activation
+  when it completed, or authorize another run when it didn't:
 
-After interruption, `discern setup` or `discern status` resumes without replaying writes. `setup done` proves the committed tree and derives its project-guide, TODO, job, starting-point, rule, principle, and instruction accounts from committed authorities. Off trunk, output stops at Proof and landing.
+  ```sh
+  discern worktree setup --retry-step <id> --confirmed
+  ```
 
-After `setup accept`, each provider gets one fresh-session instruction. Inspect registered tools, then invoke its exact local callable, including a namespaced form such as Codex's `mcp__discern__discern_status`. A missing action routes to local recovery or `discern doctor`, with `discern status --json` as fallback.
+  Both are idempotent, and `--confirmed` records that a person judged the observed state. discern preserves the ambiguity because automatically replaying a command whose outcome it couldn't see is how half-applied effects get doubled.
 
-Acceptance is idempotent where no landing applies. A project without a Git repository and a checkout already on the trunk both return `ok: true` with typed `data.completion.status = "no_op"`; `data.completion.reason` distinguishes the two states. An absent landing payload is not a no-op signal.
+## Setup can't prove or land
 
-For a truncated result, repeat `setup done` on the unchanged clean marker: it returns the same Proof, inventory, and landing facts with `data.completion = "replayed"` and no effects or Gate. Missing or stale Proof validates that commit; dirty state retains existing evidence and refuses ([ADR 0351](https://discern.sh/docs/decisions/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips)).
+`discern setup done` validates the committed setup and produces [Proof](../20-understand/proof.md) — so it inherits the Gate's own preconditions. A dirty tree, or a tree that moved mid-run, means committing the final state and rerunning; the [Gate and Proof page](gate-and-proof.md) covers those classes. Off the trunk, `setup done` stops at Proof: landing setup into the project is the owner's decision, as it is for any other change, and the result names the acceptance step that follows. `discern setup accept` is safe to repeat — where no landing applies (no Git repository, or already on the trunk), it reports a typed no-op rather than failing.
 
-## Recover an interrupted worktree setup step
+## `discern doctor` reports a failed check
 
-_discern preserves uncertainty instead of automatically replaying a command whose outcome it cannot observe._
+`discern doctor` is the read-only install diagnostic. It verifies that `discern.toml` parses and matches the binary, that configured job and script commands resolve, and that selected coding agents have their integration files. In a Git repository it also checks repository health: recovery retention, commit identity, hidden index flags, sparse-checkout shape, worktree-local configuration, generated-file merge protection, and directory ownership.
 
-Each configured `[worktree.setup].steps` command has a stable identity and a `not_started`, `running`, or `completed` state. `discern worktree setup` atomically records `running` before invocation and `completed` after success in the worktree's Git administration area. Re-entry skips completed identities even if a later setup phase never reached the worktree-ready sentinel.
+Doctor distinguishes advice from failure. A warning (low reflog retention, say) doesn't fail the run; a condition that would break real work (an unusable commit identity, Git's dubious-ownership refusal, a job command that doesn't resolve) fails the check and names the exact fix, usually as a runnable command. Apply the fix listed under each failed check, then run `discern doctor` again; a clean second run is the success condition. Findings worth recognizing:
 
-A `running` identity means the process stopped after invocation began but before completion was recorded. Automatic setup refuses before any other setup effect. Observe the command's external state, then choose one recovery.
+- **A generated-file merge is unprotected.** discern protects its generated files with a Git merge driver, and a later or more local Git attribute can override it. Doctor names the affected paths and the owning rule; correct that rule (for a linked worktree, doctor supplies the two `git config` commands that enable worktree-local configuration), verify with the `git check-attr` command in the finding, and rerun doctor.
+- **A check you can't act on.** Doctor's job is diagnosis, not repair — when a finding belongs to your Git hosting, your filesystem, or another tool, fix it there and rerun. For a bug report, capture the structured result with `discern doctor --json`.
 
-If the step completed, preserve that observation without replaying it:
+## An agent's integration files are missing or stale
+
+Setup and upgrade generate each selected provider's integration (instruction files, MCP registration, settings entries), and `discern status` or the Gate reports when those artifacts drift from their sources. The recovery is one command:
 
 ```sh
-discern worktree setup --mark-step-complete <id> --confirmed
+discern refresh
 ```
 
-If it did not complete, or another run is appropriate, authorize a retry:
+Review and commit what it rewrites. The direction is the part that prevents repeats: to change instructions or Skills, edit the authored sources (`[instructions].sources`, `[skills].dir`). Refresh overwrites generated copies by design, so a hand-edit to a generated file is undone at the next refresh. Variants to recognize:
 
-```sh
-discern worktree setup --retry-step <id> --confirmed
-```
+- **Refresh reports a malformed provider settings file.** Something else edited the file into a state discern won't rewrite blindly. Repair the named file, then run `discern refresh` again.
+- **A setup or upgrade finished with a partial instruction refresh.** The result says so explicitly, keeps every completed effect, and marks the retry safe. Run `discern refresh` and confirm the failures cleared. Don't infer completion from the absence of a warning; the result's own status is the fact.
 
-Both choices are idempotent. `--confirmed` records the owner's decision for that observed step. The shell command's outcome remains an observation rather than machine proof. A running state blocks automatic replay until the owner chooses retry ([ADR 0332](https://discern.sh/docs/decisions/0332-worktree-setup-steps-preserve-interruption-ambiguity)).
+## The tools don't appear in the agent's session
 
-Top-level `setup begin`, `setup done`, and `setup accept` retain their plan-derived write checks and resumable phase state; [Setup command boundaries](setup-and-integrations.md) defines that separate contract.
+Integration files on disk prove generation, not activation — a provider reads them when a session starts. After `setup accept` (or an upgrade), start a fresh agent session, then have the agent inspect its registered tools and invoke the exact callable the handoff named — namespaced on hosts that namespace, such as `mcp__discern__discern_status`. If the tools still aren't there:
+
+1. `discern doctor` verifies the integration files and MCP registration exist and parse.
+2. The command line is the full fallback — every MCP tool fronts a CLI verb, so `discern status --json` (or `--markdown`) keeps the agent working while you sort the session out.
+3. If the provider requires you to approve or trust the MCP server, that approval happens in the provider's own interface. discern can't grant it, and no discern output will ever claim to.
+
+[MCP, terminal, and docs](mcp-terminal-and-docs.md) covers tools that were working and then went missing or stale mid-session.
+
+## When to stop
+
+Stop when the next step is consent rather than repair. Setup's effects, its landing, and a worktree step's `running` resolution all wait for a person by design, and no retry substitutes for the confirmation. Stop as well when the blocker lives outside discern (provider trust approval, filesystem ownership, a corporate shell profile) and fix it at its owner. And a failure that names no next step at all is a bug worth reporting: [Crashes and local state](crashes-and-local-state.md) shows what to capture.

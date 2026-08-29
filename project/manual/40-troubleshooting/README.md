@@ -1,7 +1,7 @@
 ---
 id: troubleshooting-index
 title: "Troubleshooting"
-description: "Match an observable symptom to the smallest safe recovery family."
+description: "Match an observable symptom to the smallest safe recovery, starting from the result in front of you."
 order: 0
 publish: true
 kind: troubleshooting
@@ -11,111 +11,58 @@ aliases:
   - "faq"
   - "setup problems"
   - "doctor"
+  - "something went wrong"
+  - "error recovery"
 redirect_from:
   - "/docs/getting-started/faq"
 ---
 
 # Troubleshooting
 
-Match an observable symptom to the smallest safe recovery family.
+Something failed, refused, or doesn't look right. Before you search anywhere (including here), look at the result in front of you. discern designs every failure to carry its own recovery: what went wrong, and the next valid action. Most problems end there. This section is for the rest. It helps you match a symptom to its class, check the cause without making anything worse, and know when the next step is a person's decision rather than another retry.
 
-## In this section
+## Before anything else
 
-- [Setup and integrations](setup-and-integrations.md): Recover when setup or provider integration cannot begin, resume, prove, land, activate, or agree on a setup step.
-- [Gate and proof](gate-and-proof.md): Diagnose Gate preconditions, jobs, generated drift, strands, Standards, Checkpoints, and stale/withheld Proof from observable evidence.
-- [Worktrees and resources](worktrees-and-resources.md): Recover a refused/interrupted lifecycle, contained checkout, reappeared path, cleanup ownership, resource, identity, port, or env issue safely.
-- [MCP terminal and docs](mcp-terminal-and-docs.md): Recover missing/long MCP calls, continuations, document resolution, or degraded terminal/browser/pager delivery.
-- [Crashes and local state](crashes-and-local-state.md): Identify a crash report or temporary/local evidence artifact, preserve useful evidence, and remove it only through its owner.
+These reads are safe in any state and resolve most confusion:
 
-## FAQ and troubleshooting
+### Read the result you already have
 
-_Match the symptom below, apply the first fix, and use the linked guide when the problem belongs to another part of discern._
+A failed result carries a message, a next-step instruction, and diagnostics with the exact command that reproduces each problem. Agents read the same envelope structurally: `--json` for fields, `--markdown` for prose. That's why "give the agent the result" is a complete instruction.
+
+### Ask `discern status` where you are
+
+`discern status` is read-only. It reports the current state and the next valid action, from a mid-setup phase to a worktree's Proof state to fleet-wide conditions that need attention. When a session has lost the thread of where it was, this is the re-entry point. If the same loop keeps recurring across sessions, `discern patterns` reports it once the local evidence supports a finding.
 
 ### Start with `discern doctor`
 
-Run the install diagnostic from anywhere inside the project:
+`discern doctor` diagnoses the installation itself: config parsing, binary compatibility, job commands that resolve, agent integrations, and repository health. Every failed check names its fix. It's the first stop when the problem smells like "discern, here" rather than "this change". Capture `discern doctor --json` when filing a report.
 
-```sh
-discern doctor
-```
+## Find the symptom
 
-It checks that `discern.toml` parses, the schema matches the binary, configured commands resolve, and selected coding agents have their integrations. In a Git repository it also checks recovery retention, identity, signing, hidden index flags, sparse checkout, worktree-local configuration, effective generated-merge protection, and ownership. Repository-wide checks read every registered worktree; path attributes use the checkout being diagnosed.
+| What you're seeing                                                  | Where to go                                                                 |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Setup or an agent connection won't begin, resume, or take effect.   | [Setup and integrations](setup-and-integrations.md).                        |
+| A configured check failed: build, lint, tests, a scope's gate.      | [Fix a red Gate](../10-guides/fix-a-red-gate.md), the working procedure.    |
+| The Gate refused, rewrote files, or withheld Proof.                 | [Gate and Proof](gate-and-proof.md).                                        |
+| A Standard or checkpoint stopped the change.                        | [Gate and Proof](gate-and-proof.md).                                        |
+| A worktree command refused, or cleanup failed or left something.    | [Worktrees and resources](worktrees-and-resources.md).                      |
+| A removed path or branch came back.                                 | [Worktrees and resources](worktrees-and-resources.md).                      |
+| A task was interrupted, or a dropped branch is needed back.         | [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md). |
+| MCP tools are missing or stale, or a long wait ran out.             | [MCP, terminal, and docs](mcp-terminal-and-docs.md).                        |
+| A docs page won't resolve, or output renders badly.                 | [MCP, terminal, and docs](mcp-terminal-and-docs.md).                        |
+| discern crashed, or you found `discern-…` files and `.git/discern`. | [Crashes and local state](crashes-and-local-state.md).                      |
+| discern needs upgrading, tidying its files, or removing.            | [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md).   |
 
-An empty enabled Logbook is healthy. A denied recording write warns and disables recording for this process without blocking setup; disabled, invalid, and missed-event states stay distinct.
+## Recover without making it worse
 
-Recovery advice warns without making doctor fail. An unusable commit identity or required signer, hidden tracked paths outside an intentional sparse checkout, unsafe worktree-config placement, or Git's dubious-ownership refusal fails and names the next command. For a bug report, capture the structured result:
+The symptom pages share a few rules. They're the difference between a bounded recovery and a new problem:
 
-```sh
-discern doctor --json
-```
+- **Repeat the named command, don't improvise around it.** discern's effectful commands re-check their preconditions and converge from whatever state they observe. The safe retry is the _same_ command after its named blocker is fixed; a hand-rolled equivalent in raw Git skips those checks.
+- **Edit sources.** A generated file's owner rewrites it, so a hand-edit to the generated copy is overwritten by design. The result names the source, or the regeneration command, that owns the change.
+- **Let lifecycle commands own deletion.** Worktree paths, branches, and discern's runtime state under `.git` all have verified-ownership cleanup. A recursive delete or a hand-removed Git entry bypasses every check that made cleanup safe.
+- **Never clear a symptom by weakening protection.** Loosening a Standard, deleting a check, or forcing past a refusal makes the number green by removing what it measured. If a limit genuinely must move, that's an owner decision, made on the trunk.
+- **Don't poll.** A wait that runs out returns a continuation to resume. A queued test run starts when a slot frees. Loops with sleeps recreate machinery that already exists.
 
-#### Doctor says a generated merge is unsafe
+## When to stop
 
-A current managed fragment can still be overridden by later, nested, or Git-local attributes. Doctor names affected paths and values without changing project rules. Correct the owning rule, run the NUL-safe `git check-attr` command in the finding, then rerun doctor.
-
-For a linked-worktree driver failure, run `git config --local extensions.worktreeConfig true` and `git config --worktree merge.discern-generated.driver true` there. Doctor reports the effective scope and origin.
-
-### `discern: command not found`
-
-Open a new shell, then run `which discern`. If it prints nothing, add the install directory reported by the installer to your shell's `PATH`. When a coding agent launches a non-interactive shell, make sure that shell reads the same `PATH`, or give the agent the absolute binary path.
-
-### The Model Context Protocol tools are unreachable
-
-After setup lands, start the fresh session requested by `setup accept` and inspect its registered tools. Invoke the exact local action named by that provider's handoff; namespaced hosts show their namespaced callable, such as Codex's `mcp__discern__discern_status`. Unlanded `setup done` stops at Proof and landing.
-
-If it is unavailable, follow the served local recovery and use `discern status --json` as the fallback. `discern doctor` diagnoses the integration. Generated files do not prove activation, and discern cannot grant provider trust ([Setup command boundaries](setup-and-integrations.md)).
-
-Use `--markdown` for concise, prioritized prose or `--json` for exact structured fields. People, coding agents, and scripts can choose either representation to fit the task. Every discern MCP tool has a CLI verb behind it. See [Result formats and delivery](../30-reference/mcp-and-results.md).
-
-### The session has left the workflow
-
-Run `discern status` to recover the current state and next valid action. During setup it also reports the phase, branch, and bounded continuation. If the same command loop recurs, run `discern patterns`. It reports a recorded loop only after the evidence reaches that detector's threshold, and each finding recommends an investigation.
-
-### `discern done` returned a failed Gate
-
-Read the diagnostic returned for the failed job. It names the tool, the command that reproduces the failure, and the captured output. Give that result to your agent. [When the Gate fails](../10-guides/fix-a-red-gate.md) covers stage failures and recovery. `discern doctor` rules out missing tools or an invalid install.
-
-### The project schema is newer than this binary
-
-Update the binary before running the project upgrade. The repository was upgraded by a newer discern, so the older binary refuses to stamp the schema backward. Follow [Upgrade discern](../10-guides/maintain-or-remove-discern.md).
-
-### Windows reports an unsupported platform
-
-Run discern under WSL2. Native Windows shells are not supported. macOS and Linux binaries are published for x86-64 and ARM64.
-
-### A monorepo needs different commands per component
-
-Use one discern install at the Git root. Root jobs cover shared checks. Add a scope for a component that needs its own Gate:
-
-```toml
-[scopes.web]
-paths = ["apps/web/**"]
-gate = "npm --prefix apps/web test"
-```
-
-The scoped command runs when a matching path changes.
-
-### Worktrees are using too much disk
-
-Land finished work with `discern accept`. It removes the accepted worktree. Then review `discern worktree prune --dry-run` and confirm it to reclaim clean merged worktrees and stale state that carry discern's positive ownership record in Git metadata. Foreign merged refs and prefix-shaped branches without that evidence stay untouched. Change `[worktree].root` if the default sibling directory is unsuitable.
-
-If removal reports that the retired path or Git registration remains, stop the named writer or repair the exact Git worktree entry, then repeat the same lifecycle command. Do not replace it with a broad recursive delete: the retry checks containment, ownership, and the observed filesystem object again before continuing.
-
-### A worktree or branch was dropped by mistake
-
-`discern worktree drop` prints a recovery ref before it removes a branch. [Recover a dropped branch](../10-guides/recover-an-interrupted-task.md) gives the listing and restore commands, the 32-ref bound, and the uncommitted-work limit. For other lost Git refs, use `git reflog`; `discern doctor` warns when reflog recording is disabled or its configured retention falls below discern's recovery floor.
-
-### Remove discern from the repository
-
-Preview removal, then apply it:
-
-```sh
-discern uninstall --dry-run
-discern uninstall
-```
-
-The command removes generated artifacts and discern's entries in shared integration files. It keeps `discern.toml` and authored content under `discern/`. [Files & ownership](../30-reference/files-and-ownership.md) lists the full footprint and the final binary-removal step.
-
-### Report a bug or security issue
-
-Open a GitHub issue and include `discern doctor --json`. For a security issue, follow the repository's `SECURITY.md` instructions instead of posting publicly.
+Some next steps belong to a person, and no amount of retrying substitutes. Authorizing a landing or a checkpoint variance, approving a Standard limit move, confirming a reclaim or prune, and any consent a provider's own interface asks for are all decisions. A green Gate doesn't land work, and evidence doesn't grant authority; [Proof](../20-understand/proof.md) explains who decides what. And when a failure recurs identically after its named recovery, or arrives with no next step at all, stop routing around it. Capture the result and [report it](crashes-and-local-state.md#discern-crashed).
