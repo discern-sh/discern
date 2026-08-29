@@ -1,11 +1,12 @@
 ---
 id: start-first-success
-title: "First success"
+title: "Install and set up discern"
 description: "Take one repository from installation through setup to a first real change: proved by the Gate, reviewed by you, and landed with your authority."
 order: 30
 publish: true
 kind: tutorial
 aliases:
+  - "First success"
   - "install"
   - "start-first-success"
   - "Quickstart: from install to a passing final check"
@@ -24,7 +25,7 @@ redirect_from:
   - "/docs/getting-started/walkthrough"
 ---
 
-# First success
+# Install and set up discern
 
 This tutorial takes one repository from a bare install to a first landed change. At the end, your project has a final quality check it defines (the Gate), an isolated workspace for each task (a worktree), and shared instructions every future coding session inherits. You will have watched one real change pass the Gate, read its evidence, and made the landing decision yourself.
 

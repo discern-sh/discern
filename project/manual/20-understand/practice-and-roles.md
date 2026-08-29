@@ -78,4 +78,4 @@ The boundaries are as much a part of the model as the pieces:
 - It doesn't move shared state on its own. Landing requires authority you supplied; [Proof](proof.md) explains how that decision works.
 - It doesn't run a service or call home. discern is a local binary whose state lives in the repository; [Local control](local-control.md) draws that boundary precisely.
 
-To decide whether the practice fits a project, read [Evaluate discern](../00-start/evaluate-discern.md). To watch the loop run once end to end, follow [First success](../00-start/first-success.md).
+To decide whether the practice fits a project, read [Evaluate discern](../00-start/evaluate-discern.md). To watch the loop run once end to end, follow [Install and set up discern](../00-start/first-success.md).
