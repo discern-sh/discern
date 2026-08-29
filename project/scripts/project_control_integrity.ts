@@ -217,7 +217,7 @@ async function discoverProgrammes(root: string): Promise<Programme[]> {
   const sources = await markdownSources(root, planningAbs);
   const readmes = sources.filter((source) =>
     basename(source.abs) === "README.md" &&
-    !relative(planningAbs, source.abs).split("/").includes("_done")
+    !PROGRAMME_INTERNAL_DIRS.test(relative(planningAbs, source.abs))
   );
   return readmes.map((readme) => {
     const abs = dirname(readme.abs);
@@ -342,17 +342,18 @@ function briefKey(path: string): string | undefined {
   return basename(path).match(/^(\d+[a-z])-.*\.md$/i)?.[1]?.toUpperCase();
 }
 
+/** Worksheets under evidence/ reuse brief keys; _done/ archives a programme. */
+const EVIDENCE_DIR = /(^|\/)evidence(\/|$)/;
+const PROGRAMME_INTERNAL_DIRS = /(^|\/)(_done|evidence)(\/|$)/;
+
 /** Every numbered brief file in this programme, derived from disk. */
 function briefFiles(programme: Programme): BriefFile[] {
   const files: BriefFile[] = [];
   for (const source of programme.files) {
     const key = briefKey(source.abs);
-    if (key === undefined) continue;
-    files.push({
-      source,
-      key,
-      done: relative(programme.abs, source.abs).split("/").includes("_done"),
-    });
+    const rel = relative(programme.abs, source.abs);
+    if (key === undefined || EVIDENCE_DIR.test(rel)) continue;
+    files.push({ source, key, done: rel.split("/").includes("_done") });
   }
   return files;
 }
@@ -449,9 +450,7 @@ async function checkReadmeTables(
       const done = relative(programme.abs, pathAbs).split("/").includes(
         "_done",
       );
-      const state = stateIndex < 0
-        ? ""
-        : plainCell(row.cells[stateIndex] ?? "").toLowerCase();
+      const state = plainCell(row.cells[stateIndex] ?? "").toLowerCase();
       if (
         (claimsActive && done) ||
         (done && /\b(active|pending|planned)\b/.test(state)) ||

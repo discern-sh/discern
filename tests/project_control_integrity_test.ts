@@ -321,6 +321,24 @@ Deno.test("README completion state derives from the brief's live path", async ()
   assertEquals(ruleFindings(findings, "planning-state").length, 1);
 });
 
+Deno.test("a stream's evidence worksheet is not classified as a numbered brief", async () => {
+  const findings = await fixtureFindings({
+    [PROGRAMME + "/README.md"]: [
+      "# Fresh contract workstreams",
+      "",
+      "| Key | Brief | Depends on |",
+      "| --- | ----- | ---------- |",
+      "| 1A | [`_done/1a-first.md`](_done/1a-first.md) | — |",
+      "",
+    ].join("\n"),
+    [PROGRAMME + "/_done/1a-first.md"]: "# First\n",
+    [PROGRAMME + "/evidence/README.md"]: "# Evidence worksheet\n",
+    [PROGRAMME + "/evidence/1a-first-notes.md"]: "# Evidence\n",
+  });
+  assertEquals(ruleFindings(findings, "planning-worktree"), []);
+  assertEquals(ruleFindings(findings, "planning-readme-table"), []);
+});
+
 Deno.test("active briefs reject durable claims about transient fleet state", async () => {
   const findings = await fixtureFindings(activeProgramme(
     "This dispatches beside the in-flight 7A.",
