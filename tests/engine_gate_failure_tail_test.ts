@@ -28,6 +28,7 @@ import {
 import { renderFailureTail } from "../src/engine/gate/failure_tail.ts";
 import { makeOut } from "../src/engine/output.ts";
 import { terminalMultiline } from "../src/lib/terminal.ts";
+import { readerVisibleMarkdown } from "../src/lib/markdown.ts";
 import type { Diagnostic } from "../src/shared/result.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
@@ -384,7 +385,13 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
     assertEquals(result.ok, true);
     assert(result.data.doc !== undefined);
     assertEquals(result.data.doc.path, doc);
-    assertEquals(result.data.doc.content, body);
+    assertEquals(result.data.doc.content, readerVisibleMarkdown(body));
+    assertEquals(
+      result.data.doc.content.includes(
+        "<!-- Add your stack's non-obvious gate failures below. -->",
+      ),
+      false,
+    );
   });
 });
 
