@@ -251,16 +251,42 @@ function includesCheckout(boundary: OperationLockBoundary): boolean {
   return boundary === "checkout" || boundary === "common-and-checkout";
 }
 
+/** Whether one invocation belongs to an ancestor's recorded child chain. */
+function invocationDescendsFrom(
+  invocation: string,
+  ancestor: string,
+  parents: ReadonlyMap<string, string>,
+): boolean {
+  const visited = new Set<string>();
+  let parent = parents.get(invocation);
+  while (parent !== undefined && !visited.has(parent)) {
+    if (parent === ancestor) return true;
+    visited.add(parent);
+    parent = parents.get(parent);
+  }
+  return false;
+}
+
 /** A later completion can disprove an older live claim only when it ran under
  * an exclusion boundary the older invocation would also have held. */
 function completionSupersedesBegin(
   begin: BeginEvent,
   completedBegin: BeginEvent | undefined,
   completion: VerbEvent,
+  parents: ReadonlyMap<string, string>,
 ): boolean {
   if (
     completedBegin === undefined || completion.outcome === "refused" ||
     completedBegin.at <= begin.at || completion.at < completedBegin.at
+  ) {
+    return false;
+  }
+  if (
+    invocationDescendsFrom(
+      completedBegin.invocation,
+      begin.invocation,
+      parents,
+    )
   ) {
     return false;
   }
@@ -293,6 +319,15 @@ function freshUnmatchedBegins(
   const beginsByInvocation = new Map(
     begins.map((event) => [event.invocation, event] as const),
   );
+  const parents = new Map<string, string>();
+  for (const event of events) {
+    if (event.kind !== "begin" && event.kind !== "verb") continue;
+    const invocation = event.invocation;
+    const parent = event.driver?.spawned_by;
+    if (invocation !== undefined && parent !== undefined) {
+      parents.set(invocation, parent);
+    }
+  }
   const finished = new Set(
     completions.flatMap((event) =>
       event.invocation === undefined ? [] : [event.invocation]
@@ -308,6 +343,7 @@ function freshUnmatchedBegins(
             ? undefined
             : beginsByInvocation.get(completion.invocation),
           completion,
+          parents,
         )
       )
     )

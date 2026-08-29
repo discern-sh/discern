@@ -16,10 +16,11 @@ The shared Logbook liveness reader removes an unmatched begin from the live popu
 
 - a second invocation has its own paired begin and completion;
 - the second begin is later than the unmatched begin;
+- the second invocation is not a recorded descendant of the unmatched invocation;
 - the second completion is not a refusal; and
 - their resolved lock boundaries overlap: a common boundary with another common boundary, or checkout boundaries on the same recorded branch.
 
-A later operation that satisfies those conditions could not have completed while the older invocation still owned their shared non-blocking boundary. Its completed pair is therefore stronger liveness evidence than the older unmatched start. A matching invocation completion remains the primary way to close a begin. Refusals, observations, another checkout, unpaired completions, and invocations that began first do not supersede it.
+A later operation that satisfies those conditions could not have completed while the older invocation still owned their shared non-blocking boundary. Its completed pair is therefore stronger liveness evidence than the older unmatched start. A nested child is different: it can reuse its ancestor's authenticated lease and complete while that ancestor remains active, so the reader follows `driver.spawned_by` transitively and excludes every recorded descendant. A matching invocation completion remains the primary way to close a begin. Refusals, observations, another checkout, unpaired completions, descendants, and invocations that began first do not supersede it.
 
 Fleet status and Logbook lifecycle safety consume this one liveness population. Supersession changes only the live claim: the unmatched event remains crash evidence and still contributes to branch activity.
 
@@ -27,6 +28,7 @@ Fleet status and Logbook lifecycle safety consume this one liveness population. 
 
 - A later successful or failed writer clears an obsolete running state immediately instead of waiting for the freshness horizon.
 - A completion cannot clear unrelated concurrent work merely because it happened later.
+- Gate children and other nested discern commands cannot clear their live ancestor by completing under its inherited lease.
 - Existing Logbooks benefit through policy fallback; newly written events preserve their invocation-time boundary even if the registry changes later.
 - Historical mixed or preview invocations can carry fewer classification facts than new events. Their fallback is necessarily less precise, while the freshness horizon remains the final bound.
 - No heartbeat, process registry, or mutable liveness file joins the append-only Logbook.

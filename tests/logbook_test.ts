@@ -926,6 +926,48 @@ Deno.test("fleet activity: a later conflicting completion retires an older unmat
     "an invocation that started first may complete after a genuinely live sibling",
   );
 
+  const childBegin = {
+    ...laterBegin,
+    at: "2026-07-19T12:03:00.000Z",
+    invocation: "nested-tidy",
+    driver: { spawned_by: begin.invocation },
+  } as const;
+  const grandchildBegin = {
+    ...laterBegin,
+    at: "2026-07-19T12:03:30.000Z",
+    invocation: "nested-refresh",
+    verb: "refresh",
+    driver: { spawned_by: childBegin.invocation },
+  } as const;
+  const grandchildCompletion = {
+    ...laterCompletion,
+    at: "2026-07-19T12:04:00.000Z",
+    invocation: grandchildBegin.invocation,
+    verb: grandchildBegin.verb,
+    driver: grandchildBegin.driver,
+  } as const;
+  const childCompletion = {
+    ...laterCompletion,
+    at: "2026-07-19T12:04:30.000Z",
+    invocation: childBegin.invocation,
+    driver: childBegin.driver,
+  } as const;
+  assertEquals(
+    freshInFlightInvocations(
+      [
+        begin,
+        childBegin,
+        grandchildBegin,
+        grandchildCompletion,
+        childCompletion,
+      ],
+      "current",
+      now,
+    ).map((event) => event.invocation),
+    [begin.invocation],
+    "a nested completion inherits its live ancestor's lease and cannot retire that ancestor",
+  );
+
   const locklessBegin: LogbookEvent = {
     ...begin,
     invocation: "waiting-for-sibling",
