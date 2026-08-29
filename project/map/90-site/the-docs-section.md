@@ -29,7 +29,7 @@ Every document route has a pristine `.md` edition and text-client negotiation. T
 
 [`MANUAL_SECTION_REGISTRY`](../../../src/shared/manual.ts) owns the five sections and their order. Strict publication validation requires one index per section and makes every published page reachable. A page's kind drives labels while the canonical sequence drives breadcrumbs and previous/next movement.
 
-The manual root contains the central front-door authority. `DocsSite.frontDoors` adapts those marked links to the browser landing; the site never copies the promotion set. The compact root rail shows section landings. A derived disclosure contains the complete published tree, so reference and troubleshooting remain browsable without making the first view dense. Leaf pages use the complete rooted manual navigation.
+The manual root contains the central front-door authority. `DocsSite.frontDoors` adapts those marked links to the browser landing; the site never copies the promotion set. The compact root rail shows section landings. The browser projection keeps the authored introduction and durable reader orientation, removes the authored maintenance lists and section table, then renders the promoted journeys and complete published tree directly from the model. Raw Markdown remains unchanged. Leaf pages use the complete rooted manual navigation.
 
 Old Map-as-manual routes are supplied by the manual's redirect authority. Redirect validation resolves each historical address directly to its live successor and rejects chains and generic root fallbacks.
 
@@ -53,7 +53,9 @@ The predicate follows [`MAP_SECTION_REGISTRY`](../../../src/lib/paths.ts) and [`
 
 Markdown renders at request time and caches for the process lifetime. The shared renderer strips frontmatter and source-only comments for HTML, preserves code examples, rewrites links only within the active corpus, and keeps raw bytes untouched. Manual workflow markers project ordinary Markdown into browser semantics; the source remains complete without Cascading Style Sheets (CSS) or JavaScript.
 
-The manual and Map consume the design system's Docs bundle. Page composition owns layout, drawer, search, copy, and contents behavior. The initial server document contains all navigation and content. Without JavaScript, disclosure controls stay hidden and the full navigation remains in flow.
+The manual and Map consume the design system's Docs bundle, including its Table component. Page composition owns layout, drawer, search, copy, and contents behavior. The server emits heading permalink groups and scroll-contained table wrappers in the initial document; JavaScript only adds behavior, so enhancement cannot rearrange prose after first paint. Without JavaScript, disclosure controls stay hidden and the full navigation remains in flow.
+
+Rooted navigation shows destination names without repeating each page's editorial kind, and its link hit areas form one contiguous vertical run. The contents rail derives ordinary section numbers, but when an authored procedure numbers its headings, those numbers remain authoritative and unnumbered framing sections stay unnumbered. Tables preserve words and useful column widths, then scroll inside the prose measure when their exact content needs more room.
 
 The drawer and search palette trap focus, close on Escape, restore focus, and make the background inert. The search palette retains an accessible page-owned fallback for browsers that expose `<dialog>` without `showModal()`. Skip links, landmarks, heading order, visible focus, forced colors, reduced motion, print, narrow reflow, and wide table/code containment are part of the guarded shell contract.
 

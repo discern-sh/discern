@@ -8,7 +8,7 @@ import { assertEquals } from "@std/assert";
 import axe from "axe-core";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { loadDocsSite } from "../site/docs.ts";
+import { decorateDocumentHtml, loadDocsSite } from "../site/docs.ts";
 import { handler, PAGES } from "../site/serve.ts";
 
 const BROWSER = {
@@ -136,8 +136,7 @@ Deno.test("public marketing and representative document pages have no serious or
   assertEquals(findings, []);
 });
 
-Deno.test("permalink controls stay outside every heading accessible name", async () => {
-  const client = await executableDocsClient();
+Deno.test("permalink controls stay outside every heading accessible name", () => {
   const fixtures = [
     ["h2", "alpha-surface", "Alpha surface"],
     ["h3", "unrelated-beta", "Unrelated beta"],
@@ -146,14 +145,9 @@ Deno.test("permalink controls stay outside every heading accessible name", async
   const body = fixtures.map(([tag, id, text]) =>
     `<${tag} id="${id}">${text}</${tag}>`
   ).join("");
-  const dom = new JSDOM(`<article class="doc-body">${body}</article>`, {
-    runScripts: "outside-only",
-    url: "https://discern.sh/docs/test",
-  });
-  Object.defineProperty(dom.window, "matchMedia", {
-    value: () => ({ matches: false, addEventListener: () => undefined }),
-  });
-  dom.window.eval(client);
+  const dom = new JSDOM(
+    `<article class="doc-body">${decorateDocumentHtml(body)}</article>`,
+  );
 
   const states = fixtures.map(([, id]) => {
     const heading = dom.window.document.getElementById(id);

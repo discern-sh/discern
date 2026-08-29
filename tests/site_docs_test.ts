@@ -188,6 +188,12 @@ Deno.test("the manual cover stays small while its derived browse tree stays comp
   );
   assertEquals(
     [...dom.window.document.querySelectorAll(
+      ".docs-front-doors .docs-chapter-leaves a",
+    )].map((link) => link.getAttribute("href")),
+    site.frontDoors.map((page) => page.route),
+  );
+  assertEquals(
+    [...dom.window.document.querySelectorAll(
       ".docs-complete-browse .docs-chapter-leaves a",
     )].map((link) => link.getAttribute("href")),
     site.sections.flatMap((section) =>
@@ -195,9 +201,14 @@ Deno.test("the manual cover stays small while its derived browse tree stays comp
     ),
   );
   assertEquals(
-    dom.window.document.querySelector(".docs-complete-browse details")
-      ?.hasAttribute("open"),
-    false,
+    dom.window.document.querySelector(".docs-complete-browse details"),
+    null,
+  );
+  assert(dom.window.document.querySelector(".docs-complete-browse") !== null);
+  assertEquals(dom.window.document.querySelector("#the-sections"), null);
+  assertEquals(
+    dom.window.document.querySelectorAll(".docs-manual-index table").length,
+    0,
   );
   assertEquals(
     nav?.querySelector("[data-nav-sections]")?.hasAttribute(
@@ -239,6 +250,11 @@ Deno.test("every guide keeps the complete canonical nav and marks only itself", 
       ),
       null,
       current.route,
+    );
+    assertEquals(
+      nav?.querySelectorAll(".docs-nav-kind").length,
+      0,
+      `${current.route}: page kinds do not duplicate every destination`,
     );
     dom.window.close();
   }
@@ -292,15 +308,18 @@ Deno.test("the manual cover renders its authored root and raw-reader colophon", 
   );
   assertEquals(
     indexDom.window.document.querySelector(".docs-cover"),
-    null,
-    "the website does not replace the authored manual introduction",
+    indexDom.window.document.querySelector(".docs-manual-index"),
+    "the authored manual introduction is the visual cover",
   );
   assertEquals(
     [...indexDom.window.document.querySelectorAll(
-      ".docs-manual-index #start-here + ul a",
+      ".docs-front-doors .docs-chapter-leaves a",
     )].map((link) => link.getAttribute("href")),
     site.frontDoors.map((page) => page.route),
   );
+  const rawIndex = await (await get("/docs.md", BROWSER)).text();
+  assertStringIncludes(rawIndex, "## The sections");
+  assertStringIncludes(rawIndex, "<!-- BEGIN MANUAL FRONT DOORS -->");
   indexDom.window.close();
 
   for (const route of ["/docs", guide.route]) {
@@ -327,9 +346,10 @@ Deno.test("the manual cover renders its authored root and raw-reader colophon", 
   }
 });
 
-Deno.test("every nested contents heading is unnumbered and does not advance sections", async () => {
+Deno.test("contents numbering follows authored procedures and otherwise derives from headings", async () => {
   const site = await loadDocsSite();
   let pagesWithNestedHeadings = 0;
+  let pagesWithAuthoredNumbers = 0;
 
   for (const page of site.pages) {
     const dom = new JSDOM(await (await get(page.route, BROWSER)).text());
@@ -355,6 +375,16 @@ Deno.test("every nested contents heading is unnumbered and does not advance sect
       heading.tagName === "H3"
     );
     if (nestedHeadings.length > 0) pagesWithNestedHeadings++;
+    const authoredNumbers = topLevelHeadings.map((heading) =>
+      /^(\d+)[.)]\s+(.+)$/.exec(heading.textContent?.trim() ?? "")
+    );
+    const usesAuthoredNumbers = authoredNumbers.some((match) => match !== null);
+    if (usesAuthoredNumbers) pagesWithAuthoredNumbers++;
+    assertEquals(
+      article.classList.contains("docs-authored-heading-numbers"),
+      usesAuthoredNumbers,
+      page.route,
+    );
 
     assertEquals(
       topLevel.map((item) =>
@@ -367,7 +397,27 @@ Deno.test("every nested contents heading is unnumbered and does not advance sect
       topLevel.map((item) =>
         item.querySelector(":scope > a > span")?.textContent
       ),
-      topLevel.map((_, index) => String(index + 1).padStart(2, "0")),
+      topLevel.map((_, index) => {
+        const authored = authoredNumbers[index];
+        if (usesAuthoredNumbers) {
+          return authored?.[1]?.padStart(2, "0") ?? "";
+        }
+        return String(index + 1).padStart(2, "0");
+      }),
+      page.route,
+    );
+    assertEquals(
+      topLevel.map((item) => {
+        const anchor = item.querySelector(":scope > a");
+        const number = anchor?.querySelector(":scope > span")?.textContent ??
+          "";
+        return (anchor?.textContent ?? "").slice(number.length);
+      }),
+      topLevelHeadings.map((heading, index) =>
+        usesAuthoredNumbers
+          ? authoredNumbers[index]?.[2] ?? heading.textContent?.trim() ?? ""
+          : heading.textContent?.trim() ?? ""
+      ),
       page.route,
     );
     assertEquals(
@@ -389,6 +439,91 @@ Deno.test("every nested contents heading is unnumbered and does not advance sect
     pagesWithNestedHeadings > 0,
     "the nested-heading guard needs at least one published example",
   );
+  assert(
+    pagesWithAuthoredNumbers > 0,
+    "the authored-number guard needs at least one published procedure",
+  );
+});
+
+Deno.test("document structure arrives before enhancement scripts can paint", async () => {
+  const site = await loadDocsSite();
+  const routes = [
+    "/docs",
+    ...site.pages.map((page) => page.route),
+    site.publicMap.landing.route,
+    ...site.publicMap.pages.map((page) => page.route),
+    site.decisions.route,
+    ...site.decisions.pages.map((page) => page.route),
+  ];
+  let tables = 0;
+  let anchoredHeadings = 0;
+
+  for (const route of routes) {
+    const html = await (await get(route, BROWSER)).text();
+    const dom = new JSDOM(html);
+    const document = dom.window.document;
+    for (const table of document.querySelectorAll("article.doc-body table")) {
+      tables++;
+      const viewport = table.parentElement;
+      assert(viewport?.classList.contains("docs-table"), route);
+      assert(viewport?.classList.contains("discern-table"), route);
+      assertEquals(viewport?.getAttribute("role"), "group", route);
+      assertEquals(viewport?.getAttribute("tabindex"), "0", route);
+    }
+    for (
+      const heading of document.querySelectorAll(
+        "article.doc-body :is(h2, h3, h4)[id]",
+      )
+    ) {
+      anchoredHeadings++;
+      assert(
+        heading.parentElement?.classList.contains("docs-heading-row"),
+        route,
+      );
+      assert(
+        heading.nextElementSibling?.classList.contains("docs-anchor"),
+        route,
+      );
+    }
+    dom.window.close();
+  }
+
+  assert(tables > 0, "the structural guard needs a published table");
+  assert(
+    anchoredHeadings > 0,
+    "the structural guard needs a published anchored heading",
+  );
+
+  const client = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.js", import.meta.url),
+  );
+  assertEquals(
+    client.includes("docs-heading-row"),
+    false,
+    "heading structure must not be created after paint",
+  );
+  assertEquals(
+    client.includes("docs-table"),
+    false,
+    "table structure must not be created after paint",
+  );
+
+  const shell = await (await get("/docs", BROWSER)).text();
+  const bootstrap = shell.indexOf('classList.add("docs-js")');
+  const firstStylesheet = shell.indexOf('<link rel="stylesheet"');
+  assert(bootstrap >= 0, "the docs enhancement class is missing");
+  assert(
+    bootstrap < firstStylesheet,
+    "the enhancement class must resolve before the first stylesheet",
+  );
+});
+
+Deno.test("the setup tutorial has a literal title without changing its durable route", async () => {
+  const site = await loadDocsSite();
+  const page = site.byRoute.get("/docs/start/first-success");
+  assert(page?.routeKind === "manual");
+  assertEquals(page.entry.title, "Install and set up discern");
+  assert(page.entry.aliases.includes("First success"));
 });
 
 Deno.test("the shared CLI/MCP docs core and site model have exact instruction parity", async () => {
@@ -464,7 +599,11 @@ Deno.test("every published page renders for a browser, with title and shell", as
     );
     const html = await res.text();
     assertStringIncludes(html, "<title>", `route ${page.route}`);
-    assertStringIncludes(html, 'class="doc-body"', `route ${page.route}`);
+    assertStringIncludes(
+      html,
+      '<article class="doc-body',
+      `route ${page.route}`,
+    );
     assertStringIncludes(
       html,
       `class="discern-logo discern-logo--md discern-logo--plain discern-logo--natural discern-brand__mark" aria-hidden="true">${DISCERN_MARK}</span>`,
@@ -743,6 +882,22 @@ Deno.test("the docs rails scroll flush beneath the header and footer rule", asyn
   assertEquals(css.includes(".docs-chapters::before"), false);
   assertEquals(css.includes(".docs-toc-d3"), false);
   assertEquals(css.includes(".docs-nav-disclosure"), false);
+});
+
+Deno.test("navigation hit areas and table words remain physically readable", async () => {
+  const css = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.css", import.meta.url),
+  );
+  assert(
+    /\.docs-nav-scroll \[data-nav-section\] > ul\s*\{[^}]*gap:\s*0;/s
+      .test(css),
+    "the vertical nav run must not expose dead pixels between links",
+  );
+  assert(
+    /\.docs-table :is\(th, td\)\s*\{[^}]*min-inline-size:\s*7rem;[^}]*overflow-wrap:\s*normal;[^}]*word-break:\s*normal;/s
+      .test(css),
+    "table cells must keep useful widths and intact words",
+  );
 });
 
 Deno.test("the docs top bar aligns its children without vertical nudges", async () => {

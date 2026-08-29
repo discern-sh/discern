@@ -550,16 +550,24 @@ function stripAuthoredLeafIndexes(
   page: NavigablePage,
   site: DocsSite,
 ): string {
-  if (!page.isIndex) return md;
+  const manualLanding = page.routeKind === "manual" &&
+    page.route === site.landing.route;
+  if (!page.isIndex && !manualLanding) return md;
   const sections = page.routeKind === "map"
     ? site.publicMap.sections
     : site.sections;
+  const listedPages = manualLanding
+    ? [
+      ...site.frontDoors,
+      ...site.sections.map((section) => section.index),
+    ]
+    : sections.find((section) => section.index.route === page.route)?.pages
+      .filter((candidate) => !candidate.isIndex) ?? [];
   const siblings = new Set(
-    sections.find((section) => section.index.route === page.route)?.pages
-      .filter((candidate) => !candidate.isIndex)
-      .map((candidate) => candidate.sourcePath) ?? [],
+    listedPages.map((candidate) => candidate.sourcePath),
   );
-  const fromDir = page.sourcePath.slice(0, page.sourcePath.lastIndexOf("/"));
+  const slash = page.sourcePath.lastIndexOf("/");
+  const fromDir = slash === -1 ? "" : page.sourcePath.slice(0, slash);
   const isLeafIndex = (block: string): boolean => {
     let siblingLinks = 0;
     for (const match of block.matchAll(/\]\(([^()\s]+)\)/g)) {
@@ -587,7 +595,9 @@ function stripAuthoredLeafIndexes(
   const output: string[] = [];
   const dropHeading = (): void => {
     let index = output.length - 1;
-    while (index >= 0 && output[index]?.trim() === "") index -= 1;
+    while (index >= 0 && !/^#{1,2}\s+/.test(output[index] ?? "")) {
+      index -= 1;
+    }
     if (index >= 0 && /^##\s+/.test(output[index] ?? "")) {
       output.splice(index);
     }
@@ -882,6 +892,46 @@ export async function renderDoc(
   return rendered;
 }
 
+/**
+ * Emit structural prose controls in the response HTML, before scripts can
+ * paint. Every current and future heading/table from the shared renderer
+ * enters through this one projection; the client script adds behavior only.
+ */
+export function decorateDocumentHtml(html: string): string {
+  const tables = html
+    .replace(
+      /<table(?:\s[^>]*)?>/g,
+      (table) =>
+        '<div class="discern-table docs-table" role="group" aria-label="Scrollable table viewport" tabindex="0">' +
+        table,
+    )
+    .replaceAll("</table>", "</table></div>");
+  return tables.replace(
+    /<h([2-4])([^>]*)>([\s\S]*?)<\/h\1>/g,
+    (
+      match: string,
+      depth: string,
+      attributes: string,
+      content: string,
+    ): string => {
+      const id = /\sid="([^"]+)"/.exec(attributes)?.[1];
+      if (id === undefined) return match;
+      const label = content
+        .replace(/<[^>]+>/g, "")
+        .replaceAll("&amp;", "&")
+        .replaceAll("&lt;", "<")
+        .replaceAll("&gt;", ">")
+        .replaceAll("&quot;", '"')
+        .replaceAll("&#39;", "'")
+        .replace(/\s+/g, " ")
+        .trim();
+      return `<div class="discern-anchor-heading docs-heading-row"><h${depth}${attributes}>${content}</h${depth}><a class="discern-anchor-heading__anchor docs-anchor" href="#${id}" aria-label="Link to “${
+        escapeMarkdownHtml(label)
+      }”">§</a></div>`;
+    },
+  );
+}
+
 // ── The shell ──────────────────────────────────────────────────────────────
 
 /** Encode untrusted document text for safe HTML content and attributes. */
@@ -918,14 +968,13 @@ function navHtml(
     const pages = compact ? [section.index] : section.pages;
     const leaves = pages.map((page) => {
       const here = page.route === current?.route;
+      const accessibleLabel = page.isIndex
+        ? ` aria-label="${esc(`${section.title} overview`)}"`
+        : "";
       return `<li data-nav-page><a href="${page.route}"${
         here ? ' aria-current="page"' : ""
-      } aria-label="${
-        esc(`${pageKindLabel(page)}: ${page.entry.title}`)
-      }"><span class="docs-nav-page-title">${
+      }${accessibleLabel}><span class="docs-nav-page-title">${
         page.isIndex ? "Overview" : esc(page.entry.title)
-      }</span><span class="docs-nav-kind" aria-hidden="true">${
-        esc(pageKindLabel(page))
       }</span></a></li>`;
     }).join("");
     // Emitted flat: this fragment repeats on every docs page, so template
@@ -937,20 +986,49 @@ function navHtml(
   return `<div id="docs-nav-sections" data-nav-sections>${sections}</div>`;
 }
 
+/** Whether a document's own procedure numbers govern its H2 sequence. */
+function usesAuthoredHeadingNumbers(toc: readonly TocItem[]): boolean {
+  return toc.some((item) =>
+    item.depth === 2 && /^(\d+)[.)]\s+/.test(item.text)
+  );
+}
+
+/** Mark prose whose own H2 numbers replace the presentation counter. */
+function authoredHeadingNumberClass(toc: readonly TocItem[]): string {
+  return usesAuthoredHeadingNumbers(toc)
+    ? " docs-authored-heading-numbers"
+    : "";
+}
+
 /** Render numbered H2 entries and nested H3 entries for one guide. */
 function tocHtml(toc: TocItem[]): string {
   if (toc.length === 0) return "";
+  const authoredNumbers = new Map(
+    toc.filter((item) => item.depth === 2).map((item) => [
+      item.id,
+      /^(\d+)[.)]\s+(.+)$/.exec(item.text),
+    ]),
+  );
+  const usesAuthoredNumbers = usesAuthoredHeadingNumbers(toc);
   let sectionNumber = 0;
   const items = toc.map((item) => {
     const nested = item.depth > 2;
     const itemClass = nested
       ? ' class="discern-table-of-contents__item--nested"'
       : "";
+    const authored = authoredNumbers.get(item.id);
+    const label = !nested && usesAuthoredNumbers && authored !== null
+      ? authored?.[2] ?? item.text
+      : item.text;
     const number = nested
       ? ""
-      : `<span>${String(++sectionNumber).padStart(2, "0")}</span>`;
+      : `<span>${
+        usesAuthoredNumbers
+          ? authored?.[1]?.padStart(2, "0") ?? ""
+          : String(++sectionNumber).padStart(2, "0")
+      }</span>`;
     return `<li${itemClass}><a href="#${esc(item.id)}">${number}${
-      esc(item.text)
+      esc(label)
     }</a></li>`;
   }).join("");
   return `<nav class="discern-table-of-contents docs-toc" aria-label="On this page"><strong class="discern-table-of-contents__title">On this page</strong><ol>${items}</ol></nav>`;
@@ -1045,6 +1123,10 @@ const ICONS = {
     `<svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.8A5.6 5.6 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z"/></svg>`,
 } as const;
 
+/** Resolve theme and enhancement layout before the first stylesheet paints. */
+const DOCS_BOOTSTRAP =
+  `${THEME_BOOTSTRAP}document.documentElement.classList.add("docs-js");`;
+
 interface ShellFrame {
   /** Contents of the `<title>` element. */
   htmlTitle: string;
@@ -1092,7 +1174,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 <meta name="theme-color" content="#F6F5F8" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#22252C" media="(prefers-color-scheme: dark)" />
 <link rel="icon" href="${DISCERN_FAVICON_PATH}" />
-<script>${THEME_BOOTSTRAP}</script>
+<script>${DOCS_BOOTSTRAP}</script>
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "fonts.css")}" />
 <link rel="stylesheet" href="${designSystemAssetPath("docs", "discern.css")}" />
 <link rel="stylesheet" href="${THEME_STYLESHEET_PATH}" />
@@ -1289,6 +1371,8 @@ export function docsShell(
   page: DocsPage,
   rendered: RenderedDoc,
 ): string {
+  const article = decorateDocumentHtml(`${rendered.html}
+${sectionLeafIndexHtml(site, page)}`);
   return shellFrame(site, {
     htmlTitle: `${page.entry.title} · discern.sh docs`,
     description: page.entry.description,
@@ -1296,9 +1380,8 @@ export function docsShell(
     corpus: "manual",
     breadcrumb: page,
     mainHtml: `<p class="docs-page-kind">${esc(pageKindLabel(page))}</p>
-    <article class="doc-body">
-${rendered.html}
-${sectionLeafIndexHtml(site, page)}
+    <article class="doc-body${authoredHeadingNumberClass(rendered.toc)}">
+${article}
     </article>
     ${relatedDecisionsHtml(site, page)}
     ${pagerHtml(site, page)}
@@ -1329,23 +1412,48 @@ function completeBrowseHtml(
   }).join("\n");
 }
 
+/** Render the scarce authored front-door selection with model descriptions. */
+function frontDoorsHtml(site: DocsSite): string {
+  const items = site.frontDoors.map((page) =>
+    `<li><a href="${page.route}">${esc(page.entry.title)}</a>
+      <span class="docs-leaf-desc">${esc(page.entry.description)}</span></li>`
+  ).join("");
+  return `<section class="docs-front-doors" aria-labelledby="start-here">
+    <h2 id="start-here">Start here</h2>
+    <ul class="docs-chapter-leaves">${items}</ul>
+  </section>`;
+}
+
+/** Split the authored introduction from its remaining non-index guidance. */
+function manualLandingParts(html: string): readonly [string, string] {
+  const firstSection = html.indexOf("<h2 ");
+  return firstSection < 0
+    ? [html, ""]
+    : [html.slice(0, firstSection), html.slice(firstSection)];
+}
+
 /** The /docs landing renders the authored manual root plus derived full browse. */
 export function docsIndexShell(
   site: DocsSite,
   rendered: RenderedDoc,
 ): string {
-  const pageCount = 1 + site.pages.length;
-  const main = `<article class="doc-body docs-manual-index">
-${rendered.html}
-  </article>
-  <section class="docs-complete-browse" aria-label="Complete manual">
-    <details>
-      <summary>Browse all ${pageCount} published pages</summary>
-      <div class="docs-chapters">
-        ${completeBrowseHtml(site.sections)}
-      </div>
-    </details>
+  const [introduction, details] = manualLandingParts(rendered.html);
+  const article = decorateDocumentHtml(`${introduction}
+  ${frontDoorsHtml(site)}
+  <section class="docs-complete-browse docs-complete-browse--expanded" aria-label="Complete manual">
+    <div class="docs-chapters">
+      ${completeBrowseHtml(site.sections)}
+    </div>
   </section>
+  <div class="docs-manual-details">
+${details}
+  </div>
+`);
+  const main = `<article class="doc-body docs-cover docs-manual-index${
+    authoredHeadingNumberClass(rendered.toc)
+  }">
+${article}
+  </article>
   ${colophonHtml(null)}`;
 
   return shellFrame(site, {
@@ -1356,7 +1464,7 @@ ${rendered.html}
     compactNavigation: true,
     breadcrumb: null,
     mainHtml: main,
-    tocHtml: tocHtml(rendered.toc),
+    tocHtml: "",
   });
 }
 
@@ -1378,6 +1486,8 @@ export function mapShell(
   page: MapPage,
   rendered: RenderedDoc,
 ): string {
+  const article = decorateDocumentHtml(`${rendered.html}
+${sectionLeafIndexHtml(site, page)}`);
   return shellFrame(site, {
     htmlTitle: mapPageHtmlTitle(site, page),
     description: page.entry.description,
@@ -1386,9 +1496,10 @@ export function mapShell(
     breadcrumb: page,
     mainHtml: `${mapExhibitLabelHtml()}
     <p class="docs-page-kind">${esc(pageKindLabel(page))}</p>
-    <article class="doc-body docs-map-body">
-${rendered.html}
-${sectionLeafIndexHtml(site, page)}
+    <article class="doc-body docs-map-body${
+      authoredHeadingNumberClass(rendered.toc)
+    }">
+${article}
     </article>
     ${pagerHtml(site, page)}
     ${colophonHtml(page)}`,
@@ -1428,8 +1539,10 @@ export function mapIndexShell(
   const map = site.publicMap;
   const pageCount = 1 + map.pages.length;
   const main = `${mapExhibitLabelHtml()}
-  <article class="doc-body docs-map-body docs-map-index">
-${rendered.html}
+  <article class="doc-body docs-map-body docs-map-index${
+    authoredHeadingNumberClass(rendered.toc)
+  }">
+${decorateDocumentHtml(rendered.html)}
   </article>
   <section class="docs-complete-browse" aria-label="Complete public Map">
     <details>
@@ -1482,8 +1595,7 @@ function decisionListHtml(pages: readonly DecisionPage[]): string {
 export function decisionsIndexShell(site: DocsSite): string {
   const active = site.decisions.pages.filter((page) => !page.superseded);
   const superseded = site.decisions.pages.filter((page) => page.superseded);
-  const main = `${historyLabelHtml(false)}
-  <article class="doc-body docs-decisions-index">
+  const article = decorateDocumentHtml(`
     <h1>Project decisions</h1>
     <p>The numbered records preserve the context and trade-offs behind discern's architecture.</p>
     <h2>Current records</h2>
@@ -1491,6 +1603,10 @@ export function decisionsIndexShell(site: DocsSite): string {
     <h2>Superseded records</h2>
     <p>These records remain available because the path to today's design is part of the history.</p>
     ${decisionListHtml(superseded)}
+  `);
+  const main = `${historyLabelHtml(false)}
+  <article class="doc-body docs-decisions-index">
+${article}
   </article>
   ${colophonHtml(null, "decisions")}`;
   return shellFrame(site, {
@@ -1518,8 +1634,10 @@ export function decisionShell(
     corpus: "manual",
     breadcrumb: page,
     mainHtml: `${historyLabelHtml(page.superseded)}
-    <article class="doc-body docs-decision-record">
-${rendered.html}
+    <article class="doc-body docs-decision-record${
+      authoredHeadingNumberClass(rendered.toc)
+    }">
+${decorateDocumentHtml(rendered.html)}
     </article>
     ${colophonHtml(page)}`,
     tocHtml: tocHtml(rendered.toc),

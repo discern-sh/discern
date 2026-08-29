@@ -30,6 +30,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "theme-toggle",
       "brand",
       "kicker",
+      "table",
       "breadcrumbs",
       ...WORKFLOW_COMPONENTS,
       "table-of-contents",
