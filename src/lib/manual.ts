@@ -99,7 +99,7 @@ export function manualRoute(entry: DocEntry): string | undefined {
 }
 
 /** Resolve one relative README link without allowing it to leave the corpus. */
-function resolveManualLink(
+export function resolveManualLink(
   from: string,
   destination: string,
 ): string | undefined {
@@ -399,6 +399,37 @@ export async function manualFrontDoorEntries(
   });
 }
 
+/** Group each normalized search name by every published page claiming it. */
+function manualSearchClaims(
+  pages: readonly ManualPage[],
+): Map<string, Set<string>> {
+  const claims = new Map<string, Set<string>>();
+  for (const page of pages) {
+    for (const name of [page.entry.title, ...page.entry.aliases]) {
+      const normalized = normalizeManualSearchName(name);
+      const owners = claims.get(normalized) ?? new Set<string>();
+      owners.add(page.id);
+      claims.set(normalized, owners);
+    }
+  }
+  return claims;
+}
+
+/**
+ * Alias-owner override keys no published page claims any longer. The
+ * projection consults an override only while its collision is live, so a dead
+ * entry would otherwise linger silently. Repository policy holds this at
+ * empty; it stays outside {@link buildManualProjection} because synthetic
+ * corpora legitimately project under the repository's own override registry.
+ */
+export function staleManualAliasOwnerOverrides(
+  pages: readonly ManualPage[],
+  overrides: Readonly<Record<string, string>> = MANUAL_ALIAS_OWNER_OVERRIDES,
+): string[] {
+  const claims = manualSearchClaims(pages);
+  return Object.keys(overrides).filter((name) => !claims.has(name));
+}
+
 /**
  * Validate and project every discovered manual document. Reading remains
  * lenient in the neutral document engine; this repository boundary is strict.
@@ -548,15 +579,7 @@ export async function buildManualProjection(
     }
   }
 
-  const searchClaims = new Map<string, Set<string>>();
-  for (const page of pages) {
-    for (const name of [page.entry.title, ...page.entry.aliases]) {
-      const normalized = normalizeManualSearchName(name);
-      const owners = searchClaims.get(normalized) ?? new Set<string>();
-      owners.add(page.id);
-      searchClaims.set(normalized, owners);
-    }
-  }
+  const searchClaims = manualSearchClaims(pages);
   for (const [name, owners] of searchClaims) {
     if (owners.size < 2) continue;
     const chosen = MANUAL_ALIAS_OWNER_OVERRIDES[name];

@@ -19,7 +19,12 @@ import {
 } from "../src/lib/manual.ts";
 import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 
-/** Selected benefit id → one or more required primary manual homes. */
+/**
+ * Selected benefit id → the manual pages required to deliver it. The FIRST
+ * page id in each list is the benefit's declared primary home; any later ids
+ * are supporting homes that reinforce the same outcome. Every listed page must
+ * exist, publish, and carry an eligible teaching kind.
+ */
 export const MANUAL_BENEFIT_OBLIGATIONS: Readonly<
   Record<string, readonly string[]>
 > = {

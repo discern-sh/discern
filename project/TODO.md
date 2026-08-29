@@ -32,10 +32,6 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 
 - [ ] **Detect the hot-test inversion and suggest a canary check job.** Rank test diagnostic classes against stage duration, detect when frequent failures occupy little runtime, and recommend a cheap check-stage canary while retaining the full evidence ranking in structured output. Evidence: `src/engine/logbook/detectors.ts`; `src/engine/logbook/schema.ts`; `tests/engine_patterns_test.ts`; `scripts/canary_registry.ts`; `scripts/canary_audit.ts`; `project/map/_adr/0325-the-canary-job-hears-hot-tests-before-the-full-suite.md`.
 
-- [ ] **Show persistent and external state in the public system map.** Add Git-admin runtime records and optional managed resources to the system diagram without weakening the narrower claim that discern requires no daemon or product database. Evidence: `project/map/00-orientation/system-map.md`; `project/map/70-reference/artifact-ownership.md`; `project/map/30-worktrees/the-resources.md`.
-
-- [ ] **Keep public documentation links inside the public projection.** Remove or repoint contributor-only destinations from published pages and add a projection-aware link guard so an existing source file cannot conceal an unreachable public link. Evidence: `project/map/_private/planning/public-manual-workstreams/6a-corpus-integration-and-coverage.md`; `src/lib/paths.ts`; `src/lib/docs.ts`.
-
 - [ ] **Reconcile the contributor documentation with its live authorities.** Enrol the Canonical sets leaf, reconcile the documented test layers and build ownership, and align the generated ownership inventory with its live registry. Evidence: `project/map/80-development/README.md`; `project/map/80-development/testing.md`; `project/map/80-development/code-conventions.md`; `discern.toml`; `src/shared/paths_registry.ts`.
 
 - [ ] **Provide a supported recovery for main-checkout divergence.** Add a declared operation or bounded workflow that transfers owned tracked and untracked changes into the assigned worktree without guessing ownership. Evidence: `src/shared/hints.ts`; `src/engine/dispatch.ts`.
@@ -45,8 +41,6 @@ The single source of truth for **outstanding work**: verified defects, deferred 
 - [ ] **Complete the manual accessibility journeys before site publication.** Exercise VoiceOver, keyboard-only navigation, zoom, narrow viewport, reduced motion, print, and no-JavaScript journeys, then record the supported-browser and release judgment. Evidence: `project/map/_private/planning/public-manual-workstreams/7a-comprehension-and-closeout.md`.
 
 - [ ] **Revisit generated-artifact preservation only with a non-inference design.** Reopen ignored-artifact rescue only when authorship can be established without mistaking stale generated prose for meaningful user edits, or when real incidents justify that trade-off. Evidence: `project/map/_adr/_superseded/0091-rescue-generated-content-before-overwrite.md`; `src/engine/instructions.ts`; `src/lib/skills.ts`.
-
-- [ ] **Keep HTML comments out of human Map projections.** Strip structural comments from search excerpts and terminal rendering while preserving byte-identical raw Markdown, MCP, and negotiated-text routes. Evidence: `src/lib/docs_search.ts:359`; `src/commands/docs.ts`; `src/lib/markdown.ts`; `project/map/_adr/0205-browser-workflow-semantics-are-explicit-markdown-projections.md`.
 
 - [ ] **Add the next auto-detected Tier-1 diagnostic formats.** Implement GitHub Actions annotations, TeamCity service messages, and Checkstyle XML in leverage order, with parser fixtures and a failed-job end-to-end guard for each format. Evidence: `src/engine/gate/diagnostics.ts`; `tests/gate_diagnostics_test.ts`; `tests/engine_done_json_test.ts`.
 
@@ -93,7 +87,5 @@ _Product positioning, messaging, and launch/content tasks._
 ## 👨‍💻 Jack's Odds and Ends
 
 _Small things Jack finds while reviewing code and documentation; cleaned up periodically in maintenance batches._
-
-- [ ] **Teach the Map as a distinct project-knowledge artifact.** Explain that the Map records agent navigation knowledge while a project's chosen human documentation can serve a separate audience and purpose. Evidence: `project/map/_private/planning/public-manual-workstreams/_done/4c-explanations.md`; `project/map/_private/planning/public-manual-workstreams/6a-corpus-integration-and-coverage.md`.
 
 - [ ] **Complete the public-manual programme before launch.** Replace the filtered-Map manual with a dedicated kind-aware human corpus, retain the Map as trust evidence, deliver every surface, and pass the voice and comprehension stops. Evidence: `project/map/_private/planning/public-manual-workstreams/README.md`; `project/map/_adr/0314-separate-public-manual-and-project-map.md`.

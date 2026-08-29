@@ -8,16 +8,25 @@ import {
 } from "../src/lib/manual.ts";
 import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 
-const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
-const manualDir = resolveRepositoryManualDir(repoRoot).abs;
-const root = await Deno.readTextFile(join(manualDir, "README.md"));
-const destinations = manualFrontDoorDestinations(root);
-if (destinations.length === 0) {
-  throw new Error(
-    `project/manual/README.md must carry direct links between ${MANUAL_FRONT_DOORS_START} and ${MANUAL_FRONT_DOORS_END}`,
-  );
+/**
+ * Count the direct links authored between the manual root's front-door
+ * markers — the exact set the `manual_front_doors` standard holds scarce.
+ */
+export async function countManualFrontDoors(repoRoot: string): Promise<number> {
+  const manualDir = resolveRepositoryManualDir(repoRoot).abs;
+  const root = await Deno.readTextFile(join(manualDir, "README.md"));
+  const destinations = manualFrontDoorDestinations(root);
+  if (destinations.length === 0) {
+    throw new Error(
+      `project/manual/README.md must carry direct links between ${MANUAL_FRONT_DOORS_START} and ${MANUAL_FRONT_DOORS_END}`,
+    );
+  }
+  return destinations.length;
 }
-console.error(
-  `project/manual/README.md: ${destinations.length} promoted journeys`,
-);
-console.log(`DISCERN_METRIC manual_front_doors ${destinations.length}`);
+
+if (import.meta.main) {
+  const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+  const count = await countManualFrontDoors(repoRoot);
+  console.error(`project/manual/README.md: ${count} promoted journeys`);
+  console.log(`DISCERN_METRIC manual_front_doors ${count}`);
+}

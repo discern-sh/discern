@@ -1,15 +1,23 @@
 /** End-to-end parity for every projection of the canonical product manual. */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { copy } from "@std/fs";
 import { join } from "@std/path";
 import { stageBundledManual } from "../scripts/build.ts";
 import {
+  type DocsLanding,
   docsLlmsSection,
+  type DocsSite,
   loadDocsSite,
   projectManualPages,
 } from "../site/docs.ts";
-import { docsLlmsFullText } from "../site/seo.ts";
+import { buildSiteRedirectTable, docsLlmsFullText } from "../site/seo.ts";
+import { liveHtmlRoutes } from "../site/serve.ts";
 import { buildSearchIndex } from "../site/search.ts";
 import {
   DOCS_AGENT_CONTEXT_HINT,
@@ -27,8 +35,9 @@ import {
   type ManualProjection,
 } from "../src/lib/manual.ts";
 import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
-import { withTempDir } from "./helpers.ts";
+import { runCli, seedConfig, withTempDir } from "./helpers.ts";
 
 /** Load the repository manual through the same strict projection as consumers. */
 async function repositoryManual(): Promise<ManualProjection> {
@@ -142,6 +151,23 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
       `${source} must redirect directly to ${target}`,
     );
   }
+
+  // The served site table must carry the whole manual registry twice over:
+  // every declared source redirects, and its raw Markdown mirror follows the
+  // same hop — 2 × the registry (166 today), derived rather than hand-listed.
+  const table = buildSiteRedirectTable(liveHtmlRoutes(site), [
+    site.landing,
+    ...site.pages,
+    ...site.decisions.pages,
+    site.publicMap.landing,
+    ...site.publicMap.pages,
+  ]);
+  assertEquals(table.issues, []);
+  for (const [source, target] of redirects.redirects) {
+    assertEquals(table.redirects.get(source), target, source);
+    assertEquals(table.redirects.get(`${source}.md`), `${target}.md`, source);
+  }
+  assert(table.redirects.size >= redirects.redirects.size * 2);
 });
 
 Deno.test("manual delivery leaves the configured project Map contract intact", async () => {
@@ -202,6 +228,7 @@ Deno.test("a fresh published page enrols everywhere except promotion", async () 
         "- [Fresh enrolment](fresh-enrolment.md): Prove that one published page joins every complete delivery surface without receiving promoted placement.\n- [Maintain or remove discern]",
       ),
     );
+    const retiredSource = "/docs/fresh-enrolment-retired";
     await Deno.writeTextFile(
       join(manualDir, "10-guides", "fresh-enrolment.md"),
       `---
@@ -213,6 +240,8 @@ publish: true
 kind: guide
 aliases:
   - "fresh manual member"
+redirect_from:
+  - "${retiredSource}"
 ---
 
 # Fresh enrolment

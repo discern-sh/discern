@@ -10,7 +10,10 @@ import {
   MANUAL_PAGE_MAX_BYTES,
   manualFrontDoorDestinations,
 } from "../../src/lib/manual.ts";
-import { REPOSITORY_MANUAL_REL } from "../../src/shared/manual.ts";
+import {
+  MANUAL_FRONT_DOOR_CHECKPOINT_ID,
+  REPOSITORY_MANUAL_REL,
+} from "../../src/shared/manual.ts";
 import {
   checkpointExactUtf8,
   checkpointGitBytes,
@@ -19,7 +22,7 @@ import {
   checkpointWhenInputFromEnvironment,
 } from "./checkpoint_when_input.ts";
 
-export const MANUAL_FRONT_DOOR_CHECKPOINT_ID = "manual-front-door-promotion";
+export { MANUAL_FRONT_DOOR_CHECKPOINT_ID };
 export const MANUAL_FRONT_DOOR_PATH = `${REPOSITORY_MANUAL_REL}/README.md`;
 
 /** Convert malformed or unreadable matcher input into one fail-closed error. */
