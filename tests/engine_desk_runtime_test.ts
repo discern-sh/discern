@@ -41,6 +41,7 @@ import {
   runDeskInteractiveChild,
   runDeskProjectScript,
 } from "../src/engine/desk/desk.ts";
+import { parseProjectScriptArguments } from "../src/engine/desk/literal_argv.ts";
 import {
   DESK_REVIEW_ROUTES,
   deskUnlandedRoute,
@@ -451,11 +452,39 @@ Deno.test("desk-owned Project Scripts receive the desk-session marker", async ()
       await runDeskProjectScript(
         dir,
         "record-desk-session",
+        [],
         deskSessionEnv(),
       ),
       0,
     );
     assertEquals(await Deno.readTextFile(`${dir}/desk-session.txt`), "1");
+  });
+});
+
+Deno.test("Desk Project Script arguments are literal argv, not shell syntax", () => {
+  assertEquals(parseProjectScriptArguments(""), { ok: true, args: [] });
+  assertEquals(
+    parseProjectScriptArguments(
+      `--target 'review environment' "" '--literal=$HOME' 'a;b'`,
+    ),
+    {
+      ok: true,
+      args: [
+        "--target",
+        "review environment",
+        "",
+        "--literal=$HOME",
+        "a;b",
+      ],
+    },
+  );
+  assertEquals(parseProjectScriptArguments("'unfinished"), {
+    ok: false,
+    message: "The argument line has an unclosed single quote.",
+  });
+  assertEquals(parseProjectScriptArguments("unfinished\\"), {
+    ok: false,
+    message: "The argument line ends with an incomplete escape.",
   });
 });
 
@@ -1916,6 +1945,7 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   const runs: Array<{
     root: string;
     name: string;
+    args: readonly string[];
     env: Record<string, string>;
   }> = [];
   let pauses = 0;
@@ -1936,8 +1966,8 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
       assert(choice !== undefined, "the scripted desk exhausted its choices");
       return choice;
     },
-    runScript: (root, name, env) => {
-      runs.push({ root, name, env });
+    runScript: (root, name, args, env) => {
+      runs.push({ root, name, args, env });
       return 7;
     },
     pause: () => {
@@ -1951,6 +1981,7 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   assertEquals(runs, [{
     root: scripted.path,
     name: "deploy",
+    args: [],
     env: { [DESK_SESSION_ENV]: "1" },
   }]);
   assertEquals(pauses, 1);
@@ -1984,6 +2015,59 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   assertStringIncludes(text, "Project Script exited with status 7");
 });
 
+Deno.test("desk collects and forwards literal arguments to a worktree Project Script", async () => {
+  const output = transcript();
+  const scripted = fleetEntry(
+    "agent/script-arguments",
+    "/worktrees/script-arguments",
+  );
+  const data = statusData([
+    fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+    scripted,
+  ]);
+  const choices = [
+    scripted.path,
+    "scripts",
+    "publish-canary",
+    "run",
+    BACK,
+    QUIT,
+  ];
+  const inputs: TextRequestOptions[] = [];
+  const runs: unknown[][] = [];
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data }),
+    scripts: (root) =>
+      root === scripted.path
+        ? [{ name: "publish-canary", description: "publish one preview" }]
+        : [],
+    select: () => choices.shift() ?? QUIT,
+    input: (options) => {
+      inputs.push(options);
+      return `--target 'review environment' '--literal=$HOME'`;
+    },
+    runScript: (...values: unknown[]) => {
+      runs.push(values);
+      return 0;
+    },
+    pause: () => {},
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(inputs.length, 1);
+  assertEquals(runs, [[
+    scripted.path,
+    "publish-canary",
+    ["--target", "review environment", "--literal=$HOME"],
+    { [DESK_SESSION_ENV]: "1" },
+  ]]);
+  const text = joined(output);
+  assertTerminalTextIncludes(
+    text,
+    "discern scripts publish-canary --target 'review environment' '--literal=$HOME'",
+  );
+});
+
 Deno.test("desk offers and runs Project Scripts from the project root", async () => {
   const output = transcript();
   const choices = [RUN_PROJECT_SCRIPT, "health", "run", QUIT];
@@ -1991,6 +2075,7 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
   const runs: Array<{
     root: string;
     name: string;
+    args: readonly string[];
     env: Record<string, string>;
   }> = [];
   let pauses = 0;
@@ -2007,8 +2092,9 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
       });
       return choices.shift() ?? QUIT;
     },
-    runScript: (root, name, env) => {
-      runs.push({ root, name, env });
+    input: () => `--mode 'full scan'`,
+    runScript: (root, name, args, env) => {
+      runs.push({ root, name, args, env });
       return 0;
     },
     confirm: (_message, options) => {
@@ -2024,6 +2110,7 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
   assertEquals(runs, [{
     root: ROOT,
     name: "health",
+    args: ["--mode", "full scan"],
     env: { [DESK_SESSION_ENV]: "1" },
   }]);
   assertEquals(pauses, 1);
@@ -2050,7 +2137,7 @@ Deno.test("desk offers and runs Project Scripts from the project root", async ()
   );
   assertStringIncludes(
     joined(output),
-    "Run: discern scripts health (in project root)",
+    "Run: discern scripts health --mode 'full scan' (in project root)",
   );
   assertStringIncludes(joined(output), "Executable");
   assertStringIncludes(joined(output), "Working directory");

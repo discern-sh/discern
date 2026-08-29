@@ -341,6 +341,7 @@ function renderActionPlan(
 /** Render complete executable evidence for one project-authored script. */
 export function renderDeskProjectScriptPlan(
   script: DeskProjectScript,
+  args: readonly string[],
   fallbackWorkingDirectory: string,
   viewport: TerminalSize,
   terminal: TerminalContext,
@@ -352,7 +353,7 @@ export function renderDeskProjectScriptPlan(
     action: "scripts",
     group: "danger",
     label: `Project Script ${script.name}`,
-    command: { argv: [executable], workingDirectory: "task" },
+    command: { argv: [executable, ...args], workingDirectory: "task" },
     consequence: {
       keeps: ["Desk session"],
       changes: [
