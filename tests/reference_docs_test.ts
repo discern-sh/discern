@@ -1,4 +1,5 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { z } from "@zod/zod";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
@@ -39,8 +40,18 @@ import {
   TEMP_ARTIFACT_TTL_MS,
 } from "../src/shared/temp_artifacts.ts";
 import { CRASH_EXIT_CODE, MAX_CRASH_FILES } from "../src/engine/crash.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+
+const PROOF_SCHEMA_INVENTORY = z.object({
+  $defs: z.record(
+    z.string(),
+    z.object({
+      properties: z.record(z.string(), z.json()).optional(),
+    }).passthrough(),
+  ),
+}).passthrough();
 
 const mcpReferencePath =
   `${REPO_AUTHORED_PATHS.manual}/30-reference/mcp-and-results.md`;
@@ -217,13 +228,11 @@ Deno.test("Proof and checkpoint closed states and schema fields are complete", a
     ]),
     [],
   );
-  const schema = JSON.parse(
+  const schema = decodeWith(
+    PROOF_SCHEMA_INVENTORY,
     await Deno.readTextFile("schema/discern-proof-note.schema.json"),
-  ) as Record<string, unknown>;
-  const definitions = schema.$defs as Record<
-    string,
-    { properties?: Record<string, unknown> }
-  >;
+  );
+  const definitions = schema.$defs;
   for (
     const name of [
       "DiscernProofClaim",
