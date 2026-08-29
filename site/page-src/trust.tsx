@@ -65,6 +65,7 @@ export const TRUST_EVIDENCE = [
   },
 ] as const satisfies readonly TrustEvidenceGroup[];
 
+/** Render the product name used in shared header and footer brand slots. */
 function DiscernName() {
   return <span className="trust-brand-name">discern</span>;
 }
