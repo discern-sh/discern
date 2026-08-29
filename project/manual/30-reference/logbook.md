@@ -143,13 +143,13 @@ The current event schema major is `1`. Readers skip an unknown major and tolerat
 
 Invocation `surface` is `cli` or `mcp`. Completion `outcome` is `ok`, `failed`, `partial`, or `refused`. The lifecycle action names are `archive` and `reset`.
 
-| `kind` | Stored contract |
-| --- | --- |
-| `begin` | Invocation id, verb, surface, driver facts, branch, head, and config epoch captured before an effectful run. |
-| `verb` | One completed invocation with outcome, duration, and any available result metadata. |
-| `config-change` | Branch, changed config-section names, and the new epoch fingerprint. Values are not stored. |
-| `pin` | Branch, Standard name, previous limit, new limit, and measured value. |
-| `prune` | Aggregate digests for raw month shards removed by rotation. |
+| `kind`          | Stored contract                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| `begin`         | Invocation id, verb, surface, driver facts, branch, head, and config epoch captured before an effectful run. |
+| `verb`          | One completed invocation with outcome, duration, and any available result metadata.                          |
+| `config-change` | Branch, changed config-section names, and the new epoch fingerprint. Values are not stored.                  |
+| `pin`           | Branch, Standard name, previous limit, new limit, and measured value.                                        |
+| `prune`         | Aggregate digests for raw month shards removed by rotation.                                                  |
 
 | Field          | Example                                                                 |
 | -------------- | ----------------------------------------------------------------------- |

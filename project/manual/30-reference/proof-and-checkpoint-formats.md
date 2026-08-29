@@ -164,32 +164,32 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 
 ### Contract
 
-| Envelope field | Type | Required | Contract |
-| --- | --- | --- | --- |
-| `payloadType` | string | Yes | Exact public schema id plus `#/$defs/DiscernProofNotePayload`. |
-| `payload` | Base64 string | Yes | UTF-8 JSON bytes for the payload. |
-| `signatures` | array | Yes | Zero or more `{ keyid?, sig }` records; discern v1.0.0 writes an empty array. |
+| Envelope field | Type          | Required | Contract                                                                      |
+| -------------- | ------------- | -------- | ----------------------------------------------------------------------------- |
+| `payloadType`  | string        | Yes      | Exact public schema id plus `#/$defs/DiscernProofNotePayload`.                |
+| `payload`      | Base64 string | Yes      | UTF-8 JSON bytes for the payload.                                             |
+| `signatures`   | array         | Yes      | Zero or more `{ keyid?, sig }` records; discern v1.0.0 writes an empty array. |
 
-| Payload field | Type | Required | Contract |
-| --- | --- | --- | --- |
-| `subject` | object | Yes | `{ commit }`, where `commit` is the full landed object id. |
-| `proof` | object | Yes | Stable Proof claim described below. |
-| `presentation` | object | Yes | Human `line` and full `markdown`; excluded from replay identity. |
-| `acceptance` | object | No | Consent, authorized variances, and approved Standard proposals. |
-| `issuer` | object | No | Reserved asserted `name`, `email`, and `key`; v1.0.0 writes none. |
-| `brief` | string | No | Reserved signed-intent reference; v1.0.0 writes none. |
+| Payload field  | Type   | Required | Contract                                                          |
+| -------------- | ------ | -------- | ----------------------------------------------------------------- |
+| `subject`      | object | Yes      | `{ commit }`, where `commit` is the full landed object id.        |
+| `proof`        | object | Yes      | Stable Proof claim described below.                               |
+| `presentation` | object | Yes      | Human `line` and full `markdown`; excluded from replay identity.  |
+| `acceptance`   | object | No       | Consent, authorized variances, and approved Standard proposals.   |
+| `issuer`       | object | No       | Reserved asserted `name`, `email`, and `key`; v1.0.0 writes none. |
+| `brief`        | string | No       | Reserved signed-intent reference; v1.0.0 writes none.             |
 
-| `proof` field | Type | Required | Contract |
-| --- | --- | --- | --- |
-| `branch` | string | Yes | Validated effort branch. |
-| `trunk` | string | Yes | Integration branch used by the Gate. |
-| `head` | string | Yes | Validated commit id. |
-| `files_total` | number | Yes | Changed-file count. |
-| `insertions` | number | Yes | Added-line count. |
-| `deletions` | number | Yes | Removed-line count. |
-| `mode` | `strict` or `report` | No | `report` is CI review evidence and is not landing authority. |
-| `checkpoint_drops` | array | No | Bounded fail-open checkpoint accounts. |
-| `standard_proposals` | array | No | Commit-bound pending Standard proposals. |
+| `proof` field        | Type                 | Required | Contract                                                     |
+| -------------------- | -------------------- | -------- | ------------------------------------------------------------ |
+| `branch`             | string               | Yes      | Validated effort branch.                                     |
+| `trunk`              | string               | Yes      | Integration branch used by the Gate.                         |
+| `head`               | string               | Yes      | Validated commit id.                                         |
+| `files_total`        | number               | Yes      | Changed-file count.                                          |
+| `insertions`         | number               | Yes      | Added-line count.                                            |
+| `deletions`          | number               | Yes      | Removed-line count.                                          |
+| `mode`               | `strict` or `report` | No       | `report` is CI review evidence and is not landing authority. |
+| `checkpoint_drops`   | array                | No       | Bounded fail-open checkpoint accounts.                       |
+| `standard_proposals` | array                | No       | Commit-bound pending Standard proposals.                     |
 
 Acceptance has optional `consent`, `variances`, and `standard_proposals` fields. `consent.source` is `conversation`, `standing-grant`, or `effort-grant`; `scopes` is optional. Each `variances[]` member contains `checkpoint`, `definition_hash`, `subject`, and `why`. A Standard proposal contains `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and non-empty `evidence_paths`.
 

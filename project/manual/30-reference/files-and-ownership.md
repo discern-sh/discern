@@ -152,7 +152,7 @@ Acceptance atomically moves the trunk and `refs/worktree/discern/acceptance-tran
 
 ## Temporary files and crash records
 
-Temporary artifacts use the operating system's temporary directory. They are local evidence, not project inputs, and are never committed.
+Temporary artifacts use the operating system's temporary directory. They remain local evidence outside the project and its commits.
 
 | Family            | Name shape                                                   | Contents                                                                                  |
 | ----------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |

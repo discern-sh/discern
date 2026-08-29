@@ -48,13 +48,13 @@ Run `discern identity` in the main checkout or a linked worktree and select the 
 | `--resource <name>` | `<project-slug>-<id>-<name>` for one declared resource.                               |
 | `--resources`       | Every declared resource as `name=handle`.                                             |
 
-| Identity limit | Exact boundary |
-| --- | --- |
-| Generated name slug | At most 40 characters before the six-hex-character uniqueness tail. |
-| `DISCERN_WORKTREE_ID` override | 1–81 characters; first character alphanumeric, remainder letters, numbers, dots, dashes, or underscores. |
-| Port band | 2,000 ports, `17290` through `19289`. |
-| `--site` | One DNS label of at most 63 characters; overlong id tails are hash-fitted. |
-| `--db`, `--worktree`, `--resource` | No product length clamp. Apply the destination system's limit; use `--site` for a DNS label. |
+| Identity limit                     | Exact boundary                                                                                           |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Generated name slug                | At most 40 characters before the six-hex-character uniqueness tail.                                      |
+| `DISCERN_WORKTREE_ID` override     | 1–81 characters; first character alphanumeric, remainder letters, numbers, dots, dashes, or underscores. |
+| Port band                          | 2,000 ports, `17290` through `19289`.                                                                    |
+| `--site`                           | One DNS label of at most 63 characters; overlong id tails are hash-fitted.                               |
+| `--db`, `--worktree`, `--resource` | No product length clamp. Apply the destination system's limit; use `--site` for a DNS label.             |
 
 A linked worktree resolves its id from `DISCERN_WORKTREE_ID`, configured environment files, then Git metadata. Overrides accept letters, numbers, dots, dashes, and underscores. This read-only precedence never grants destructive ownership: cleanup uses the exact Git worktree entry plus discern's ready marker.
 

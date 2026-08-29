@@ -64,13 +64,13 @@ Prerequisite: the target platform or coding-agent provider. Provider files are p
 
 ## Provider matrix
 
-| Provider | Launcher | Agent file | Skills | MCP config | Hook config | Trust required | Tool / await budget |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Claude Code | `claude` | `CLAUDE.md` pointer | `.claude/skills/` | `.mcp.json` | `.claude/settings.json` | No separate prompt; discern writes pre-approval | 3,600s / 3,300s |
-| Codex | `codex` | canonical `AGENTS.md` | `.agents/skills/` | `.codex/config.toml` | `.codex/hooks.json` | Directory trust and hook-hash approval | 3,600s / 3,300s |
-| Gemini | `gemini` | `GEMINI.md` pointer | `.agents/skills/` | `.gemini/settings.json` | same file | Workspace trust and hooks enabled | 3,600s / 3,300s |
-| Cursor | `cursor-agent` | canonical `AGENTS.md` | `.agents/skills/` | `.cursor/mcp.json` | `.cursor/hooks.json` | Workspace and first-use tool approval | 60s shortest surface / 45s |
-| GitHub Copilot | `copilot` | canonical `AGENTS.md` | `.agents/skills/` | `.mcp.json` | `.github/hooks/discern.json` | Folder trust | 3,600s / 3,300s |
+| Provider       | Launcher       | Agent file            | Skills            | MCP config              | Hook config                  | Trust required                                  | Tool / await budget        |
+| -------------- | -------------- | --------------------- | ----------------- | ----------------------- | ---------------------------- | ----------------------------------------------- | -------------------------- |
+| Claude Code    | `claude`       | `CLAUDE.md` pointer   | `.claude/skills/` | `.mcp.json`             | `.claude/settings.json`      | No separate prompt; discern writes pre-approval | 3,600s / 3,300s            |
+| Codex          | `codex`        | canonical `AGENTS.md` | `.agents/skills/` | `.codex/config.toml`    | `.codex/hooks.json`          | Directory trust and hook-hash approval          | 3,600s / 3,300s            |
+| Gemini         | `gemini`       | `GEMINI.md` pointer   | `.agents/skills/` | `.gemini/settings.json` | same file                    | Workspace trust and hooks enabled               | 3,600s / 3,300s            |
+| Cursor         | `cursor-agent` | canonical `AGENTS.md` | `.agents/skills/` | `.cursor/mcp.json`      | `.cursor/hooks.json`         | Workspace and first-use tool approval           | 60s shortest surface / 45s |
+| GitHub Copilot | `copilot`      | canonical `AGENTS.md` | `.agents/skills/` | `.mcp.json`             | `.github/hooks/discern.json` | Folder trust                                    | 3,600s / 3,300s            |
 
 Every provider's activation check calls `discern_status` (Claude Code and Codex expose it as `mcp__discern__discern_status`). A missing provider executable does not change the files' ownership contract. Providers outside this registry have no supported integration files, Skills destination, trust recipe, or MCP timeout profile.
 
