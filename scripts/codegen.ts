@@ -35,6 +35,7 @@ import { renderAgentIntegrationCoverageDoc } from "./agent_integration_registry.
 import {
   ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
   renderEnvironmentVariableReferenceDoc,
+  renderManualEnvironmentVariableReferenceDoc,
 } from "./environment_variable_reference.ts";
 import { renderGlossaryDoc } from "./glossary_registry.ts";
 import {
@@ -291,7 +292,7 @@ await write(
 await write(
   manualEnvironmentVariableReference,
   renderGeneratedManualDocument(
-    renderedEnvironmentVariableReference,
+    renderManualEnvironmentVariableReferenceDoc(),
     "70-reference/environment-variables.md",
     "30-reference/environment-variables.md",
     { id: "reference-environment-variables", order: 60 },
