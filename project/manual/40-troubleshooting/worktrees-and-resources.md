@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-worktrees-and-resources
 title: "Worktrees and resources"
-description: "Recover a refused/interrupted lifecycle, contained checkout, reappeared path, cleanup ownership, resource, identity, port, or env issue safely."
+description: "Recover a refused or interrupted worktree lifecycle, reclaim finished checkouts and reappeared paths, and diagnose resource and environment state."
 order: 40
 publish: true
 kind: troubleshooting
@@ -21,6 +21,11 @@ aliases:
   - "stale worktree files"
   - "files left after worktree removal"
   - "retired worktree path"
+  - "precondition_failed"
+  - "awaiting_consent"
+  - "partial_acceptance"
+  - "provisioned_resources"
+  - "worktree disk usage"
 redirect_from:
   - "/docs/worktrees/reclaiming-contained-worktrees"
   - "/docs/worktrees/cleanup-ownership"
@@ -29,101 +34,83 @@ redirect_from:
 
 # Worktrees and resources
 
-Recover a refused/interrupted lifecycle, contained checkout, reappeared path, cleanup ownership, resource, identity, port, or env issue safely.
+Parallel work multiplies the things that can look wrong: several checkouts, branches at different stages, provisioned resources, and lifecycle commands that refuse rather than guess. Almost every situation on this page shares one recovery shape: fix what the result names, then repeat the same discern command, which re-checks everything from the current state and converges. The risk worth respecting is improvised cleanup, because a recursive delete or a hand-removed Git entry can destroy work and evidence that a bounded retry would have preserved.
 
-## Reclaiming contained worktrees
+[Worktrees and the trunk](../20-understand/worktrees-and-trunk.md) is the mental model behind these states; this page starts from what you can observe.
 
-_Reclaim a completed stage's checkout while keeping its branch ref for recovery._
+## A lifecycle command refuses
 
-Composition below the trunk ([ADR 0110](https://discern.sh/docs/decisions/0110-the-landing-model)) leaves finished stages behind. `start --from` forks a later stage from an earlier one, and the composed branch lands after the stages finish. Earlier checkouts therefore remain. discern calls a worktree **contained** when its branch tip is a strict ancestor of another live branch's tip, its tree is clean, and it is idle ([ADR 0225](https://discern.sh/docs/decisions/0225-contained-worktree-reclaim-is-offer-only)).
+`discern start`, `discern update`, and `discern accept` check their preconditions first and refuse with the missing one named. Nothing has changed when you see this — the refusal is the command protecting the states it would otherwise have to guess about. The common ones:
 
-### The offer
+- **The worktree has uncommitted changes.** Acceptance lands one exact commit, and discern never creates a work-in-progress commit for you. The agent commits the changes, or discards them as a decision of their own, then reruns.
+- **The branch is behind the trunk.** The agent runs `discern update`, re-reads any overlapping files the result names, reruns `discern done`, and then returns to acceptance.
+- **The main checkout is busy.** Acceptance moves the trunk _in the main checkout_, so it refuses while that checkout has uncommitted tracked changes or is parked on another branch. It won't move your work for you: commit or stash there, return the checkout to the trunk, and rerun. The worktree branch is untouched and keeps all its commits throughout.
+- **Generated artifacts would change.** A pending refresh effect means the tree about to land isn't final. The agent runs `discern refresh`, commits the result, reruns `discern done`, then accepts.
 
-`discern worktree prune` reports contained worktrees as their own plan section, the `status` fleet survey marks the rows, and the Desk offers a reclaim action. Each report names the nearest containing branch with tip hashes and its lead. Idleness follows the Logbook's paired begin/finish events when the Logbook is on. An install with recording off falls back to a 1-hour inactivity period. The Logbook narrows the offer. Human confirmation decides whether reclaim runs.
+One refusal is not a precondition problem: `discern accept` with green Proof but no verified authority changes nothing and re-serves the review moment. That's the design — landing is the owner's decision. [Proof](../20-understand/proof.md#who-supplies-what) explains the authority sources.
 
-### The reclaim
+## Acceptance was interrupted partway
 
-Reclaiming requires a fresh, explicit confirmation through `discern worktree prune --contained` and its terminal interaction, or through the Desk action. A reclaim destroys the checkout and its per-worktree state, including the Gate Proof, so `discern await --green <stage>` then refuses and points at the containing branch. The reclaim tears resources down through the same lifecycle path acceptance uses. The branch ref survives the reclaim as its recovery path (`discern start --from <branch>`). Ordinary prune removes that ref after the composed branch lands. Until then, `status` and the Desk list the kept ref beside its container; refs with no container warn as abandoned.
+Acceptance is a sequence (fast-forward the trunk, record the Proof note, tear down the worktree), and an interruption can stop it after an irreversible step. The result reports how far it got. Read that state before acting on anything:
 
-### Where it lives in code
+- **If the trunk already landed the commit,** the remaining work is only cleanup. Don't try to land it again.
+- **Otherwise,** resolve the named failure, run `discern status` to see the current state, and rerun `discern accept`. It recognizes its own interrupted transaction and finishes it rather than starting over.
 
-| Responsibility            | Source                                                                                                                           |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| The containment predicate | [`src/engine/worktree/containment.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/containment.ts)           |
-| Prune offer and reclaim   | [`src/engine/worktree/lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)               |
-| Desk action               | [`src/engine/desk/desk.ts`](https://github.com/jackwh/discern/blob/main/src/engine/desk/desk.ts)                                 |
-| Behavioral coverage       | [`tests/engine_worktree_contained_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_worktree_contained_test.ts) |
+[Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) walks the full recovery, including resuming from a fresh session.
 
-### Current state and gotchas
+## Removal failed, or a removed path came back
 
-- No configuration, grant, or hint can reclaim a worktree without a fresh confirmation naming it.
-- Equal tips are ambiguous twins and never qualify. An unreadable checkout stays off the list because unknown state does not qualify.
-- Apply re-checks each candidate's live state immediately before acting. A stage that gained work drops out.
+Teardown succeeds only when discern verifies absence: Git no longer registers the worktree _and_ nothing exists at the path. When either check fails, the lifecycle fails visibly instead of reporting a success it can't prove.
 
-## Cleanup ownership and successful teardown
+**Removal reports a remaining path or registration.** Some program is still writing there (an editor, a file watcher, a shell session), or a Git worktree entry needs repair. The result names which. Stop that one writer, or repair that one entry, then repeat the same lifecycle command; it re-checks identity and the filesystem before continuing, so repeating is safe. Don't substitute a parent-directory delete or a repository-wide sweep — the containment and ownership checks inside the retry are the protection you'd be discarding.
 
-_Merge status limits data loss. Recorded identity grants cleanup authority. Successful teardown requires verified absence._
-
-### Prove ownership before planning deletion
-
-Automatic cleanup starts from positive evidence attached to one discern lifecycle. A prune candidate needs a plain `discern/worktree-ready` marker in its own Git worktree metadata. Its branch must be the configured prefix followed by the id encoded in that same metadata. Setup uses only its dedicated `discern-setup` branch, inside the setup lifecycle.
-
-A fully merged branch is not owned merely because deletion would preserve its commits. A similar name, a configured-prefix name without identity evidence, a checkout-local identity override, or a directory beneath the worktree parent also grants nothing. Prune can show such refs as Git context, but its actionable plan keeps them. Dry-run and apply use the same ownership rule, and apply checks the evidence again before acting.
-
-An explicit `discern worktree drop <id|path>` can remove a foreign checkout a person selected. It keeps a branch that discern cannot prove it owns. Merge status, cleanliness, containment, locks, and current worktree use remain independent safety checks; none can replace ownership.
-
-### Prove absence before reporting success
-
-Lifecycle commands stop their command-owned shell, hook, Git, and background descendants before removal. The shared teardown then validates the resolved target and refuses broad or uncertain paths: a filesystem root, the home directory, the main checkout, Git's common metadata, a symbolic link, an unreadable object, or an object replaced after inspection.
-
-Removal can succeed only when both observations agree:
-
-- Git has no worktree registration for the retired path.
-- A strict filesystem check reports no file, symbolic link, or directory there.
-
-discern records retirement evidence and repeats both checks at the return boundary. A remaining or recreated entry makes the lifecycle fail and keeps the branch where possible. Setup's structural probe consumes the same result, so a successful setup cannot leave a probe checkout or registration behind.
-
-### Recover without widening deletion
-
-The failure names the exact path, retained Git or branch state, and the safe next action. Stop the named writer or repair that one Git worktree entry, then repeat the same lifecycle command. The retry checks the current identity and filesystem object again and converges from partial state. Do not replace it with a parent-directory deletion or repository-wide prune.
-
-A separate program can still write to a retired location after the lifecycle returns. [Reappeared worktree paths](worktrees-and-resources.md) explains how removal evidence makes that later state visible and reclaimable. The ownership and absence decision is recorded separately ([ADR 0315](https://discern.sh/docs/decisions/0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence)).
-
-## Reappeared worktree paths
-
-_Review files written after worktree removal, then reclaim only the path discern can prove it removed._
-
-### Why a removed path can return
-
-An external program can retain an open checkout after acceptance, drop, or prune removes its Git worktree. A later save or shutdown can recreate the old directory with local state. Git no longer knows the path, and an ordinary orphan scan cannot see a directory without a `.git` link.
-
-Before removal, discern waits for command-owned shell and Git processes and stops ordinary background descendants in their isolated process groups. The shared removal path then proves Git no longer registers the worktree and a strict `lstat` reports the path absent. It records the canonical path and removal time in Git's common administrative directory, then repeats both observations at the return boundary. A file, symlink, directory, unreadable path, or remaining Git registration makes teardown fail visibly instead of returning success ([ADR 0315](https://discern.sh/docs/decisions/0315-automatic-worktree-cleanup-requires-recorded-ownership-and-verified-absence)).
-
-The evidence store retains at most 256 paths. Readers ignore records 90 days after removal, and a later evidence write reaps expired records.
-
-### Observe the reappearance
-
-`discern status` and the Desk report a recorded path when it exists again without a live worktree registration. Structured status includes the removal time, path kind, entry count, and up to 20 relative content names. There is no background watcher or program-specific filename matching.
-
-Review the removal plan:
+**A removed worktree's directory exists again.** An external program that still had the checkout open can recreate the directory after removal — a save, a shutdown flush. Git no longer knows the path, but discern recorded the removal, so `discern status` reports the reappeared path with what it observed there. Review the plan, then reclaim it:
 
 ```sh
 discern worktree prune --dry-run
 ```
 
-### Confirm cleanup
+Close the program that's writing into the path, then confirm the prune. It removes only paths backed by discern's own removal evidence (a neighboring directory it never removed stays outside the plan no matter how similar it looks), and it re-checks the record, Git's registrations, and the filesystem immediately before deleting. A path that contains Git metadata, can't be read, or changes mid-plan is kept for another run. Success is the path absent and status quiet; if it reappears again, the evidence remains and the same steps converge.
 
-Confirmed prune removes only paths backed by discern's removal evidence. An unrecorded neighboring directory remains outside the plan. Apply checks the record, Git registrations, and a filesystem snapshot again immediately before deletion.
+## A finished stage's checkout is taking space
 
-Prune keeps a path that contains Git metadata, cannot be read, exceeds the 1,000-entry inspection bound, or changed after the plan was built. Close the program writing into the path before confirming. If the path reappears during deletion, discern reports the active writer and keeps the evidence for another run. Repeating the same lifecycle command is safe: exact registration cleanup and absence checks converge from the state they observe.
+When work composes in stages (a later worktree started from an earlier one's branch), the earlier checkouts remain after their content flows forward. discern calls such a worktree **contained** once its branch is fully part of a live later branch, its tree is clean, and it's idle. `discern worktree prune` and `discern status` point them out, and the [Desk](../10-guides/delegate-work.md) offers the reclaim.
 
-Cleanup does not clear the record. A second reappearance remains observable until the 90-day limit ([ADR 0265](https://discern.sh/docs/decisions/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup)).
+Reclaiming is confirmation-only: no configuration, grant, or hint reclaims a checkout unattended, because the reclaim destroys the checkout and its worktree-local state — including its Gate Proof. After a reclaim, a `discern await --green` watch on that stage refuses and points at the containing branch instead, which is where the work now lives. The branch ref itself survives as the recovery path (`discern start --from <branch>`), and ordinary pruning offers to remove it only after the composed work lands.
 
-### Where it lives in code
+If disk pressure is the actual symptom: land finished work with `discern accept` (which removes its worktree), then review `discern worktree prune --dry-run` for the rest.
 
-| Responsibility          | Source                                                                                                                     |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Evidence and inspection | [`src/engine/worktree/retired_paths.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/retired_paths.ts) |
-| Removal enrollment      | [`src/engine/worktree/git.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/git.ts)                     |
-| Status projection       | [`src/engine/status/status.ts`](https://github.com/jackwh/discern/blob/main/src/engine/status/status.ts)                   |
-| Behavioral coverage     | [`tests/engine_worktree_prune_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_worktree_prune_test.ts)   |
+## Cleanup kept something you expected it to remove
+
+Automatic cleanup requires positive evidence that discern created the thing for this project — recorded identity in the worktree's own Git metadata, with a matching branch name. A branch that is merely merged, prefix-shaped, or similarly named grants nothing, and prune keeps it while showing it as context. That's not a fault; it's the boundary that keeps cleanup from ever deleting a checkout discern doesn't own.
+
+For a foreign checkout you've judged yourself, `discern worktree drop <id|path>` removes the checkout you name — and still keeps its branch when discern can't prove ownership, so the commits stay recoverable.
+
+## A branch or worktree was dropped by mistake
+
+`discern worktree drop` prints a recovery ref before removing a branch, and discern retains those refs so a drop is reversible. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) has the listing and restore commands and the retention bounds. For refs lost outside discern's lifecycle, `git reflog` is the general tool — and `discern doctor` warns ahead of time when reflog retention is configured below what recovery needs.
+
+## A resource, port, or environment value is wrong
+
+Each worktree gets its own identity (a stable id, a port, a database-safe name) plus whatever external resources the project declares (`[worktree.resources.<name>]`: a database, a container, anything with create/destroy commands). When an app in one worktree reads another's data, or a service won't start, the first check is what this worktree believes about itself:
+
+```sh
+discern identity
+discern identity --resource <name>
+```
+
+- **A resource failed to provision.** Worktree setup reports the failing command's output. Fix the command or the environment it needs, then rerun the same lifecycle step — resource creation converges, and bounded retries are built in.
+- **Environment values didn't arrive.** Only variables named in `[worktree.inherit_env]` are passed through, and only files listed in `[worktree.env_files]` are copied into a new worktree. A value set in the main checkout after the worktree was created isn't retroactively copied. The [worktrees and status reference](../30-reference/worktrees-and-status.md) has the exact identity and environment contract.
+- **An orphaned resource lingers after a crash.** The resource ledger survives worktree removal precisely so garbage collection can find and destroy what a vanished worktree left behind — it acts only on resources discern recorded creating. `discern uninstall` refuses while provisioned resources remain, so nothing external is left orphaned on the way out.
+
+## Ignored files changed under a worktree
+
+Git can't see edits to ignored files, so discern records a baseline when it prepares a worktree and compares it again before the worktree is removed. A report of ignored-file changes at acceptance is your chance to review state that exists nowhere else (a locally edited `.env`, generated local data) before teardown destroys it. Copy out what matters; the report lists changes rather than blocking on them. Set `[worktree].ignored_file_drift = false` if the project doesn't want the check.
+
+## A fleet row looks wrong
+
+`discern status` from the main checkout surveys every worktree. A row it reports as unreadable, broken, or long-idle names its own next step — often repairing one Git entry or deciding the effort is abandoned. These rules keep the fleet safe while you tidy. Never adopt another effort's worktree because it looks idle or clean. And never resolve a confusing row by deleting things Git still registers; route it through `discern worktree drop` or prune, where ownership and absence are verified.
+
+## When to stop
+
+Reclaims, prunes, and drops are owner-confirmed for a reason: each destroys state that can't be regenerated (a checkout, per-worktree Proof, ignored-only files). Stop at the confirmation when you're acting on someone else's effort, or when the path in question holds work you can't account for. Stop when the same removal fails twice with the same writer named; at that point the other program is the blocker. And nothing on this page ever requires deleting `.git` contents by hand; if that seems like the only way forward, capture `discern status --json` and treat it as a defect to report.
