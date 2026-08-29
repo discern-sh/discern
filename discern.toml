@@ -179,10 +179,9 @@
   # pretty reporter for readable logs; bare `deno task test` does the same.
   # The shared runner resolves checkout identity once, prints the seed, and
   # passes an explicit replayable shuffle to Deno on every invocation.
-  # The budget fits the slowest hosted lane: the WSL 2 gate runs the suite
-  # 5-6x slower than a dev machine and needs ~1300s on a 2-core runner, so
-  # 2400 leaves headroom there while still bounding a genuine hang.
-  test = { run = "deno task test --reporter=${DISCERN_GATE_TEST_REPORTER:-junit}", timeout = 2400 }
+  # The budget keeps one-third headroom over the hosted full-suite observation
+  # recorded in the testing Map while still bounding a genuine hang.
+  test = { run = "deno task test --reporter=${DISCERN_GATE_TEST_REPORTER:-junit}", timeout = 3600 }
   smoke = "deno task dev --version"
 
   # `prose` lints the map with Vale at the check stage. Error-severity findings
