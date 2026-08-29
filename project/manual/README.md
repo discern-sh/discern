@@ -1,7 +1,7 @@
 ---
 id: manual-home
 title: "The discern manual"
-description: "Choose the shortest supported path for a first result, a task, understanding, exact lookup, or recovery."
+description: "Learn discern, do real work with it, understand its evidence and authority model, and reach exact contracts and recovery."
 order: 0
 publish: true
 kind: tutorial
@@ -15,48 +15,38 @@ aliases:
 
 # The discern manual
 
-Choose the shortest supported path for a first result, a task, understanding, exact lookup, or recovery.
+discern installs an engineering practice into a Git repository: a final quality check the project defines (the Gate), an isolated workspace for each task, and shared instructions every coding agent inherits. The outcome is practical. You can hand more of the work to coding agents and still know what's ready, because each change returns with evidence for its exact commit and lands only with your authority.
+
+This manual serves two readers. If you're deciding whether discern belongs in your project, [Evaluate discern](00-start/evaluate-discern.md) answers that without installing anything. If discern is already running in your project, start from what you're trying to do:
 
 ## Start here
 
 <!-- BEGIN MANUAL FRONT DOORS -->
 
-- [Start with discern](00-start/README.md)
+- [Install discern and reach a first success](00-start/first-success.md)
 - [Finish and land a change](10-guides/finish-and-land-a-change.md)
-- [Understand the Proof](20-understand/proof.md)
+- [Understand Proof](20-understand/proof.md)
 - [Look up an exact contract](30-reference/README.md)
 - [Recover from a problem](40-troubleshooting/README.md)
 
 <!-- END MANUAL FRONT DOORS -->
 
-## The complete manual
+## The sections
 
-_The same published pages reach discern.sh, `discern docs`, MCP, raw Markdown, search, export, and machine editions._
+Every published page lives in one section, and the sections are organized by the job you came with:
 
-discern gives a repository a final quality check (the Gate), an isolated workspace for each change (a Git worktree), and shared project instructions supplied to every coding agent. Start with [orientation](00-start/evaluate-discern.md) for the concepts in plain English, then follow the [quickstart](00-start/first-success.md) from installation to your first gated change.
+| Section                                         | Its job                                                                            |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [Start](00-start/README.md)                     | Evaluate discern, reach a first landed change, and understand what setup added.    |
+| [Guides](10-guides/README.md)                   | Accomplish one outcome from a named starting state and recognize the result.       |
+| [Understand](20-understand/README.md)           | Build the mental models: states, evidence, and who holds which authority.          |
+| [Reference](30-reference/README.md)             | Look up exact commands, configuration, formats, files, platforms, and defaults.    |
+| [Troubleshooting](40-troubleshooting/README.md) | Go from an observable symptom to a safe recovery and a clear stopping point.       |
 
-Already know the outcome you need? Use the [task index](10-guides/README.md) to jump to its procedure.
+## Read it anywhere
 
-### The sections
+These pages are one manual with several deliveries. The website at [discern.sh/docs](https://discern.sh/docs) serves them with search. Append `.md` to any page's address for its raw Markdown. Installed, `discern docs` opens the same manual offline in a terminal reader: type to search, press Enter to open a page, press `q` to close it. `--raw`, `--pager`, and direct targets serve scripts. Coding agents read the same pages through the `discern_docs` MCP tool. Every published page is browsable and searchable on each of these surfaces; this front door is only a starting selection.
 
-| Section                                         | What's in it                                                                      |
-| ----------------------------------------------- | --------------------------------------------------------------------------------- |
-| [Start](00-start/README.md)                     | Evaluate discern, reach a first success, and understand what setup produced.      |
-| [Guides](10-guides/README.md)                   | Complete a task from a named starting state and recognize its result.             |
-| [Understand](20-understand/README.md)           | Learn the product states, evidence, and authority boundaries behind the workflow. |
-| [Reference](30-reference/README.md)             | Look up exact commands, configuration, formats, files, platforms, and defaults.   |
-| [Troubleshooting](40-troubleshooting/README.md) | Start from an observable symptom and recover through a bounded procedure.         |
+## The manual and the Map
 
-Contributors can go deeper in the project's [engine](https://github.com/jackwh/discern/tree/main/project/map/50-engine-internals/), [development](https://github.com/jackwh/discern/tree/main/project/map/80-development/), and [site](https://github.com/jackwh/discern/tree/main/project/map/90-site/) Map sections. [Project decisions](https://discern.sh/docs/decisions) record the choices behind discern. Decision records remain outside the product manual and customer binaries.
-
-### Browsing from the terminal
-
-`discern docs [target]` browses this manual. Bare interactive `discern docs` opens a full-height, grouped picker. Type to search titles and paths, move with the arrow or Page keys, and press Enter to open a document. When the terminal has room, the picker stays above a document pane with its own scroll position; short terminals use one coherent pane at a time. Tab moves between panes, the arrow and Page keys scroll the focused pane, Home and End jump within it, and Escape or `q` closes the document without losing the picker state.
-
-Use `[` and `]` to focus links and Enter to follow one. Admitted relative links and heading fragments stay inside the reader. HTTP and HTTPS links open through the system browser after discern restores the terminal. With mouse input enabled, the wheel scrolls the pane under the pointer, a click focuses a pane, and a link click follows it. Use your terminal's selection modifier when selecting terminal text while mouse tracking is active. Every mouse action has a keyboard equivalent.
-
-Choose `Read the docs online` to open [discern.sh/docs](https://discern.sh/docs), or add `--pager` to read through `$PAGER` and return when it exits. If the terminal cannot run the browser, discern prints the document, waits for `Press Enter to continue.`, and restores the remembered selection. A direct target renders and exits without waiting. `--list`, `--json`, and `--raw` support scripts and Model Context Protocol (MCP) clients. `discern map` uses the same reader for your project's Map. `discern help [command]` mirrors `discern [command] --help` ([ADR 0218](https://discern.sh/docs/decisions/0218-docs-owns-the-manual-help-owns-cli-reference)).
-
-### How the manual and Map differ
-
-`project/manual/` is the product-manual source. Its published pages serve readers and external coding agents. The project's Map remains under `project/map/`: it records maintainer orientation, subsystem boundaries, and internal knowledge for agents working on discern itself. Both corpora use the same neutral Markdown engine, while their separate policy models decide admission, validation, and delivery.
+This manual teaches the product. discern's own development also keeps a Map: the live account its coding agents maintain of its codebase, because discern is built under its own practice. You can inspect that Map [in the discern repository](https://github.com/jackwh/discern/tree/main/project/map). Read it as working evidence, and read the [decision records](https://discern.sh/docs/decisions) for why discern works the way it does; product guidance stays here in the manual.
