@@ -17,6 +17,10 @@ import {
   FIRST_PARTY_LEGAL_DOCUMENTS,
 } from "../src/shared/license_registry.ts";
 import { withTempDir } from "./helpers.ts";
+import { canonicalDocTarget, discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
+import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const RELEASE = new URL("../.github/workflows/release.yml", import.meta.url);
 const releaseSource = await Deno.readTextFile(RELEASE);
@@ -93,6 +97,7 @@ Deno.test("the compiled release smoke gates artifact upload", () => {
 
 interface FakeOptions {
   docsRoot?: boolean;
+  docsRootOnly?: boolean;
   materializedLegalPath?: string;
   missingLicenseKey?: string;
   scaffoldMap?: boolean;
@@ -119,7 +124,29 @@ async function writeFakeDiscern(
 ): Promise<string> {
   const binary = join(dir, "fake-discern");
   const version = options.version ?? "1.2.3";
-  const docs = options.docsRoot === false ? [] : [{ path: "docs/README.md" }];
+  const manualDir = resolveRepositoryManualDir(REPO_ROOT).abs;
+  const manualTree = await discoverDocs({ cwd: REPO_ROOT, dir: manualDir });
+  assert(manualTree !== undefined);
+  const manual = await buildManualProjection(manualTree.entries);
+  const completeDocs = manual.pages.map((page) => ({
+    target: canonicalDocTarget(page.entry),
+    path: `docs/${page.entry.relToDocs}`,
+    page_id: page.id,
+    manual_kind: page.kind,
+  }));
+  const docs = options.docsRoot === false
+    ? []
+    : options.docsRootOnly === true
+    ? completeDocs.slice(0, 1)
+    : completeDocs;
+  const docsJson = JSON.stringify({
+    ok: true,
+    verb: "docs",
+    data: { count: docs.length, docs },
+  });
+  const rawConfigReference = await Deno.readTextFile(
+    join(manualDir, "30-reference/config-reference.md"),
+  );
   const documents = await Promise.all(
     FIRST_PARTY_LEGAL_DOCUMENTS
       .filter((document) => document.key !== options.missingLicenseKey)
@@ -164,9 +191,11 @@ case "$1" in
     printf '%s\\n' 'discern ${version}'
     ;;
   docs)
-    printf '%s\\n' '${
-      JSON.stringify({ ok: true, verb: "docs", data: { docs } })
-    }'
+    if [ "$#" -ge 3 ] && [ "$2" = "30-reference/config-reference" ] && [ "$3" = "--raw" ]; then
+      printf '%s' ${shellQuote(rawConfigReference)}
+    else
+      printf '%s\\n' ${shellQuote(docsJson)}
+    fi
     ;;
   licenses)
     if [ "$#" -gt 1 ] && [ "$2" = "--json" ]; then
@@ -216,7 +245,14 @@ Deno.test("release smoke rejects a binary missing licenses, docs, or templates",
     await assertRejects(
       () => smokeReleaseBinary(noDocs, "1.2.3"),
       Error,
-      "missing docs/README.md",
+      "does not match the canonical manual set",
+    );
+
+    const rootOnlyDocs = await writeFakeDiscern(dir, { docsRootOnly: true });
+    await assertRejects(
+      () => smokeReleaseBinary(rootOnlyDocs, "1.2.3"),
+      Error,
+      "does not match the canonical manual set",
     );
 
     const noMap = await writeFakeDiscern(dir, { scaffoldMap: false });

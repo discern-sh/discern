@@ -6,6 +6,9 @@ import { fromFileUrl, isAbsolute, join, resolve } from "@std/path";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { FIRST_PARTY_LEGAL_DOCUMENTS } from "../src/shared/license_registry.ts";
 import { withToolTempDir } from "./temp_dir.ts";
+import { canonicalDocTarget, discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
+import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 
 const DECODER = new TextDecoder();
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -65,17 +68,50 @@ function resultEnvelope(
   return value;
 }
 
-/** Require the compiled docs result to include the manual's root page. */
-function assertBundledDocs(envelope: Record<string, unknown>): void {
+/** Require the compiled docs result to equal the canonical published manual. */
+async function assertBundledDocs(
+  envelope: Record<string, unknown>,
+): Promise<void> {
   const data = envelope.data;
   if (!isRecord(data) || !Array.isArray(data.docs)) {
     throw new Error("compiled docs result has no bundled docs list");
   }
-  const hasRoot = data.docs.some((doc) =>
-    isRecord(doc) && doc.path === "docs/README.md"
-  );
-  if (!hasRoot) {
-    throw new Error("compiled docs result is missing docs/README.md");
+
+  const manualDir = resolveRepositoryManualDir(REPO_ROOT).abs;
+  const tree = await discoverDocs({ cwd: REPO_ROOT, dir: manualDir });
+  if (tree === undefined) {
+    throw new Error(`release smoke cannot discover ${manualDir}`);
+  }
+  const manual = await buildManualProjection(tree.entries);
+  const expected = manual.pages.map((page) => ({
+    target: canonicalDocTarget(page.entry),
+    page_id: page.id,
+    manual_kind: page.kind,
+    path: `docs/${page.entry.relToDocs}`,
+  }));
+  if (data.docs.length !== expected.length || data.count !== expected.length) {
+    throw new Error(
+      `compiled docs result does not match the canonical manual set: got ` +
+        `${data.docs.length} rows and count ${String(data.count)}, expected ` +
+        `${expected.length}`,
+    );
+  }
+  for (const [index, identity] of expected.entries()) {
+    const actual = data.docs[index];
+    if (!isRecord(actual)) {
+      throw new Error(
+        `compiled docs result is missing canonical row ${identity.target}`,
+      );
+    }
+    for (const [field, expectedValue] of Object.entries(identity)) {
+      if (actual[field] !== expectedValue) {
+        throw new Error(
+          `compiled docs result row ${index} has ${field} ` +
+            `${JSON.stringify(actual[field])}; expected ` +
+            `${JSON.stringify(expectedValue)} for ${identity.target}`,
+        );
+      }
+    }
   }
 }
 
@@ -185,7 +221,17 @@ export async function smokeReleaseBinary(
       (await run(binary, ["docs", "--json"], temp)).stdout,
       "compiled docs",
     );
-    assertBundledDocs(docs);
+    await assertBundledDocs(docs);
+    const rawTarget = "30-reference/config-reference";
+    const raw = await run(binary, ["docs", rawTarget, "--raw"], temp);
+    const expectedRaw = await Deno.readTextFile(
+      join(resolveRepositoryManualDir(REPO_ROOT).abs, `${rawTarget}.md`),
+    );
+    if (raw.stdout !== expectedRaw) {
+      throw new Error(
+        `compiled docs raw output differs from ${rawTarget}.md`,
+      );
+    }
 
     const project = join(temp, "project");
     await ensureDir(project);
