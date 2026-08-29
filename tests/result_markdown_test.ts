@@ -554,6 +554,34 @@ Deno.test("requested documentation remains intact in the Markdown projection", (
   assertStringIncludes(rendered, "### Requested document");
 });
 
+Deno.test("documentation search Markdown reports the full and returned counts", () => {
+  const results = Array.from({ length: 5 }, (_, index) => ({
+    target: `10-guides/result-${index + 1}`,
+    title: `Result ${index + 1}`,
+    snippet: "Matching context.",
+  }));
+  const rendered = renderResultMarkdown(
+    {
+      ok: true,
+      verb: "docs",
+      data: {
+        query: "finish work",
+        count: 12,
+        truncated: true,
+        results,
+      },
+    },
+    resultPresenterForVerb("docs"),
+  );
+
+  assertStringIncludes(
+    rendered,
+    "Found 12 documentation matches for `finish work`.",
+  );
+  assertStringIncludes(rendered, "Showing 5 highest-ranked matches of 12.");
+  assert(!rendered.includes("Found 5 documentation matches"));
+});
+
 Deno.test("Markdown preserves whitespace-significant supporting payloads", () => {
   const payload = "  future sibling\ntrailing  ";
   const cases = [

@@ -1085,13 +1085,14 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
   const content = verbatimText(doc?.content);
   const title = text(doc?.title);
   const query = text(data.query);
+  const resultCount = number(data.count) ?? results.length;
   const state = doc !== undefined
     ? `Returned ${
       title === undefined ? "the requested document" : code(title)
     }.`
     : query !== undefined
     ? `Found ${
-      plural(results.length, "documentation match", "documentation matches")
+      plural(resultCount, "documentation match", "documentation matches")
     } for ${code(query)}.`
     : `Indexed ${plural(number(data.count) ?? docs.length, "document")}.`;
   return {
@@ -1116,6 +1117,9 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
         const heading = productSentence(`${code(target)}: ${resultTitle}`);
         return `${heading}${snippet === undefined ? "" : ` ${snippet}`}`;
       }),
+      data.truncated === true
+        ? `Showing ${results.length} highest-ranked matches of ${resultCount}.`
+        : undefined,
     ]),
     supportingMarkdown: content === undefined
       ? []

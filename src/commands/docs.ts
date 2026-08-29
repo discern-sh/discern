@@ -1544,15 +1544,18 @@ function printSearchResults(
     });
   }
   if (data.truncated === true) {
+    const truncation = terminalLine(
+      `Showing ${results.length} highest-ranked matches of ${count}.`,
+    );
     groups.push({
       id: "search-truncation",
       items: [
         terminal.stdoutIsTerminal
           ? terminal.role(
-            `Showing the first ${results.length} results.`,
+            truncation,
             "muted",
           )
-          : `Showing the first ${results.length} results.`,
+          : truncation,
       ],
     });
   }
