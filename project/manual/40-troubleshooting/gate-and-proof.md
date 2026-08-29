@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-gate-and-proof
-title: "Gate and proof"
-description: "Diagnose Gate preconditions, jobs, generated drift, strands, Standards, Checkpoints, and stale/withheld Proof from observable evidence."
+title: "Gate and Proof"
+description: "Recover from a Gate that refuses, fails, rewrites files, or passes without Proof — and know which conclusions belong to the owner."
 order: 30
 publish: true
 kind: troubleshooting
@@ -9,64 +9,98 @@ aliases:
   - "troubleshoot-gate-and-proof"
   - "Strand detection"
   - "tree drift"
+  - "tree_drift"
   - "dirty gate"
   - "stranded changes"
+  - "generated_drift"
+  - "gate_failed"
+  - "unchanged_tree_rerun"
+  - "stale proof"
+  - "proof skipped"
 redirect_from:
   - "/docs/quality-gate/strand-detection"
 ---
 
-# Gate and proof
+# Gate and Proof
 
-Diagnose Gate preconditions, jobs, generated drift, strands, Standards, Checkpoints, and stale/withheld Proof from observable evidence.
+The agent ran `discern done` and didn't get the green result you were expecting — or got green without the Proof that makes the work reviewable. Gate failures are designed to be recoverable: each one names its failed stage, carries a diagnostic with the exact command that reproduces it, and states the next step. This page helps you match what you're seeing to its class, so the agent recovers with the smallest change — and so neither of you trades away evidence, or an owner decision, to make a result turn green.
 
-# Strand detection
+A pair of rules hold everywhere on this page. Recovery never means weakening the project's declared checks: a loosened Standard, a hand-edited generated file, or a deleted check clears the symptom by removing the protection. And green establishes evidence rather than permission — [Proof](../20-understand/proof.md) explains what a green Gate does and doesn't authorize.
 
-_A green final Gate must not leave a tracked file changed when that file was clean at the starting commit._
+## Read the failure before acting
 
-Gate jobs can write files. Formatters commonly do so. A build may regenerate a manifest, and a test may update a golden file by accident. If `discern done` returned green while those changes remained uncommitted, the result would describe a different tree from the branch eligible to land.
+A failed `discern done` names its failed stage and returns one diagnostic per problem. Each diagnostic identifies the tool, a message, the captured output, and a `reproduce_cmd` — the exact command that reruns that failure alone:
 
-Strand detection turns that situation into a `tree_drift` failure. The diagnostic names each changed file, attributes it to the first gate stage that made it dirty, includes a capped diff, and uses `git diff` as the reproduce command ([ADR 0148](https://discern.sh/docs/decisions/0148-strand-detection-covers-every-gate-stage)).
+> **test** — test failed (exit 1) · reproduce: `sh scripts/test.sh`
 
-A path a `[generated.<name>]` group owns fails earlier and more precisely: the build stage attributes it as `generated_drift`, naming the owning group and its regeneration command ([ADR 0247](https://discern.sh/docs/decisions/0247-generated-artifacts-regenerate-never-merge)). Strand detection covers every other file written by a stage.
+The agent iterates on that reproduce command, or on `discern prepare` for fix and check failures, rather than rerunning the full Gate each time. When the project keeps a gotchas document, a failure it recognizes arrives with the recorded fix inlined in the result.
 
-## What the gate compares
+The result is the first authority. If its message and diagnostics genuinely don't explain the failure, the classes below distinguish the less obvious causes.
 
-Before any stage runs, discern records the tracked paths that already have staged or uncommitted changes. It records the set again after each successful stage group. A path is stranded when it meets these conditions:
+## The Gate refuses before running anything
 
-- it was tracked and clean when the gate started;
-- it is dirty in the latest recorded snapshot while the run is otherwise green.
+A refusal is not a failed check: nothing ran, and the message names what to change.
 
-The first successful stage snapshot containing the path identifies its origin. This covers fix, build, the combined check-and-test group, and scope gates. A later stage that restores the file to its committed state leaves no strand, because the final tree is clean.
+- **The branch doesn't contain the current trunk.** Another task landed while this one was in flight. The agent runs `discern update` to bring the trunk in, re-reads any files the update names as overlapping, then reruns `discern done`. The same recovery applies when the trunk advances _during_ a Gate run: the result is green for the tree it tested, but the branch is now behind.
+- **A checkpoint awaits the agent's judgment.** The refusal lists each fired question and its changed paths. See [a checkpoint needs an answer](#a-checkpoint-needs-an-answer) below.
+- **This exact tree already passed.** `discern done` reports that green Proof already covers the current commit and runs nothing. That's confirmation, not an error — the evidence is current. `discern done --rerun` repeats the full Gate anyway and records that it was a rerun.
+- **discern can't write its own state.** The result names the path that was denied. Allow the current invocation to write it and rerun; a successful probe confirms write access at that moment only — discern doesn't change your system's permissions.
 
-## When the check runs
+Each refusal is safe to retry after its named step: the command re-checks its preconditions from the current state.
 
-A run that starts on a clean, committed tree can earn a Proof, and a strand from the fix or build group forfeits it. Once those groups pass, `done` checks for strands and stops on any it finds. The Standards, check, test, and scope-gate work is skipped and reported as such, and the changed scopes are still classified and listed ([ADR 0262](https://discern.sh/docs/decisions/0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint)). The checkpoint waits for the build group to finish because a build may consume or restore what a fixer wrote; convergence is judged on the combined result.
+## A job failed
 
-A run that starts dirty (tracked edits or untracked files) cannot earn a Proof. It skips the checkpoint, runs every stage, and reports strands at the end. Run `done` on a dirty tree when you need feedback from the full Gate.
+The most common red Gate: a configured check (build, lint, types, tests, or a changed scope's own gate) found a real problem in the change. The diagnostic carries the failing command and output. [Fix a red Gate](../10-guides/fix-a-red-gate.md) is the working procedure: reproduce narrowly, fix, and return.
 
-Either way, a strand from the check, test, or scope-gate stages surfaces at the end of the run: those stages run after the checkpoint.
+Nearby results invite misreading:
 
-## Fix the failure
+- **A pass that prints errors.** A job can exit successfully while printing error-like lines — a suite that swallows failures, for instance. The result flags this loud success and points at the captured output; have the agent review it rather than trusting the exit code alone.
+- **Queued tests.** When the project caps concurrent test runs, a Gate arriving while every slot is busy reports that its tests are queued and starts them as a slot frees. The run isn't stuck, and waiting is correct. The same cap is why agents wrap direct test commands in `discern queue -- <command>` instead of racing the fleet.
 
-1. Read the diff in the diagnostic.
-2. Decide whether the generated change belongs in the commit or whether the job is misconfigured.
-3. Commit the intended output, or change the command so it verifies without rewriting.
-4. Run `discern done` again on the final commit.
+## The Gate finished with a different tree than it started
 
-The gate never commits its own output. Only the author can choose the right commit boundary and message ([ADR 0047](https://discern.sh/docs/decisions/0047-fix-stage-strand-detection)).
+You committed a clean tree, and the result says files changed anyway. The Gate never commits its own output — it stops and shows you, because a green result must describe the tree that would land, with nothing left over. The diagnostic tells you which cause you have:
 
-## Where it lives in code
+**A stage rewrote a tracked file** (the result calls it a strand, or `tree_drift`). A formatter normalized something, a build refreshed a manifest, a test updated a snapshot. The diagnostic names each file, the stage that changed it, and a capped diff; `git diff` reproduces the full picture. Decide whether the rewrite is intended output (usually it is), then commit it and rerun `discern done`. If the job should never write at all, change its command to a verify-only form instead.
 
-| Concern                                             | Source                                                                                                     |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Dirty-path snapshots and attribution                | [`tree_drift.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/tree_drift.ts)               |
-| Checkpoint and final-pass timing                    | [`finish.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/finish.ts)                       |
-| Pre-checkpoint stage list (`PRE_CHECKPOINT_STAGES`) | [`plan.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/plan.ts)                           |
-| Cross-stage and checkpoint coverage                 | [`engine_tree_drift_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_tree_drift_test.ts) |
+**A declared generator's output was stale** (`generated_drift`). The change edited a source without regenerating what's derived from it. The diagnostic names the owning `[generated.<name>]` group and its exact regeneration command. Run that command, commit the regeneration, and rerun. If the tree goes dirty again immediately after committing the regeneration, stop: the generator is producing different bytes from the same input, and that nondeterminism is the defect to fix — not a file to keep re-committing.
 
-## Current state & gotchas
+**discern's own maintained artifacts drifted.** Compiled agent instructions, materialized Skills, or other refresh-managed files no longer match their authored sources — commonly after editing a source directly, or after an upgrade. The agent runs `discern refresh`, reviews the rewrite, and commits it. The direction matters: to change these files, edit the authored source (`[instructions].sources`, `[skills].dir`), never the generated copy — refresh overwrites generated copies by design. If the result instead reports generated artifacts _tracked_ that should be ignored, it names the exact `git rm -r --cached` command to run before refreshing.
 
-- Paths already dirty when the gate begins are excluded. This keeps the rule useful during an inner loop where a fixer is expected to rewrite the author's current edits.
-- New untracked files do not trigger strand detection. They remain visible in `git status` and still prevent a clean Proof or acceptance.
-- If Git cannot produce a snapshot, the strand check skips rather than inventing a failure. Other Gate jobs continue to decide the result.
-- The relevant source files contain no unfinished-work markers for strand behavior.
+Recovery is complete when `discern done` runs green from a clean commit — and stays clean.
+
+## Green, but no Proof
+
+The Gate can pass while telling you it recorded no Proof. The checks ran; what's missing is the durable claim that they describe one exact commit that could land:
+
+- **The tree was dirty.** Uncommitted edits mean there's no single commit for the evidence to bind to. This is normal mid-iteration — `discern prepare` and `discern test` are the faster loop there. Before handoff, the agent commits the final tree and reruns `discern done` on the clean commit.
+- **The commit moved during the run.** Something amended or committed while the Gate ran, so the passing result describes a tree that's no longer HEAD. Rerun on the final commit.
+- **Proof couldn't be written.** Rare, and the result says so. The green run still happened; rerun `discern done` later to record the evidence — until then, `discern accept` will rerun the Gate itself.
+- **It was a CI run.** `discern done --ci` produces report-only evidence and reports open checkpoint questions without answering them. That's its job; report-only Proof can never be used to land. [Run the Gate in CI](../10-guides/run-the-gate-in-ci.md) covers the setup.
+
+## Proof was current and went stale
+
+`discern status` or `discern accept` reports that Proof no longer covers the branch. Some edit arrived after the green run — a commit, an uncommitted change, a regenerated file, or a changed checkpoint conclusion. This is routine: Proof binds to one exact tree and its recorded judgments, so anything that changes either retires the old evidence. The agent commits the intended final state and reruns `discern done`; fresh Proof covers the new tree. [Proof](../20-understand/proof.md#why-proof-becomes-stale) explains why staleness is the feature doing its job.
+
+## A Standard failed
+
+A Standard is a project measure held at a limit that may only improve. Distinct failures share the word:
+
+- **The measured value got worse.** Cut the waste the change introduced until the measure recovers. If the work itself legitimately grew the number — a feature that genuinely adds code to a size budget, say — that's not the agent's call to absorb: report it, because moving a limit is an owner decision made on the trunk. A branch that edits the limit to pass fails the Gate on that edit itself.
+- **The limits couldn't be verified.** The never-loosen comparison reads the trunk, and in a shallow CI clone the trunk branch may be absent. The result names the exact fetch to run — typically `git fetch origin main:main` — so the comparison has both sides.
+
+[Set and raise Standards](../10-guides/set-and-raise-standards.md) covers responding to a firing Standard in depth, including the owner-approval path for a limit that should move.
+
+## A checkpoint needs an answer
+
+A checkpoint pairs a change trigger with a written question the agent must judge — so when `discern done` refuses until it's answered, the design is working:
+
+- **Awaiting declaration.** The refusal lists each question and its changed paths. The agent judges the question against the change, then declares in the same breath as the Gate: `discern done --met <id>` when the change satisfies it, or `discern done --unmet <id> --why "<rationale>"` when it doesn't.
+- **Declared unmet, and now landing is blocked.** A green Gate with an unmet conclusion stops at `discern accept`, which serves the question and rationale back for review. Only the owner can authorize that exact variance, in the current conversation — no recorded grant covers one. The alternative is always available: change the work until the question is satisfied, declare it met, and rerun.
+- **A conclusion was recorded but reopened.** Later edits to the matching paths unbind the earlier answer, and its Proof goes stale with it. The agent judges the question again against the current change.
+
+[Checkpoints](../20-understand/checkpoints.md) explains declarations, drops, and variance as a model; [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) holds the exact states.
+
+## When to stop
+
+Stop and involve a person when the next step is a decision rather than a repair: authorizing a variance, moving a Standard limit, accepting a landing, or choosing whether a generated rewrite belongs in this change's scope. Those are owner conclusions; a recovered symptom doesn't grant them. And if the same failure returns identically after its named recovery has been applied, stop retrying — capture the result (`discern done --json`) and treat it as a defect to report rather than a loop to win.
