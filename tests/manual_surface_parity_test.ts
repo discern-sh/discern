@@ -9,9 +9,19 @@ import {
   loadDocsSite,
   projectManualPages,
 } from "../site/docs.ts";
+import { docsLlmsFullText } from "../site/seo.ts";
 import { buildSearchIndex } from "../site/search.ts";
-import { docsResult } from "../src/commands/docs.ts";
-import { buildRedirectRegistry, discoverDocs } from "../src/lib/docs.ts";
+import {
+  DOCS_AGENT_CONTEXT_HINT,
+  docsResult,
+  mapResult,
+} from "../src/commands/docs.ts";
+import {
+  buildRedirectRegistry,
+  canonicalDocTarget,
+  discoverDocs,
+} from "../src/lib/docs.ts";
+import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import {
   buildManualProjection,
   type ManualProjection,
@@ -34,6 +44,11 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
   const manual = await repositoryManual();
   const expectedIds = manual.pages.map((page) => page.id);
   const expectedRoutes = manual.pages.map((page) => page.route);
+  const expectedRecords = manual.pages.map((page) => ({
+    target: canonicalDocTarget(page.entry),
+    page_id: page.id,
+    manual_kind: page.kind,
+  }));
 
   const site = await loadDocsSite();
   assertEquals(
@@ -43,7 +58,27 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
 
   const result = await docsResult(REPO_ROOT);
   assert(result.ok && result.data?.docs !== undefined);
-  assertEquals(result.data.docs.map((record) => record.page_id), expectedIds);
+  assertEquals(
+    result.data.docs.map((record) => ({
+      target: record.target,
+      page_id: record.page_id,
+      manual_kind: record.manual_kind,
+    })),
+    expectedRecords,
+  );
+  for (const expected of expectedRecords) {
+    const exact = await docsResult(REPO_ROOT, { target: expected.target });
+    assert(exact.ok && exact.data?.doc !== undefined, expected.target);
+    assertEquals(
+      {
+        target: exact.data.doc.target,
+        page_id: exact.data.doc.page_id,
+        manual_kind: exact.data.doc.manual_kind,
+      },
+      expected,
+      expected.target,
+    );
+  }
 
   const search = await buildSearchIndex([
     { route: site.landing.route, section: "Manual", entry: site.landing.entry },
@@ -53,7 +88,10 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
       entry: page.entry,
     })),
   ]);
-  assertEquals(search.pages.map((page) => page.route), expectedRoutes);
+  assertEquals(
+    search.pages.map((page) => ({ route: page.route, kind: page.kind })),
+    manual.pages.map((page) => ({ route: page.route, kind: page.kind })),
+  );
 
   // The sitemap also carries project history and the separately admitted Map.
   // Select only the manual's canonical identities before comparing surfaces.
@@ -64,8 +102,31 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
   assertEquals(manualSitemap, expectedRoutes);
   const llms = docsLlmsSection(site);
   for (const route of expectedRoutes) {
-    assertStringIncludes(llms, `https://discern.sh${route}`);
+    const target = `](https://discern.sh${route})`;
+    assertEquals(llms.split(target).length - 1, 1, route);
   }
+  assert(!llms.includes("](https://discern.sh/map"));
+  assert(!llms.includes(DOCS_AGENT_CONTEXT_HINT));
+  assert(!llms.includes("<nav"));
+
+  const full = await docsLlmsFullText(site);
+  for (const page of manual.pages) {
+    const url = `https://discern.sh${page.route}`;
+    const source = await Deno.readTextFile(page.entry.absPath);
+    const { body } = parseFrontmatter(source);
+    const chunk = `<!-- BEGIN ${url} -->\n\n${body.trim()}\n\n` +
+      `<!-- END ${url} -->`;
+    assertStringIncludes(full, chunk, page.id);
+    assertEquals(full.split(`<!-- BEGIN ${url} -->`).length - 1, 1, page.id);
+  }
+  assertEquals(
+    full.split("<!-- BEGIN https://discern.sh/docs").length - 1,
+    manual.pages.length,
+  );
+  assert(!full.includes("<!-- BEGIN https://discern.sh/map"));
+  assert(!full.includes("<!-- BEGIN https://discern.sh/docs/decisions"));
+  assert(!full.includes(DOCS_AGENT_CONTEXT_HINT));
+  assert(!full.includes("<nav"));
 
   const redirects = buildRedirectRegistry(manual.pages.map((page) => ({
     route: page.route,
@@ -81,6 +142,51 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
       `${source} must redirect directly to ${target}`,
     );
   }
+});
+
+Deno.test("manual delivery leaves the configured project Map contract intact", async () => {
+  const discovered = await discoverDocs({
+    cwd: REPO_ROOT,
+    dir: REPO_AUTHORED_PATHS.map,
+  });
+  assert(discovered !== undefined);
+  const index = await mapResult(REPO_ROOT);
+  assert(index.ok && index.data?.docs !== undefined);
+  assertEquals(
+    index.data.docs.map((doc) => doc.target),
+    discovered.entries.map(canonicalDocTarget),
+  );
+
+  for (
+    const target of [
+      "50-engine-internals/the-document-model",
+      "60-agent-integrations/README",
+      "70-reference/mcp-and-results",
+      "90-site/README",
+    ]
+  ) {
+    const page = await mapResult(REPO_ROOT, { target });
+    assert(page.ok && page.data?.doc !== undefined, target);
+    assertEquals(page.data.doc.target, target);
+  }
+
+  const search = await mapResult(REPO_ROOT, {
+    search: "Model Context Protocol",
+  });
+  assert(search.ok && search.data?.results !== undefined);
+  assert(search.data.results.length > 0);
+  assert(
+    search.data.results.every((result) =>
+      result.path.startsWith(`${REPO_AUTHORED_PATHS.mapRel}/`)
+    ),
+  );
+
+  const instructions = await Deno.readTextFile(join(REPO_ROOT, "AGENTS.md"));
+  assertStringIncludes(instructions, "browsable with **`discern_map`**");
+  assertStringIncludes(
+    instructions,
+    "search` the map in task language, then fetch the best result's canonical `target`",
+  );
 });
 
 Deno.test("a fresh published page enrols everywhere except promotion", async () => {

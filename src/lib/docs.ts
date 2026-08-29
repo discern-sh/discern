@@ -989,17 +989,26 @@ export function formatDocsExport(sources: readonly DocSource[]): string {
   }).join("\n\n") + "\n";
 }
 
-/** The lowercase strings that should resolve to `entry`: its path spellings
- * plus the frontmatter `aliases:` — the same synonyms the published site's
- * search boosts, so a name that finds a page there finds it here too. */
-function aliases(entry: DocEntry): string[] {
+/** Exact path spellings for one entry, from project-relative through docs-root
+ * relative. These outrank aliases so every serialized canonical target can be
+ * passed back without colliding with another page's basename or slug. */
+function pathAliases(entry: DocEntry): string[] {
   const noExt = (s: string) => s.replace(/\.md$/i, "");
-  const base = basename(entry.path);
   return [
     entry.path,
     noExt(entry.path),
     entry.relToDocs,
     noExt(entry.relToDocs),
+  ].map((s) => s.toLowerCase());
+}
+
+/** The lowercase strings that should resolve to `entry`: its path spellings
+ * plus the frontmatter `aliases:` — the same synonyms the published site's
+ * search boosts, so a name that finds a page there finds it here too. */
+function aliases(entry: DocEntry): string[] {
+  const base = basename(entry.path);
+  return [
+    ...pathAliases(entry),
     base,
     entry.slug,
     ...entry.aliases,
@@ -1081,10 +1090,11 @@ export function suggestDocs(
 }
 
 /**
- * Resolve a free-form `target` to a single doc. Matches an exact path (relative
- * to the project, to the docs dir, or absolute), a `section/slug`, a bare slug,
- * or a filename — case-insensitively. Several matches (e.g. a bare `README` that
- * exists in many subtrees) return `ambiguous` so the caller can list them.
+ * Resolve a free-form `target` to a single doc. Exact paths (relative to the
+ * project, to the docs dir, or absolute) take precedence so a canonical target
+ * always round-trips. Otherwise, match a bare slug, filename, or authored alias
+ * case-insensitively. Several alias matches return `ambiguous` so the caller can
+ * list them.
  */
 export function resolveDoc(
   tree: DocsTree,
@@ -1096,9 +1106,18 @@ export function resolveDoc(
   const lower = needle.toLowerCase();
   const asAbs = isAbsolute(needle) ? needle : resolve(cwd, needle);
 
-  const matches = tree.entries.filter((e) =>
-    aliases(e).includes(lower) || e.absPath === asAbs
+  const exactMatches = tree.entries.filter((e) =>
+    pathAliases(e).includes(lower) || e.absPath === asAbs
   );
+  const exact = exactMatches.at(0);
+  if (exactMatches.length === 1 && exact !== undefined) {
+    return { kind: "found", entry: exact };
+  }
+  if (exactMatches.length > 1) {
+    return { kind: "ambiguous", entries: exactMatches };
+  }
+
+  const matches = tree.entries.filter((e) => aliases(e).includes(lower));
 
   const only = matches.at(0);
   if (matches.length === 1 && only !== undefined) {

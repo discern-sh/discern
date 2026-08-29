@@ -15,6 +15,7 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import {
+  canonicalDocTarget,
   discoverDocs,
   docBrowseGroups,
   type DocEntry,
@@ -88,6 +89,15 @@ async function makeDocsProject(dir: string): Promise<void> {
   for (const [rel, content] of Object.entries(files)) {
     await Deno.mkdir(join(dir, rel, ".."), { recursive: true });
     await Deno.writeTextFile(join(dir, rel), content);
+  }
+}
+
+/** Add two unrelated pages that deliberately share one bare slug. */
+async function addAmbiguousDocs(dir: string): Promise<void> {
+  for (const section of ["00-intro", "10-more"]) {
+    const path = join(dir, "docs", section, "shared.md");
+    await Deno.mkdir(join(path, ".."), { recursive: true });
+    await Deno.writeTextFile(path, `# Shared in ${section}\n`);
   }
 }
 
@@ -441,10 +451,32 @@ Deno.test("resolveDoc handles slug, path, ambiguity, and misses", async () => {
       resolveDoc(tree, "docs/_adr/0001-first.md", dir).kind,
       "none",
     );
-    // Every user-facing subtree has a README → a bare "README" is ambiguous.
-    const amb = resolveDoc(tree, "README", dir);
-    assertEquals(amb.kind, "ambiguous");
+    // The docs-root README owns the canonical `README` target even though
+    // nested pages share its basename. Canonical path spellings outrank aliases.
+    const root = resolveDoc(tree, "README", dir);
+    assertEquals(root.kind, "found");
+    assert(
+      root.kind !== "found" || root.entry.relToDocs === "README.md",
+    );
     assertEquals(resolveDoc(tree, "nonesuch", dir).kind, "none");
+  });
+});
+
+Deno.test("every discovered canonical document target resolves to its source", async () => {
+  await withTempDir(async (dir) => {
+    await makeDocsProject(dir);
+    const tree = await discoverDocs({ cwd: dir });
+    assertExists(tree);
+
+    for (const entry of tree.entries) {
+      const target = canonicalDocTarget(entry);
+      const resolved = resolveDoc(tree, target, dir);
+      assertEquals(resolved.kind, "found", target);
+      assert(
+        resolved.kind !== "found" || resolved.entry.absPath === entry.absPath,
+        `${target} resolved to the wrong source`,
+      );
+    }
   });
 });
 
@@ -1418,8 +1450,9 @@ Deno.test("map reports an unknown target", async () => {
 Deno.test("map reports an ambiguous target with candidates", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
+    await addAmbiguousDocs(dir);
     const { code, stdout } = await runCli(
-      ["map", "README", "--json"],
+      ["map", "shared", "--json"],
       dir,
     );
     assertEquals(code, 1);
@@ -1535,14 +1568,14 @@ Deno.test("map <near miss> --json suggests valid doc targets", async () => {
 Deno.test("map <ambiguous> without --json lists the candidates on stderr", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);
-    // Every subtree has a README → a bare "README" matches more than one.
-    const { code, stdout, stderr } = await runCli(["map", "README"], dir);
+    await addAmbiguousDocs(dir);
+    const { code, stdout, stderr } = await runCli(["map", "shared"], dir);
     assertEquals(code, 1);
     // The candidate list and instructions go to stderr, not stdout.
     assertStringIncludes(stderr, "matches");
     assertStringIncludes(stderr, "Qualify it");
-    assertStringIncludes(stderr, "docs/README.md");
-    assertStringIncludes(stderr, "docs/00-intro/README.md");
+    assertStringIncludes(stderr, "docs/00-intro/shared.md");
+    assertStringIncludes(stderr, "docs/10-more/shared.md");
     assertEquals(stdout, "");
   });
 });
