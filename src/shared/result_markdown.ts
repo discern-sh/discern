@@ -13,7 +13,7 @@ import { markdownCodeSpan } from "./markdown_code.ts";
 import { checkpointDropMarkdown } from "./checkpoint_drops.ts";
 import { productSentence } from "./product_sentence.ts";
 import { notApplicableCountLabel } from "./setup_assurance.ts";
-import { isManualKind, manualKindLabel } from "./manual.ts";
+import * as view from "./docs_presentation.ts";
 
 export interface ResultMarkdownPresentation {
   /** One authored statement of the current result state. */
@@ -1086,7 +1086,7 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
   const content = verbatimText(doc?.content);
   const title = text(doc?.title);
   const query = text(data.query);
-  const resultCount = number(data.count) ?? results.length;
+  const resultCount = view.count(number(data.count), results.length);
   const state = doc !== undefined
     ? `Returned ${
       title === undefined ? "the requested document" : code(title)
@@ -1115,20 +1115,18 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
         const target = text(entry.target) ?? "unknown";
         const resultTitle = text(entry.title) ?? target;
         const snippet = text(entry.snippet);
-        const rawKind = text(entry.manual_kind);
-        const kind = rawKind !== undefined && isManualKind(rawKind)
-          ? manualKindLabel(rawKind)
-          : undefined;
         const heading = productSentence(
-          `${kind === undefined ? "" : `${kind} · `}${
+          `${view.kindPrefix(text(entry.manual_kind))}${
             code(target)
           }: ${resultTitle}`,
         );
-        return `${heading}${snippet === undefined ? "" : ` ${snippet}`}`;
+        return `${heading}${view.snippetSuffix(snippet)}`;
       }),
-      data.truncated === true
-        ? `Showing ${results.length} highest-ranked matches of ${resultCount}.`
-        : undefined,
+      view.truncation(
+        data.truncated,
+        results.length,
+        resultCount,
+      ),
     ]),
     supportingMarkdown: content === undefined
       ? []

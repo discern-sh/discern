@@ -126,7 +126,7 @@ import {
 import { SYSTEM_CLOCK } from "../shared/clock.ts";
 import { DISCERN_DOCS_URL } from "../shared/brand.ts";
 import { writeStdout } from "../engine/output.ts";
-import { manualKindLabel } from "../shared/manual.ts";
+import * as view from "../shared/docs_presentation.ts";
 
 /** The built-in concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
@@ -724,10 +724,7 @@ function toSearchResult(
     section: entry.section,
     title: entry.title,
     description: entry.description,
-    ...(entry.pageId !== undefined ? { page_id: entry.pageId } : {}),
-    ...(entry.manualKind !== undefined
-      ? { manual_kind: entry.manualKind }
-      : {}),
+    ...view.identity(entry.pageId, entry.manualKind),
     match,
     ...(heading !== undefined ? { heading } : {}),
     snippet,
@@ -999,9 +996,7 @@ export async function docsBrowseProjection(
       items: promoted.map((entry) => ({
         id: `promoted:${entry.pageId ?? entry.relToDocs}`,
         name: entry.title,
-        description: entry.manualKind === undefined
-          ? entry.description
-          : `${manualKindLabel(entry.manualKind)} · ${entry.description}`,
+        description: view.desc("docs", entry.manualKind, entry.description),
         value: { kind: "promoted-document" as const, path: entry.path },
       })),
     }]),
@@ -1014,9 +1009,7 @@ export async function docsBrowseProjection(
       items: group.items.map((item) => ({
         id: `document:${item.entry.path}`,
         name: item.label,
-        description: verb === "docs" && item.entry.manualKind !== undefined
-          ? `${manualKindLabel(item.entry.manualKind)} · ${item.description}`
-          : item.description,
+        description: view.desc(verb, item.entry.manualKind, item.description),
         value: documentChoice(item.entry.path),
       })),
     })),
@@ -1367,7 +1360,7 @@ async function browse(
 
 /** Print a grouped, plain table of contents to stdout. */
 function printToc(
-  verb: string,
+  verb: DocsVerb["verb"],
   tree: DocsTree,
   cwd: string,
   log: Logger,
@@ -1396,11 +1389,7 @@ function printToc(
       entries.map((entry) => ({
         label: labelOf(entry),
         body: terminalLine(
-          `${
-            entry.manualKind === undefined
-              ? ""
-              : `${manualKindLabel(entry.manualKind)} · `
-          }${entry.title}`,
+          view.desc(verb, entry.manualKind, entry.title),
         ),
       })),
       // A TTY keeps every row on one aligned line and lets the terminal handle
@@ -1534,17 +1523,9 @@ function printSearchResults(
     ],
   }];
   for (const [index, result] of results.entries()) {
-    const heading = result.heading === undefined
-      ? ""
-      : ` · ${terminalLine(result.heading)}`;
-    const match = result.match === "complete"
-      ? ""
-      : result.match === "partial"
-      ? " · partial match"
-      : " · title or alias match";
-    const kind = result.manual_kind === undefined
-      ? ""
-      : ` · ${manualKindLabel(result.manual_kind)}`;
+    const heading = view.headingSuffix(result.heading, terminalLine);
+    const match = view.matchSuffix(result.match);
+    const kind = view.kindSuffix(result.manual_kind);
     const items: string[] = [
       terminalLine(`${terminalLine(result.title)}${kind}${heading}${match}`),
     ];
@@ -1571,7 +1552,7 @@ function printSearchResults(
   }
   if (data.truncated === true) {
     const truncation = terminalLine(
-      `Showing ${results.length} highest-ranked matches of ${count}.`,
+      view.truncationText(results.length, count),
     );
     groups.push({
       id: "search-truncation",
