@@ -88,7 +88,7 @@ Grant and revoke remain human-only actions inside `discern desk`. They stay avai
 
 Before a lifecycle mutation, the Desk renders its live plan and command in design-system Components with **Keeps**, **Changes**, **Removes**, and **Recoverable** facts. The authoritative core checks current state again after confirmation. Confirmations default to No; discarding work also requires the branch name.
 
-Project Scripts show their name, description, executable, working directory, required confirmation, and undeclared destructive policy. `Show command` copies the exact executable and `discern scripts <name>` command without running either. Missing or non-executable scripts stay disabled with recovery.
+Before review, a Project Script asks for an optional argument line. Spaces separate arguments; quotes group spaces; every other character stays literal because the Desk builds an argument vector and never invokes a shell. The review then shows the script's name, description, exact executable and arguments, working directory, required confirmation, and undeclared destructive policy. `Show command` copies that executable invocation and the equivalent `discern scripts <name> [args...]` command without running either. Missing or non-executable scripts stay disabled with recovery.
 
 Configured agents remain visible when their binary is missing from `PATH`. One available action launches directly. Several actions keep provider-owned labels and commands.
 
