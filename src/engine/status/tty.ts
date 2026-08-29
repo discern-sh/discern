@@ -49,6 +49,10 @@ import {
   isPositiveGitCount,
   UNKNOWN_GIT_COUNT,
 } from "../../shared/git_count.ts";
+import {
+  degradedFleetAttention,
+  degradedFleetKind,
+} from "./recovery_presentation.ts";
 
 /** Very wide terminals still get a report whose related fields stay together. */
 export const STATUS_REPORT_MAX_WIDTH = 104;
@@ -444,12 +448,8 @@ function classifyKind(
   ready: boolean,
   nowMs: number,
 ): FleetRowStatusKind {
-  if (entry.broken === true) return "broken";
-  if (entry.git_unavailable === true) return "unreadable";
-  if (
-    entry.setup?.state === "incomplete" ||
-    entry.setup?.state === "unavailable"
-  ) return "setup-incomplete";
+  const degraded = degradedFleetKind(entry);
+  if (degraded !== undefined) return degraded;
   if (
     entry.running === undefined &&
     (entry.last_action?.outcome === "failed" ||
@@ -491,13 +491,9 @@ function attentionFor(
   trunk: string,
   nowMs: number,
 ): string | undefined {
+  const degraded = degradedFleetAttention(kind);
+  if (degraded !== undefined) return degraded;
   switch (kind) {
-    case "broken":
-      return "Setup did not produce a readable project configuration. Choose Show recovery steps in `discern desk`.";
-    case "setup-incomplete":
-      return "Setup did not reach its ready marker. Choose Show recovery steps in `discern desk`.";
-    case "unreadable":
-      return "Git could not read this checkout. Choose Show recovery steps in `discern desk`.";
     case "failed": {
       const action = entry.last_action;
       const stage = action?.failed_stage === undefined
@@ -550,6 +546,7 @@ function attentionFor(
     case "idle":
       return undefined;
   }
+  return undefined;
 }
 
 /** Derive one complete human row model from already-collected result facts. */

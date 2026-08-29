@@ -86,16 +86,6 @@ export const COMPLEXITY_HOTSPOT_BUDGETS = [
       "Separate one view responsibility and remove this row once both thresholds are clear.",
   },
   {
-    file: "src/engine/desk/model.ts",
-    maxScore: 99.17,
-    maxCyclo: 204,
-    owner: "desk engine",
-    reason:
-      "Desk model projection handles several worktree, task, proof, and activity states.",
-    recovery:
-      "Extract one coherent projection boundary and preserve the model's canonical state inputs.",
-  },
-  {
     file: "src/engine/gate/finish.ts",
     maxScore: 112.65,
     maxCyclo: 295,

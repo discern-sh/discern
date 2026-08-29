@@ -36,6 +36,21 @@ import {
   isPositiveGitCount,
   UNKNOWN_GIT_COUNT,
 } from "../../shared/git_count.ts";
+import {
+  type DeskRecoveryFact,
+  dropConsequence,
+  finalChecksAvailability,
+  healthyActionAvailability,
+  isUnhealthy,
+  parkAvailability,
+  parkConsequence,
+  reclaimAvailability,
+  reclaimConsequence,
+  recoveryFact,
+  retrySetupAvailability,
+} from "./recovery.ts";
+export type { DeskRecoveryFact } from "./recovery.ts";
+import { gitDetails } from "./git_details.ts";
 
 export { taskLabel } from "../worktree/task_label.ts";
 
@@ -291,17 +306,6 @@ export interface DeskDecision {
   readonly recommendedAction?: DeskAction;
 }
 
-/** Typed evidence for a degraded task's read-only recovery view. */
-export interface DeskRecoveryFact {
-  readonly failure: string;
-  readonly failedCommand?: string;
-  readonly verified: readonly string[];
-  readonly unavailable: readonly string[];
-  readonly nextStep: string;
-  readonly repair: "retry" | "manual";
-  readonly repairCommand: string;
-}
-
 /** One selectable effort and its already-complete decision. */
 export interface DeskRow {
   readonly entry: StatusFleetEntry;
@@ -359,67 +363,6 @@ export function stateTitle(state: DeskState): string {
 export function decisionSummary(decision: DeskDecision): string {
   return [decision.headline, ...decision.details.map((detail) => detail.text)]
     .join(" · ");
-}
-
-/** Whether the checkout cannot safely support ordinary Desk actions. */
-function isUnhealthy(entry: StatusFleetEntry): boolean {
-  return entry.broken === true || entry.git_unavailable === true ||
-    entry.setup?.state === "incomplete" ||
-    entry.setup?.state === "unavailable";
-}
-
-/** Build recovery evidence without inferring facts an observer could not read. */
-function recoveryFact(entry: StatusFleetEntry): DeskRecoveryFact | undefined {
-  if (!isUnhealthy(entry)) return undefined;
-  const setup = entry.setup;
-  const repair = setup?.repair;
-  const gitFailure = entry.git_failure;
-  const failure = gitFailure?.reason ?? repair?.reason ??
-    (entry.broken === true
-      ? "The checkout does not contain a readable discern.toml."
-      : "The checkout did not reach a verifiable setup-ready state.");
-  const verified = [
-    `Checkout identity: ${entry.id ?? entry.task?.id ?? entry.branch}`,
-    `Checkout path: ${entry.path}`,
-    `Branch identity: ${entry.branch}`,
-    ...(entry.registration === undefined ? [] : [
-      `Git registration: ${entry.registration.head}`,
-      `Branch reachability: ${
-        entry.branch_reachable === true ? "reachable" : "unreachable"
-      }`,
-    ]),
-    ...(entry.filesystem?.state === "directory"
-      ? ["Filesystem: checkout directory is present"]
-      : []),
-    ...Object.entries(entry.resources ?? {}).map(([name, value]) =>
-      `Resource ${name}: ${value}`
-    ),
-  ];
-  const unavailable = [
-    ...(entry.registration === undefined
-      ? ["Git worktree registration could not be verified"]
-      : []),
-    ...(entry.filesystem?.state !== "directory"
-      ? [
-        `Filesystem: ${
-          entry.filesystem?.reason ?? entry.filesystem?.state ?? "unavailable"
-        }`,
-      ]
-      : []),
-    ...(setup?.journal?.status === "unavailable"
-      ? [`Setup journal: ${setup.journal.reason ?? "unavailable"}`]
-      : []),
-  ];
-  const repairCommand = repair?.command ?? "discern doctor";
-  return {
-    failure,
-    ...(gitFailure === undefined ? {} : { failedCommand: gitFailure.command }),
-    verified,
-    unavailable,
-    nextStep: repair?.reason ?? `Run ${repairCommand}.`,
-    repair: repair?.kind ?? "manual",
-    repairCommand,
-  };
 }
 
 /** Render a counted noun with an optional irregular plural. */
@@ -614,45 +557,6 @@ function collisionDetails(collisions: readonly DeskCollision[]): DeskDetail[] {
       text: `ADR ${collision.number} is also claimed by ${branches}`,
     };
   });
-}
-
-/** Render observed Git counts with units and the named trunk. */
-function gitDetails(entry: StatusFleetEntry, trunk: string): DeskDetail[] {
-  if (isUnhealthy(entry)) return [];
-  const details: DeskDetail[] = [];
-  if (entry.clean === false) {
-    details.push({
-      kind: "git",
-      text: entry.changed_files === undefined
-        ? "Uncommitted file count unavailable"
-        : plural(entry.changed_files, "uncommitted file"),
-    });
-  }
-  if (entry.ahead === UNKNOWN_GIT_COUNT) {
-    details.push({
-      kind: "git",
-      text: `Ahead count versus ${trunk} unavailable`,
-    });
-  } else if (entry.ahead !== undefined && isPositiveGitCount(entry.ahead)) {
-    details.push({
-      kind: "git",
-      text: `${plural(entry.ahead, "commit")} ahead of ${trunk}`,
-    });
-  }
-  if (entry.behind === UNKNOWN_GIT_COUNT) {
-    details.push({
-      kind: "git",
-      text: `Behind count versus ${trunk} unavailable`,
-    });
-  } else if (
-    entry.behind !== undefined && isPositiveGitCount(entry.behind)
-  ) {
-    details.push({
-      kind: "git",
-      text: `${plural(entry.behind, "commit")} behind ${trunk}`,
-    });
-  }
-  return details;
 }
 
 /** Choose the short headline for the already-classified decision. */
@@ -896,10 +800,7 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Retry",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      facts.entry.setup?.repair?.kind === "retry"
-        ? undefined
-        : facts.entry.setup?.repair?.reason ??
-          "This setup state has no safe automatic repair.",
+      retrySetupAvailability(facts.entry),
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
   done: {
@@ -927,11 +828,7 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Run",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      isUnhealthy(facts.entry)
-        ? facts.entry.broken === true
-          ? "Setup is incomplete. Finish or repair setup before final checks."
-          : "Git state is unreadable. Repair Git before final checks."
-        : committedWorkReason(facts),
+      finalChecksAvailability(facts.entry, committedWorkReason(facts)),
     recommended: (facts: DeskActionFacts): boolean =>
       facts.entry.running === undefined && facts.collisions.length === 0 &&
       facts.entry.contained_in === undefined &&
@@ -967,9 +864,11 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Land",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      isUnhealthy(facts.entry)
-        ? "The task is not healthy enough to land. Follow its recovery steps first."
-        : committedWorkReason(facts),
+      healthyActionAvailability(
+        facts.entry,
+        "The task is not healthy enough to land. Follow its recovery steps first.",
+        committedWorkReason(facts),
+      ),
     recommended: (facts: DeskActionFacts): boolean =>
       facts.entry.running === undefined && facts.collisions.length === 0 &&
       facts.entry.contained_in === undefined &&
@@ -1073,9 +972,10 @@ export const DESK_ACTION_REGISTRY = {
       ),
     confirmation: NO_CONFIRMATION,
     availability: (facts: DeskActionFacts): string | undefined =>
-      isUnhealthy(facts.entry)
-        ? "Follow the task's recovery steps before starting a follow-up."
-        : undefined,
+      healthyActionAvailability(
+        facts.entry,
+        "Follow the task's recovery steps before starting a follow-up.",
+      ),
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
   scripts: {
@@ -1151,9 +1051,10 @@ export const DESK_ACTION_REGISTRY = {
       ),
     confirmation: NO_CONFIRMATION,
     availability: (facts: DeskActionFacts): string | undefined =>
-      isUnhealthy(facts.entry)
-        ? "Follow the task's recovery steps before reviewing Proof and changes."
-        : undefined,
+      healthyActionAvailability(
+        facts.entry,
+        "Follow the task's recovery steps before reviewing Proof and changes.",
+      ),
     recommended: (facts: DeskActionFacts): boolean =>
       facts.entry.running === undefined &&
       (facts.collisions.length > 0 ||
@@ -1182,9 +1083,10 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Change",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      isUnhealthy(facts.entry)
-        ? "Follow the task's recovery steps before changing the title."
-        : undefined,
+      healthyActionAvailability(
+        facts.entry,
+        "Follow the task's recovery steps before changing the title.",
+      ),
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
   grant: {
@@ -1258,38 +1160,14 @@ export const DESK_ACTION_REGISTRY = {
       argv: ["discern", "worktree", "prune", "--contained"],
       workingDirectory: "main",
     }),
-    consequence: (context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        [
-          `Branch ${context.branch}`,
-          `Containing branch ${context.containedIn ?? "another live task"}`,
-          "Commits carried by the containing branch",
-        ],
-        [
-          context.resources.length === 0
-            ? "No external resources are recorded"
-            : `Destroy resources: ${context.resources.join(", ")}`,
-        ],
-        [
-          "Task checkout",
-          ...(context.taskMetadataRecorded ? ["Task metadata"] : []),
-          ...(context.effortGranted ? ["Task landing grant"] : []),
-          ...(context.proofRecorded ? ["Task-local Proof"] : []),
-        ],
-        ["The retained branch self-cleans after its containing work lands"],
-      ),
+    consequence: reclaimConsequence,
     confirmation: {
       kind: "confirm",
       defaultTo: false,
       noLabel: "Keep",
       yesLabel: "Reclaim",
     },
-    availability: (facts: DeskActionFacts): string | undefined =>
-      facts.entry.contained_in === undefined
-        ? "This checkout is not contained in another live task."
-        : isUnhealthy(facts.entry)
-        ? "The task state is not verifiable enough to reclaim. Follow its recovery steps first."
-        : undefined,
+    availability: reclaimAvailability,
     recommended: (facts: DeskActionFacts): boolean =>
       facts.entry.running === undefined &&
       facts.entry.contained_in !== undefined,
@@ -1303,51 +1181,14 @@ export const DESK_ACTION_REGISTRY = {
       argv: ["discern", "worktree", "park", context.path],
       workingDirectory: "main",
     }),
-    consequence: (context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        [
-          `Branch ${context.branch}`,
-          "Task title, brief, and creation source",
-          "Committed work, including work not on the trunk",
-        ],
-        [
-          context.resources.length === 0
-            ? "Record that no external resources need cleanup"
-            : `Destroy resources: ${context.resources.join(", ")}`,
-        ],
-        [
-          "Task checkout",
-          ...(context.effortGranted ? ["Task landing grant"] : []),
-          ...(context.proofRecorded ? ["Task-local Proof"] : []),
-        ],
-        ["Resume the retained branch from Work without a worktree"],
-      ),
+    consequence: parkConsequence,
     confirmation: {
       kind: "confirm",
       defaultTo: false,
       noLabel: "Keep",
       yesLabel: "Park",
     },
-    availability: (facts: DeskActionFacts): string | undefined => {
-      if (isUnhealthy(facts.entry)) {
-        return "Follow the task's recovery steps before parking it.";
-      }
-      if (facts.entry.contained_in !== undefined) {
-        return "This task is contained in another live task. Use Reclaim to preserve its containment contract.";
-      }
-      if (facts.entry.clean !== true) {
-        return facts.entry.clean === false
-          ? "Commit or discard the uncommitted changes before parking."
-          : "Worktree cleanliness is unknown.";
-      }
-      if (
-        facts.entry.branch === facts.trunk ||
-        facts.entry.branch_reachable !== true
-      ) {
-        return "Park requires a named task branch separate from the trunk.";
-      }
-      return undefined;
-    },
+    availability: parkAvailability,
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
   drop: {
@@ -1359,36 +1200,7 @@ export const DESK_ACTION_REGISTRY = {
       argv: ["discern", "worktree", "drop", context.path],
       workingDirectory: "main",
     }),
-    consequence: (context: DeskActionLabelContext): DeskConsequence =>
-      consequences(
-        ["Trunk and other tasks"],
-        [
-          context.resources.length === 0
-            ? "No external resources are recorded"
-            : `Destroy resources: ${context.resources.join(", ")}`,
-        ],
-        [
-          "Task checkout",
-          `Branch ${context.branch} when the lifecycle plan verifies discern ownership`,
-          ...(context.changedFiles === undefined
-            ? ["Uncommitted work cannot be ruled out"]
-            : context.changedFiles > 0
-            ? [`${context.changedFiles} uncommitted changes`]
-            : []),
-          ...(context.ahead === "unknown"
-            ? ["Unlanded commits cannot be ruled out"]
-            : typeof context.ahead === "number" && context.ahead > 0
-            ? [`${context.ahead} commits not on the trunk`]
-            : []),
-          ...(context.taskMetadataRecorded ? ["Task metadata"] : []),
-          ...(context.effortGranted ? ["Task landing grant"] : []),
-          ...(context.proofRecorded ? ["Task-local Proof"] : []),
-        ],
-        [
-          "A deleted committed branch tip receives a bounded recovery ref",
-          "Uncommitted files have no automatic recovery",
-        ],
-      ),
+    consequence: dropConsequence,
     confirmation: {
       kind: "typed-branch",
       defaultTo: false,
@@ -1535,7 +1347,7 @@ export function buildDeskDecision(
     }
   }
   details.push(...collisionDetails(collisions));
-  details.push(...gitDetails(entry, options.trunk));
+  details.push(...gitDetails(entry, options.trunk, plural));
   const proofRelevant = entry.ahead === UNKNOWN_GIT_COUNT ||
     (entry.ahead !== undefined && isPositiveGitCount(entry.ahead)) ||
     presentation.kind === "ready" || presentation.kind.startsWith("proof-");

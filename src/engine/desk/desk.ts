@@ -170,11 +170,8 @@ import {
   renderDeskActionPlan,
   renderDeskAgentHandoff,
   renderDeskBoard,
-  renderDeskCommandEvidence,
   renderDeskCreatedTask,
-  renderDeskMainCheckoutDetail,
   renderDeskProjectScriptPlan,
-  renderDeskRecentCompleted,
   renderDeskRecovery,
   renderDeskReview,
   renderDeskStartPreview,
@@ -182,6 +179,13 @@ import {
   renderDeskUnlandedBranchDetail,
 } from "./view.ts";
 import { startPlanToEngine } from "../worktree/plan.ts";
+import { actOnMainCheckout, showRecentCompleted } from "./main_checkout.ts";
+import { clearDeskBoard, echoDeskCommand } from "./presentation.ts";
+import {
+  type NumstatMagnitude,
+  parseNumstat,
+  reviewGitRead,
+} from "./review_evidence.ts";
 
 const {
   back: BACK,
@@ -362,15 +366,7 @@ export interface DeskRuntime {
   size(): TerminalSize;
 }
 
-/** Dim "→ <command>" line: the CLI equivalent of the action about to run. */
-function echoCommand(out: Out, command: string): void {
-  const rendered = renderDeskCommandEvidence(
-    command,
-    out.terminal.size,
-    out.terminal,
-  );
-  out.raw(`${rendered.text}\n`);
-}
+const echoCommand = echoDeskCommand;
 
 /** Keep a convenience-state failure visible without changing task outcomes. */
 function reportPreferenceWrite(
@@ -478,13 +474,7 @@ async function confirmAction(
   });
 }
 
-/** Clear the screen and home the cursor: the desk redraws its whole board on
- * every survey pass, so stale headers never stack up the scrollback. Cursor
- * control, not colour — NO_COLOR does not disable it (the desk only ever runs
- * on a TTY). */
-function clearBoard(out: Out): void {
-  out.raw("\x1b[2J\x1b[H");
-}
+const clearBoard = clearDeskBoard;
 
 /** A confirmation that treats a cancelled interaction (Ctrl-C / Esc) as "no". */
 async function confirmOrNo(
@@ -709,62 +699,6 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   recordTipShown: (id) => observeShownTip(id),
   size: () => terminalSize(),
 };
-
-interface ReviewGitRead {
-  readonly output: string;
-  readonly failure?: DeskReviewFailure;
-}
-
-/** Read one review fact without turning a Git failure into an empty section. */
-async function reviewGitRead(
-  runtime: DeskRuntime,
-  cwd: string,
-  args: string[],
-  title: string,
-): Promise<ReviewGitRead> {
-  const command = displayedCommand("git", args);
-  const result = await runtime.git(args, cwd);
-  if (result.success) return { output: result.stdout.trimEnd() };
-  return {
-    output: "",
-    failure: {
-      title,
-      command,
-      detail: result.stderr.trimEnd() || "Git returned a non-zero status.",
-      nextAction:
-        `Run ${command} in ${cwd}, resolve the reported Git failure, then review the task again.`,
-      safeToRetry: true,
-    },
-  };
-}
-
-interface NumstatMagnitude {
-  readonly added?: number;
-  readonly removed?: number;
-}
-
-/** Parse Git's tab-delimited numstat without inventing counts for binary files. */
-function parseNumstat(output: string): Map<string, NumstatMagnitude> {
-  const magnitudes = new Map<string, NumstatMagnitude>();
-  for (const record of splitNulRecords(output)) {
-    const first = record.indexOf("\t");
-    const second = first === -1 ? -1 : record.indexOf("\t", first + 1);
-    if (first === -1 || second === -1) continue;
-    const addedRaw = record.slice(0, first);
-    const removedRaw = record.slice(first + 1, second);
-    const path = record.slice(second + 1);
-    if (path === "") continue;
-    const added = /^\d+$/.test(addedRaw) ? Number(addedRaw) : undefined;
-    const removed = /^\d+$/.test(removedRaw) ? Number(removedRaw) : undefined;
-    magnitudes.set(path, {
-      ...(added === undefined || !Number.isSafeInteger(added) ? {} : { added }),
-      ...(removed === undefined || !Number.isSafeInteger(removed)
-        ? {}
-        : { removed }),
-    });
-  }
-  return magnitudes;
-}
 
 /** Map a Git status token to the package FileChange vocabulary. */
 function fileDisposition(token: string): DeskReviewFile["disposition"] {
@@ -1279,133 +1213,6 @@ async function pickRow(
     // Ctrl-C or end-of-input closes the Desk.
     return QUIT;
   }
-}
-
-/** Inspect and enter main without presenting it as agent-owned task work. */
-async function actOnMainCheckout(
-  out: Out,
-  root: string,
-  data: StatusData,
-  runtime: DeskRuntime,
-): Promise<void> {
-  clearBoard(out);
-  const viewport = runtime.size();
-  const terminal = terminalContextAtSize(out.terminal, viewport);
-  const detail = renderDeskMainCheckoutDetail(data, viewport, terminal);
-  out.raw(`${detail.text}\n`);
-  while (true) {
-    let action: string;
-    try {
-      action = await runtime.select({
-        message: "Choose a main checkout action",
-        options: groupedSelectionEntries([{
-          id: "main-inspection",
-          label: "Main checkout",
-          items: [{
-            name: "Inspect status and diff",
-            description: "Read local Git changes without changing main.",
-            value: "inspect",
-          }, {
-            name: "Open a shell at main",
-            description: "Exit the shell to return to the Desk.",
-            value: "shell",
-          }, {
-            name: "Open an editor at main",
-            description:
-              "Use the configured editor without starting agent work.",
-            value: "editor",
-          }],
-        }, {
-          id: "main-navigation",
-          label: "Desk",
-          items: [{ name: "Back", value: BACK }],
-        }]),
-        reservedRows: deskCompositionReserveRows(detail.rows, viewport.rows),
-      });
-    } catch (error) {
-      if (!isInteractionCancelled(error)) throw error;
-      return;
-    }
-    if (action === BACK) return;
-    if (action === "inspect") {
-      const [status, diff] = await Promise.all([
-        runtime.git(["status", "--short", "--branch"], root),
-        runtime.git(["diff", "--stat", "HEAD"], root),
-      ]);
-      if (!status.success || !diff.success) {
-        const failed = !status.success ? status : diff;
-        const command = !status.success
-          ? "git status --short --branch"
-          : "git diff --stat HEAD";
-        out.warn(
-          `${command} failed in ${root}: ${
-            failed.stderr.trim() || "Git returned no diagnostic."
-          } Repair the reported Git state, then refresh the Desk.`,
-        );
-        await runtime.pause(out);
-        continue;
-      }
-      const page = [
-        "# Main checkout",
-        "",
-        "Command: git status --short --branch",
-        "",
-        status.stdout.trim() || "No local changes.",
-        "",
-        "Command: git diff --stat HEAD",
-        "",
-        diff.stdout.trim() || "No tracked diff.",
-      ].join("\n");
-      const shown = await runtime.pager(page);
-      if (!shown.shown) {
-        out.warn("The pager could not open the main checkout review.");
-        await runtime.pause(out);
-      }
-      continue;
-    }
-    if (action === "shell") {
-      const shell = userShell();
-      echoCommand(out, `${shell}  (cwd: ${root})`);
-      out.info("Exit the shell to return to the Desk.");
-      const code = await runtime.interactive(
-        shell,
-        [],
-        root,
-        deskSessionEnv(),
-      );
-      if (code !== 0) {
-        out.warn(`Shell exited with status ${code}.`);
-        await runtime.pause(out);
-      }
-      continue;
-    }
-    const editor = await runtime.editor(root);
-    if (editor.editor === undefined) {
-      out.warn(editor.reason ?? "No editor is available.");
-      await runtime.pause(out);
-      continue;
-    }
-    echoCommand(out, `${editor.editor.command} .  (cwd: ${root})`);
-    const code = await runtime.openEditor(editor.editor, root);
-    if (code !== 0) {
-      out.warn(`Editor exited with status ${code}.`);
-      await runtime.pause(out);
-    }
-  }
-}
-
-/** Show the bounded local completion tail and return to the root picker. */
-async function showRecentCompleted(
-  out: Out,
-  data: StatusData,
-  runtime: DeskRuntime,
-): Promise<void> {
-  clearBoard(out);
-  const viewport = runtime.size();
-  const terminal = terminalContextAtSize(out.terminal, viewport);
-  const detail = renderDeskRecentCompleted(data, viewport, terminal);
-  out.raw(`${detail.text}\n`);
-  await runtime.pause(out);
 }
 
 /** Run one Project Script from the main checkout, using the same picker,
