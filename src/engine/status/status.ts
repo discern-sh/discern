@@ -105,7 +105,6 @@ import {
   localBranchExists,
   mainRepoPath,
   prefixBranches,
-  registeredWorktreeOwnershipEvidence,
   resolveCommonGitDir,
   unlandedPrefixBranches,
   worktreeGitKey,
@@ -121,14 +120,11 @@ import {
 } from "../worktree/identity.ts";
 import {
   fallbackTaskMetadataData,
-  type ParkedTaskMetadata,
   recordedTaskMetadataData,
 } from "../../shared/task_metadata.ts";
 import { taskLabel } from "../worktree/task_label.ts";
 import { inspectTaskMetadata } from "../worktree/task_metadata.ts";
-import { listParkedTaskMetadata } from "../worktree/parked_task_metadata.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
-import { readSetupStepJournal } from "../worktree/setup_step_journal.ts";
 import {
   containedRefPointers,
   containmentIdleCheck,
@@ -154,13 +150,14 @@ import {
   type DurationPrior,
   type FleetLogbookActivity,
   readFleetLogbookActivity,
-  readRecentLogbookStream,
 } from "../logbook/read.ts";
 import {
   idleDaysOf,
   renderStatusDashboard,
   STALE_WORKTREE_DAYS,
 } from "./tty.ts";
+import { fleetFilesystem, fleetSetupEvidence } from "./recovery.ts";
+import { parkedTaskEvidence, recentCompletedTasks } from "./recent.ts";
 import {
   planTrackedRefresh,
   type TrackedRefreshPlan,
@@ -175,7 +172,6 @@ export { idleDaysOf, relativeAge, STALE_WORKTREE_DAYS } from "./tty.ts";
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
 const STATUS_OVERLAP_CAP = 20;
-const RECENT_COMPLETED_TASK_LIMIT = 8;
 
 /** Flags accepted by `status` on both surfaces. */
 export interface StatusOptions {
@@ -217,54 +213,6 @@ async function landedCommitAt(
   return shown.success && value !== "" && !Number.isNaN(Date.parse(value))
     ? value
     : undefined;
-}
-
-/** Project a bounded local landing tail without creating another task archive. */
-async function recentCompletedTasks(
-  root: string,
-  logbookEnabled: boolean,
-  landed: StatusData["landed_proof"],
-): Promise<NonNullable<StatusData["recent_completed_tasks"]>> {
-  const completed: NonNullable<StatusData["recent_completed_tasks"]> = [];
-  if (logbookEnabled) {
-    const commonGitDir = await resolveCommonGitDir(root);
-    if (commonGitDir !== undefined) {
-      const stream = await readRecentLogbookStream(commonGitDir, 200);
-      for (const event of [...stream.events].reverse()) {
-        if (
-          event.kind !== "verb" || event.verb !== "accept" ||
-          event.outcome !== "ok" || event.dry_run === true ||
-          typeof event.branch !== "string"
-        ) continue;
-        if (completed.length >= RECENT_COMPLETED_TASK_LIMIT) break;
-        const branch = event.branch;
-        const head = typeof event.head === "string" ? event.head : undefined;
-        completed.push({
-          branch,
-          completed_at: event.at,
-          ...(head === undefined ? {} : { head }),
-          ...(landed !== undefined && head !== undefined &&
-              landed.commit.startsWith(head)
-            ? { proof_line: landed.proof.line }
-            : {}),
-        });
-      }
-    }
-  }
-  if (
-    landed?.commit_at !== undefined &&
-    !completed.some((entry) =>
-      entry.head !== undefined && landed.commit.startsWith(entry.head)
-    )
-  ) {
-    completed.unshift({
-      branch: landed.proof.branch,
-      head: landed.proof.head,
-      completed_at: landed.commit_at,
-      proof_line: landed.proof.line,
-    });
-  }
-  return completed.slice(0, RECENT_COMPLETED_TASK_LIMIT);
 }
 
 /**
@@ -644,28 +592,7 @@ export async function statusResult(
       if (dangling.length > 0) {
         unlandedBranches = dangling;
         data.unlanded_branches = dangling;
-        let parked: ParkedTaskMetadata[] = [];
-        try {
-          parked = await listParkedTaskMetadata(root);
-        } catch (error) {
-          data.parked_tasks_unavailable = {
-            reason: error instanceof Error ? error.message : String(error),
-            next_command: "discern doctor",
-          };
-        }
-        const matching = parked.filter((record) =>
-          dangling.includes(record.branch)
-        ).map((record) => ({
-          id: record.id,
-          branch: record.branch,
-          head: record.head,
-          parked_at: record.parked_at,
-          task: recordedTaskMetadataData(
-            { id: record.id, branch: record.branch },
-            record.task,
-          ),
-        }));
-        if (matching.length > 0) data.parked_tasks = matching;
+        Object.assign(data, await parkedTaskEvidence(root, dangling));
       }
       if (containers.size > 0) {
         containedRefs = [...containers.entries()].map((
@@ -824,158 +751,6 @@ async function readWorktreeResources(
     }
   }
   return out;
-}
-
-/** Observe checkout presence without treating a permission failure as absence. */
-async function fleetFilesystem(
-  path: string,
-): Promise<NonNullable<StatusFleetEntry["filesystem"]>> {
-  try {
-    const info = await Deno.stat(path);
-    return { state: info.isDirectory ? "directory" : "other" };
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return { state: "missing" };
-    return {
-      state: "unreadable",
-      reason: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-/** Read setup ownership and decide whether the idempotent setup core may retry. */
-async function fleetSetupEvidence(
-  row: FleetWorktree,
-  repoRoot: string,
-  settings: IdentitySettings | undefined,
-  configPresent: boolean,
-): Promise<NonNullable<StatusFleetEntry["setup"]>> {
-  if (settings === undefined) {
-    return {
-      state: "unavailable",
-      marker: "unavailable",
-      repair: {
-        kind: "manual",
-        command: "discern doctor",
-        reason: "Worktree identity settings could not be read.",
-      },
-    };
-  }
-  const ownership = await registeredWorktreeOwnershipEvidence(
-    row.path,
-    repoRoot,
-    settings,
-  );
-  if (ownership === undefined) {
-    return {
-      state: "unavailable",
-      marker: "unavailable",
-      repair: {
-        kind: "manual",
-        command: "git worktree repair",
-        reason: "Git could not resolve this registration's setup marker.",
-      },
-    };
-  }
-  if (ownership.ready) {
-    return { state: "ready", marker: "present" };
-  }
-  if (!configPresent) {
-    return {
-      state: "incomplete",
-      marker: "missing",
-      repair: {
-        kind: "manual",
-        command: "discern doctor",
-        reason: "The checkout does not contain discern.toml.",
-      },
-    };
-  }
-
-  let cfg: DiscernConfig;
-  try {
-    cfg = await loadConfig(row.path);
-  } catch (error) {
-    return {
-      state: "incomplete",
-      marker: "missing",
-      repair: {
-        kind: "manual",
-        command: "discern doctor",
-        reason: `The task configuration could not be read: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      },
-    };
-  }
-
-  try {
-    const read = await readSetupStepJournal(row.path);
-    const journal = read.status === "missing"
-      ? { status: "missing" as const, path: read.path, steps: [] }
-      : {
-        status: "recorded" as const,
-        path: read.path,
-        steps: read.journal.steps.map((step) => ({
-          id: step.id,
-          command: step.command,
-          state: step.state,
-        })),
-      };
-    const running = journal.steps.find((step) => step.state === "running");
-    if (running !== undefined) {
-      return {
-        state: "incomplete",
-        marker: "missing",
-        journal,
-        repair: {
-          kind: "manual",
-          command:
-            `discern worktree setup --retry-step ${running.id} --confirmed`,
-          reason:
-            `Setup step ${running.id} is recorded as running. Confirm its external state before choosing retry or mark-complete.`,
-        },
-      };
-    }
-    if (read.status === "missing" && cfg.worktree.setup.steps.length > 0) {
-      return {
-        state: "incomplete",
-        marker: "missing",
-        journal,
-        repair: {
-          kind: "manual",
-          command: "discern worktree setup --dry-run",
-          reason:
-            "The ready marker and setup-step journal are missing, so prior one-shot effects cannot be verified.",
-        },
-      };
-    }
-    return {
-      state: "incomplete",
-      marker: "missing",
-      journal,
-      repair: {
-        kind: "retry",
-        command: "discern worktree setup",
-        reason:
-          "No ambiguous setup step is recorded; the setup core can retry from this state.",
-      },
-    };
-  } catch (error) {
-    return {
-      state: "incomplete",
-      marker: "missing",
-      journal: {
-        status: "unavailable",
-        steps: [],
-        reason: error instanceof Error ? error.message : String(error),
-      },
-      repair: {
-        kind: "manual",
-        command: "discern worktree setup --dry-run",
-        reason: "The setup-step journal could not be inspected.",
-      },
-    };
-  }
 }
 
 /** Augment a cheap fleet row with its identity and independent recovery facts.
