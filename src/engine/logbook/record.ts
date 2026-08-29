@@ -61,6 +61,7 @@ import {
 } from "../../shared/result.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 import { logbookVerbIsEffectful } from "../../shared/verbs.ts";
+import type { OperationLockBoundary } from "../../shared/operation_effects.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import {
   type CheckpointObservations,
@@ -144,6 +145,12 @@ export interface BeginReport {
   driver: Promise<DriverFacts>;
   /** Flag names already known at invocation start. */
   flags?: readonly string[] | undefined;
+  /** Whether this invocation is a read-only preview. */
+  dryRun?: boolean | undefined;
+  /** Whether a mixed command group received its effect-selecting operand. */
+  hasOperands?: boolean | undefined;
+  /** The operation registry's resolved exclusion boundary for this call. */
+  lockBoundary?: OperationLockBoundary | undefined;
 }
 
 /** A live recording: created at verb start, finished exactly once at completion. */
@@ -601,6 +608,14 @@ export function beginRecording(
           branch: ctx.branch,
           head: ctx.head,
           epoch: ctx.epoch.fingerprint,
+          ...(begin.lockBoundary === undefined
+            ? {}
+            : { lock_boundary: begin.lockBoundary }),
+          ...(begin.flags === undefined ? {} : { flags: [...begin.flags] }),
+          ...(begin.dryRun === undefined ? {} : { dry_run: begin.dryRun }),
+          ...(begin.hasOperands === undefined
+            ? {}
+            : { has_operands: begin.hasOperands }),
         };
         await appendEvent(ctx.commonGitDir, event);
       },
@@ -663,6 +678,12 @@ export function beginRecording(
             : {}),
           ...(report.crash !== undefined ? { crash: report.crash } : {}),
           ...(report.dryRun === true ? { dry_run: true } : {}),
+          ...(begin.lockBoundary === undefined
+            ? {}
+            : { lock_boundary: begin.lockBoundary }),
+          ...(begin.hasOperands === undefined
+            ? {}
+            : { has_operands: begin.hasOperands }),
           duration_ms: Math.round(report.durationMs),
           ...(report.waitedMs !== undefined
             ? { waited_ms: Math.round(report.waitedMs) }

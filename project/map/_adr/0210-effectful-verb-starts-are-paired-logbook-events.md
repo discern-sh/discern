@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **[ADR 0272](0272-logbook-lifecycle-actions-require-terminal-confirmation.md) — lifecycle exception:** the paired-start rule is amended for the two lifecycle commands that replace the Logbook they would otherwise record into — they write neither a `begin` nor a completion event, and confirm at the terminal instead.
+> - **[ADR 0357](0357-lock-boundary-evidence-retires-superseded-logbook-starts.md) — superseded liveness:** the Logbook records the operation registry's resolved exclusion boundary, and a later-started paired invocation that completes under an overlapping boundary retires an older unmatched start from the live view while preserving its crash evidence.
 
 **Status**: accepted; amends the completion-only recording sentence in [ADR 0160](0160-local-logbook-advisory-readers.md)
 

@@ -21,12 +21,16 @@ export const OPERATION_EFFECT_CLASSES = [
 /** One operation effect class. */
 export type OperationEffectClass = (typeof OPERATION_EFFECT_CLASSES)[number];
 
-/** The exclusion boundary an invocation must hold while it performs effects. */
-export type OperationLockBoundary =
-  | "none"
-  | "checkout"
-  | "common"
-  | "common-and-checkout";
+/** The exclusion boundaries an invocation may hold while it performs effects. */
+export const OPERATION_LOCK_BOUNDARIES = [
+  "none",
+  "checkout",
+  "common",
+  "common-and-checkout",
+] as const;
+
+/** One operation exclusion boundary. */
+export type OperationLockBoundary = (typeof OPERATION_LOCK_BOUNDARIES)[number];
 
 /** What the preview guard requires from this command path. */
 export type OperationPreviewObligation =

@@ -755,6 +755,53 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   );
 });
 
+Deno.test("desk keeps landing pre-authorization selectable during final checks", async () => {
+  const output = transcript();
+  const effort = fleetEntry("agent/running-gate", "/worktrees/running-gate", {
+    ahead: 2,
+    gate_proof: { status: "honored" },
+    running: {
+      verb: "done",
+      started: "2026-07-11T11:59:00.000Z",
+      elapsed_ms: 60_000,
+      typical_duration_ms: 60_000,
+    },
+  });
+  const data = statusData([
+    fleetEntry("main", ROOT, { is_main: true, is_current: true }),
+    effort,
+  ]);
+  const choices = [effort.path, BACK, QUIT];
+  let actionOptions: readonly SelectionEntry<string>[] | undefined;
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data }),
+    select: (options) => {
+      if (options.message === "Choose an action") {
+        actionOptions = options.options;
+      }
+      return choices.shift() ?? QUIT;
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  const options = actionOptions;
+  assert(options !== undefined);
+  const action = (value: string) =>
+    options.find((entry) =>
+      !isSelectionHeading(entry) && entry.value === value
+    );
+  const grant = action("grant");
+  const rename = action("rename");
+  assert(grant !== undefined && !isSelectionHeading(grant));
+  assert(rename !== undefined && !isSelectionHeading(rename));
+  assertEquals(grant.disabled, undefined);
+  assertEquals(rename.disabled, true);
+  assertEquals(
+    rename.description,
+    "discern done is running. It usually takes 1m.",
+  );
+});
+
 Deno.test("desk adds filtering for a large fleet and disambiguates duplicate task names", async () => {
   const output = transcript();
   const main = fleetEntry("main", ROOT, {

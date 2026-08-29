@@ -68,9 +68,9 @@ Every action remains visible in **Work**, **Review**, **Manage**, or **Danger**.
 
 Broken or unreadable tasks never recommend Drop.
 
-The typed action registry owns menu order, grouping, contextual labels, command evidence, and confirmation policy. The [product-manual action table](https://discern.sh/docs/guides/delegate-work#choose-one-contextual-action) projects every member for readers; its registry-driven test enrols future actions automatically.
+The typed action registry owns menu order, grouping, contextual labels, command evidence, confirmation policy, and whether each action can coexist with a reported running operation. The decision model applies running compatibility centrally before the action's contextual predicate, so a newly enrolled action cannot bypass that boundary. The [product-manual action table](https://discern.sh/docs/guides/delegate-work#choose-one-contextual-action) projects every member for readers; its registry-driven test enrols future actions automatically.
 
-Grant and revoke remain human-only actions inside `discern desk`.
+Grant and revoke remain human-only actions inside `discern desk`. They stay available while the Gate runs: the grant marker writer and acceptance claim share one atomic decision point, so changing future landing authority does not conflict with the running check.
 
 `Start a follow-up from this task` fixes the selected task's reported branch as the new task's base. Its preview includes that ref and resolved commit before creation. The follow-up remains an independent worktree. Branch containment records the dependency without creating a landing queue.
 

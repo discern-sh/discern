@@ -47,6 +47,7 @@ import { AGENT_SIGNAL_SOURCES } from "../../shared/agent_catalogue.ts";
 import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 import { validationEvidenceSchema } from "./validation.ts";
+import { OPERATION_LOCK_BOUNDARIES } from "../../shared/operation_effects.ts";
 
 /** The event-format major this build writes; readers skip unknown majors. */
 export const LOGBOOK_SCHEMA_VERSION = 1;
@@ -305,6 +306,15 @@ export const beginEventSchema = z.looseObject({
   head: z.string().nullable(),
   /** The config-epoch fingerprint at invocation. */
   epoch: z.string().nullable(),
+  /** The exclusion boundary this invocation resolved from the operation
+   * registry. Optional under the additive event schema. */
+  lock_boundary: z.enum(OPERATION_LOCK_BOUNDARIES).optional(),
+  /** Flag names needed to reproduce mixed-operation lock classification. */
+  flags: z.array(z.string()).optional(),
+  /** True when this invocation was a preview and acquired no writer lock. */
+  dry_run: z.boolean().optional(),
+  /** Operand presence for mixed command-group lock classification. */
+  has_operands: z.boolean().optional(),
 });
 /** One effectful invocation start event. */
 export type BeginEvent = z.infer<typeof beginEventSchema>;
@@ -354,6 +364,11 @@ export const verbEventSchema = z.looseObject({
   crash: crashSignatureSchema.optional(),
   /** True when the invocation was a preview (`--dry-run`) — nothing was applied. */
   dry_run: z.boolean().optional(),
+  /** The exclusion boundary resolved for this invocation. Optional under the
+   * additive schema; readers can derive an absent value from current policy. */
+  lock_boundary: z.enum(OPERATION_LOCK_BOUNDARIES).optional(),
+  /** Operand presence for mixed command-group lock classification. */
+  has_operands: z.boolean().optional(),
   /** Wall-clock duration of the whole invocation, in milliseconds. */
   duration_ms: z.number(),
   /** Time spent waiting for a configured test-run slot, in milliseconds.

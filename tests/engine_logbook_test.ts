@@ -209,6 +209,9 @@ Deno.test("logbook: an effectful verb pairs begin and completion by invocation i
     assertEquals(begin.branch, "main");
     assertEquals(begin.surface, "cli");
     assertEquals(begin.driver, completion.driver);
+    assertEquals(begin.lock_boundary, "checkout");
+    assertEquals(completion.lock_boundary, "checkout");
+    assertEquals(begin.dry_run, false);
     assert(
       Date.parse(begin.at) <= Date.parse(completion.at),
       "the begin line must precede its paired completion",
@@ -864,6 +867,7 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
     assert(event !== undefined);
     assertEquals(event.verb, "status");
     assertEquals(event.surface, "mcp");
+    assertEquals(event.lock_boundary, "none");
     assertEquals(event.branch, "main");
     assertEquals(event.outcome, "ok");
     assertEquals(

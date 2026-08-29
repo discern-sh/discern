@@ -140,6 +140,9 @@ interface DeskActionLabelContext {
 
 export interface DeskActionMetadata {
   readonly group: DeskBaseActionGroupId;
+  /** Whether this action's real effect boundary remains valid while status
+   * reports another operation in this task. Applied centrally to every action. */
+  readonly availableWhileRunning: boolean;
   readonly label: (context: DeskActionLabelContext) => string;
   readonly command: (context: DeskActionLabelContext) => DeskCommandEvidence;
   readonly consequence: (
@@ -684,22 +687,6 @@ function nextConditionDetail(
   return text === undefined ? undefined : { kind: "next_condition", text };
 }
 
-const ACTION_ALLOWED_WHILE_RUNNING = {
-  done: false,
-  accept: false,
-  update: false,
-  agent: false,
-  follow_up: true,
-  scripts: false,
-  jump: true,
-  inspect: true,
-  rename: false,
-  grant: false,
-  revoke_grant: false,
-  reclaim: false,
-  drop: false,
-} as const satisfies Readonly<Record<DeskAction, boolean>>;
-
 /** All observed facts available to the action registry's pure predicates. */
 export interface DeskActionFacts {
   readonly entry: StatusFleetEntry;
@@ -715,11 +702,11 @@ export interface DeskActionFacts {
 
 /** A shared running-operation refusal for actions that cannot safely overlap. */
 function runningReason(
-  action: DeskAction,
+  availableWhileRunning: boolean,
   facts: DeskActionFacts,
 ): string | undefined {
   return facts.entry.running !== undefined &&
-      !ACTION_ALLOWED_WHILE_RUNNING[action]
+      !availableWhileRunning
     ? `${discernCommand(facts.entry.running.verb)} is running.${
       facts.entry.running.typical_duration_ms === undefined
         ? ""
@@ -786,6 +773,7 @@ const NO_CONFIRMATION = { kind: "none" } as const;
 export const DESK_ACTION_REGISTRY = {
   done: {
     group: "work",
+    availableWhileRunning: false,
     label: (_context: DeskActionLabelContext): string => "Run final checks",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "done"],
@@ -808,12 +796,11 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Run",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      runningReason("done", facts) ??
-        (isUnhealthy(facts.entry)
-          ? facts.entry.broken === true
-            ? "Setup is incomplete. Finish or repair setup before final checks."
-            : "Git state is unreadable. Repair Git before final checks."
-          : committedWorkReason(facts)),
+      isUnhealthy(facts.entry)
+        ? facts.entry.broken === true
+          ? "Setup is incomplete. Finish or repair setup before final checks."
+          : "Git state is unreadable. Repair Git before final checks."
+        : committedWorkReason(facts),
     recommended: (facts: DeskActionFacts): boolean =>
       facts.entry.running === undefined && facts.collisions.length === 0 &&
       facts.entry.contained_in === undefined &&
@@ -826,6 +813,7 @@ export const DESK_ACTION_REGISTRY = {
   },
   accept: {
     group: "review",
+    availableWhileRunning: false,
     label: (context: DeskActionLabelContext): string =>
       context.proofHonored
         ? `Review and land on ${context.trunk}`
@@ -848,10 +836,9 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Land",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      runningReason("accept", facts) ??
-        (isUnhealthy(facts.entry)
-          ? "The task is not healthy enough to land. Follow its recovery steps first."
-          : committedWorkReason(facts)),
+      isUnhealthy(facts.entry)
+        ? "The task is not healthy enough to land. Follow its recovery steps first."
+        : committedWorkReason(facts),
     recommended: (facts: DeskActionFacts): boolean =>
       facts.entry.running === undefined && facts.collisions.length === 0 &&
       facts.entry.contained_in === undefined &&
@@ -860,6 +847,7 @@ export const DESK_ACTION_REGISTRY = {
   },
   update: {
     group: "manage",
+    availableWhileRunning: false,
     label: ({ trunk }: DeskActionLabelContext): string =>
       `Update branch from ${trunk}`,
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
@@ -883,8 +871,6 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Update",
     },
     availability: (facts: DeskActionFacts): string | undefined => {
-      const running = runningReason("update", facts);
-      if (running !== undefined) return running;
       if (isUnhealthy(facts.entry)) {
         return "Git state is not healthy enough to update. Follow the task's recovery steps first.";
       }
@@ -901,6 +887,7 @@ export const DESK_ACTION_REGISTRY = {
   },
   agent: {
     group: "work",
+    availableWhileRunning: false,
     label: (_context: DeskActionLabelContext): string =>
       "Continue with an agent",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
@@ -916,8 +903,6 @@ export const DESK_ACTION_REGISTRY = {
       ),
     confirmation: NO_CONFIRMATION,
     availability: (facts: DeskActionFacts): string | undefined => {
-      const running = runningReason("agent", facts);
-      if (running !== undefined) return running;
       const capability = capabilityReason(facts);
       if (capability !== undefined) return capability;
       if (hasAvailableAgent(facts)) return undefined;
@@ -938,6 +923,7 @@ export const DESK_ACTION_REGISTRY = {
   },
   follow_up: {
     group: "work",
+    availableWhileRunning: true,
     label: (_context: DeskActionLabelContext): string =>
       "Start a follow-up from this task",
     command: (context: DeskActionLabelContext): DeskCommandEvidence => ({
@@ -960,6 +946,7 @@ export const DESK_ACTION_REGISTRY = {
   },
   scripts: {
     group: "work",
+    availableWhileRunning: false,
     label: (_context: DeskActionLabelContext): string => "Run a Project Script",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "scripts", "<name>"],
@@ -979,7 +966,7 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Run",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      runningReason("scripts", facts) ?? capabilityReason(facts) ??
+      capabilityReason(facts) ??
         (hasAvailableScript(facts)
           ? undefined
           : facts.scriptsUnavailableReason ??
@@ -988,6 +975,7 @@ export const DESK_ACTION_REGISTRY = {
   },
   jump: {
     group: "work",
+    availableWhileRunning: true,
     label: (_context: DeskActionLabelContext): string => "Open a shell",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["<user-shell>"],
@@ -1009,6 +997,7 @@ export const DESK_ACTION_REGISTRY = {
   },
   inspect: {
     group: "review",
+    availableWhileRunning: true,
     label: (_context: DeskActionLabelContext): string =>
       "Review Proof and changes",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
@@ -1035,6 +1024,7 @@ export const DESK_ACTION_REGISTRY = {
   },
   rename: {
     group: "manage",
+    availableWhileRunning: false,
     label: (_context: DeskActionLabelContext): string => "Change task title",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "worktree", "rename", "<title>"],
@@ -1061,6 +1051,9 @@ export const DESK_ACTION_REGISTRY = {
   },
   grant: {
     group: "manage",
+    // The marker writer and acceptance claim share an atomic linearization
+    // point, so a Gate run cannot make this human authority choice unsafe.
+    availableWhileRunning: true,
     label: (_context: DeskActionLabelContext): string =>
       "Pre-authorize landing once green",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
@@ -1081,16 +1074,16 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Allow",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      runningReason("grant", facts) ??
-        (isUnhealthy(facts.entry)
-          ? "The task is not healthy enough to receive landing authority."
-          : facts.effortGranted
-          ? "This task already has landing pre-authorization."
-          : undefined),
+      isUnhealthy(facts.entry)
+        ? "The task is not healthy enough to receive landing authority."
+        : facts.effortGranted
+        ? "This task already has landing pre-authorization."
+        : undefined,
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
   revoke_grant: {
     group: "manage",
+    availableWhileRunning: true,
     label: (_context: DeskActionLabelContext): string =>
       "Revoke landing pre-authorization",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
@@ -1111,14 +1104,14 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Revoke",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      runningReason("revoke_grant", facts) ??
-        (facts.effortGranted
-          ? undefined
-          : "No task landing pre-authorization is recorded."),
+      facts.effortGranted
+        ? undefined
+        : "No task landing pre-authorization is recorded.",
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
   reclaim: {
     group: "manage",
+    availableWhileRunning: false,
     label: ({ containedIn }: DeskActionLabelContext): string =>
       `Reclaim checkout, keep branch (work contained in ${
         containedIn ?? "another live task"
@@ -1141,16 +1134,16 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Reclaim",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      runningReason("reclaim", facts) ??
-        (facts.entry.contained_in === undefined
-          ? "This checkout is not contained in another live task."
-          : undefined),
+      facts.entry.contained_in === undefined
+        ? "This checkout is not contained in another live task."
+        : undefined,
     recommended: (facts: DeskActionFacts): boolean =>
       facts.entry.running === undefined &&
       facts.entry.contained_in !== undefined,
   },
   drop: {
     group: "danger",
+    availableWhileRunning: false,
     label: (_context: DeskActionLabelContext): string =>
       "Drop worktree and branch",
     command: (context: DeskActionLabelContext): DeskCommandEvidence => ({
@@ -1170,8 +1163,7 @@ export const DESK_ACTION_REGISTRY = {
       noLabel: "Keep",
       yesLabel: "Drop",
     },
-    availability: (facts: DeskActionFacts): string | undefined =>
-      runningReason("drop", facts),
+    availability: (_facts: DeskActionFacts): string | undefined => undefined,
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
 } as const satisfies Readonly<Record<DeskAction, DeskActionMetadata>>;
@@ -1209,7 +1201,8 @@ function actionOffers(
       consequence: metadata.consequence(context),
       confirmation: metadata.confirmation,
     };
-    const reason = metadata.availability(facts);
+    const reason = runningReason(metadata.availableWhileRunning, facts) ??
+      metadata.availability(facts);
     if (reason !== undefined) {
       return { ...base, availability: "disabled", recommended: false, reason };
     }
