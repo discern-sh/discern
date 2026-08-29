@@ -2,7 +2,10 @@
 
 import * as posix from "@std/path/posix";
 import type { ManualPage, ManualProjection } from "../src/lib/manual.ts";
-import { publicMapExhibitRoute } from "../src/lib/paths.ts";
+import {
+  numberedDocRoute,
+  publicMapExhibitRoute,
+} from "../src/lib/paths.ts";
 import { MANUAL_ALIAS_OWNER_OVERRIDES } from "../src/shared/manual.ts";
 import {
   parseFrontmatter,
@@ -15,19 +18,9 @@ export interface GeneratedManualMetadata {
   readonly redirects?: readonly string[];
 }
 
-/** Project the `/docs` route represented by one Map source path. */
+/** Project the legacy `/docs` route represented by one Map source path. */
 function mapRoute(rel: string): string | undefined {
-  if (rel === "README.md") return "/docs";
-  const parts = rel.split("/");
-  const section = parts[0];
-  const filename = parts.at(-1);
-  if (section === undefined || filename === undefined || parts.length < 2) {
-    return undefined;
-  }
-  const sectionSlug = section.replace(/^\d+-/u, "");
-  return filename.toLowerCase() === "readme.md"
-    ? `/docs/${sectionSlug}`
-    : `/docs/${sectionSlug}/${filename.replace(/\.md$/iu, "")}`;
+  return numberedDocRoute(rel, "/docs");
 }
 
 /** Resolve a legacy Map route through the destination-owned manual claims. */

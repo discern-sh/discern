@@ -228,6 +228,28 @@ export const MAP_SECTION_REGISTRY: readonly MapSectionRegistration[] = [
 ];
 
 /**
+ * Route shape shared by the numbered documentation trees: the root README maps
+ * to the root route, a section README collapses to its numeric-prefix-stripped
+ * slug, and a leaf appends its extensionless filename.
+ */
+export function numberedDocRoute(
+  relPath: string,
+  rootRoute: string,
+): string | undefined {
+  if (relPath === "README.md") return rootRoute;
+  const parts = relPath.split("/");
+  const dir = parts[0];
+  if (dir === undefined || parts.length < 2) return undefined;
+  const tail = parts.slice(1);
+  const filename = tail.at(-1) ?? "";
+  if (filename.toLowerCase() === "readme.md") tail.pop();
+  else tail[tail.length - 1] = filename.replace(/\.md$/iu, "");
+  return [rootRoute, dir.replace(/^\d+-/u, ""), ...tail]
+    .filter((segment) => segment.length > 0)
+    .join("/");
+}
+
+/**
  * The public Map exhibit route for one Map-relative Markdown path, or
  * `undefined` when the path sits outside the registered numbered tiers. This
  * derivation is the single authority for `/map/...` route shape: the website
@@ -237,20 +259,14 @@ export const MAP_SECTION_REGISTRY: readonly MapSectionRegistration[] = [
  * exhibit's own predicate.
  */
 export function publicMapExhibitRoute(relToMap: string): string | undefined {
-  if (relToMap === "README.md") return "/map";
-  const parts = relToMap.split("/");
-  const dir = parts[0];
-  if (dir === undefined || parts.length < 2) return undefined;
-  if (!MAP_SECTION_REGISTRY.some((section) => section.dir === dir)) {
+  const dir = relToMap.split("/")[0];
+  if (
+    relToMap !== "README.md" &&
+    !MAP_SECTION_REGISTRY.some((section) => section.dir === dir)
+  ) {
     return undefined;
   }
-  const tail = parts.slice(1);
-  const filename = tail.at(-1) ?? "";
-  if (filename.toLowerCase() === "readme.md") tail.pop();
-  else tail[tail.length - 1] = filename.replace(/\.md$/iu, "");
-  return ["/map", dir.replace(/^\d+-/u, ""), ...tail]
-    .filter((segment) => segment.length > 0)
-    .join("/");
+  return numberedDocRoute(relToMap, "/map");
 }
 
 /** Resolve discern's fixed repository-owned manual source. */
