@@ -23,92 +23,108 @@ redirect_from:
 
 # Recover an interrupted task
 
-Resume a partially completed or dropped task from durable state without widening cleanup.
+Use this guide when a coding-agent session ended while its worktree still exists, an acceptance stopped partway through, or a deliberate worktree drop removed a branch you now need. Recovery begins from repository state and discern's recorded transition evidence, not from the missing conversation.
 
-## Recover an interrupted landing
+The safe action depends on what already happened. Observe first, then resume the same lifecycle command or restore a retained commit. Do not widen cleanup to make the state look tidy.
 
-_A retry reconciles durable evidence before it changes authority, refs, or checkout files._
+## Starting state
 
-Acceptance moves the trunk ref and then converges its checkout. A process can end between those boundaries. discern therefore records the transition before either one and treats recovery as part of the original acceptance ([ADR 0194](https://discern.sh/docs/decisions/0194-standing-pre-authorization-is-a-recorded-checked-grant)).
+- Run from the task's existing worktree when it still exists. Run from the main checkout when status says the worktree is gone.
+- Preserve any returned result, branch name, worktree path, recovery ref, or `data.landing` fields.
+- Do not create a replacement worktree for the same effort until status proves the original is gone and the recovery route calls for one.
 
-### What the transaction records
+## Resume an unfinished worktree
 
-The common-repository lock and this checkout's lock cover recovery through cleanup. discern acquires common before checkout. A concurrent `discern accept` refuses immediately, states that the call made no change, and waits for the active operation to finish before retrying. It cannot read an active journal as abandoned state ([ADR 0331](https://discern.sh/docs/decisions/0331-common-repository-locks-precede-checkout-locks)).
+**Coding agent:** Call `discern_status` with the existing worktree's absolute path. The command-line form is:
 
-Before authority or refs move, a versioned Git-admin journal records the transition. It includes the worktree branch, trunk, expected and target commits, receiving checkout, effort-claim participation, verified consent, and approved Standard limit proposals. The journal binds consent and proposal approval to this transition. The trunk update and a per-worktree marker ref then move in one Git transaction. Rollback restores the trunk and removes the marker together.
+```sh
+discern status
+```
 
-The marker is durable evidence that the transition happened. It keeps one-shot authority spent even if another actor later returns the trunk to its expected commit or its reflog expires. A missing marker shows that discern's transaction did not commit.
+Read Git state, branch drift, Proof state, resources, pending refresh, and the result's next action. A worktree survives the session that created it; its branch and local Git-admin state carry the effort forward.
 
-### How a retry reconciles it
+If the result says setup or environment readiness is incomplete, follow the named `discern worktree ensure` or setup recovery. If the branch is behind, use `discern_update`. If the tree is dirty, inspect and continue the work before running the Gate.
 
-A retry inspects the journal and current authority without changing the journal, claim, refs, index, or checkout. Recovery requires one of these forms of evidence:
+A returned session should be able to state its branch, current commit, changed files, last completed discern action, and immediate next action without consulting the earlier chat.
 
-- consent bound to the recorded transition;
-- a currently verified standing or effort grant;
-- `--confirmed` consent from the current conversation.
+## Recover an interrupted acceptance
 
-A journal with Standard limit proposals always requires conversation consent bound to that transaction. A standing or effort grant cannot recover the narrower approval. Recovery validates the recorded proposal set before using it. Malformed, duplicate, or mismatched records leave the journal and refs unchanged.
+Acceptance can move the trunk before later checkout convergence or cleanup fails. Retrying must reconcile that recorded transaction instead of starting a new landing.
 
-A legacy effort journal can prove authority through its matching claim. Legacy conversation and standing-grant journals contain no bound consent, so they remain untouched until current authority exists.
+### 1. Read the surviving location and effects
 
-Before the trunk transition, recovery restores a claimed effort grant only when no marker exists, clears the journal, and checks authority again before any fresh landing. Journal-bound consent cannot authorize that fresh transition.
+**Coding agent:** Inspect the failed result's `data.root` and `data.landing`:
 
-After the transition, recovery consumes the claim and converges the main checkout only when its index and tracked files still match the recorded old or new tree. Changed local data stays untouched, with the journal preserved and an inspection remedy in the result. A reconciled landing stops at `discern worktree prune`; it never crosses the authority boundary again.
+| Field | What it establishes |
+| --- | --- |
+| `recovery_performed` | This call reconciled an earlier acceptance transaction. |
+| `trunk_landed` | The trunk reached the accepted commit and was not rolled back. |
+| `worktree_removed` | The checkout and Git worktree registration are gone. |
+| `branch_deleted` | The merged local branch is gone. |
 
-### Read the result before acting
+Do not assume the original worktree still exists. When cleanup removed it, continue from the main checkout path returned in `data.root`.
 
-Every applied acceptance result may carry `data.landing`:
+### 2. Retry the same acceptance route
 
-| Field                | Meaning                                                        |
-| -------------------- | -------------------------------------------------------------- |
-| `recovery_performed` | This call changed or reconciled an interrupted transaction.    |
-| `trunk_landed`       | The trunk reached the accepted commit and was not rolled back. |
-| `worktree_removed`   | The linked checkout and its Git registration were removed.     |
-| `branch_deleted`     | The merged local branch was deleted.                           |
+**Coding agent:** Follow the result's recovery and rerun `discern_accept` from the surviving checkout.
 
-A later failure after any of those effects returns `error: "partial_acceptance"` and the main-checkout path in `data.root`. Read both fields before choosing a command: the worktree may already be gone. MCP re-aims at the surviving root when cleanup removed its previous working directory.
+```sh
+discern accept
+```
 
-Checkout-local artifact materialization, repository ensure, smoke, tracked-clean, or branch-deletion failures cannot undo the trunk move. Acceptance reports them, consumes the grant, and continues the remaining cleanup. Tracked refresh work must converge in the branch before landing, so it never runs on this side of the transition.
+discern reads the journal, marker, current refs, authority, and checkout state before acting. It reuses consent bound to the interrupted transaction when available. A Standard proposal or an authority record that cannot be verified still requires the person to supply the served approval.
 
-### Where it lives in code
+If another acceptance owns the repository lock, the refusal says that this call changed nothing. Wait for that operation to finish, then retry.
 
-| Concern                  | Source                                                                                                                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Journal and recovery     | [`acceptance_transaction.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/acceptance_transaction.ts)                                                                                     |
-| Ref transition           | [`git.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/git.ts)                                                                                                                           |
-| Effort-claim cleanup     | [`effort_grant_cleanup.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/effort_grant_cleanup.ts)                                                                                         |
-| Result state             | [`accept_landing_state.ts`](https://github.com/jackwh/discern/blob/main/src/shared/accept_landing_state.ts), [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts) |
-| Acceptance orchestration | [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts)                                                                                                               |
+### 3. Distinguish landed from cleaned up
 
-## Recover a dropped worktree branch
+A result can be `ok: false` after `trunk_landed: true`. Later ensure, smoke, materialization, or deletion failures cannot undo the trunk move.
 
-_A destructive drop leaves a bounded, local route back to the branch's last committed snapshot._
+**Person and coding agent:** Treat the commit as landed when the result says so. Continue only the named convergence or cleanup action. Do not ask for a second landing decision or rerun the Gate for a commit already on the trunk.
 
-### What drop retains
+Recovery is complete when status shows the trunk at the accepted commit and the result accounts for any checkout or branch that remains.
 
-Before `discern worktree drop` removes resources, the checkout, or its branch, it stores the branch tip under `refs/discern/recovery/` and prints the exact ref. A failed write stops the drop with the worktree and branch intact. Dry-run creates no ref.
+## Recover a dropped branch
 
-The repository keeps the newest 32 drop refs. They are local to this clone and are not pushed or fetched automatically. A detached worktree has no branch tip to retain. A worktree holding the trunk keeps that branch, while acceptance needs no recovery ref because the accepted commit is reachable from the trunk ([ADR 0271](https://discern.sh/docs/decisions/0271-destructive-drops-retain-bounded-recovery-refs)).
+`discern worktree drop` stores the branch's committed tip under `refs/discern/recovery/` before removing it and prints the full ref. The newest 32 refs remain local to this clone.
 
-### Restore the committed tip
+### 1. Select the retained commit
 
-Use the ref printed by drop. If that output is unavailable, list retained tips newest first:
+Use the printed ref. If that output is unavailable, **coding agent or person:** list retained tips newest first:
 
 ```sh
 git for-each-ref --sort=-refname --format='%(refname) %(objectname:short)' refs/discern/recovery/
 ```
 
-Create a normal branch at the selected ref, then inspect it:
+Choose by branch identity, timestamp, and commit inspection. Do not select by recency alone when several tasks were dropped.
+
+### 2. Restore and inspect a normal branch
 
 ```sh
 git switch -c recovered-work refs/discern/recovery/20260811T120000000Z-example-1234abcd
 git log --stat recovered-work
 ```
 
-Review the branch before deleting its recovery ref. When the retained history is no longer needed, remove the ref explicitly with `git update-ref -d <ref>`.
+If work should resume under discern, start a new owned worktree from the recovered commit and re-root into the returned path:
 
-### Know the boundary
+```sh
+discern start --name recovered-work --from recovered-work
+```
 
-The ref retains committed objects only. Staged, working-tree, ignored, and untracked bytes are absent from the branch tip, so `--force` can still destroy them permanently.
+Run the relevant focused checks, commit any new work, and produce fresh Proof. A recovery ref carries no current worktree Proof or landing authority.
 
-For lost refs outside discern's drop path, use `git reflog`. `discern doctor` warns when reflog recording is disabled or an explicit expiry falls below discern's recovery floor.
+### 3. Keep the data-loss boundary visible
+
+The recovery ref retains committed Git objects only. Staged, modified, ignored, and untracked bytes do not belong to the branch tip. A forced drop can therefore destroy them without a discern recovery path.
+
+Keep the recovery ref until the restored branch has been reviewed. Remove it later with `git update-ref -d <ref>` only when the person no longer needs it. Use `git reflog` for lost refs outside discern's drop workflow.
+
+## When setup itself is ambiguous
+
+A `[worktree.setup].steps` command recorded as `running` may have completed before the process ended. discern refuses automatic replay. Observe the external state, then have the person choose the served `--mark-step-complete <id> --confirmed` or `--retry-step <id> --confirmed` route. [Setup troubleshooting](../40-troubleshooting/setup-and-integrations.md) holds that separate procedure.
+
+## Completion
+
+A resumed task is complete when its original worktree again has a grounded next action. Interrupted acceptance is complete when the trunk, checkout, and branch effects are accounted for and converged. Drop recovery is complete when a reviewed normal branch points at the intended retained commit and any resumed work has new Proof.
+
+Use [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) when cleanup ownership, resources, or a reappeared path blocks recovery. Continue recovered implementation through [Finish and land a change](finish-and-land-a-change.md).

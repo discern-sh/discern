@@ -1,6 +1,6 @@
 ---
 id: guide-delegate-work
-title: "Delegate work"
+title: "Delegate substantial work"
 description: "Shape substantial work into owned seams, dispatch it deliberately, and inspect decisions in one place."
 order: 90
 publish: true
@@ -23,220 +23,104 @@ redirect_from:
   - "/docs/skills/bundled-skills"
 ---
 
-# Delegate work
+# Delegate substantial work
 
-Shape substantial work into owned seams, dispatch it with named ownership, and inspect decisions in one place.
+Use this guide when a goal deserves a fresh coding-agent task, several independent streams, or staged work that will build on an earlier result. The outcome is a set of self-contained briefs, one owned worktree per stream, a declared landing order, and a return path that does not make the person relay status between agents.
 
-## The Desk
+The person controls dispatch and every landing decision. A planning agent may prepare the briefs and offer to launch them, but it does not start sessions, worktrees, or subagents until the person accepts the stated topology.
 
-_Bare `discern` starts new work and opens the human view over work in progress (the Desk)._
+## Starting state
 
-Individual worktree operations are available through Model Context Protocol (MCP) tools and JSON or Markdown CLI results. The Desk gives a person starting or supervising several changes one interactive [fleet](../30-reference/glossary.md#fleet) view. Run `discern` with no verb, or `discern desk`, from the main checkout to open it ([ADR 0119](https://discern.sh/docs/decisions/0119-bare-discern-opens-the-operators-desk), [ADR 0151](https://discern.sh/docs/decisions/0151-the-desk-starts-tasks-and-opens-agents)).
+- The person and planning agent have discussed a broad goal, its constraints, and why it matters.
+- No delegated session has started yet.
+- The planning agent can inspect the project instructions, relevant code and docs, current fleet, and available capacity.
+- Any unresolved choice that would change the deliverable is either answered by the person or assigned to the receiving agent with a required rationale.
 
-For direct movement between checkouts, [`discern worktrees`](coordinate-parallel-tasks.md) opens a one-shot picker from any checkout and starts a child shell at the matching project-relative directory.
+## 1. Ask the agent to use the delegation Skill
 
-## Start a task
+**Person:** Ask the planning agent to use `discern-delegate-work`.
 
-The root menu groups project actions under **Desk commands** and refresh or quit under **Session**. It always includes `Start a task`, adds `Run a Project Script` when configured, and opens [discern.sh/docs](https://discern.sh/docs) from `Read discern's docs`. Task groups remain separate from both command groups, so `Choose a task or Desk command` names every selectable entry.
+**Planning agent:** State the goal as one observable result. Identify the concrete changes, exclusions, likely files, and decisions. Challenge a proposed split when its streams would edit the same authority or generated output.
 
-`Start a task` first asks `What are you changing?`. Enter a display title that preserves its Unicode, case, and punctuation, or choose the generated codename fallback explicitly. The title stays separate from the normalized worktree id and branch.
+The Skill is the operating procedure for prompt design, dispatch consent, staged dependencies, and adversarial review. This guide keeps the person-facing decisions visible.
 
-### Choose a creation path
+## 2. Choose the smallest topology that fits
 
-The compact path starts from the configured trunk and opens the last-used configured agent's fresh-session action when that agent remains available. A missing or stale preference opens the agent-action picker. `More options` lets you choose:
+**Planning agent:** Present the proposed topology before writing or launching tasks.
 
-- the trunk, a live task, or an unlanded branch as the starting point;
-- an optional one-line brief;
-- an available configured agent action, or creation without opening an agent;
-- optional landing pre-authorization.
+| Work pattern | Task arrangement | Landing rule |
+| --- | --- | --- |
+| One bounded outcome | One brief, one session, one worktree | That branch proves and lands under its own authority. |
+| Independent internal investigations with one final change | One brief that asks the receiving agent to use subagents when available | The receiving task owns one branch and one final Proof. |
+| Independent delivery streams with disjoint files | One brief, session, and worktree per stream | Fix an order; each later stream updates after earlier landings. |
+| A later stage must include an earlier unlanded tree | One brief per stage | Earlier stages stop green and stay available; the final composed branch alone lands. |
 
-### Review and create
+When files or registries overlap, merge the streams or put the shared authority in an earlier stage. Parallel edits to one source of truth postpone the collision rather than removing it.
 
-Before anything changes, the Desk shows the exact title, brief, id, branch, base ref and commit, worktree root, resources, agent action, and landing authority. The confirmation applies that same retained plan; if its base or destination has changed, creation stops and asks you to review a fresh plan. Landing pre-authorization crosses the same explicit human grant boundary as the task action. Remembered preferences cannot grant authority.
+## 3. Make every brief stand alone
 
-Cancel leaves the project unchanged. During the form, Ctrl+U returns to the previous applicable question without discarding earlier answers.
+**Planning agent:** Write each brief for a fresh agent that has no access to this conversation. Include:
 
-After creation, the result names the new path and identity, then the Desk opens the new task row. When an agent was selected, the handoff appears before launch. `Refresh` runs another status survey, so a worktree created elsewhere appears in the root menu.
+- a title and one-line human outcome;
+- the literal worktree name to pass to `discern_start`;
+- the first orientation and re-root actions;
+- background that the repository does not record;
+- ordered deliverables anchored in real files, tests, and existing patterns;
+- owned files, exclusions, and sibling work already in flight;
+- unresolved decisions the receiving agent must make and explain;
+- measurable and user-visible completion conditions;
+- the `discern_prepare`, commit, `discern_done`, and acceptance sequence;
+- landing authority, or an instruction to stop at Proof when none is recorded.
 
-## Supervise active tasks
+For a saved programme brief, include the final move into the adjacent `_done/` directory. For multiple streams, give each one a key such as `1A` and a literal slug-first worktree name such as `billing-1a`.
 
-### Read the decision order
+## 4. State dependencies without making a person the messenger
 
-The Desk uses the same observed Fleet facts and task status as `discern status`; it does not classify the same work again. It groups each task into one of 5 human-decision states ([ADR 0318](https://discern.sh/docs/decisions/0318-the-desk-adapts-status-into-one-human-decision)):
+For an independently landed dependency, the later brief names the earlier branch and waits for it to be landed. For below-trunk composition, it waits for the earlier branch to become green.
 
-| Group           | Included worktrees                                                                                                                                                                |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Needs attention | Broken or unreadable setup, a failed, partial, or refused action, stale work, unreadable or unavailable [Proof](../30-reference/glossary.md#proof), or overlap with another task. |
-| Ready to review | A clean commit ahead of the trunk with honored Proof and no branch lag.                                                                                                           |
-| Working         | A fresh running discern operation, including its verb, elapsed time, and typical duration when known.                                                                             |
-| Paused          | Uncommitted or committed work without live activity; the row names the next unmet condition, such as Update or final checks.                                                      |
-| Empty           | A healthy worktree with no uncommitted files or commits ahead of the trunk.                                                                                                       |
+**Planning agent:** Put the exact returned branch into the dependent brief after the earlier task starts. Tell the receiving agent to use `discern-await-the-fleet` and follow the met result's composition hint. Do not guess the branch from its requested name.
 
-Within groups, recent worktrees appear first. The root board shows project and main-checkout state, task totals, counts that need a person or are ready to review, static `Refreshed just now`, bounded fleet notices, and a secondary [Desk tip](delegate-work.md). Each row shows its title, decision headline, one fact, and the recommended action when it fits. Selection opens the complete evidence.
+The waiting agent receives the commit or trunk transition from repository evidence. The person can leave both tasks running without carrying “ready” messages between them.
 
-Rows adapt at 96 and 56 columns ([ADR 0352](https://discern.sh/docs/decisions/0352-desk-decisions-cross-a-pure-responsive-presentation-boundary)): wide rows separate task, state, and activity or action; medium rows keep task and state together; narrow rows put state and detail below the task. Every row has an independent width, and task detail preserves a truncated title. Static content retains at most one third of the terminal height; the interaction fitter owns the rest. Search begins at 9 tasks. One result receives active focus; the query field receives it during typing.
+## 5. Return dispatch to the person
 
-### Choose one contextual action
+**Planning agent:** Present every finished brief as a complete copyable block. Outside the briefs, state:
 
-Task detail shows the stored title and brief, creation source, normalized id, and location. It also presents activity, Git and Proof facts, landing authority, collisions, containment, and available agents and Project Scripts. Older worktrees without task metadata retain their id-derived title. Short screens move earlier evidence into terminal history.
+- how many sessions and worktrees will start;
+- whether one receiving session will use subagents;
+- which streams run together and which wait;
+- shared capacity or setup requirements;
+- the within-wave landing order;
+- the authority each landing branch must satisfy.
 
-Every action remains visible in **Work**, **Review**, **Manage**, or **Danger**. Known refusals are disabled with a reason and recovery. At most one available action moves into **Recommended**:
+Offer to dispatch if the environment supports it, then wait.
 
-- behind trunk: Update;
-- failed: an available agent, otherwise Proof review;
-- active, stale, or empty: the preferred available agent;
-- clean commits without current Proof: final checks;
-- honored Proof: review and landing;
-- collisions: review;
-- contained work: Reclaim.
+**Person:** Review the briefs and topology. Launching them, or explicitly accepting the dispatch offer, authorizes only that described set. A changed stream count, dependency, or ownership boundary returns for a new decision.
 
-Broken or unreadable tasks never recommend Drop.
+**Planning agent:** After launch, record each returned branch and path. A result that is still preparing a worktree is not a branch identity for a dependent task.
 
-<!-- BEGIN DESK ACTION REGISTRY -->
+## 6. Inspect decisions from the Desk
 
-| Id             | Group  | Contextual label                                                                | Command evidence                     | Confirmation                                                     |
-| -------------- | ------ | ------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
-| `done`         | Work   | Run final checks                                                                | `discern done`                       | No by default; Run                                               |
-| `accept`       | Review | Run final checks, then land on &lt;trunk&gt; / Review and land on &lt;trunk&gt; | `discern accept`                     | No by default; Land                                              |
-| `update`       | Manage | Update branch from &lt;trunk&gt;                                                | `discern update`                     | No by default; Update                                            |
-| `agent`        | Work   | Continue with an agent                                                          | `<configured-agent>`                 | None                                                             |
-| `follow_up`    | Work   | Start a follow-up from this task                                                | `discern start --from <branch>`      | None                                                             |
-| `scripts`      | Work   | Run a Project Script                                                            | `discern scripts <name>`             | No by default; Run                                               |
-| `jump`         | Work   | Open a shell                                                                    | `<user-shell>`                       | None                                                             |
-| `inspect`      | Review | Review Proof and changes                                                        | `git diff`                           | None                                                             |
-| `rename`       | Manage | Change task title                                                               | `discern worktree rename <title>`    | No by default; Change                                            |
-| `grant`        | Manage | Pre-authorize landing once green                                                | `discern desk`                       | No by default; Allow                                             |
-| `revoke_grant` | Manage | Revoke landing pre-authorization                                                | `discern desk`                       | No by default; Revoke                                            |
-| `reclaim`      | Manage | Reclaim checkout, keep branch (work contained in &lt;later-branch&gt;)          | `discern worktree prune --contained` | No by default; Reclaim                                           |
-| `drop`         | Danger | Drop worktree and branch                                                        | `discern worktree drop <path>`       | No by default; Drop, then type the branch before discarding work |
+**Person:** From the main checkout, run bare `discern`.
 
-<!-- END DESK ACTION REGISTRY -->
+The Desk groups the fleet by current state and offers valid actions for the selected worktree. Use it to start a task, open a configured coding-agent CLI found on `PATH`, inspect a branch, or record a one-worktree landing grant. It owns child sessions it launches.
 
-Grant and revoke remain human-only actions inside `discern desk`.
+Treat the Desk as a decision surface. A tip below status is advisory, and a clean worktree remains occupied. Use `discern status --verbose` when you need the full evidence behind a row.
 
-`Start a follow-up from this task` uses the selected task's reported branch as the new task's base. The preview shows that ref and resolved commit. The follow-up is an independent worktree; branch containment records the dependency without creating a landing queue.
+## 7. Review returned work independently
 
-`Change task title` previews and applies `discern worktree rename <title>`. It changes only human task metadata. The branch, worktree id, path, brief, creation source, resources, and lifecycle state remain unchanged.
+When a task reports green, **person or reviewing agent:** inspect the branch diff against the trunk, compare every deliverable with the brief, exercise the real outcome, and read its current Proof. Check for scope drift, a weakened test or policy, a hand-edited generated file, an uncured defect class, and decisions made without the required owner input.
 
-### Run final checks and review Proof
+Send focused feedback back to the same worktree. Any resulting commit stales its Proof, so the receiving agent must run the final Gate again. A green report remains unlanded until the recorded authority covers the final changed paths and any separate variance or Standard proposal.
 
-`Run final checks` calls the same Gate core as `discern done`. Without Proof, landing reads `Run final checks, then land on <trunk>`; honored Proof changes it to `Review and land on <trunk>`. Status shows a typical duration when known. A pass refreshes the task with its new Proof.
+## The bundled catalog
 
-`Review Proof and changes` shows Proof currency, its stored line and Markdown page, checks and Standards, every commit subject, Diffstat, changed and uncommitted paths, collisions, and landing authority. Failed reads remain failures with one next step.
+### Bundled Skills
 
-`View actual diff` opens `git diff --no-ext-diff --color=always <trunk>...HEAD` in the [shared pager](https://github.com/jackwh/discern/blob/main/src/lib/pager.ts), then returns to review. `Open in editor` runs an available simple command from `$VISUAL` or `$EDITOR`; unsafe values stay disabled with a reason.
+`discern skills list` shows the effective bundled and project-authored Skills. Name the relevant Skill in a brief instead of copying its full procedure. Delegation commonly composes with `discern-await-the-fleet`, `discern-cure-a-bug`, `discern-write-adr`, and `discern-teach-the-project`. [Create and manage Skills](create-and-manage-skills.md) covers customization and exclusions.
 
-### Review effects before confirming
+## Completion
 
-Before a lifecycle mutation, the Desk renders its live plan and command with **Keeps**, **Changes**, **Removes**, and **Recoverable** facts. The authoritative core checks current state again after confirmation. Confirmations default to No; discarding work also requires the branch name.
+Delegation is ready when the person has reviewed the full brief set, each stream owns disjoint in-flight files or a stated stage boundary, every literal worktree name and dependency is known, dispatch authority is explicit, and the landing rule is written into each brief. It is complete when every returned branch has been reviewed against its brief and either landed under verified authority or remains at current Proof for a person to decide.
 
-Project Scripts show their name, description, executable, working directory, required confirmation, and undeclared destructive policy. `Show command` copies the exact executable and `discern scripts <name>` command without running either. Missing or non-executable scripts stay disabled with recovery.
-
-Configured agents remain visible when their binary is missing from `PATH`. One available action launches directly. Several actions keep provider-owned labels and commands.
-
-Before launch, the agent handoff shows the stored brief. discern appends it to the command only when the provider registry declares a documented prompt option with a separate argument value. Current providers declare no such option, so the handoff asks you to copy the brief and leaves the configured command unchanged.
-
-Session state stays outside discern, and resume arguments come only from the provider registry. Scripts, agents, and shells inherit the selected checkout's terminal and return to a fresh survey. Their process groups stop with the Desk ([ADR 0159](https://discern.sh/docs/decisions/0159-inherited-terminal-children-have-one-owned-lifecycle)).
-
-### Resume an unlanded branch
-
-Status-reported unlanded branches appear as selectable root items. `Inspect commits and changed files` compares the exact branch ref with the trunk. `Resume in a worktree` uses that ref as the fixed creation base, collects new task metadata, and returns to the created task's recommended action.
-
-The Desk offers no branch-delete shortcut because the lifecycle has no guarded branch-only deletion operation. Contained refs remain informational while another live branch contains their commits.
-
-### Know when the Desk stays closed
-
-discern owns Desk policy. The design-system package owns terminal effects. The Desk stays closed under `--plain`, `--json`, CI, or when terminal input or output is unavailable. Bare `discern` shows help in those states. `discern desk` returns `invalid_arguments` and points to `discern status --json`. Ctrl+C and end-of-input cancel. During task creation, Ctrl+U returns to the previous applicable question and retains earlier answers.
-
-Before setup completes, bare `discern` keeps showing the setup welcome. From inside a linked worktree, the Desk directs you to the main checkout because accept and drop operate from the fleet's supervisory view. Desk-launched processes reject nested Desk entry; exit to return ([ADR 0157](https://discern.sh/docs/decisions/0157-the-desk-owns-launched-child-sessions)).
-
-### Where it lives in code
-
-Start with [`model.ts`](https://github.com/jackwh/discern/blob/main/src/engine/desk/model.ts) for decisions and action legality. [`view.ts`](https://github.com/jackwh/discern/blob/main/src/engine/desk/view.ts) owns pure composition, and [`desk.ts`](https://github.com/jackwh/discern/blob/main/src/engine/desk/desk.ts) owns surveys, prompts, and effects. [`preferences.ts`](https://github.com/jackwh/discern/blob/main/src/engine/desk/preferences.ts) owns convenience defaults. [`terminal_interaction.ts`](https://github.com/jackwh/discern/blob/main/src/lib/terminal_interaction.ts) is the production prompt boundary, including sequential composition.
-
-The subsystem has focused [model](https://github.com/jackwh/discern/blob/main/tests/engine_desk_model_test.ts), [view](https://github.com/jackwh/discern/blob/main/tests/engine_desk_view_test.ts), [runtime](https://github.com/jackwh/discern/blob/main/tests/engine_desk_runtime_test.ts), [prompt-boundary](https://github.com/jackwh/discern/blob/main/tests/terminal_interaction_test.ts), and [real-terminal](https://github.com/jackwh/discern/blob/main/tests/engine_desk_tty_test.ts) tests.
-
-### Current state and gotchas
-
-- Agent launching is CLI-only. Desktop-app integrations for Codex and Claude remain deferred until an official lifecycle-aware handoff can retain accurate status after acceptance or drop.
-- Current providers declare no prompt argument, so an agent launch displays the task brief for copying and keeps the configured invocation unchanged.
-- There is no MCP tool with supervisory access to other efforts' worktrees.
-- A row's menu is advisory. The invoked lifecycle core rechecks every precondition before changing state.
-- Broken or unreadable checkouts keep shell, review when Git is readable, and Drop as separate offers. They never recommend Drop. Without explicit force, Drop refuses when discern cannot verify the work.
-
-## Desk tips
-
-_Each Desk session puts a teaching line directly below the root status._
-
-The Desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](https://discern.sh/docs/decisions/0234-tips-are-the-desks-human-advisory-channel)). The design system's Note cue keeps it secondary across terminal modes. The complete text wraps to the terminal and may enter terminal history on short screens.
-
-### How the tip is chosen
-
-Selection is deterministic: identical state shows the identical tip, and nothing is random. The Desk evaluates the registry against the fleet survey it already ran and picks the first match in this order:
-
-1. Tips new since the seen-state's baseline version, in authored order. These carry a "New in \<version\>" prefix; a fresh install starts at the current version.
-2. Unseen tips whose context currently applies. A relevance predicate reads the survey — "no standards configured", "a branch is behind the trunk" — and makes a tip timely.
-3. Unseen tips in authored order. The authored order is the curriculum.
-4. The tip shown longest ago. No tip repeats until the applicable pool exhausts.
-
-A tip whose predicate does not hold is not applicable, rotation included.
-
-### Where the state and the record live
-
-Seen-state lives at `<git-common-dir>/discern/desk/tips.json`, beside the Logbook. Every linked worktree shares the rotation, nothing lands in a commit, and a missing or damaged file resets to fresh instead of blocking the session. Each shown tip's id is also recorded on the Desk session's Logbook event, so a later reader can measure whether the teaching was acted on.
-
-### What a tip may say
-
-Tips educate about capability; alarms about state belong to the board's own facts and `discern status`. Every action remains available without its tip. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction. The curriculum opener directs the person to start under **Needs attention**, read the selected task's evidence and recommended next action, then choose **Back** to return to the triage queue.
-
-### Where it lives in code
-
-[`src/shared/tips.ts`](https://github.com/jackwh/discern/blob/main/src/shared/tips.ts) is the ordered registry; [`tips.ts`](https://github.com/jackwh/discern/blob/main/src/engine/desk/tips.ts) owns selection, [`tip_state.ts`](https://github.com/jackwh/discern/blob/main/src/engine/desk/tip_state.ts) owns storage, and [`view.ts`](https://github.com/jackwh/discern/blob/main/src/engine/desk/view.ts) composes the line. [Registry tests](https://github.com/jackwh/discern/blob/main/tests/engine_desk_tips_test.ts) and [session tests](https://github.com/jackwh/discern/blob/main/tests/engine_desk_runtime_test.ts) cover the boundary.
-
-### Current state and gotchas
-
-- The registry ships the complete curriculum. Its generated internal inventory shows every rendered line and every feature or verb kept out of the rotation.
-- Shown ids are recorded from day one, ahead of any reader that consumes them.
-- The generated tip inventory is an internal audit page, regenerated by `deno task codegen`.
-
-## Bundled Skills
-
-_Bundled Skills are task playbooks that discern ships in the binary and adds to a project's effective set._
-
-Every bundled name carries the `discern-` prefix, so it remains identifiable beside project-authored and vendor-provided Skills. Run the live listing to see the bundled catalog together with this project's overrides and exclusions:
-
-```sh
-discern skills list
-```
-
-### The bundled catalog
-
-| Skill                                                                                                                            | Reach for it when…                                                                                                                                    |
-| -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`discern-await-the-fleet`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-await-the-fleet/SKILL.md)       | A task depends on another effort. Hold one `await` call for green or landing, then compose what arrived.                                              |
-| [`discern-clear-the-decks`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-clear-the-decks/SKILL.md)       | Duplicated helpers, dead code, or leftover scaffolding need a behavior-preserving sweep.                                                              |
-| [`discern-cure-a-bug`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-cure-a-bug/SKILL.md)                 | A bug needs diagnosis, a class-level cure, or the suite needs auditing for guards weaker than they look.                                              |
-| [`discern-delegate-work`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-delegate-work/SKILL.md)           | Work needs a self-contained handoff, parallel fan-out, or staged briefs.                                                                              |
-| [`discern-document-subsystem`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-document-subsystem/SKILL.md) | A documentation subtree needs a grounded README and leaves.                                                                                           |
-| [`discern-place-a-checkpoint`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-place-a-checkpoint/SKILL.md) | A recurring review judgment should be served when a matching change completes — trigger, mode, and question wired as a `[checkpoints.<id>]` entry.    |
-| [`discern-set-the-standard`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-set-the-standard/SKILL.md)     | A quality number needs a non-regressing floor or ceiling, or a legacy pattern needs outlawing to zero.                                                |
-| [`discern-teach-the-project`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-teach-the-project/SKILL.md)   | A session produced a durable lesson future agents need to inherit.                                                                                    |
-| [`discern-write-adr`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-write-adr/SKILL.md)                   | A significant decision needs its context and reasoning recorded.                                                                                      |
-| [`discern-write-it-once`](https://github.com/jackwh/discern/blob/main/templates/skills/discern-write-it-once/SKILL.md)           | A request concerns agent-written code practices, a fact spans consumers, a set outgrows its guards, or an effectful workflow needs repeatable reruns. |
-
-The table summarizes each live `SKILL.md` description. Open a Skill for its triggers, procedure, and completion conditions. A Skill can contain deeper procedures as files inside its directory. For example, `discern-cure-a-bug` contains the diagnose and suite-audit procedures, `discern-set-the-standard` contains the outlaw procedure, and `discern-write-it-once` contains the bind-the-fact and plan-the-effects procedures.
-
-### Current state & gotchas
-
-- Bundled Skills ship inside the binary. Their source appears in this repository under `templates/skills/`; an installed project receives materialized copies instead of that source tree.
-- Bundled Markdown renders configured project paths when discern materializes it. The source remains generic across stacks and repository layouts.
-- A registry-driven Gate test reads the same bundled directory set as the materialization code and fails when this catalog omits a name. Adding a bundled Skill therefore enrolls it in the documentation check.
-- The catalog reached seven Skills through reductions, then added `discern-write-it-once` and `discern-await-the-fleet` to reach nine ([ADR 0173](https://discern.sh/docs/decisions/0173-trim-the-bundled-skills-to-seven), [ADR 0191](https://discern.sh/docs/decisions/0191-an-eighth-bundled-skill-write-it-once), [ADR 0263](https://discern.sh/docs/decisions/0263-a-ninth-bundled-skill-await-the-fleet)). Two `[standards.skills]` ceilings hold the count and total description budget.
-
-### Where the catalog stays current
-
-| Concern                         | Source                                                                                                     |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Canonical bundled directory set | [`skills.ts`](https://github.com/jackwh/discern/blob/main/src/lib/skills.ts) (`bundledSkillNames`)         |
-| Bundled source                  | [`templates/skills/`](https://github.com/jackwh/discern/tree/main/templates/skills/)                       |
-| Catalog coverage guard          | [`skills_wellformed_test.ts`](https://github.com/jackwh/discern/blob/main/tests/skills_wellformed_test.ts) |
+Use [Coordinate parallel tasks](coordinate-parallel-tasks.md) for worktree composition, [Wait for another task](wait-for-another-task.md) for a dependency procedure, and [Proof, review, and authority](../20-understand/proof.md) for the landing boundary.
