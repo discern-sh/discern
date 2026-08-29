@@ -73,6 +73,9 @@ jobs:
           deno-version: v2.x
           cache: true
 
+      - name: Install locked dependencies
+        run: deno install --frozen
+
       - name: Run the Gate
         run: discern done --ci
 
@@ -84,7 +87,7 @@ Set `DISCERN_VERSION` to the release tag you approve. `RELEASE_ASSET` must match
 
 The full commit hashes pin remote action code to the reviewed commit. The comments name the release line for maintenance. Advance those pins through a reviewed automated dependency update instead of changing them back to mutable tags.
 
-The toolchain step belongs before the Gate because discern runs the commands in `discern.toml`. It does not install their toolchain or dependencies.
+The toolchain and dependency steps belong before the Gate because discern runs the commands in `discern.toml`; it does not install their toolchain or dependencies. Converge dependencies serially before `discern done`, since the Gate may start several configured jobs in parallel.
 
 ## Wrapped test tasks
 

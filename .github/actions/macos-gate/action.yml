@@ -4,6 +4,10 @@ description: Run the repository gate on native macOS and verify a clean tree.
 runs:
   using: composite
   steps:
+    - name: Install locked Deno dependencies
+      shell: bash
+      run: deno install --frozen
+
     - name: Provision the pinned Vale toolchain
       shell: bash
       run: deno task vale:sync
