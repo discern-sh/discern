@@ -16,37 +16,88 @@ redirect_from:
 
 # Connect a coding agent
 
-Connect one supported coding agent using the shared setup path and the provider-specific facts it needs.
+Use this guide to add Claude Code, Codex, Gemini CLI, Cursor, or GitHub Copilot CLI to an existing discern project, or to recover when a configured provider cannot call discern. All five follow one repository procedure. Only their trust step, fresh-session action, and callable name differ.
 
-# Agent integrations
+Repository wiring and live activation are separate. `discern refresh` can prove the committed files are current. Only a fresh provider session that invokes its local discern action proves that provider loaded them.
 
-_An agent integration is the provider-specific files, trust decisions, and runtime behavior that connect a coding agent to discern._
+## Starting state
 
-discern keeps coding-agent identity in one shared catalog: [`src/shared/agent_catalogue.ts`](https://github.com/jackwh/discern/blob/main/src/shared/agent_catalogue.ts). Entries with a native provider name form the supported set below. The provider registry in [`src/lib/providers.ts`](https://github.com/jackwh/discern/blob/main/src/lib/providers.ts) covers every native integration. It names the instruction file, Skills directory, Model Context Protocol (MCP) config target, hooks, trust gate, activation check and recovery, installation evidence, setup advice, interactive command-line interface (CLI) actions, brand assets, and any app-managed worktree lifecycle file.
+- The discern binary is available on `PATH` and the project has completed setup.
+- The coding agent works in an owned worktree for the config change.
+- The person has installed the provider and chosen whether it should receive this project's instructions, Skills, hooks, and MCP connection.
+- The person can complete provider trust or approval prompts. discern cannot grant vendor authority.
 
-The MCP call-duration policy covers the same native set in [`src/shared/mcp_timeout_policy.ts`](https://github.com/jackwh/discern/blob/main/src/shared/mcp_timeout_policy.ts). Type-checking and registry tests require each new native provider to declare a timeout profile. Signal-only catalog entries can appear as advisory Logbook evidence, but they never become setup choices.
+## 1. Select the provider once
 
-`discern setup`, `discern refresh`, and `discern upgrade` use the provider registry to restore integration artifacts. The [Desk](delegate-work.md) uses its CLI declarations to open a configured, PATH-available agent in the selected worktree.
+**Person and coding agent:** Choose from the supported config ids: `claude_code`, `codex`, `gemini`, `cursor`, and `copilot`.
 
-An agent consuming a discern result can treat top-level `ok` as the truth of that verb's completion contract. It does not need to inspect incidental lists or parse prose to discover a required failure. A successful degradation appears only in typed `advisories`, with evidence and a next action; a false result can still contain completed effects and the exact safe recovery. Terminal, JSON, Markdown, and MCP preserve that same verdict ([ADR 0349](https://discern.sh/docs/decisions/0349-top-level-success-follows-completion-policies)).
+Set the complete desired list under `[project]`:
 
-Each native provider also declares a compact mark and horizontal logo lockup with first-party provenance. The parity guard checks the directory in both directions, so missing and unregistered scalable vector graphics (SVG) files fail. Each vector file contains its own assets, so the site does not depend on a vendor asset host.
+```toml
+[project]
+agents = ["codex", "cursor"]
+```
 
-Each provider page lists the files discern writes or co-manages, what stays with the user, and the provider-specific gotchas.
+Omitting `agents` uses the default pair, Claude Code and Codex. An explicit empty list selects no provider. Treat the configured list as the authority; do not maintain separate provider switches elsewhere.
 
-`setup done` derives each fresh-session check, local recovery, and CLI fallback from those records; parity tests enroll new providers. Generated files do not prove activation ([Setup command boundaries](../40-troubleshooting/setup-and-integrations.md)).
+On a fresh setup, discern recommends a list from installed command-line tools, editor commands, and conventional application locations. The person may change that list before setup completes.
 
-discern writes workflow integration into vendor surfaces but cannot grant or retain vendor authority. The vendor controls sandbox, permissions, and approval flows; the user remains responsible for project security ([ADR 0193](https://discern.sh/docs/decisions/0193-discern-does-not-enforce-the-vendor-security-boundary)). Each provider's trust record separates explanation from typed paths, configuration keys and values, flags, and environment variables. Setup reactivation, `doctor` terminal output, JSON, MCP, and the generated integration reference project those records; no renderer recovers a machine fact from prose ([ADR 0346](https://discern.sh/docs/decisions/0346-machine-facts-are-typed-advisories)).
+## 2. Preview and apply the shared wiring
 
-For the shared instructions behind these files, read [Agent instructions](README.md). For the isolated checkout lifecycle the hooks prepare, read [Worktrees](README.md). The table below is the reading order used in the manual's navigation.
+**Coding agent:** Run:
 
-The identity catalog supplies the supported set, and the provider registry requires a record for every native integration ([ADR 0166](https://discern.sh/docs/decisions/0166-agent-identity-is-advisory-logbook-evidence), [ADR 0031](https://discern.sh/docs/decisions/0031-typed-provider-integration)).
+```sh
+discern refresh --dry-run
+```
 
-| Read next                                                           | What's in it                                                     |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [MCP call duration](../40-troubleshooting/mcp-terminal-and-docs.md) | Verified long-call bounds and resumable waits across providers.  |
-| [Claude Code](../30-reference/platforms-and-providers.md)           | `CLAUDE.md`, Claude Skills, MCP, hooks, and permission defaults. |
-| [Codex](../30-reference/platforms-and-providers.md)                 | `AGENTS.md`, MCP, hooks, app worktrees, and narrow Git rules.    |
-| [Gemini](../30-reference/platforms-and-providers.md)                | `GEMINI.md`, shared Skills, MCP, hooks, and workspace trust.     |
-| [Cursor](../30-reference/platforms-and-providers.md)                | `AGENTS.md`, MCP, hooks, IDE setup, and worktree choices.        |
-| [GitHub Copilot](../30-reference/platforms-and-providers.md)        | `AGENTS.md`, shared Skills, MCP, hooks, and folder trust.        |
+Review each planned create, update, and removal. Provider config can be shared with the project or another provider, so refresh merges discern's entry while preserving unrelated content.
+
+Apply the plan:
+
+```sh
+discern refresh
+```
+
+Inspect the result, run `discern doctor`, and review the Git diff. A complete result reports current compiled instructions, Skills, hooks, MCP registration, and any provider-specific worktree support. A partial refresh preserves completed writes and gives a retry; follow it until top-level `ok` is true.
+
+Run `discern prepare`, commit the config and every tracked integration change, then run `discern done`. The provider will not load project-local changes from this branch until it opens that worktree or the change lands.
+
+## 3. Complete the provider-specific activation
+
+After the wiring is present in the checkout the provider will open, **person:** complete the applicable trust action. **Coding agent:** start the fresh session and invoke the listed callable.
+
+| Provider | Person's bounded action | Fresh-session check |
+| --- | --- | --- |
+| Claude Code | No separate project trust prompt is expected; discern pre-approves its MCP server in the generated settings. | Close and reopen Claude Code in the project, inspect registered tools, then invoke `mcp__discern__discern_status`. |
+| Codex | Trust the project directory and approve each committed hook hash before it runs. | Open a new Codex task for this project, inspect registered tools, then invoke `mcp__discern__discern_status`. Restart the app if a new task still lacks it. |
+| Gemini CLI | Trust the workspace so project settings load. Confirm hooks are enabled in the committed settings. | Start a new Gemini CLI session in the trusted workspace, inspect tools, then invoke `discern_status`. |
+| Cursor | Trust the workspace and approve the discern MCP tools on first use. For Local sessions editing sibling worktrees, either allow external file edits in Cursor settings or start the session with Cursor's Worktree option. | Reload the Cursor window, start a new agent conversation in that workspace, inspect tools, then invoke `discern_status`. |
+| GitHub Copilot CLI | Add the project to the provider's trusted folders. | Start a new Copilot CLI session in the trusted folder, inspect tools, then invoke `discern_status`. |
+
+Use the exact action named by the refresh or setup handoff when it differs from a generic host display. MCP hosts may add their namespace to the callable name.
+
+## 4. Recover a missing action locally
+
+If the callable is absent, **coding agent or person:** follow this order:
+
+1. Confirm the session opened the intended checkout, including its current branch and absolute path.
+2. Complete the provider's trust or hook approval and start another fresh session.
+3. Run `discern refresh --dry-run` to detect missing repository wiring.
+4. Run `discern doctor` and apply its provider-specific recovery.
+5. Use `discern status --json` as the local command-line fallback while repairing MCP.
+
+Do not infer activation from generated files, a successful refresh, or a provider name in config. Those facts establish intent and repository state. The callable returning a local result establishes session activation.
+
+If the provider cannot find `discern`, open a new shell and verify `which discern`. A non-interactive provider shell must receive the same `PATH` or an appropriate absolute command configured by the supported integration.
+
+## 5. Remove a provider from the project
+
+**Person:** approve the new complete provider list. **Coding agent:** remove the id from `[project].agents`, preview `discern refresh`, apply it, and review the planned integration removals. Refresh removes discern-owned entries while preserving shared file content owned by the project or another provider.
+
+Commit the config and tracked output together and run the full Gate. This removes project wiring; uninstalling the provider application remains outside discern.
+
+## Completion
+
+Connection is complete when the provider id is in the committed config, refresh and doctor are green, the full Gate passes, and a fresh trusted session invokes its local status action successfully. Recovery is complete only at that callable, not when files appear current.
+
+Use [Platforms and providers](../30-reference/platforms-and-providers.md) for exact files, trust facts, timeouts, and platform support. Use [Setup and integrations troubleshooting](../40-troubleshooting/setup-and-integrations.md) when activation or ownership fails, and [Write project instructions](write-project-instructions.md) for the shared instruction source.
