@@ -256,6 +256,88 @@ export function inlineToPlain(text: string): string {
   return parseInline(text).map((s) => s.text).join("");
 }
 
+/**
+ * Project authored Markdown to what a human reader can actually see.
+ *
+ * HTML comments are source-only outside code, so rendered pages, headings,
+ * snippets, and search terms must not learn from them. Literal comment syntax
+ * inside inline or fenced code remains content: documentation can teach that
+ * syntax without the example disappearing from either rendering or search.
+ */
+export function readerVisibleMarkdown(markdown: string): string {
+  const source = markdown.replace(/\r\n?/g, "\n");
+  let output = "";
+  let index = 0;
+  let lineStart = true;
+  let inComment = false;
+  let inlineTicks = 0;
+  let fenceMarker: "```" | "~~~" | undefined;
+
+  while (index < source.length) {
+    if (lineStart && !inComment && inlineTicks === 0) {
+      const lineEnd = source.indexOf("\n", index);
+      const end = lineEnd === -1 ? source.length : lineEnd;
+      const line = source.slice(index, end);
+      if (fenceMarker !== undefined) {
+        output += line;
+        if (lineEnd !== -1) output += "\n";
+        if (line.trimStart().startsWith(fenceMarker)) {
+          fenceMarker = undefined;
+        }
+        index = lineEnd === -1 ? source.length : lineEnd + 1;
+        lineStart = true;
+        continue;
+      }
+      const openingFence = /^\s*(```|~~~)/.exec(line)?.[1];
+      if (openingFence === "```" || openingFence === "~~~") {
+        fenceMarker = openingFence;
+        output += line;
+        if (lineEnd !== -1) output += "\n";
+        index = lineEnd === -1 ? source.length : lineEnd + 1;
+        lineStart = true;
+        continue;
+      }
+    }
+
+    if (inComment) {
+      if (source.startsWith("-->", index)) {
+        inComment = false;
+        index += 3;
+        continue;
+      }
+      if (source[index] === "\n") lineStart = true;
+      index += 1;
+      continue;
+    }
+
+    if (inlineTicks === 0 && source.startsWith("<!--", index)) {
+      inComment = true;
+      index += 4;
+      continue;
+    }
+
+    const value = source[index];
+    if (value === undefined) break;
+    if (value === "`") {
+      let end = index + 1;
+      while (source[end] === "`") end += 1;
+      const ticks = end - index;
+      output += source.slice(index, end);
+      if (inlineTicks === 0) inlineTicks = ticks;
+      else if (inlineTicks === ticks) inlineTicks = 0;
+      index = end;
+      lineStart = false;
+      continue;
+    }
+
+    output += value;
+    index += 1;
+    lineStart = value === "\n";
+  }
+
+  return output;
+}
+
 // ── browser block parsing ────────────────────────────────────────────────--
 
 /** A delimiter row like `|---|:--:|` that marks the line above as a table head. */
@@ -527,9 +609,7 @@ export function renderMarkdownHtml(
   md: string,
   options: MarkdownHtmlOptions = {},
 ): MarkdownHtml {
-  const src = md
-    .replace(/\r\n?/g, "\n")
-    .replace(/<!--[\s\S]*?-->/g, "");
+  const src = readerVisibleMarkdown(md);
   const lines = src.split("\n");
   const out: string[] = [];
   const headings: HtmlHeading[] = [];

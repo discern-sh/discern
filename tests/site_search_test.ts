@@ -36,6 +36,7 @@ function entry(
 const searchable = entry("resource-recovery", {
   title: "Recover a worktree resource",
   description: "Restore an isolated resource after its readiness check fails.",
+  manualKind: "troubleshooting",
   aliases: ["sandbox fleet"],
 });
 const decision = entry("0199-search-history", {
@@ -69,6 +70,10 @@ aliases:
 
 Use the runtime discovery path when a resource needs attention.
 
+<!-- source note: \`phantom-capability\` -->
+
+Visible recovery context remains searchable.
+
 ## Runtime discovery
 
 Run \`discern identity --resource <name>\`, then set
@@ -96,6 +101,7 @@ Deno.test("the search projection indexes stripped public body, code, headings, a
   const page = index.pages[0];
   assert(page !== undefined);
   assertEquals(page.route, "/docs/troubleshooting/resource-recovery");
+  assertEquals(page.kind, "troubleshooting");
   assertEquals(page.aliases, ["sandbox fleet"]);
   assertEquals(page.headings.map((heading) => heading.text), [
     "Runtime discovery",
@@ -108,9 +114,22 @@ Deno.test("the search projection indexes stripped public body, code, headings, a
   assertStringIncludes(page.body, "below_min_score");
   assert(!page.body.includes("aliases:"), "frontmatter stays out of the index");
   assert(!page.body.includes("ADR 0042"), "human projection strips citations");
+  assert(!page.body.includes("phantom-capability"));
+  assertStringIncludes(page.body, "Visible recovery context");
 
   const serialized = JSON.stringify(index);
   assert(!serialized.includes("decision-secret-token"));
+});
+
+Deno.test("source-only comments cannot create search results or snippets", async () => {
+  const index = await buildSearchIndex(sources, readFixture);
+  assertEquals(searchPages(index.pages, "phantom-capability"), []);
+
+  const result = searchPages(index.pages, "visible recovery context")[0];
+  assert(result !== undefined);
+  assertStringIncludes(result.snippet, "Visible recovery context");
+  assert(!result.snippet.includes("source note"));
+  assert(!result.snippet.includes("phantom-capability"));
 });
 
 Deno.test("exact commands, config keys, error strings, and aliases return contextual results", async () => {
@@ -228,6 +247,34 @@ Deno.test("search field weights stay title > aliases > headings > code > body", 
   assertEquals(
     searchPages(index.pages, "recovery").map((result) => result.page.route),
     ["/docs/title", "/docs/alias", "/docs/heading", "/docs/code", "/docs/body"],
+  );
+});
+
+Deno.test("task-shaped kinds beat an incidental reference body match", async () => {
+  const kindSources: SearchSource[] = [
+    {
+      route: "/docs/reference/dense",
+      section: "Reference",
+      entry: entry("dense", { manualKind: "reference" }),
+    },
+    {
+      route: "/docs/troubleshooting/recover",
+      section: "Troubleshooting",
+      entry: entry("recover", { manualKind: "troubleshooting" }),
+    },
+  ];
+  const index = await buildSearchIndex(
+    kindSources,
+    () => Promise.resolve("# Page\n\nRecover the blocked resource safely.\n"),
+  );
+  assertEquals(
+    searchPages(index.pages, "recover resource").map((result) =>
+      result.page.route
+    ),
+    [
+      "/docs/troubleshooting/recover",
+      "/docs/reference/dense",
+    ],
   );
 });
 

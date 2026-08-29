@@ -16,6 +16,7 @@ import { JSDOM } from "jsdom";
 import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
 import {
   inlineToPlain,
+  readerVisibleMarkdown,
   renderMarkdown,
   renderMarkdownHtml,
   renderMarkdownInlineHtml,
@@ -233,6 +234,31 @@ Deno.test("inline HTML stays escaped while retaining Markdown semantics", () => 
     renderMarkdownInlineHtml("Use `<unsafe>` with [the docs](/docs)."),
     'Use <code>&lt;unsafe&gt;</code> with <a href="/docs">the docs</a>.',
   );
+});
+
+Deno.test("reader-visible Markdown strips source comments but preserves literal code", () => {
+  const source = [
+    "# Visible <!-- source-only heading note --> heading",
+    "",
+    "Before <!-- source note: `phantom-capability` --> after.",
+    "",
+    "Use `<!-- inline example -->` literally.",
+    "",
+    "```markdown",
+    "<!-- fenced example -->",
+    "```",
+  ].join("\n");
+  const visible = readerVisibleMarkdown(source);
+
+  assert(!visible.includes("source-only heading note"));
+  assert(!visible.includes("phantom-capability"));
+  assertStringIncludes(visible, "`<!-- inline example -->`");
+  assertStringIncludes(visible, "<!-- fenced example -->");
+
+  const rendered = renderMarkdownHtml(source);
+  assertEquals(rendered.headings[0]?.text, "Visible  heading");
+  assertStringIncludes(rendered.html, "&lt;!-- inline example --&gt;");
+  assertStringIncludes(rendered.html, "&lt;!-- fenced example --&gt;");
 });
 
 Deno.test("inlineToPlain remains the metadata projection authority", () => {
