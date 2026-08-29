@@ -1,10 +1,9 @@
 /** Shared read-only diagnosis for branch-removing Drop and branch-keeping Park. */
 
-import { basename, isAbsolute, resolve } from "@std/path";
-import { realPathIfExists } from "../../shared/fs_presence.ts";
+import { basename } from "@std/path";
 import { isKnownGitCount } from "../../shared/git_count.ts";
 import type { LifecycleContext } from "./lifecycle.ts";
-import { loadIdentitySettings, resolveWorktreeId } from "./identity.ts";
+import { loadIdentitySettings } from "./identity.ts";
 import {
   assertOpSide,
   branchIsMerged,
@@ -19,6 +18,7 @@ import {
 import { entriesForWorktree } from "./resources.ts";
 import { classifyAutomaticBranchOwnership } from "./ownership.ts";
 import type { DropPlan } from "./plan.ts";
+import { resolveWorktreeTarget } from "./target_resolution.ts";
 
 /**
  * Resolve a worktree and retain every uncertainty as a blocker. The caller
@@ -50,53 +50,22 @@ export async function buildRemovalPlan(
     );
   }
 
-  const wanted = target.trim().replace(/\/+$/, "");
-  const resolvedWanted = resolve(wanted);
-  const wantedAbs = isAbsolute(wanted) || wanted.includes("/")
-    ? await realPathIfExists(resolvedWanted) ?? resolvedWanted
-    : undefined;
+  const resolved = await resolveWorktreeTarget(ctx.root, target, {
+    cwd: ctx.cwd,
+    mode: "registered",
+    includeMain: false,
+    command,
+  });
+  const match = fleet.find((row) => row.path === resolved.path);
+  if (match === undefined) {
+    throw new WorktreeGitError(
+      `${command} could not read the selected worktree's Git state. Run \`discern status\`, repair the listed checkout, then re-run.`,
+    );
+  }
   const settings = await loadIdentitySettings(ctx.root).catch(() => {
     // discern-best-effort: lifecycle-drop-identity-settings-fallback
     return undefined;
   });
-  const matches: Array<(typeof fleet)[number]> = [];
-  for (const row of fleet) {
-    if (wantedAbs !== undefined) {
-      if (row.path === wantedAbs) {
-        matches.push(row);
-      }
-      continue;
-    }
-    if (basename(row.path) === wanted) {
-      matches.push(row);
-      continue;
-    }
-    if (settings !== undefined) {
-      const id = await resolveWorktreeId(settings, row.path).catch(() => {
-        // discern-best-effort: lifecycle-drop-row-identity-fallback
-        return undefined;
-      });
-      if (id === wanted) {
-        matches.push(row);
-      }
-    }
-  }
-  if (matches.length > 1) {
-    const candidates = matches.map((row) => `- ${row.path}`).sort().join("\n");
-    throw new WorktreeGitError(
-      `\`${command}\` can't resolve '${target}': it matches more ` +
-        `than one registered worktree:\n${candidates}\n` +
-        "Pass one of these paths as the target, then re-run.",
-    );
-  }
-  const match = matches[0];
-  if (match === undefined) {
-    const known = fleet.map((row) => basename(row.path)).join(", ");
-    throw new WorktreeGitError(
-      `No worktree matches '${target}'. Known worktrees: ${known}. ` +
-        `Pass one of those worktree ids (the directory name) or its path, then re-run.`,
-    );
-  }
   if (match.locked) {
     throw new WorktreeGitError(
       `Worktree '${basename(match.path)}' is locked (git worktree lock), so ` +

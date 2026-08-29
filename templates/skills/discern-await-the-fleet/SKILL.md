@@ -18,17 +18,17 @@ _If the user adds their own instructions or context when invoking this skill, th
 
 Pass exactly one condition per call. Choose it from what your work actually needs, not from which sounds strongest:
 
-| Your task needs                                     | Condition                  | It holds when                                                                                |
-| --------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------- |
-| To build on the sibling's tree before it lands      | `green` (a branch name)    | That branch holds a passing full-gate proof on its current clean commit, or its work lands |
-| The sibling's work present beneath yours, via trunk | `landed` (a branch name)   | The branch's observed work is reachable from the trunk                                       |
-| To react to any trunk movement at all               | `trunk_moved` (no branch)  | The trunk ref differs from where it stood when the watch began                               |
+| Your task needs                                     | Condition                    | It holds when                                                                                   |
+| --------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| To build on the sibling's tree before it lands      | `green` (a worktree selector) | The selected branch holds a passing full-gate proof on its current clean commit, or its work lands |
+| The sibling's work present beneath yours, via trunk | `landed` (a worktree selector) | The selected branch's observed work is reachable from the trunk                                  |
+| To react to any trunk movement at all               | `trunk_moved` (no selector)   | The trunk ref differs from where it stood when the watch began                                   |
 
 `green` is the bar for composing below the trunk: it proves the work passed its gate, not merely that a branch exists. A sibling that hasn't committed yet is not green — the watch keeps waiting, which is correct, not stuck. `landed` answers the literal arrival question and is the right condition when you only need the work in the trunk before continuing.
 
-## 2. Resolve the exact branch
+## 2. Resolve the exact worktree
 
-Await the literal branch name: the one `discern_start` returned when the sibling was created — a brief that carries a dependency should quote it — or the one in `discern_status`'s fleet table. Created branch names carry a uniqueness suffix, so never guess one and never await a prefix or a paraphrase of it.
+Await an exact stable selector from `discern_start` or the sibling's `discern_status` fleet row: its worktree id, absolute path, local branch, or full local ref. Prefer the id while the checkout is live; retain the exact branch when a new `landed` watch may begin after acceptance has removed the checkout. These forms resolve to the same live worktree. A display title, requested name, prefix, or paraphrase is not identity, so never guess one. Ambiguity is a refusal, never a fleet-order choice.
 
 If the dependency may already hold, call `discern_await` anyway: a condition that is already true returns met immediately. Do not pre-check with your own status or Git reads — the verb is the check.
 
@@ -38,7 +38,7 @@ Wait from your effort's worktree if it has one, or from the main checkout if you
 
 Do not surface progress updates until it returns. On `data.met: false`, continue with `data.resume` without surfacing an update; repeat without a fixed limit until met, stopped, or unneeded. Never resume `ok: false`; follow its recovery hint. Report only when the condition holds, the watch is unnecessary, or a refusal/error needs action. Always respond to new user input.
 
-In a shell or script, the same watch composes on exit codes: `discern await --landed <branch> && <next step>` proceeds only on met (0 met, 1 refusal, 124 not yet), and `--timeout 0` checks once without blocking.
+In a shell or script, the same watch composes on exit codes: `discern await --landed <worktree> && <next step>` proceeds only on met (0 met, 1 refusal, 124 not yet), and `--timeout 0` checks once without blocking.
 
 ## 4. Follow the met hint
 
@@ -68,7 +68,7 @@ Relay the observed state without asking the user to reconstruct the watch:
 
 ## Done when
 
-- The dependency was expressed as one grounded condition against the exact returned branch — never a guessed name, a polling loop, or a sleep.
+- The dependency was expressed as one grounded condition against an exact returned worktree selector — never a display title, guessed name, polling loop, or sleep.
 - One blocking call, resumed as needed, held the whole watch with nothing surfaced in between.
 - On met, the hint's composition step ran and the arrived work is verifiably present beneath yours.
 - On refusal, its recovery hint was followed or the situation reported — the condition was never blindly restarted.

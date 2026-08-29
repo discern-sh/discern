@@ -1,5 +1,5 @@
 /**
- * `discern worktree drop <id|path>` — the sanctioned removal for abandoned work.
+ * `discern worktree drop <worktree>` — the sanctioned removal for abandoned work.
  * Before this verb the only path was raw `rm -rf` + prune (`worktree prune`
  * deliberately keeps anything unmerged or dirty). Drop tears down resources,
  * removes the worktree, and deletes its branch — refusing anything a drop would

@@ -174,7 +174,7 @@ In multi-agent programs:
 - make sibling streams explicitly out of scope;
 - state dependency and landing order;
 - prohibit launching or supervising sibling briefs unless the user authorized that topology;
-- name the exact returned branch for dependencies.
+- name an exact returned worktree selector for dependencies, retaining the branch for watches that may begin after cleanup.
 
 ### 8. Write for summarization resilience
 

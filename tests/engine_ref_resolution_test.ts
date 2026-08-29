@@ -1,6 +1,6 @@
 /**
- * The shared ref resolver behind `start --from` and `update --from`
- * (`resolveCommitRef`) — the ONE vocabulary both pull verbs accept. The
+ * The Git-ref resolver beneath the shared worktree-target resolver used by
+ * `start --from` and `update --from`. The
  * parameterized table drives every ref KIND a user can hand it (branch, tags
  * lightweight and annotated, SHAs, revision expressions), so a new kind
  * enrols by adding a row; the refusal cases prove an ambiguous short name is

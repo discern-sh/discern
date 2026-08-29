@@ -19,7 +19,7 @@ _Keep the same worktree from the first edit through review feedback and resumed 
 
 ## Start an isolated checkout
 
-From the main checkout, `discern start` creates and readies a worktree, then returns its path. Reuse that checkout for review, fixes, and later sessions; pass its path to discern tools, and ask the owner if it is unavailable. Calling `start` again creates a separate effort. New worktrees branch from the trunk unless `--from <ref>` names other work ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md), [ADR 0110](../_adr/0110-the-landing-model.md)).
+From the main checkout, `discern start` creates and readies a worktree, then returns its path. Reuse that checkout for review, fixes, and later sessions; pass its path to discern tools, and ask the owner if it is unavailable. Calling `start` again creates a separate effort. New worktrees branch from the trunk unless `--from <source>` names another ref or an unambiguous worktree id or path ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md), [ADR 0110](../_adr/0110-the-landing-model.md), [ADR 0359](../_adr/0359-worktree-targets-share-one-resolution-contract.md)).
 
 `start` probes Git and destination write access before creation. A later failure tears resources down only if the worktree exists ([ADR 0338](../_adr/0338-operation-policy-enrolls-git-write-authority.md)).
 
@@ -40,7 +40,7 @@ Setup runs in this order:
 | Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.              |
 | Refresh              | Uses the new checkout's engine for shared and checkout-local refresh work.                 |
 
-`start` refuses an unborn repository, a missing trunk, a nested `discern.toml`, an unknown or ambiguous `--from` ref, an occupied branch or directory, or a call from another worktree. `accept` applies the repository-root boundary too, so a nested project cannot land sibling changes. Main-checkout edits stay there. A failed creation retires only the checkout and branch that call minted; an incomplete discard is part of the reported failure rather than a successful rollback.
+`start` refuses an unborn repository, a missing trunk, a nested `discern.toml`, an unknown or ambiguous `--from` source, an occupied branch or directory, or a call from another worktree. `accept` applies the repository-root boundary too, so a nested project cannot land sibling changes. Main-checkout edits stay there. A failed creation retires only the checkout and branch that call minted; an incomplete discard is part of the reported failure rather than a successful rollback.
 
 ## Bring the trunk into the branch
 
@@ -72,7 +72,7 @@ Acceptance journals its transition and recovers without replaying one-shot autho
 
 ## Park a checkout and keep its branch
 
-From the main checkout, `discern worktree park <id|path>` removes a healthy task's checkout and resources while retaining its branch, committed work, and task wording. Preview the exact artifact account first:
+From the main checkout, `discern worktree park <worktree>` removes a healthy task's checkout and resources while retaining its branch, committed work, and task wording. Select it by exact id, path, local branch, or full local ref. Preview the exact artifact account first:
 
 ```sh
 discern worktree park <target> --dry-run
@@ -94,7 +94,7 @@ Park reads the plan again before resource cleanup and checks the task again afte
 
 ## Remove abandoned work
 
-From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and its owned branch. Use Park when the branch should remain resumable. A bare id or directory name must identify 1 registered worktree. If several paths share it, discern lists them and requires the selected path. Uncommitted or unlanded work needs explicit `--force`. A Git lock still protects it. If Git cannot read the worktree's status, discern treats its cleanliness as unknown and requires `--force`. The command is CLI-only because discarding another line of work requires a person's local decision. An explicitly selected foreign checkout can be removed while its branch stays.
+From the main checkout, `discern worktree drop <worktree>` removes an abandoned worktree and its owned branch. Use Park when the branch should remain resumable. Select a registered checkout by exact id, path, local branch, or full local ref. If a token identifies several registrations or collides with another ref, discern refuses and requires an absolute path or full ref. Uncommitted or unlanded work needs explicit `--force`. A Git lock still protects it. If Git cannot read the worktree's status, discern treats its cleanliness as unknown and requires `--force`. The command is CLI-only because discarding another line of work requires a person's local decision. An explicitly selected foreign checkout can be removed while its branch stays.
 
 Before destructive effects, drop retains the branch's committed tip in a bounded local ref. [Recover a dropped branch](drop-recovery.md) explains the guarantee, its uncommitted-work boundary, and the restore commands. A failed preservation stops the drop intact ([ADR 0271](../_adr/0271-destructive-drops-retain-bounded-recovery-refs.md)).
 
@@ -109,6 +109,7 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 | Responsibility                | Source                                                                                                    |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Lifecycle plans and execution | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                           |
+| Worktree target resolution    | [`src/engine/worktree/target_resolution.ts`](../../../src/engine/worktree/target_resolution.ts)           |
 | Acceptance recovery journal   | [`src/engine/worktree/acceptance_transaction.ts`](../../../src/engine/worktree/acceptance_transaction.ts) |
 | Setup-step journal            | [`src/engine/worktree/setup_step_journal.ts`](../../../src/engine/worktree/setup_step_journal.ts)         |
 | Operation exclusion           | [`src/engine/operation_lock.ts`](../../../src/engine/operation_lock.ts)                                   |

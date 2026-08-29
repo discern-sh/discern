@@ -103,7 +103,7 @@ The retained title and brief become defaults when the branch still points at the
 
 Automatic cleanup requires positive evidence that discern created the thing for this project — recorded identity in the worktree's own Git metadata, with a matching branch name. A branch that is merely merged, prefix-shaped, or similarly named grants nothing, and prune keeps it while showing it as context. That's not a fault; it's the boundary that keeps cleanup from ever deleting a checkout discern doesn't own.
 
-For a foreign checkout you've judged yourself, `discern worktree drop <id|path>` removes the checkout you name — and still keeps its branch when discern can't prove ownership, so the commits stay recoverable.
+For a foreign checkout you've judged yourself, `discern worktree drop <worktree>` accepts its exact id, path, local branch, or full local ref — and still keeps its branch when discern can't prove ownership, so the commits stay recoverable.
 
 ## A branch or worktree was dropped by mistake
 

@@ -57,7 +57,7 @@ const CMD = {
   standardsPin: discernCommand("standards", flag("pin")),
   update: discernCommand("update"),
   impact: discernCommand("impact"),
-  awaitGreen: discernCommand("await", flag("green", "<branch>")),
+  awaitGreen: discernCommand("await", flag("green", "<worktree>")),
   couplingFile: discernCommand("coupling", positional("file", "<file>")),
   mapSearch: discernCommand("map", flag("search", "<query>")),
   docsSearch: discernCommand("docs", flag("search", "<query>")),

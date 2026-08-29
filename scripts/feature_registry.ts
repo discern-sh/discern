@@ -771,7 +771,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "compose-below-trunk",
         title: "Composing unlanded work",
         what:
-          "`start` and `update` both take a `from` ref, so work can build on another branch's unlanded changes; only `accept` lands on the trunk.",
+          "`start` and `update` both take a `from` ref or unambiguous worktree id or path, so work can build on another branch's unlanded changes; only `accept` lands on the trunk.",
         why:
           "Stacked efforts stay possible without ever making the trunk a merge scratchpad.",
         plain: {
@@ -786,7 +786,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "worktree-identity",
         title: "Deterministic identity",
         what:
-          "Each worktree carries stable derived values — id, branch, site name, database name, and a dev-server port hashed from its id — readable with `discern identity` and exported into its env files.",
+          "Each worktree carries stable derived values — id, branch, site name, database name, and a dev-server port hashed from its id — readable with `discern identity` in that checkout or by selecting it with an exact id, path, local branch, or full local ref, and exported into its env files.",
         why:
           "Concurrent development servers and test databases receive distinct derived names.",
         plain: {
@@ -921,7 +921,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "await",
         title: "Awaiting a fleet condition",
         what:
-          "`discern await` blocks until a sibling branch is green, a branch has work whose latest observed tip has landed on the trunk, or the trunk has moved. Git refs, landed Proof notes, and Gate Proof records decide the condition; logbook appends only wake it, with a polling fallback. Omit the timeout to use the configured client's longest reliable call. If that call ends first, a 15-character repository-local continuation handle preserves the branch transition or trunk baseline across the next call.",
+          "`discern await` selects a sibling by exact worktree id, path, local branch, or full local ref, then blocks until it is green, its latest observed work has landed on the trunk, or the trunk has moved. Git refs, landed Proof notes, and Gate Proof records decide the condition; logbook appends only wake it, with a polling fallback. Omit the timeout to use the configured client's longest reliable call. If that call ends first, a 15-character repository-local continuation handle preserves the branch transition or trunk baseline across the next call.",
         why:
           "A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human.",
         plain: {
@@ -1233,7 +1233,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "skill-await-the-fleet",
             title: "Await the fleet",
             what:
-              "Wait for another effort with one blocking `discern_await` call — a sibling branch green, its work landed, or the trunk moved — choosing the condition from the need, awaiting the exact returned branch, then following the met hint to compose what arrived.",
+              "Wait for another effort with one blocking `discern_await` call — a sibling green, its work landed, or the trunk moved — choosing the condition from the need, awaiting an exact returned worktree selector, then following the met hint to compose what arrived.",
             plain: {
               title: "Wait for another task",
               what:

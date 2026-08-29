@@ -78,7 +78,7 @@ For a saved programme brief, include the final move into the adjacent `_done/` d
 
 For an independently landed dependency, the later brief names the earlier branch and waits for it to be landed. For below-trunk composition, it waits for the earlier branch to become green.
 
-**Planning agent:** Put the exact returned branch into the dependent brief after the earlier task starts. Tell the receiving agent to use `discern-await-the-fleet` and follow the met result's composition hint. Do not guess the branch from its requested name.
+**Planning agent:** Put an exact returned worktree selector into the dependent brief after the earlier task starts, and retain its branch for a landing watch that may begin after cleanup. Tell the receiving agent to use `discern-await-the-fleet` and follow the met result's composition hint. Do not guess identity from the requested name.
 
 The waiting agent receives the commit or trunk transition from repository evidence. The person can leave both tasks running without carrying “ready” messages between them.
 

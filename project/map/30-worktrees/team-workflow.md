@@ -39,8 +39,8 @@ An unreadable index makes the row unknown even when Git identifies the checkout.
 
 The trunk is the single landing target. Build dependent phases by pulling branches into worktrees:
 
-- `discern start --from <ref>` creates a new worktree from any branch, tag, or commit.
-- `discern update --from <ref>` merges any ref into an existing worktree.
+- `discern start --from <source>` creates a new worktree from any branch, tag, commit, or unambiguous worktree id or path.
+- `discern update --from <source>` merges any ref or unambiguous worktree id or path into an existing worktree.
 - `discern accept` lands the composed result on the trunk once conversation consent or a recorded grant authorizes it ([ADR 0110](../_adr/0110-the-landing-model.md)).
 
 This pull-side composition keeps unfinished phases away from the shared landing branch. If another worktree moves the trunk first, the later acceptance leaves its worktree and resources intact and asks for `update → done → accept`.

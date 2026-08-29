@@ -781,13 +781,14 @@ export const TOOLS: McpTool[] = orderTools([
       "result's immutable commit as `from` when composing below the trunk.",
     inputSchema: {
       green: z.string().optional().describe(
-        "Branch whose worktree must hold an honored gate proof (e.g. an " +
-          "agent/* sibling this task builds on). Its landing also satisfies " +
-          "the wait.",
+        "Sibling selected by worktree id, path, local branch, or full local " +
+          "ref. Its checkout must hold an honored gate proof; its landing also " +
+          "satisfies the wait.",
       ),
       landed: z.string().optional().describe(
-        "Branch whose work must become reachable from the trunk. The latest " +
-          "observed tip and landing transition survive the branch's deletion.",
+        "Sibling selected by worktree id, path, local branch, or full local " +
+          "ref. Its work must become reachable from the trunk. The latest " +
+          "observed tip and landing transition survive branch deletion.",
       ),
       trunk_moved: z.boolean().optional().describe(
         "Wait until the trunk ref moves from its position at call start.",
@@ -1124,11 +1125,10 @@ export const TOOLS: McpTool[] = orderTools([
       "the refresh reconciliation alone.",
     inputSchema: {
       from: z.string().optional().describe(
-        "Pull this ref (a branch, tag, or commit) into the worktree instead of the " +
-          "trunk. OMIT for the routine call — the default is always the trunk " +
-          "(`{{main_branch}}`), so there is nothing to check first. Pass a ref only " +
-          "to compose on unlanded work (e.g. pull another worktree's agent/* branch " +
-          "into this one).",
+        "Pull a ref (branch, tag, or commit) or an unambiguous worktree id or path " +
+          "into this worktree instead of the trunk. OMIT for the routine call — " +
+          "the default is always the trunk (`{{main_branch}}`), so there is nothing " +
+          "to check first. Use this only to compose on unlanded work.",
       ),
       dry_run: z.boolean().optional().describe(
         "Preview the update plan and touch nothing (default false).",
@@ -1195,11 +1195,11 @@ export const TOOLS: McpTool[] = orderTools([
           "detail, and visible agent handoff.",
       ),
       from: z.string().optional().describe(
-        "Branch the new worktree from this ref (a branch, tag, or commit) instead " +
-          "of the trunk. OMIT for everyday starts — the default is always the trunk " +
-          "(`{{main_branch}}`), so there is nothing to look up or confirm. Pass a ref " +
-          "only for the special case of building on unlanded or experimental work " +
-          "(e.g. another worktree's agent/* branch).",
+        "Branch the new worktree from a ref (branch, tag, or commit) or an " +
+          "unambiguous worktree id or path instead of the trunk. OMIT for everyday " +
+          "starts — the default is always the trunk (`{{main_branch}}`), so there is " +
+          "nothing to look up or confirm. Use this only to build on unlanded or " +
+          "experimental work.",
       ),
       path: z.string().optional().describe(
         "Create the worktree for a specific discern project. Pass an ABSOLUTE " +

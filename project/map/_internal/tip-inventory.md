@@ -380,7 +380,7 @@ Rendered line:
 
 Rendered line:
 
-> `discern await --green <branch>` waits for another task's passing Proof and returns the right next step, so a coding agent does not need to keep checking.
+> `discern await --green <worktree>` waits for another task's passing Proof and returns the right next step, so a coding agent does not need to keep checking.
 
 ## `map-and-docs-search`
 

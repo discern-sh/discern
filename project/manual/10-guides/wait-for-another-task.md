@@ -25,7 +25,7 @@ This means you can start a dependent task without arranging the precise moment w
 
 ## Before starting
 
-- Resolve the exact branch name to watch. `discern_status` from the main checkout lists the fleet; from a worktree, request the fleet view or run `discern status --all`.
+- Resolve an exact stable selector for the task: its worktree id, absolute path, local branch, or full local ref. `discern_status` from the main checkout lists the fleet; from a worktree, request the fleet view or run `discern status --all`. Do not use a display title or guessed prefix.
 - Run the wait from the waiting agent's own worktree when they already have one, or from the main checkout when the dependent task hasn't started.
 - Call `discern_await` even when the dependency may already be ready. An already-met condition returns immediately, so a separate pre-check only adds work.
 
@@ -33,11 +33,11 @@ This means you can start a dependent task without arranging the precise moment w
 
 Pass one condition per call, chosen from what the agent's task needs:
 
-| The agent's task needs                         | Condition           | It holds when                                                                                                                                     |
-| ---------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| To build on the target's work before it lands  | `--green <branch>`  | The target's worktree holds current [Proof](../20-understand/proof.md) for a clean commit. Landing that work also satisfies the condition.        |
-| To receive the target's work through the trunk | `--landed <branch>` | The target's changes have reached the [trunk](../20-understand/worktrees-and-trunk.md) through acceptance.                                        |
-| To react to any trunk movement                 | `--trunk-moved`     | The trunk differs from where it stood when the watch began. Any commit on the trunk can satisfy it, whether it arrived through acceptance or not. |
+| The agent's task needs                         | Condition             | It holds when                                                                                                                                     |
+| ---------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| To build on the target's work before it lands  | `--green <worktree>`  | The target's worktree holds current [Proof](../20-understand/proof.md) for a clean commit. Landing that work also satisfies the condition.        |
+| To receive the target's work through the trunk | `--landed <worktree>` | The target's changes have reached the [trunk](../20-understand/worktrees-and-trunk.md) through acceptance.                                        |
+| To react to any trunk movement                 | `--trunk-moved`       | The trunk differs from where it stood when the watch began. Any commit on the trunk can satisfy it, whether it arrived through acceptance or not. |
 
 Green and landed answer different questions:
 
@@ -81,7 +81,7 @@ Continue with the newest handle until `data.met` is `true` or the dependency no 
 An `ok: false` result means the watch as posed can't be answered. It has no continuation, so follow its recovery instead of resuming it. Common cases include:
 
 - **A green watch whose worktree is gone.** Current Proof lives with the worktree, so a [reclaimed](../40-troubleshooting/worktrees-and-resources.md) branch can't later become green there. The refusal points to a branch that now contains the work, when one exists, or suggests a landed watch for the arrival question.
-- **A branch name that doesn't resolve.** The task may never have started, or it may have landed and been cleaned up before this watch began. The refusal explains the observed state; a landed watch can recover a completed landing from its proof note.
+- **A worktree selector that doesn't resolve.** The task may never have started, the selector may be a display title rather than stable identity, or it may have landed and been cleaned up before this watch began. The refusal explains the observed state; an exact branch can recover a completed landing from its proof note.
 
 ## Compose what arrived
 
