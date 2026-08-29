@@ -17,16 +17,16 @@ redirect_from:
 
 # Wait for another task
 
-When one task depends on work another coding agent is still finishing, the project owner shouldn't have to watch both sessions and carry the news between them. That coordination absorbs the time parallel work was meant to save.
+When one task depends on work another coding agent is still finishing, you shouldn't have to watch both sessions and carry the news between them. That coordination absorbs the time parallel work was meant to save.
 
 `discern_await` gives the waiting agent a repository condition to wait for: a sibling becomes green, its work lands, or the trunk moves. The call returns when that condition holds and names the next step. If the reliable call window ends first, it provides a continuation for the same watch rather than leaving the agent to invent a polling loop.
 
-This means the owner can start a dependent task without arranging the precise moment when its agent should return. Waiting is appropriate when repository state controls the next action; [some dependencies still need a person](#when-waiting-is-the-wrong-tool).
+This means you can start a dependent task without arranging the precise moment when your agent should return. And although the wait is one long blocking call, it doesn't make your agent unresponsive: agent harnesses generally deliver your messages mid-watch, so you can still redirect them early when plans change. Waiting is appropriate when repository state controls the next action; [some dependencies still need a person](#when-waiting-is-the-wrong-tool).
 
 ## Before starting
 
 - Resolve the exact branch name to watch. `discern_status` from the main checkout lists the fleet; from a worktree, request the fleet view or run `discern status --all`.
-- Run the wait from the waiting agent's own worktree when it already has one, or from the main checkout when the dependent task hasn't started.
+- Run the wait from the waiting agent's own worktree when they already have one, or from the main checkout when the dependent task hasn't started.
 - Call `discern_await` even when the dependency may already be ready. An already-met condition returns immediately, so a separate pre-check only adds work.
 
 ## Choose the condition
@@ -52,21 +52,27 @@ A landing observed mid-watch satisfies `--green` too, so a dependency that finis
 
 ## Start the wait
 
-Suppose a task in an external project needs the retry helper being added on `agent/upload-retry-b41f2c`, and its agent can build on that helper before it lands.
+Suppose a task in an external project needs the retry helper being added on `agent/upload-retry-b41f2c`, and its agent can build on that helper before it lands. The agent starts one wait through the primary agent surface, `discern_await`, passing the dependent worktree's absolute `path` and the condition:
 
-Through the primary agent surface, the coding agent calls `discern_await` with the dependent worktree's absolute `path` and `green: "agent/upload-retry-b41f2c"`. The same wait through the command line is:
+```
+discern_await
+  path:  /absolute/path/to/the/worktree
+  green: agent/upload-retry-b41f2c
+```
+
+The same wait through the command line, from inside the dependent worktree, is:
 
 ```sh
 discern await --green agent/upload-retry-b41f2c
 ```
 
-Run the command inside the dependent worktree. Omit the timeout so discern chooses the longest reliable window for that surface. The call returns early as soon as the condition holds, and canceling it is safe if the dependency stops mattering.
+Omit the timeout on either surface: discern chooses the longest reliable window for the caller. The call returns early as soon as the condition holds, and canceling it is safe if the dependency stops mattering.
 
 ## Continue an unresolved call
 
 A call can reach the end of its reliable window before the condition holds. It then returns `ok: true` with `data.met: false`. This is an unfinished wait, not a refusal and not a reason to choose an arbitrary delay.
 
-Follow the continuation in the result. Through MCP, the agent calls `discern_await` again with the same `path` and the supplied `resume` value, without repeating a condition. The command-line result likewise provides the exact `discern await --resume …` command to run. That continuation preserves the original branch transition or trunk baseline, including a change that happened between calls.
+Follow the continuation in the result. Through MCP, the agent calls `discern_await` again with the same `path` and the supplied `resume` value, without repeating a condition. The command-line result likewise provides the exact command to run: `discern await --resume C1-7K3M-PQ9D-YM`, for example. That continuation preserves the original branch transition or trunk baseline, including a change that happened between calls.
 
 Continue with the newest handle until `data.met` is `true` or the dependency no longer matters.
 
@@ -74,7 +80,7 @@ Continue with the newest handle until `data.met` is `true` or the dependency no 
 
 An `ok: false` result means the watch as posed can't be answered. It has no continuation, so follow its recovery instead of resuming it. Common cases include:
 
-- **A green watch whose worktree is gone.** Current Proof lives with the worktree, so a reclaimed branch can't later become green there. The refusal points to a branch that now contains the work, when one exists, or suggests a landed watch for the arrival question.
+- **A green watch whose worktree is gone.** Current Proof lives with the worktree, so a [reclaimed](../40-troubleshooting/worktrees-and-resources.md) branch can't later become green there. The refusal points to a branch that now contains the work, when one exists, or suggests a landed watch for the arrival question.
 - **A branch name that doesn't resolve.** The task may never have started, or it may have landed and been cleaned up before this watch began. The refusal explains the observed state; a landed watch can recover a completed landing from its proof note.
 
 ## Compose what arrived

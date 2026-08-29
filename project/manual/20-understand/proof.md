@@ -23,21 +23,21 @@ redirect_from:
 
 # Proof
 
-When a coding agent says a change is finished, the project owner still needs to know what the project checked and which code those results belong to. Reconstructing that by rerunning commands and comparing Git state becomes a second job as more work moves in parallel.
+A coding agent hands a change back and declares: "I'm done!". But how can you be sure they really are? Checking every claim yourself quickly gets tedious, and rerunning commands and comparing Git state becomes a second job as more work moves in parallel.
 
-discern uses Proof to do that checking for you. It confirms that the project's declared checks ran and passed, records the exact commit they covered, and shows whether the evidence is still current. The owner can spend that review time on behavior, design, risk, and the decision to land.
+discern uses Proof to do that checking for you. It confirms that the project's declared checks ran and passed, records the exact commit they covered, and shows whether the evidence is still current. You can spend your review time on behavior, design, risk, and the decision to land.
 
 After a successful `discern done`, the agent returns a one-line summary such as this:
 
 > Proof: gate passed on `agent/user-onboarding-fixes-0a7563` @ c5a02addf12a · 6 files +568 −345 vs main · standards held, 8 improved · 1 checkpoint declared met · full proof: `discern status --verbose`
 
-The line gives a reviewer the essential facts at a glance; `discern status --verbose` opens the full evidence. The agent receives Proof before landing, so the owner can review the exact result and decide what should become part of the project. After an accepted change lands, discern keeps the full Proof as a durable Git note on that commit.
+The line gives a reviewer the essential facts at a glance; `discern status --verbose` opens the full evidence. The agent receives Proof before landing, so you can review the exact result and decide what becomes part of the project. After an accepted change lands, discern keeps the full Proof as a durable Git note on that commit.
 
 ## What green establishes
 
 The Gate is the project's definition of done. It runs the declared jobs, such as build, lint, and tests; checks the areas the change touched; and measures the project's Standards, its quality measures that may only improve. Green means those declared checks passed for the tree the Gate evaluated.
 
-That scope matters. Green clears away routine verification, but it can't establish that no defect remains, settle whether the design is right, or say that the project is ready for release. Those questions still belong to review and to the project's own release process.
+That scope matters. Green clears away routine verification, but it can't establish that no defect remains, settle whether the design is right, or say that the project is ready for release — and it doesn't replace running the code for yourself. Those judgments still belong to review and to the project's own release process.
 
 A green Gate also leaves the code where it is. The change remains on its branch in an isolated worktree until `discern accept` has verified landing authority. Passing the Gate makes the change eligible for acceptance; it doesn't grant that authority or move the trunk, the project's shared branch. [Who supplies what](#who-supplies-what) explains who makes that decision.
 
@@ -65,7 +65,7 @@ A change can pass through several states on its way to users:
 
 Acceptance fast-forwards the exact validated commit onto the trunk, then removes the worktree. Although the branch may be gone, the evidence lives on: the [proof note](../30-reference/proof-and-checkpoint-formats.md#proof-notes) attached to the landed commit records what passed, the declared conclusions, and the authority that permitted the landing. A future maintainer can recover what was checked without digging through old conversations.
 
-Everything after landing, including deployment and release, belongs to the project. discern neither deploys the change nor pushes it to a remote; [Local control](local-control.md) explains where its work and evidence stay.
+Everything after landing, including deployment and release, belongs to the project. discern doesn't deploy the change or push it to a remote on your behalf; [Local control](local-control.md) explains where its work and evidence stay.
 
 ## Why Proof becomes stale
 
@@ -80,7 +80,7 @@ Proof therefore lasts only while the exact tree and its recorded judgments remai
 
 Later changes are routine. The agent reviews and commits the intended result, then runs `discern done` again so fresh Proof covers it.
 
-When nothing has changed, exactness saves work. `discern done` returns the current green Proof without running another Gate job, and `discern accept` can reuse it instead of running the Gate twice.
+When nothing has changed, that same exactness works in your favor: `discern done` returns the current green Proof without running another Gate job, and `discern accept` reuses it instead of running the Gate twice.
 
 ## Who supplies what
 
