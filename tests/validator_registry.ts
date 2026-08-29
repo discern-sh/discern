@@ -144,6 +144,16 @@ export const ARTIFACT_VALIDATORS: readonly EnrolledValidator[] = [
         "the normalized citation form is this repository's convention for its own published prose (tests/adr_citation_form_test.ts); the shipped surfaces consume citations through collectAdrCitations and stripAdrCitations, which ARE wired",
     },
   },
+  {
+    module: "src/lib/manual.ts",
+    exportName: "staleManualAliasOwnerOverrides",
+    subjects: ["manual"],
+    enforcement: {
+      kind: "repo-local",
+      reason:
+        "MANUAL_ALIAS_OWNER_OVERRIDES governs only discern's own manual, so a dead override key is a repository-authoring defect (tests/manual_policy_test.ts); the projection stays permissive because synthetic corpora legitimately project under the repository's override registry",
+    },
+  },
 ];
 
 /**

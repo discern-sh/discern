@@ -2458,6 +2458,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/manual_curation_test.ts",
+      "tests/manual_projection_guard_test.ts",
       "tests/manual_surface_parity_test.ts",
     ],
     artifacts: [],

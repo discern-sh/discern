@@ -2,10 +2,7 @@
 
 import * as posix from "@std/path/posix";
 import type { ManualPage, ManualProjection } from "../src/lib/manual.ts";
-import {
-  numberedDocRoute,
-  publicMapExhibitRoute,
-} from "../src/lib/paths.ts";
+import { numberedDocRoute, publicMapExhibitRoute } from "../src/lib/paths.ts";
 import { MANUAL_ALIAS_OWNER_OVERRIDES } from "../src/shared/manual.ts";
 import {
   parseFrontmatter,

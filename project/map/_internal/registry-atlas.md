@@ -113,7 +113,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries)                                  | `src/shared/process_boundaries.ts#PROCESS_OUTPUT_BOUNDARIES`                      | 6       | —                | —                           |
 | [`process-exit-boundaries`](#process-exit-boundaries--process-exit-boundaries)                                        | `src/shared/process_boundaries.ts#PROCESS_EXIT_BOUNDARIES`                        | 5       | —                | —                           |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
-| [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
+| [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 10      | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 24      | —                | —                           |
@@ -130,7 +130,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 117     | —                | node `canonical-sets`       |
 
-117 sets · 165 guard tests · 62 committed artifacts.
+117 sets · 166 guard tests · 62 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -257,6 +257,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/manual_curation_test.ts`                    | [`manual-pages`](#manual-pages--published-manual-pages), [`manual-sections`](#manual-sections--manual-sections), [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/manual_doc_checkpoint_test.ts`              | [`manual-sections`](#manual-sections--manual-sections), [`manual-kinds`](#manual-kinds--manual-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/manual_policy_test.ts`                      | [`manual-kinds`](#manual-kinds--manual-kinds), [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners), [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations), [`manual-benefit-exclusions`](#manual-benefit-exclusions--manual-benefit-exclusions)                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/manual_projection_guard_test.ts`            | [`manual-pages`](#manual-pages--published-manual-pages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/manual_surface_parity_test.ts`              | [`manual-pages`](#manual-pages--published-manual-pages), [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/operation_effects_test.ts`                  | [`operation-effects`](#operation-effects--operation-effects), [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/paths_literal_ban_test.ts`                  | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -2843,7 +2844,7 @@ Every strictly admitted published product-manual page, identified by its stable 
   - `troubleshoot-worktrees-and-resources`
   - `troubleshoot-mcp-terminal-and-docs`
   - `troubleshoot-crashes-and-local-state`
-- Guards: `tests/manual_curation_test.ts`, `tests/manual_surface_parity_test.ts`
+- Guards: `tests/manual_curation_test.ts`, `tests/manual_projection_guard_test.ts`, `tests/manual_surface_parity_test.ts`
 - Glossary: not enrolled — the document-model Map page defines the manual corpus and its stable page identities
 - Feature canon: described by the `bundled-docs` node
 
@@ -3712,7 +3713,7 @@ The top-level trees holding authored TypeScript define the scan universe for rep
 Every `src/lib` validator for a config-resolved authored artifact: Map, Instruction sources, Skills, Project Scripts, and Architecture Decision Records. Each validator has a shipped caller or a recorded repository-only classification.
 
 - Source: `tests/validator_registry.ts` — `ARTIFACT_VALIDATORS`
-- Members: 9
+- Members: 10
   - `src/lib/map_integrity.ts#checkDocsIntegrity`
   - `src/lib/frontmatter.ts#frontmatterShapeIssues`
   - `src/lib/adr_index.ts#adrIndexState`
@@ -3722,6 +3723,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Instruct
   - `src/lib/skills.ts#skillFrontmatterIssues`
   - `src/lib/frontmatter.ts#validateFrontmatter`
   - `src/lib/adr_citations.ts#findMalformedAdrReferences`
+  - `src/lib/manual.ts#staleManualAliasOwnerOverrides`
 - Guards: `tests/validator_enrolment_test.ts`
 - Glossary: not enrolled — the contributor reference owns this internal enforcement-parity contract
 - Feature canon: not enrolled — the repository's contributor guard infrastructure owns this wiring check
