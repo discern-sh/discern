@@ -426,7 +426,9 @@ import { SYSTEM_SCHEDULER, withTimeout } from "./scheduler.js";
         const path = doc.createElement("span");
         path.className =
           "discern-search-palette__result-context docs-search-path";
-        path.textContent = `${page.kind ?? page.section.toLowerCase()} · ${page.route}`;
+        path.textContent = `${
+          page.kind ?? page.section.toLowerCase()
+        } · ${page.route}`;
         item.append(title, context, path);
         item.addEventListener("mouseenter", () => {
           selected = index;

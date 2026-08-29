@@ -1360,14 +1360,15 @@ ${rendered.html}
   });
 }
 
-/** Frame the Map as inspectable internal-use evidence, not product guidance. */
+/** Frame the Map as inspectable internal-use evidence, not product documentation. */
 function mapExhibitLabelHtml(): string {
   return `<aside class="docs-history-label docs-map-label">
     <span class="discern-kicker">Live project exhibit</span>
     <p>This is the account discern's coding agents maintain of discern for
     project work and human audit. discern is developed under its own practice,
     so the Map is working evidence from internal use—not independent validation
-    or product guidance. <a href="/docs">Use the manual for guidance.</a></p>
+    or product documentation. <a href="/docs">Use the manual to learn and work
+    with discern.</a></p>
   </aside>`;
 }
 

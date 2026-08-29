@@ -11,6 +11,7 @@ import { JSDOM } from "jsdom";
 const BROWSER = { accept: "text/html", "user-agent": "Mozilla/5.0" };
 const CURL = { accept: "*/*", "user-agent": "curl/8.6.0" };
 
+/** Request one public route with the chosen reader identity. */
 function get(path: string, headers = BROWSER): Promise<Response> {
   return handler(
     new Request(`https://discern.sh${path}`, { headers }),

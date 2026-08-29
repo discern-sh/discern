@@ -12,6 +12,7 @@ import {
   rewriteLinks,
 } from "../site/docs.ts";
 import { handler } from "../site/serve.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 
@@ -20,6 +21,7 @@ const BROWSER = {
   "user-agent": "Mozilla/5.0",
 };
 
+/** Request one public route as a browser. */
 function get(path: string): Promise<Response> {
   return handler(
     new Request(`https://discern.sh${path}`, { headers: BROWSER }),
@@ -57,7 +59,7 @@ function canonicalSafe(entry: DocEntry): boolean {
 
 Deno.test("the whole discovered Map admits exactly the canonical safe set", async () => {
   const tree = await discoverDocs({
-    cwd: Deno.cwd(),
+    cwd: REPO_ROOT,
     dir: "project/map",
     includeInternal: true,
   });
