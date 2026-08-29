@@ -859,7 +859,7 @@ function renderGlossaryDocument(
   return [
     "---",
     "title: Glossary",
-    "description: Every discern term, defined once — the canonical names the rest of the manual uses identically everywhere.",
+    "description: Every discern term, defined once — the canonical names the rest of the documentation uses identically everywhere.",
     "order: 70",
     "aliases:",
     ...aliases.map((alias) => `  - ${alias}`),

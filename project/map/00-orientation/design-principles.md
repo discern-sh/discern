@@ -57,7 +57,7 @@ When a behavior matters, discern encodes it as a check, a Standard, a parity tes
 
 ### 11. The map serves two readers
 
-The documentation tree discern maintains is the agents' Map of the codebase. Agents infer, write, and keep it current under the same Gate as the code. For people, the tree serves as documentation and an audit. The Markdown is browsable with `discern map` and publishable on discern.sh, in `discern docs`, and over the Model Context Protocol (MCP) ([ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)). An inaccurate page reveals a gap in the recorded project understanding. discern does not touch documentation outside the paths the project supplies (principle 8).
+The documentation tree discern maintains is the agents' Map of the codebase. Agents infer, write, and keep it current under the same Gate as the code. For people, the tree serves as an audit surface. The Markdown is browsable with `discern map` and over the Model Context Protocol (MCP), and discern's own Map is published as a trust exhibit at [discern.sh/map](https://discern.sh/map); the product manual is a separate corpus ([ADR 0314](../_adr/0314-separate-public-manual-and-project-map.md), amending [ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)). An inaccurate page reveals a gap in the recorded project understanding. discern does not touch documentation outside the paths the project supplies (principle 8).
 
 ### 12. Uninstall retains project content
 

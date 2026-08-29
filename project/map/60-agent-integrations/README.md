@@ -26,7 +26,7 @@ Each provider page lists the files discern writes or co-manages, what stays with
 
 discern writes workflow integration into vendor surfaces but cannot grant or retain vendor authority. The vendor controls sandbox, permissions, and approval flows; the user remains responsible for project security ([ADR 0193](../_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md)). Each provider's trust record separates explanation from typed paths, configuration keys and values, flags, and environment variables. Setup reactivation, `doctor` terminal output, JSON, MCP, and the generated integration reference project those records; no renderer recovers a machine fact from prose ([ADR 0346](../_adr/0346-machine-facts-are-typed-advisories.md)).
 
-For the shared instructions behind these files, read [Agent instructions](../40-agent-instructions/). For the isolated checkout lifecycle the hooks prepare, read [Worktrees](../30-worktrees/). The table below is the reading order used in the manual's navigation.
+For the shared instructions behind these files, read [Agent instructions](../40-agent-instructions/). For the isolated checkout lifecycle the hooks prepare, read [Worktrees](../30-worktrees/). The manual's reader-facing account of providers is consolidated at [Platforms and providers](https://discern.sh/docs/reference/platforms-and-providers).
 
 The identity catalog supplies the supported set, and the provider registry requires a record for every native integration ([ADR 0166](../_adr/0166-agent-identity-is-advisory-logbook-evidence.md), [ADR 0031](../_adr/0031-typed-provider-integration.md)).
 

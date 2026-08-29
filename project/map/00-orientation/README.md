@@ -8,13 +8,13 @@ aliases:
 
 # Orientation
 
-_Start here: the mental model, the principles behind it, and the glossary used throughout the manual._
+_Start here: the mental model, the principles behind it, and the glossary used throughout this Map._
 
 discern gives a repository a final quality check (the Gate), an isolated workspace for each change (a Git worktree), and shared project instructions supplied to every coding agent. This section introduces that model in plain English. Read [concepts](concepts.md) before the sections that explain each mechanism.
 
 The remaining pages answer common evaluation questions. [Design principles](design-principles.md) explains the rules enforced by tests in discern's own Gate, from stack neutrality to the declared file footprint. [Trust & your data](trust-and-data.md) covers what runs on your machine. [Secure entropy](secure-entropy.md) covers security-sensitive identifiers and bytes.
 
-The [glossary](glossary.md) defines each product term once, and every page uses the same name. After setup, [What setup added to your repo](../10-getting-started/after-setup.md) explains the diff file by file.
+The [glossary](glossary.md) defines each product term once, and every page uses the same name. After setup, [What setup added to your repo](../10-getting-started/after-setup.md) explains the diff file by file. The human product manual lives separately at [discern.sh/docs](https://discern.sh/docs).
 
 | Read next                                    | What's in it                                                                |
 | -------------------------------------------- | --------------------------------------------------------------------------- |
@@ -26,4 +26,4 @@ The [glossary](glossary.md) defines each product term once, and every page uses 
 | [system-map.md](system-map.md)               | The architecture as one picture.                                            |
 | [glossary.md](glossary.md)                   | Every discern term, defined once and alphabetized.                          |
 
-Return to the [manual's front page](../README.md) and choose the section for your task.
+Return to the [Map's front page](../README.md) and choose the section for your task.

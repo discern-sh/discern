@@ -1,7 +1,7 @@
 ---
 id: reference-glossary
 title: "Glossary"
-description: "Every discern term, defined once — the canonical names the rest of the manual uses identically everywhere."
+description: "Every discern term, defined once — the canonical names the rest of the documentation uses identically everywhere."
 order: 120
 publish: true
 kind: reference
