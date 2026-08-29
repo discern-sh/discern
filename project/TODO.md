@@ -94,6 +94,6 @@ _Product positioning, messaging, and launch/content tasks._
 
 _Small things Jack finds while reviewing code and documentation; cleaned up periodically in maintenance batches._
 
-- [ ] **Teach the Map as a distinct project-knowledge artifact.** Explain that the Map records agent navigation knowledge while a project's chosen human documentation can serve a separate audience and purpose. Evidence: `project/map/_private/planning/public-manual-workstreams/4c-explanations.md`; `project/map/_private/planning/public-manual-workstreams/6a-corpus-integration-and-coverage.md`.
+- [ ] **Teach the Map as a distinct project-knowledge artifact.** Explain that the Map records agent navigation knowledge while a project's chosen human documentation can serve a separate audience and purpose. Evidence: `project/map/_private/planning/public-manual-workstreams/_done/4c-explanations.md`; `project/map/_private/planning/public-manual-workstreams/6a-corpus-integration-and-coverage.md`.
 
 - [ ] **Complete the public-manual programme before launch.** Replace the filtered-Map manual with a dedicated kind-aware human corpus, retain the Map as trust evidence, deliver every surface, and pass the voice and comprehension stops. Evidence: `project/map/_private/planning/public-manual-workstreams/README.md`; `project/map/_adr/0314-separate-public-manual-and-project-map.md`.
