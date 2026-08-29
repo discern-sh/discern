@@ -51,6 +51,37 @@ async function fixture(dir: string, name: string): Promise<string> {
   return worktree;
 }
 
+/** Create a configured, setup-ready resource fixture with a clean index. */
+async function resourceFixture(
+  dir: string,
+  name: string,
+  resourceConfig: string,
+): Promise<string> {
+  await scaffoldEngine(dir);
+  await writeConfig(
+    dir,
+    '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
+      resourceConfig,
+  );
+  await gitInit(dir);
+  const worktree = await addWorktree(dir, name);
+  const setup = await runAgent(worktree, ["worktree", "setup"]);
+  assertEquals(setup.code, 0, setup.output);
+  await git(worktree, "add", "-A");
+  const staged = await gitOut(worktree, "diff", "--cached", "--name-only");
+  if (staged !== "") {
+    await git(
+      worktree,
+      "commit",
+      "-q",
+      "-m",
+      "Record setup output",
+      "--no-gpg-sign",
+    );
+  }
+  return worktree;
+}
+
 Deno.test("worktree park keeps committed work and metadata while removing the checkout", async () => {
   await withTempDir(async (dir) => {
     const worktree = await fixture(dir, "parked");
@@ -144,30 +175,13 @@ Deno.test("worktree park refuses dirty and setup-incomplete checkouts", async ()
 
 Deno.test("worktree park destroys recorded resources and retains the branch", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
+    await resourceFixture(
       dir,
-      '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
-        "[worktree.resources.lifecycle-probe]\n" +
+      "park-resource",
+      "[worktree.resources.lifecycle-probe]\n" +
         'create = "true"\n' +
         `destroy = "touch ${dir}/park-destroyed.marker"\n`,
     );
-    await gitInit(dir);
-    const worktree = await addWorktree(dir, "park-resource");
-    const setup = await runAgent(worktree, ["worktree", "setup"]);
-    assertEquals(setup.code, 0, setup.output);
-    await git(worktree, "add", "-A");
-    const staged = await gitOut(worktree, "diff", "--cached", "--name-only");
-    if (staged !== "") {
-      await git(
-        worktree,
-        "commit",
-        "-q",
-        "-m",
-        "Record setup output",
-        "--no-gpg-sign",
-      );
-    }
 
     const applied = await runAgent(dir, [
       "worktree",
@@ -186,30 +200,13 @@ Deno.test("worktree park destroys recorded resources and retains the branch", as
 
 Deno.test("worktree park revalidates after resource cleanup and keeps a checkout changed by the destroy command", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
+    const worktree = await resourceFixture(
       dir,
-      '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
-        "[worktree.resources.race-probe]\n" +
+      "park-race",
+      "[worktree.resources.race-probe]\n" +
         'create = "true"\n' +
         'destroy = "touch planted-race.txt"\n',
     );
-    await gitInit(dir);
-    const worktree = await addWorktree(dir, "park-race");
-    const setup = await runAgent(worktree, ["worktree", "setup"]);
-    assertEquals(setup.code, 0, setup.output);
-    await git(worktree, "add", "-A");
-    const staged = await gitOut(worktree, "diff", "--cached", "--name-only");
-    if (staged !== "") {
-      await git(
-        worktree,
-        "commit",
-        "-q",
-        "-m",
-        "Record race setup output",
-        "--no-gpg-sign",
-      );
-    }
 
     const applied = await runAgent(dir, [
       "worktree",

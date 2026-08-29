@@ -691,6 +691,30 @@ const PROBES: Record<string, DryRunProbe> = {
       };
     },
   },
+  "worktree park": {
+    envelope: "engine-plan",
+    arrange: async (dir) => {
+      const wt = await mainWithWorktree(dir, "paritypark");
+      const setup = await runAgent(wt, ["worktree", "setup", "--json"]);
+      assertEquals(setup.code, 0, setup.output);
+      await git(wt, "add", "-A");
+      await git(
+        wt,
+        "commit",
+        "-q",
+        "-m",
+        "Record Park setup output",
+        "--no-gpg-sign",
+      );
+      const status = await runAgent(dir, ["status", "--json"]);
+      assertEquals(status.code, 0, status.output);
+      return {
+        cwd: dir,
+        dry: ["worktree", "park", "paritypark", "--dry-run", "--json"],
+        apply: ["worktree", "park", "paritypark", "--json"],
+      };
+    },
+  },
   "worktree prune": {
     envelope: "engine-plan",
     arrange: async (dir) => {

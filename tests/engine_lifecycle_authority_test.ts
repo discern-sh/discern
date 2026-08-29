@@ -15,6 +15,7 @@ import type {
 } from "../src/shared/result_schemas.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
+import { readySentinelPath } from "../src/engine/worktree/git.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
@@ -175,6 +176,10 @@ Deno.test("covered standing authority agrees across green done, local status, an
     await writeConfig(dir, STANDING_CONFIG);
     await gitInit(dir);
     const worktree = await addWorktree(dir, "covered");
+    const marker = await readySentinelPath(worktree);
+    assert(marker !== undefined);
+    await Deno.mkdir(join(marker, ".."), { recursive: true });
+    await Deno.writeTextFile(marker, "");
     await commitPath(worktree, "docs/guide.md", "covered\n");
 
     const done = parseResult(

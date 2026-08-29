@@ -43,7 +43,10 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
     key: "fleet-actions",
     phrase: "each worktree's last action and work in flight",
     surface: "the fleet survey in `discern status`",
-    readers: ["src/engine/status/status.ts"],
+    readers: [
+      "src/engine/status/status.ts",
+      "src/engine/status/recent.ts",
+    ],
   },
   {
     key: "fleet-activity-freshness",

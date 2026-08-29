@@ -1867,7 +1867,6 @@ const recentCompletedTaskSchema = z.strictObject({
   completed_at: z.string(),
   proof_line: z.string().optional(),
 });
-export type RecentCompletedTask = z.infer<typeof recentCompletedTaskSchema>;
 
 const parkedTaskSchema = z.strictObject({
   id: z.string(),
@@ -1876,7 +1875,6 @@ const parkedTaskSchema = z.strictObject({
   parked_at: z.string(),
   task: TaskMetadataDataSchema,
 });
-export type ParkedTask = z.infer<typeof parkedTaskSchema>;
 
 /** One path discern removed with a worktree that currently exists again. */
 const reappearedWorktreePathSchema = z.strictObject({

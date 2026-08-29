@@ -147,6 +147,7 @@ Deno.test("automatic branch deletion and worktree removal stay enrolled in their
       "src/engine/dispatch.ts": 1,
       "src/engine/worktree/git.ts": 2,
       "src/engine/worktree/lifecycle.ts": 4,
+      "src/engine/worktree/park.ts": 1,
     },
     "a new worktree-removal caller must enroll through the absence-verifying primitive and this registry",
   );

@@ -92,6 +92,7 @@ import { refreshResult } from "../src/engine/instructions.ts";
 import { tidyResult } from "../src/engine/tidy/tidy.ts";
 import {
   acceptResult,
+  type LifecycleContext,
   lifecycleContext,
   startResult,
   taskRenameResult,
@@ -1854,27 +1855,43 @@ const START_FAITHFULNESS_CASE = defineFaithfulnessCase(
   });
 });
 
+/** Start one named task for result-faithfulness lifecycle cases. */
+async function startedFaithfulnessFixture(
+  dir: string,
+  name: string,
+  brief: string,
+): Promise<{ path: string; worktree: LifecycleContext }> {
+  await scaffoldEngine(dir);
+  await gitInit(dir);
+  const main = await lifecycleContext(
+    dir,
+    new Logger({ json: true, noColor: true }),
+  );
+  const started = await startResult(main, {
+    worktreeRoot: resolveWorktreeRoot(main.root, main.config),
+    name,
+    brief,
+  });
+  const path = started.data?.path;
+  assert(path !== undefined);
+  return {
+    path,
+    worktree: await lifecycleContext(
+      path,
+      new Logger({ json: true, noColor: true }),
+    ),
+  };
+}
+
 const TASK_RENAME_FAITHFULNESS_CASE = defineFaithfulnessCase(
   "worktree rename result is faithful (preview and applied Unicode title)",
   ["worktreeRename"],
 )(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const main = await lifecycleContext(
+    const { worktree } = await startedFaithfulnessFixture(
       dir,
-      new Logger({ json: true, noColor: true }),
-    );
-    const started = await startResult(main, {
-      worktreeRoot: resolveWorktreeRoot(main.root, main.config),
-      name: "rename-faithfulness",
-      brief: "Keep the brief intact.",
-    });
-    const path = started.data?.path;
-    assert(path !== undefined);
-    const worktree = await lifecycleContext(
-      path,
-      new Logger({ json: true, noColor: true }),
+      "rename-faithfulness",
+      "Keep the brief intact.",
     );
 
     const preview = await taskRenameResult(
@@ -1898,19 +1915,11 @@ const WORKTREE_PARK_FAITHFULNESS_CASE = defineFaithfulnessCase(
   ["worktreePark"],
 )(async ({ expectSerializedFaithful }) => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const main = await lifecycleContext(
+    const { path } = await startedFaithfulnessFixture(
       dir,
-      new Logger({ json: true, noColor: true }),
+      "park-faithfulness",
+      "Retain the task wording.",
     );
-    const started = await startResult(main, {
-      worktreeRoot: resolveWorktreeRoot(main.root, main.config),
-      name: "park-faithfulness",
-      brief: "Retain the task wording.",
-    });
-    const path = started.data?.path;
-    assert(path !== undefined);
     await git(path, "add", "-A");
     await git(path, "commit", "-m", "Prepare Park faithfulness fixture");
 

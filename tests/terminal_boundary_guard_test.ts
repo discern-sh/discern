@@ -1560,9 +1560,9 @@ interface ExactOutlawException {
 
 const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
   {
-    file: "src/engine/desk/desk.ts",
+    file: "src/engine/desk/presentation.ts",
     rule: "raw-terminal-control-literal",
-    authority: "clearBoard",
+    authority: "clearDeskBoard",
     count: 1,
     reason:
       "Desk owns one full-screen clear/home product effect on an admitted TTY.",
@@ -2528,13 +2528,13 @@ Deno.test("Cliffy lock law retains only the command-owned transitive closure", (
 
 Deno.test("exact terminal exceptions reject a second violation in an exempt authority", () => {
   const deskException = EXACT_OUTLAW_EXCEPTIONS.filter((entry) =>
-    entry.file === "src/engine/desk/desk.ts"
+    entry.file === "src/engine/desk/presentation.ts"
   );
   assertEquals(deskException.length, 1);
   const baseline = [{
-    file: "src/engine/desk/desk.ts",
+    file: "src/engine/desk/presentation.ts",
     rule: "raw-terminal-control-literal",
-    authority: "clearBoard",
+    authority: "clearDeskBoard",
   }];
   assertEquals(
     unappliedOutlawFindingsWithExceptions(baseline, deskException),
@@ -2547,7 +2547,7 @@ Deno.test("exact terminal exceptions reject a second violation in an exempt auth
         deskException,
       ),
     Error,
-    "src/engine/desk/desk.ts:clearBoard raw-terminal-control-literal exception moved, became stale, or changed count",
+    "src/engine/desk/presentation.ts:clearDeskBoard raw-terminal-control-literal exception moved, became stale, or changed count",
   );
 });
 

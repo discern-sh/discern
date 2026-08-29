@@ -1,6 +1,7 @@
 /** Independent recovery observations for one registered fleet checkout. */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { statIfExists } from "../../shared/fs_presence.ts";
 import type { StatusFleetEntry } from "../../shared/result_schemas.ts";
 import {
   type FleetWorktree,
@@ -14,10 +15,10 @@ export async function fleetFilesystem(
   path: string,
 ): Promise<NonNullable<StatusFleetEntry["filesystem"]>> {
   try {
-    const info = await Deno.stat(path);
+    const info = await statIfExists(path);
+    if (info === undefined) return { state: "missing" };
     return { state: info.isDirectory ? "directory" : "other" };
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return { state: "missing" };
     return {
       state: "unreadable",
       reason: error instanceof Error ? error.message : String(error),

@@ -483,6 +483,12 @@ const LIFECYCLE_CASES: readonly LifecycleCase[] = [
     args: () => ["worktree", "teardown"],
   },
   {
+    commandPath: "worktree park",
+    envelopeVerb: "worktree park",
+    cwd: "main",
+    args: (id) => ["worktree", "park", id],
+  },
+  {
     commandPath: "worktree drop",
     envelopeVerb: "worktree drop",
     cwd: "main",
