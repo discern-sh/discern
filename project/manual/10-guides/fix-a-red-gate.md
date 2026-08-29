@@ -36,6 +36,14 @@ If the result is truncated, use its structured or stored output route. Do not re
 
 With fail-fast enabled, sibling jobs may be canceled as soon as one fails. A canceled or skipped job has no verdict. Work on the reported failure first, then rerun the full Gate.
 
+<!-- discern-workflow:result-summary -->
+
+**Failed:** A job or precondition stopped the Gate before current Proof could be recorded.
+
+**Next action:** Run the first diagnostic's `reproduce_cmd`, correct the reported cause, then return to `discern done`.
+
+<!-- /discern-workflow -->
+
 ## 2. Take the route that matches the evidence
 
 | Observed failure                                       | Coding agent's next action                                                                                                  | Evidence that the route worked                                   |
