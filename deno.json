@@ -74,10 +74,10 @@
     "site:agents-words": "deno run --allow-read --allow-env scripts/agents_page_words.ts",
     "site:component-coverage": "deno run --allow-read --allow-write --allow-run --allow-env=NODE_ENV scripts/site_component_coverage.ts",
     "site:smoke": "deno task site:build && deno run --allow-read --allow-env --allow-net=127.0.0.1 scripts/site_smoke.ts --self-host",
-    "site": "deno run --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts",
-    "site:specimens": "deno run --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=NODE_ENV,PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/specimens.ts",
+    "site": "deno run --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_TRUNK,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts",
+    "site:specimens": "deno run --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=NODE_ENV,PORT,DISCERN_PROJECT_SLUG,DISCERN_TRUNK,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/specimens.ts",
     "site:art": "deno task site:specimens",
-    "watch": "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch"
+    "watch": "deno run --watch --allow-read --allow-run --allow-net=127.0.0.1 --allow-env=PORT,DISCERN_PROJECT_SLUG,DISCERN_TRUNK,DISCERN_WORKTREE_BRANCH_PREFIX,DISCERN_WORKTREE_ID,GIT_BIN site/dev.ts --watch"
   },
   "imports": {
     "/assets/scheduler.js": "./site/pages/assets/scheduler.js",
