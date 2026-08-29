@@ -50,6 +50,12 @@ import {
 } from "../scripts/glossary_registry.ts";
 import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
+import { decorateDocumentHtml } from "./document_html.ts";
+import {
+  authoredHeadingNumberClass,
+  tableOfContentsHtml,
+  type TocItem,
+} from "./document_toc.ts";
 import { buildSearchIndex } from "./search.ts";
 import {
   THEME_BOOTSTRAP,
@@ -57,6 +63,9 @@ import {
   THEME_STYLESHEET_PATH,
 } from "./theme.ts";
 import { renderWorkflowMarkdown } from "./workflow.ts";
+
+export { decorateDocumentHtml } from "./document_html.ts";
+export type { TocItem } from "./document_toc.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -511,13 +520,6 @@ export function projectPublicMapPages(
 
 // ── Markdown rendering ─────────────────────────────────────────────────────
 
-/** One rendered heading, for the on-page contents rail. */
-export interface TocItem {
-  depth: 2 | 3;
-  id: string;
-  text: string;
-}
-
 interface RenderedDoc {
   html: string;
   toc: TocItem[];
@@ -892,46 +894,6 @@ export async function renderDoc(
   return rendered;
 }
 
-/**
- * Emit structural prose controls in the response HTML, before scripts can
- * paint. Every current and future heading/table from the shared renderer
- * enters through this one projection; the client script adds behavior only.
- */
-export function decorateDocumentHtml(html: string): string {
-  const tables = html
-    .replace(
-      /<table(?:\s[^>]*)?>/g,
-      (table) =>
-        '<div class="discern-table docs-table" role="group" aria-label="Scrollable table viewport" tabindex="0">' +
-        table,
-    )
-    .replaceAll("</table>", "</table></div>");
-  return tables.replace(
-    /<h([2-4])([^>]*)>([\s\S]*?)<\/h\1>/g,
-    (
-      match: string,
-      depth: string,
-      attributes: string,
-      content: string,
-    ): string => {
-      const id = /\sid="([^"]+)"/.exec(attributes)?.[1];
-      if (id === undefined) return match;
-      const label = content
-        .replace(/<[^>]+>/g, "")
-        .replaceAll("&amp;", "&")
-        .replaceAll("&lt;", "<")
-        .replaceAll("&gt;", ">")
-        .replaceAll("&quot;", '"')
-        .replaceAll("&#39;", "'")
-        .replace(/\s+/g, " ")
-        .trim();
-      return `<div class="discern-anchor-heading docs-heading-row"><h${depth}${attributes}>${content}</h${depth}><a class="discern-anchor-heading__anchor docs-anchor" href="#${id}" aria-label="Link to “${
-        escapeMarkdownHtml(label)
-      }”">§</a></div>`;
-    },
-  );
-}
-
 // ── The shell ──────────────────────────────────────────────────────────────
 
 /** Encode untrusted document text for safe HTML content and attributes. */
@@ -984,54 +946,6 @@ function navHtml(
     }</span>${esc(section.title)}</strong></div><ul>${leaves}</ul></div>`;
   }).join("");
   return `<div id="docs-nav-sections" data-nav-sections>${sections}</div>`;
-}
-
-/** Whether a document's own procedure numbers govern its H2 sequence. */
-function usesAuthoredHeadingNumbers(toc: readonly TocItem[]): boolean {
-  return toc.some((item) =>
-    item.depth === 2 && /^(\d+)[.)]\s+/.test(item.text)
-  );
-}
-
-/** Mark prose whose own H2 numbers replace the presentation counter. */
-function authoredHeadingNumberClass(toc: readonly TocItem[]): string {
-  return usesAuthoredHeadingNumbers(toc)
-    ? " docs-authored-heading-numbers"
-    : "";
-}
-
-/** Render numbered H2 entries and nested H3 entries for one guide. */
-function tocHtml(toc: TocItem[]): string {
-  if (toc.length === 0) return "";
-  const authoredNumbers = new Map(
-    toc.filter((item) => item.depth === 2).map((item) => [
-      item.id,
-      /^(\d+)[.)]\s+(.+)$/.exec(item.text),
-    ]),
-  );
-  const usesAuthoredNumbers = usesAuthoredHeadingNumbers(toc);
-  let sectionNumber = 0;
-  const items = toc.map((item) => {
-    const nested = item.depth > 2;
-    const itemClass = nested
-      ? ' class="discern-table-of-contents__item--nested"'
-      : "";
-    const authored = authoredNumbers.get(item.id);
-    const label = !nested && usesAuthoredNumbers && authored !== null
-      ? authored?.[2] ?? item.text
-      : item.text;
-    const number = nested
-      ? ""
-      : `<span>${
-        usesAuthoredNumbers
-          ? authored?.[1]?.padStart(2, "0") ?? ""
-          : String(++sectionNumber).padStart(2, "0")
-      }</span>`;
-    return `<li${itemClass}><a href="#${esc(item.id)}">${number}${
-      esc(label)
-    }</a></li>`;
-  }).join("");
-  return `<nav class="discern-table-of-contents docs-toc" aria-label="On this page"><strong class="discern-table-of-contents__title">On this page</strong><ol>${items}</ol></nav>`;
 }
 
 /** Link the previous and next guides in global reading order. */
@@ -1386,7 +1300,7 @@ ${article}
     ${relatedDecisionsHtml(site, page)}
     ${pagerHtml(site, page)}
     ${colophonHtml(page)}`,
-    tocHtml: tocHtml(rendered.toc),
+    tocHtml: tableOfContentsHtml(rendered.toc),
   });
 }
 
@@ -1503,7 +1417,7 @@ ${article}
     </article>
     ${pagerHtml(site, page)}
     ${colophonHtml(page)}`,
-    tocHtml: tocHtml(rendered.toc),
+    tocHtml: tableOfContentsHtml(rendered.toc),
   });
 }
 
@@ -1560,7 +1474,7 @@ ${decorateDocumentHtml(rendered.html)}
     corpus: "map",
     breadcrumb: null,
     mainHtml: main,
-    tocHtml: tocHtml(rendered.toc),
+    tocHtml: tableOfContentsHtml(rendered.toc),
   });
 }
 
@@ -1640,7 +1554,7 @@ export function decisionShell(
 ${decorateDocumentHtml(rendered.html)}
     </article>
     ${colophonHtml(page)}`,
-    tocHtml: tocHtml(rendered.toc),
+    tocHtml: tableOfContentsHtml(rendered.toc),
   });
 }
 
