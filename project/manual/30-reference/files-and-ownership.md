@@ -23,11 +23,9 @@ redirect_from:
 
 Look up authored/shared/generated/runtime files, write ownership, setup/uninstall boundaries, temporary retention, and registered paths.
 
-# Files & ownership
+Prerequisite: the path or write/removal question you need to resolve. The generated inventory answers every registered project path; the later tables cover Git-admin and operating-system temporary state.
 
-_For every project path discern writes: who may edit it, and can discern overwrite it?_
-
-One registry drives this inventory and its write-surface guard. A path without [File ownership](glossary.md#file-ownership) fails the Gate ([ADR 0170](https://discern.sh/docs/decisions/0170-file-ownership-is-registry-data)).
+One registry drives the project-path inventory and its write-surface guard. A registered path without [File ownership](glossary.md#file-ownership) fails the Gate.
 
 File ownership is an operational term for edit and overwrite authority. It does not assign copyright or change a file's license.
 
@@ -151,6 +149,25 @@ Repository records use the common Git directory; worktree records disappear with
 Git stores drop recovery through ordinary refs under `refs/discern/recovery/`. Git can therefore choose its files-based or `reftable` storage format. The newest 32 refs keep committed tips reachable after their worktree branches are deleted. They remain local unless a person configures transport. `discern uninstall` leaves them in place because a ref may be the only remaining name for user-authored commits. Review and delete them with `git update-ref -d <ref>` when that recovery history is no longer needed ([ADR 0271](https://discern.sh/docs/decisions/0271-destructive-drops-retain-bounded-recovery-refs)).
 
 Acceptance atomically moves the trunk and `refs/worktree/discern/acceptance-transactions/<id>` under an advisory lock. Rollback reverses both; Git reaps the ref with the worktree. The marker keeps landed authority spent after a trunk reset or reflog expiry.
+
+## Temporary files and crash records
+
+Temporary artifacts use the operating system's temporary directory. They are local evidence, not project inputs, and are never committed.
+
+| Family            | Name shape                                                   | Contents                                                                                  |
+| ----------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Gate output       | `discern-job-<project>-<worktree>-<random>.log`              | Full combined output for one Gate job.                                                    |
+| Diagnostic output | `discern-diag-<project>-<worktree>-<random>.log`             | Full text offloaded from a truncated diagnostic.                                          |
+| Crash fallback    | `discern-crash-<random>.log`                                 | Crash report when no repository-local crash directory is available.                       |
+| Checkpoint input  | `discern-checkpoint-input-<project>-<worktree>-<random>.log` | Versioned JSON facts, mode `0600`, present only while one checkpoint `when` command runs. |
+| Self shim         | `discern-self-<random>/`                                     | Abandoned no-repository self-shim directory.                                              |
+| Test scaffold     | `discern-test-<random>/`                                     | Abandoned discern development-test scaffold.                                              |
+
+Registered temporary artifacts expire after 24 hours. A sweep inspects at most 500 matching entries and removes at most 500 expired entries per page. The repository coordinator runs at most one page per hour and retains a cursor so later pages continue through a large population. Only registered prefix-and-suffix combinations are eligible; unrelated temporary files are not supported sweep targets.
+
+Repository-local crash reports use `<git-common-dir>/discern/crash/<timestamp>-<pid>-<unique>.txt`, mode `0600`, with the newest 20 retained. A command-line crash exits `70`; JSON uses `error: "internal_error"`. An MCP tool crash returns an `internal_error` result without terminating the server. If repository-local storage is unavailable, the report uses the temporary crash family above. The report records the discern version, timestamp, attempted verb, platform, error name/message, and stack; it is local diagnostic evidence and can contain local paths.
+
+For symptom-led preservation and cleanup, see [Crashes and local state](../40-troubleshooting/crashes-and-local-state.md).
 
 ## Removing it all
 
