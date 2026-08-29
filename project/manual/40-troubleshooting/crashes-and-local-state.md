@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-crashes-and-local-state
 title: "Crashes and local state"
-description: "Identify a crash report or temporary/local evidence artifact, preserve useful evidence, and remove it only through its owner."
+description: "Recognize a crash and report it well, understand the temporary and runtime files discern keeps, and remove local state only through its owner."
 order: 60
 publish: true
 kind: troubleshooting
@@ -19,6 +19,8 @@ aliases:
   - "retention"
   - "discern-job files"
   - "self-shim"
+  - "report a bug"
+  - ".git/discern"
 redirect_from:
   - "/docs/reference/crash-reports"
   - "/docs/reference/temp-files-and-retention"
@@ -26,50 +28,46 @@ redirect_from:
 
 # Crashes and local state
 
-Identify a crash report or temporary/local evidence artifact, preserve useful evidence, and remove it only through its owner.
+You're here because discern itself hit a bug, or because files with discern's name on them are sitting on the machine and you're deciding what's safe to do about them. Both have the same underlying promise — everything discern records stays local until you choose to share it, and everything it keeps has an owner responsible for cleaning it up. Knowing the owners is what makes cleanup safe; the failure mode this page prevents is deleting evidence, or another process's state, by hand.
 
-## Crash reports
+## discern crashed
 
-_What discern does when it fails on a bug in itself, and where to find the evidence._
+A red check, a refused precondition, or a broken `discern.toml` is a _normal_ result: the command explains itself and the CLI exits `1`. A crash is different — an error discern's own code didn't expect. You can recognize it on any surface:
 
-A red check, a refused precondition, or a broken `discern.toml` is a normal result: the command explains itself, and the CLI exits `1`. A crash is an error discern's own code did not expect. On the CLI, a crash prints a stderr frame and exits `70`; `--json` also emits a structured result on stdout. Over Model Context Protocol (MCP), only the affected tool call fails, and the server stays available. Both surfaces try to save a local report.
+- **On the CLI**, a stderr frame names the discern version, the command, the full error and stack, and where the report was saved; the exit code is `70`, distinct from `1` so scripts can tell "discern hit a bug" from "the check failed".
+- **In structured output and over MCP**, the result is `ok: false` with `error: "internal_error"`. An MCP tool crash fails only that call — the server stays available for the next one.
+- **Locally**, discern saves a plain-text report when it can: under the repository's Git directory (`discern/crash/`, newest twenty kept), or in the system temp directory when no repository applies. If the write itself fails, the stderr frame says so and remains your copy of the evidence.
 
-### What discern records
+Nothing is uploaded anywhere. discern makes no network calls, so a crash report exists only on your machine until you attach it somewhere yourself.
 
-- **A report file, when the write succeeds.** discern first tries `<git-common-dir>/discern/crash/<timestamp>-<pid>-<unique>.txt`. The plain-text file carries the discern version, Deno runtime, platform, command, error, and stack. That directory keeps the newest 20 reports. Outside a Git repository, discern tries the system temp directory instead. If neither write succeeds, crash handling continues without a file.
-- **A stderr frame on the CLI.** It names the discern version, command, full error and stack, issue tracker, and saved report path. If the report write failed, the frame says so.
-- **A formatted result with `--json`, `--markdown`, and MCP.** Its prepared envelope has `ok: false`, `error: "internal_error"`, and a `message` with the error name, error message, and saved report path when available. It has no `data` or stack. JSON and MCP expose the envelope directly; Markdown presents the same state and recovery action. An MCP tool crash does not stop the server.
-- **A Logbook signature when recording is available.** If discern resolves a configured Git project with its Logbook enabled, [the Logbook](../30-reference/logbook.md) records a failed event whose `crash` field holds the error class and one code location. It omits the error message and stack. A crash before root or configuration resolution, with unreadable configuration, or with the Logbook disabled leaves no Logbook line.
-- **Exit code `70` on the CLI.** This is distinct from the ordinary failure exit `1`, so a script can tell "discern hit a bug" from "the check failed". See [CLI exit codes](../30-reference/mcp-and-results.md#cli-exit-codes). MCP does not exit the server process for a tool crash.
+**Recover first, then report.** Run `discern status` to see the current state — a crash mid-command leaves durable state, not guesses, and effectful commands are built to converge when rerun. If the same command crashes the same way twice, stop rerunning: you've confirmed it's reproducible, which is what a report needs.
 
-Nothing is uploaded. discern makes no network calls, so a crash report exists only on your machine until you share it.
+**Report it well.** Open an issue at [github.com/jackwh/discern/issues](https://github.com/jackwh/discern/issues) and attach the report file — it carries the version, runtime, command, error, and stack. Read it before attaching: the error can quote paths from your machine. When a crash arrived over MCP, the formatted result omits the stack, so the saved report file is the copy worth keeping. For a security issue, follow the repository's `SECURITY.md` instead of posting publicly.
 
-### Reporting one
+## Files named `discern-…` in the temp directory
 
-Attach the report file to a new issue at [github.com/jackwh/discern/issues](https://github.com/jackwh/discern/issues). It includes the version and runtime block, command, full error, and stack. The error can quote paths from your machine, so review the file before attaching it. If a CLI crash could not save the file, copy the error and stack from its stderr frame. An MCP envelope has no stack, so preserve the report file when one was written.
+Selected command output is kept in your system temp directory for 24 hours so you can inspect it after a run — most usefully a Gate job's full output, which results reference as `output_path` so a long log survives the run that produced it. Each family carries a registered prefix:
 
-## Temp files & retention
+| Prefix           | What it holds                                                           |
+| ---------------- | ----------------------------------------------------------------------- |
+| `discern-job-`   | A Gate job's complete captured output.                                  |
+| `discern-diag-`  | The full text behind a truncated diagnostic.                            |
+| `discern-crash-` | A [crash report](#discern-crashed) written outside any repository.      |
+| `discern-self-`  | A fallback command shim for a run that had no repository root.          |
+| `discern-test-`  | Scaffolding from discern's own test suite — never from normal commands. |
 
-_discern keeps selected temporary output for 24 hours so you can inspect it after a run. A registry defines each file family and its retention rule._
+No action is needed: expired files are swept automatically, in small bounded pages so a burst of Gate runs doesn't stall on cleanup. Deleting them early costs you nothing but the ability to inspect the output they held; leave a `discern-job-` file alone while its Gate is still running, though.
 
-### Files in your temp directory
+## The `.git/discern` directory
 
-Every family carries a registered prefix and a random name:
+discern's runtime state lives inside the repository's Git directory, out of your working tree and out of your commits: the [Logbook](../30-reference/logbook.md), current Gate Proof, wait continuations, the resource ledger, retired-worktree-path records, and the shim that lets commands the Gate spawns find the engine that started them.
 
-| Prefix           | What it holds                                                                                              |
-| ---------------- | ---------------------------------------------------------------------------------------------------------- |
-| `discern-job-`   | A Gate job's full output. Results expose this file as `output_path` so it remains available after the run. |
-| `discern-diag-`  | The full text behind a truncated diagnostic.                                                               |
-| `discern-crash-` | A crash report written outside any repository ([crash reports](crashes-and-local-state.md)).               |
-| `discern-self-`  | A fallback self-shim for a run with no repository root.                                                    |
-| `discern-test-`  | Scaffolds from discern's own test suite. Installed runtime commands do not create this family.             |
+Treat it as owned storage. Nothing in normal use requires touching it, and hand-deleting it destroys real evidence — Proof that acceptance would have reused, Logbook history, the records that make [reappeared-path cleanup](worktrees-and-resources.md#removal-failed-or-a-removed-path-came-back) safe. The supported removal is `discern uninstall`, which takes runtime state with it — and refuses while provisioned worktree resources remain, so nothing external is orphaned by the exit. [Files and ownership](../30-reference/files-and-ownership.md) lists every path discern writes and who owns its lifecycle.
 
-Each file remains for 24 hours after its run. Gate verbs remove expired files in pages of at most 500. A lock under the shared Git directory limits each repository to one page per hour. A burst of runs therefore scans the temp directory once, and each Gate start performs at most one page of cleanup ([ADR 0216](https://discern.sh/docs/decisions/0216-temp-retention-is-repository-throttled-and-inspection-bounded), [ADR 0249](https://discern.sh/docs/decisions/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded)).
+## The Logbook looks empty or off
 
-### The self-shim
+The Logbook is discern's local record of runs and outcomes, and its quiet states are mostly healthy ones. An enabled Logbook with nothing in it hasn't seen events yet. A denied write warns and disables recording _for that process_ without blocking the work — recording is advisory and never blocks a command. Disabled-by-configuration, invalid, and missed-event states are reported distinctly, so a result telling you recording is off also tells you why. The [Logbook reference](../30-reference/logbook.md) covers storage, rotation, and the archive and reset lifecycle, each an explicit command there.
 
-Commands the Gate runs resolve `discern` to the engine that started them through a small shim script ([ADR 0182](https://discern.sh/docs/decisions/0182-operator-commands-resolve-discern-to-the-running-engine)). The shim normally lives in one content-addressed directory per engine under the worktree's Git administrative area. Every process for that engine shares the directory, and worktree removal removes it. A run with no repository root instead uses a per-process temp directory that the retention sweep removes.
+## When to stop
 
-### Removal
-
-Runtime state under `.git/discern/` includes the Logbook, Proofs, locks, and shim. `discern uninstall` removes it, but refuses while the resource ledger still records provisioned resources. [Files and ownership](../30-reference/files-and-ownership.md) lists every registered path and its lifetime.
+Stop rerunning after the second identical crash — report it instead. Stop before deleting anything under `.git/discern` or a path another process is writing; both have owners, and both removals have supported commands that verify what hand-deletion would guess. And when a report would leave your machine, the stopping point is yours: review what the file quotes before you attach it.
