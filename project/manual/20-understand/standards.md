@@ -39,7 +39,7 @@ The comparison runs against the limit committed on the trunk, the project's shar
 
 ## Capturing a gain
 
-When a change improves a measure, the improvement can become the new baseline. `discern standards --pin` tightens each improved limit to the measured value and commits that limit change on its own, so the history shows what moved and why. A configured `margin` can leave a little headroom below the measurement, for measures that drift on unrelated changes.
+When a change improves a measure, the improvement can become the new baseline. `discern standards --pin` tightens each improved limit to the measured value and commits that limit change on its own, so the history shows what moved and why. A configured `margin` can leave a little headroom between the measurement and the new limit, for measures that drift on unrelated changes.
 
 Pinning is mechanical so the record stays trustworthy: a recorded limit moves because a measurement moved. Suppose the cleanup above removes 3 suppressions. The measure reads 9, the pin sets the limit to 9, and every later branch inherits that ceiling. A branch that reintroduces a suppression measures 10 and fails; the ground the cleanup earned stays earned.
 
