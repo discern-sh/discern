@@ -86,7 +86,7 @@ The Gate can pass while telling you it recorded no Proof. The checks ran; what's
 
 A Standard is a project measure held at a limit that may only improve. Distinct failures share the word:
 
-- **The measured value got worse.** Cut the waste the change introduced until the measure recovers. If the work itself legitimately grew the number — a feature that genuinely adds code to a size budget, say — that's not the agent's call to absorb: report it, because moving a limit is an owner decision made on the trunk. A branch that edits the limit to pass fails the Gate on that edit itself.
+- **The measured value got worse.** Cut the waste the change introduced until the measure recovers. Sometimes the work itself legitimately grew the number — a feature that genuinely adds code to a size budget, say. That's not the agent's call to absorb: report it, because moving a limit is an owner decision made on the trunk. A branch that edits the limit to pass fails the Gate on that edit itself.
 - **The limits couldn't be verified.** The never-loosen comparison reads the trunk, and in a shallow CI clone the trunk branch may be absent. The result names the exact fetch to run — typically `git fetch origin main:main` — so the comparison has both sides.
 
 [Set and raise Standards](../10-guides/set-and-raise-standards.md) covers responding to a firing Standard in depth, including the owner-approval path for a limit that should move.
@@ -103,4 +103,4 @@ A checkpoint pairs a change trigger with a written question the agent must judge
 
 ## When to stop
 
-Stop and involve a person when the next step is a decision rather than a repair: authorizing a variance, moving a Standard limit, accepting a landing, or choosing whether a generated rewrite belongs in this change's scope. Those are owner conclusions; a recovered symptom doesn't grant them. And if the same failure returns identically after its named recovery has been applied, stop retrying — capture the result (`discern done --json`) and treat it as a defect to report rather than a loop to win.
+Stop and involve a person when the next step is a decision rather than a repair: authorizing a variance, moving a Standard limit, accepting a landing, or choosing whether a generated rewrite belongs in this change's scope. Those are owner conclusions; a recovered symptom doesn't grant them. And if the same failure returns identically after its named recovery has been applied, stop retrying. Capture the result (`discern done --json`) and treat it as a defect to report rather than a loop to win.

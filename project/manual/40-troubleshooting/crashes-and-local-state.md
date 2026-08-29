@@ -34,7 +34,7 @@ You're here because discern itself hit a bug, or because files with discern's na
 
 A red check, a refused precondition, or a broken `discern.toml` is a _normal_ result: the command explains itself and the CLI exits `1`. A crash is different — an error discern's own code didn't expect. You can recognize it on any surface:
 
-- **On the CLI**, a stderr frame names the discern version, the command, the full error and stack, and where the report was saved; the exit code is `70`, distinct from `1` so scripts can tell "discern hit a bug" from "the check failed".
+- **On the CLI**, a stderr frame names the discern version, the command, the full error and stack, and where the report was saved. The exit code is `70`, distinct from `1`, so scripts can tell "discern hit a bug" from "the check failed".
 - **In structured output and over MCP**, the result is `ok: false` with `error: "internal_error"`. An MCP tool crash fails only that call — the server stays available for the next one.
 - **Locally**, discern saves a plain-text report when it can: under the repository's Git directory (`discern/crash/`, newest twenty kept), or in the system temp directory when no repository applies. If the write itself fails, the stderr frame says so and remains your copy of the evidence.
 
@@ -46,7 +46,7 @@ Nothing is uploaded anywhere. discern makes no network calls, so a crash report 
 
 ## Files named `discern-…` in the temp directory
 
-Selected command output is kept in your system temp directory for 24 hours so you can inspect it after a run — most usefully a Gate job's full output, which results reference as `output_path` so a long log survives the run that produced it. Each family carries a registered prefix:
+Selected command output is kept in your system temp directory for 24 hours so you can inspect it after a run. The most useful family is a Gate job's full output, which results reference as `output_path` so a long log survives the run that produced it. Each family carries a registered prefix:
 
 | Prefix           | What it holds                                                           |
 | ---------------- | ----------------------------------------------------------------------- |
@@ -60,7 +60,7 @@ No action is needed: expired files are swept automatically, in small bounded pag
 
 ## The `.git/discern` directory
 
-discern's runtime state lives inside the repository's Git directory, out of your working tree and out of your commits: the [Logbook](../30-reference/logbook.md), current Gate Proof, wait continuations, the resource ledger, retired-worktree-path records, and the shim that lets commands the Gate spawns find the engine that started them.
+discern's runtime state lives inside the repository's Git directory, out of your working tree and out of your commits. It holds the [Logbook](../30-reference/logbook.md), current Gate Proof, wait continuations, the resource ledger, retired-worktree-path records, and the shim that lets commands the Gate spawns find the engine that started them.
 
 Treat it as owned storage. Nothing in normal use requires touching it, and hand-deleting it destroys real evidence — Proof that acceptance would have reused, Logbook history, the records that make [reappeared-path cleanup](worktrees-and-resources.md#removal-failed-or-a-removed-path-came-back) safe. The supported removal is `discern uninstall`, which takes runtime state with it — and refuses while provisioned worktree resources remain, so nothing external is orphaned by the exit. [Files and ownership](../30-reference/files-and-ownership.md) lists every path discern writes and who owns its lifecycle.
 

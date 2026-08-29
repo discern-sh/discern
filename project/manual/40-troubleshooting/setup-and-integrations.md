@@ -72,7 +72,7 @@ A couple of interruption shapes deserve their own recognition:
 
 ## `discern doctor` reports a failed check
 
-`discern doctor` is the read-only install diagnostic: it verifies that `discern.toml` parses and matches the binary, that configured job and script commands resolve, that selected coding agents have their integration files, and (in a Git repository) a set of repository-health facts: recovery retention, commit identity, hidden index flags, sparse-checkout shape, worktree-local configuration, generated-file merge protection, and directory ownership.
+`discern doctor` is the read-only install diagnostic. It verifies that `discern.toml` parses and matches the binary, that configured job and script commands resolve, and that selected coding agents have their integration files. In a Git repository it also checks repository health: recovery retention, commit identity, hidden index flags, sparse-checkout shape, worktree-local configuration, generated-file merge protection, and directory ownership.
 
 Doctor distinguishes advice from failure. A warning (low reflog retention, say) doesn't fail the run; a condition that would break real work (an unusable commit identity, Git's dubious-ownership refusal, a job command that doesn't resolve) fails the check and names the exact fix, usually as a runnable command. Apply the fix listed under each failed check, then run `discern doctor` again; a clean second run is the success condition. Findings worth recognizing:
 
@@ -87,10 +87,10 @@ Setup and upgrade generate each selected provider's integration (instruction fil
 discern refresh
 ```
 
-Review and commit what it rewrites. The direction is the part that prevents repeats: to change instructions or Skills, edit the authored sources (`[instructions].sources`, `[skills].dir`), because refresh overwrites generated copies by design and a hand-edit to a generated file is undone at the next refresh. Variants to recognize:
+Review and commit what it rewrites. The direction is the part that prevents repeats: to change instructions or Skills, edit the authored sources (`[instructions].sources`, `[skills].dir`). Refresh overwrites generated copies by design, so a hand-edit to a generated file is undone at the next refresh. Variants to recognize:
 
 - **Refresh reports a malformed provider settings file.** Something else edited the file into a state discern won't rewrite blindly. Repair the named file, then run `discern refresh` again.
-- **A setup or upgrade finished with a partial instruction refresh.** The result says so explicitly, keeps every completed effect, and marks the retry safe: run `discern refresh`, confirm the failures cleared, and don't infer completion from the absence of a warning — the result's own status is the fact.
+- **A setup or upgrade finished with a partial instruction refresh.** The result says so explicitly, keeps every completed effect, and marks the retry safe. Run `discern refresh` and confirm the failures cleared. Don't infer completion from the absence of a warning; the result's own status is the fact.
 
 ## The tools don't appear in the agent's session
 
@@ -104,4 +104,4 @@ Integration files on disk prove generation, not activation — a provider reads 
 
 ## When to stop
 
-Stop when the next step is consent rather than repair: setup's effects, its landing, and a worktree step's `running` resolution all wait for a person by design, and no retry substitutes for the confirmation. Stop as well when the blocker lives outside discern (provider trust approval, filesystem ownership, a corporate shell profile) and fix it at its owner. And a failure that names no next step at all is a bug worth reporting: [Crashes and local state](crashes-and-local-state.md) shows what to capture.
+Stop when the next step is consent rather than repair. Setup's effects, its landing, and a worktree step's `running` resolution all wait for a person by design, and no retry substitutes for the confirmation. Stop as well when the blocker lives outside discern (provider trust approval, filesystem ownership, a corporate shell profile) and fix it at its owner. And a failure that names no next step at all is a bug worth reporting: [Crashes and local state](crashes-and-local-state.md) shows what to capture.

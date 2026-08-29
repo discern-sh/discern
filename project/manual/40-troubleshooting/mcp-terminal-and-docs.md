@@ -22,7 +22,7 @@ redirect_from:
 
 # MCP, terminal, and docs
 
-The agent surface and the reading surfaces are built to degrade politely: a tool call that can't finish returns a continuation instead of failing, a missing tool always has a command-line twin, and a broken pager falls back to plain output. So when something here looks wrong, the question is rarely "how do I force it" and almost always "which designed fallback applies." That keeps you working — and keeps the agent from inventing polling loops or retry counts that the product already made unnecessary.
+The agent surface and the reading surfaces are built to degrade politely. A tool call that can't finish returns a continuation instead of failing, a missing tool always has a command-line twin, and a broken pager falls back to plain output. So when something here looks wrong, the right question is rarely "how do I force it". It's "which designed fallback applies". That keeps you working, and it keeps the agent from inventing polling loops or retry counts the product already made unnecessary.
 
 ## The discern tools are missing from the session
 
@@ -50,7 +50,7 @@ The command-line result names its own form: `discern await --resume C1-BKJD-X4GQ
 Neighboring states are commonly confused with this one:
 
 - **A refusal (`ok: false`) has no continuation.** The watch as posed can't be answered — a branch name that doesn't resolve, a green watch on a worktree that's gone. Follow the refusal's recovery instead of resuming; [Wait for another task](../10-guides/wait-for-another-task.md#handle-a-refusal) covers the cases.
-- **A slow call is not a stuck call.** discern sizes each generated tool's window to the provider's transport limits, reserving room to deliver the result — most providers get a call windowed a little under an hour; one strict surface is capped at seconds and leans on continuations instead. The exact per-provider durations and the timeout policy live in [MCP and results](../30-reference/mcp-and-results.md) and [Platforms and providers](../30-reference/platforms-and-providers.md).
+- **A slow call is not a stuck call.** discern sizes each generated tool's window to the provider's transport limits, reserving room to deliver the result. Most providers get a call windowed a little under an hour; one strict surface is capped at seconds and leans on continuations instead. The exact per-provider durations and the timeout policy live in [MCP and results](../30-reference/mcp-and-results.md) and [Platforms and providers](../30-reference/platforms-and-providers.md).
 
 ## A docs or map target won't resolve
 
