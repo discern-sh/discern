@@ -487,6 +487,8 @@ Deno.test("a fresh branch wait recovers accepted work after branch cleanup", asy
       const options of [
         { green: "agent/dep" },
         { landed: "agent/dep" },
+        { green: "dep" },
+        { landed: "dep" },
       ] satisfies AwaitOptions[]
     ) {
       const recovered = await awaitResult(dir, {

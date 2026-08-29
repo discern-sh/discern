@@ -242,8 +242,8 @@ Deno.test("delegate-work keeps dispatch consent and staged dependency contracts"
         "one short programme slug — one word for the whole effort",
       ],
       [
-        "dependent briefs use the exact returned branch",
-        "capture A's exact returned branch",
+        "dependent briefs use an exact returned worktree selector",
+        "capture A's exact returned worktree id and branch",
       ],
       [
         "green composition follows an immutable observed commit",
@@ -255,7 +255,7 @@ Deno.test("delegate-work keeps dispatch consent and staged dependency contracts"
       ],
       [
         "dependent briefs carry the facts needed to wait",
-        "Name the exact returned branch, the readiness condition, and the composition move from §2",
+        "Name an exact returned worktree selector, retain the returned branch for post-cleanup landing watches",
       ],
       [
         "the bundled await skill owns the wait procedure",

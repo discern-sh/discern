@@ -19,15 +19,15 @@ _Hold a call for the work you need. If the transport must return first, continue
 
 Pass one condition per call:
 
-| Condition           | Holds when                                                                                                | Grounded in             |
-| ------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `--green <branch>`  | The worktree holds a valid Gate Proof, or a landed Proof note records acceptance.                         | Gate and landing Proofs |
-| `--landed <branch>` | The branch has work and its latest observed tip is reachable from the trunk.                              | Git ancestry            |
-| `--trunk-moved`     | The trunk ref differs from its position when the watch began. Any trunk move satisfies this broad signal. | The trunk ref itself    |
+| Condition             | Holds when                                                                                                | Grounded in             |
+| --------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `--green <worktree>`  | The worktree holds a valid Gate Proof, or a landed Proof note records acceptance.                         | Gate and landing Proofs |
+| `--landed <worktree>` | The selected branch has work and its latest observed tip is reachable from the trunk.                     | Git ancestry            |
+| `--trunk-moved`       | The trunk ref differs from its position when the watch began. Any trunk move satisfies this broad signal. | The trunk ref itself    |
 
 Verdicts come from the state named in the table. The Logbook wakes the wait but never decides the condition ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). A separate decision records the original condition contract ([ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
 
-Start a branch watch while it exists. `--landed` retains its observed tip, so an active watch survives branch deletion. After cleanup, a new call can recover accepted work from its trunk Proof note. Without one, it refuses.
+Select a live sibling by its exact worktree id, path, local branch, or full local ref. These forms resolve to the same registered line of work; an ambiguous token refuses and asks for an absolute path or full ref. Display titles are not identity. Start a branch watch while it exists. `--landed` retains its observed tip, so an active watch survives branch deletion. After cleanup, a new call can recover accepted work when given the exact branch recorded in its trunk Proof note. Without one, it refuses ([ADR 0359](../_adr/0359-worktree-targets-share-one-resolution-contract.md)).
 
 Use `--green` for work in flight and `--landed` when only arrival matters. `--green` does not treat a freshly forked branch's reachable tip as Gate evidence. If that branch commits and lands between evaluations, its durable Proof note identifies the validated work after cleanup.
 
@@ -67,7 +67,7 @@ discern await --landed agent/upload-retry
 
 ## Compose the dependency
 
-The landing model's pull axis makes `await` the coordination half of multi-wave work ([ADR 0110](../_adr/0110-the-landing-model.md)). Resolve the sibling's exact branch from `discern start` or `discern status`. Human-friendly names gain a collision-resistant suffix.
+The landing model's pull axis makes `await` the coordination half of multi-wave work ([ADR 0110](../_adr/0110-the-landing-model.md)). Resolve an exact stable selector from `discern start` or `discern status`. Human-friendly display titles are not selectors; generated ids and branches gain a collision-resistant suffix.
 
 If the dependent already has a worktree, wait from that checkout:
 
@@ -83,17 +83,18 @@ discern await --green agent/upload-retry-a1b2c3
 
 Follow the returned met hint. A live green Proof uses its immutable commit with `update --from` in an existing worktree or `start --from` on main, so later branch deletion cannot race the composition. Green satisfied by a landing uses the trunk. Landing and trunk-move hints choose plain `update` in a worktree or `start` on main. A met landing also previews files changed by both branches.
 
-The bundled [`discern-await-the-fleet`](../45-skills/bundled-skills.md) Skill packages this procedure for coding agents: condition choice, exact-branch resolution, an uninterrupted wait, and the composition step. A staged brief names the Skill instead of restating the contract.
+The bundled [`discern-await-the-fleet`](../45-skills/bundled-skills.md) Skill packages this procedure for coding agents: condition choice, exact worktree selection, an uninterrupted wait, and the composition step. A staged brief names the Skill instead of restating the contract.
 
 ## Where it lives in code
 
-| Responsibility                      | Source                                                                            |
-| ----------------------------------- | --------------------------------------------------------------------------------- |
-| Conditions and waiting              | [`src/engine/await/await.ts`](../../../src/engine/await/await.ts)                 |
-| Short-handle grammar                | [`src/shared/continuation_handle.ts`](../../../src/shared/continuation_handle.ts) |
-| Repository-local continuation state | [`src/engine/continuations/store.ts`](../../../src/engine/continuations/store.ts) |
-| Provider timeout capabilities       | [`src/shared/mcp_timeout_policy.ts`](../../../src/shared/mcp_timeout_policy.ts)   |
-| Behavioral coverage                 | [`tests/engine_await_test.ts`](../../../tests/engine_await_test.ts)               |
+| Responsibility                      | Source                                                                                          |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Conditions and waiting              | [`src/engine/await/await.ts`](../../../src/engine/await/await.ts)                               |
+| Worktree target resolution          | [`src/engine/worktree/target_resolution.ts`](../../../src/engine/worktree/target_resolution.ts) |
+| Short-handle grammar                | [`src/shared/continuation_handle.ts`](../../../src/shared/continuation_handle.ts)               |
+| Repository-local continuation state | [`src/engine/continuations/store.ts`](../../../src/engine/continuations/store.ts)               |
+| Provider timeout capabilities       | [`src/shared/mcp_timeout_policy.ts`](../../../src/shared/mcp_timeout_policy.ts)                 |
+| Behavioral coverage                 | [`tests/engine_await_test.ts`](../../../tests/engine_await_test.ts)                             |
 
 ## Current state and gotchas
 

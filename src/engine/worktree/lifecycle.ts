@@ -286,6 +286,10 @@ import {
 } from "./parked_task_metadata.ts";
 import { buildRemovalPlan } from "./removal_plan.ts";
 import { worktreeParkResult } from "./park.ts";
+import {
+  resolveWorktreeTarget,
+  WorktreeTargetError,
+} from "./target_resolution.ts";
 export { worktreeParkPlan } from "./park.ts";
 
 // worktree setup recompiles the agent instructions as its final step — which also
@@ -4178,8 +4182,8 @@ function narrateIntegration(
  * exists for an integration that may proceed) and resolves the branch name + gap
  * read-only, so building a plan — and `--dry-run` — never mutates. The source is
  * the trunk by default; `from` pulls any ref instead (resolved through the same
- * {@link resolveCommitRef} as `start --from`, refusing an unknown or ambiguous
- * name in plain language).
+ * shared worktree-target resolver as `start --from`, refusing an unknown or
+ * ambiguous source in plain language).
  */
 async function buildUpdatePlan(
   ctx: LifecycleContext,
@@ -4195,8 +4199,12 @@ async function buildUpdatePlan(
   const refreshCompiledPaths = await updateRefreshCompiledPaths(ctx);
 
   if (from !== undefined && from.trim() !== "") {
-    const source = from.trim();
-    await resolveCommitRef(ctx.cwd, source); // refuses unknown/ambiguous
+    const resolved = await resolveWorktreeTarget(ctx.root, from, {
+      cwd: ctx.cwd,
+      mode: "commit",
+      command: "discern update --from",
+    });
+    const source = resolved.ref;
     const state = await refMergedState(ctx.cwd, source);
     return {
       source,
@@ -5083,20 +5091,32 @@ export async function mintFreeWorktree(
 /**
  * Resolve the ref a `discern start` forks from — the pull-side entry point of the
  * landing model. `from` (when given) may be any branch, tag, or commit, verified
- * through the shared {@link resolveCommitRef}; absent, the TRUNK is used
- * explicitly — never the main checkout's HEAD, so a main checkout parked on some
- * other branch can't poison a new worktree with that branch's commits. Refuses an
- * unborn repo ("make your first commit first") and a missing trunk in plain
- * language.
+ * through the shared worktree-target resolver; absent, the TRUNK is used
+ * explicitly — never the main checkout's HEAD, so a main checkout parked on
+ * some other branch can't poison a new worktree with that branch's commits.
+ * Refuses an unborn repo ("make your first commit first") and a missing trunk
+ * in plain language.
  */
 async function resolveStartPoint(
   ctx: LifecycleContext,
   from: string | undefined,
-): Promise<{ ref: string; commit: string }> {
+): Promise<{ ref: string; commit: string; branch?: string }> {
   if (from !== undefined && from.trim() !== "") {
-    const ref = from.trim();
-    const commit = await resolveCommitRef(ctx.root, ref);
-    return { ref, commit };
+    const resolved = await resolveWorktreeTarget(ctx.root, from, {
+      cwd: ctx.root,
+      mode: "commit",
+      command: "discern start --from",
+    });
+    if (resolved.commit === undefined) {
+      throw new WorktreeGitError(
+        "discern start --from could not read the selected commit. Run `discern status`, repair the selected worktree or ref, then re-run.",
+      );
+    }
+    return {
+      ref: resolved.ref,
+      commit: resolved.commit,
+      ...(resolved.branch === undefined ? {} : { branch: resolved.branch }),
+    };
   }
   // The trunk is all a default start needs — the main checkout's HEAD may be
   // parked anywhere, detached, or even unborn (an orphan branch): the worktree
@@ -5178,14 +5198,14 @@ export async function buildStartPlan(
   await assertProjectRootIsRepoToplevel(ctx, "start");
   const startPoint = await resolveStartPoint(ctx, opts.from);
   let parked: ParkedTaskMetadata | undefined;
-  if (opts.from !== undefined) {
+  if (startPoint.branch !== undefined) {
     try {
-      parked = await readParkedTaskMetadata(ctx.root, opts.from);
+      parked = await readParkedTaskMetadata(ctx.root, startPoint.branch);
     } catch (error) {
       throw new WorktreeGitError(
-        `Start could not read retained Park metadata for ${opts.from}: ${
+        `Start could not read retained Park metadata for ${startPoint.branch}: ${
           error instanceof Error ? error.message : String(error)
-        } Run \`discern doctor\`, repair the metadata store, then re-run \`discern start --from ${opts.from}\`.`,
+        } Run \`discern doctor\`, repair the metadata store, then re-run \`discern start --from ${startPoint.ref}\`.`,
         { cause: error },
       );
     }
@@ -5225,7 +5245,7 @@ export async function buildStartPlan(
     schema_version: TASK_METADATA_SCHEMA_VERSION,
     title,
     ...(suppliedBrief === undefined ? {} : { brief: suppliedBrief }),
-    created_from: startPoint,
+    created_from: { ref: startPoint.ref, commit: startPoint.commit },
   };
   const resources = readResourceSpecs(ctx.config).map((resource) => ({
     name: resource.name,
@@ -6605,9 +6625,10 @@ export async function identityField(
   root: string,
   field: WorktreeField,
   target: string = Deno.cwd(),
+  processCwd: string = Deno.cwd(),
 ): Promise<string> {
   const settings = await loadIdentitySettings(root);
-  const identity = await resolveIdentity(root, target);
+  const identity = await resolveTargetIdentity(root, target, processCwd);
   // No `default`: the switch is total over WorktreeField, so a field added to
   // WORKTREE_FIELDS makes this fail `deno check` ("not all code paths return") until
   // it is handled here — the compile-time tie back to the SSOT.
@@ -6638,9 +6659,10 @@ export async function identityResourceHandle(
   root: string,
   name: string,
   target: string = Deno.cwd(),
+  processCwd: string = Deno.cwd(),
 ): Promise<string> {
   const settings = await loadIdentitySettings(root);
-  const identity = await resolveIdentity(root, target);
+  const identity = await resolveTargetIdentity(root, target, processCwd);
   return resourceForId(settings.slug, identity.id, name);
 }
 
@@ -6652,9 +6674,10 @@ export async function identityResourceHandle(
 export async function identityResources(
   root: string,
   target: string = Deno.cwd(),
+  processCwd: string = Deno.cwd(),
 ): Promise<Record<string, string>> {
   const settings = await loadIdentitySettings(root);
-  const identity = await resolveIdentity(root, target);
+  const identity = await resolveTargetIdentity(root, target, processCwd);
   const config = await loadConfig(root);
   return Object.fromEntries(
     readResourceSpecs(config).map((spec) => [
@@ -6662,6 +6685,33 @@ export async function identityResources(
       resourceForId(settings.slug, identity.id, spec.name),
     ]),
   );
+}
+
+/** Resolve the identity command's id/path/branch/ref target to one checkout. */
+async function resolveTargetIdentity(
+  root: string,
+  target: string,
+  processCwd: string,
+): Promise<WorktreeIdentity> {
+  try {
+    const resolved = await resolveWorktreeTarget(root, target, {
+      cwd: processCwd,
+      mode: "registered",
+      includeMain: true,
+      command: "discern identity",
+    });
+    if (resolved.path === undefined) {
+      throw new IdentityError(
+        "discern identity could not read the selected worktree path.",
+      );
+    }
+    return await resolveIdentity(root, resolved.path);
+  } catch (error) {
+    if (error instanceof WorktreeTargetError) {
+      throw new IdentityError(error.message, 1, { cause: error });
+    }
+    throw error;
+  }
 }
 
 export { IdentityError, WorktreeGitError };

@@ -17,7 +17,7 @@ Moving a checkout preserves its identity ([ADR 0025](../_adr/0025-worktree-resou
 
 ## Read the derived identity
 
-Run `discern identity` in the main checkout or a linked worktree and select the value you need:
+Run `discern identity` in the main checkout or a linked worktree and select the value you need. To inspect another registered checkout, pass its exact worktree id, path, local branch, or full local ref as the positional argument. Ambiguous selectors refuse instead of choosing by fleet order ([ADR 0359](../_adr/0359-worktree-targets-share-one-resolution-contract.md)).
 
 | Selector            | Value                                                                                 |
 | ------------------- | ------------------------------------------------------------------------------------- |
@@ -68,6 +68,7 @@ Resource and setup commands receive `@worktree@`, `@db@`, `@site@`, `@port@`, `@
 | Responsibility                        | Source                                                                                                  |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Identity derivation and id resolution | [`src/engine/worktree/identity.ts`](../../../src/engine/worktree/identity.ts)                           |
+| Worktree target resolution            | [`src/engine/worktree/target_resolution.ts`](../../../src/engine/worktree/target_resolution.ts)         |
 | Human task metadata schema            | [`src/shared/task_metadata.ts`](../../../src/shared/task_metadata.ts)                                   |
 | Worktree-local metadata store         | [`src/engine/worktree/task_metadata.ts`](../../../src/engine/worktree/task_metadata.ts)                 |
 | Destructive ownership predicate       | [`src/engine/worktree/ownership.ts`](../../../src/engine/worktree/ownership.ts)                         |

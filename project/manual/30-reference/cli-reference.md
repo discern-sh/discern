@@ -263,7 +263,7 @@ Usage: `discern start [options]`
 | `--name <name>`   | Set the task title and seed its worktree id. discern preserves this text as the title and normalizes the id. Omit for a random codename. |
 | `--title <title>` | Set the display title separately from --name. With no --name, the title also seeds the worktree id.                                      |
 | `--brief <brief>` | Store an optional one-line brief for task detail and agent handoff.                                                                      |
-| `--from <ref>`    | Branch the new worktree from this ref (a branch, tag, or commit). Omit it to start from the trunk.                                       |
+| `--from <source>` | Branch the new worktree from a ref or an unambiguous worktree id or path. Omit it to start from the trunk.                               |
 
 ### `discern update`
 
@@ -271,11 +271,11 @@ Update this branch: merge the trunk's latest into this branch and re-run generat
 
 Usage: `discern update [options]`
 
-| Option         | Description                                                                                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--json`       | Emit one JSON result on stdout.                                                                                                                                    |
-| `--dry-run`    | Show the update plan; touch nothing.                                                                                                                               |
-| `--from <ref>` | Pull this ref (a branch, tag, or commit) into the worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call. |
+| Option            | Description                                                                                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`          | Emit one JSON result on stdout.                                                                                                                                             |
+| `--dry-run`       | Show the update plan; touch nothing.                                                                                                                                        |
+| `--from <source>` | Pull a ref or an unambiguous worktree id or path into this worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call. |
 
 ### `discern await`
 
@@ -283,14 +283,14 @@ Block until a fleet condition holds: a sibling branch is green (its worktree hol
 
 Usage: `discern await [options]`
 
-| Option                | Description                                                                                                            |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `--json`              | Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).                                           |
-| `--green <branch>`    | Wait until this branch's worktree holds an honored gate proof (a landing also satisfies it).                           |
-| `--landed <branch>`   | Wait until this branch has work and its latest observed tip reaches the trunk.                                         |
-| `--trunk-moved`       | Wait until the trunk ref moves from its position at call start.                                                        |
-| `--resume <handle>`   | Continue a previous not-met wait without resetting its pinned state; pass no condition flag with it.                   |
-| `--timeout <seconds>` | Seconds before answering "not yet". Omit to wait once for up to 3300s; the condition returns early, and 0 checks once. |
+| Option                | Description                                                                                                                                                |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`              | Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).                                                                               |
+| `--green <worktree>`  | Select a sibling by worktree id, path, local branch, or full local ref; wait until its checkout holds an honored gate proof (a landing also satisfies it). |
+| `--landed <worktree>` | Select a sibling by worktree id, path, local branch, or full local ref; wait until its work reaches the trunk.                                             |
+| `--trunk-moved`       | Wait until the trunk ref moves from its position at call start.                                                                                            |
+| `--resume <handle>`   | Continue a previous not-met wait without resetting its pinned state; pass no condition flag with it.                                                       |
+| `--timeout <seconds>` | Seconds before answering "not yet". Omit to wait once for up to 3300s; the condition returns early, and 0 checks once.                                     |
 
 ### `discern accept`
 
@@ -356,9 +356,9 @@ Usage: `discern worktree teardown [options]`
 
 #### `discern worktree park`
 
-Remove a clean task checkout and its resources while retaining its branch and task wording for resume.
+Remove a clean task checkout and its resources while retaining its branch and task wording for resume. Select it by worktree id, path, local branch, or full local ref.
 
-Usage: `discern worktree park <target> [options]`
+Usage: `discern worktree park <worktree> [options]`
 
 | Option      | Description                                               |
 | ----------- | --------------------------------------------------------- |
@@ -367,9 +367,9 @@ Usage: `discern worktree park <target> [options]`
 
 #### `discern worktree drop`
 
-Discard a worktree from the main checkout: tear down its resources, remove it, and delete its branch. Protects uncommitted work and commits not on the trunk, the shared landing branch, unless --force is set.
+Discard a worktree from the main checkout: tear down its resources, remove it, and delete its branch. Protects uncommitted work and commits not on the trunk, the shared landing branch, unless --force is set. Select it by worktree id, path, local branch, or full local ref.
 
-Usage: `discern worktree drop <target> [options]`
+Usage: `discern worktree drop <worktree> [options]`
 
 | Option      | Description                                                                           |
 | ----------- | ------------------------------------------------------------------------------------- |
@@ -394,7 +394,7 @@ Usage: `discern worktree prune [options]`
 
 Print stable values that keep each checkout's branch, development host, port, database, and external resources separate.
 
-Usage: `discern identity [path] [options]`
+Usage: `discern identity [worktree] [options]`
 
 | Option              | Description                                                                  |
 | ------------------- | ---------------------------------------------------------------------------- |

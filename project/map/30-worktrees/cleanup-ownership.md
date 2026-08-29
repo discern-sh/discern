@@ -18,7 +18,7 @@ Automatic cleanup starts from positive evidence attached to one discern lifecycl
 
 A fully merged branch is not owned merely because deletion would preserve its commits. A similar name, a configured-prefix name without identity evidence, a checkout-local identity override, or a directory beneath the worktree parent also grants nothing. Prune can show such refs as Git context, but its actionable plan keeps them. Dry-run and apply use the same ownership rule, and apply checks the evidence again before acting.
 
-An explicit `discern worktree drop <id|path>` can remove a foreign checkout a person selected. It keeps a branch that discern cannot prove it owns. Merge status, cleanliness, containment, locks, and current worktree use remain independent safety checks; none can replace ownership.
+An explicit `discern worktree drop <worktree>` can select a foreign checkout by exact id, path, local branch, or full local ref. It keeps a branch that discern cannot prove it owns. Merge status, cleanliness, containment, locks, and current worktree use remain independent safety checks; none can replace ownership.
 
 ## Prove absence before reporting success
 

@@ -714,12 +714,12 @@ export function attachEngineCommands(
       "Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).",
     )
     .option(
-      "--green <branch:string>",
-      "Wait until this branch's worktree holds an honored gate proof (a landing also satisfies it).",
+      "--green <worktree:string>",
+      "Select a sibling by worktree id, path, local branch, or full local ref; wait until its checkout holds an honored gate proof (a landing also satisfies it).",
     )
     .option(
-      "--landed <branch:string>",
-      "Wait until this branch has work and its latest observed tip reaches the trunk.",
+      "--landed <worktree:string>",
+      "Select a sibling by worktree id, path, local branch, or full local ref; wait until its work reaches the trunk.",
     )
     .option(
       "--trunk-moved",
@@ -938,8 +938,8 @@ export function attachEngineCommands(
       "Store an optional one-line brief for task detail and agent handoff.",
     )
     .option(
-      "--from <ref:string>",
-      "Branch the new worktree from this ref (a branch, tag, or commit). Omit it to start from the trunk.",
+      "--from <source:string>",
+      "Branch the new worktree from a ref or an unambiguous worktree id or path. Omit it to start from the trunk.",
     )
     .action(recordedExit("start", async (o) => {
       const json = o.json ?? false;
@@ -1029,8 +1029,8 @@ export function attachEngineCommands(
     )
     .option("--dry-run", "Show the update plan; touch nothing.")
     .option(
-      "--from <ref:string>",
-      "Pull this ref (a branch, tag, or commit) into the worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call.",
+      "--from <source:string>",
+      "Pull a ref or an unambiguous worktree id or path into this worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call.",
     )
     .action(recordedExit("update", async (o) => {
       const json = o.json ?? false;
@@ -1073,11 +1073,11 @@ export function attachEngineCommands(
       "--json",
       "Emit the selected identity value as a JSON DiscernResult envelope on stdout.",
     )
-    .arguments("[path:string]")
-    .action(recordedExit("identity", async (o, path) => {
+    .arguments("[worktree:string]")
+    .action(recordedExit("identity", async (o, worktree) => {
       const json = o.json ?? false;
       const root = await requireRoot("identity", json);
-      const target = path ?? Deno.cwd();
+      const target = worktree ?? Deno.cwd();
       const {
         identityField,
         identityResourceHandle,
@@ -1326,14 +1326,14 @@ export function attachEngineCommands(
       "park",
       new Command()
         .description(
-          "Remove a clean task checkout and its resources while retaining its branch and task wording for resume.",
+          "Remove a clean task checkout and its resources while retaining its branch and task wording for resume. Select it by worktree id, path, local branch, or full local ref.",
         )
         .option("--dry-run", "Show the Park plan; touch nothing.")
         .option(
           "--json",
           "Emit the result as a JSON DiscernResult object on stdout.",
         )
-        .arguments("<target:string>")
+        .arguments("<worktree:string>")
         .action(recordedExit("worktree park", async (o, target) => {
           const json = o.json ?? false;
           return await runWorktreeOp(
@@ -1352,7 +1352,8 @@ export function attachEngineCommands(
         .description(
           "Discard a worktree from the main checkout: tear down its resources, remove " +
             "it, and delete its branch. Protects uncommitted work and commits not on " +
-            "the trunk, the shared landing branch, unless --force is set.",
+            "the trunk, the shared landing branch, unless --force is set. Select it by " +
+            "worktree id, path, local branch, or full local ref.",
         )
         .option(
           "--force",
@@ -1363,7 +1364,7 @@ export function attachEngineCommands(
           "--json",
           "Emit the result as a JSON DiscernResult object on stdout.",
         )
-        .arguments("<target:string>")
+        .arguments("<worktree:string>")
         .action(recordedExit("worktree drop", async (o, target) => {
           const json = o.json ?? false;
           return await runWorktreeOp(

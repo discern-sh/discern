@@ -4,9 +4,9 @@
  * waiting instead of guessing at poll intervals.
  *
  * Three conditions, one per call:
- *  - `--green <branch>` — the branch's worktree holds an honored gate proof
+ *  - `--green <worktree>` — the selected worktree holds an honored gate proof
  *    (or a durable proof note proves its work landed);
- *  - `--landed <branch>` — the branch's work is reachable from the trunk. The
+ *  - `--landed <worktree>` — the selected branch's work is reachable from the trunk. The
  *    freshest observed tip follows the live branch, then outlives the ref when
  *    acceptance deletes it;
  *  - `--trunk-moved` — the trunk ref differs from its position at call start.
@@ -76,6 +76,11 @@ import {
   type LandedProofNote,
 } from "../gate/proof_notes.ts";
 import { nearestContainingBranch } from "../worktree/containment.ts";
+import {
+  conventionalBranchForWorktreeId,
+  resolveWorktreeTarget,
+  WorktreeTargetError,
+} from "../worktree/target_resolution.ts";
 import { logbookDir } from "../logbook/store.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import {
@@ -552,7 +557,7 @@ export async function awaitResult(
   ) {
     return refusal(
       "invalid_arguments",
-      "Pass exactly one condition (--green <branch>, --landed <branch>, or --trunk-moved), or pass --resume by itself.",
+      "Pass exactly one condition (--green <worktree>, --landed <worktree>, or --trunk-moved), or pass --resume by itself.",
       failureRecoveryHintTexts("await"),
     );
   }
@@ -671,23 +676,71 @@ export async function awaitResult(
   // A fresh branch condition seeds the branch state. Evaluations follow its
   // tip while the ref lives; a continuation restores the last observation
   // after acceptance may have deleted that ref.
-  const branch = resumed?.branch ??
+  let branch = resumed?.branch ??
     (condition === "green" ? opts.green : opts.landed);
+  const suppliedBranch = branch;
   let tip: string | undefined;
   let recoveredLanding: LandedProofNote | undefined;
   if (resumed !== undefined) {
     tip = resumed.tip;
   } else if (branch !== undefined) {
     try {
+      const resolved = await resolveWorktreeTarget(root, branch, {
+        cwd: root,
+        mode: "branch",
+        command: "discern await",
+      });
+      branch = resolved.branch;
+      tip = resolved.commit;
+    } catch (error) {
+      if (error instanceof WorktreeTargetError) {
+        return refusal(
+          "invalid_arguments",
+          error.message,
+          failureRecoveryHintTexts("await"),
+        );
+      }
+      throw error;
+    }
+  }
+  if (resumed === undefined && branch !== undefined && tip === undefined) {
+    try {
       tip = await resolveCommitRef(root, `refs/heads/${branch}`);
     } catch {
       // Acceptance can remove the ref between the caller choosing it and this
       // first read. Its durable note is the only branch-bound recovery.
-      recoveredLanding = await findLatestLandedProofNoteForBranch(
-        root,
-        branch,
-        trunk,
-      );
+      const conventional = suppliedBranch === undefined
+        ? undefined
+        : await conventionalBranchForWorktreeId(root, suppliedBranch);
+      const proofBranches = [
+        ...new Set([
+          branch,
+          ...(conventional === undefined ? [] : [conventional]),
+        ]),
+      ];
+      const recovered =
+        (await Promise.all(proofBranches.map(async (candidate) => ({
+          branch: candidate,
+          note: await findLatestLandedProofNoteForBranch(
+            root,
+            candidate,
+            trunk,
+          ),
+        })))).filter((candidate) => candidate.note !== undefined);
+      if (recovered.length > 1) {
+        return refusal(
+          "invalid_arguments",
+          `'${suppliedBranch}' identifies accepted work for more than one branch (${
+            recovered.map((candidate) => candidate.branch).join(" and ")
+          }). Pass the intended full local branch ref, then re-run discern await.`,
+          failureRecoveryHintTexts("await"),
+        );
+      }
+      const recoveredMatch = recovered[0];
+      if (recoveredMatch !== undefined) {
+        branch = recoveredMatch.branch;
+        recoveredLanding = recoveredMatch.note;
+      }
       if (recoveredLanding === undefined) {
         return refusal(
           "not_found",

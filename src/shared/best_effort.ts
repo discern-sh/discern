@@ -793,16 +793,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "Drop can still match canonical paths and basenames, while identity matching is omitted instead of guessing from invalid configuration.",
   },
-  "lifecycle-drop-row-identity-fallback": {
-    path: "src/engine/worktree/removal_plan.ts",
-    enclosingFunction: "buildRemovalPlan",
-    operation: "omit one worktree from identity-based drop matching",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "An unreadable row identity cannot safely authorize a destructive match, while path and basename matches remain available.",
-  },
   "lifecycle-live-port-identity-fallback": {
     path: "src/engine/worktree/lifecycle.ts",
     enclosingFunction: "livePortsInUse",

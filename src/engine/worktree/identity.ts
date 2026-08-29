@@ -118,8 +118,8 @@ export interface IdentitySettings {
 export class IdentityError extends Error {
   /** The process-style exit code for this failure (1 or 2). */
   readonly code: number;
-  constructor(message: string, code = 1) {
-    super(message);
+  constructor(message: string, code = 1, options?: ErrorOptions) {
+    super(message, options);
     this.name = "IdentityError";
     this.code = code;
   }
@@ -208,14 +208,20 @@ export function resourceForId(slug: string, id: string, name: string): string {
  * it to a slug. Throws an `IdentityError` (exit 1) on an invalid value.
  */
 export function validateOverrideId(raw: string): string {
-  if (!OVERRIDE_ID_RE.test(raw)) {
+  const normalized = normalizeWorktreeId(raw);
+  if (normalized === undefined) {
     throw new IdentityError(
       `${DISCERN_ENVIRONMENT_VARIABLES.worktreeId} '${raw}' is invalid. ` +
         `Use only letters, numbers, dots, dashes, or underscores, then re-run ` +
         "`discern identity`.",
     );
   }
-  return sanitizeSlug(raw);
+  return normalized;
+}
+
+/** Normalize a syntactically valid explicit worktree id, or return undefined. */
+export function normalizeWorktreeId(raw: string): string | undefined {
+  return OVERRIDE_ID_RE.test(raw) ? sanitizeSlug(raw) : undefined;
 }
 
 /**

@@ -344,6 +344,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0356 — Task metadata follows the worktree identity](0356-task-metadata-follows-the-worktree-identity.md)
 - [0357 — Lock-boundary evidence retires superseded Logbook starts](0357-lock-boundary-evidence-retires-superseded-logbook-starts.md)
 - [0358 — Recovery observes before repair and Park preserves the branch](0358-recovery-observes-before-repair-and-park-preserves-the-branch.md)
+- [0359 — Worktree targets share one resolution contract](0359-worktree-targets-share-one-resolution-contract.md)
 
 <!-- END GENERATED: current ADR records -->
 

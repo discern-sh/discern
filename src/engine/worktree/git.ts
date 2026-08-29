@@ -1760,13 +1760,41 @@ async function matchingRefs(cwd: string, name: string): Promise<string[]> {
   return patterns.filter((p) => refs.has(p));
 }
 
+/** Read-only commit-ref resolution before a product surface chooses its error. */
+export type CommitRefResolution =
+  | { readonly kind: "resolved"; readonly ref: string; readonly commit: string }
+  | { readonly kind: "ambiguous"; readonly candidates: readonly string[] }
+  | { readonly kind: "unknown"; readonly evidence: string };
+
+/**
+ * Inspect a Git commit-ish without choosing product copy. This is the shared
+ * evidence boundary for ordinary refs and worktree aliases: callers can combine
+ * both candidate sets before deciding whether a token is unambiguous.
+ */
+export async function inspectCommitRef(
+  cwd: string,
+  ref: string,
+): Promise<CommitRefResolution> {
+  const candidates = await matchingRefs(cwd, ref);
+  if (candidates.length > 1) return { kind: "ambiguous", candidates };
+  const target = candidates.length === 1 && candidates[0] !== undefined
+    ? candidates[0]
+    : ref;
+  const run = await git(["rev-parse", "--verify", `${target}^{commit}`], cwd);
+  if (!run.success) {
+    return { kind: "unknown", evidence: run.stderr.trim() };
+  }
+  return { kind: "resolved", ref: target, commit: run.stdout.trim() };
+}
+
 /**
  * Resolve `ref` to a commit in the repo at `cwd`, refusing an unknown or
- * ambiguous name in plain language. The ONE resolver behind every ref a user
- * hands the worktree lifecycle (`start --from`, `update --from`), so the two
- * verbs can never accept different vocabularies. Returns the resolved commit
- * SHA (an annotated tag is peeled to the commit it tags); the caller usually
- * keeps using the NAME (better reflogs), this is the existence/ambiguity check.
+ * ambiguous name in plain language. The Git-ref authority beneath the shared
+ * worktree-target resolver; it keeps `start --from` and `update --from` aligned
+ * on branches, tags, commits, and revision expressions. Returns the resolved
+ * commit SHA (an annotated tag is peeled to the commit it tags); the caller
+ * usually keeps using the NAME (better reflogs), this is the
+ * existence/ambiguity check.
  *
  * Ambiguity is detected by enumerating the matching refs, never by reading
  * git's stderr: `rev-parse` resolves an ambiguous short name by precedence with
@@ -1782,29 +1810,22 @@ export async function resolveCommitRef(
       "A ref name is required. Pass a branch, tag, or commit, then re-run.",
     );
   }
-  const candidates = await matchingRefs(cwd, ref);
-  if (candidates.length > 1) {
+  const resolution = await inspectCommitRef(cwd, ref);
+  if (resolution.kind === "ambiguous") {
     throw new WorktreeGitError(
       `The ref '${ref}' is ambiguous — it names ${
-        candidates.join(" and ")
-      }. Pass the full name (e.g. ${candidates[0]}), then re-run.`,
+        resolution.candidates.join(" and ")
+      }. Pass the full name (e.g. ${resolution.candidates[0]}), then re-run.`,
     );
   }
-  // Exactly one ref matches → resolve that full name (no precedence in play);
-  // none → let rev-parse try the input as a revision (a SHA, `HEAD~2`, …).
-  const target = candidates.length === 1 && candidates[0] !== undefined
-    ? candidates[0]
-    : ref;
-  const run = await git(["rev-parse", "--verify", `${target}^{commit}`], cwd);
-  if (!run.success) {
-    const evidence = run.stderr.trim();
+  if (resolution.kind === "unknown") {
     throw new WorktreeGitError(
       `Unknown ref '${ref}' — it doesn't name a branch, tag, or commit in this repository. ` +
         `List local branches with \`git branch\`, choose one, then re-run.` +
-        (evidence === "" ? "" : `\n(git: ${evidence})`),
+        (resolution.evidence === "" ? "" : `\n(git: ${resolution.evidence})`),
     );
   }
-  return run.stdout.trim();
+  return resolution.commit;
 }
 
 /** Canonicalize a target that may already be gone (parent + basename fallback). */
@@ -2607,6 +2628,22 @@ export interface WorktreeRecord {
   prunable: boolean;
 }
 
+/** One canonical Git worktree registration, without reading its checkout. */
+export interface RegisteredWorktree {
+  /** Canonical worktree path. */
+  path: string;
+  /** Git lists the main checkout first. */
+  isMain: boolean;
+  /** The current local branch, or "" when detached. */
+  branch: string;
+  /** The full local branch ref, or "" when detached. */
+  ref: string;
+  /** Commit recorded by `git worktree list --porcelain`. */
+  head: string;
+  locked: boolean;
+  prunable: boolean;
+}
+
 /** Parse `git worktree list --porcelain` into records. */
 export function parseWorktreeList(porcelain: string): WorktreeRecord[] {
   const records: WorktreeRecord[] = [];
@@ -2645,6 +2682,31 @@ export function parseWorktreeList(porcelain: string): WorktreeRecord[] {
   }
   flush();
   return records;
+}
+
+/**
+ * Every Git worktree registration in this repository, canonicalized without
+ * opening the individual checkouts. Identity resolution, await, and lifecycle
+ * target matching share this cheap fleet boundary; status adds snapshots below.
+ */
+export async function listRegisteredWorktrees(
+  cwd: string,
+): Promise<RegisteredWorktree[]> {
+  const listRun = await git(["worktree", "list", "--porcelain"], cwd);
+  if (!listRun.success) return [];
+  return await Promise.all(
+    parseWorktreeList(listRun.stdout).map(async (record, index) => ({
+      path: await realPathOr(record.path),
+      isMain: index === 0,
+      branch: record.branch.startsWith("refs/heads/")
+        ? record.branch.slice("refs/heads/".length)
+        : record.branch,
+      ref: record.branch,
+      head: record.head,
+      locked: record.locked,
+      prunable: record.prunable,
+    })),
+  );
 }
 
 /**
@@ -2714,30 +2776,23 @@ export async function listWorktreeFleet(
   cwd: string,
   mainBranchFallback?: string,
 ): Promise<FleetWorktree[]> {
-  const listRun = await git(["worktree", "list", "--porcelain"], cwd);
-  if (!listRun.success) {
-    return [];
-  }
-  const records = parseWorktreeList(listRun.stdout);
+  const records = await listRegisteredWorktrees(cwd);
   // Each row's snapshot reads only its own checkout, so the whole fleet is
   // surveyed concurrently — the survey costs one worktree's reads, not the
   // fleet's sum.
-  return await Promise.all(records.map(async (rec, i) => {
+  return await Promise.all(records.map(async (rec) => {
     const inspected = await inspectGitSnapshot(rec.path, mainBranchFallback);
     const snap = inspected.kind === "available"
       ? inspected.snapshot
       : undefined;
-    const short = rec.branch.startsWith("refs/heads/")
-      ? rec.branch.slice("refs/heads/".length)
-      : rec.branch;
     return {
-      path: await realPathOr(rec.path),
-      isMain: i === 0,
+      path: rec.path,
+      isMain: rec.isMain,
       // The porcelain branch stays the fallback: an unreadable checkout's branch
       // ref is still knowable from the registration.
       branch: snap?.branch !== undefined && snap.branch !== ""
         ? snap.branch
-        : short,
+        : rec.branch,
       head: rec.head,
       locked: rec.locked,
       prunable: rec.prunable,

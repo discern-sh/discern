@@ -1010,7 +1010,7 @@
   # so a shared wrapper cannot hide unlimited new discards behind one call.
   [standards.silent_error_boundaries]
     direction = "down"
-    limit = 187
+    limit = 186
     run = "deno task silent-error-boundaries"
     inputs = [
       "*.ts",
