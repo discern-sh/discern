@@ -1,7 +1,7 @@
 ---
 id: start-index
 title: "Start"
-description: "Choose between evaluation, first success, and understanding the installed result."
+description: "Evaluate discern, take one repository to a first landed change, and understand what setup added."
 order: 0
 publish: true
 kind: tutorial
@@ -15,36 +15,16 @@ redirect_from:
 
 # Start
 
-Choose between evaluation, first success, and understanding the installed result.
+Everything here serves your first hours with discern: deciding whether it belongs in your project, reaching a first landed change, and understanding what you took on when you landed setup. Pick the page that matches where you are.
 
 ## In this section
 
-- [Evaluate discern](evaluate-discern.md): Decide whether discern's practice, local boundary, and authority model fit the project before installation.
-- [First success](first-success.md): Move one representative project from installation through setup, an isolated change, Gate evidence, review, and authorized landing.
-- [After setup](after-setup.md): Recognize what setup authored, shares, generates, and keeps outside the repository.
+- [Evaluate discern](evaluate-discern.md): you haven't installed anything yet. What discern changes, what it asks of you, where its boundary sits, and how it leaves, so you can decide without installing.
+- [First success](first-success.md): you're ready to try it. One repository from install through setup to a first real change, proved by the Gate, reviewed by you, and landed with your authority.
+- [After setup](after-setup.md): setup handed you a branch. What each file in that diff is for, who maintains it, and how to change it later.
 
-## Getting started
+You'll need a Git repository, a supported coding agent, and macOS, Linux, or Windows through WSL 2; [Platforms and providers](../30-reference/platforms-and-providers.md) has the specifics. discern itself is one self-contained binary, so the project needs no extra runtime for it.
 
-_Install discern, set up your repository, and take one real change through the project's final quality check (the Gate)._
+## After your first success
 
-You need a Git repository, a supported coding agent, and macOS, Linux, or WSL2. discern is a self-contained binary. The project does not need Deno or Node to run discern.
-
-Start with the [quickstart](first-success.md). It is the shortest path from installation to a reviewed change on your trunk. [Setup decisions](first-success.md) explains why the model choice matters and which later choices remain yours. The [walkthrough](first-success.md) then explains the branch, Gate, Proof, and review boundaries you encounter while an agent works.
-
-When you already know the outcome you need, open [Tasks by lifecycle](../10-guides/README.md). It routes installation, worktree, Gate, instructions, Skill, Standard, and handoff tasks to the page that owns each procedure.
-
-Setup leaves ordinary files on a branch for you to inspect. [What setup added](after-setup.md) explains that diff and names what you edit, what discern shares with you, and what it regenerates. If a command or agent integration fails, go to the [FAQ](../40-troubleshooting/README.md), which starts with the diagnostic command.
-
-When you return for a later release, follow [Upgrade discern](../10-guides/maintain-or-remove-discern.md). Updating the binary and updating the project are separate actions, and the guide keeps them in the right order.
-
-| Read next                                                       | What it helps you do                                                                    |
-| --------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| [Tasks by lifecycle](../10-guides/README.md)                    | Jump from an intended outcome to the page that owns its procedure.                      |
-| [Quickstart](first-success.md)                                  | Install, complete setup, and land your first gated change.                              |
-| [Setup decisions](first-success.md)                             | Choose the setup model and recognize the decisions that need your judgment.             |
-| [Walkthrough](first-success.md)                                 | Follow the same flow with each handoff and verification explained.                      |
-| [What setup added](after-setup.md)                              | Read the setup diff and know which files to edit.                                       |
-| [FAQ and troubleshooting](../40-troubleshooting/README.md)      | Diagnose setup, command, Model Context Protocol (MCP), platform, and worktree problems. |
-| [Upgrade discern](../10-guides/maintain-or-remove-discern.md)   | Update the binary, migrate the project, and verify the result.                          |
-| [Files & ownership](../30-reference/files-and-ownership.md)     | Look up the complete write surface and removal behavior.                                |
-| [`discern.toml` reference](../30-reference/config-reference.md) | Look up every configuration key, type, and default.                                     |
+The rest of the manual is organized by what you're doing. [Guides](../10-guides/README.md) hold the day-to-day procedures, starting with [Finish and land a change](../10-guides/finish-and-land-a-change.md). [Understand](../20-understand/README.md) builds the mental models behind them, starting with [Proof](../20-understand/proof.md). When a later release is out, [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md) keeps the binary upgrade and the project migration in the right order.

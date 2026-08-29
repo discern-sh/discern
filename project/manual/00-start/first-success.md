@@ -1,7 +1,7 @@
 ---
 id: start-first-success
 title: "First success"
-description: "Move one representative project from installation through setup, an isolated change, Gate evidence, review, and authorized landing."
+description: "Take one repository from installation through setup to a first real change: proved by the Gate, reviewed by you, and landed with your authority."
 order: 30
 publish: true
 kind: tutorial
@@ -26,171 +26,129 @@ redirect_from:
 
 # First success
 
-Move one representative project from installation through setup, an isolated change, Gate evidence, review, and authorized landing.
+This tutorial takes one repository from a bare install to a first landed change. At the end, your project has a final quality check it defines (the Gate), an isolated workspace for each task (a worktree), and shared instructions every future coding session inherits. You will have watched one real change pass the Gate, read its evidence, and made the landing decision yourself.
 
-## Quickstart: from install to a passing final check
+Your coding agent does the operating throughout. You install one binary, answer setup's questions, review what it built, and keep the decisions that stay yours: what the setup may write, and what lands on your shared branch.
 
-_Install the binary, let your agent set the project up, and take one change through the project's final quality check, called the Gate._
+## Before you begin
 
-You need a Git repository and a coding agent. discern supports Claude Code, Codex, Gemini, Cursor, and GitHub Copilot. An installed project does not need Deno or Node to run discern because the product is one self-contained binary. Once installed, discern makes zero network calls.
+You need:
 
-discern sets no hard minimum model. For setup, it recommends the strongest suitable reasoning model available because that model authors the final quality check, separate-task rules, maintained project guide, and instructions later sessions inherit. [Setup decisions](first-success.md) explains the long-term benefit, how to switch models, and which later choices remain yours.
+- a Git repository you're comfortable experimenting in. Any language or stack works, because the checks come from the project's own commands.
+- a supported coding agent: Claude Code, Codex, Gemini, Cursor, or GitHub Copilot. [Platforms and providers](../30-reference/platforms-and-providers.md) lists versions and prerequisites.
+- macOS, Linux, or Windows through WSL 2.
 
-### 1. Install the binary
+Plan for a real working session. Installing takes a minute; setup usually takes 20 to 40 minutes of agent effort and a meaningful number of tokens, because the agent studies your repository and writes the context future sessions inherit. That inheritance is why discern recommends your strongest reasoning model for setup. Stay reachable: the agent needs your answers at the start and your decision at the end.
+
+## 1. Install the binary
+
+This step is yours. Run the installer in a shell:
+
+<!-- discern-workflow:command -->
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 ```
 
-When the installer prints `Next:`, continue to step 2. If it prints a `PATH` instruction instead, follow it and open a new shell. Run `discern --version`, then continue. There is nothing else to configure by hand.
+**Expected result:** The installer prints `Next:` and tells you to hand the rest to your coding agent.
 
-### 2. Ask your agent to set the project up
-
-In your project, tell your agent:
-
-> Set this project up with discern.
-
-The agent runs `discern`, which starts a staged setup ([ADR 0075](https://discern.sh/docs/decisions/0075-setup-staged-handshake)). Before writing, its consent message covers the `discern.toml` and `discern/` footprint, coding-tool integrations, removal behavior, model, evidence-backed project name, separate-workspace location, and expected time and tokens. Confirm each item in plain language; the agent records that the complete exchange happened ([ADR 0086](https://discern.sh/docs/decisions/0086-setup-serves-relay-messages-and-a-consent-attestation)).
-
-`setup verify` is read-only. Later commands check their planned write targets before effects and preserve the setup phase on denial ([Setup command boundaries](../40-troubleshooting/setup-and-integrations.md)).
-
-Setup stays on `discern-setup` until landing. After proving existing workflows together, the agent explains where later agents start, that area's responsibility, one important rule, and any other distinct area. Correct a substantive misunderstanding, or say “use your recommendation.”
-
-Keep routine green output concise; use SARIF and JUnit XML only when they preserve exit status and improve failures. File-only and inherently verbose formats stay off that path.
-
-### 3. Verify setup in an isolated checkout
-
-`discern setup done` commits, diagnoses, and proves completion in a separate working copy. Repeating it unchanged returns the same [Proof](../20-understand/proof.md) without another Gate. A failed transaction removes only its still-owned marker tip; otherwise the retained state names recovery ([ADR 0090](https://discern.sh/docs/decisions/0090-setup-proves-worktree-viability), [ADR 0351](https://discern.sh/docs/decisions/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips)).
-
-The result explains where later agents start, which other areas have distinct responsibilities, one important rule setup found, which checks now run, and what remains open. It also carries the precise branch, check, guide, and instruction inventories for technical review. Then it's your turn:
-
-1. **Review and land.** Preview with `discern setup accept --dry-run`, or leave the proved branch for later. Do not restart before landing.
-2. **Start a fresh session.** Inspect its registered tools before opening external documentation.
-3. **Verify activation.** Invoke the exact provider-local action served by acceptance. If it is missing, use that provider's local recovery or `discern doctor`; `discern improvement --json` remains optional after success.
-
-<!-- discern-workflow:procedure -->
-
-## 4. Take a change through the Gate
-
-In the fresh session, ask for a small, real change. The agent takes it through the same isolated lifecycle every time.
-
-**Before you start:**
-
-- Setup's `discern-setup` branch is reviewed and landed.
-- The coding agent is running in a fresh session.
-
-**Steps:**
-
-1. **Start the worktree.** The agent runs `discern start`, then re-roots at its returned isolated checkout path on an `agent/…` branch.
-2. **Make the change.** It edits and checks the requested work inside that worktree.
-3. **Run the full Gate.** It runs `discern done`. The Gate runs the format, build, lint, and test commands declared in `discern.toml`. A failure gives the agent the failing command and its output.
-4. **Report the result.** On green, the agent ends its report with the one-line Proof and waits. Read the full Proof with `discern status --verbose`.
-
-**You are done when:** The reviewed branch and its Proof have been authorized, and `discern accept` has fast-forwarded the trunk.
+**If this fails:** A `PATH` instruction instead of `Next:` means the binary landed somewhere your shell doesn't search. Follow the printed line, open a new shell, and confirm with `discern --version`. For anything else, see [Setup and integrations](../40-troubleshooting/setup-and-integrations.md).
 
 <!-- /discern-workflow -->
 
-Review the branch. When you authorize landing, the agent runs `discern accept`, which fast-forwards your trunk to the reviewed branch and removes the worktree ([ADR 0110](https://discern.sh/docs/decisions/0110-the-landing-model)). Acceptance reuses the Proof while the branch remains unchanged. A later commit invalidates the Proof, so the agent must run `discern done` again.
+The install adds one self-contained executable. Your repository doesn't need Deno, Node, or any other runtime for discern itself, and nothing touches the repository until setup does, with your consent.
 
-To drive the handoff yourself, run bare `discern` from the main checkout. The human view over work in progress ([the Desk](../10-guides/delegate-work.md)) can start the task, open a configured coding-agent CLI found on `PATH` in its new worktree, and present the valid actions through review and landing.
+## 2. Ask your agent to set the project up
 
-The change stays in its worktree until the Gate passes and recorded authority permits landing.
+In a session opened in your project, tell your agent:
+
+> Set this project up with discern.
+
+The agent runs `discern`, reads the welcome, and relays a consent message before anything is written. Expect it to cover:
+
+- the model recommendation, and how to switch models first if you want to;
+- the project name it found in your repository's own evidence, for you to confirm or correct;
+- which installed coding tools it will wire up;
+- where isolated task workspaces will live (by default a sibling folder, `<repo>.worktrees`);
+- the expected time and token investment;
+- what your go-ahead authorizes: authoring on a separate branch. It does not authorize landing.
+
+Answer in plain language. For a safe technical choice, "use your recommendation" is a recorded answer; decisions about cost, data, access, or new dependencies always wait for your words.
+
+## 3. Setup works on its own branch
+
+With your consent, the agent begins on a new `discern-setup` branch, so everything setup produces arrives as an ordinary branch diff you can read. The agent studies how the project already works, wires the project's own commands into the Gate's format, build, lint, typecheck, test, and smoke jobs, marking any that don't apply, and writes the instruction source, the maintained project guide (the Map), and a ledger for deferred work. It narrates each stage and commits as it goes.
+
+Setup is real engineering work, and your repository may push back. A check that fails, or a formatter that fights a generated file, surfaces as a Gate diagnostic that names the failing command and the recovery, and the agent iterates. An interrupted setup resumes: `discern setup` reports the recorded phase and continues without repeating finished writes.
+
+The agent returns to you only for decisions the code can't settle, such as a wrong project name, a file that points outside the repository, or a consequential choice about the project's intent.
+
+## 4. Setup proves itself
+
+When the authoring is committed, the agent runs `discern setup done`. discern diagnoses the authored setup for completeness, exercises it in a throwaway worktree, and runs the full Gate. Success returns Proof, discern's evidence that one exact commit passed the declared checks, as a single line:
+
+> Proof: gate passed on discern-setup @ 4561b231d9c4 · 26 files +1758 −0 vs main · full proof: discern status --verbose
+
+The agent relays a handoff with that line: where future sessions will start, which checks are now active, one important rule it found, and what remains open. Then it waits.
+
+Green is not landed. The proved work is still on `discern-setup`, and your shared branch is unchanged until you decide. That separation holds for every change from now on: the Gate supplies the evidence, and the landing decision stays with you.
+
+## 5. Review and land setup
+
+Read the branch diff before you land it. [After setup](after-setup.md) explains what each file in the diff is for and who maintains it. To preview the landing without changing anything, have the agent run `discern setup accept --dry-run`.
+
+When the account looks right, the agent runs `discern setup accept`. It validates the Proof against the branch tip, fast-forwards your trunk (the project's shared branch), and deletes the setup branch. You can also leave the proved branch for later, or decline it and keep your repository as it was.
+
+## 6. Restart your agent
+
+Coding tools load MCP servers, hooks, and project instructions when a session starts, so the session that ran setup can't use what it wired. Open a fresh session in your project.
+
+The acceptance result names the activation check for each coding tool: invoke one of discern's registered MCP tools, such as `discern_status`, and confirm it answers. If the tool is missing, the same result carries that provider's recovery steps, and `discern doctor` diagnoses the installation. Generated files in the repository don't prove the session loaded them.
+
+<!-- discern-workflow:procedure -->
+
+## 7. Take one change through the Gate
+
+In the fresh session, ask for a small real change with a visible result, such as a helper function and its test. The agent takes it through the same loop it will use for every future task.
+
+**Before you start:**
+
+- Setup's branch is reviewed and landed.
+- The agent is running in a fresh session that passed its activation check.
+
+**Steps:**
+
+1. **Start the workspace.** The agent runs `discern start`, which creates an isolated worktree on an `agent/…` branch and reports its path; the agent moves its own work there.
+2. **Make the change.** The agent edits in the worktree, iterating with `discern prepare`, the fast fix-and-check loop, then commits the result.
+3. **Run the Gate.** On the clean commit, the agent runs `discern done`. A failure names the failing command and its first diagnostic; green records Proof for that commit.
+4. **Hand the work back.** The agent reports what changed, ends with the proof line, and waits for your decision.
+
+**You are done when:** the agent's report ends with a proof line for a clean commit on its `agent/…` branch.
+
+<!-- /discern-workflow -->
+
+The worktree keeps unfinished work off your trunk, and the main checkout stays clean while the task moves. `discern start` reports where the workspace is; moving there is the agent's own step.
+
+## 8. Review and decide
+
+This decision is yours, and the practice is built around it. From the worktree, `discern status --verbose` opens the full Proof: which commands ran, what they covered, and the diffstat for the exact commit. Read the change itself with `git diff main...<branch>`, and exercise the new behavior if it warrants it.
+
+The Gate has already done the routine verification, so spend your review on what it can't judge: whether the behavior is right, the design fits, and the change belongs in the project.
+
+When you say to land it, the agent runs `discern accept`. discern verifies your authority, fast-forwards the trunk to the reviewed commit, removes the worktree, and deletes the merged branch. The Proof is preserved as a durable note on the landed commit, so the evidence outlives the branch.
+
+## What you now have
+
+Look at the repository: `git log` shows the landed setup and your first change at the tip of the trunk, each carrying its proof note. No worktree or task branch remains. The next session you open inherits the instructions, the Map, and the Gate, without you re-explaining anything.
+
+That is the working loop you'll repeat: the agent proves a change in isolation, you review evidence instead of reconstructing checks, and landing happens with your authority.
 
 <!-- discern-workflow:branch-choice -->
 
 **Choose what happens next**
 
-- **Recommended:** Follow the [walkthrough](first-success.md) through one complete session.
-- **Something went wrong:** Match the symptom in the [FAQ](../40-troubleshooting/README.md) to its fix.
+- **Do real work:** [Finish and land a change](../10-guides/finish-and-land-a-change.md) is the complete daily procedure, including handing work back and re-proving it.
+- **Understand the evidence:** [Proof](../20-understand/proof.md) explains green versus landed, staleness, and landing authority in depth.
+- **Something didn't match:** [Troubleshooting](../40-troubleshooting/README.md) routes from the symptom you observed to its recovery.
 
 <!-- /discern-workflow -->
-
-## The decisions setup asks you to make
-
-_Setup turns one repository study into a dependable way for future coding sessions to work. The agent handles the technical authoring; this page explains the choices that still belong to you._
-
-### Choose the model for the repository study
-
-discern recommends the strongest suitable reasoning model because setup creates the final quality check (the Gate), separate-task rules, maintained project guide (the Map), and instructions later sessions inherit. A stronger model is more likely to find hidden boundaries and preserve existing workflows.
-
-The agent reports its current provider/model identifier, or `unreported`, as advisory context. To switch, select another model, open a fresh project session, and repeat the setup request. The current agent stops without writing. To continue here, say so plainly.
-
-### Confirm what the project is called
-
-Before writing the guide or instructions, setup proposes the strongest name supported by the README or project metadata; a checkout directory is a fallback. Confirm or correct it. When you have no preference, **“use your recommendation”** records your choice of the proposal.
-
-### Know which choices remain yours
-
-The agent handles routine, reversible branch work. It waits for missing product intent, cost, credentials, new dependencies, broader access, destructive effects, shared or durable data, future-work policies, exceptions, and landing.
-
-Each applicable decision begins with its practical outcome, then gives a recommendation, every option's consequence, your authority, the reversal boundary, and recovery. For a safe reversible technical choice, **“use your recommendation”** records your direction. Consequential choices never use that route. An absent trigger produces no question or wait.
-
-### Inspection stays inside the project
-
-A project file can point to another checkout, database, or machine-local path. Setup reports the source, destination, and apparent role without opening it. The agent asks before a specific outside inspection; declining leaves the destination unread.
-
-### Review what later sessions will inherit
-
-Before landing, the handoff explains where later agents start, other areas with distinct responsibilities, one important rule, active checks, and open work. The proof that the finished change passed the project's checks (Proof) belongs to the exact commit and grants no landing authority. You may land, leave for review, or decline.
-
-After landing, open a fresh provider session, inspect its registered tools, and invoke the exact local action shown. A missing action routes to local recovery or `discern doctor`.
-
-Return to the [quickstart](first-success.md) for the shortest setup path, or follow the [walkthrough](first-success.md) for the branch and verification sequence.
-
-## Walkthrough: watch one change from setup to landing
-
-_The [quickstart](first-success.md) gives you the commands. This tour explains the handoffs: why the flow pauses, changes branches, or asks you to restart a session._
-
-### Setup asks before it writes
-
-Tell your coding agent:
-
-> Set this project up with discern.
-
-The agent runs `discern`. In a repository without an install, discern serves a welcome with the model recommendation, switch route, and lasting outcome. [Setup decisions](first-success.md) explains the owner boundary.
-
-The selected agent runs `discern setup verify`. Read its consent message before answering. It reports the self-declared provider/model identifier, or `unreported`, proposes a project name from repository evidence, and names paths, coding agents, separate-workspace location, expected investment, removal, and confirmation authority. Correct a wrong project name, model path, or agent set first.
-
-Reply in plain language, for example:
-
-> Continue with this model. Set up Codex and Claude Code in this repository, keep the proposed worktree location, and begin the isolated setup branch.
-
-The agent attests that consent happened when it begins ([ADR 0086](https://discern.sh/docs/decisions/0086-setup-serves-relay-messages-and-a-consent-attestation)). `verify` remains read-only. Each later effectful command checks its plan-derived writes before its first effect. Denial preserves the phase, and success is point-in-time rather than provider authorization; see [Setup command boundaries](../40-troubleshooting/setup-and-integrations.md).
-
-### Setup builds on its own branch
-
-`discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent records the project's real format, lint, build, typecheck, test, and smoke commands and any known lifecycle that does not apply in `discern.toml`. It then fills the project instructions and initial map pages while those checks are live, including the seeded record of the adoption decision.
-
-discern commits its scaffolded wiring before the handoff. Final completion commits the marker before producing [Gate Proof](../20-understand/proof.md). Those commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. Agent-authored commits stay unchanged ([ADR 0203](https://discern.sh/docs/decisions/0203-discern-co-authors-only-commits-it-composes)).
-
-Watch the branch rather than the main checkout. The agent makes small authoring commits as it completes the staged setup brief. [What setup added](after-setup.md) explains each group in the diff.
-
-The agent narrates each major stage with its owner benefit. It handles routine reversible authoring without asking for file-by-file permission. It waits only when repository evidence cannot settle product intent or a new quality protection needs a consequential effect. It also waits for substantive corrections to where later agents should start, and for owner decisions about cost, durable data, broader access, policies that bind future work, or unsafe merges.
-
-If a project file points outside the repository, the agent reports the destination and its apparent role before reading it. You can authorize that specific inspection or keep the boundary in place. A missing conflict or outside reference produces no synthetic question or wait.
-
-After interruption, run `discern setup` or `discern status`; the recorded phase, branch, and continuation avoid replaying completed writes. Stable step ids preserve resumption while their registry orders evidence and smoke before final documentation.
-
-### Setup verifies the checkout can reproduce
-
-After the authored files are committed, `discern setup done` refreshes, commits `[meta].bootstrapped = true`, and diagnoses and probes that same commit in a temporary worktree. The main-checkout Gate runs last and records its canonical Proof ([ADR 0090](https://discern.sh/docs/decisions/0090-setup-proves-worktree-viability), [ADR 0313](https://discern.sh/docs/decisions/0313-setup-completion-and-acceptance-bind-one-final-proof)).
-
-Success returns structured Proof and its relay line; unchanged replay is read-only. A failed leg removes only its still-owned marker tip, retaining changed state with recovery. `--force` is unproved and cannot use setup acceptance ([ADR 0351](https://discern.sh/docs/decisions/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips)).
-
-A failure retains its actionable diagnostic. A pass explains the starting area, its responsibility, other boundaries, one project rule, active checks, and open work from canonical inventories ([ADR 0317](https://discern.sh/docs/decisions/0317-gate-commands-and-setup-applicability-are-separate-facts)).
-
-An unlanded result stops at the landing choice. After `discern setup accept`, start fresh and invoke its exact provider-local activation action; use the served recovery or `discern doctor` if needed. Generated files alone do not prove activation ([Setup command boundaries](../40-troubleshooting/setup-and-integrations.md)).
-
-`discern setup accept --dry-run` validates Proof without moving a ref. Apply lands its commit and records the durable note. A moved trunk is merged and proved on `discern-setup` first; invalid evidence returns to `discern setup done` with trunk untouched.
-
-### The first change uses the daily loop
-
-In the fresh session, ask for a small change. After `discern status`, the agent runs `discern start` from the main checkout and re-roots at its returned worktree path on an `agent/…` branch.
-
-The agent edits and tests in that worktree. During iteration it can run `discern prepare`, the shorter loop of fixers, regenerations, and checks. For the intended final commit, it runs `discern done`. The full Gate runs the repository's configured commands and any triggered scope gates or Standards.
-
-On green, discern records a Proof for the clean commit. The agent reports the change in its own words, ends with the one-line Proof, and waits. Read the full Proof with `discern status --verbose`, then review the branch. If you request another commit, the Proof becomes stale and the agent must run `discern done` again.
-
-When you approve the landing, the agent runs `discern accept`. It fast-forwards the reviewed branch onto the trunk, destroys any worktree resources, removes the worktree directory, and deletes the merged branch ([ADR 0110](https://discern.sh/docs/decisions/0110-the-landing-model)).
-
-If any step differs from this tour, start with the [FAQ and troubleshooting guide](../40-troubleshooting/README.md).
