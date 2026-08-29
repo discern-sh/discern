@@ -744,7 +744,7 @@ const ACTION_CASES: ReadonlyArray<{
         ahead: 2,
         running: { verb: "done", started: minutesAgo(1), elapsed_ms: 1_000 },
       }, { scripts: [{ name: "verify" }], agentLaunches: [AGENT_LAUNCH] }),
-    enabled: ["follow_up", "jump", "inspect", "rename"],
+    enabled: ["follow_up", "jump", "inspect", "grant"],
   },
   {
     name: "empty task",
@@ -827,6 +827,38 @@ Deno.test("every action is offered once with closed metadata and concrete availa
     [...DESK_ACTIONS].sort(),
     "a new action must add label and group metadata",
   );
+});
+
+Deno.test("landing authority stays editable while final checks run", () => {
+  const running = {
+    verb: "done",
+    started: minutesAgo(1),
+    elapsed_ms: 1_000,
+    typical_duration_ms: 60_000,
+  };
+  const ungranted = decide({ ahead: 2, running });
+  const runningReason = "discern done is running. It usually takes 1m.";
+  for (const candidate of ungranted.actions) {
+    const blockedByRunning = candidate.availability === "disabled" &&
+      candidate.reason === runningReason;
+    assertEquals(
+      blockedByRunning,
+      !DESK_ACTION_REGISTRY[candidate.action].availableWhileRunning,
+      `${candidate.action}: running compatibility must come from its canonical metadata`,
+    );
+  }
+  assertEquals(offer(ungranted, "grant").availability, "enabled");
+  const rename = offer(ungranted, "rename");
+  assertEquals(rename.availability, "disabled");
+  assert(rename.availability === "disabled");
+  assertEquals(rename.reason, runningReason);
+
+  const granted = decide({
+    ahead: 2,
+    running,
+    landing_authority: { kind: "authorized", source: "effort-grant" },
+  });
+  assertEquals(offer(granted, "revoke_grant").availability, "enabled");
 });
 
 Deno.test("a clean branch behind main disables Accept and recommends Update", () => {
