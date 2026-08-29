@@ -37,11 +37,11 @@ import {
 } from "../src/lib/terminal.ts";
 import {
   type DeskRuntime,
-  parseProjectScriptArguments,
   runDesk,
   runDeskInteractiveChild,
   runDeskProjectScript,
 } from "../src/engine/desk/desk.ts";
+import { parseProjectScriptArguments } from "../src/engine/desk/literal_argv.ts";
 import {
   DESK_REVIEW_ROUTES,
   deskUnlandedRoute,
