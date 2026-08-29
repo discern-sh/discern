@@ -1636,8 +1636,11 @@ Deno.test("command help keeps the product manual and project Map distinct", asyn
     const map = await runCli(["map", "--help"], dir, env);
     assertEquals(manual.code, 0, manual.stderr);
     assertEquals(map.code, 0, map.stderr);
-    assertStringIncludes(manual.stdout, "complete bundled product manual");
-    assertStringIncludes(map.stdout, "configured project Map");
+    assertTerminalTextIncludes(
+      manual.stdout,
+      "complete bundled product manual",
+    );
+    assertTerminalTextIncludes(map.stdout, "configured project Map");
     assert(!manual.stdout.includes("agent-maintained Map"));
   });
 });

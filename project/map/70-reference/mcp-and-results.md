@@ -76,20 +76,20 @@ MCP `tools/list` returns full definitions. Clients choose the startup context. d
 
 ### Find a map or manual page
 
-`discern_map` and `discern_docs` expose the same discovery funnel ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)):
+`discern_map` and `discern_docs` expose the same discovery funnel over different authorities ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)). `discern_map` reads the configured project's agent-maintained Map, including agent-visible pages withheld from publication. `discern_docs` is project-independent and reads discern's complete bundled public manual; it never admits the current project's Map, decision records, or protected Map tiers.
 
-| Inputs                 | Result                                                                                          |
-| ---------------------- | ----------------------------------------------------------------------------------------------- |
-| Neither                | The indexed documents; Map also includes its top-level regions and file-linked freshness facts. |
-| `target`               | One document's content, or a compact index when `target` names a top-level region.              |
-| `search`               | Up to five ranked documents from the admitted corpus.                                           |
-| `target` plus `search` | The same search limited to one exact region or document.                                        |
+| Inputs                 | Result                                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Neither                | The complete index. Manual rows carry canonical target, stable page id, kind, title, and summary; Map also includes regions and freshness facts. |
+| `target`               | One document's reader-visible Markdown, or a compact index when `target` names a top-level region.                                               |
+| `search`               | The full ranked match count and up to five highest-ranked documents from the admitted corpus.                                                    |
+| `target` plus `search` | The same search limited to one exact region or document.                                                                                         |
 
-A search result carries `target`, `path`, `section`, `title`, `description`, `match`, an optional matching `heading`, and a contextual `snippet`. `match` is `complete`, `partial`, or `metadata`. The enclosing payload carries `query`, optional `scope`, the full match `count`, `truncated`, and the returned `results`. A zero-match search is `ok: true` with an empty result list. Scores remain an implementation detail.
+A manual search result additionally carries `page_id` and `manual_kind`, so a caller can distinguish a guide, reference page, explanation, tutorial, or troubleshooting page without inferring from its path. Every search result carries `target`, `path`, `section`, `title`, `description`, `match`, an optional matching `heading`, and a contextual `snippet`. `match` is `complete`, `partial`, or `metadata`. The enclosing payload carries `query`, optional `scope`, the full match `count`, `truncated`, and the returned `results`. When `truncated` is true, human and Markdown presentations state both how many highest-ranked rows were returned and that authoritative full count. A zero-match search is `ok: true` with an empty result list. Scores remain an implementation detail.
 
 Lexical matches with `match: "complete"` rank first. When fewer than five qualify, strong partial matches can fill the unused slots. Each must clear a query-length-scaled term-coverage floor. The ranker favors partials that add terms earlier results missed. Exact technical text and phrases in titles, aliases, headings, or code fields return phrase matches only. A longer lexical miss can fall back to a close title or alias. Queries shorter than four characters do not use edit-distance suggestions ([ADR 0183](../_adr/0183-agent-task-search-uses-an-audience-specific-ranker.md)).
 
-Map search includes `publish: false`. Docs search covers the public manual. Both are local and omit queries from the Logbook. Use `discern map --search <query>` or `discern docs --search <query>`, optionally after a target.
+Map search includes `publish: false`. Docs search covers the public manual. Both are local, make no model call, and omit queries from the Logbook. Source-only HTML comments do not enter document content, headings, snippets, or ranking fields; comment syntax inside inline or fenced code remains literal content. Use `discern map --search <query>` or `discern docs --search <query>`, optionally after a target.
 
 `path` and `target` answer different location questions. `path` chooses which project or worktree a project-operating MCP call uses. `target` chooses a region or document inside that project's map.
 
@@ -172,7 +172,7 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 | `discern://docs` and `discern://docs/{+target}` | The manual index or one manual page.           |
 | `discern://map` and `discern://map/{+target}`   | The project-map index or one project-map page. |
 
-`{+target}` accepts a slug, `section/slug`, or a path. Resource reads are computed when requested; clients that do not auto-attach resources can call the corresponding tool.
+`{+target}` accepts a slug, `section/slug`, or a path. The index resource returns the same complete structured identity set as its tool, and a page resource returns the same reader-visible Markdown as an exact tool read. Resource reads are computed when requested; clients that do not auto-attach resources can call the corresponding tool.
 
 ## CLI exit codes
 
