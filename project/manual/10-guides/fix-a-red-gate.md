@@ -38,15 +38,15 @@ With fail-fast enabled, sibling jobs may be canceled as soon as one fails. A can
 
 ## 2. Take the route that matches the evidence
 
-| Observed failure | Coding agent's next action | Evidence that the route worked |
-| --- | --- | --- |
-| Dirty tree, missing commit, or branch behind the trunk | Inspect `discern status`, commit intended work, or follow the `discern_update` hint. | The precondition clears on the next dry run or Gate call. |
-| One declared job failed | Run its `reproduce_cmd`, diagnose the cause, and use the smallest focused check while editing. | The reproducing command passes for the same inputs. |
-| `generated_drift` | Change the owning source and run the named generator. Never hand-edit the derived file. | Regeneration leaves the artifact current. |
-| `tree_drift` or stranded output | Review the diagnostic diff. Commit intended output, or make the job verify without rewriting. | `git status` remains clean after the producing stage. |
-| A Standard breached | Keep the trunk limit. Remove the regression, or report intrinsic growth to the person who owns the limit decision. | `discern standards <name>` reports the held or approved value. |
-| A checkpoint awaits a declaration | Inspect the served question and matched paths, then declare met or unmet truthfully. | The result records the current declaration state. |
-| Timeout, missing executable, or invalid installation | Use the named command or run `discern doctor`; change a timeout only when the command is valid and expected to take longer. | Doctor passes and the focused command starts and exits normally. |
+| Observed failure                                       | Coding agent's next action                                                                                                  | Evidence that the route worked                                   |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Dirty tree, missing commit, or branch behind the trunk | Inspect `discern status`, commit intended work, or follow the `discern_update` hint.                                        | The precondition clears on the next dry run or Gate call.        |
+| One declared job failed                                | Run its `reproduce_cmd`, diagnose the cause, and use the smallest focused check while editing.                              | The reproducing command passes for the same inputs.              |
+| `generated_drift`                                      | Change the owning source and run the named generator. Never hand-edit the derived file.                                     | Regeneration leaves the artifact current.                        |
+| `tree_drift` or stranded output                        | Review the diagnostic diff. Commit intended output, or make the job verify without rewriting.                               | `git status` remains clean after the producing stage.            |
+| A Standard breached                                    | Keep the trunk limit. Remove the regression, or report intrinsic growth to the person who owns the limit decision.          | `discern standards <name>` reports the held or approved value.   |
+| A checkpoint awaits a declaration                      | Inspect the served question and matched paths, then declare met or unmet truthfully.                                        | The result records the current declaration state.                |
+| Timeout, missing executable, or invalid installation   | Use the named command or run `discern doctor`; change a timeout only when the command is valid and expected to take longer. | Doctor passes and the focused command starts and exits normally. |
 
 For a product bug, reproduce before changing code and leave a focused regression guard that covers the defect class. A patch that changes only the shown instance is incomplete when the same predicate can fail elsewhere.
 

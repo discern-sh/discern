@@ -82,15 +82,15 @@ discern coupling path/to/file path/to/partner
 
 **Person and coding agent:** Choose the smallest project surface that addresses the evidence:
 
-| Finding | Appropriate change |
-| --- | --- |
-| A declared check is missing, slow, or misleading | Adjust the owning Gate job or scope and exercise its failure path. |
-| A deterministic number should never regress | Add or tune a Standard through [Set and raise Standards](set-and-raise-standards.md). |
-| A narrow change needs a recurring judgment | Place or tune a Checkpoint through [Place and answer Checkpoints](place-and-answer-checkpoints.md). |
-| Agents repeat a multi-step method poorly | Create or improve a Skill. |
-| Every session needs one standing rule | Update the authored project instructions. |
-| Durable project context is false or missing | Update the owning Map page. |
-| The observation is weak or the cost exceeds the value | Record no project change; keep or gather the stated evidence. |
+| Finding                                               | Appropriate change                                                                                  |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| A declared check is missing, slow, or misleading      | Adjust the owning Gate job or scope and exercise its failure path.                                  |
+| A deterministic number should never regress           | Add or tune a Standard through [Set and raise Standards](set-and-raise-standards.md).               |
+| A narrow change needs a recurring judgment            | Place or tune a Checkpoint through [Place and answer Checkpoints](place-and-answer-checkpoints.md). |
+| Agents repeat a multi-step method poorly              | Create or improve a Skill.                                                                          |
+| Every session needs one standing rule                 | Update the authored project instructions.                                                           |
+| Durable project context is false or missing           | Update the owning Map page.                                                                         |
+| The observation is weak or the cost exceeds the value | Record no project change; keep or gather the stated evidence.                                       |
 
 Policy changes remain the person's decision. An advisory cannot authorize a new blocker, weaken a Standard, or move the trunk.
 

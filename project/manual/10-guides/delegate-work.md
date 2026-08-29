@@ -48,12 +48,12 @@ The Skill is the operating procedure for prompt design, dispatch consent, staged
 
 **Planning agent:** Present the proposed topology before writing or launching tasks.
 
-| Work pattern | Task arrangement | Landing rule |
-| --- | --- | --- |
-| One bounded outcome | One brief, one session, one worktree | That branch proves and lands under its own authority. |
-| Independent internal investigations with one final change | One brief that asks the receiving agent to use sub-agents when available | The receiving task owns one branch and one final Proof. |
-| Independent delivery streams with disjoint files | One brief, session, and worktree per stream | Fix an order; each later stream updates after earlier landings. |
-| A later stage must include an earlier unlanded tree | One brief per stage | Earlier stages stop green and stay available; the final composed branch alone lands. |
+| Work pattern                                              | Task arrangement                                                         | Landing rule                                                                         |
+| --------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| One bounded outcome                                       | One brief, one session, one worktree                                     | That branch proves and lands under its own authority.                                |
+| Independent internal investigations with one final change | One brief that asks the receiving agent to use sub-agents when available | The receiving task owns one branch and one final Proof.                              |
+| Independent delivery streams with disjoint files          | One brief, session, and worktree per stream                              | Fix an order; each later stream updates after earlier landings.                      |
+| A later stage must include an earlier unlanded tree       | One brief per stage                                                      | Earlier stages stop green and stay available; the final composed branch alone lands. |
 
 When files or registries overlap, merge the streams or put the shared authority in an earlier stage. Parallel edits to one source of truth postpone the collision rather than removing it.
 

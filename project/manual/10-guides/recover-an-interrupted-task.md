@@ -55,12 +55,12 @@ Acceptance can move the trunk before later checkout convergence or cleanup fails
 
 **Coding agent:** Inspect the failed result's `data.root` and `data.landing`:
 
-| Field | What it establishes |
-| --- | --- |
-| `recovery_performed` | This call reconciled an earlier acceptance transaction. |
-| `trunk_landed` | The trunk reached the accepted commit and was not rolled back. |
-| `worktree_removed` | The checkout and Git worktree registration are gone. |
-| `branch_deleted` | The merged local branch is gone. |
+| Field                | What it establishes                                            |
+| -------------------- | -------------------------------------------------------------- |
+| `recovery_performed` | This call reconciled an earlier acceptance transaction.        |
+| `trunk_landed`       | The trunk reached the accepted commit and was not rolled back. |
+| `worktree_removed`   | The checkout and Git worktree registration are gone.           |
+| `branch_deleted`     | The merged local branch is gone.                               |
 
 Do not assume the original worktree still exists. When cleanup removed it, continue from the main checkout path returned in `data.root`.
 
