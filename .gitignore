@@ -33,6 +33,7 @@
 # `site/design_system.ts` and `site/page-src/`; build products never enter Git.
 /site/pages/index.html
 /site/pages/agents.html
+/site/pages/trust.html
 /site/pages/agents.md
 /site/pages/assets/design-system/
 /site/pages/fragments/

@@ -176,6 +176,7 @@ function Masthead() {
         { label: "How it works", href: "#workflow" },
         { label: "What you get", href: "#outcomes" },
         { label: "Proof", href: "#proof" },
+        { label: "Trust", href: "/trust" },
         { label: "Documentation", href: "/docs" },
       ]}
       actions={
@@ -1205,6 +1206,7 @@ function LandingShell({ children }: LandingShellProps) {
             links: [
               { label: "Quickstart", href: "/docs/start/first-success" },
               { label: "The practice", href: "/docs" },
+              { label: "Trust", href: "/trust" },
               {
                 label: "Trust & your data",
                 href: "/docs/understand/local-control",

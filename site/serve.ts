@@ -202,8 +202,8 @@ function notFound(asText: boolean): Response {
     `<p style="max-width:34rem;line-height:1.7">404 — no such page.<br>` +
     `Available pages: <a href="/">discern.sh</a> · ` +
     `<a href="/agents">/agents</a> · ` +
-    `<a href="/docs">/docs</a> · <a href="/map">/map</a> · ` +
-    `<a href="/llms.txt">/llms.txt</a></p>`;
+    `<a href="/trust">/trust</a> · <a href="/docs">/docs</a> · ` +
+    `<a href="/map">/map</a> · <a href="/llms.txt">/llms.txt</a></p>`;
   return new Response(body, {
     status: 404,
     headers: { "content-type": "text/html; charset=utf-8" },

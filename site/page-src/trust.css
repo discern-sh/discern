@@ -1,0 +1,175 @@
+/* The concise trust gateway. Shared values and chrome come from the selected
+   design-system bundle; this sheet owns only the page composition. */
+
+.trust-page {
+  min-height: 100vh;
+  background: var(--discern-color-canvas);
+  color: var(--discern-color-ink);
+}
+
+.trust-brand-name {
+  font-family: var(--discern-font-mono);
+}
+
+.trust-page main {
+  width: min(100% - 2 * var(--discern-space-6), 72rem);
+  margin-inline: auto;
+  padding-block: clamp(4rem, 10vw, 8rem);
+}
+
+.trust-hero {
+  max-width: 48rem;
+}
+
+.trust-hero h1 {
+  max-width: 13ch;
+  margin: var(--discern-space-4) 0;
+  font-size: clamp(3rem, 8vw, 6rem);
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+}
+
+.trust-hero > p {
+  max-width: 42rem;
+  color: var(--discern-color-ink-muted);
+  font-size: var(--discern-font-size-lg);
+  line-height: 1.65;
+}
+
+.trust-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--discern-space-3);
+  margin-top: var(--discern-space-6);
+}
+
+.trust-evidence-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--discern-space-5);
+  margin-top: clamp(5rem, 10vw, 8rem);
+}
+
+.trust-evidence {
+  min-width: 0;
+  padding: var(--discern-space-6);
+  border: 1px solid var(--discern-color-border-strong);
+  border-radius: var(--discern-radius-lg);
+  background: var(--discern-color-surface);
+  box-shadow: var(--discern-shadow-card);
+}
+
+.trust-evidence__index {
+  color: var(--discern-color-accent-600);
+  font: 600 var(--discern-font-size-xs) var(--discern-font-mono);
+}
+
+.trust-evidence h2 {
+  margin: var(--discern-space-5) 0 var(--discern-space-3);
+  font-size: var(--discern-font-size-display-sm);
+}
+
+.trust-evidence p,
+.trust-reference p {
+  color: var(--discern-color-ink-muted);
+  line-height: 1.65;
+}
+
+.trust-evidence ul,
+.trust-reference ul {
+  display: grid;
+  gap: var(--discern-space-2);
+  margin: var(--discern-space-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trust-page main a {
+  color: var(--discern-color-accent-700);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.trust-page main a:focus-visible {
+  border-radius: var(--discern-radius-xs);
+  outline: 2px solid var(--discern-color-accent-500);
+  outline-offset: 3px;
+}
+
+.trust-reference {
+  max-width: 48rem;
+  margin-top: clamp(5rem, 10vw, 8rem);
+  padding-top: var(--discern-space-8);
+  border-top: 1px solid var(--discern-color-border-strong);
+}
+
+.trust-reference h2 {
+  margin: var(--discern-space-3) 0;
+  font-size: var(--discern-font-size-display-md);
+}
+
+@media (max-width: 60rem) {
+  .trust-evidence-list {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-evidence {
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 36rem) {
+  .trust-page main {
+    width: min(100% - 2 * var(--discern-space-4), 72rem);
+    padding-block: var(--discern-space-12);
+  }
+
+  .trust-hero__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trust-page *,
+  .trust-page *::before,
+  .trust-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .trust-evidence,
+  .trust-reference {
+    border-color: CanvasText;
+  }
+
+  .trust-page main a:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+@media print {
+  .trust-header,
+  .trust-footer,
+  .trust-skip,
+  .trust-hero__actions {
+    display: none !important;
+  }
+
+  .trust-page main {
+    width: auto;
+    padding: 0;
+  }
+
+  .trust-evidence-list {
+    display: block;
+  }
+
+  .trust-evidence {
+    break-inside: avoid;
+    margin-top: 1.5rem;
+    box-shadow: none;
+  }
+}
