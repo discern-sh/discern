@@ -3,10 +3,14 @@ import {
   GLOSSARY,
   glossarySummary,
   renderGlossaryDoc,
+  renderManualGlossaryDoc,
   sortedGlossary,
 } from "../scripts/glossary_registry.ts";
+import { renderGeneratedManualDocument } from "../scripts/manual_codegen.ts";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
-import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 // These prove the committed glossary page stays in lockstep with the term
@@ -21,6 +25,32 @@ Deno.test("the configured map's glossary matches the generator (run `deno task c
     committed,
     await canonicalGeneratedMarkdown(path, renderGlossaryDoc()),
     `${REPO_AUTHORED_PATHS.mapRel}/00-orientation/glossary.md is stale — run \`deno task codegen\``,
+  );
+});
+
+Deno.test("the public manual's glossary matches the term registry", async () => {
+  const tree = await discoverDocs({
+    cwd: REPO_ROOT,
+    dir: REPO_AUTHORED_PATHS.manual,
+  });
+  assert(tree !== undefined);
+  const manual = await buildManualProjection(tree.entries);
+  const path = `${REPO_AUTHORED_PATHS.manual}/30-reference/glossary.md`;
+  const rendered = renderGeneratedManualDocument(
+    renderManualGlossaryDoc(),
+    "00-orientation/glossary.md",
+    "30-reference/glossary.md",
+    {
+      id: "reference-glossary",
+      order: 120,
+      redirects: ["/docs/orientation/glossary"],
+    },
+    manual,
+  );
+  assertEquals(
+    await Deno.readTextFile(path),
+    await canonicalGeneratedMarkdown(path, rendered),
+    `${REPO_AUTHORED_PATHS.manualRel}/30-reference/glossary.md is stale — run \`deno task codegen\``,
   );
 });
 
@@ -77,6 +107,20 @@ Deno.test("the rendered page alphabetizes every entry under its own heading", ()
     assert(index > at, `entry out of alphabetical order: ${term}`);
     at = index;
   }
+});
+
+Deno.test("a future glossary term auto-enrols in the manual heading and search aliases", () => {
+  const document = renderManualGlossaryDoc([
+    ...GLOSSARY,
+    {
+      term: "Future contract",
+      plain: { keep: "a synthetic reference term" },
+      definition: "A synthetic term proving future glossary enrollment.",
+    },
+  ]);
+  assertStringIncludes(document, "### Future contract");
+  const frontmatter = document.split("\n---\n")[0] ?? "";
+  assertStringIncludes(frontmatter, "  - future contract");
 });
 
 Deno.test("the gate job entry closes over exactly the live known-job vocabulary", () => {

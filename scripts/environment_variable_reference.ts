@@ -25,11 +25,12 @@ function tableCell(value: string): string {
 }
 
 /** Render the committed public environment-variable reference page. */
-export function renderEnvironmentVariableReferenceDoc(
+function renderEnvironmentVariableReferenceDocument(
   groups: readonly DiscernEnvironmentVariableGroup[] =
     DISCERN_ENVIRONMENT_VARIABLE_GROUPS,
   definitions: Readonly<Record<string, DiscernEnvironmentVariableDefinition>> =
     DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+  manual = false,
 ): string {
   const published = publicEnvironmentVariableDefinitions(definitions);
   const aliases = published.map((definition) => definition.name);
@@ -77,7 +78,9 @@ export function renderEnvironmentVariableReferenceDoc(
   return [
     "---",
     "title: Environment variables",
-    "description: Every public DISCERN_* environment variable, grouped by purpose, with defaults and activation behavior.",
+    manual
+      ? "description: Every public DISCERN_* input and exported value, with its source, scope, default, and consumer."
+      : "description: Every public DISCERN_* environment variable, grouped by purpose, with defaults and activation behavior.",
     "order: 110",
     "publish: true",
     "aliases:",
@@ -90,11 +93,35 @@ export function renderEnvironmentVariableReferenceDoc(
     "",
     "# Environment variables",
     "",
-    "_The public `DISCERN_*` inputs and exported values discern supports, grouped by purpose._",
+    manual
+      ? "Look up every supported public `DISCERN_*` process input and exported value. Each row states which boundary reads or writes it; descriptions state defaults and activation rules where the variable has them."
+      : "_The public `DISCERN_*` inputs and exported values discern supports, grouped by purpose._",
     "",
-    "Variables used only by discern's own processes, source checkout, and test suite are omitted.",
+    manual
+      ? "Prerequisite: the variable name or integration boundary. Values apply to the current process unless a row says discern exports or writes them. Internal process markers, source-checkout controls, and test-only variables are not public and are intentionally omitted."
+      : "Variables used only by discern's own processes, source checkout, and test suite are omitted.",
     "",
     sections.join("\n\n"),
     "",
   ].join("\n");
+}
+
+/** Render the established Map projection. */
+export function renderEnvironmentVariableReferenceDoc(
+  groups: readonly DiscernEnvironmentVariableGroup[] =
+    DISCERN_ENVIRONMENT_VARIABLE_GROUPS,
+  definitions: Readonly<Record<string, DiscernEnvironmentVariableDefinition>> =
+    DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+): string {
+  return renderEnvironmentVariableReferenceDocument(groups, definitions);
+}
+
+/** Render the external-reader manual projection from the same definitions. */
+export function renderManualEnvironmentVariableReferenceDoc(
+  groups: readonly DiscernEnvironmentVariableGroup[] =
+    DISCERN_ENVIRONMENT_VARIABLE_GROUPS,
+  definitions: Readonly<Record<string, DiscernEnvironmentVariableDefinition>> =
+    DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+): string {
+  return renderEnvironmentVariableReferenceDocument(groups, definitions, true);
 }

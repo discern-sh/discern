@@ -19,9 +19,7 @@ redirect_from:
 
 Look up the license and provenance contract for discern-emitted project payloads.
 
-# Licenses for project payloads
-
-_The license boundary for discern-authored material written into your project._
+The license boundary below applies to discern-authored material written into a project. Prerequisite: a generated or Shared artifact whose provenance you need to identify.
 
 discern itself is Fair Source under [`FSL-1.1-ALv2`](https://github.com/jackwh/discern/tree/main/LICENSE). An installation also writes discern-authored material into your repository. Those portions are available immediately under the [Apache License, Version 2.0](https://github.com/jackwh/discern/blob/main/LICENSES/Apache-2.0.txt), so discern's Functional Source License does not extend into your project's own material.
 

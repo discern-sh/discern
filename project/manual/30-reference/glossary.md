@@ -70,9 +70,9 @@ redirect_from:
 
 # Glossary
 
-_Every discern term, defined once and alphabetized. Each entry links the section that covers the mechanism in depth._
+Look up every canonical discern product term, alphabetized. No project context is required; linked explanations add context but are not prerequisites for the definition.
 
-These names are canonical — every page uses them identically, no synonyms ([ADR 0169](https://discern.sh/docs/decisions/0169-the-launch-glossary-canon)). For how they relate, read [concepts](../20-understand/practice-and-roles.md).
+Search aliases include canonical terms and retired synonyms. Definitions retain the canonical spelling used by commands, configuration, results, and the rest of the manual.
 
 ### Accept
 

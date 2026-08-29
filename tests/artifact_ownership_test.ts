@@ -112,6 +112,24 @@ env_files = ["config/secrets", ".env.override"]
   assertEquals(envPaths, ["config/secrets", ".env.override"]);
 });
 
+Deno.test("a future registered artifact auto-enrols in the ownership inventory", () => {
+  const entries = projectArtifactPaths(parseConfigOrThrow(""));
+  const model = entries[0];
+  assert(model !== undefined);
+  const document = renderArtifactInventory([
+    ...entries,
+    {
+      ...model,
+      id: "synthetic:future-reference-artifact",
+      path: "future/reference-contract.txt",
+    },
+  ]);
+  assert(
+    document.includes("`future/reference-contract.txt`"),
+    "a future registry member must join the generated manual table",
+  );
+});
+
 Deno.test("first-party legal documents never enter the project footprint", () => {
   const projectPaths = new Set(
     projectArtifactPaths(parseConfigOrThrow("")).map((entry) => entry.path),
@@ -203,12 +221,25 @@ Deno.test("the ownership references match the canonical enumeration", async () =
     projectArtifactPaths(parseConfigOrThrow("")),
   );
   for (
-    const rel of [
-      "70-reference/artifact-ownership.md",
-      "80-development/install-surface.md",
+    const target of [
+      {
+        root: REPO_AUTHORED_PATHS.map,
+        rootRel: REPO_AUTHORED_PATHS.mapRel,
+        rel: "70-reference/artifact-ownership.md",
+      },
+      {
+        root: REPO_AUTHORED_PATHS.map,
+        rootRel: REPO_AUTHORED_PATHS.mapRel,
+        rel: "80-development/install-surface.md",
+      },
+      {
+        root: REPO_AUTHORED_PATHS.manual,
+        rootRel: REPO_AUTHORED_PATHS.manualRel,
+        rel: "30-reference/files-and-ownership.md",
+      },
     ]
   ) {
-    const path = `${REPO_AUTHORED_PATHS.map}/${rel}`;
+    const path = `${target.root}/${target.rel}`;
     const committed = await Deno.readTextFile(path);
     assertEquals(
       committed,
@@ -216,7 +247,7 @@ Deno.test("the ownership references match the canonical enumeration", async () =
         path,
         replaceArtifactInventory(committed, inventory),
       ),
-      `${REPO_AUTHORED_PATHS.mapRel}/${rel} is stale — run \`deno task codegen\``,
+      `${target.rootRel}/${target.rel} is stale — run \`deno task codegen\``,
     );
   }
 });

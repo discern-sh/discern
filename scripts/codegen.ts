@@ -22,8 +22,12 @@ import {
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
   renderConfigSchemaJson,
+  renderManualConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
-import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
+import {
+  renderCliReferenceDoc,
+  renderManualCliReferenceDoc,
+} from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
 import { renderCrossAgentReferenceDoc } from "./cross_agent_registry.ts";
@@ -31,8 +35,12 @@ import { renderAgentIntegrationCoverageDoc } from "./agent_integration_registry.
 import {
   ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
   renderEnvironmentVariableReferenceDoc,
+  renderManualEnvironmentVariableReferenceDoc,
 } from "./environment_variable_reference.ts";
-import { renderGlossaryDoc } from "./glossary_registry.ts";
+import {
+  renderGlossaryDoc,
+  renderManualGlossaryDoc,
+} from "./glossary_registry.ts";
 import {
   FEATURE_CANON_AGENT_BENEFITS_PAGE_REL,
   FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL,
@@ -255,7 +263,7 @@ await write(configReference, renderedConfigReference);
 await write(
   manualConfigReference,
   renderGeneratedManualDocument(
-    renderedConfigReference,
+    renderManualConfigReferenceDoc(),
     "70-reference/config-reference.md",
     "30-reference/config-reference.md",
     { id: "reference-config", order: 30 },
@@ -268,7 +276,7 @@ await write(cliReference, renderedCliReference);
 await write(
   manualCliReference,
   renderGeneratedManualDocument(
-    renderedCliReference,
+    renderManualCliReferenceDoc(buildCli(false)),
     "70-reference/cli-reference.md",
     "30-reference/cli-reference.md",
     { id: "reference-cli", order: 20 },
@@ -287,7 +295,7 @@ await write(
 await write(
   manualEnvironmentVariableReference,
   renderGeneratedManualDocument(
-    renderedEnvironmentVariableReference,
+    renderManualEnvironmentVariableReferenceDoc(),
     "70-reference/environment-variables.md",
     "30-reference/environment-variables.md",
     { id: "reference-environment-variables", order: 60 },
@@ -341,7 +349,7 @@ await write(glossary, renderedGlossary);
 await write(
   manualGlossary,
   renderGeneratedManualDocument(
-    renderedGlossary,
+    renderManualGlossaryDoc(),
     "00-orientation/glossary.md",
     "30-reference/glossary.md",
     {
