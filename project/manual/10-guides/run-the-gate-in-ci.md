@@ -1,6 +1,6 @@
 ---
 id: guide-run-the-gate-in-ci
-title: "Run the gate in ci"
+title: "Run the Gate in CI"
 description: "Run report-only Gate evidence in CI and require the result without implying landing authority."
 order: 130
 publish: true
@@ -16,114 +16,73 @@ redirect_from:
   - "/docs/quality-gate/ci"
 ---
 
-# Run the gate in ci
+# Run the Gate in CI
 
-Run report-only Gate evidence in CI and require the result without implying landing authority.
+Use this guide to make the project's declared Gate a required continuous-integration check. CI should evaluate the checked-out commit, retain useful failure output, and report checkpoint review needs without claiming that the commit is ready to land.
 
-# Run the Gate in GitHub Actions
+`discern done --ci` produces report-only evidence. It does not record checkpoint declarations, grant authority, or create Proof that `discern accept` can use.
 
-_Run the machine Gate and report checkpoint questions on pull requests, then make that check required on trunk._
+## Starting state
 
-CI runs the Gate for changes without a stateful local discern worktree. The explicit `discern done --ci` lane evaluates the governing checkpoint policy and runs the ordinary machine jobs. Fired stop questions await review; the runner writes no open question or declaration. Its Proof says checkpoint review was reported and was not enforced, so `discern accept` cannot use it for landing. A later ordinary `discern done` in a local worktree performs the strict review.
+- `discern.toml` already declares the project's Gate jobs and Standards.
+- The CI runner checks out the candidate commit with enough Git history to resolve the configured trunk and merge base.
+- The workflow installs a pinned discern binary and every runtime named by `[jobs]`.
+- Branch protection can require the workflow's result before merging.
 
-The workflow installs a pinned binary and the project's toolchain, fetches the trunk ref used by merge and Standard checks, runs the Gate, and confirms that fixers left the committed tree unchanged. Requiring the job makes machine success a merge condition and keeps checkpoint questions visible. It proves no agent review and transports no declarations.
+## 1. Recreate the project's declared environment
 
-## Add the workflow
+**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk and enough history for change classification. Restore dependencies from the project's lockfiles.
 
-This example uses Deno for the project's own toolchain. Replace that setup step with the commands your jobs need.
+Do not restate each project check in workflow YAML. `[jobs]`, scope gates, and Standards remain the authority, so local agents and CI run the same declaration.
 
-Create `.github/workflows/discern-gate.yml`:
+## 2. Run the report-only Gate
 
-```yaml
-name: discern-gate
+**CI runner:** From the repository root, run:
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-env:
-  DISCERN_VERSION: v1.0.0
-  RELEASE_ASSET: discern-x86_64-unknown-linux-gnu
-
-jobs:
-  gate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
-      - name: Fetch trunk
-        shell: bash
-        run: |
-          git fetch --no-tags --depth=1 origin \
-            +refs/heads/main:refs/remotes/origin/main
-          if [ "$(git branch --show-current)" != "main" ]; then
-            git branch --force main refs/remotes/origin/main
-          fi
-
-      - name: Install discern
-        shell: bash
-        run: |
-          set -euo pipefail
-          base="https://github.com/jackwh/discern/releases/download/${DISCERN_VERSION}"
-          curl -fsSLO "${base}/${RELEASE_ASSET}"
-          curl -fsSLO "${base}/${RELEASE_ASSET}.sha256"
-          sha256sum -c "${RELEASE_ASSET}.sha256"
-          install -m 0755 "${RELEASE_ASSET}" "${RUNNER_TEMP}/discern"
-          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
-
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
-        with:
-          deno-version: v2.x
-          cache: true
-
-      - name: Run the Gate
-        run: discern done --ci
-
-      - name: Assert a clean tree
-        run: git diff --exit-code
+```sh
+discern done --ci --markdown
 ```
 
-Set `DISCERN_VERSION` to the release tag you approve. `RELEASE_ASSET` must match the runner architecture. Change both `main` references when your trunk has another name.
+Keep the Markdown result in the job log or summary. Use `--json` when another step consumes exact fields.
 
-The full commit hashes pin remote action code to the reviewed commit. The comments name the release line for maintenance. Advance those pins through a reviewed automated dependency update instead of changing them back to mutable tags.
+The result must show every scheduled job, measured Gate Standard, failed or skipped work, and any checkpoint questions the change would require in a strict local run. CI reports those checkpoint obligations; it cannot make the agent's declaration on behalf of the task.
 
-The toolchain step belongs before the Gate because discern runs the commands in `discern.toml`. It does not install their toolchain or dependencies.
+## 3. Reject uncommitted rewrites
 
-## Wrapped test tasks
+**CI runner:** After the Gate, verify that fixers, generators, and refresh actions left no uncommitted tracked change:
 
-The workflow above already installs discern, so a wrapped test task works unchanged and acquires immediately in a fresh checkout. Any other workflow that invokes that task must install discern first.
+```sh
+git diff --exit-code
+```
 
-## Require the result
+A diff means the candidate did not commit the tree its configured commands produce. The agent should run `discern prepare`, review the output, commit it, and send a new commit.
 
-In the repository's rule set or branch-protection settings, require pull requests and the `gate` job before merge. The workflow reports the machine verdict and checkpoint questions; the repository rule turns the machine verdict into policy. Keep the push trigger so landed commits also produce a record. A push-to-trunk run normally has an empty effort diff, so no change-triggered question fires there.
+## 4. Cover deferred Standards deliberately
 
-## Standards in CI
+`measure = "on-demand"` keeps a slow measurement out of every Gate run. If CI is the chosen schedule for that metric, add a separate named job:
 
-`discern done` verifies every Standard limit against trunk and measures Standards whose `measure` is `"gate"`. The fetch step supplies the trunk ref required for that comparison. If the project defers a metric with `measure = "on-demand"`, add a pull-request step that runs `discern standards` after the same toolchain setup.
+```sh
+discern standards standard-name --markdown
+```
 
-## Cloud-agent changes
+Make its cadence and required status visible. A report that omits deferred measurements must not be described as having measured them.
 
-A cloud coding agent may start from a clone without the discern binary or materialized Skills. Committed agent instructions still travels with the clone. The required CI job installs discern and runs the repository's Gate before the change can merge. A wrapped task without the binary exits 127, so an agent that runs it needs discern installed. Installation also supplies Model Context Protocol tools and Skills.
+## 5. Route failures back to the task
 
-## Where it lives in code
+**CI runner:** Fail the job when the command exits nonzero and retain the full diagnostic.
 
-| Concern                             | Source                                                                                                       |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Binary release assets and checksums | [`.github/workflows/release.yml`](https://github.com/jackwh/discern/blob/main/.github/workflows/release.yml) |
-| Gate preconditions and standards    | [`finish.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/finish.ts)                         |
-| Non-interactive job environment     | [`command.ts`](https://github.com/jackwh/discern/blob/main/src/engine/jobs/command.ts)                       |
+**Coding agent:** Use the failed job's captured output and reproduction command in the task's worktree. Run the focused command there, correct the cause, then return through `discern prepare`, commit, and strict `discern done`.
 
-## Current state & gotchas
+If CI reports a checkpoint obligation, the agent judges it locally with the changed content in view. A person still owns any variance for a declared-unmet conclusion.
 
-- Do not run `discern refresh` in the gate job. CI verifies committed instructions and accepts an intentionally missing untracked copy; regenerating first can hide drift.
-- Do not put `--met`, `--unmet`, or a rationale in workflow YAML. `--ci` rejects declaration flags before any checkpoint or Gate write; review conclusions belong to a stateful local worktree.
-- Pull-request checkouts may lack local `main`. Fetch it without exporting `DISCERN_TRUNK` into project jobs.
-- `git diff --exit-code` catches fixer output. Without it, the workflow can finish after changing the runner's checkout and does not verify that the commit contains those changes.
+## 6. Require the check without conflating states
+
+**Person or platform maintainer:** Configure branch protection to require the CI job. Treat its pass as remote confirmation that the candidate ran in the CI environment.
+
+Before discern acceptance, the task's coding agent must still run ordinary `discern done` on a clean worktree. That strict run can record checkpoint declarations and produce current landing Proof. Passing CI alone leaves the commit report-only and unlanded.
+
+## Completion
+
+The CI path is complete when a known failing candidate makes the required job red with a usable diagnostic, a clean passing candidate makes it green without a diff, and the result is labeled report-only. The next task-side destination is [Finish and land a change](finish-and-land-a-change.md).
+
+Use the [CLI reference](../30-reference/cli-reference.md) for flags and exit codes, [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) for report-only state, and [Fix a red Gate](fix-a-red-gate.md) for local recovery.
