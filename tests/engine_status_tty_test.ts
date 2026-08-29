@@ -185,6 +185,19 @@ interface StatusCase {
 
 const STATUS_CASES: Record<FleetRowStatusKind, StatusCase> = {
   broken: { patch: { broken: true } },
+  "setup-incomplete": {
+    patch: {
+      setup: {
+        state: "incomplete",
+        marker: "missing",
+        repair: {
+          kind: "retry",
+          command: "discern worktree setup",
+          reason: "The ready marker is missing.",
+        },
+      },
+    },
+  },
   unreadable: { patch: { git_unavailable: true } },
   failed: {
     patch: {

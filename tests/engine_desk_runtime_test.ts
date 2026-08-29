@@ -44,6 +44,7 @@ import {
 import { parseProjectScriptArguments } from "../src/engine/desk/literal_argv.ts";
 import {
   DESK_REVIEW_ROUTES,
+  DESK_ROUTES,
   deskUnlandedRoute,
 } from "../src/engine/desk/view.ts";
 import { DESK_ACTIONS, type DeskAction } from "../src/engine/desk/model.ts";
@@ -123,6 +124,9 @@ function fleetEntry(
     is_main: false,
     is_current: false,
     branch,
+    branch_reachable: true,
+    filesystem: { state: "directory" },
+    setup: { state: "ready", marker: "present" },
     clean: true,
     changed_files: 0,
     ahead: 0,
@@ -356,8 +360,12 @@ function scriptedRuntime(
     accept: () => {},
     update: () => {},
     updatePlan: () => ({ ok: true, verb: "update" }),
+    setup: () => {},
+    setupPlan: () => ({ title: "Setup plan", details: [], steps: [] }),
     drop: () => {},
     dropPlan: () => ({ title: "Drop plan", details: [], steps: [] }),
+    park: () => {},
+    parkPlan: () => ({ title: "Park plan", details: [], steps: [] }),
     reclaim: () => {},
     reclaimPlan: () => ({ title: "Reclaim plan", details: [], steps: [] }),
     git: () => ({ success: true, stdout: "", stderr: "" }),
@@ -630,6 +638,98 @@ Deno.test("desk reports removed worktree paths that are present again", async ()
     text,
     "Review with discern worktree prune --dry-run.",
   );
+});
+
+Deno.test("dirty main is inspectable without offering agent work", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+    clean: false,
+    changed_files: 2,
+  });
+  const data = statusData([main]);
+  const choices = [DESK_ROUTES.mainCheckout, "inspect", BACK, QUIT];
+  const commands: string[][] = [];
+  const pages: string[] = [];
+  const menus: string[] = [];
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data }),
+    select: (options) => {
+      menus.push(JSON.stringify(options.options));
+      return choices.shift() ?? QUIT;
+    },
+    git: (args) => {
+      commands.push([...args]);
+      return {
+        success: true,
+        stdout: args[0] === "status"
+          ? "## main\n M src/main.ts\n?? notes.txt\n"
+          : " src/main.ts | 2 +-\n",
+        stderr: "",
+      };
+    },
+    pager: (page) => {
+      pages.push(page);
+      return { shown: true };
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(commands, [
+    ["status", "--short", "--branch"],
+    ["diff", "--stat", "HEAD"],
+  ]);
+  assertStringIncludes(menus[0] ?? "", "Inspect main checkout");
+  assertStringIncludes(menus[1] ?? "", "Inspect status and diff");
+  assert(!menus[1]?.includes('"value":"agent"'), menus[1]);
+  assertStringIncludes(pages[0] ?? "", "Command: git status --short --branch");
+  assertStringIncludes(pages[0] ?? "", "src/main.ts");
+  assertStringIncludes(
+    joined(output).replaceAll(/\s+/gu, " "),
+    "agent work remains in linked",
+  );
+  assertStringIncludes(joined(output), "worktrees.");
+});
+
+Deno.test("recent completed tasks expose bounded local landing evidence", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const data: StatusData = {
+    ...statusData([main]),
+    recent_completed_tasks: [{
+      branch: "agent/completed",
+      head: "abc1234",
+      completed_at: "2026-07-11T11:58:00.000Z",
+      proof_line: "Proof: agent/completed abc1234 · gate passed",
+    }],
+  };
+  const choices = [DESK_ROUTES.recentCompleted, QUIT];
+  const menus: string[] = [];
+  let pauses = 0;
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data }),
+    select: (options) => {
+      menus.push(JSON.stringify(options.options));
+      return choices.shift() ?? QUIT;
+    },
+    pause: () => {
+      pauses++;
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(pauses, 1);
+  assertStringIncludes(menus[0] ?? "", "Recent completed tasks · 1");
+  assertStringIncludes(joined(output), "agent/completed");
+  assertStringIncludes(
+    joined(output),
+    "Proof: agent/completed abc1234",
+  );
+  assertStringIncludes(joined(output), "gate passed");
 });
 
 Deno.test("desk grants and revokes one effort only through its human action", async () => {
@@ -938,6 +1038,142 @@ Deno.test("desk Refresh replaces the root menu from a fresh fleet survey", async
   assertEquals(menus.length, 2);
   assert(!menus[0]?.includes("Newly created"));
   assertStringIncludes(menus[1] ?? "", "Newly created");
+});
+
+Deno.test("Park refreshes a removed checkout into its resumable branch", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const effort = fleetEntry("agent/park-refresh", "/worktrees/park-refresh", {
+    ahead: 1,
+    task: {
+      id: "park-refresh",
+      branch: "agent/park-refresh",
+      title: "Park refresh",
+      title_source: "recorded",
+    },
+  });
+  let parked = false;
+  const choices = [effort.path, "park", BACK, QUIT];
+  const runtime = scriptedRuntime(output, {
+    status: () => ({
+      ok: true,
+      data: parked
+        ? {
+          ...statusData([main]),
+          unlanded_branches: [effort.branch],
+          parked_tasks: [{
+            id: "park-refresh",
+            branch: effort.branch,
+            head: "a".repeat(40),
+            parked_at: "2026-07-11T12:00:00.000Z",
+            task: effort.task ?? {
+              id: "park-refresh",
+              branch: effort.branch,
+              title: "Park refresh",
+              title_source: "recorded",
+            },
+          }],
+        }
+        : statusData([main, effort]),
+    }),
+    select: () => choices.shift() ?? QUIT,
+    park: () => {
+      parked = true;
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertStringIncludes(
+    joined(output),
+    "Task changed; refreshed. Its branch is ready to resume.",
+  );
+  assertStringIncludes(joined(output), "Committed branch has no worktree");
+  assertStringIncludes(joined(output), effort.branch);
+});
+
+Deno.test("a lifecycle refusal refreshes a task that landed outside the Desk", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const effort = fleetEntry("agent/external-land", "/worktrees/external-land", {
+    ahead: 1,
+  });
+  let landed = false;
+  const choices = [effort.path, "park", QUIT];
+  const runtime = scriptedRuntime(output, {
+    status: () => ({
+      ok: true,
+      data: landed
+        ? {
+          ...statusData([main]),
+          recent_completed_tasks: [{
+            branch: effort.branch,
+            head: "b".repeat(40),
+            completed_at: "2026-07-11T12:00:00.000Z",
+          }],
+        }
+        : statusData([main, effort]),
+    }),
+    select: () => choices.shift() ?? QUIT,
+    park: () => {
+      landed = true;
+      throw new WorktreeGitError(
+        "The selected task landed before Park could apply.",
+      );
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertStringIncludes(
+    joined(output),
+    "The selected task landed before Park could apply.",
+  );
+  assertStringIncludes(
+    joined(output),
+    "Task landed; refreshed. Completion evidence is available.",
+  );
+});
+
+Deno.test("a lifecycle refusal reports an externally removed task and refreshes", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const effort = fleetEntry(
+    "agent/external-remove",
+    "/worktrees/external-remove",
+    {
+      ahead: 1,
+    },
+  );
+  let removed = false;
+  const choices = [effort.path, "park", QUIT];
+  const runtime = scriptedRuntime(output, {
+    status: () => ({
+      ok: true,
+      data: statusData(removed ? [main] : [main, effort]),
+    }),
+    select: () => choices.shift() ?? QUIT,
+    park: () => {
+      removed = true;
+      throw new WorktreeGitError(
+        "The selected task no longer has a registered checkout.",
+      );
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertStringIncludes(
+    joined(output),
+    "The selected task no longer has a registered checkout.",
+  );
+  assertStringIncludes(joined(output), "Task changed; refreshed.");
 });
 
 Deno.test("desk starts a named task and focuses its ready worktree immediately", async () => {
@@ -2326,6 +2562,34 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
     ) => Partial<DeskRuntime>;
   }
   const cases: Readonly<Record<DeskAction, RuntimeActionCase>> = {
+    recovery: {
+      entry: { broken: true },
+      choices: ["recovery", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        pause: () => {
+          effects.push("recovery");
+        },
+      }),
+    },
+    retry_setup: {
+      entry: {
+        setup: {
+          state: "incomplete",
+          marker: "missing",
+          repair: {
+            kind: "retry",
+            command: "discern worktree setup",
+            reason: "The ready marker is missing.",
+          },
+        },
+      },
+      choices: ["retry_setup", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        setup: () => {
+          effects.push("retry_setup");
+        },
+      }),
+    },
     done: {
       entry: { ahead: 1, gate_proof: { status: "missing" } },
       choices: ["done", BACK, QUIT],
@@ -2465,6 +2729,14 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
       runtime: (effects: DeskAction[]) => ({
         reclaim: () => {
           effects.push("reclaim");
+        },
+      }),
+    },
+    park: {
+      choices: ["park", BACK, QUIT],
+      runtime: (effects: DeskAction[]) => ({
+        park: () => {
+          effects.push("park");
         },
       }),
     },
@@ -2678,6 +2950,34 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     0,
   );
   assertStringIncludes(joined(refusalOutput), "identity is unavailable");
+});
+
+Deno.test("Park cancellation keeps the checkout without calling apply", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
+  const effort = fleetEntry("agent/park-cancel", "/worktrees/park-cancel", {
+    ahead: 1,
+  });
+  const data = statusData([main, effort]);
+  const choices = [effort.path, "park", BACK, QUIT];
+  let planCalls = 0;
+  let applyCalls = 0;
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data }),
+    select: () => choices.shift() ?? QUIT,
+    confirm: () => false,
+    parkPlan: () => {
+      planCalls++;
+      return { title: "Park plan", details: [], steps: [] };
+    },
+    park: () => {
+      applyCalls++;
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assertEquals(planCalls, 1);
+  assertEquals(applyCalls, 0);
 });
 
 Deno.test("desk reclaims a contained checkout only through its explicit confirmation", async () => {

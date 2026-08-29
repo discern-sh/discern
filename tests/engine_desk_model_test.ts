@@ -60,6 +60,9 @@ function entry(over: Partial<StatusFleetEntry> = {}): StatusFleetEntry {
     is_main: false,
     is_current: false,
     branch,
+    branch_reachable: true,
+    filesystem: { state: "directory" },
+    setup: { state: "ready", marker: "present" },
     clean: true,
     changed_files: 0,
     ahead: 0,
@@ -118,6 +121,21 @@ const STATUS_KIND_CASES = [
     kind: "broken",
     state: "needs_attention",
     over: { broken: true },
+  },
+  {
+    kind: "setup-incomplete",
+    state: "needs_attention",
+    over: {
+      setup: {
+        state: "incomplete",
+        marker: "missing",
+        repair: {
+          kind: "retry",
+          command: "discern worktree setup",
+          reason: "The ready marker is missing.",
+        },
+      },
+    },
   },
   {
     kind: "unreadable",
@@ -630,6 +648,59 @@ Deno.test("a contained task names its live successor and recommends reclaim", ()
   );
 });
 
+Deno.test("Park, Reclaim, and Drop retain distinct artifact contracts", () => {
+  const task = {
+    id: "artifact-contract",
+    branch: "agent/artifact-contract",
+    title: "Artifact contract",
+    title_source: "recorded" as const,
+  };
+  const base = {
+    branch: task.branch,
+    task,
+    ahead: 3,
+    resources: { database: "demo-artifact-contract" },
+    landing_authority: {
+      kind: "authorized" as const,
+      source: "effort-grant" as const,
+    },
+    gate_proof: { status: "honored" as const },
+  };
+  const parked = offer(decide(base), "park").consequence;
+  assert(parked.keeps.includes(`Branch ${task.branch}`));
+  assert(parked.keeps.includes("Task title, brief, and creation source"));
+  assert(parked.removes.includes("Task checkout"));
+  assert(parked.removes.includes("Task landing grant"));
+  assert(parked.removes.includes("Task-local Proof"));
+  assert(
+    !parked.removes.some((fact) => fact.includes(`Branch ${task.branch}`)),
+  );
+
+  const reclaimed = offer(
+    decide({ ...base, contained_in: "agent/later-stage" }),
+    "reclaim",
+  ).consequence;
+  assert(reclaimed.keeps.includes(`Branch ${task.branch}`));
+  assert(reclaimed.keeps.includes("Containing branch agent/later-stage"));
+  assert(reclaimed.removes.includes("Task checkout"));
+  assertStringIncludes(reclaimed.recoverable.join(" "), "self-cleans");
+
+  const dropped = offer(
+    decide({ ...base, clean: false, changed_files: 2 }),
+    "drop",
+  ).consequence;
+  assert(dropped.removes.includes("Task checkout"));
+  assert(dropped.removes.includes("2 uncommitted changes"));
+  assert(dropped.removes.includes("3 commits not on the trunk"));
+  assert(dropped.removes.includes("Task metadata"));
+  assert(dropped.removes.includes("Task landing grant"));
+  assert(dropped.removes.includes("Task-local Proof"));
+  assertStringIncludes(dropped.recoverable.join(" "), "recovery ref");
+
+  const noProof = offer(decide({ ahead: 1 }), "park").consequence;
+  assert(!noProof.removes.includes("Task-local Proof"));
+});
+
 // ── one action representation, with the behind/Accept class guard ───────────
 
 const ACTION_CASES: ReadonlyArray<{
@@ -641,13 +712,44 @@ const ACTION_CASES: ReadonlyArray<{
   {
     name: "broken checkout",
     decision: () => decide({ broken: true }),
-    enabled: ["follow_up", "jump", "inspect", "rename", "drop"],
+    enabled: ["recovery", "jump", "drop"],
+    recommended: "recovery",
   },
   {
     name: "unreadable checkout",
     decision: () =>
       decide({ git_unavailable: true, clean: undefined, ahead: undefined }),
-    enabled: ["drop"],
+    enabled: ["recovery", "jump", "drop"],
+    recommended: "recovery",
+  },
+  {
+    name: "missing checkout directory",
+    decision: () =>
+      decide({
+        git_unavailable: true,
+        clean: undefined,
+        ahead: undefined,
+        filesystem: { state: "missing" },
+      }),
+    enabled: ["recovery", "drop"],
+    recommended: "recovery",
+  },
+  {
+    name: "repairable setup",
+    decision: () =>
+      decide({
+        setup: {
+          state: "incomplete",
+          marker: "missing",
+          repair: {
+            kind: "retry",
+            command: "discern worktree setup",
+            reason: "The ready marker is missing.",
+          },
+        },
+      }),
+    enabled: ["recovery", "retry_setup", "jump", "drop"],
+    recommended: "recovery",
   },
   {
     name: "clean committed work awaiting final checks",
@@ -660,6 +762,7 @@ const ACTION_CASES: ReadonlyArray<{
       "inspect",
       "rename",
       "grant",
+      "park",
       "drop",
     ],
     recommended: "done",
@@ -680,6 +783,7 @@ const ACTION_CASES: ReadonlyArray<{
       "inspect",
       "rename",
       "revoke_grant",
+      "park",
       "drop",
     ],
     recommended: "accept",
@@ -694,6 +798,7 @@ const ACTION_CASES: ReadonlyArray<{
       "inspect",
       "rename",
       "grant",
+      "park",
       "drop",
     ],
     recommended: "update",
@@ -749,7 +854,15 @@ const ACTION_CASES: ReadonlyArray<{
   {
     name: "empty task",
     decision: () => decide(),
-    enabled: ["follow_up", "jump", "inspect", "rename", "grant", "drop"],
+    enabled: [
+      "follow_up",
+      "jump",
+      "inspect",
+      "rename",
+      "grant",
+      "park",
+      "drop",
+    ],
   },
 ];
 

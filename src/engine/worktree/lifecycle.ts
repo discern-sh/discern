@@ -34,7 +34,7 @@ import {
   plainModeEnabled,
 } from "../../lib/terminal_interaction.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
-import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { commandEvidence } from "../../shared/command_evidence.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
@@ -135,6 +135,8 @@ import {
   type DropPlan,
   dropPlanToEngine,
   FULL_REFRESH_STEP_NOTE,
+  type ParkPlan,
+  parkPlanToEngine,
   type PrunePlan,
   prunePlanIsEmpty,
   prunePlanToEngine,
@@ -196,11 +198,13 @@ import type {
 import { AppliedAcceptDataSchema } from "../../shared/result_schemas.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import {
+  type ParkedTaskMetadata,
   recordedTaskMetadataData,
   type StoredTaskMetadata,
   TASK_METADATA_SCHEMA_VERSION,
   validateTaskText,
 } from "../../shared/task_metadata.ts";
+import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { buildStandardPlan } from "../gate/standard_plan.ts";
 import {
   cloneStandardLimitProposal,
@@ -282,6 +286,11 @@ import {
   TaskMetadataStoreError,
   writeStoredTaskMetadata,
 } from "./task_metadata.ts";
+import {
+  readParkedTaskMetadata,
+  removeParkedTaskMetadata,
+  writeParkedTaskMetadata,
+} from "./parked_task_metadata.ts";
 
 // worktree setup recompiles the agent instructions as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
@@ -605,6 +614,14 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
     label: BUILT_IN_STEP_LABELS.completeRefresh,
   });
   return { branch, steps };
+}
+
+/** Read-only worktree setup plan shared by the CLI preview and the Desk. */
+export async function worktreeSetupPlan(
+  ctx: LifecycleContext,
+): Promise<EnginePlan> {
+  await assertOpSide("worktree-setup", ctx.cwd);
+  return setupPlanToEngine(await buildSetupPlan(ctx));
 }
 
 /** Report whether this worktree needs the generated-artifact merge driver. */
@@ -1589,11 +1606,16 @@ export interface WorktreeDropOptions extends WorktreeOpOptions {
 async function buildDropPlan(
   ctx: LifecycleContext,
   target: string,
+  operation: "drop" | "park" = "drop",
 ): Promise<DropPlan> {
-  await assertOpSide("worktree-drop", ctx.cwd);
+  await assertOpSide(
+    operation === "drop" ? "worktree-drop" : "worktree-park",
+    ctx.cwd,
+  );
+  const command = `discern worktree ${operation}`;
   if (target.trim() === "") {
     throw new WorktreeGitError(
-      "discern worktree drop needs a target. Pass a worktree id or path, then re-run.",
+      `${command} needs a target. Pass a worktree id or path, then re-run.`,
     );
   }
   const trunk = integrationBranch(ctx.config.repository.trunk);
@@ -1602,7 +1624,7 @@ async function buildDropPlan(
   );
   if (fleet.length === 0) {
     throw new WorktreeGitError(
-      "There are no worktrees to drop. Run `discern status` to review the current " +
+      `There are no worktrees to ${operation}. Run \`discern status\` to review the current ` +
         "worktrees; if none is listed, there is nothing to remove.",
     );
   }
@@ -1644,7 +1666,7 @@ async function buildDropPlan(
   if (matches.length > 1) {
     const candidates = matches.map((row) => `- ${row.path}`).sort().join("\n");
     throw new WorktreeGitError(
-      `\`discern worktree drop\` can't resolve '${target}': it matches more ` +
+      `\`${command}\` can't resolve '${target}': it matches more ` +
         `than one registered worktree:\n${candidates}\n` +
         "Pass one of these paths as the target, then re-run.",
     );
@@ -1743,6 +1765,8 @@ async function buildDropPlan(
     targetPath: match.path,
     id: resolvedId ?? basename(match.path),
     branch: match.branch,
+    head: match.head,
+    ...(match.snapshot === undefined ? {} : { clean: match.snapshot.clean }),
     // Drop discards a LINE OF WORK; the trunk is never one. A worktree holding
     // the trunk (the legacy accept-to-branch layouts leave these behind) has
     // its checkout removed and its branch kept — deleting the trunk would leave
@@ -1970,6 +1994,228 @@ export async function worktreeDrop(
   emitOrRenderWorktreeResult(
     ctx,
     appliedResult("worktree drop", steps),
+    opts.json ?? false,
+  );
+}
+
+/** Options for the branch-preserving Park lifecycle. */
+export interface WorktreeParkOptions extends WorktreeOpOptions {}
+
+interface PreparedPark {
+  readonly plan: ParkPlan;
+  readonly task: StoredTaskMetadata;
+}
+
+/** Read-only Park diagnosis. Unknown or dirty state never yields a plan. */
+async function buildParkPlan(
+  ctx: LifecycleContext,
+  target: string,
+): Promise<PreparedPark> {
+  await assertOpSide("worktree-park", ctx.cwd);
+  const removal = await buildDropPlan(ctx, target, "park");
+  const trunk = integrationBranch(ctx.config.repository.trunk);
+  if (removal.branch === "" || removal.branch === trunk) {
+    throw new WorktreeGitError(
+      "Park needs a named task branch separate from the trunk. The checkout and branch were kept. Choose Show recovery steps in `discern desk`.",
+    );
+  }
+  if (removal.clean !== true) {
+    throw new WorktreeGitError(
+      removal.clean === false
+        ? `Park refused ${removal.id} because its checkout has uncommitted changes. Commit or discard those changes, then re-run \`discern worktree park ${removal.id}\`.`
+        : `Park could not verify ${removal.id}'s checkout as clean. Run \`git status --short\` in ${removal.targetPath}, repair the reported Git state, then re-run \`discern worktree park ${removal.id}\`.`,
+    );
+  }
+  if (!(await worktreeSetupComplete(removal.targetPath))) {
+    throw new WorktreeGitError(
+      `Park refused ${removal.id} because setup has not reached its ready marker. Run \`discern worktree setup\` in ${removal.targetPath}, then re-run \`discern worktree park ${removal.id}\`.`,
+    );
+  }
+  if (!(await localBranchExists(ctx.root, removal.branch))) {
+    throw new WorktreeGitError(
+      `Park could not verify branch ${removal.branch}. Run \`git show-ref --verify refs/heads/${removal.branch}\` from ${ctx.root}, repair the branch ref, then re-run.`,
+    );
+  }
+  const branchHead = await resolveCommitRef(ctx.root, removal.branch);
+  if (branchHead !== removal.head) {
+    throw new WorktreeGitError(
+      `Park observed branch ${removal.branch} at ${branchHead}, while Git's worktree registration records ${removal.head}. Run \`git worktree repair\`, then re-run \`discern worktree park ${removal.id}\`.`,
+    );
+  }
+  let task: StoredTaskMetadata;
+  try {
+    task = await readStoredTaskMetadata(removal.targetPath) ?? {
+      schema_version: TASK_METADATA_SCHEMA_VERSION,
+      title: removal.id,
+    };
+  } catch (error) {
+    throw new WorktreeGitError(
+      `Park could not preserve task metadata for ${removal.id}: ${
+        error instanceof Error ? error.message : String(error)
+      } Run \`discern status --all\` to inspect the task metadata failure, repair it, then re-run.`,
+      { cause: error },
+    );
+  }
+  const grantPath = await gitAdminStatePath(removal.targetPath, "effortGrant");
+  const proofPath = await gitAdminStatePath(removal.targetPath, "gateProof");
+  return {
+    task,
+    plan: {
+      targetPath: removal.targetPath,
+      id: removal.id,
+      branch: removal.branch,
+      head: removal.head,
+      entries: removal.entries,
+      title: task.title,
+      keepsBrief: task.brief !== undefined,
+      removesGrant: grantPath !== undefined && await fileExists(grantPath),
+      removesProof: proofPath !== undefined && await fileExists(proofPath),
+    },
+  };
+}
+
+/** Exact read-only Park plan for the CLI and Desk. */
+export async function worktreeParkPlan(
+  ctx: LifecycleContext,
+  target: string,
+): Promise<EnginePlan> {
+  return parkPlanToEngine((await buildParkPlan(ctx, target)).plan);
+}
+
+/** Compare the facts whose movement would invalidate a reviewed Park plan. */
+function sameParkSubject(left: ParkPlan, right: ParkPlan): boolean {
+  return left.targetPath === right.targetPath && left.id === right.id &&
+    left.branch === right.branch && left.head === right.head &&
+    right.entries.length === left.entries.length &&
+    right.entries.every((entry, index) =>
+      entry.entry.resource_name === left.entries[index]?.entry.resource_name &&
+      entry.entry.resource_identity ===
+        left.entries[index]?.entry.resource_identity
+    );
+}
+
+/** Resource teardown may empty the ledger; checkout identity must stay fixed. */
+function sameParkSubjectAfterTeardown(
+  planned: ParkPlan,
+  current: ParkPlan,
+): boolean {
+  return planned.targetPath === current.targetPath &&
+    planned.id === current.id &&
+    planned.branch === current.branch && planned.head === current.head &&
+    current.entries.length === 0;
+}
+
+/**
+ * Remove a clean healthy checkout and its resources while retaining the branch
+ * and human task wording. There is no force route: a dirty or unreadable tree
+ * stays registered. Apply rebuilds the plan before and after resource teardown.
+ */
+export async function worktreePark(
+  ctx: LifecycleContext,
+  target: string,
+  opts: WorktreeParkOptions = {},
+): Promise<void> {
+  const prepared = await buildParkPlan(ctx, target);
+  if (opts.dryRun ?? false) {
+    emitDryRun(
+      ctx,
+      "worktree park",
+      parkPlanToEngine(prepared.plan),
+      opts.json ?? false,
+    );
+    return;
+  }
+  const beforeApply = await buildParkPlan(ctx, prepared.plan.targetPath);
+  if (!sameParkSubject(prepared.plan, beforeApply.plan)) {
+    throw new WorktreeGitError(
+      "Task changed after the Park plan was built. Nothing was removed. Review a refreshed plan, then re-run.",
+    );
+  }
+  const record: ParkedTaskMetadata = {
+    schema_version: 1,
+    id: prepared.plan.id,
+    branch: prepared.plan.branch,
+    head: prepared.plan.head,
+    parked_at: wallTimeIso(SYSTEM_CLOCK.wallNow()),
+    task: prepared.task,
+  };
+  try {
+    await writeParkedTaskMetadata(ctx.root, record);
+  } catch (error) {
+    throw new WorktreeGitError(
+      `Park stopped before cleanup because task metadata could not be retained: ${
+        error instanceof Error ? error.message : String(error)
+      } Run \`discern doctor\`, then re-run \`discern worktree park ${prepared.plan.id}\`.`,
+      { cause: error },
+    );
+  }
+
+  const teardownCtx = await lifecycleContext(
+    prepared.plan.targetPath,
+    ctx.log,
+    prepared.plan.targetPath,
+  );
+  const { destroyed, failed } = await destroyResources(
+    teardownCtx,
+    prepared.plan.entries,
+  );
+  if (failed.length > 0) {
+    throw new WorktreeGitError(
+      `Park stopped because resource cleanup failed for ${
+        failed.join(", ")
+      }. The checkout and branch remain. Fix the failed destroy command above, then re-run \`discern worktree park ${prepared.plan.id}\`.`,
+    );
+  }
+  const afterTeardown = await buildParkPlan(ctx, prepared.plan.targetPath);
+  if (!sameParkSubjectAfterTeardown(prepared.plan, afterTeardown.plan)) {
+    throw new WorktreeGitError(
+      `Task changed during resource cleanup. The checkout and branch remain; resources ${
+        destroyed.length === 0 ? "were unchanged" : "were removed"
+      }. Run \`discern worktree setup\` in ${prepared.plan.targetPath}, review the refreshed state, then re-run Park.`,
+    );
+  }
+  await removeWorktreeSafely(prepared.plan.targetPath, ctx.root);
+  const steps: StepResult[] = [
+    {
+      step: {
+        kind: "task-metadata",
+        label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
+        disposition: "run",
+        note: `retained for ${prepared.plan.branch}`,
+      },
+      outcome: "ok",
+    },
+    ...prepared.plan.entries.map((item): StepResult => ({
+      step: {
+        kind: "resource-destroy",
+        label: verbatimStepLabel(item.entry.resource_name),
+        disposition: "run",
+        note: item.entry.resource_identity,
+      },
+      outcome: destroyed.includes(item.entry.resource_name) ? "ok" : "skipped",
+    })),
+    {
+      step: {
+        kind: "git",
+        label: BUILT_IN_STEP_LABELS.removeWorktree,
+        disposition: "run",
+        note: prepared.plan.targetPath,
+      },
+      outcome: "ok",
+    },
+    {
+      step: {
+        kind: "git",
+        label: BUILT_IN_STEP_LABELS.deleteBranch,
+        disposition: "skip",
+        note: `${prepared.plan.branch} retained for resume`,
+      },
+      outcome: "skipped",
+    },
+  ];
+  emitOrRenderWorktreeResult(
+    ctx,
+    appliedResult("worktree park", steps),
     opts.json ?? false,
   );
 }
@@ -5322,6 +5568,7 @@ export interface PreparedStart {
   readonly taskMetadata: StoredTaskMetadata;
   readonly reproduceCmd: string;
   readonly nameHint?: FiredHint;
+  readonly resumedParkedBranch?: string;
 }
 
 /** Build one concrete, read-only start plan. */
@@ -5332,6 +5579,20 @@ export async function buildStartPlan(
   await assertOpSide("start", ctx.cwd);
   await assertProjectRootIsRepoToplevel(ctx, "start");
   const startPoint = await resolveStartPoint(ctx, opts.from);
+  let parked: ParkedTaskMetadata | undefined;
+  if (opts.from !== undefined) {
+    try {
+      parked = await readParkedTaskMetadata(ctx.root, opts.from);
+    } catch (error) {
+      throw new WorktreeGitError(
+        `Start could not read retained Park metadata for ${opts.from}: ${
+          error instanceof Error ? error.message : String(error)
+        } Run \`discern doctor\`, repair the metadata store, then re-run \`discern start --from ${opts.from}\`.`,
+        { cause: error },
+      );
+    }
+  }
+  const parkedCurrent = parked?.head === startPoint.commit ? parked : undefined;
   const suppliedName = opts.name === undefined || opts.name.trim() === ""
     ? undefined
     : opts.name;
@@ -5341,10 +5602,10 @@ export async function buildStartPlan(
     suppliedTitle = opts.title !== undefined
       ? validateTaskText(opts.title, "title")
       : suppliedName === undefined
-      ? undefined
+      ? parkedCurrent?.task.title
       : validateTaskText(suppliedName, "title");
     suppliedBrief = opts.brief === undefined
-      ? undefined
+      ? parkedCurrent?.task.brief
       : validateTaskText(opts.brief, "brief");
   } catch (error) {
     throw new WorktreeGitError(
@@ -5396,6 +5657,9 @@ export async function buildStartPlan(
     taskMetadata,
     reproduceCmd,
     ...(nameHint === undefined ? {} : { nameHint }),
+    ...(parkedCurrent === undefined
+      ? {}
+      : { resumedParkedBranch: parkedCurrent.branch }),
   };
 }
 
@@ -5490,6 +5754,24 @@ export async function applyStartPlan(
       taskMetadata,
     },
   );
+  if (prepared.resumedParkedBranch !== undefined) {
+    await bestEffort(
+      "start-consume-parked-task",
+      async () => {
+        await removeParkedTaskMetadata(
+          ctx.root,
+          prepared.resumedParkedBranch ?? plan.from,
+        );
+      },
+      (error) => {
+        ctx.log.warn(
+          `The task was created. Its transferred Park record could not be removed: ${
+            error instanceof Error ? error.message : String(error)
+          }. Run \`discern status --all\` to review the remaining local evidence.`,
+        );
+      },
+    );
+  }
   ctx.log.humanLine(
     ctx.log.terminal.presenter.present(renderResultSummaryCli, {
       state: "passed",

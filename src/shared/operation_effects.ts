@@ -354,6 +354,11 @@ export const OPERATION_EFFECTS = {
     "common",
     "required",
   ),
+  "worktree park": policy(
+    ["discern-common-mutation", "discern-git-mutation", "external-setup"],
+    "common",
+    "required",
+  ),
   "worktree ensure": policy(
     [
       "discern-checkout-mutation",

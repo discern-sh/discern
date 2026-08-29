@@ -61,6 +61,7 @@ aliases:
   - discern worktree ensure
   - discern worktree rename
   - discern worktree teardown
+  - discern worktree park
   - discern worktree drop
   - discern worktree prune
 ---
@@ -286,6 +287,17 @@ Usage: `discern worktree teardown [options]`
 | ----------- | --------------------------------------------------------- |
 | `--json`    | Emit the result as a JSON DiscernResult object on stdout. |
 | `--dry-run` | Show the teardown plan; touch nothing.                    |
+
+#### `discern worktree park`
+
+Remove a clean task checkout and its resources while retaining its branch and task wording for resume.
+
+Usage: `discern worktree park <target> [options]`
+
+| Option      | Description                                               |
+| ----------- | --------------------------------------------------------- |
+| `--dry-run` | Show the Park plan; touch nothing.                        |
+| `--json`    | Emit the result as a JSON DiscernResult object on stdout. |
 
 #### `discern worktree drop`
 

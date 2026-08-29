@@ -80,6 +80,25 @@ Reclaiming is confirmation-only: no configuration, grant, or hint reclaims a che
 
 If disk pressure is the actual symptom: land finished work with `discern accept` (which removes its worktree), then review `discern worktree prune --dry-run` for the rest.
 
+## A healthy task should pause without its checkout
+
+Use Park when the checkout and its resources are no longer needed and the unlanded branch should remain resumable:
+
+```sh
+discern worktree park <target> --dry-run
+discern worktree park <target>
+```
+
+The preview names the kept branch and commit, retained task wording, resources destroyed, checkout removed, and worktree-local Proof and landing grant consumed. Park refuses a dirty, unreadable, setup-incomplete, trunk, detached, or branch-mismatched checkout. It has no force option because the retained branch cannot preserve uncommitted files.
+
+After success, open the branch under **Work without a worktree** in the Desk, or resume it directly:
+
+```sh
+discern start --from <parked-branch>
+```
+
+The retained title and brief become defaults when the branch still points at the parked commit. Reclaim remains for a contained stage whose work already travels in another live branch. Drop remains for an effort the owner intends to discard.
+
 ## Cleanup kept something you expected it to remove
 
 Automatic cleanup requires positive evidence that discern created the thing for this project — recorded identity in the worktree's own Git metadata, with a matching branch name. A branch that is merely merged, prefix-shaped, or similarly named grants nothing, and prune keeps it while showing it as context. That's not a fault; it's the boundary that keeps cleanup from ever deleting a checkout discern doesn't own.
@@ -109,7 +128,21 @@ Git can't see edits to ignored files, so discern records a baseline when it prep
 
 ## A fleet row looks wrong
 
-`discern status` from the main checkout surveys every worktree. A row it reports as unreadable, broken, or long-idle names its own next step — often repairing one Git entry or deciding the effort is abandoned. These rules keep the fleet safe while you tidy. Never adopt another effort's worktree because it looks idle or clean. And never resolve a confusing row by deleting things Git still registers; route it through `discern worktree drop` or prune, where ownership and absence are verified.
+`discern status` from the main checkout surveys every worktree. Open the row in `discern desk` and choose **Show recovery steps** when it reports broken setup, incomplete setup, a missing checkout, or unreadable Git state. The recovery view separates what discern observed from what remains unavailable:
+
+- the exact Git or setup failure and command;
+- Git registration, branch reachability, and filesystem presence;
+- checkout, branch, task, and resource identities;
+- setup-ready marker and step-journal evidence;
+- the last lifecycle result and one next command.
+
+`Retry setup` is available when no setup step remains ambiguous. A journal with a running one-shot step serves the specific owner-confirmed recovery command. A missing journal beside configured one-shot steps serves `discern worktree setup --dry-run` for inspection. An unreadable Git registration serves its failed Git command or `discern doctor`. The task remains intact while those checks are unresolved.
+
+If main has local changes or unreadable Git state, choose **Inspect main checkout**. Its detail can show status and diff or open a shell or editor at main. It also names the landing and cleanup operations that remain blocked. Main stays outside the task list, and agent work remains in linked worktrees.
+
+After a refused repair or cleanup, the Desk surveys again. `Task changed; refreshed` means the selected row changed or disappeared. A parked task opens its resumable branch. A task found in local landing evidence reports `Task landed; refreshed` and remains available under **Recent completed tasks**.
+
+Never adopt another effort's worktree because it looks idle or clean. Do not repair a confusing row by deleting a path or Git registration by hand. Follow its diagnosis first. Park, Reclaim, Drop, and prune each apply their own ownership and final-state checks.
 
 ## When to stop
 

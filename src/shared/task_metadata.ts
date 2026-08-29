@@ -105,6 +105,17 @@ export const StoredTaskMetadataSchema = z.strictObject({
 });
 export type StoredTaskMetadata = z.infer<typeof StoredTaskMetadataSchema>;
 
+/** Human wording retained after Park removes a checkout registration. */
+export const ParkedTaskMetadataSchema = z.strictObject({
+  schema_version: z.literal(1),
+  id: z.string().min(1),
+  branch: z.string().min(1),
+  head: z.string().regex(/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/),
+  parked_at: z.string().datetime({ offset: true }),
+  task: StoredTaskMetadataSchema,
+});
+export type ParkedTaskMetadata = z.infer<typeof ParkedTaskMetadataSchema>;
+
 /**
  * Public task projection shared by start, status, rename, and the Desk.
  * `unavailable_reason` accompanies only an unreadable-record fallback.

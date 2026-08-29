@@ -241,6 +241,7 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
   "worktree rename": effectPolicy(),
   "worktree teardown": effectPolicy(),
   "worktree drop": effectPolicy(),
+  "worktree park": effectPolicy(),
   "worktree prune": effectPolicy({ cancellation: "successful-no-effect" }),
   skills: observationPolicy(),
   "skills list": observationPolicy(),

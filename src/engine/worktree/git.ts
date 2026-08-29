@@ -1933,12 +1933,10 @@ export async function readySentinelPath(
   return await gitAdminStatePath(cwd, "worktreeReady");
 }
 
-/** Whether the worktree at `cwd` completed its setup — the ready sentinel is the
- * proof. The one read of "is this worktree configured?" for the setup /
- * session-start paths (via the lifecycle). Deliberately NOT status's
- * broken-worktree signal: that flags on missing project CONFIG (a crashed
- * start's signature), because a sentinel-less-but-configured worktree self-heals
- * on its next session, and pre-sentinel worktrees would all false-flag. */
+/** Whether the worktree at `cwd` completed its setup. The ready sentinel is the
+ * positive evidence shared by lifecycle mutation and status diagnosis. A
+ * configured checkout without it remains incomplete until the setup journal
+ * proves which steps may resume. */
 export async function worktreeSetupComplete(cwd: string): Promise<boolean> {
   const marker = await readySentinelPath(cwd);
   if (marker === undefined) {
@@ -2664,6 +2662,15 @@ export interface GitSnapshot {
   lastActivity?: number;
 }
 
+/** A checkout snapshot or the exact Git read that prevented one. */
+export type GitSnapshotInspection =
+  | { readonly kind: "available"; readonly snapshot: GitSnapshot }
+  | {
+    readonly kind: "unavailable";
+    readonly command: string;
+    readonly reason: string;
+  };
+
 /**
  * Commits HEAD is ahead of / behind the integration branch, from one
  * `git rev-list --left-right --count <integration>...HEAD` (left = behind, right =
@@ -2702,36 +2709,61 @@ async function aheadBehind(
  * or Git cannot read its status. An unreadable status is unknown, so callers
  * must not receive a snapshot that claims the checkout is clean.
  */
+export async function inspectGitSnapshot(
+  cwd: string,
+  mainBranchFallback?: string,
+): Promise<GitSnapshotInspection> {
+  const inside = await git(["rev-parse", "--is-inside-work-tree"], cwd);
+  if (!inside.success || inside.stdout.trim() !== "true") {
+    return {
+      kind: "unavailable",
+      command: "git rev-parse --is-inside-work-tree",
+      reason: inside.stderr.trim() ||
+        "Git did not report this path as a working tree.",
+    };
+  }
+  // After the one gate read, the remaining reads are independent — issued
+  // together, a snapshot costs two subprocess rounds, not a chain of five.
+  const [branchRun, statusRun, { ahead, behind }, headMove] = await Promise
+    .all([
+      git(["branch", "--show-current"], cwd),
+      git(
+        ["status", "--porcelain", "-z", "--untracked-files=normal"],
+        cwd,
+      ),
+      aheadBehind(cwd, integrationBranch(mainBranchFallback)),
+      lastHeadMoveTime(cwd),
+    ]);
+  if (!statusRun.success) {
+    return {
+      kind: "unavailable",
+      command: "git status --porcelain -z --untracked-files=normal",
+      reason: statusRun.stderr.trim() || "Git could not read checkout status.",
+    };
+  }
+  const dirtyEntries = parsePorcelainZ(statusRun.stdout);
+  const branch = branchRun.success ? branchRun.stdout.trim() : "";
+  const lastActivity = await lastActivityAt(cwd, dirtyEntries, headMove);
+  return {
+    kind: "available",
+    snapshot: {
+      branch,
+      clean: dirtyEntries.length === 0,
+      changedFiles: dirtyEntries.length,
+      ahead,
+      behind,
+      ...(lastActivity !== undefined ? { lastActivity } : {}),
+    },
+  };
+}
+
+/** Compatibility projection for callers that only need available/unknown. */
 export async function gitSnapshot(
   cwd: string,
   mainBranchFallback?: string,
 ): Promise<GitSnapshot | undefined> {
-  const inside = await git(["rev-parse", "--is-inside-work-tree"], cwd);
-  if (!inside.success || inside.stdout.trim() !== "true") {
-    return undefined;
-  }
-  // After the one gate read, the remaining reads are independent — issued
-  // together, a snapshot costs two subprocess rounds, not a chain of five.
-  const [branchRun, dirtyEntries, { ahead, behind }, headMove] = await Promise
-    .all([
-      git(["branch", "--show-current"], cwd),
-      statusEntries(cwd, "normal"),
-      aheadBehind(cwd, integrationBranch(mainBranchFallback)),
-      lastHeadMoveTime(cwd),
-    ]);
-  if (dirtyEntries === undefined) {
-    return undefined;
-  }
-  const branch = branchRun.success ? branchRun.stdout.trim() : "";
-  const lastActivity = await lastActivityAt(cwd, dirtyEntries, headMove);
-  return {
-    branch,
-    clean: dirtyEntries.length === 0,
-    changedFiles: dirtyEntries.length,
-    ahead,
-    behind,
-    ...(lastActivity !== undefined ? { lastActivity } : {}),
-  };
+  const inspected = await inspectGitSnapshot(cwd, mainBranchFallback);
+  return inspected.kind === "available" ? inspected.snapshot : undefined;
 }
 
 /**
@@ -2837,6 +2869,8 @@ export interface FleetWorktree {
   isMain: boolean;
   /** The current branch, or "" when detached. */
   branch: string;
+  /** Commit recorded by `git worktree list --porcelain`. */
+  head: string;
   /** `git worktree lock` is set on this registration — git refuses to remove it. */
   locked: boolean;
   /** Git reports the registration prunable (its checkout is gone or damaged). */
@@ -2849,6 +2883,8 @@ export interface FleetWorktree {
    * uncommitted and unlanded work, not substitute optimistic defaults.
    */
   snapshot: GitSnapshot | undefined;
+  /** Exact failed read when {@link snapshot} is unavailable. */
+  gitFailure?: { readonly command: string; readonly reason: string };
 }
 
 /**
@@ -2873,7 +2909,10 @@ export async function listWorktreeFleet(
   // surveyed concurrently — the survey costs one worktree's reads, not the
   // fleet's sum.
   return await Promise.all(records.map(async (rec, i) => {
-    const snap = await gitSnapshot(rec.path, mainBranchFallback);
+    const inspected = await inspectGitSnapshot(rec.path, mainBranchFallback);
+    const snap = inspected.kind === "available"
+      ? inspected.snapshot
+      : undefined;
     const short = rec.branch.startsWith("refs/heads/")
       ? rec.branch.slice("refs/heads/".length)
       : rec.branch;
@@ -2885,9 +2924,18 @@ export async function listWorktreeFleet(
       branch: snap?.branch !== undefined && snap.branch !== ""
         ? snap.branch
         : short,
+      head: rec.head,
       locked: rec.locked,
       prunable: rec.prunable,
       snapshot: snap,
+      ...(inspected.kind === "unavailable"
+        ? {
+          gitFailure: {
+            command: inspected.command,
+            reason: inspected.reason,
+          },
+        }
+        : {}),
     };
   }));
 }

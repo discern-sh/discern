@@ -34,6 +34,7 @@ import {
 } from "discern-design-system/cli/projection";
 import { loadConfig } from "../../src/shared/config_schema.ts";
 import { targetExists } from "../../src/shared/fs_presence.ts";
+import { readySentinelPath } from "../../src/engine/worktree/git.ts";
 import { waitUntil } from "../waiting.ts";
 import { SOURCE_PATHS } from "../../src/shared/paths_registry.ts";
 import type { Proof } from "../../src/shared/result_schemas.ts";
@@ -153,6 +154,7 @@ export interface DeskFleetEntryFixture {
   readonly action?: DeskActionFixture;
   readonly landingAuthority: DeskLandingAuthorityFixture;
   readonly availability: DeskAvailabilityFixture;
+  readonly setup: "ready" | "incomplete";
 }
 
 export interface DeskCollisionFixture {
@@ -238,6 +240,7 @@ export function deskFleetEntry(
     readonly action?: DeskActionFixture;
     readonly landingAuthority?: DeskLandingAuthorityFixture;
     readonly availability?: DeskAvailabilityFixture;
+    readonly setup?: DeskFleetEntryFixture["setup"];
   } = {},
 ): DeskFleetEntryFixture {
   if (name.trim() === "") throw new TypeError("Desk fleet entry name is empty");
@@ -255,6 +258,7 @@ export function deskFleetEntry(
     landingAuthority: options.landingAuthority ??
       deskLandingAuthority("conversation-required"),
     availability: options.availability ?? deskMissingAgentsAndScripts(),
+    setup: options.setup ?? "ready",
   };
 }
 
@@ -323,6 +327,17 @@ async function materialiseDeskProject(
       throw new TypeError(`duplicate Desk fleet entry ${entry.name}`);
     }
     worktrees.set(entry.name, await addWorktree(root, entry.name));
+    const worktree = requiredWorktree(worktrees, entry.name);
+    if (entry.setup === "ready") {
+      const readyMarker = await readySentinelPath(worktree);
+      if (readyMarker === undefined) {
+        throw new Error(
+          `could not resolve Desk fixture ready marker for ${worktree}`,
+        );
+      }
+      await ensureDir(dirname(readyMarker));
+      await Deno.writeTextFile(readyMarker, "");
+    }
   }
 
   const collisionFiles = new Map<string, DeskFixtureFile[]>();

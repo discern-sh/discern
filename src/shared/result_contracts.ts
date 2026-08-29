@@ -62,6 +62,7 @@ import {
   UpgradeOutputSchema,
   WorktreeDropOutputSchema,
   WorktreeOutputSchema,
+  WorktreeParkOutputSchema,
   WorktreePruneOutputSchema,
   WorktreeSetupOutputSchema,
   WorktreesOutputSchema,
@@ -481,6 +482,13 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     commands: ["worktree drop"],
     verb: "worktree drop",
     schema: WorktreeDropOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
+  },
+  {
+    id: "worktreePark",
+    commands: ["worktree park"],
+    verb: "worktree park",
+    schema: WorktreeParkOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {

@@ -1323,6 +1323,30 @@ export function attachEngineCommands(
         })),
     )
     .command(
+      "park",
+      new Command()
+        .description(
+          "Remove a clean task checkout and its resources while retaining its branch and task wording for resume.",
+        )
+        .option("--dry-run", "Show the Park plan; touch nothing.")
+        .option(
+          "--json",
+          "Emit the result as a JSON DiscernResult object on stdout.",
+        )
+        .arguments("<target:string>")
+        .action(recordedExit("worktree park", async (o, target) => {
+          const json = o.json ?? false;
+          return await runWorktreeOp(
+            (ctx, lc) =>
+              lc.worktreePark(ctx, target, {
+                json,
+                dryRun: o.dryRun ?? false,
+              }),
+            { json, verb: "worktree park" },
+          );
+        })),
+    )
+    .command(
       "drop",
       new Command()
         .description(

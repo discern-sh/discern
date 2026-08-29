@@ -1893,6 +1893,56 @@ const TASK_RENAME_FAITHFULNESS_CASE = defineFaithfulnessCase(
   });
 });
 
+const WORKTREE_PARK_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "worktree park result is faithful (preview and applied)",
+  ["worktreePark"],
+)(async ({ expectSerializedFaithful }) => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const main = await lifecycleContext(
+      dir,
+      new Logger({ json: true, noColor: true }),
+    );
+    const started = await startResult(main, {
+      worktreeRoot: resolveWorktreeRoot(main.root, main.config),
+      name: "park-faithfulness",
+      brief: "Retain the task wording.",
+    });
+    const path = started.data?.path;
+    assert(path !== undefined);
+    await git(path, "add", "-A");
+    await git(path, "commit", "-m", "Prepare Park faithfulness fixture");
+
+    const preview = await runAgent(dir, [
+      "worktree",
+      "park",
+      path,
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(preview.code, 0, preview.output);
+    expectSerializedFaithful(
+      "worktreePark",
+      decodeCliResult(preview.stdout, "worktree park"),
+      "worktree park dry-run",
+    );
+
+    const applied = await runAgent(dir, [
+      "worktree",
+      "park",
+      path,
+      "--json",
+    ]);
+    assertEquals(applied.code, 0, applied.output);
+    expectSerializedFaithful(
+      "worktreePark",
+      decodeCliResult(applied.stdout, "worktree park"),
+      "worktree park applied",
+    );
+  });
+});
+
 /**
  * The declaration every faithfulness test and coverage audit consumes. A new
  * case is registered by the loop below and enrolled in FAITHFULNESS_COVERED by
@@ -1921,6 +1971,7 @@ const FAITHFULNESS_CASES: readonly FaithfulnessCase[] = [
   SKILLS_LIST_FAITHFULNESS_CASE,
   START_FAITHFULNESS_CASE,
   TASK_RENAME_FAITHFULNESS_CASE,
+  WORKTREE_PARK_FAITHFULNESS_CASE,
 ];
 
 /** Contract ids backed by declared, self-reconciling real-result cases. */

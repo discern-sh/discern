@@ -105,6 +105,7 @@ import {
   localBranchExists,
   mainRepoPath,
   prefixBranches,
+  registeredWorktreeOwnershipEvidence,
   resolveCommonGitDir,
   unlandedPrefixBranches,
   worktreeGitKey,
@@ -120,11 +121,14 @@ import {
 } from "../worktree/identity.ts";
 import {
   fallbackTaskMetadataData,
+  type ParkedTaskMetadata,
   recordedTaskMetadataData,
 } from "../../shared/task_metadata.ts";
 import { taskLabel } from "../worktree/task_label.ts";
 import { inspectTaskMetadata } from "../worktree/task_metadata.ts";
+import { listParkedTaskMetadata } from "../worktree/parked_task_metadata.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
+import { readSetupStepJournal } from "../worktree/setup_step_journal.ts";
 import {
   containedRefPointers,
   containmentIdleCheck,
@@ -150,6 +154,7 @@ import {
   type DurationPrior,
   type FleetLogbookActivity,
   readFleetLogbookActivity,
+  readRecentLogbookStream,
 } from "../logbook/read.ts";
 import {
   idleDaysOf,
@@ -170,6 +175,7 @@ export { idleDaysOf, relativeAge, STALE_WORKTREE_DAYS } from "./tty.ts";
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
 const STATUS_OVERLAP_CAP = 20;
+const RECENT_COMPLETED_TASK_LIMIT = 8;
 
 /** Flags accepted by `status` on both surfaces. */
 export interface StatusOptions {
@@ -211,6 +217,54 @@ async function landedCommitAt(
   return shown.success && value !== "" && !Number.isNaN(Date.parse(value))
     ? value
     : undefined;
+}
+
+/** Project a bounded local landing tail without creating another task archive. */
+async function recentCompletedTasks(
+  root: string,
+  logbookEnabled: boolean,
+  landed: StatusData["landed_proof"],
+): Promise<NonNullable<StatusData["recent_completed_tasks"]>> {
+  const completed: NonNullable<StatusData["recent_completed_tasks"]> = [];
+  if (logbookEnabled) {
+    const commonGitDir = await resolveCommonGitDir(root);
+    if (commonGitDir !== undefined) {
+      const stream = await readRecentLogbookStream(commonGitDir, 200);
+      for (const event of [...stream.events].reverse()) {
+        if (
+          event.kind !== "verb" || event.verb !== "accept" ||
+          event.outcome !== "ok" || event.dry_run === true ||
+          typeof event.branch !== "string"
+        ) continue;
+        if (completed.length >= RECENT_COMPLETED_TASK_LIMIT) break;
+        const branch = event.branch;
+        const head = typeof event.head === "string" ? event.head : undefined;
+        completed.push({
+          branch,
+          completed_at: event.at,
+          ...(head === undefined ? {} : { head }),
+          ...(landed !== undefined && head !== undefined &&
+              landed.commit.startsWith(head)
+            ? { proof_line: landed.proof.line }
+            : {}),
+        });
+      }
+    }
+  }
+  if (
+    landed?.commit_at !== undefined &&
+    !completed.some((entry) =>
+      entry.head !== undefined && landed.commit.startsWith(entry.head)
+    )
+  ) {
+    completed.unshift({
+      branch: landed.proof.branch,
+      head: landed.proof.head,
+      completed_at: landed.commit_at,
+      proof_line: landed.proof.line,
+    });
+  }
+  return completed.slice(0, RECENT_COMPLETED_TASK_LIMIT);
 }
 
 /**
@@ -341,6 +395,14 @@ export async function statusResult(
   } else if (landedProof.status === "unsupported") {
     const { status: _status, ...unread } = landedProof;
     data.landed_proof_unsupported = unread;
+  }
+  const recentCompleted = await recentCompletedTasks(
+    root,
+    cfg.project.logbook,
+    data.landed_proof,
+  );
+  if (recentCompleted.length > 0) {
+    data.recent_completed_tasks = recentCompleted;
   }
   const gateProof = location === "worktree"
     ? await inspectGateProof(root)
@@ -582,6 +644,28 @@ export async function statusResult(
       if (dangling.length > 0) {
         unlandedBranches = dangling;
         data.unlanded_branches = dangling;
+        let parked: ParkedTaskMetadata[] = [];
+        try {
+          parked = await listParkedTaskMetadata(root);
+        } catch (error) {
+          data.parked_tasks_unavailable = {
+            reason: error instanceof Error ? error.message : String(error),
+            next_command: "discern doctor",
+          };
+        }
+        const matching = parked.filter((record) =>
+          dangling.includes(record.branch)
+        ).map((record) => ({
+          id: record.id,
+          branch: record.branch,
+          head: record.head,
+          parked_at: record.parked_at,
+          task: recordedTaskMetadataData(
+            { id: record.id, branch: record.branch },
+            record.task,
+          ),
+        }));
+        if (matching.length > 0) data.parked_tasks = matching;
       }
       if (containers.size > 0) {
         containedRefs = [...containers.entries()].map((
@@ -742,13 +826,162 @@ async function readWorktreeResources(
   return out;
 }
 
-/** Augment a cheap fleet row with the worktree's id/port — the recorded values
- * from its env files when present, else DERIVED from the worktree's own identity
- * (an env-file-less project still gets real ids, never a truncated branch-name
- * fallback) — and its viability: a checkout with NO project config at its root
- * (the signature of a creation that crashed mid-checkout) is flagged `broken`,
- * not listed as a healthy member. A hand-made `git worktree add` checkout
- * carries the tracked config and stays healthy. */
+/** Observe checkout presence without treating a permission failure as absence. */
+async function fleetFilesystem(
+  path: string,
+): Promise<NonNullable<StatusFleetEntry["filesystem"]>> {
+  try {
+    const info = await Deno.stat(path);
+    return { state: info.isDirectory ? "directory" : "other" };
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return { state: "missing" };
+    return {
+      state: "unreadable",
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/** Read setup ownership and decide whether the idempotent setup core may retry. */
+async function fleetSetupEvidence(
+  row: FleetWorktree,
+  repoRoot: string,
+  settings: IdentitySettings | undefined,
+  configPresent: boolean,
+): Promise<NonNullable<StatusFleetEntry["setup"]>> {
+  if (settings === undefined) {
+    return {
+      state: "unavailable",
+      marker: "unavailable",
+      repair: {
+        kind: "manual",
+        command: "discern doctor",
+        reason: "Worktree identity settings could not be read.",
+      },
+    };
+  }
+  const ownership = await registeredWorktreeOwnershipEvidence(
+    row.path,
+    repoRoot,
+    settings,
+  );
+  if (ownership === undefined) {
+    return {
+      state: "unavailable",
+      marker: "unavailable",
+      repair: {
+        kind: "manual",
+        command: "git worktree repair",
+        reason: "Git could not resolve this registration's setup marker.",
+      },
+    };
+  }
+  if (ownership.ready) {
+    return { state: "ready", marker: "present" };
+  }
+  if (!configPresent) {
+    return {
+      state: "incomplete",
+      marker: "missing",
+      repair: {
+        kind: "manual",
+        command: "discern doctor",
+        reason: "The checkout does not contain discern.toml.",
+      },
+    };
+  }
+
+  let cfg: DiscernConfig;
+  try {
+    cfg = await loadConfig(row.path);
+  } catch (error) {
+    return {
+      state: "incomplete",
+      marker: "missing",
+      repair: {
+        kind: "manual",
+        command: "discern doctor",
+        reason: `The task configuration could not be read: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      },
+    };
+  }
+
+  try {
+    const read = await readSetupStepJournal(row.path);
+    const journal = read.status === "missing"
+      ? { status: "missing" as const, path: read.path, steps: [] }
+      : {
+        status: "recorded" as const,
+        path: read.path,
+        steps: read.journal.steps.map((step) => ({
+          id: step.id,
+          command: step.command,
+          state: step.state,
+        })),
+      };
+    const running = journal.steps.find((step) => step.state === "running");
+    if (running !== undefined) {
+      return {
+        state: "incomplete",
+        marker: "missing",
+        journal,
+        repair: {
+          kind: "manual",
+          command:
+            `discern worktree setup --retry-step ${running.id} --confirmed`,
+          reason:
+            `Setup step ${running.id} is recorded as running. Confirm its external state before choosing retry or mark-complete.`,
+        },
+      };
+    }
+    if (read.status === "missing" && cfg.worktree.setup.steps.length > 0) {
+      return {
+        state: "incomplete",
+        marker: "missing",
+        journal,
+        repair: {
+          kind: "manual",
+          command: "discern worktree setup --dry-run",
+          reason:
+            "The ready marker and setup-step journal are missing, so prior one-shot effects cannot be verified.",
+        },
+      };
+    }
+    return {
+      state: "incomplete",
+      marker: "missing",
+      journal,
+      repair: {
+        kind: "retry",
+        command: "discern worktree setup",
+        reason:
+          "No ambiguous setup step is recorded; the setup core can retry from this state.",
+      },
+    };
+  } catch (error) {
+    return {
+      state: "incomplete",
+      marker: "missing",
+      journal: {
+        status: "unavailable",
+        steps: [],
+        reason: error instanceof Error ? error.message : String(error),
+      },
+      repair: {
+        kind: "manual",
+        command: "discern worktree setup --dry-run",
+        reason: "The setup-step journal could not be inspected.",
+      },
+    };
+  }
+}
+
+/** Augment a cheap fleet row with its identity and independent recovery facts.
+ * Missing config marks the pre-configuration crash class as broken. A present
+ * config still needs positive setup-ready evidence before ordinary actions are
+ * available. */
 async function fleetEntryFor(
   row: FleetWorktree,
   here: string,
@@ -762,6 +995,13 @@ async function fleetEntryFor(
     // canonical (realPathOr in listWorktreeFleet); `here` is canonicalized to match.
     is_current: row.path === here,
     branch: row.branch,
+    registration: {
+      head: row.head,
+      locked: row.locked,
+      prunable: row.prunable,
+    },
+    branch_reachable: row.branch !== "",
+    filesystem: await fleetFilesystem(row.path),
   };
   if (row.snapshot !== undefined) {
     entry.clean = row.snapshot.clean;
@@ -776,9 +1016,21 @@ async function fleetEntryFor(
     // Git could not run inside the checkout — its state is unknown, and the
     // honest report is "unknown", never a fabricated clean/0-ahead row.
     entry.git_unavailable = true;
+    if (row.gitFailure !== undefined) {
+      entry.git_failure = row.gitFailure;
+    }
   }
-  if (!row.isMain && (await installedConfigRel(row.path)) === undefined) {
-    entry.broken = true;
+  const configPresent = row.isMain ||
+    (await installedConfigRel(row.path)) !== undefined;
+  if (!row.isMain) {
+    if (!configPresent) entry.broken = true;
+    entry.resources = await readWorktreeResources(row.path, cfg);
+    entry.setup = await fleetSetupEvidence(
+      row,
+      here,
+      settings,
+      configPresent,
+    );
   }
   // The row's complete gate-proof state, read from its own marker — inspected
   // HERE, once, so the dashboard, ready hints, and wire fields cannot disagree.
@@ -1297,10 +1549,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
         );
       }
       // Unreadable members: git could not run inside the checkout, so its work
-      // state is unknown — say so, rather than letting the row pass as clean.
-      // (`worktree drop` fails safe on the same rows: it refuses without
-      // --force while the state is unverifiable.) A `broken` row already
-      // carries its own hint with the same way out.
+      // state is unknown. Keep diagnosis ahead of any cleanup decision.
       const unreadable = others.filter((e) =>
         e.git_unavailable === true && e.broken !== true
       );
@@ -1312,9 +1561,12 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           }),
         );
       }
-      // Broken members: setup never completed, so the checkout may be incomplete —
-      // not a healthy fleet entry, and not worth resuming. Name the removal path.
-      const broken = others.filter((e) => e.broken === true);
+      // Every incomplete setup stays visible as recovery work, including the
+      // pre-config crash and configured checkouts without a ready marker.
+      const broken = others.filter((e) =>
+        e.broken === true ||
+        (e.setup !== undefined && e.setup.state !== "ready")
+      );
       if (broken.length > 0) {
         hints.push(
           fireOwnerAttention(HINTS["status-fleet-member-broken"], {

@@ -1719,11 +1719,53 @@ const statusFleetRunningSchema = z.strictObject({
   typical_duration_ms: z.number().nonnegative().optional(),
 });
 
+const statusFleetFilesystemSchema = z.strictObject({
+  state: z.enum(["directory", "missing", "other", "unreadable"]),
+  reason: z.string().optional(),
+});
+
+const statusFleetGitFailureSchema = z.strictObject({
+  command: z.string(),
+  reason: z.string(),
+});
+
+const statusFleetSetupJournalSchema = z.strictObject({
+  status: z.enum(["missing", "recorded", "unavailable"]),
+  path: z.string().optional(),
+  steps: z.array(z.strictObject({
+    id: z.string(),
+    command: z.string(),
+    state: z.enum(["not_started", "running", "completed"]),
+  })),
+  reason: z.string().optional(),
+});
+
+const statusFleetSetupSchema = z.strictObject({
+  state: z.enum(["ready", "incomplete", "unavailable"]),
+  marker: z.enum(["present", "missing", "unavailable"]),
+  journal: statusFleetSetupJournalSchema.optional(),
+  repair: z.strictObject({
+    kind: z.enum(["retry", "manual"]),
+    command: z.string(),
+    reason: z.string(),
+  }).optional(),
+});
+
 const statusFleetEntrySchema = z.strictObject({
   path: z.string(),
   is_main: z.boolean(),
   is_current: z.boolean(),
   branch: z.string(),
+  /** Git registration remains observable when checkout-local state is not. */
+  registration: z.strictObject({
+    head: z.string(),
+    locked: z.boolean(),
+    prunable: z.boolean(),
+  }).optional(),
+  /** Whether the registered checkout names a reachable local branch ref. */
+  branch_reachable: z.boolean().optional(),
+  /** Filesystem presence is independent of Git readability. */
+  filesystem: statusFleetFilesystemSchema.optional(),
   /** Ordinary Git-clean: no tracked changes and no untracked non-ignored files.
    * Absent (with the other per-checkout git fields) when `git_unavailable` is
    * set — an unreadable checkout's state is unknown, never reported clean. */
@@ -1748,17 +1790,20 @@ const statusFleetEntrySchema = z.strictObject({
    * UNKNOWN, so the per-checkout git fields are absent rather than fabricated —
    * consumers must fail safe, never assume clean. */
   git_unavailable: z.boolean().optional(),
+  /** The command and diagnostic behind `git_unavailable`. */
+  git_failure: statusFleetGitFailureSchema.optional(),
   id: z.string().optional(),
   port: z.number().optional(),
+  /** Resource handles recorded in this checkout's configured env files. */
+  resources: z.record(z.string(), z.string()).optional(),
+  /** Setup ownership and retry evidence. */
+  setup: statusFleetSetupSchema.optional(),
   /** Human task wording joined to the separately authoritative id and branch.
    * Optional for status compatibility with older producers. */
   task: TaskMetadataDataSchema.optional(),
-  /** Present (true) when the worktree's creation never completed — its project
-   * config is missing from the checkout (a crashed `start`'s signature; config
-   * presence is the deliberate signal, not the ready sentinel, so a healthy
-   * pre-sentinel worktree is never falsely flagged and a sentinel-less one that
-   * self-heals next session isn't either). Not a healthy fleet member; the
-   * hints carry the removal path (`discern worktree drop`). */
+  /** Present (true) when creation stopped before the project configuration
+   * arrived. Configured checkouts with no ready marker use `setup` to report
+   * incomplete setup separately. */
   broken: z.boolean().optional(),
   /** Present (true) when the row's clean HEAD has an honored proof from
    * `discern done` — reviewable without visiting the worktree. `proof` /
@@ -1815,6 +1860,23 @@ export type StatusAdrCollision = z.infer<typeof statusAdrCollisionSchema>;
 const statusAdrCollisionWireSchema = statusAdrCollisionSchema.omit({
   paths: true,
 });
+
+const recentCompletedTaskSchema = z.strictObject({
+  branch: z.string(),
+  head: z.string().optional(),
+  completed_at: z.string(),
+  proof_line: z.string().optional(),
+});
+export type RecentCompletedTask = z.infer<typeof recentCompletedTaskSchema>;
+
+const parkedTaskSchema = z.strictObject({
+  id: z.string(),
+  branch: z.string(),
+  head: z.string(),
+  parked_at: z.string(),
+  task: TaskMetadataDataSchema,
+});
+export type ParkedTask = z.infer<typeof parkedTaskSchema>;
 
 /** One path discern removed with a worktree that currently exists again. */
 const reappearedWorktreePathSchema = z.strictObject({
@@ -1894,6 +1956,14 @@ export const StatusDataSchema = z.strictObject({
    * non-empty). A worktree-less ref whose tip is contained in a live branch is
    * NOT abandoned and reports under `contained_refs` instead. */
   unlanded_branches: z.array(z.string()).optional(),
+  /** Branch-preserving Park records whose branch still has no checkout. */
+  parked_tasks: z.array(parkedTaskSchema).optional(),
+  /** Park metadata could not be read, so task wording is unavailable while
+   * the underlying unlanded branches remain authoritative. */
+  parked_tasks_unavailable: z.strictObject({
+    reason: z.string(),
+    next_command: z.string(),
+  }).optional(),
   /** Worktree-less refs kept deliberately by the contained-worktree reclaim
    * (main-checkout view only; present when non-empty): each tip is a strict
    * ancestor of the named live branch, so the commits ride there until they
@@ -1902,6 +1972,8 @@ export const StatusDataSchema = z.strictObject({
   contained_refs: z.array(
     z.strictObject({ branch: z.string(), contained_in: z.string() }),
   ).optional(),
+  /** Newest successful task landings from the bounded local Logbook tail. */
+  recent_completed_tasks: z.array(recentCompletedTaskSchema).optional(),
   /** Paths removed through discern's worktree lifecycle that currently exist
    * again without a live Git worktree registration. */
   reappeared_worktree_paths: z.array(reappearedWorktreePathSchema).optional(),
@@ -3311,6 +3383,11 @@ export const WorktreeTeardownOutputSchema = datalessResultOutputSchema(
 /** `worktree drop` output: envelope only (except top-level config parse errors). */
 export const WorktreeDropOutputSchema = datalessResultOutputSchema(
   "worktree drop",
+);
+
+/** `worktree park` output: envelope only (except top-level config parse errors). */
+export const WorktreeParkOutputSchema = datalessResultOutputSchema(
+  "worktree park",
 );
 
 /** `worktree prune` output: envelope only (except top-level config parse errors). */

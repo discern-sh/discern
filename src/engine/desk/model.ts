@@ -56,6 +56,7 @@ export type DeskState = (typeof DESK_STATES)[number];
  */
 export const DESK_STATE_BY_STATUS_KIND = {
   broken: "needs_attention",
+  "setup-incomplete": "needs_attention",
   unreadable: "needs_attention",
   failed: "needs_attention",
   blocked: "needs_attention",
@@ -73,6 +74,8 @@ export const DESK_STATE_BY_STATUS_KIND = {
 
 /** Every action the desk can represent, in menu order. */
 export const DESK_ACTIONS = [
+  "recovery",
+  "retry_setup",
   "done",
   "accept",
   "update",
@@ -85,6 +88,7 @@ export const DESK_ACTIONS = [
   "grant",
   "revoke_grant",
   "reclaim",
+  "park",
   "drop",
 ] as const;
 export type DeskAction = (typeof DESK_ACTIONS)[number];
@@ -136,6 +140,12 @@ interface DeskActionLabelContext {
   readonly path: string;
   readonly proofHonored: boolean;
   readonly containedIn?: string;
+  readonly taskMetadataRecorded: boolean;
+  readonly effortGranted: boolean;
+  readonly proofRecorded: boolean;
+  readonly changedFiles?: number;
+  readonly ahead?: number | "unknown";
+  readonly resources: readonly string[];
 }
 
 export interface DeskActionMetadata {
@@ -275,9 +285,21 @@ export interface DeskDecision {
   readonly proof: DeskProofFact;
   readonly authority: DeskAuthorityFact;
   readonly collisions: readonly DeskCollision[];
+  readonly recovery?: DeskRecoveryFact;
   /** Every canonical action, enabled or disabled, exactly once. */
   readonly actions: readonly DeskActionOffer[];
   readonly recommendedAction?: DeskAction;
+}
+
+/** Typed evidence for a degraded task's read-only recovery view. */
+export interface DeskRecoveryFact {
+  readonly failure: string;
+  readonly failedCommand?: string;
+  readonly verified: readonly string[];
+  readonly unavailable: readonly string[];
+  readonly nextStep: string;
+  readonly repair: "retry" | "manual";
+  readonly repairCommand: string;
 }
 
 /** One selectable effort and its already-complete decision. */
@@ -341,7 +363,63 @@ export function decisionSummary(decision: DeskDecision): string {
 
 /** Whether the checkout cannot safely support ordinary Desk actions. */
 function isUnhealthy(entry: StatusFleetEntry): boolean {
-  return entry.broken === true || entry.git_unavailable === true;
+  return entry.broken === true || entry.git_unavailable === true ||
+    entry.setup?.state === "incomplete" ||
+    entry.setup?.state === "unavailable";
+}
+
+/** Build recovery evidence without inferring facts an observer could not read. */
+function recoveryFact(entry: StatusFleetEntry): DeskRecoveryFact | undefined {
+  if (!isUnhealthy(entry)) return undefined;
+  const setup = entry.setup;
+  const repair = setup?.repair;
+  const gitFailure = entry.git_failure;
+  const failure = gitFailure?.reason ?? repair?.reason ??
+    (entry.broken === true
+      ? "The checkout does not contain a readable discern.toml."
+      : "The checkout did not reach a verifiable setup-ready state.");
+  const verified = [
+    `Checkout identity: ${entry.id ?? entry.task?.id ?? entry.branch}`,
+    `Checkout path: ${entry.path}`,
+    `Branch identity: ${entry.branch}`,
+    ...(entry.registration === undefined ? [] : [
+      `Git registration: ${entry.registration.head}`,
+      `Branch reachability: ${
+        entry.branch_reachable === true ? "reachable" : "unreachable"
+      }`,
+    ]),
+    ...(entry.filesystem?.state === "directory"
+      ? ["Filesystem: checkout directory is present"]
+      : []),
+    ...Object.entries(entry.resources ?? {}).map(([name, value]) =>
+      `Resource ${name}: ${value}`
+    ),
+  ];
+  const unavailable = [
+    ...(entry.registration === undefined
+      ? ["Git worktree registration could not be verified"]
+      : []),
+    ...(entry.filesystem?.state !== "directory"
+      ? [
+        `Filesystem: ${
+          entry.filesystem?.reason ?? entry.filesystem?.state ?? "unavailable"
+        }`,
+      ]
+      : []),
+    ...(setup?.journal?.status === "unavailable"
+      ? [`Setup journal: ${setup.journal.reason ?? "unavailable"}`]
+      : []),
+  ];
+  const repairCommand = repair?.command ?? "discern doctor";
+  return {
+    failure,
+    ...(gitFailure === undefined ? {} : { failedCommand: gitFailure.command }),
+    verified,
+    unavailable,
+    nextStep: repair?.reason ?? `Run ${repairCommand}.`,
+    repair: repair?.kind ?? "manual",
+    repairCommand,
+  };
 }
 
 /** Render a counted noun with an optional irregular plural. */
@@ -601,6 +679,8 @@ function headlineFor(
   switch (statusKind) {
     case "broken":
       return "Setup incomplete";
+    case "setup-incomplete":
+      return "Setup needs recovery";
     case "unreadable":
       return "Git state unreadable";
     case "failed": {
@@ -677,6 +757,7 @@ function nextConditionDetail(
       case "needs-gate":
         return "Run discern done from this task";
       case "broken":
+      case "setup-incomplete":
       case "unreadable":
       case "ready":
       case "running":
@@ -771,6 +852,56 @@ const NO_CONFIRMATION = { kind: "none" } as const;
  * from this exhaustive registry.
  */
 export const DESK_ACTION_REGISTRY = {
+  recovery: {
+    group: "work",
+    availableWhileRunning: true,
+    label: (_context: DeskActionLabelContext): string => "Show recovery steps",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "status", "--all"],
+      workingDirectory: "main",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Checkout, branch, resources, task metadata, grant, and Proof"],
+        [],
+        [],
+        ["Diagnosis is read-only"],
+      ),
+    confirmation: NO_CONFIRMATION,
+    availability: (facts: DeskActionFacts): string | undefined =>
+      isUnhealthy(facts.entry)
+        ? undefined
+        : "This task has no degraded state to diagnose.",
+    recommended: (facts: DeskActionFacts): boolean => isUnhealthy(facts.entry),
+  },
+  retry_setup: {
+    group: "manage",
+    availableWhileRunning: false,
+    label: (_context: DeskActionLabelContext): string => "Retry setup",
+    command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "worktree", "setup"],
+      workingDirectory: "task",
+    }),
+    consequence: (_context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        ["Checkout, branch, task metadata, grant, and Proof"],
+        ["Resume safe setup steps and verify the setup-ready marker"],
+        [],
+        ["Completed setup steps remain recorded and are not rerun"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Retry",
+    },
+    availability: (facts: DeskActionFacts): string | undefined =>
+      facts.entry.setup?.repair?.kind === "retry"
+        ? undefined
+        : facts.entry.setup?.repair?.reason ??
+          "This setup state has no safe automatic repair.",
+    recommended: (_facts: DeskActionFacts): boolean => false,
+  },
   done: {
     group: "work",
     availableWhileRunning: false,
@@ -903,6 +1034,9 @@ export const DESK_ACTION_REGISTRY = {
       ),
     confirmation: NO_CONFIRMATION,
     availability: (facts: DeskActionFacts): string | undefined => {
+      if (isUnhealthy(facts.entry)) {
+        return "Follow the task's recovery steps before launching an agent.";
+      }
       const capability = capabilityReason(facts);
       if (capability !== undefined) return capability;
       if (hasAvailableAgent(facts)) return undefined;
@@ -939,8 +1073,8 @@ export const DESK_ACTION_REGISTRY = {
       ),
     confirmation: NO_CONFIRMATION,
     availability: (facts: DeskActionFacts): string | undefined =>
-      facts.entry.git_unavailable === true
-        ? "Git state is unreadable. Repair Git before starting a follow-up."
+      isUnhealthy(facts.entry)
+        ? "Follow the task's recovery steps before starting a follow-up."
         : undefined,
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
@@ -966,7 +1100,9 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Run",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      capabilityReason(facts) ??
+      (isUnhealthy(facts.entry)
+        ? "Follow the task's recovery steps before running a Project Script."
+        : capabilityReason(facts)) ??
         (hasAvailableScript(facts)
           ? undefined
           : facts.scriptsUnavailableReason ??
@@ -990,9 +1126,11 @@ export const DESK_ACTION_REGISTRY = {
       ),
     confirmation: NO_CONFIRMATION,
     availability: (facts: DeskActionFacts): string | undefined =>
-      facts.entry.git_unavailable === true
-        ? "Git state is unreadable. Repair Git before opening a shell."
-        : undefined,
+      facts.entry.filesystem?.state === "directory"
+        ? undefined
+        : `The checkout directory is ${
+          facts.entry.filesystem?.state ?? "unavailable"
+        }.`,
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
   inspect: {
@@ -1013,8 +1151,8 @@ export const DESK_ACTION_REGISTRY = {
       ),
     confirmation: NO_CONFIRMATION,
     availability: (facts: DeskActionFacts): string | undefined =>
-      facts.entry.git_unavailable === true
-        ? "Git state is unreadable. Repair Git before reviewing the diff."
+      isUnhealthy(facts.entry)
+        ? "Follow the task's recovery steps before reviewing Proof and changes."
         : undefined,
     recommended: (facts: DeskActionFacts): boolean =>
       facts.entry.running === undefined &&
@@ -1044,8 +1182,8 @@ export const DESK_ACTION_REGISTRY = {
       yesLabel: "Change",
     },
     availability: (facts: DeskActionFacts): string | undefined =>
-      facts.entry.git_unavailable === true
-        ? "Git state is unreadable. Repair Git before changing the title."
+      isUnhealthy(facts.entry)
+        ? "Follow the task's recovery steps before changing the title."
         : undefined,
     recommended: (_facts: DeskActionFacts): boolean => false,
   },
@@ -1122,9 +1260,22 @@ export const DESK_ACTION_REGISTRY = {
     }),
     consequence: (context: DeskActionLabelContext): DeskConsequence =>
       consequences(
-        [`Branch ${context.branch}`, "Commits contained in the later task"],
-        ["Reclaim task-local resources"],
-        ["Task checkout", "Task-local Proof and state"],
+        [
+          `Branch ${context.branch}`,
+          `Containing branch ${context.containedIn ?? "another live task"}`,
+          "Commits carried by the containing branch",
+        ],
+        [
+          context.resources.length === 0
+            ? "No external resources are recorded"
+            : `Destroy resources: ${context.resources.join(", ")}`,
+        ],
+        [
+          "Task checkout",
+          ...(context.taskMetadataRecorded ? ["Task metadata"] : []),
+          ...(context.effortGranted ? ["Task landing grant"] : []),
+          ...(context.proofRecorded ? ["Task-local Proof"] : []),
+        ],
         ["The retained branch self-cleans after its containing work lands"],
       ),
     confirmation: {
@@ -1136,10 +1287,68 @@ export const DESK_ACTION_REGISTRY = {
     availability: (facts: DeskActionFacts): string | undefined =>
       facts.entry.contained_in === undefined
         ? "This checkout is not contained in another live task."
+        : isUnhealthy(facts.entry)
+        ? "The task state is not verifiable enough to reclaim. Follow its recovery steps first."
         : undefined,
     recommended: (facts: DeskActionFacts): boolean =>
       facts.entry.running === undefined &&
       facts.entry.contained_in !== undefined,
+  },
+  park: {
+    group: "manage",
+    availableWhileRunning: false,
+    label: (_context: DeskActionLabelContext): string =>
+      "Park checkout, keep branch",
+    command: (context: DeskActionLabelContext): DeskCommandEvidence => ({
+      argv: ["discern", "worktree", "park", context.path],
+      workingDirectory: "main",
+    }),
+    consequence: (context: DeskActionLabelContext): DeskConsequence =>
+      consequences(
+        [
+          `Branch ${context.branch}`,
+          "Task title, brief, and creation source",
+          "Committed work, including work not on the trunk",
+        ],
+        [
+          context.resources.length === 0
+            ? "Record that no external resources need cleanup"
+            : `Destroy resources: ${context.resources.join(", ")}`,
+        ],
+        [
+          "Task checkout",
+          ...(context.effortGranted ? ["Task landing grant"] : []),
+          ...(context.proofRecorded ? ["Task-local Proof"] : []),
+        ],
+        ["Resume the retained branch from Work without a worktree"],
+      ),
+    confirmation: {
+      kind: "confirm",
+      defaultTo: false,
+      noLabel: "Keep",
+      yesLabel: "Park",
+    },
+    availability: (facts: DeskActionFacts): string | undefined => {
+      if (isUnhealthy(facts.entry)) {
+        return "Follow the task's recovery steps before parking it.";
+      }
+      if (facts.entry.contained_in !== undefined) {
+        return "This task is contained in another live task. Use Reclaim to preserve its containment contract.";
+      }
+      if (facts.entry.clean !== true) {
+        return facts.entry.clean === false
+          ? "Commit or discard the uncommitted changes before parking."
+          : "Worktree cleanliness is unknown.";
+      }
+      if (
+        facts.entry.branch === facts.trunk ||
+        facts.entry.branch_reachable !== true
+      ) {
+        return "Park requires a named task branch separate from the trunk.";
+      }
+      return undefined;
+    },
+    recommended: (_facts: DeskActionFacts): boolean => false,
   },
   drop: {
     group: "danger",
@@ -1153,9 +1362,32 @@ export const DESK_ACTION_REGISTRY = {
     consequence: (context: DeskActionLabelContext): DeskConsequence =>
       consequences(
         ["Trunk and other tasks"],
-        ["Reclaim task-local resources"],
-        ["Task checkout", `Branch ${context.branch}`, "Unlanded task state"],
-        ["Committed branch tips receive a bounded recovery ref before removal"],
+        [
+          context.resources.length === 0
+            ? "No external resources are recorded"
+            : `Destroy resources: ${context.resources.join(", ")}`,
+        ],
+        [
+          "Task checkout",
+          `Branch ${context.branch} when the lifecycle plan verifies discern ownership`,
+          ...(context.changedFiles === undefined
+            ? ["Uncommitted work cannot be ruled out"]
+            : context.changedFiles > 0
+            ? [`${context.changedFiles} uncommitted changes`]
+            : []),
+          ...(context.ahead === "unknown"
+            ? ["Unlanded commits cannot be ruled out"]
+            : typeof context.ahead === "number" && context.ahead > 0
+            ? [`${context.ahead} commits not on the trunk`]
+            : []),
+          ...(context.taskMetadataRecorded ? ["Task metadata"] : []),
+          ...(context.effortGranted ? ["Task landing grant"] : []),
+          ...(context.proofRecorded ? ["Task-local Proof"] : []),
+        ],
+        [
+          "A deleted committed branch tip receives a bounded recovery ref",
+          "Uncommitted files have no automatic recovery",
+        ],
       ),
     confirmation: {
       kind: "typed-branch",
@@ -1188,6 +1420,16 @@ function actionOffers(
       branch: facts.entry.branch,
       path: facts.entry.path,
       proofHonored: facts.entry.gate_proof?.status === "honored",
+      taskMetadataRecorded: facts.entry.task?.title_source === "recorded",
+      effortGranted: facts.effortGranted,
+      proofRecorded: facts.entry.gate_proof !== undefined &&
+        facts.entry.gate_proof.status !== "missing" &&
+        facts.entry.gate_proof.status !== "unavailable",
+      ...(facts.entry.changed_files === undefined
+        ? {}
+        : { changedFiles: facts.entry.changed_files }),
+      ...(facts.entry.ahead === undefined ? {} : { ahead: facts.entry.ahead }),
+      resources: Object.values(facts.entry.resources ?? {}),
       ...(facts.entry.contained_in === undefined
         ? {}
         : { containedIn: facts.entry.contained_in }),
@@ -1328,6 +1570,7 @@ export function buildDeskDecision(
   const needsHumanDecision = collisions.length > 0 ||
     state === "needs_attention" || entry.contained_in !== undefined ||
     (state === "ready_to_review" && authority.status !== "granted");
+  const recovery = recoveryFact(entry);
   return {
     state,
     statusKind: presentation.kind,
@@ -1345,6 +1588,7 @@ export function buildDeskDecision(
     proof,
     authority,
     collisions,
+    ...(recovery === undefined ? {} : { recovery }),
     actions: offers.actions,
     ...(offers.recommendedAction === undefined
       ? {}

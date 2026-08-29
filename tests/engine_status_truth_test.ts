@@ -1,7 +1,7 @@
 /**
  * `status` tells the truth about the fleet — the abandoned-work visibility class:
- * a worktree whose creation crashed mid-checkout is flagged BROKEN (not listed as
- * a healthy clean member), unlanded `agent/*` branches with no worktree are
+ * a worktree whose creation crashed mid-checkout is flagged BROKEN and routed
+ * to recovery, unlanded `agent/*` branches with no worktree are
  * surfaced, a stale worktree gets a resume-or-drop hint, a missing trunk yields
  * an honest null instead of a fabricated "0 ahead", the off-trunk-main hint
  * describes the state and the way back, and a pristine worktree beside a dirty
@@ -10,11 +10,14 @@
 
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { basename, join } from "@std/path";
+import { basename, dirname, join } from "@std/path";
 import { HINTS } from "../src/shared/hints.ts";
-import type { StatusWireData } from "../src/shared/result_schemas.ts";
+import type {
+  StatusFleetEntry,
+  StatusWireData,
+} from "../src/shared/result_schemas.ts";
 import { buildDeskDecision } from "../src/engine/desk/model.ts";
-import { gitSnapshot } from "../src/engine/worktree/git.ts";
+import { gitSnapshot, readySentinelPath } from "../src/engine/worktree/git.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
@@ -25,6 +28,7 @@ import {
   runAgent,
   scaffoldEngine,
   worktreePath,
+  writeConfig,
 } from "./engine_helpers.ts";
 
 interface StatusJson {
@@ -53,7 +57,58 @@ function humanWords(text: string): string {
   return text.replaceAll(/\s+/gu, " ").trim();
 }
 
-Deno.test("status flags a configless worktree as broken, with the drop hint", async () => {
+/** Mark a raw Git worktree as a completed discern checkout fixture. */
+async function markReady(worktree: string): Promise<void> {
+  const marker = await readySentinelPath(worktree);
+  assert(marker !== undefined);
+  await Deno.mkdir(dirname(marker), { recursive: true });
+  await Deno.writeTextFile(marker, "");
+}
+
+/** Retain the recovery fields shared by status wire rows and Desk rows. */
+function deskRecoveryEntry(
+  row: NonNullable<StatusWireData["fleet"]>[number],
+): StatusFleetEntry {
+  return {
+    path: row.path,
+    branch: row.branch,
+    is_main: row.is_main,
+    is_current: row.is_current,
+    ...(row.registration === undefined
+      ? {}
+      : { registration: row.registration }),
+    ...(row.branch_reachable === undefined
+      ? {}
+      : { branch_reachable: row.branch_reachable }),
+    ...(row.filesystem === undefined ? {} : { filesystem: row.filesystem }),
+    ...(row.clean === undefined ? {} : { clean: row.clean }),
+    ...(row.changed_files === undefined
+      ? {}
+      : { changed_files: row.changed_files }),
+    ...(row.ahead === undefined ? {} : { ahead: row.ahead }),
+    ...(row.behind === undefined ? {} : { behind: row.behind }),
+    ...(row.last_activity === undefined
+      ? {}
+      : { last_activity: row.last_activity }),
+    ...(row.last_action === undefined ? {} : { last_action: row.last_action }),
+    ...(row.running === undefined ? {} : { running: row.running }),
+    ...(row.contained_in === undefined
+      ? {}
+      : { contained_in: row.contained_in }),
+    ...(row.git_unavailable === undefined
+      ? {}
+      : { git_unavailable: row.git_unavailable }),
+    ...(row.git_failure === undefined ? {} : { git_failure: row.git_failure }),
+    ...(row.id === undefined ? {} : { id: row.id }),
+    ...(row.port === undefined ? {} : { port: row.port }),
+    ...(row.resources === undefined ? {} : { resources: row.resources }),
+    ...(row.setup === undefined ? {} : { setup: row.setup }),
+    ...(row.task === undefined ? {} : { task: row.task }),
+    ...(row.broken === undefined ? {} : { broken: row.broken }),
+  };
+}
+
+Deno.test("status routes a configless broken worktree through recovery", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -79,7 +134,7 @@ Deno.test("status flags a configless worktree as broken, with the drop hint", as
     );
     assertTerminalTextIncludes(
       humanWords(human.output),
-      "Setup never completed. Inspect the checkout before discarding it with `discern worktree drop <name>`.",
+      "Setup did not produce a readable project configuration. Choose Show recovery steps in `discern desk`.",
     );
   });
 });
@@ -120,6 +175,7 @@ Deno.test("a failed worktree status read stays unreadable through status and the
     await Deno.writeTextFile(join(wt, "work.txt"), "ready\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "ready work", "--no-gpg-sign");
+    await markReady(wt);
 
     // `rev-parse --is-inside-work-tree` still succeeds, but `git status` cannot
     // read the index. This future-sibling fixture catches status-only failures,
@@ -151,8 +207,8 @@ Deno.test("a failed worktree status read stays unreadable through status and the
         deskDecision.actions.flatMap((offer) =>
           offer.availability === "enabled" ? [offer.action] : []
         ),
-        ["drop"],
-        "an unreadable ready branch must never offer accept",
+        ["recovery", "drop"],
+        "an unreadable branch must lead with diagnosis and never offer accept",
       );
       assertHasHint(result, HINTS["status-fleet-member-unreadable"], {
         total: 1,
@@ -169,11 +225,101 @@ Deno.test("a failed worktree status read stays unreadable through status and the
       assertStringIncludes(humanWords(local.output), "Unreadable");
       assertTerminalTextIncludes(
         humanWords(local.output),
-        "Git could not read this checkout. Investigate the path before resuming or discarding it.",
+        "Git could not read this checkout. Choose Show recovery steps in `discern desk`.",
       );
     } finally {
       await Deno.chmod(index, 0o644);
     }
+  });
+});
+
+Deno.test("configured worktrees without a ready marker expose safe and manual setup recovery", async () => {
+  const cases = [{
+    name: "idempotent",
+    configure: async (dir: string): Promise<void> => {
+      await scaffoldEngine(dir);
+    },
+    repair: "retry",
+    command: "discern worktree setup",
+    retryAvailable: true,
+  }, {
+    name: "one-shot-without-journal",
+    configure: async (dir: string): Promise<void> => {
+      await scaffoldEngine(dir);
+      await writeConfig(
+        dir,
+        '[project]\nslug = "engine-test"\n\n[repository]\ntrunk = "main"\n\n' +
+          '[worktree.setup]\nsteps = ["echo one-shot"]\n',
+      );
+    },
+    repair: "manual",
+    command: "discern worktree setup --dry-run",
+    retryAvailable: false,
+  }] as const;
+
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      await testCase.configure(dir);
+      await gitInit(dir);
+      await addWorktree(dir, testCase.name);
+
+      const result = await statusJson(dir);
+      const row = result.data.fleet?.find((entry) =>
+        entry.branch === `agent/${testCase.name}`
+      );
+      assert(row !== undefined, JSON.stringify(result.data.fleet));
+      assertEquals(row.broken, undefined);
+      assertEquals(row.setup?.state, "incomplete");
+      assertEquals(row.setup?.repair?.kind, testCase.repair);
+      assertEquals(row.setup?.repair?.command, testCase.command);
+
+      const decision = buildDeskDecision(deskRecoveryEntry(row), {
+        trunk: "main",
+        nowMs: SYSTEM_CLOCK.wallNow(),
+      });
+      assertEquals(decision.recommendedAction, "recovery");
+      assertEquals(
+        decision.actions.find((offer) => offer.action === "retry_setup")
+          ?.availability,
+        testCase.retryAvailable ? "enabled" : "disabled",
+      );
+      assertEquals(decision.recovery?.repairCommand, testCase.command);
+      assertHasHint(result, HINTS["status-fleet-member-broken"], {
+        total: 1,
+        names: [testCase.name],
+      });
+    });
+  }
+});
+
+Deno.test("a missing checkout directory stays registered and unavailable in recovery evidence", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "missing-checkout");
+    await Deno.remove(wt, { recursive: true });
+
+    const result = await statusJson(dir);
+    const row = result.data.fleet?.find((entry) =>
+      entry.branch === "agent/missing-checkout"
+    );
+    assert(row !== undefined, JSON.stringify(result.data.fleet));
+    assertEquals(row.filesystem?.state, "missing");
+    assertEquals(row.registration?.prunable, true);
+    assertEquals(row.git_unavailable, true);
+    assert(row.git_failure?.command.startsWith("git "));
+
+    const decision = buildDeskDecision(deskRecoveryEntry(row), {
+      trunk: "main",
+      nowMs: SYSTEM_CLOCK.wallNow(),
+    });
+    assertEquals(decision.recommendedAction, "recovery");
+    assert(
+      decision.recovery?.unavailable.some((fact) =>
+        fact === "Filesystem: missing"
+      ),
+      JSON.stringify(decision.recovery),
+    );
   });
 });
 

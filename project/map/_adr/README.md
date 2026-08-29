@@ -343,6 +343,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0355 — Real PTY tests declare operating-system boundary contracts](0355-real-pty-tests-declare-os-boundary-contracts.md)
 - [0356 — Task metadata follows the worktree identity](0356-task-metadata-follows-the-worktree-identity.md)
 - [0357 — Lock-boundary evidence retires superseded Logbook starts](0357-lock-boundary-evidence-retires-superseded-logbook-starts.md)
+- [0358 — Recovery observes before repair and Park preserves the branch](0358-recovery-observes-before-repair-and-park-preserves-the-branch.md)
 
 <!-- END GENERATED: current ADR records -->
 

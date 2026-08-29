@@ -67,6 +67,11 @@ export const SIDE_RESTRICTED_OPS = {
     label: "discern worktree drop",
     cli: { argv: ["worktree", "drop", "any-target"], verb: "worktree drop" },
   },
+  "worktree-park": {
+    side: "main-checkout",
+    label: "discern worktree park",
+    cli: { argv: ["worktree", "park", "any-target"], verb: "worktree park" },
+  },
   "worktree-prune": {
     side: "main-checkout",
     label: "discern worktree prune",

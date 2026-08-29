@@ -27,7 +27,10 @@ import {
   renderDeskAgentHandoff,
   renderDeskBoard,
   renderDeskCreatedTask,
+  renderDeskMainCheckoutDetail,
   renderDeskProjectScriptPlan,
+  renderDeskRecentCompleted,
+  renderDeskRecovery,
   renderDeskReview,
   renderDeskStartPreview,
   renderDeskTaskDetail,
@@ -673,6 +676,100 @@ Deno.test("action plans use package command, procedure, consequence, and warning
   assertStringIncludes(scriptText, "Confirmation policy: required");
   assertStringIncludes(scriptText, "Destructive policy: undeclared");
   assertStringIncludes(scriptText, "Human confirmation in the Desk");
+});
+
+Deno.test("recovery, main, and completion views use package workflow evidence", () => {
+  const degraded = entry("recovery-a1b2c3", {
+    clean: undefined,
+    changed_files: undefined,
+    ahead: undefined,
+    git_unavailable: true,
+    git_failure: {
+      command: "git status --porcelain=v1",
+      reason: "fatal: index file smaller than expected",
+    },
+    registration: {
+      head: "a".repeat(40),
+      locked: false,
+      prunable: false,
+    },
+    branch_reachable: true,
+    filesystem: { state: "directory" },
+    setup: {
+      state: "ready",
+      marker: "present",
+    },
+    last_action: {
+      verb: "worktree setup",
+      outcome: "failed",
+      at: "2026-08-27T11:30:00.000Z",
+      failed_stage: "refresh",
+    },
+  });
+  const [recoveryRow] = rows([degraded]);
+  assert(recoveryRow !== undefined);
+  const size = { columns: 100, rows: 70 };
+  const recovery = stripAnsi(
+    renderDeskRecovery(recoveryRow, size, terminal(size)).text,
+  );
+  for (
+    const expected of [
+      "Task recovery needed",
+      "fatal: index file smaller than expected",
+      "Reproduce: $ git status --porcelain=v1",
+      "Observed evidence",
+      "Git registration",
+      "Last lifecycle result: worktree setup failed",
+      "Manual recovery",
+      "The task remains intact",
+    ]
+  ) {
+    assertStringIncludes(recovery, expected);
+  }
+
+  const mainData: StatusData = {
+    location: "main",
+    root: "/tmp/project",
+    project: "demo",
+    worktree: null,
+    git: null,
+    standards: [],
+    fleet: [{
+      path: "/tmp/project",
+      branch: "main",
+      is_main: true,
+      is_current: true,
+      git_unavailable: true,
+      git_failure: {
+        command: "git status --porcelain=v1",
+        reason: "fatal: bad index",
+      },
+    }],
+  };
+  const main = stripAnsi(
+    renderDeskMainCheckoutDetail(mainData, size, terminal(size)).text,
+  );
+  assertStringIncludes(main, "Main checkout boundary");
+  assertStringIncludes(main, "Main Git state is unavailable");
+  assertStringIncludes(main, "Git-dependent fleet operations remain blocked");
+  assertStringIncludes(main, "Reproduce: $ git status --porcelain=v1");
+
+  const completedData: StatusData = {
+    ...mainData,
+    recent_completed_tasks: [{
+      branch: "agent/completed",
+      head: "abc1234",
+      completed_at: "2026-08-27T11:00:00.000Z",
+      proof_line: "Proof: agent/completed abc1234 · gate passed",
+    }],
+  };
+  const completed = stripAnsi(
+    renderDeskRecentCompleted(completedData, size, terminal(size)).text,
+  );
+  assertStringIncludes(completed, "Recent completed tasks");
+  assertStringIncludes(completed, "agent/completed");
+  assertStringIncludes(completed, "Proof: agent/completed abc1234");
+  assertBounded(completed, size.columns);
 });
 
 Deno.test("Proof-first review renders stored Markdown and every review evidence class", () => {

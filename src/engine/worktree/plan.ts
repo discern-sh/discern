@@ -489,6 +489,62 @@ export interface DropPlan {
   blockers: string[];
   /** Ledger entries for the worktree's resources, in destruction order. */
   entries: LedgerItem[];
+  /** Commit recorded in Git's worktree registration. */
+  head: string;
+  /** Checkout cleanliness from the live Git snapshot; absent when unreadable. */
+  clean?: boolean | undefined;
+}
+
+/** A healthy checkout removal that retains its branch and human task wording. */
+export interface ParkPlan {
+  targetPath: string;
+  id: string;
+  branch: string;
+  head: string;
+  entries: LedgerItem[];
+  title: string;
+  keepsBrief: boolean;
+  removesGrant: boolean;
+  removesProof: boolean;
+}
+
+/** Project Park's distinct artifact contract onto the shared plan renderer. */
+export function parkPlanToEngine(plan: ParkPlan): EnginePlan {
+  return {
+    title: "Park plan",
+    details: [
+      `Branch kept:      ${plan.branch} at ${plan.head}`,
+      `Task metadata:    ${plan.title}${plan.keepsBrief ? " with brief" : ""}`,
+      `Checkout removed: ${plan.targetPath}`,
+      `Landing grant:    ${plan.removesGrant ? "removed" : "none recorded"}`,
+      `Proof:            ${
+        plan.removesProof ? "removed with checkout" : "none recorded"
+      }`,
+    ],
+    steps: [{
+      kind: "task-metadata",
+      label: BUILT_IN_STEP_LABELS.writeTaskMetadata,
+      disposition: "run",
+      note: "retain the task title, brief, and creation source for resume",
+    }, {
+      kind: "resource-destroy",
+      label: BUILT_IN_STEP_LABELS.teardownResources,
+      disposition: plan.entries.length > 0 ? "run" : "skip",
+      note: plan.entries.length > 0
+        ? "destroy resources recorded for this checkout"
+        : "no resources recorded",
+    }, {
+      kind: "git",
+      label: BUILT_IN_STEP_LABELS.removeWorktree,
+      disposition: "run",
+      note: plan.targetPath,
+    }, {
+      kind: "git",
+      label: BUILT_IN_STEP_LABELS.deleteBranch,
+      disposition: "skip",
+      note: `${plan.branch} is retained for resume`,
+    }],
+  };
 }
 
 /** Project a drop onto the shared renderer: tear down resources, remove the

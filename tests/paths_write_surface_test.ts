@@ -156,6 +156,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "human task metadata — registry-resolved worktree-local Git-admin state outside the project tree",
   ],
   [
+    "src/engine/worktree/parked_task_metadata.ts",
+    "branch-preserving Park metadata — registry-resolved common-Git state whose file replacement uses the atomic writer",
+  ],
+  [
     "src/engine/gate/proof.ts",
     "the gate proof — .git-internal, outside the project tree",
   ],

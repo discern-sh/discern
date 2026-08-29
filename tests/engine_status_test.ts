@@ -16,8 +16,8 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { walk } from "@std/fs";
-import { join, relative } from "@std/path";
+import { ensureDir, walk } from "@std/fs";
+import { dirname, join, relative } from "@std/path";
 import { displayWidth } from "../src/lib/text.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -52,8 +52,19 @@ import {
 } from "./decode_cli_result.ts";
 import { seedForBranch } from "../src/engine/worktree/identity.ts";
 import { realPtyTest } from "./real_pty.ts";
+import { readySentinelPath } from "../src/engine/worktree/git.ts";
 
 const STATUS_ESCAPE = String.fromCharCode(27);
+
+/** Add a healthy linked checkout for status cases unrelated to setup recovery. */
+async function addReadyWorktree(root: string, name: string): Promise<string> {
+  const worktree = await addWorktree(root, name);
+  const marker = await readySentinelPath(worktree);
+  assert(marker !== undefined);
+  await ensureDir(dirname(marker));
+  await Deno.writeTextFile(marker, "");
+  return worktree;
+}
 
 type StatusResult = CliResultForCommand<"status">;
 type StatusData = Exclude<
@@ -364,8 +375,8 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    await addWorktree(dir, "alpha");
-    await addWorktree(dir, "beta");
+    await addReadyWorktree(dir, "alpha");
+    await addReadyWorktree(dir, "beta");
     const epoch = configEpoch(await loadConfig(dir)).fingerprint;
     const now = SYSTEM_CLOCK.wallNow();
     const at = (agoMs: number): string => new Date(now - agoMs).toISOString();
@@ -479,7 +490,7 @@ Deno.test("status fleet: logbook-off rows degrade to git activity and carry the 
     await scaffoldEngine(dir);
     await writeConfig(dir, "[project]\nlogbook = false\n");
     await gitInit(dir);
-    await addWorktree(dir, "alpha");
+    await addReadyWorktree(dir, "alpha");
 
     const run = await runAgent(dir, ["status", "--json"]);
     assertEquals(run.code, 0, run.output);
@@ -836,7 +847,7 @@ Deno.test("status fleet (human): the wide brief is bounded and defers row eviden
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    await addWorktree(dir, "alpha");
+    await addReadyWorktree(dir, "alpha");
 
     const r = await runAgent(dir, ["status"], { env: { COLUMNS: "120" } });
     assertEquals(r.code, 0, r.output);
@@ -878,7 +889,7 @@ realPtyTest({
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
       await gitInit(dir);
-      await addWorktree(dir, "alpha");
+      await addReadyWorktree(dir, "alpha");
       const env = { COLUMNS: "48", CI: "false", NO_COLOR: "" };
 
       const colored = await runAgentPty(dir, ["status"], {
@@ -1388,6 +1399,15 @@ Deno.test("status: a landed proof carries its commit time for the human age", as
     assert(
       typeof commitAt === "string" && !Number.isNaN(Date.parse(commitAt)),
       JSON.stringify(result.data.landed_proof),
+    );
+    assertEquals(result.data.recent_completed_tasks?.length, 1);
+    assertEquals(
+      result.data.recent_completed_tasks?.[0]?.branch,
+      "agent/alpha",
+    );
+    assertEquals(
+      result.data.recent_completed_tasks?.[0]?.proof_line,
+      result.data.landed_proof?.proof.line,
     );
     const human = await runAgent(dir, ["status"]);
     assertTerminalTextIncludes(human.output, "Last landing");

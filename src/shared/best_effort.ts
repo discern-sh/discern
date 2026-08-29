@@ -1687,6 +1687,16 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "Recovery applies only a schema-validated exact transaction and malformed journal data cannot authorize any config or evidence write.",
   },
+  "start-consume-parked-task": {
+    path: "src/engine/worktree/lifecycle.ts",
+    enclosingFunction: "applyStartPlan",
+    operation: "remove Park metadata after start transfers it to a new task",
+    kind: "capability",
+    shape: "async",
+    observability: { kind: "reported", authority: "Logger" },
+    reason:
+      "The new task and its metadata are already durable, while a leftover record is excluded once the source branch becomes contained in live work.",
+  },
   "status-identity-settings-fallback": {
     path: "src/engine/status/status.ts",
     enclosingFunction: "statusResult",

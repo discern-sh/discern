@@ -80,6 +80,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  parkedTaskMetadata: {
+    path: "discern/parked-tasks",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
   taskMetadata: {
     path: "discern/task-metadata.json",
     scope: "worktree",

@@ -1803,11 +1803,11 @@ Rendered example:
 
 Rendered example:
 
-> 5 worktrees have incomplete setup: incomplete, crashed, half-built, … (+2 more). Their checkouts may be incomplete. The owner decides whether to inspect or discard each effort.
+> 5 worktrees have incomplete setup: incomplete, crashed, half-built, … (+2 more). In the Desk, select each task and choose Show recovery steps before cleanup.
 
 Interactive example:
 
-> Discard 5 worktrees whose setup never completed: incomplete, crashed, half-built, … (+2 more). Run `discern worktree drop <name>` for each.
+> Diagnose 5 worktrees whose setup did not complete: incomplete, crashed, half-built, … (+2 more). In the Desk, select each task and choose Show recovery steps.
 
 ## `status-fleet-member-ready`
 
@@ -1848,11 +1848,11 @@ Interactive example:
 
 Rendered example:
 
-> 5 worktrees have unreadable Git state: damaged, missing, unreadable, … (+2 more). Their checkouts may be missing or damaged, so unsaved work is unverifiable. The owner decides whether to investigate or discard each effort.
+> 5 worktrees have unreadable Git state: damaged, missing, unreadable, … (+2 more). Unsaved work is unverifiable. In the Desk, select each task and choose Show recovery steps.
 
 Interactive example:
 
-> Investigate 5 worktrees whose Git state cannot be read: damaged, missing, unreadable, … (+2 more). To discard one, run `discern worktree drop <name>`; it refuses without `--force` while the state is unverifiable.
+> Investigate 5 worktrees whose Git state cannot be read: damaged, missing, unreadable, … (+2 more). In the Desk, select each task and choose Show recovery steps.
 
 ## `status-full-structured-detail`
 

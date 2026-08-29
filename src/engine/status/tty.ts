@@ -60,6 +60,7 @@ export const STALE_WORKTREE_DAYS = 7;
  * this tuple, so a new semantic state cannot bypass the width and text guards. */
 export const FLEET_ROW_STATUS_KINDS = [
   "broken",
+  "setup-incomplete",
   "unreadable",
   "failed",
   "blocked",
@@ -87,6 +88,12 @@ interface StatusMeta {
 
 const STATUS_META = {
   broken: { label: "Broken", glyph: "✗", tone: "red", priority: 0 },
+  "setup-incomplete": {
+    label: "Setup incomplete",
+    glyph: "!",
+    tone: "yellow",
+    priority: 0,
+  },
   unreadable: { label: "Unreadable", glyph: "✗", tone: "red", priority: 0 },
   failed: { label: "Failed", glyph: "✗", tone: "red", priority: 0 },
   blocked: { label: "Blocked", glyph: "!", tone: "yellow", priority: 1 },
@@ -440,6 +447,10 @@ function classifyKind(
   if (entry.broken === true) return "broken";
   if (entry.git_unavailable === true) return "unreadable";
   if (
+    entry.setup?.state === "incomplete" ||
+    entry.setup?.state === "unavailable"
+  ) return "setup-incomplete";
+  if (
     entry.running === undefined &&
     (entry.last_action?.outcome === "failed" ||
       entry.last_action?.outcome === "partial")
@@ -482,9 +493,11 @@ function attentionFor(
 ): string | undefined {
   switch (kind) {
     case "broken":
-      return "Setup never completed. Inspect the checkout before discarding it with `discern worktree drop <name>`.";
+      return "Setup did not produce a readable project configuration. Choose Show recovery steps in `discern desk`.";
+    case "setup-incomplete":
+      return "Setup did not reach its ready marker. Choose Show recovery steps in `discern desk`.";
     case "unreadable":
-      return "Git could not read this checkout. Investigate the path before resuming or discarding it.";
+      return "Git could not read this checkout. Choose Show recovery steps in `discern desk`.";
     case "failed": {
       const action = entry.last_action;
       const stage = action?.failed_stage === undefined
@@ -518,7 +531,7 @@ function attentionFor(
       const days = idleDaysOf(entry.last_activity, nowMs);
       return `This worktree has unlanded work and no recorded activity for ${
         days ?? STALE_WORKTREE_DAYS
-      } days. Resume it or discard it with \`discern worktree drop <name>\`.`;
+      } days. Resume it, Park its clean checkout, or review Drop before discarding work.`;
     }
     case "in-progress":
       return undefined;
@@ -646,6 +659,7 @@ function section(
 /** Exhaustive adaptation into Result summary's outcome vocabulary. */
 export const FLEET_ROW_RESULT_STATE = {
   broken: "failed",
+  "setup-incomplete": "blocked",
   unreadable: "failed",
   failed: "failed",
   blocked: "blocked",

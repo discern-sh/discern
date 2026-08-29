@@ -20,15 +20,16 @@ Run `discern status` from the main checkout for the fleet view; pass `--all` in 
 
 The survey preserves unknown states instead of guessing:
 
-| State                                          | What status reports                                                    |
-| ---------------------------------------------- | ---------------------------------------------------------------------- |
-| Tracked or untracked non-ignored files changed | `clean: false` with the changed-file count.                            |
-| Checkout has no project config                 | `broken`, with the `worktree drop` recovery.                           |
-| Git cannot read a checkout's status            | Sets `git_unavailable`. Clean and divergence values stay absent.       |
-| Git returns a failed or malformed count        | Reports `"unknown"` for the affected ahead or behind value.            |
-| Work remains idle for 7 days                   | A hint to resume or drop the stale worktree.                           |
-| `agent/*` branch has no worktree               | `unlanded_branches`, with `start --from` and `update --from` recovery. |
-| Local trunk is missing                         | Ahead remains `null` because discern cannot compare it.                |
+| State                                              | What status reports                                                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Tracked or untracked non-ignored files changed     | `clean: false` with the changed-file count.                                                             |
+| Checkout has no project config                     | `broken`, with **Show recovery steps** as the recommended Desk action.                                  |
+| Config exists and the setup-ready marker is absent | `setup.state: "incomplete"`, with retry or manual recovery evidence.                                    |
+| Git cannot read a checkout's status                | Sets `git_unavailable` with the failed command and diagnostic. Clean and divergence values stay absent. |
+| Git returns a failed or malformed count            | Reports `"unknown"` for the affected ahead or behind value.                                             |
+| Work remains idle for 7 days                       | A hint to resume, Park, or review Drop for the stale task.                                              |
+| `agent/*` branch has no worktree                   | `unlanded_branches`, with `start --from` and `update --from` recovery.                                  |
+| Local trunk is missing                             | Ahead remains `null` because discern cannot compare it.                                                 |
 
 If status reports a pristine worktree but a changed main checkout, file operations and validation are split. Work in the task worktree and pass its absolute path to Model Context Protocol (MCP) tools.
 

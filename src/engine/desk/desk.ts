@@ -85,8 +85,12 @@ import {
   worktreeDrop,
   worktreeDropPlan,
   WorktreeGitError,
+  worktreePark,
+  worktreeParkPlan,
   worktreeReclaimContained,
   worktreeReclaimContainedPlan,
+  worktreeSetup,
+  worktreeSetupPlan,
 } from "../worktree/lifecycle.ts";
 import { mainRepoPath } from "../worktree/git.ts";
 import { commandExists, runGit } from "../../shared/subprocess.ts";
@@ -161,13 +165,17 @@ import {
   deskRootSelectionGroups,
   deskRootUsesSearch,
   deskUnlandedBranch,
+  deskUnlandedRoute,
   renderDeskActionFailure,
   renderDeskActionPlan,
   renderDeskAgentHandoff,
   renderDeskBoard,
   renderDeskCommandEvidence,
   renderDeskCreatedTask,
+  renderDeskMainCheckoutDetail,
   renderDeskProjectScriptPlan,
+  renderDeskRecentCompleted,
+  renderDeskRecovery,
   renderDeskReview,
   renderDeskStartPreview,
   renderDeskTaskDetail,
@@ -179,6 +187,8 @@ const {
   back: BACK,
   quit: QUIT,
   readDocs: READ_DOCS,
+  mainCheckout: MAIN_CHECKOUT,
+  recentCompleted: RECENT_COMPLETED,
   refresh: REFRESH,
   runProjectScript: RUN_PROJECT_SCRIPT,
   startTask: START_TASK,
@@ -260,12 +270,22 @@ export interface DeskRuntime {
   updatePlan(
     ctx: LifecycleContext,
   ): DeskMaybePromise<DiscernResult<UpdateData>>;
+  setup(ctx: LifecycleContext): DeskMaybePromise<void>;
+  setupPlan(ctx: LifecycleContext): DeskMaybePromise<EnginePlan>;
   drop(
     ctx: LifecycleContext,
     target: string,
     opts: { dryRun?: boolean; force?: boolean },
   ): DeskMaybePromise<void>;
   dropPlan(
+    ctx: LifecycleContext,
+    target: string,
+  ): DeskMaybePromise<EnginePlan>;
+  park(
+    ctx: LifecycleContext,
+    target: string,
+  ): DeskMaybePromise<void>;
+  parkPlan(
     ctx: LifecycleContext,
     target: string,
   ): DeskMaybePromise<EnginePlan>;
@@ -570,6 +590,13 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       () => update(ctx, opts),
     ),
   updatePlan: (ctx) => updateResult(ctx, { dryRun: true }),
+  setup: (ctx) =>
+    withOperationLock(
+      ctx.cwd,
+      { command: "worktree setup" },
+      () => worktreeSetup(ctx),
+    ),
+  setupPlan: (ctx) => worktreeSetupPlan(ctx),
   drop: (ctx, target, opts) =>
     withOperationLock(
       ctx.cwd,
@@ -580,6 +607,13 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       () => worktreeDrop(ctx, target, opts),
     ),
   dropPlan: (ctx, target) => worktreeDropPlan(ctx, target),
+  park: (ctx, target) =>
+    withOperationLock(
+      ctx.cwd,
+      { command: "worktree park" },
+      () => worktreePark(ctx, target),
+    ),
+  parkPlan: (ctx, target) => worktreeParkPlan(ctx, target),
   reclaim: async (ctx, target) => {
     await withOperationLock(
       ctx.cwd,
@@ -1206,15 +1240,21 @@ async function runAuthorizedProjectScript(
 async function pickRow(
   rows: readonly DeskRow[],
   unlandedBranches: readonly string[],
+  data: StatusData,
   rootScripts: readonly DeskProjectScript[],
   boardRows: number,
   viewport: TerminalSize,
   terminal: Out["terminal"],
   runtime: DeskRuntime,
 ): Promise<string> {
-  const options = groupedSelectionEntries(deskRootSelectionGroups({
+  const options = groupedSelectionEntries<string>(deskRootSelectionGroups({
     rows,
     unlandedBranches,
+    mainActionable: (data.fleet ?? []).some((entry) =>
+      entry.is_main &&
+      (entry.clean === false || entry.git_unavailable === true)
+    ),
+    recentCompletedCount: data.recent_completed_tasks?.length ?? 0,
     hasProjectScripts: rootScripts.some((script) =>
       script.availability !== "disabled"
     ),
@@ -1239,6 +1279,133 @@ async function pickRow(
     // Ctrl-C or end-of-input closes the Desk.
     return QUIT;
   }
+}
+
+/** Inspect and enter main without presenting it as agent-owned task work. */
+async function actOnMainCheckout(
+  out: Out,
+  root: string,
+  data: StatusData,
+  runtime: DeskRuntime,
+): Promise<void> {
+  clearBoard(out);
+  const viewport = runtime.size();
+  const terminal = terminalContextAtSize(out.terminal, viewport);
+  const detail = renderDeskMainCheckoutDetail(data, viewport, terminal);
+  out.raw(`${detail.text}\n`);
+  while (true) {
+    let action: string;
+    try {
+      action = await runtime.select({
+        message: "Choose a main checkout action",
+        options: groupedSelectionEntries([{
+          id: "main-inspection",
+          label: "Main checkout",
+          items: [{
+            name: "Inspect status and diff",
+            description: "Read local Git changes without changing main.",
+            value: "inspect",
+          }, {
+            name: "Open a shell at main",
+            description: "Exit the shell to return to the Desk.",
+            value: "shell",
+          }, {
+            name: "Open an editor at main",
+            description:
+              "Use the configured editor without starting agent work.",
+            value: "editor",
+          }],
+        }, {
+          id: "main-navigation",
+          label: "Desk",
+          items: [{ name: "Back", value: BACK }],
+        }]),
+        reservedRows: deskCompositionReserveRows(detail.rows, viewport.rows),
+      });
+    } catch (error) {
+      if (!isInteractionCancelled(error)) throw error;
+      return;
+    }
+    if (action === BACK) return;
+    if (action === "inspect") {
+      const [status, diff] = await Promise.all([
+        runtime.git(["status", "--short", "--branch"], root),
+        runtime.git(["diff", "--stat", "HEAD"], root),
+      ]);
+      if (!status.success || !diff.success) {
+        const failed = !status.success ? status : diff;
+        const command = !status.success
+          ? "git status --short --branch"
+          : "git diff --stat HEAD";
+        out.warn(
+          `${command} failed in ${root}: ${
+            failed.stderr.trim() || "Git returned no diagnostic."
+          } Repair the reported Git state, then refresh the Desk.`,
+        );
+        await runtime.pause(out);
+        continue;
+      }
+      const page = [
+        "# Main checkout",
+        "",
+        "Command: git status --short --branch",
+        "",
+        status.stdout.trim() || "No local changes.",
+        "",
+        "Command: git diff --stat HEAD",
+        "",
+        diff.stdout.trim() || "No tracked diff.",
+      ].join("\n");
+      const shown = await runtime.pager(page);
+      if (!shown.shown) {
+        out.warn("The pager could not open the main checkout review.");
+        await runtime.pause(out);
+      }
+      continue;
+    }
+    if (action === "shell") {
+      const shell = userShell();
+      echoCommand(out, `${shell}  (cwd: ${root})`);
+      out.info("Exit the shell to return to the Desk.");
+      const code = await runtime.interactive(
+        shell,
+        [],
+        root,
+        deskSessionEnv(),
+      );
+      if (code !== 0) {
+        out.warn(`Shell exited with status ${code}.`);
+        await runtime.pause(out);
+      }
+      continue;
+    }
+    const editor = await runtime.editor(root);
+    if (editor.editor === undefined) {
+      out.warn(editor.reason ?? "No editor is available.");
+      await runtime.pause(out);
+      continue;
+    }
+    echoCommand(out, `${editor.editor.command} .  (cwd: ${root})`);
+    const code = await runtime.openEditor(editor.editor, root);
+    if (code !== 0) {
+      out.warn(`Editor exited with status ${code}.`);
+      await runtime.pause(out);
+    }
+  }
+}
+
+/** Show the bounded local completion tail and return to the root picker. */
+async function showRecentCompleted(
+  out: Out,
+  data: StatusData,
+  runtime: DeskRuntime,
+): Promise<void> {
+  clearBoard(out);
+  const viewport = runtime.size();
+  const terminal = terminalContextAtSize(out.terminal, viewport);
+  const detail = renderDeskRecentCompleted(data, viewport, terminal);
+  out.raw(`${detail.text}\n`);
+  await runtime.pause(out);
 }
 
 /** Run one Project Script from the main checkout, using the same picker,
@@ -1348,6 +1515,8 @@ interface StartTaskOptions {
   readonly detectedAgents: readonly DetectedAgentBinary[];
   /** Exact status-reported branch ref for follow-up or orphan recovery. */
   readonly fixedFrom?: string;
+  /** Park-retained wording offered as defaults while resuming its branch. */
+  readonly resumeTask?: NonNullable<StatusData["parked_tasks"]>[number];
 }
 
 /** Ask whether human wording or the explicit generated fallback owns the title. */
@@ -1670,7 +1839,11 @@ async function startTask(
         id: "title_route",
         label: "Task title",
         run: (_values, previous, requests) =>
-          pickTaskTitleRoute(requests, previous),
+          pickTaskTitleRoute(
+            requests,
+            previous ??
+              (options.resumeTask === undefined ? undefined : "describe"),
+          ),
         summarize: (value) =>
           value === "codename" ? "Generated codename" : "Describe the task",
       }, {
@@ -1678,7 +1851,10 @@ async function startTask(
         label: "Title",
         when: (values) => values.title_route === "describe",
         run: (_values, previous, requests) =>
-          requestTaskTitle(requests, previous),
+          requestTaskTitle(
+            requests,
+            previous ?? options.resumeTask?.task.title,
+          ),
         summarize: (value) => typeof value === "string" ? value : "",
       }, {
         id: "creation_path",
@@ -1716,7 +1892,10 @@ async function startTask(
           options.fixedFrom !== undefined ||
           values.creation_path === "expanded",
         run: (_values, previous, requests) =>
-          requestTaskBrief(requests, previous),
+          requestTaskBrief(
+            requests,
+            previous ?? options.resumeTask?.task.brief,
+          ),
       }, {
         id: "agent",
         label: "Agent action",
@@ -1928,9 +2107,13 @@ async function actOnUnlandedBranch(
       );
       continue;
     }
+    const resumeTask = startOptions.data.parked_tasks?.find((task) =>
+      task.branch === branch
+    );
     return await startTask(out, root, config, runtime, {
       ...startOptions,
       fixedFrom: branch,
+      ...(resumeTask === undefined ? {} : { resumeTask }),
     });
   }
 }
@@ -1954,6 +2137,39 @@ async function dispatchAction(
   const trunk = config.repository.trunk;
   const target = basename(row.entry.path);
   switch (action) {
+    case "recovery": {
+      const viewport = runtime.size();
+      const terminal = terminalContextAtSize(out.terminal, viewport);
+      const recovery = renderDeskRecovery(row, viewport, terminal);
+      out.raw(`${recovery.text}\n`);
+      await runtime.pause(out);
+      return false;
+    }
+    case "retry_setup": {
+      const ctx = await runtime.lifecycle(row.entry.path);
+      showActionPlan(
+        out,
+        row,
+        action,
+        await runtime.setupPlan(ctx),
+        runtime,
+      );
+      if (
+        !(await confirmAction(
+          row,
+          action,
+          `Retry setup for ${row.entry.branch}?`,
+          runtime,
+        ))
+      ) {
+        return false;
+      }
+      echoCommand(out, `discern worktree setup  (in ${target})`);
+      await runtime.setup(ctx);
+      out.ok(`Setup completed for ${row.entry.branch}.`);
+      await runtime.pause(out);
+      return true;
+    }
     case "done": {
       if (cliModel === undefined) {
         throw new Error("Desk final checks require a live CLI model provider.");
@@ -2135,6 +2351,37 @@ async function dispatchAction(
       await runtime.reclaim(ctx, row.entry.path);
       out.ok(
         `Reclaimed ${target}. Branch ${row.entry.branch} kept — it lands with ${containedIn} and self-cleans on the next prune.`,
+      );
+      await runtime.pause(out);
+      return true;
+    }
+    case "park": {
+      const parkTarget = row.entry.path;
+      const ctx = await runtime.lifecycle(root);
+      showActionPlan(
+        out,
+        row,
+        action,
+        await runtime.parkPlan(ctx, parkTarget),
+        runtime,
+      );
+      if (
+        !(await confirmAction(
+          row,
+          action,
+          `Park ${target} and keep branch ${row.entry.branch}?`,
+          runtime,
+        ))
+      ) {
+        return false;
+      }
+      echoCommand(
+        out,
+        commandEvidence(["discern", "worktree", "park", parkTarget]),
+      );
+      await runtime.park(ctx, parkTarget);
+      out.ok(
+        `Parked ${target}. Branch ${row.entry.branch} and its task wording are ready under Work without a worktree.`,
       );
       await runtime.pause(out);
       return true;
@@ -2538,6 +2785,7 @@ export async function runDesk(
 
   let data: StatusData = initialData;
   let focusPath: string | undefined;
+  let focusBranch: string | undefined;
   while (true) {
     clearBoard(out);
     const fleet = data.fleet ?? [];
@@ -2635,11 +2883,33 @@ export async function runDesk(
     const focused = focusPath === undefined
       ? undefined
       : rows.find((row) => row.entry.path === focusPath);
+    let changedSelection: string | undefined;
+    if (focusPath !== undefined && focused === undefined) {
+      if (
+        focusBranch !== undefined &&
+        (data.unlanded_branches ?? []).includes(focusBranch)
+      ) {
+        out.info("Task changed; refreshed. Its branch is ready to resume.");
+        changedSelection = deskUnlandedRoute(focusBranch);
+      } else if (
+        focusBranch !== undefined &&
+        (data.recent_completed_tasks ?? []).some((task) =>
+          task.branch === focusBranch
+        )
+      ) {
+        out.info("Task landed; refreshed. Completion evidence is available.");
+      } else {
+        out.info("Task changed; refreshed.");
+      }
+    }
     focusPath = undefined;
+    focusBranch = undefined;
     const choice = focused?.entry.path ??
+      changedSelection ??
       await pickRow(
         rows,
         data.unlanded_branches ?? [],
+        data,
         rootScripts,
         board.rows,
         viewport,
@@ -2693,6 +2963,10 @@ export async function runDesk(
         rootScripts,
         runtime,
       );
+    } else if (choice === MAIN_CHECKOUT) {
+      await actOnMainCheckout(out, root, data, runtime);
+    } else if (choice === RECENT_COMPLETED) {
+      await showRecentCompleted(out, data, runtime);
     } else if (choice === READ_DOCS) {
       await openOnlineDocs(out, runtime);
     } else if (choice !== REFRESH) {
@@ -2708,7 +2982,10 @@ export async function runDesk(
           opts.cliModel,
         );
         if (typeof outcome === "string") focusPath = outcome;
-        else if (outcome) focusPath = row.entry.path;
+        else if (outcome) {
+          focusPath = row.entry.path;
+          focusBranch = row.entry.branch;
+        }
       }
     }
     const next = await runtime.status(root);

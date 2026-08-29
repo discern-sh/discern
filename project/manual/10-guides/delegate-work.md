@@ -113,6 +113,8 @@ The selected task determines which actions are available, recommended, disabled,
 
 | Id             | Group  | Contextual label                                                                | Command evidence                     | Confirmation                                                     |
 | -------------- | ------ | ------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
+| `recovery`     | Work   | Show recovery steps                                                             | `discern status --all`               | None                                                             |
+| `retry_setup`  | Manage | Retry setup                                                                     | `discern worktree setup`             | No by default; Retry                                             |
 | `done`         | Work   | Run final checks                                                                | `discern done`                       | No by default; Run                                               |
 | `accept`       | Review | Run final checks, then land on &lt;trunk&gt; / Review and land on &lt;trunk&gt; | `discern accept`                     | No by default; Land                                              |
 | `update`       | Manage | Update branch from &lt;trunk&gt;                                                | `discern update`                     | No by default; Update                                            |
@@ -125,11 +127,14 @@ The selected task determines which actions are available, recommended, disabled,
 | `grant`        | Manage | Pre-authorize landing once green                                                | `discern desk`                       | No by default; Allow                                             |
 | `revoke_grant` | Manage | Revoke landing pre-authorization                                                | `discern desk`                       | No by default; Revoke                                            |
 | `reclaim`      | Manage | Reclaim checkout, keep branch (work contained in &lt;later-branch&gt;)          | `discern worktree prune --contained` | No by default; Reclaim                                           |
+| `park`         | Manage | Park checkout, keep branch                                                      | `discern worktree park <path>`       | No by default; Park                                              |
 | `drop`         | Danger | Drop worktree and branch                                                        | `discern worktree drop <path>`       | No by default; Drop, then type the branch before discarding work |
 
 <!-- END DESK ACTION REGISTRY -->
 
 Grant and revoke remain person-only actions inside `discern desk`. Every lifecycle action rechecks current state after confirmation.
+
+Broken, setup-incomplete, and Git-unreadable tasks recommend **Show recovery steps**. The read-only detail names the failed command, verified identities, unavailable facts, and one next step. **Retry setup** appears only when the setup journal makes replay safe. **Park** removes a clean healthy checkout and its resources while retaining the branch and task wording. **Reclaim** retains a contained stage's branch because a live successor carries its work. **Drop** remains the destructive path for an effort the person intends to discard.
 
 ## 7. Review returned work independently
 

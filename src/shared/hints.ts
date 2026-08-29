@@ -1175,17 +1175,13 @@ export const HINTS = {
       names: ["damaged", "missing", "unreadable", "no-access"],
     },
     template: ({ total, names }): string => {
-      const checkout = total === 1
-        ? "Its checkout may be"
-        : "Their checkouts may be";
       return `${total} worktree${total === 1 ? "" : "s"} ${
         total === 1 ? "has" : "have"
       } unreadable Git state: ${
         boundedNameSummary(total, names)
-      }. ${checkout} missing or damaged, so unsaved work is unverifiable. The ` +
-        `owner decides whether to investigate or discard ${
-          total === 1 ? "the effort" : "each effort"
-        }.`;
+      }. Unsaved work is unverifiable. In the Desk, select ${
+        total === 1 ? "the task" : "each task"
+      } and choose Show recovery steps.`;
     },
     interactiveTemplate: ({ total, names }): string =>
       `Investigate ${total} worktree${
@@ -1193,9 +1189,9 @@ export const HINTS = {
       } whose Git state ` +
       `cannot be read: ${
         boundedNameSummary(total, names)
-      }. To discard one, run ` +
-      `${discernCommand("worktree drop", positional("name", "<name>"))}; it ` +
-      "refuses without `--force` while the state is unverifiable.",
+      }. In the Desk, select ${
+        total === 1 ? "the task" : "each task"
+      } and choose Show recovery steps.`,
   }),
 
   /** One bounded summary for every fleet member whose setup never completed. */
@@ -1212,21 +1208,19 @@ export const HINTS = {
       names: ["incomplete", "crashed", "half-built", "no-config"],
     },
     template: ({ total, names }): string => {
-      const checkout = total === 1
-        ? "Its checkout may be"
-        : "Their checkouts may be";
       return `${total} worktree${total === 1 ? "" : "s"} ${
         total === 1 ? "has" : "have"
       } incomplete setup: ${
         boundedNameSummary(total, names)
-      }. ${checkout} incomplete. The owner decides whether to inspect or discard ` +
-        `${total === 1 ? "the effort" : "each effort"}.`;
+      }. In the Desk, select ${
+        total === 1 ? "the task" : "each task"
+      } and choose Show recovery steps before cleanup.`;
     },
     interactiveTemplate: ({ total, names }): string =>
-      `Discard ${total} worktree${total === 1 ? "" : "s"} whose setup never ` +
-      `completed: ${boundedNameSummary(total, names)}. Run ${
-        discernCommand("worktree drop", positional("name", "<name>"))
-      } for each.`,
+      `Diagnose ${total} worktree${total === 1 ? "" : "s"} whose setup did ` +
+      `not complete: ${boundedNameSummary(total, names)}. In the Desk, select ${
+        total === 1 ? "the task" : "each task"
+      } and choose Show recovery steps.`,
   }),
 
   /** One bounded summary for every fleet member that looks abandoned. */

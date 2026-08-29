@@ -199,6 +199,70 @@ realPtyTest({
 
 realPtyTest({
   name:
+    "Desk PTY: an incomplete setup opens read-only recovery before task actions",
+  contracts: [
+    "terminal-modes",
+    "control-rendering",
+    "process-lifecycle",
+    "platform-transport",
+  ],
+  canary: true,
+  ignore: PTY_UNAVAILABLE,
+  fn: async () => {
+    const fixture = deskFleetFixture([
+      deskFleetEntry("recovery-task-a1b2c3", { setup: "incomplete" }),
+    ]);
+    await withDeskTtyProject(fixture, async (project) => {
+      const result = await runDeskTty(project, {
+        geometry: { columns: 100, rows: 42 },
+        colorMode: "no-color-env",
+        input: [{
+          waitFor: TASK_ROOT_READY,
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: ["Choose an action", "Show recovery steps"],
+          capture: focusedCapture(
+            "recovery-action",
+            "Choose an action",
+            "Show recovery steps",
+          ),
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: [
+            "Task recovery needed",
+            "Setup repair",
+            "The task remains intact",
+          ],
+          capture: textCapture(
+            "recovery-detail",
+            "Task recovery needed",
+            "Setup repair",
+            "The task remains intact",
+          ),
+          chunks: [{ keys: ["enter"] }],
+        }, {
+          waitFor: TASK_ACTION_READY,
+          chunks: [{ keys: ["end", "enter"] }],
+        }, {
+          waitFor: TASK_ROOT_READY,
+          chunks: [{ keys: ["end", "enter"] }],
+        }],
+        timeoutMs: 60_000,
+      });
+
+      assertHealthySession(result);
+      const action = frame(result, "recovery-action");
+      const detail = frame(result, "recovery-detail");
+      assertUniqueFocus(action);
+      assertStringIncludes(detail.text, "Task recovery needed");
+      assertStringIncludes(detail.text, "Setup repair");
+      assertStringIncludes(detail.text, "The task remains intact");
+    });
+  },
+});
+
+realPtyTest({
+  name:
     "Desk PTY: progressive creation preserves title, brief, base, and identity",
   contracts: [
     "terminal-modes",

@@ -70,9 +70,31 @@ Fresh setup uses the same boundary. `discern setup accept` requires current Proo
 
 Acceptance journals its transition and recovers without replaying one-shot authority or overwriting changed checkout data. Post-landing convergence cannot roll the trunk back, so later failures report the effects that already happened and cleanup continues. [Interrupted landing recovery](acceptance-recovery.md) covers the evidence, refusal paths, and `partial_acceptance` result ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
+## Park a checkout and keep its branch
+
+From the main checkout, `discern worktree park <id|path>` removes a healthy task's checkout and resources while retaining its branch, committed work, and task wording. Preview the exact artifact account first:
+
+```sh
+discern worktree park <target> --dry-run
+```
+
+Park requires a readable clean checkout, a named task branch separate from the trunk, a completed setup-ready marker, matching Git registration and branch tip, readable task metadata, and a readable resource ledger. It has no force option. A refusal names the failed command or observation and one command to run before retrying.
+
+The plan keeps the branch, commit, title, optional brief, and creation source. It destroys recorded resources and removes the checkout. Worktree-scoped Proof, landing grant, task metadata, measurements, and setup evidence leave with the Git worktree registration. A task with those artifacts still needs new Proof and authority after resume.
+
+After Park, status lists the branch under **Work without a worktree**. Resume it with:
+
+```sh
+discern start --from <parked-branch>
+```
+
+When the branch still points at the parked commit, Start uses the retained title and brief as creation defaults and consumes the Park record after the new checkout is ready. The branch also remains usable through ordinary Git or `start --from` if its local Park record is unavailable.
+
+Park reads the plan again before resource cleanup and checks the task again after cleanup. A changed branch, checkout, or resource set stops removal. If resource cleanup completed before a later check refused, run the named `discern worktree setup` recovery in the retained checkout, review the refreshed state, and retry Park ([ADR 0358](../_adr/0358-recovery-observes-before-repair-and-park-preserves-the-branch.md)).
+
 ## Remove abandoned work
 
-From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree. A bare id or directory name must identify 1 registered worktree. If several paths share it, discern lists them and requires the selected path. Uncommitted or unlanded work needs explicit `--force`. A Git lock still protects it. If Git cannot read the worktree's status, discern treats its cleanliness as unknown and requires `--force`. The command is CLI-only because discarding another line of work requires a person's local decision. An explicitly selected foreign checkout can be removed while its branch stays.
+From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and its owned branch. Use Park when the branch should remain resumable. A bare id or directory name must identify 1 registered worktree. If several paths share it, discern lists them and requires the selected path. Uncommitted or unlanded work needs explicit `--force`. A Git lock still protects it. If Git cannot read the worktree's status, discern treats its cleanliness as unknown and requires `--force`. The command is CLI-only because discarding another line of work requires a person's local decision. An explicitly selected foreign checkout can be removed while its branch stays.
 
 Before destructive effects, drop retains the branch's committed tip in a bounded local ref. [Recover a dropped branch](drop-recovery.md) explains the guarantee, its uncommitted-work boundary, and the restore commands. A failed preservation stops the drop intact ([ADR 0271](../_adr/0271-destructive-drops-retain-bounded-recovery-refs.md)).
 
@@ -94,6 +116,7 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 | Proof-note recording          | [`src/engine/gate/proof_notes.ts`](../../../src/engine/gate/proof_notes.ts)                               |
 | Git preconditions and removal | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                                       |
 | Branch ownership              | [`src/engine/worktree/ownership.ts`](../../../src/engine/worktree/ownership.ts)                           |
+| Park metadata                 | [`src/engine/worktree/parked_task_metadata.ts`](../../../src/engine/worktree/parked_task_metadata.ts)     |
 | Drop recovery refs            | [`src/engine/worktree/recovery_refs.ts`](../../../src/engine/worktree/recovery_refs.ts)                   |
 | Contained-worktree scan       | [`src/engine/worktree/containment.ts`](../../../src/engine/worktree/containment.ts)                       |
 | Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                                     |

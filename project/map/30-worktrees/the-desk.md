@@ -19,7 +19,7 @@ For direct movement between checkouts, [`discern worktrees`](opening-worktrees.m
 
 ## Start a task
 
-The root menu groups project actions under **Desk commands** and refresh or quit under **Session**. It always includes `Start a task`, adds `Run a Project Script` when configured, and opens [discern.sh/docs](https://discern.sh/docs) from `Read discern's docs`. Task groups remain separate from both command groups, so `Choose a task or Desk command` names every selectable entry.
+The root menu groups project actions under **Desk commands** and refresh or quit under **Session**. It always includes `Start a task`, adds `Run a Project Script` when configured, and opens [discern.sh/docs](https://discern.sh/docs) from `Read discern's docs`. A changed or Git-unreadable main checkout adds `Inspect main checkout`. Local landing evidence adds `Recent completed tasks`. Task groups remain separate from both command groups, so `Choose a task or Desk command` names every selectable entry.
 
 `Start a task` opens one sequential form. `What are you changing?` asks for a display title that preserves the submitted Unicode, case, and punctuation. A generated codename is a separate choice. The title remains separate from the normalized worktree id and branch. The preview shows each value and includes the planner's normalization note when their spellings differ.
 
@@ -66,7 +66,7 @@ Every action remains visible in **Work**, **Review**, **Manage**, or **Danger**.
 - collisions: review;
 - contained work: Reclaim.
 
-Broken or unreadable tasks never recommend Drop.
+Broken, setup-incomplete, or Git-unreadable tasks recommend `Show recovery steps`. They never recommend Drop.
 
 The typed action registry owns menu order, grouping, contextual labels, command evidence, confirmation policy, and whether each action can coexist with a reported running operation. The decision model applies running compatibility centrally before the action's contextual predicate, so a newly enrolled action cannot bypass that boundary. The [product-manual action table](https://discern.sh/docs/guides/delegate-work#6-inspect-decisions-from-the-desk) projects every member for readers; its registry-driven test enrols future actions automatically.
 
@@ -75,6 +75,14 @@ Grant and revoke remain human-only actions inside `discern desk`. They stay avai
 `Start a follow-up from this task` fixes the selected task's reported branch as the new task's base. Its preview includes that ref and resolved commit before creation. The follow-up remains an independent worktree. Branch containment records the dependency without creating a landing queue.
 
 `Change task title` previews and applies `discern worktree rename <title>`. The command updates the task-metadata record. Branch, worktree id, path, brief, creation source, resources, and lifecycle state remain unchanged.
+
+## Recover a degraded task or main checkout
+
+Recovery detail preserves independent observations instead of reducing a task to one broken state. It shows the exact failed Git or setup observation, worktree registration, branch reachability, filesystem presence, checkout and task identity, setup marker and journal, resource identities, recent lifecycle failure, and every fact that could not be read. Diagnostic, RetryNotice, and ResultSummary Components present the failure, retry classification, and next command ([ADR 0358](../_adr/0358-recovery-observes-before-repair-and-park-preserves-the-branch.md)).
+
+`Retry setup` appears only when the setup journal makes automatic replay safe. Completed setup-step identities stay skipped. A running one-shot step, a missing journal beside configured one-shot steps, or unreadable setup evidence keeps Retry disabled and shows the exact owner-confirmed setup recovery or doctor command.
+
+The main checkout remains a project boundary. Its detail can inspect `git status --short --branch` and `git diff --stat HEAD`, open a shell, or open the configured editor at main. It explains which landing and cleanup operations depend on readable clean main state. It never offers agent work there.
 
 ## Run final checks and review Proof
 
@@ -88,6 +96,16 @@ Grant and revoke remain human-only actions inside `discern desk`. They stay avai
 
 Before a lifecycle mutation, the Desk renders its live plan and command in design-system Components with **Keeps**, **Changes**, **Removes**, and **Recoverable** facts. The authoritative core checks current state again after confirmation. Confirmations default to No; discarding work also requires the branch name.
 
+The cleanup actions preserve separate contracts:
+
+| Action  | Keeps                                                               | Removes                                                                                 | Later route                                                                                    |
+| ------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Park    | Task branch, committed work, title, brief, and creation source      | Checkout, recorded resources, worktree Proof, landing grant, and other worktree records | Resume the branch from **Work without a worktree**.                                            |
+| Reclaim | Contained branch, containing live branch, and commits carried there | Contained checkout, recorded resources, worktree Proof, grant, and task metadata        | The retained branch self-cleans after its containing work lands; it also remains resumable.    |
+| Drop    | Trunk, other tasks, and a bounded recovery ref for a deleted branch | Checkout, owned branch, resources, metadata, grant, Proof, and selected work            | Recover committed branch tips from the recovery ref; uncommitted files have no automatic path. |
+
+Park has no force route. Reclaim requires verified containment. Drop remains available as a destructive decision, defaults to No, and retains typed branch confirmation when work may be discarded.
+
 Before review, a Project Script asks for an optional argument line. Spaces separate arguments; quotes group spaces; every other character stays literal because the Desk builds an argument vector and never invokes a shell. The review then shows the script's name, description, exact executable and arguments, working directory, required confirmation, and undeclared destructive policy. `Show command` copies that executable invocation and the equivalent `discern scripts <name> [args...]` command without running either. Missing or non-executable scripts stay disabled with recovery.
 
 Configured agents remain visible when their binary is missing from `PATH`. One available action launches directly. Several actions keep provider-owned labels and commands.
@@ -98,7 +116,11 @@ Session state stays outside discern, and resume arguments come from the provider
 
 ## Resume worktree-less branches
 
-Status-reported unlanded branches appear as selectable root items. `Inspect commits and changed files` compares the reported branch ref with the trunk. `Resume in a worktree` uses that ref as the fixed creation base, collects new task metadata, and returns to the created task's recommended action.
+Status-reported unlanded branches appear as selectable root items. `Inspect commits and changed files` compares the reported branch ref with the trunk. `Resume in a worktree` uses that ref as the fixed creation base and returns to the created task's recommended action. A branch created by Park offers its retained title and brief as defaults while the recorded branch commit still matches.
+
+After every repair, refusal, or cleanup, the Desk surveys the fleet again. If the selected checkout became an unlanded branch, it opens that branch's resume detail. If landing evidence matches the vanished branch, it reports `Task landed; refreshed` and leaves recent completion evidence available. Every other disappearance reports `Task changed; refreshed` before returning to the nearest available selection.
+
+`Recent completed tasks` is a bounded read-only view over successful local acceptance events and the latest landed Proof note. It distinguishes a recently landed task from an unexplained removal without creating a task archive.
 
 The Desk offers no branch-delete shortcut because the lifecycle has no guarded branch-only deletion core. Contained refs remain informational while another live branch contains their commits. Their existing reclaim workflow owns the applicable worktree action.
 
@@ -120,4 +142,4 @@ The subsystem has focused [model](../../../tests/engine_desk_model_test.ts), [vi
 - Current provider entries declare no prompt argument, so an agent launch displays the task brief for copying and keeps the configured invocation unchanged.
 - There is no MCP tool with supervisory access to other efforts' worktrees.
 - A row's menu is advisory. The invoked lifecycle core rechecks every precondition before changing state.
-- Broken or unreadable checkouts keep shell, review when Git is readable, and Drop as separate offers. They never recommend Drop. Without explicit force, Drop refuses when discern cannot verify the work.
+- Degraded checkouts lead with recovery evidence. A shell remains available only while the directory is present. Drop remains a separate destructive offer and requires force when work cannot be verified.

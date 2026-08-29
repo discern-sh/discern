@@ -33,6 +33,12 @@ function actionReferenceRows(): string[][] {
     path: "<path>",
     containedIn: "<later-branch>",
     proofHonored: false,
+    taskMetadataRecorded: true,
+    effortGranted: false,
+    proofRecorded: false,
+    changedFiles: 0,
+    ahead: 1,
+    resources: ["<resource>"],
   };
   const rows = DESK_ACTIONS.map((action) => {
     const metadata = DESK_ACTION_REGISTRY[action];

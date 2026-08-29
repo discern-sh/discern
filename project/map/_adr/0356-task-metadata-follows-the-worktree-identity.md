@@ -1,6 +1,6 @@
 # ADR 0356: Task metadata follows the worktree identity
 
-**Status**: accepted. Extends the worktree creation and identity boundary from [ADR 0058](0058-start-verb-spawn-worktree-from-trunk.md), the Git-admin state registry from [ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md), and the Desk's status-projection boundary from [ADR 0318](0318-the-desk-adapts-status-into-one-human-decision.md).
+**Status**: accepted. Extends the worktree creation and identity boundary from [ADR 0058](0058-start-verb-spawn-worktree-from-trunk.md), the Git-admin state registry from [ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md), and the Desk's status-projection boundary from [ADR 0318](0318-the-desk-adapts-status-into-one-human-decision.md). [ADR 0358](0358-recovery-observes-before-repair-and-park-preserves-the-branch.md) adds the branch-keyed Park record that retains this wording after an explicit Park operation.
 
 ## Context
 

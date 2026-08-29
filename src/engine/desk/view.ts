@@ -36,6 +36,7 @@ import type { EnginePlan } from "../../shared/result.ts";
 import type {
   GateProofCheckData,
   StartData,
+  StatusData,
 } from "../../shared/result_schemas.ts";
 import type { StartPlan } from "../worktree/plan.ts";
 import { renderMarkdown } from "../../lib/markdown.ts";
@@ -73,6 +74,8 @@ export const DESK_ROUTES = {
   startTask: "\x00start-task",
   runProjectScript: "\x00run-project-script",
   readDocs: "\x00read-docs",
+  mainCheckout: "\x00main-checkout",
+  recentCompleted: "\x00recent-completed",
 } as const;
 
 /** Route prefix for one exact status-reported branch without a worktree. */
@@ -417,6 +420,67 @@ export function renderDeskActionFailure(
   return { text, rows: frameRows(text) };
 }
 
+/** Render a degraded task's observed failure and bounded recovery route. */
+export function renderDeskRecovery(
+  row: DeskRow,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const recovery = row.decision.recovery;
+  if (recovery === undefined) {
+    throw new Error("Recovery detail requires a degraded task decision.");
+  }
+  const width = viewportDimension(viewport.columns);
+  const presenter = terminal.presenter;
+  const diagnostic = presenter.present(renderDiagnosticCli, {
+    title: terminalLine("Task recovery needed"),
+    impact: terminalMultiline(recovery.failure),
+    correction: terminalMultiline(recovery.nextStep),
+    reproductionCommand: terminalLine(
+      recovery.failedCommand ?? recovery.repairCommand,
+    ),
+    workingDirectory: terminalLine(row.entry.path),
+    rawDetail: terminalMultiline(
+      [
+        ...recovery.verified.map((fact) => `Verified: ${fact}`),
+        ...recovery.unavailable.map((fact) => `Unavailable: ${fact}`),
+        ...(row.entry.last_action === undefined ? [] : [
+          `Last lifecycle result: ${row.entry.last_action.verb} ${row.entry.last_action.outcome}`,
+        ]),
+        ...(row.entry.setup?.journal?.steps ?? []).map((step) =>
+          `Setup step ${step.id}: ${step.state} · ${step.command}`
+        ),
+      ].join("\n"),
+    ),
+    rawLabel: terminalLine("Observed evidence"),
+    severity: "failure",
+    maxWidth: width,
+  });
+  const retry = presenter.present(renderRetryNoticeCli, {
+    safeToRetry: recovery.repair === "retry",
+    reason: terminalMultiline(
+      recovery.repair === "retry"
+        ? `Run ${recovery.repairCommand}; the setup journal prevents completed one-shot steps from running again.`
+        : recovery.nextStep,
+    ),
+    label: terminalLine(
+      recovery.repair === "retry" ? "Setup repair" : "Manual recovery",
+    ),
+    maxWidth: width,
+  });
+  const summary = presenter.present(renderResultSummaryCli, {
+    state: "blocked",
+    fact: terminalLine("The task remains intact while recovery is unresolved."),
+    nextAction: terminalLine(recovery.repairCommand),
+    maxWidth: width,
+  });
+  const text = composeFrames(
+    [diagnostic, retry, summary],
+    viewportDimension(viewport.rows),
+  );
+  return { text, rows: frameRows(text) };
+}
+
 /** Inputs needed to compose the root board without observing project state. */
 export interface DeskBoardViewInput {
   readonly board: DeskBoardDecision;
@@ -430,6 +494,8 @@ export interface DeskRootSelectionInput {
   readonly rows: readonly DeskRow[];
   readonly unlandedBranches?: readonly string[];
   readonly hasProjectScripts: boolean;
+  readonly mainActionable?: boolean;
+  readonly recentCompletedCount?: number;
   readonly viewport: TerminalSize;
   readonly terminal: TerminalContext;
 }
@@ -744,6 +810,21 @@ export function deskRootSelectionGroups(
         description: "Create an isolated worktree and branch.",
         value: DESK_ROUTES.startTask,
       },
+      ...(input.mainActionable === true
+        ? [{
+          name: "Inspect main checkout",
+          description:
+            "Review local changes or diagnose unavailable Git state on main.",
+          value: DESK_ROUTES.mainCheckout,
+        }]
+        : []),
+      ...((input.recentCompletedCount ?? 0) > 0
+        ? [{
+          name: `Recent completed tasks · ${input.recentCompletedCount}`,
+          description: "Review bounded local landing evidence.",
+          value: DESK_ROUTES.recentCompleted,
+        }]
+        : []),
       ...(input.hasProjectScripts
         ? [{
           name: "Run a Project Script",
@@ -768,6 +849,125 @@ export function deskRootSelectionGroups(
     ],
   });
   return groups;
+}
+
+/** Render main as a project boundary, never as an ordinary task. */
+export function renderDeskMainCheckoutDetail(
+  data: StatusData,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const width = viewportDimension(viewport.columns);
+  const main = (data.fleet ?? []).find((entry) => entry.is_main);
+  const presenter = terminal.presenter;
+  const state = main?.clean === false
+    ? "changed"
+    : main?.git_unavailable === true || main === undefined
+    ? "failed"
+    : "unchanged";
+  const summary = presenter.present(renderResultSummaryCli, {
+    state,
+    fact: terminalLine(
+      main === undefined
+        ? "Main checkout evidence is unavailable."
+        : main.clean === false
+        ? `${main.branch} has ${
+          main.changed_files ?? "unreadable"
+        } local changes.`
+        : `${main.branch} Git state is unavailable.`,
+    ),
+    nextAction: terminalLine(
+      main?.git_failure?.command ?? "git status --short",
+    ),
+    maxWidth: width,
+  });
+  const facts = presenter.present(renderTableCli, {
+    caption: terminalLine("Main checkout boundary"),
+    layout: "responsive",
+    columns: [
+      { header: terminalLine("Fact") },
+      { header: terminalLine("Observed value") },
+    ],
+    rows: ([
+      ["Path", main?.path ?? data.root],
+      ["Branch", main?.branch ?? "Unavailable"],
+      [
+        "Fleet effects",
+        main?.clean === false
+          ? "Landing and cleanup that update main can be blocked until local changes are resolved."
+          : "Git-dependent fleet operations remain blocked until main is readable.",
+      ],
+      [
+        "Isolation",
+        "Main stays a project boundary; agent work remains in linked worktrees.",
+      ],
+    ] satisfies Array<[string, string]>).map(([label, value]) => [
+      terminalLine(label),
+      terminalMultiline(value),
+    ]),
+    width,
+  });
+  const diagnostic = main?.git_failure === undefined
+    ? []
+    : [presenter.present(renderDiagnosticCli, {
+      title: terminalLine("Main Git state is unavailable"),
+      impact: terminalMultiline(main.git_failure.reason),
+      correction: terminalMultiline(
+        "Run the failed command at main, repair its Git state, then refresh the Desk.",
+      ),
+      reproductionCommand: terminalLine(main.git_failure.command),
+      workingDirectory: terminalLine(main.path),
+      severity: "failure",
+      maxWidth: width,
+    })];
+  const text = composeFrames(
+    [summary, facts, ...diagnostic],
+    viewportDimension(viewport.rows),
+  );
+  return { text, rows: frameRows(text) };
+}
+
+/** Render the bounded local landing tail without implying an archive. */
+export function renderDeskRecentCompleted(
+  data: StatusData,
+  viewport: TerminalSize,
+  terminal: TerminalContext,
+): DeskRenderedFrame {
+  const width = viewportDimension(viewport.columns);
+  const recent = data.recent_completed_tasks ?? [];
+  const presenter = terminal.presenter;
+  const summary = presenter.present(renderResultSummaryCli, {
+    state: recent.length > 0 ? "passed" : "unchanged",
+    fact: terminalLine(
+      recent.length > 0
+        ? `${recent.length} recent completed task${
+          recent.length === 1 ? "" : "s"
+        } found in local landing evidence.`
+        : "No recent completed task evidence is available.",
+    ),
+    nextAction: terminalLine("Return to the Desk"),
+    maxWidth: width,
+  });
+  const table = recent.length === 0 ? [] : [presenter.present(renderTableCli, {
+    caption: terminalLine("Recent completed tasks"),
+    layout: "responsive",
+    columns: [
+      { header: terminalLine("Branch") },
+      { header: terminalLine("Completed") },
+      { header: terminalLine("Evidence") },
+    ],
+    rows: recent.map((task) => [
+      terminalLine(task.branch),
+      terminalLine(task.completed_at),
+      terminalMultiline(task.proof_line ?? task.head ?? "Landing recorded"),
+    ]),
+    width,
+  })];
+  const text = composeFrames(
+    [summary, ...table],
+    viewportDimension(viewport.rows),
+  );
+  return { text, rows: frameRows(text) };
 }
 
 /** Root prompt that names both kinds of selectable entry. */
