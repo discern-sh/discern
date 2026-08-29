@@ -1708,6 +1708,8 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
+    const staged = join(dir, "staged-manual");
+    await stageBundledManual(REPO_AUTHORED_PATHS.manual, staged);
     // The host project has its own map — discern_docs must ignore it and serve
     // discern's bundled documentation (resolved module-relative to this repo).
     await Deno.mkdir(defaultMapPath(dir), { recursive: true });
@@ -1715,7 +1717,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       defaultMapPath(dir, "project-only.md"),
       "# Project Only\n\nNothing to do with discern.\n",
     );
-    await using mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir, { DISCERN_DOCS_DIR: staged });
     await mcp.initialize();
 
     const core = await exerciseDocumentToolCore(mcp, {
@@ -1787,6 +1789,80 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     assertStringIncludes(
       manualPage.result.structuredContent.data.doc.content,
       "Review Proof and changes",
+    );
+
+    // The installed-manual journey stays deterministic from orientation through
+    // task and recovery search, then preserves all three launch distinctions.
+    const orientation = await mcp.callTool(8, "discern_docs", {
+      target: "start-index",
+    });
+    assertEquals(orientation.result.isError, false);
+    assertEquals(
+      orientation.result.structuredContent.data.doc.target,
+      "00-start/README",
+    );
+    assertEquals(
+      orientation.result.structuredContent.data.doc.manual_kind,
+      "tutorial",
+    );
+
+    const firstSuccess = await mcp.callTool(9, "discern_docs", {
+      target: "start-first-success",
+    });
+    assertEquals(firstSuccess.result.isError, false);
+    assertStringIncludes(
+      firstSuccess.result.structuredContent.data.doc.content,
+      "Install the binary",
+    );
+
+    const task = await mcp.callTool(10, "discern_docs", {
+      search: "finish and land a change",
+    });
+    const taskData = task.result.structuredContent.data;
+    assertEquals(task.result.isError, false);
+    assertEquals(taskData.count, 12);
+    assertEquals(taskData.results.length, 5);
+    assertEquals(taskData.truncated, true);
+    assertEquals(
+      taskData.results[0].target,
+      "10-guides/finish-and-land-a-change",
+    );
+    assertEquals(taskData.results[0].page_id, "guide-finish-and-land-a-change");
+    assertEquals(taskData.results[0].manual_kind, "guide");
+
+    const symptom = await mcp.callTool(11, "discern_docs", {
+      search: "schema is newer than this binary",
+    });
+    assertEquals(symptom.result.isError, false);
+    assert(
+      symptom.result.structuredContent.data.results.some(
+        (result: { target: string; manual_kind?: string }) =>
+          result.target === "40-troubleshooting/setup-and-integrations" &&
+          result.manual_kind === "troubleshooting",
+      ),
+    );
+
+    const proof = await mcp.callTool(12, "discern_docs", {
+      target: "explanation-proof",
+    });
+    assertEquals(proof.result.isError, false);
+    const proofContent = proof.result.structuredContent.data.doc.content;
+    assertStringIncludes(
+      proofContent,
+      "A green Gate also leaves the code where it is",
+    );
+    assertStringIncludes(
+      proofContent,
+      "Proof therefore lasts only while the exact tree and its recorded judgments remain unchanged",
+    );
+
+    const checkpoints = await mcp.callTool(13, "discern_docs", {
+      target: "explanation-checkpoints",
+    });
+    assertEquals(checkpoints.result.isError, false);
+    assertStringIncludes(
+      checkpoints.result.structuredContent.data.doc.content,
+      "Only you can resolve that",
     );
 
     assertEquals(await mcp.close(), 0);

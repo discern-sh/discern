@@ -936,16 +936,14 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: MapOutputSchema,
     annotations: READ_ONLY,
     description:
-      "Read or search the project map, the agent-maintained source for documented " +
-      "project behaviour. With no input, return the document index and top-level " +
-      "regions digest with file-linked freshness facts. Pass `target` to read one " +
-      "document or list one region. Pass " +
-      "`search` to return up to five ranked documents with context and a canonical " +
-      "target for the follow-up read; combine it with `target` to search only that " +
-      "region or document. Complete matches lead; strong partial matches fill unused " +
-      "result slots and identify themselves. Search covers the map visible to agents. " +
-      "`path` selects the project or worktree to inspect; it never selects a map " +
-      "subtree.",
+      "Read or search the configured project Map, the agent-maintained source for " +
+      "documented project behaviour. With no input, return its full index and " +
+      "top-level regions digest with file-linked freshness facts. Pass `target` to " +
+      "read one page or list one region. Pass `search` to get the full match count " +
+      "and up to five highest-ranked results with context and canonical targets; " +
+      "combine it with `target` to scope the search. This local project surface is " +
+      "distinct from discern_docs, which reads discern's product manual. `path` " +
+      "selects the project or worktree to inspect; it never selects a Map subtree.",
     inputSchema: {
       target: z.string().optional().describe(
         "An exact document or top-level region target. Without `search`, a document " +
@@ -969,7 +967,7 @@ export const TOOLS: McpTool[] = orderTools([
   }),
   defineTool({
     name: "discern_docs",
-    title: "Read discern's docs",
+    title: "Read discern's manual",
     outputSchema: DocsOutputSchema,
     annotations: READ_ONLY,
     // discern's own bundled documentation is the same in every install and needs no
@@ -977,14 +975,14 @@ export const TOOLS: McpTool[] = orderTools([
     // project, matching the CLI, which serves `discern docs` from anywhere (B38).
     rootIndependent: true,
     description:
-      "Read or search discern's own bundled documentation: concepts, configuration, " +
-      "the gate, worktrees, and standards. This is distinct from discern_map, which " +
-      "reads the current project's map. With no input, return the public document " +
-      "index. Pass `target` to read one document or list one region. Pass `search` " +
-      "to return up to five ranked documents with context and a canonical target; " +
-      "combine it with `target` to search only that region or document. Complete " +
-      "matches lead; strong partial matches fill unused result slots and identify " +
-      "themselves. Internal decision and maintainer trees are never exposed here.",
+      "Read or search discern's complete published product manual. With no input, " +
+      "return every page's canonical target, stable identity, kind, title, and " +
+      "summary. Pass `target` to retrieve one page's exact reader-visible Markdown " +
+      "or list one region. Pass `search` to get the full match count and up to five " +
+      "highest-ranked results with context and canonical targets; combine it with " +
+      "`target` to scope the search. This manual is distinct from discern_map, which " +
+      "reads the current project's Map. Decision records and protected Map tiers " +
+      "are excluded.",
     inputSchema: {
       target: z.string().optional().describe(
         "An exact document or top-level region target. Without `search`, a document " +
@@ -2114,7 +2112,9 @@ function registerDocTree(
     `discern://${scheme}`,
     {
       description:
-        `The index of ${label} — every doc's path, section, slug, and title.`,
+        `The index of ${label}: every page's canonical target, title, and summary${
+          scheme === "docs" ? ", with stable manual identity and kind" : ""
+        }.`,
       mimeType: JSON_MIME,
     },
     async (uri: URL) => {
@@ -2229,7 +2229,7 @@ function registerResources(
   registerDocTree(
     server,
     "docs",
-    "discern's own documentation",
+    "discern's complete published product manual",
     () => docsResult(currentRoot()),
     (target) => docsResult(currentRoot(), { target }),
   );
@@ -2239,7 +2239,7 @@ function registerResources(
   registerDocTree(
     server,
     "map",
-    "the project map — its agent-maintained documentation",
+    "the configured project Map and its agent-maintained project knowledge",
     async () => {
       const root = currentRoot();
       await assertResourceSetUp(root);

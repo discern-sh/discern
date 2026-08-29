@@ -264,6 +264,30 @@ Deno.test("mcp surface: map and docs expose the same search funnel", () => {
     assertStringIncludes(prose, "canonical target", name);
     assertStringIncludes(prose, "not recorded", name);
   }
+
+  const docs = TOOLS.find((candidate) => candidate.name === "discern_docs");
+  const map = TOOLS.find((candidate) => candidate.name === "discern_map");
+  assert(docs !== undefined);
+  assert(map !== undefined);
+  for (
+    const phrase of [
+      "complete published product manual",
+      "full match count",
+      "reader-visible Markdown",
+      "protected Map tiers",
+    ]
+  ) {
+    assertStringIncludes(docs.description, phrase);
+  }
+  for (
+    const phrase of [
+      "configured project Map",
+      "full index",
+      "distinct from discern_docs",
+    ]
+  ) {
+    assertStringIncludes(map.description, phrase);
+  }
 });
 
 Deno.test("mcp surface: done exposes the explicit CI report mode", () => {
