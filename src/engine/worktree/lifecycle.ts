@@ -5755,22 +5755,19 @@ export async function applyStartPlan(
     },
   );
   if (prepared.resumedParkedBranch !== undefined) {
-    await bestEffort(
-      "start-consume-parked-task",
-      async () => {
-        await removeParkedTaskMetadata(
-          ctx.root,
-          prepared.resumedParkedBranch ?? plan.from,
-        );
-      },
-      (error) => {
-        ctx.log.warn(
-          `The task was created. Its transferred Park record could not be removed: ${
-            error instanceof Error ? error.message : String(error)
-          }. Run \`discern status --all\` to review the remaining local evidence.`,
-        );
-      },
-    );
+    try {
+      await removeParkedTaskMetadata(
+        ctx.root,
+        prepared.resumedParkedBranch,
+      );
+    } catch (error) {
+      throw new WorktreeGitError(
+        `Task ${plan.id} was created at ${plan.worktreePath}, but its transferred Park record could not be removed: ${
+          error instanceof Error ? error.message : String(error)
+        }. The checkout and branch remain. Run \`discern status --all\` to review the remaining local evidence.`,
+        { cause: error },
+      );
+    }
   }
   ctx.log.humanLine(
     ctx.log.terminal.presenter.present(renderResultSummaryCli, {

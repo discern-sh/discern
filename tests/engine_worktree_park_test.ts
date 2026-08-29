@@ -1,10 +1,21 @@
 /** Branch-preserving Park lifecycle: plan, refusal, cleanup, and resume. */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { dirname, join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { readySentinelPath } from "../src/engine/worktree/git.ts";
+import { WorktreeGitError } from "../src/engine/worktree/git.ts";
+import {
+  applyStartPlan,
+  buildStartPlan,
+  lifecycleContext,
+} from "../src/engine/worktree/lifecycle.ts";
 import { readParkedTaskMetadata } from "../src/engine/worktree/parked_task_metadata.ts";
 import { writeStoredTaskMetadata } from "../src/engine/worktree/task_metadata.ts";
 import { TASK_METADATA_SCHEMA_VERSION } from "../src/shared/task_metadata.ts";
@@ -19,6 +30,9 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { Logger } from "../src/lib/log.ts";
+import { resolveWorktreeRoot } from "../src/lib/worktree_root.ts";
+import { sha256Hex } from "../src/shared/sha256.ts";
 
 /** Mark a fixture checkout healthy without running unrelated setup hooks. */
 async function markReady(worktree: string): Promise<void> {
@@ -253,5 +267,44 @@ Deno.test("start from a parked branch transfers retained wording and consumes th
       await readParkedTaskMetadata(dir, "agent/resume-source"),
       undefined,
     );
+  });
+});
+
+Deno.test("a Park record cleanup failure reports the created checkout and recovery command", async () => {
+  await withTempDir(async (dir) => {
+    await fixture(dir, "resume-cleanup");
+    const parked = await runAgent(dir, [
+      "worktree",
+      "park",
+      "resume-cleanup",
+    ]);
+    assertEquals(parked.code, 0, parked.output);
+
+    const ctx = await lifecycleContext(
+      dir,
+      new Logger({ json: true, noColor: true }),
+    );
+    const prepared = await buildStartPlan(ctx, {
+      worktreeRoot: resolveWorktreeRoot(ctx.root, ctx.config),
+      from: "agent/resume-cleanup",
+    });
+    const metadataDir = await gitAdminStatePath(dir, "parkedTaskMetadata");
+    assert(metadataDir !== undefined);
+    const recordPath = join(
+      metadataDir,
+      `${await sha256Hex("agent/resume-cleanup")}.json`,
+    );
+    await Deno.remove(recordPath);
+    await Deno.mkdir(recordPath);
+    await Deno.writeTextFile(join(recordPath, "blocker"), "keep directory\n");
+
+    const error = await assertRejects(
+      () => applyStartPlan(ctx, prepared),
+      WorktreeGitError,
+      "but its transferred Park record could not be removed",
+    );
+    assertStringIncludes(error.message, "The checkout and branch remain.");
+    assertStringIncludes(error.message, "discern status --all");
+    assert(await targetExists(prepared.plan.worktreePath));
   });
 });
