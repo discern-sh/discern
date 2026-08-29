@@ -38,6 +38,7 @@ import {
 import type { DiscernResult } from "../../shared/result.ts";
 import { evaluateResultCompletion } from "../../shared/result_completion.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { operationEffectPolicy } from "../../shared/operation_effects.ts";
 import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
@@ -1610,12 +1611,20 @@ function beginMcpRecording(
 ): McpRecording {
   const driver = mcpDriverFacts(mcpClient);
   const { flags } = mcpCallFacts(args);
+  const dryRun = args.dry_run === true;
+  const operationFacts = {
+    ...(flags === undefined ? {} : { flags }),
+    dryRun,
+  };
+  const lockBoundary = operationEffectPolicy(verb, operationFacts)?.lock;
   return {
     recorder: beginRecording(root, {
       verb,
       surface: "mcp",
       driver,
       ...(flags !== undefined ? { flags } : {}),
+      dryRun,
+      ...(lockBoundary === undefined ? {} : { lockBoundary }),
     }),
     driver,
     started: SYSTEM_CLOCK.monotonicNow(),

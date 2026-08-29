@@ -43,6 +43,7 @@ import {
 } from "../../shared/verbs.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { operationEffectPolicy } from "../../shared/operation_effects.ts";
 
 const recordedVerbs = new Set<string>();
 const beginRecordedVerbs = new Set<string>();
@@ -330,14 +331,15 @@ export async function recordedRun(
   const scanArgs = verb !== "scripts";
   const flags = scanArgs ? cliFlagNames() : undefined;
   const dryRun = scanArgs && Deno.args.includes("--dry-run");
-  const run = () =>
-    runClassifiedCliOperation(verb, body, {
-      ...(flags === undefined ? {} : { flags }),
-      dryRun,
-      ...(opts.hasOperands === undefined
-        ? {}
-        : { hasOperands: opts.hasOperands }),
-    });
+  const operationFacts = {
+    ...(flags === undefined ? {} : { flags }),
+    dryRun,
+    ...(opts.hasOperands === undefined
+      ? {}
+      : { hasOperands: opts.hasOperands }),
+  };
+  const lockBoundary = operationEffectPolicy(verb, operationFacts)?.lock;
+  const run = () => runClassifiedCliOperation(verb, body, operationFacts);
   if (!logbookInvocationIsRecorded(verb)) {
     const reportedCode = await run();
     return completionExitCode(reportedCode, takeObservedResult()?.result);
@@ -359,6 +361,11 @@ export async function recordedRun(
     surface,
     driver,
     ...(flags !== undefined ? { flags } : {}),
+    dryRun,
+    ...(opts.hasOperands === undefined
+      ? {}
+      : { hasOperands: opts.hasOperands }),
+    ...(lockBoundary === undefined ? {} : { lockBoundary }),
   });
   // Everything after a `scripts` name belongs to the child, so only normal verbs
   // may inspect this process's argv. Start driver enrichment beside the verb so

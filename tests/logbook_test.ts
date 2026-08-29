@@ -46,6 +46,7 @@ import {
 } from "../src/engine/logbook/store.ts";
 import {
   deriveFleetLogbookActivity,
+  freshInFlightInvocations,
   readLogbookStream,
   readRecentLogbookStream,
   RUNNING_STALE_MIN_MS,
@@ -310,6 +311,10 @@ Deno.test("logbook schema: begin, config-change, pin, and prune events validate"
     branch: "agent/sample",
     head: "abc1234",
     epoch: "deadbeef",
+    lock_boundary: "checkout",
+    flags: ["rerun"],
+    dry_run: false,
+    has_operands: false,
   });
   assert(begin.success);
   const ok = logbookEventSchema.safeParse({
@@ -828,6 +833,113 @@ Deno.test("fleet activity: begin/finish pairing and current-epoch duration prior
     now,
   );
   assertEquals(paired.byBranch.get("main")?.running, undefined);
+});
+
+Deno.test("fleet activity: a later conflicting completion retires an older unmatched begin", () => {
+  const now = Date.parse("2026-07-19T12:10:00.000Z");
+  const branch = "agent/fleet-liveness";
+  const begin = {
+    schema: LOGBOOK_SCHEMA_VERSION,
+    at: "2026-07-19T12:01:00.000Z",
+    writer: "9.9.9",
+    kind: "begin",
+    invocation: "interrupted-refresh",
+    verb: "refresh",
+    surface: "cli",
+    driver: {},
+    branch,
+    head: "abc1234",
+    epoch: "current",
+  } as const;
+  const laterBegin = {
+    ...begin,
+    at: "2026-07-19T12:04:00.000Z",
+    invocation: "completed-tidy",
+    verb: "tidy",
+  } as const;
+  const laterCompletion = {
+    ...verbEventAt("2026-07-19T12:05:00.000Z"),
+    invocation: "completed-tidy",
+    verb: "tidy",
+    branch,
+    head: "def5678",
+    clean: true,
+    outcome: "ok",
+    epoch: "current",
+  } as const;
+  const events: LogbookEvent[] = [begin, laterBegin, laterCompletion];
+
+  assertEquals(
+    deriveFleetLogbookActivity(events, "current", now).byBranch.get(branch)
+      ?.running,
+    undefined,
+    "a completed operation that acquired the same checkout boundary proves the older recorder is no longer live",
+  );
+  assertEquals(
+    freshInFlightInvocations(events, "current", now),
+    [],
+    "fleet status and lifecycle safety must share the same liveness predicate",
+  );
+
+  for (
+    const [name, completedBegin, completion] of [
+      [
+        "another checkout",
+        { ...laterBegin, branch: "agent/parallel-checkout" },
+        { ...laterCompletion, branch: "agent/parallel-checkout" },
+      ],
+      [
+        "a read-only command",
+        { ...laterBegin, verb: "status" },
+        { ...laterCompletion, verb: "status" },
+      ],
+      [
+        "a refused conflicting command",
+        laterBegin,
+        { ...laterCompletion, outcome: "refused" },
+      ],
+    ] as const
+  ) {
+    assertEquals(
+      deriveFleetLogbookActivity(
+        [begin, completedBegin, completion],
+        "current",
+        now,
+      )
+        .byBranch.get(branch)?.running?.verb,
+      "refresh",
+      `${name} cannot prove the unmatched invocation ended`,
+    );
+  }
+
+  assertEquals(
+    deriveFleetLogbookActivity(
+      [
+        { ...laterBegin, at: "2026-07-19T12:00:00.000Z" },
+        begin,
+        laterCompletion,
+      ],
+      "current",
+      now,
+    ).byBranch.get(branch)?.running?.verb,
+    "refresh",
+    "an invocation that started first may complete after a genuinely live sibling",
+  );
+
+  const locklessBegin: LogbookEvent = {
+    ...begin,
+    invocation: "waiting-for-sibling",
+    verb: "await",
+  };
+  assertEquals(
+    deriveFleetLogbookActivity(
+      [locklessBegin, laterBegin, laterCompletion],
+      "current",
+      now,
+    ).byBranch.get(branch)?.running?.verb,
+    "await",
+    "an observation may remain live while a checkout operation completes",
+  );
 });
 
 Deno.test("fleet activity preserves concurrent begins before choosing the newest display action", () => {

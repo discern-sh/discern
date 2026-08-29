@@ -21,6 +21,10 @@ import {
   type VerbEvent,
 } from "./schema.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import {
+  operationEffectPolicy,
+  type OperationLockBoundary,
+} from "../../shared/operation_effects.ts";
 
 /** The bounded event population a fleet survey inspects. */
 export const FLEET_ACTIVITY_EVENT_LIMIT = 200;
@@ -199,18 +203,11 @@ function runningStaleAfter(prior: DurationPrior | undefined): number {
   );
 }
 
-/**
- * Find every fresh begin whose completion is absent. This is the shared
- * liveness predicate behind fleet activity and lifecycle safety checks.
- */
-export function freshInFlightInvocations(
-  events: readonly LogbookEvent[],
+/** Derive one current-first duration prior map from completed invocations. */
+function durationPriorsFor(
+  completions: readonly VerbEvent[],
   currentEpoch: string,
-  nowMs: number = SYSTEM_CLOCK.wallNow(),
-): FreshInFlightInvocation[] {
-  const completions = events.filter((event): event is VerbEvent =>
-    event.kind === "verb"
-  );
+): Map<string, DurationPrior> {
   const completionsByVerb = new Map<string, VerbEvent[]>();
   for (const event of completions) {
     const group = completionsByVerb.get(event.verb);
@@ -224,28 +221,119 @@ export function freshInFlightInvocations(
   for (const [verb, samples] of completionsByVerb) {
     const current = samples.filter((event) => event.epoch === currentEpoch);
     const prior = durationPrior(current.length > 0 ? current : samples);
-    if (prior !== undefined) {
-      priors.set(verb, prior);
-    }
+    if (prior !== undefined) priors.set(verb, prior);
   }
+  return priors;
+}
+
+/** Resolve one event's exclusion boundary. Its invocation-time answer wins;
+ * an absent answer derives from current policy and retained invocation facts. */
+function eventLockBoundary(
+  event: BeginEvent | VerbEvent,
+): OperationLockBoundary | undefined {
+  if (event.lock_boundary !== undefined) return event.lock_boundary;
+  return operationEffectPolicy(event.verb, {
+    ...(event.flags === undefined ? {} : { flags: event.flags }),
+    ...(event.dry_run === true ? { dryRun: true } : {}),
+    ...(event.has_operands === undefined
+      ? {}
+      : { hasOperands: event.has_operands }),
+  })?.lock;
+}
+
+/** Whether one boundary contains the repository-wide lock. */
+function includesCommon(boundary: OperationLockBoundary): boolean {
+  return boundary === "common" || boundary === "common-and-checkout";
+}
+
+/** Whether one boundary contains a checkout-local lock. */
+function includesCheckout(boundary: OperationLockBoundary): boolean {
+  return boundary === "checkout" || boundary === "common-and-checkout";
+}
+
+/** A later completion can disprove an older live claim only when it ran under
+ * an exclusion boundary the older invocation would also have held. */
+function completionSupersedesBegin(
+  begin: BeginEvent,
+  completedBegin: BeginEvent | undefined,
+  completion: VerbEvent,
+): boolean {
+  if (
+    completedBegin === undefined || completion.outcome === "refused" ||
+    completedBegin.at <= begin.at || completion.at < completedBegin.at
+  ) {
+    return false;
+  }
+  const startedBoundary = eventLockBoundary(begin);
+  const completedBoundary = eventLockBoundary(completedBegin);
+  if (
+    startedBoundary === undefined || completedBoundary === undefined ||
+    startedBoundary === "none" || completedBoundary === "none"
+  ) {
+    return false;
+  }
+  if (includesCommon(startedBoundary) && includesCommon(completedBoundary)) {
+    return true;
+  }
+  return includesCheckout(startedBoundary) &&
+    includesCheckout(completedBoundary) &&
+    begin.branch !== null && begin.branch === completedBegin.branch;
+}
+
+/** The shared fresh-unmatched population behind status and lifecycle safety. */
+function freshUnmatchedBegins(
+  events: readonly LogbookEvent[],
+  completions: readonly VerbEvent[],
+  priors: ReadonlyMap<string, DurationPrior>,
+  nowMs: number,
+): BeginEvent[] {
+  const begins = events.filter((event): event is BeginEvent =>
+    event.kind === "begin"
+  );
+  const beginsByInvocation = new Map(
+    begins.map((event) => [event.invocation, event] as const),
+  );
   const finished = new Set(
     completions.flatMap((event) =>
       event.invocation === undefined ? [] : [event.invocation]
     ),
   );
-  return events
-    .filter((event): event is BeginEvent =>
-      event.kind === "begin" && !finished.has(event.invocation)
+  return begins
+    .filter((event) => !finished.has(event.invocation))
+    .filter((begin) =>
+      !completions.some((completion) =>
+        completionSupersedesBegin(
+          begin,
+          completion.invocation === undefined
+            ? undefined
+            : beginsByInvocation.get(completion.invocation),
+          completion,
+        )
+      )
     )
     .filter((event) => {
       const started = Date.parse(event.at);
-      if (Number.isNaN(started)) {
-        return false;
-      }
+      if (Number.isNaN(started)) return false;
       return Math.max(0, nowMs - started) <=
         runningStaleAfter(priors.get(event.verb));
     })
-    .sort((a, b) => a.at.localeCompare(b.at))
+    .sort((a, b) => a.at.localeCompare(b.at));
+}
+
+/**
+ * Find every fresh begin whose completion is absent. This is the shared
+ * liveness predicate behind fleet activity and lifecycle safety checks.
+ */
+export function freshInFlightInvocations(
+  events: readonly LogbookEvent[],
+  currentEpoch: string,
+  nowMs: number = SYSTEM_CLOCK.wallNow(),
+): FreshInFlightInvocation[] {
+  const completions = events.filter((event): event is VerbEvent =>
+    event.kind === "verb"
+  );
+  const priors = durationPriorsFor(completions, currentEpoch);
+  return freshUnmatchedBegins(events, completions, priors, nowMs)
     .map((event) => ({
       invocation: event.invocation,
       verb: event.verb,
@@ -271,29 +359,9 @@ export function deriveFleetLogbookActivity(
   const completions = events.filter((event): event is VerbEvent =>
     event.kind === "verb"
   );
-  const completionsByVerb = new Map<string, VerbEvent[]>();
-  for (const event of completions) {
-    const group = completionsByVerb.get(event.verb);
-    if (group === undefined) {
-      completionsByVerb.set(event.verb, [event]);
-    } else {
-      group.push(event);
-    }
-  }
-
-  const durationPriors = new Map<string, DurationPrior>();
-  for (const [verb, samples] of completionsByVerb) {
-    const current = samples.filter((event) => event.epoch === currentEpoch);
-    const prior = durationPrior(current.length > 0 ? current : samples);
-    if (prior !== undefined) {
-      durationPriors.set(verb, prior);
-    }
-  }
-
-  const finishedInvocations = new Set(
-    completions.flatMap((event) =>
-      event.invocation === undefined ? [] : [event.invocation]
-    ),
+  const durationPriors = durationPriorsFor(completions, currentEpoch);
+  const freshBegins = byBranch(
+    freshUnmatchedBegins(events, completions, durationPriors, nowMs),
   );
   const attributed = events.filter((event): event is BranchEvent =>
     event.kind !== "prune"
@@ -325,19 +393,7 @@ export function deriveFleetLogbookActivity(
       }
     }
 
-    const inFlight = branchEvents
-      .filter((event): event is BeginEvent =>
-        event.kind === "begin" && !finishedInvocations.has(event.invocation)
-      )
-      .filter((event) => {
-        const started = Date.parse(event.at);
-        if (Number.isNaN(started)) {
-          return false;
-        }
-        const age = Math.max(0, nowMs - started);
-        return age <= runningStaleAfter(durationPriors.get(event.verb));
-      })
-      .sort((a, b) => a.at.localeCompare(b.at))
+    const inFlight = (freshBegins.get(branch) ?? [])
       .map((event): InFlightAction => ({
         verb: event.verb,
         started: event.at,
