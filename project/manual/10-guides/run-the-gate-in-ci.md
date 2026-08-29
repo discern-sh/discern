@@ -31,7 +31,7 @@ Use this guide to make the project's declared Gate a required continuous-integra
 
 ## 1. Recreate the project's declared environment
 
-**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk and enough history for change classification. Restore dependencies from the project's lockfiles.
+**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk and enough history for change classification. Restore dependencies from the project's lock files.
 
 Do not restate each project check in workflow YAML. `[jobs]`, scope gates, and Standards remain the authority, so local agents and CI run the same declaration.
 
@@ -57,7 +57,7 @@ git diff --exit-code
 
 A diff means the candidate did not commit the tree its configured commands produce. The agent should run `discern prepare`, review the output, commit it, and send a new commit.
 
-## 4. Cover deferred Standards deliberately
+## 4. Schedule deferred Standards
 
 `measure = "on-demand"` keeps a slow measurement out of every Gate run. If CI is the chosen schedule for that metric, add a separate named job:
 

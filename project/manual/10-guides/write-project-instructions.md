@@ -94,7 +94,7 @@ Run `discern done` on the clean commit. The Gate must leave no stale generated o
 
 After the change lands, **person or coding agent:** start a fresh selected-provider session and inspect the loaded project instructions. The new rule should appear from the provider's generated entry point without a second authored copy.
 
-If the file is current but the session does not show the rule, restart the provider session and use [Connect a coding agent](connect-a-coding-agent.md) to verify activation. Generated files establish repository state, not what an already-running provider loaded.
+If the file is current but the session does not show the rule, restart the provider session and use [Connect a coding agent](connect-a-coding-agent.md) to verify activation. Generated files establish repository state. An already-running provider may still hold an older version.
 
 ## Completion
 

@@ -1,7 +1,7 @@
 ---
 id: guide-recover-an-interrupted-task
 title: "Recover an interrupted task"
-description: "Resume a partially completed or deliberately dropped task from durable state without widening cleanup."
+description: "Resume a partially completed or dropped task from durable state without widening cleanup."
 order: 80
 publish: true
 kind: guide
@@ -23,7 +23,7 @@ redirect_from:
 
 # Recover an interrupted task
 
-Use this guide when a coding-agent session ended while its worktree still exists, an acceptance stopped partway through, or a deliberate worktree drop removed a branch you now need. Recovery begins from repository state and discern's recorded transition evidence, not from the missing conversation.
+Use this guide when a coding-agent session ended while its worktree still exists, an acceptance stopped partway through, or a worktree drop removed a branch you now need. Recovery begins from repository state and discern's recorded transition evidence. The missing conversation is unnecessary.
 
 The safe action depends on what already happened. Observe first, then resume the same lifecycle command or restore a retained commit. Do not widen cleanup to make the state look tidy.
 

@@ -48,7 +48,7 @@ Parallelism is safe only when ownership is clear. Split work on real seams, name
 - Run one discern install at each Git repository root. A workspace containing several repositories has one fleet and one Proof boundary per repository.
 - Begin task creation from the main checkout. Existing worktrees remain assigned to their original efforts.
 - The person has identified each task's owned files, dependencies, and landing order.
-- Project-specific databases, emulators, containers, ports, or environment values are declared under `[worktree]` rather than assigned ad hoc by each agent.
+- Project-specific databases, emulators, containers, ports, or environment values are declared under `[worktree]`. Agents do not assign them independently.
 
 ## Start one worktree per task
 
@@ -104,7 +104,7 @@ Every `discern done`, `discern test`, and Standard measurement waits for a slot 
 discern queue -- <test-command>
 ```
 
-The queue limits whole test-stage runs, not the test runner's internal workers. A waiting result reports the queue state; no agent needs to poll or reserve a slot by hand.
+The queue counts each whole test-stage run. The test runner still controls its internal workers. A waiting result reports the queue state; no agent needs to poll or reserve a slot by hand.
 
 ## Keep independent streams current
 

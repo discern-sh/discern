@@ -27,7 +27,7 @@ redirect_from:
 
 Use this guide when a goal deserves a fresh coding-agent task, several independent streams, or staged work that will build on an earlier result. The outcome is a set of self-contained briefs, one owned worktree per stream, a declared landing order, and a return path that does not make the person relay status between agents.
 
-The person controls dispatch and every landing decision. A planning agent may prepare the briefs and offer to launch them, but it does not start sessions, worktrees, or subagents until the person accepts the stated topology.
+The person controls dispatch and every landing decision. A planning agent may prepare the briefs and offer to launch them, but it does not start sessions, worktrees, or sub-agents until the person accepts the stated topology.
 
 ## Starting state
 
@@ -51,7 +51,7 @@ The Skill is the operating procedure for prompt design, dispatch consent, staged
 | Work pattern | Task arrangement | Landing rule |
 | --- | --- | --- |
 | One bounded outcome | One brief, one session, one worktree | That branch proves and lands under its own authority. |
-| Independent internal investigations with one final change | One brief that asks the receiving agent to use subagents when available | The receiving task owns one branch and one final Proof. |
+| Independent internal investigations with one final change | One brief that asks the receiving agent to use sub-agents when available | The receiving task owns one branch and one final Proof. |
 | Independent delivery streams with disjoint files | One brief, session, and worktree per stream | Fix an order; each later stream updates after earlier landings. |
 | A later stage must include an earlier unlanded tree | One brief per stage | Earlier stages stop green and stay available; the final composed branch alone lands. |
 
@@ -65,7 +65,7 @@ When files or registries overlap, merge the streams or put the shared authority 
 - the literal worktree name to pass to `discern_start`;
 - the first orientation and re-root actions;
 - background that the repository does not record;
-- ordered deliverables anchored in real files, tests, and existing patterns;
+- ordered required changes anchored in real files, tests, and existing patterns;
 - owned files, exclusions, and sibling work already in flight;
 - unresolved decisions the receiving agent must make and explain;
 - measurable and user-visible completion conditions;
@@ -87,7 +87,7 @@ The waiting agent receives the commit or trunk transition from repository eviden
 **Planning agent:** Present every finished brief as a complete copyable block. Outside the briefs, state:
 
 - how many sessions and worktrees will start;
-- whether one receiving session will use subagents;
+- whether one receiving session will use sub-agents;
 - which streams run together and which wait;
 - shared capacity or setup requirements;
 - the within-wave landing order;

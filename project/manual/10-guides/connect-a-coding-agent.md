@@ -16,7 +16,7 @@ redirect_from:
 
 # Connect a coding agent
 
-Use this guide to add Claude Code, Codex, Gemini CLI, Cursor, or GitHub Copilot CLI to an existing discern project, or to recover when a configured provider cannot call discern. All five follow one repository procedure. Only their trust step, fresh-session action, and callable name differ.
+Use this guide to add Claude Code, Codex, Gemini CLI, Cursor, or GitHub Copilot CLI to an existing discern project, or to recover when a configured provider cannot call discern. These providers follow one repository procedure. Their trust step, fresh-session action, and callable name differ.
 
 Repository wiring and live activation are separate. `discern refresh` can prove the committed files are current. Only a fresh provider session that invokes its local discern action proves that provider loaded them.
 
@@ -98,6 +98,6 @@ Commit the config and tracked output together and run the full Gate. This remove
 
 ## Completion
 
-Connection is complete when the provider id is in the committed config, refresh and doctor are green, the full Gate passes, and a fresh trusted session invokes its local status action successfully. Recovery is complete only at that callable, not when files appear current.
+Connection is complete when the provider id is in the committed config, refresh and doctor are green, the full Gate passes, and a fresh trusted session invokes its local status action successfully. Recovery is complete when that callable returns successfully; current files alone do not establish activation.
 
 Use [Platforms and providers](../30-reference/platforms-and-providers.md) for exact files, trust facts, timeouts, and platform support. Use [Setup and integrations troubleshooting](../40-troubleshooting/setup-and-integrations.md) when activation or ownership fails, and [Write project instructions](write-project-instructions.md) for the shared instruction source.

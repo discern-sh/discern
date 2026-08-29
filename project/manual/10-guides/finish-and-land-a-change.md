@@ -33,7 +33,7 @@ A green Gate and a landed change are separate outcomes. Green means one clean co
 ## Starting state
 
 - The person has supplied a bounded task and identified any decisions they retain.
-- The agent is in the main checkout before a new effort, or in the one worktree already assigned to this effort.
+- The agent is in the main checkout before a new effort, or in the worktree assigned to this effort.
 - The worktree branch contains only this effort's work. Another task's clean worktree is still occupied and must not be adopted.
 - The person has not granted landing authority merely by asking for the work. Authority is checked again at acceptance.
 

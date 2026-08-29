@@ -145,7 +145,7 @@ If the plan names a shared setting it cannot remove safely, handle that exact se
 discern uninstall
 ```
 
-Confirm the prompt after reviewing the plan. Use `--yes` only in an already-authorized noninteractive run.
+Confirm the prompt after reviewing the plan. Use `--yes` only in an already-authorized non-interactive run.
 
 Inspect `git status` and commit the removal according to the repository's ordinary process. Review retained recovery refs before deleting any with `git update-ref -d <ref>`.
 

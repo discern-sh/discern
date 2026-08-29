@@ -39,7 +39,7 @@ Route other rules elsewhere:
 
 Use `mode = "stop"` when every matching change must record a conclusion. Use `mode = "advise"` for a heuristic that should inform without blocking.
 
-### 2. Write one narrow trigger and one judgeable question
+### 2. Write one narrow trigger and one answerable question
 
 **Coding agent:** Prefer a named scope or a small path set. Add predicates only to remove irrelevant changes. The question should name what must be true for this matched change and permit a real unmet answer.
 
@@ -111,7 +111,7 @@ A declaration binds to the resolved definition and matched content. A relevant e
 
 A green Gate with a declared-unmet Checkpoint remains unlanded.
 
-**Person:** Review the rationale and choose one of two outcomes: require work that makes the conclusion met, or authorize a variance for this declaration and commit. A standing scope grant, one-worktree grant, or generic landing consent cannot authorize the variance.
+**Person:** Review the rationale. Require work that makes the conclusion met, or authorize a variance for this declaration and commit. A standing scope grant, one-worktree grant, or generic landing consent cannot authorize the variance.
 
 When the person explicitly approves it in the current conversation, **coding agent:** pass every current unmet id at acceptance:
 

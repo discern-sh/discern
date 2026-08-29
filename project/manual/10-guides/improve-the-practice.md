@@ -28,7 +28,7 @@ The outcome is one bounded change with a named reason, owner, verification, and 
 ## Starting state
 
 - Run read-only review against the trunk when you want the state shared by future tasks. Use a task worktree when investigating an in-flight change.
-- The Logbook is enabled when you expect `discern patterns` to use recent local activity. Its records stay local and contain metadata, not code or command output.
+- The Logbook is enabled when you expect `discern patterns` to use recent local activity. Its records stay local and contain metadata only.
 - The person can decide whether a recommendation belongs in the current backlog and whether it changes project policy.
 
 ## 1. Ask for the highest-value next action
@@ -57,7 +57,7 @@ Do not chase the numeric health score by changing unrelated work. The score summ
 discern patterns --markdown
 ```
 
-Each finding should state observed counts and a next investigation. Below its evidence threshold, the result reports insufficient evidence. Treat that as an unknown, not as proof that the pattern is absent.
+Each finding should state observed counts and a next investigation. Below its evidence threshold, the result reports insufficient evidence. Treat that as an unknown. It supplies no evidence about whether the pattern is absent.
 
 The person may decline collection by setting `[project].logbook = false`. Existing records remain until an owner confirms their reset or archive; the [Logbook reference](../30-reference/logbook.md) owns those operations.
 
@@ -76,7 +76,7 @@ discern coupling path/to/file
 discern coupling path/to/file path/to/partner
 ```
 
-**Coding agent:** Inspect the cited history and decide whether the partner belongs in this change. A historical relationship is evidence to review, not an instruction to edit every related file. Record why a named partner was included or left unchanged when the choice is material to review.
+**Coding agent:** Inspect the cited history and decide whether the partner belongs in this change. A historical relationship is evidence to review. Edit a related file only when the task requires it. Record why a named partner was included or left unchanged when the choice is material to review.
 
 ## 4. Route the finding to one change type
 
