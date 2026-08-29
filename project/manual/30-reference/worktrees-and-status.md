@@ -62,6 +62,10 @@ Main identity uses the configured trunk and preserves it in `--branch`. Its seed
 
 `discern start` avoids trunk and live-sibling port collisions when possible. A crowded band or racing starts may collide; change `DISCERN_WORKTREE_ID` then.
 
+### Task title and brief
+
+A task's display title and optional brief are human metadata, kept separate from the stable identity above. New starts store them with the creation ref and resolved commit in the worktree's Git administrative directory (`discern/task-metadata.json`), and `discern worktree rename <title>` changes only the title. Status shows the stored title when one exists; a worktree from an older discern reports `title_source: "identity-fallback"` and keeps its id-derived label. Acceptance, drop, and Git worktree removal delete the record with the worktree, and `discern worktree park` copies the wording into a branch-keyed record that a later `discern start --from` consumes ([ADR 0356](https://discern.sh/docs/decisions/0356-task-metadata-follows-the-worktree-identity), [ADR 0358](https://discern.sh/docs/decisions/0358-recovery-observes-before-repair-and-park-preserves-the-branch)).
+
 ### Inherit selected env values
 
 `[worktree].env_files` lists env-style files in precedence order. The default is `[".env", ".env.local"]`. Reads use the last file that defines a key. Writes update that last definition or place a new key in the first listed file.
@@ -112,7 +116,7 @@ Worktrees default to a local view. The main checkout shows its state, fleet task
 
 One observation feeds every projection; shared CLI components render each terminal view.
 
-The 104-column report uses human task labels; `--verbose` reveals complete worktree and branch identities.
+The 104-column report uses stored task titles when available; `--verbose` reveals complete worktree and branch identities. A display title never replaces the id or branch in commands or structured results.
 
 Rows prioritize live, stale, or uncommitted work while still showing branch drift. Shared-file and Architecture Decision Record (ADR) number collisions remain separate landing risks.
 
@@ -152,13 +156,15 @@ Every default result includes the route to full structured detail. Run `discern 
 
 `data.pending_tracked_refresh` lists tracked paths an ordinary refresh would change. `data.tracked_refresh_plan_errors` lists problems that prevent the plan from being derived. `stale_generated`, `stale_materialized`, `stale_integrations`, and `stale_adr_index` remain compatibility projections of the same plan.
 
-Fleet retains the main row. Each sampled readable worktree carries identity, Git state, divergence, activity, one `gate_proof`, and authority. `gate_proof` always carries its inspection status. A current honored marker adds compact Proof facts and the one-line rendering; an older marker may add only `proof_line`. Every structured mode omits rendered Proof pages and the earlier `proof_honored`, `proof`, and `proof_line` compatibility copies at fleet-row level. Status authority keeps the exact decision, six authored-first path examples plus uncovered totals and scopes. In full mode, `landed_proof.proof` is compact and `landed_proof.commit_at` supplies landing age when Git can read it.
+Fleet retains the main row. Each sampled row carries independent recovery facts: Git registration and branch reachability, filesystem presence, clean state and divergence when readable, the failed Git command and diagnostic when a fact is unavailable, and setup-ready marker, journal, and repair classification. Missing facts stay absent or carry an explicit unavailable state; they never supply a clean fallback. Readable worktrees also carry activity, one `gate_proof`, and authority, and newer rows carry `task`: the display title, `title_source`, optional brief, and creation ref and commit (`title_source: "identity-fallback"` identifies an older worktree with no stored record). `gate_proof` always carries its inspection status. A current honored marker adds compact Proof facts and the one-line rendering; an older marker may add only `proof_line`. Every structured mode omits rendered Proof pages and the earlier `proof_honored`, `proof`, and `proof_line` compatibility copies at fleet-row level. Status authority keeps the exact decision, six authored-first path examples plus uncovered totals and scopes. In full mode, `landed_proof.proof` is compact and `landed_proof.commit_at` supplies landing age when Git can read it.
 
 Ahead and behind are non-negative integers, `"unknown"` after a failed or malformed count, and `null` on local status when the trunk is missing. Only a number can support readiness or containment ([ADR 0328](https://discern.sh/docs/decisions/0328-absence-and-unknown-observations-stay-distinct)).
 
 `last_action` records the newest completion. `running` records a recent start with no matching completion, and `last_activity` takes the later Git or Logbook time. Disabling the Logbook removes the action fields; Git activity remains available ([ADR 0210](https://discern.sh/docs/decisions/0210-effectful-verb-starts-are-paired-logbook-events)).
 
 `fleet_collisions` pairs branches sharing changed files and retains the shared-file count; `adr_collisions` retains each contested number and its claimant branches, including branches without worktrees. Their path lists stay out of structured results. Terminal `--verbose` shows those paths, and a later `update` result names the shared paths that need re-reading. Full stored Proof pages appear only through terminal `--verbose`; structured modes carry the compact Proof claim ([ADR 0188](https://discern.sh/docs/decisions/0188-the-receipt-relays-as-one-line)). Dirty, behind, and missing-Proof states remain `ok: true`; operational refusals do not.
+
+`parked_tasks` joins local Park records to the `unlanded_branches` population: each row carries the retained branch commit, Park time, and the task wording that `discern start --from` resumes with. When those records cannot be read, `parked_tasks_unavailable` names the failure while the underlying unlanded branches stay visible. `recent_completed_tasks` is a bounded local tail from successful acceptance events and the latest landed Proof. Each is a read-only view over existing lifecycle evidence ([ADR 0358](https://discern.sh/docs/decisions/0358-recovery-observes-before-repair-and-park-preserves-the-branch)).
 
 `reappeared_worktree_paths` lists paths removed through discern's worktree lifecycle that currently exist without a live Git registration. Each row carries `path`, `removed_at`, `kind`, `entries`, a bounded `contents` sample, and `cleanup_blocked_reason` when prune must preserve it. The agent result places cleanup under Owner attention. The human dashboard retains the dry-run review route; status itself remains read-only ([ADR 0265](https://discern.sh/docs/decisions/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup)).
 

@@ -31,7 +31,7 @@ Use this guide to make the project's declared Gate a required continuous-integra
 
 ## 1. Recreate the project's declared environment
 
-**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk and enough history for change classification. Restore dependencies from the project's lock files.
+**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk and enough history for change classification. Restore dependencies from the project's lock files as their own workflow step, before the Gate runs: discern runs the commands in `[jobs]` but does not install their toolchain or dependencies, and the Gate may start several jobs in parallel, so dependency downloads that race inside the first Gate run belong in a serial step ahead of it.
 
 Do not restate each project check in workflow YAML. `[jobs]`, scope gates, and Standards remain the authority, so local agents and CI run the same declaration.
 

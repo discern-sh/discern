@@ -58,6 +58,8 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 
 | Field           | Example                                                                 |
 | --------------- | ----------------------------------------------------------------------- |
+| `schema`        | `1`                                                                     |
+| `at`            | ISO 8601 UTC timestamp                                                  |
 | `kind`          | `"begin"`, `"verb"`, or a rarer event kind                              |
 | `invocation`    | the opaque id joining a start and completion                            |
 | `writer`        | `"1.2.0"` (which discern wrote it)                                      |
@@ -78,6 +80,9 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 | `waited_ms`     | test-run slot-wait milliseconds on capped runs                          |
 | `gate_ran`      | whether this `done` invocation executed Gate work                       |
 | `target`        | page served, miss, new branch, or queued command                        |
+| `from`          | the ref a `start` forked from                                           |
+| `update`        | what an `update` merged in                                              |
+| `error`         | the result's machine-stable error slug when the verb refused            |
 | `flags`         | `["force"]` (names without values, including `rerun` when requested)    |
 | `change`        | files/insertions/deletions/commits vs the trunk                         |
 | `scopes`        | the configured scopes touched                                           |

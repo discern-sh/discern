@@ -4,10 +4,12 @@ import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 import {
+  beginEventSchema,
   LOGBOOK_OUTCOMES,
   LOGBOOK_SCHEMA_VERSION,
   LOGBOOK_SURFACES,
   logbookEventSchema,
+  verbEventSchema,
 } from "../src/engine/logbook/schema.ts";
 import { MCP_RESULT_CONTRACTS } from "../src/shared/result_contracts.ts";
 import {
@@ -40,6 +42,7 @@ import {
   TEMP_ARTIFACT_TTL_MS,
 } from "../src/shared/temp_artifacts.ts";
 import { CRASH_EXIT_CODE, MAX_CRASH_FILES } from "../src/engine/crash.ts";
+import { GIT_ADMIN_STATE } from "../src/shared/git_admin_paths.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
@@ -265,6 +268,43 @@ Deno.test("Logbook event, outcome, surface, and lifecycle sets are complete", ()
     ]),
     [],
   );
+});
+
+Deno.test("every begin/verb Logbook field is named by both field accounts", async () => {
+  // A schema field added without documentation shipped silently once
+  // (lock_boundary, dry_run, has_operands). Derive the field set from the live
+  // event schemas so a future field must reach the manual reference and the
+  // Map's account in the same change.
+  const fieldKeys = [
+    ...new Set([
+      ...Object.keys(beginEventSchema.shape),
+      ...Object.keys(verbEventSchema.shape),
+    ]),
+  ];
+  const mapLogbookAccount = await Deno.readTextFile(
+    `${REPO_AUTHORED_PATHS.map}/70-reference/the-logbook.md`,
+  );
+  assertEquals(missingCodeMembers(logbookReference, fieldKeys), []);
+  assertEquals(missingCodeMembers(mapLogbookAccount, fieldKeys), []);
+});
+
+Deno.test("every registered Git-admin record is named by both ownership accounts", async () => {
+  // The runtime-state tables are authored, so a record registered in
+  // GIT_ADMIN_STATE could ship undocumented (parked-tasks and task-metadata
+  // did). Derive the population from the registry so a future record must
+  // reach the manual reference and the Map's account in the same change.
+  const registeredPaths = Object.values(GIT_ADMIN_STATE).map(
+    (record) => (record as { path: string }).path,
+  );
+  const mapOwnershipAccount = await Deno.readTextFile(
+    `${REPO_AUTHORED_PATHS.map}/70-reference/artifact-ownership.md`,
+  );
+  for (const document of [fileReference, mapOwnershipAccount]) {
+    const missing = registeredPaths.filter((path) =>
+      !document.includes(`\`${path}\``) && !document.includes(`\`${path}/\``)
+    );
+    assertEquals(missing, []);
+  }
 });
 
 Deno.test("temporary and crash record limits remain exact in the ownership page", () => {

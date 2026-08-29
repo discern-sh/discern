@@ -97,6 +97,8 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/acceptance-transaction.lock`              | worktree   | Single-acceptance advisory lock.                                                                                      |
 | `discern/setup-machinery-commit-evidence.json`     | worktree   | Setup retry evidence.                                                                                                 |
 | `discern/worktree-ready`                           | worktree   | Completed-setup marker.                                                                                               |
+| `discern/worktree-setup-steps.json`                | worktree   | Step journal for interrupted worktree setup.                                                                          |
+| `discern/checkpoint-open-questions`                | worktree   | Served checkpoint questions awaiting or holding a declared conclusion.                                                |
 | `discern/shim/`                                    | worktree   | Per-identity self-shim ([ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).   |
 
 Durable state replacements share one interruption-safe policy; intentional moves and create-once publication remain separate ([ADR 0326](../_adr/0326-durable-replace-writes-use-one-atomic-writer.md)).

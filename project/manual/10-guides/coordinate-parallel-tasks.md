@@ -144,6 +144,16 @@ discern worktree prune --dry-run
 
 Confirm only the positively owned paths in the plan. If removal reports a remaining writer, Git registration, changed snapshot, or uncertain ownership, stop that writer or repair the named entry and repeat the same lifecycle command. Do not replace the refusal with a broad recursive deletion.
 
+## Park a task you will return to
+
+Parking frees a healthy task's checkout, resources, and disk while keeping its branch, committed work, and task wording. Use it when a task must wait but its work should not be reviewed or discarded yet. **Person or agent:** preview the exact plan from the main checkout, then run it:
+
+```sh
+discern worktree park <id-or-path> --dry-run
+```
+
+Park requires a clean checkout on a named task branch and refuses otherwise, naming the command to run before retrying; it has no force option. The worktree's Proof, landing grant, and setup evidence leave with the checkout, so a resumed task needs fresh Proof and authority. Afterward, status lists the branch under **Work without a worktree**; resume it with `discern start --from <parked-branch>`, which restores the parked title and brief as the new task's defaults.
+
 ## Completion
 
 Parallel coordination is working when every live task has one returned branch and path, declared resources are distinct, fleet status shows the expected ownership, direct tests respect the configured cap, and each dependency is either independently landed or present in the composed branch's tree. The final next step for each landing branch is [Finish and land a change](finish-and-land-a-change.md).
