@@ -13,6 +13,7 @@ import { markdownCodeSpan } from "./markdown_code.ts";
 import { checkpointDropMarkdown } from "./checkpoint_drops.ts";
 import { productSentence } from "./product_sentence.ts";
 import { notApplicableCountLabel } from "./setup_assurance.ts";
+import { isManualKind, manualKindLabel } from "./manual.ts";
 
 export interface ResultMarkdownPresentation {
   /** One authored statement of the current result state. */
@@ -1114,7 +1115,15 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
         const target = text(entry.target) ?? "unknown";
         const resultTitle = text(entry.title) ?? target;
         const snippet = text(entry.snippet);
-        const heading = productSentence(`${code(target)}: ${resultTitle}`);
+        const rawKind = text(entry.manual_kind);
+        const kind = rawKind !== undefined && isManualKind(rawKind)
+          ? manualKindLabel(rawKind)
+          : undefined;
+        const heading = productSentence(
+          `${kind === undefined ? "" : `${kind} · `}${
+            code(target)
+          }: ${resultTitle}`,
+        );
         return `${heading}${snippet === undefined ? "" : ` ${snippet}`}`;
       }),
       data.truncated === true

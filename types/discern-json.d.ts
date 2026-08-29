@@ -2960,6 +2960,7 @@ export type DiscernMapResult = DiscernResultState & {
     map_dir?: string;
     count?: number;
     docs?: Array<{
+      target?: string;
       path: string;
       section: string;
       slug: string;
@@ -2985,6 +2986,7 @@ export type DiscernMapResult = DiscernResultState & {
       code_changes_since?: number;
     }>;
     doc?: {
+      target: string;
       path: string;
       section: string;
       slug: string;
@@ -3000,7 +3002,6 @@ export type DiscernMapResult = DiscernResultState & {
         | "explanation"
         | "reference"
         | "troubleshooting";
-      target: string;
       content: string;
       cited_adrs?: Array<{
         number: string;
@@ -3010,6 +3011,7 @@ export type DiscernMapResult = DiscernResultState & {
     };
     candidates?: Array<string>;
     suggestions?: Array<{
+      target?: string;
       path: string;
       section: string;
       slug: string;
@@ -3034,6 +3036,13 @@ export type DiscernMapResult = DiscernResultState & {
       section: string;
       title: string;
       description: string;
+      page_id?: string;
+      manual_kind?:
+        | "tutorial"
+        | "guide"
+        | "explanation"
+        | "reference"
+        | "troubleshooting";
       match: "complete" | "partial" | "metadata";
       heading?: string;
       snippet: string;
@@ -3177,6 +3186,7 @@ export type DiscernDocsResult = DiscernResultState & {
     map_dir?: string;
     count?: number;
     docs?: Array<{
+      target?: string;
       path: string;
       section: string;
       slug: string;
@@ -3202,6 +3212,7 @@ export type DiscernDocsResult = DiscernResultState & {
       code_changes_since?: number;
     }>;
     doc?: {
+      target: string;
       path: string;
       section: string;
       slug: string;
@@ -3217,7 +3228,6 @@ export type DiscernDocsResult = DiscernResultState & {
         | "explanation"
         | "reference"
         | "troubleshooting";
-      target: string;
       content: string;
       cited_adrs?: Array<{
         number: string;
@@ -3227,6 +3237,7 @@ export type DiscernDocsResult = DiscernResultState & {
     };
     candidates?: Array<string>;
     suggestions?: Array<{
+      target?: string;
       path: string;
       section: string;
       slug: string;
@@ -3251,6 +3262,13 @@ export type DiscernDocsResult = DiscernResultState & {
       section: string;
       title: string;
       description: string;
+      page_id?: string;
+      manual_kind?:
+        | "tutorial"
+        | "guide"
+        | "explanation"
+        | "reference"
+        | "troubleshooting";
       match: "complete" | "partial" | "metadata";
       heading?: string;
       snippet: string;

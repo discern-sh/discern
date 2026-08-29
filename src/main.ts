@@ -765,7 +765,7 @@ export function buildCli(
   root
     .command("map [target:string]")
     .description(
-      "Browse the project map in discern's interactive Markdown reader, or read a named document.",
+      "Browse the configured project Map that coding agents maintain, or read a named Map page.",
     )
     .option(
       "--raw",
@@ -828,7 +828,7 @@ export function buildCli(
   root
     .command("docs [target:string]")
     .description(
-      "Browse discern's documentation in the interactive Markdown reader, or read a named document.",
+      "Browse the complete bundled product manual, or read a named manual page.",
     )
     .option(
       "--raw",
@@ -840,7 +840,7 @@ export function buildCli(
     )
     .option(
       "--search <query:string>",
-      "Search discern's docs with task language or exact text; use a target to narrow it.",
+      "Search the manual with task language or exact text; use a target to narrow it.",
     )
     .option(
       "--adr",

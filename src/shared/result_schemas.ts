@@ -2204,6 +2204,8 @@ import {
  * structured fields — never inside rendered content — and appear only when
  * they say something: `publish` only when false, the rest only when present. */
 const docRecordSchema = z.strictObject({
+  /** Canonical value accepted by the same documentation verb. */
+  target: z.string().optional(),
   path: z.string(),
   section: z.string(),
   slug: z.string(),
@@ -2242,6 +2244,8 @@ const docSearchResultSchema = z.strictObject({
   section: z.string(),
   title: z.string(),
   description: z.string(),
+  page_id: z.string().optional(),
+  manual_kind: z.enum(MANUAL_KINDS).optional(),
   match: z.enum(["complete", "partial", "metadata"]),
   heading: z.string().optional(),
   snippet: z.string(),

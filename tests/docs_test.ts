@@ -34,6 +34,7 @@ import { DISCERN_MARK } from "../src/shared/brand.ts";
 import { stageBundledManual } from "../scripts/build.ts";
 import {
   approvedDocsExternalUrl,
+  DOCS_AGENT_CONTEXT_HINT,
   docsBrowseNavigationChoices,
   docsBrowseProjection,
   renderDocsCorpusHeader,
@@ -426,6 +427,30 @@ async function makeDocsFixture(
   return docs;
 }
 
+/** Add enough exact manual matches to exercise the bounded search projection. */
+async function addSearchMatches(docs: string, count: number): Promise<void> {
+  const indexPath = join(docs, "10-guides", "README.md");
+  const links: string[] = [];
+  for (let number = 1; number <= count; number += 1) {
+    const slug = `search-match-${number}`;
+    links.push(`- [Search match ${number}](${slug}.md)`);
+    await Deno.writeTextFile(
+      join(docs, "10-guides", `${slug}.md`),
+      manualFixturePage(
+        `guide-${slug}`,
+        `Search match ${number}`,
+        "guide",
+        number * 10,
+        `# Search match ${number}\n\nThe exact diagnostic token is \`orchard-signal\`.\n`,
+      ),
+    );
+  }
+  await Deno.writeTextFile(
+    indexPath,
+    `${await Deno.readTextFile(indexPath)}\n${links.join("\n")}\n`,
+  );
+}
+
 realPtyTest({
   name:
     "docs browser opens a split reader and restores the full picker through the real PTY",
@@ -445,6 +470,7 @@ realPtyTest({
         args: engineRunArgs(["docs"]),
         cwd: dir,
         env: { DISCERN_DOCS_DIR: docs, NO_COLOR: "1", PAGER: "false" },
+        geometry: { columns: 80, rows: 40 },
         input: [
           // Browse and Start here precede the complete-navigation root.
           {
@@ -493,6 +519,14 @@ realPtyTest({
       assert(!process.transcript.includes("The pager failed"));
 
       const initial = process.keyframes.initial ?? "";
+      assertStringIncludes(
+        initial,
+        "If useful, ask your coding agent to explain this page in your project's",
+      );
+      assertStringIncludes(
+        initial,
+        "context. discern does not bundle, choose, or contact models.",
+      );
       const groupOffsets = [
         "BROWSE",
         "START HERE",
@@ -563,6 +597,20 @@ Deno.test("promoted and complete manual entries keep distinct picker values", as
       ...discovered,
       entries: manual.pages.map((page) => page.entry),
     });
+    assertEquals(
+      projection.groups.find((group) => group.id === "browse")?.items[0]
+        ?.description,
+      DOCS_AGENT_CONTEXT_HINT,
+    );
+    assert(
+      projection.groups.some((group) =>
+        group.items.some((item) => item.description?.startsWith("Tutorial ·"))
+      ),
+    );
+    const mapProjection = await docsBrowseProjection("map", discovered);
+    assert(
+      !JSON.stringify(mapProjection.groups).includes(DOCS_AGENT_CONTEXT_HINT),
+    );
     const items = projection.groups.flatMap((group) => group.items);
     const selectable = items.map((item) => JSON.stringify(item.value));
     assertEquals(new Set(selectable).size, selectable.length);
@@ -697,6 +745,27 @@ Deno.test("a static rendered target never consults PAGER by default", async () =
   });
 });
 
+Deno.test("the coding-agent hint stays inside the interactive manual picker", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const env = { DISCERN_DOCS_DIR: docs };
+    for (
+      const args of [
+        ["docs", "concepts", "--markdown"],
+        ["docs", "concepts", "--json"],
+        ["docs", "concepts", "--raw"],
+        ["docs", "no-such-page"],
+      ]
+    ) {
+      const result = await runCli(args, dir, env);
+      assert(
+        !(result.stdout + result.stderr).includes(DOCS_AGENT_CONTEXT_HINT),
+        args.join(" "),
+      );
+    }
+  });
+});
+
 Deno.test("docs terminal facts are inert while machine Markdown stays exact", async () => {
   await withTempDir(async (dir) => {
     const docs = await makeDocsFixture(dir);
@@ -800,6 +869,12 @@ Deno.test("docs serves the bundled tree, never the project's own docs/", async (
     // Exactly the 8 PUBLISHED docs of the fixture — not the project's decoy,
     // and not the publish: false draft (docs honours isPublicDoc).
     assertEquals(res.data.count, 8);
+    assert(
+      res.data.docs.every((entry) =>
+        entry.target !== undefined && entry.manual_kind !== undefined
+      ),
+      "every manual index row carries its canonical target and kind",
+    );
     assert(res.data.docs.some((d: { slug: string }) => d.slug === "concepts"));
     assert(
       !res.data.docs.some((d: { slug: string }) => d.slug === "hidden"),
@@ -849,6 +924,8 @@ Deno.test("docs search returns public manual targets and supports region scope",
     const foundResult = foundData.results[0];
     assertExists(foundResult);
     assertEquals(foundResult.target, "00-start/concepts");
+    assertEquals(foundResult.page_id, "start-concepts");
+    assertEquals(foundResult.manual_kind, "explanation");
     assertEquals(foundResult.match, "complete");
 
     const scoped = await runCli(
@@ -880,6 +957,38 @@ Deno.test("docs search returns public manual targets and supports region scope",
     );
     assertEquals(withheld.code, 0);
     assertEquals(decodeDocsData(withheld.stdout, "results").results, []);
+  });
+});
+
+Deno.test("docs search reports the full count beside its bounded projection", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    await addSearchMatches(docs, 6);
+    const env = { DISCERN_DOCS_DIR: docs };
+
+    const human = await runCli(
+      ["docs", "--search", "orchard-signal"],
+      dir,
+      env,
+    );
+    assertEquals(human.code, 0, human.stdout + human.stderr);
+    assertTerminalTextIncludes(human.stdout, "6 results");
+    assertTerminalTextIncludes(
+      human.stdout,
+      "Showing 5 highest-ranked matches of 6.",
+    );
+
+    const json = await runCli(
+      ["docs", "--search", "orchard-signal", "--json"],
+      dir,
+      env,
+    );
+    assertEquals(json.code, 0, json.stdout + json.stderr);
+    const data = decodeDocsData(json.stdout, "results");
+    assertEquals(data.count, 6);
+    assertEquals(data.results.length, 5);
+    assertEquals(data.truncated, true);
+    assert(data.results.every((entry) => entry.manual_kind === "guide"));
   });
 });
 
@@ -1047,6 +1156,17 @@ Deno.test("docs --list prints a grouped TOC titled `discern docs`", async () => 
     assertStringIncludes(stdout, "discern docs");
     assertStringIncludes(stdout, "00-start/");
     assertStringIncludes(stdout, "Concepts at a glance");
+    for (
+      const kind of [
+        "Tutorial",
+        "Guide",
+        "Explanation",
+        "Reference",
+        "Troubleshooting",
+      ]
+    ) {
+      assertStringIncludes(stdout, `${kind} ·`);
+    }
   });
 });
 
@@ -1401,6 +1521,26 @@ Deno.test("docs reports a build defect (no bundled tree) cleanly", async () => {
     assertEquals(res.ok, false);
     assertEquals(res.verb, "docs");
     assertEquals(res.error, "no_docs");
+    assertExists(res.message);
+    assertStringIncludes(res.message, "current release");
+    assertStringIncludes(res.message, "open a new shell");
+    assertStringIncludes(res.message, "discern doctor");
+    assert(!res.message.includes("project map"));
+    assert(!res.message.includes(DOCS_AGENT_CONTEXT_HINT));
+  });
+});
+
+Deno.test("command help keeps the product manual and project Map distinct", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const env = { DISCERN_DOCS_DIR: docs };
+    const manual = await runCli(["docs", "--help"], dir, env);
+    const map = await runCli(["map", "--help"], dir, env);
+    assertEquals(manual.code, 0, manual.stderr);
+    assertEquals(map.code, 0, map.stderr);
+    assertStringIncludes(manual.stdout, "complete bundled product manual");
+    assertStringIncludes(map.stdout, "configured project Map");
+    assert(!manual.stdout.includes("agent-maintained Map"));
   });
 });
 

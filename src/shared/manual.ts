@@ -42,6 +42,11 @@ export const MANUAL_KINDS = [
 
 export type ManualKind = (typeof MANUAL_KINDS)[number];
 
+/** Human-readable label for one registered manual purpose. */
+export function manualKindLabel(kind: ManualKind): string {
+  return `${kind.charAt(0).toLocaleUpperCase()}${kind.slice(1)}`;
+}
+
 /**
  * Every manual kind and its policy, in the programme's canonical order. A new
  * member joins publication validation, prose projection, and checkpoint

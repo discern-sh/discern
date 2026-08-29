@@ -126,6 +126,7 @@ import {
 import { SYSTEM_CLOCK } from "../shared/clock.ts";
 import { DISCERN_DOCS_URL } from "../shared/brand.ts";
 import { writeStdout } from "../engine/output.ts";
+import { manualKindLabel } from "../shared/manual.ts";
 
 /** The built-in concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
@@ -141,8 +142,13 @@ export type DocsBrowserChoice =
 export interface DocsBrowseNavigationChoice {
   readonly id: string;
   readonly name: string;
+  readonly description?: string;
   readonly value: DocsBrowserChoice;
 }
+
+/** One optional discovery hint, confined to the interactive manual picker. */
+export const DOCS_AGENT_CONTEXT_HINT =
+  "If useful, ask your coding agent to explain this page in your project's context. discern does not bundle, choose, or contact models.";
 
 /** Navigation actions for the interactive tree browser. Only discern's own
  * manual has an equivalent online home; a project's map stays local. */
@@ -154,6 +160,7 @@ export function docsBrowseNavigationChoices(
       ? [{
         id: "read-docs-online",
         name: "Read the docs online",
+        description: DOCS_AGENT_CONTEXT_HINT,
         value: { kind: "read-online" as const },
       }]
       : []),
@@ -443,7 +450,7 @@ const DOCS_VERB: DocsVerb = {
     return dir ? { kind: "ok", dir, corpus: "manual" } : { kind: "missing" };
   },
   missingTree: () =>
-    "discern's bundled documentation is missing from this binary — this is a build defect; please report it.",
+    "this discern binary has no bundled manual. Replace it with a current release using the supported installer, open a new shell, and retry `discern docs`. If the manual remains unavailable, run `discern doctor` and report its diagnostic.",
   exportScopes: ["public"],
 };
 
@@ -620,6 +627,7 @@ const SEARCH_RESULT_LIMIT = 5;
  * seeing what publishing withholds), the rest only when present. */
 function toRecord(e: DocEntry): DocRecord {
   return {
+    target: canonicalDocTarget(e),
     path: e.path,
     section: e.section,
     slug: e.slug,
@@ -715,6 +723,10 @@ function toSearchResult(
     section: entry.section,
     title: entry.title,
     description: entry.description,
+    ...(entry.pageId !== undefined ? { page_id: entry.pageId } : {}),
+    ...(entry.manualKind !== undefined
+      ? { manual_kind: entry.manualKind }
+      : {}),
     match,
     ...(heading !== undefined ? { heading } : {}),
     snippet,
@@ -986,7 +998,9 @@ export async function docsBrowseProjection(
       items: promoted.map((entry) => ({
         id: `promoted:${entry.pageId ?? entry.relToDocs}`,
         name: entry.title,
-        description: entry.description,
+        description: entry.manualKind === undefined
+          ? entry.description
+          : `${manualKindLabel(entry.manualKind)} · ${entry.description}`,
         value: { kind: "promoted-document" as const, path: entry.path },
       })),
     }]),
@@ -999,7 +1013,9 @@ export async function docsBrowseProjection(
       items: group.items.map((item) => ({
         id: `document:${item.entry.path}`,
         name: item.label,
-        description: item.description,
+        description: verb === "docs" && item.entry.manualKind !== undefined
+          ? `${manualKindLabel(item.entry.manualKind)} · ${item.description}`
+          : item.description,
         value: documentChoice(item.entry.path),
       })),
     })),
@@ -1378,7 +1394,13 @@ function printToc(
     const rows = renderAlignedRows(
       entries.map((entry) => ({
         label: labelOf(entry),
-        body: terminalLine(entry.title),
+        body: terminalLine(
+          `${
+            entry.manualKind === undefined
+              ? ""
+              : `${manualKindLabel(entry.manualKind)} · `
+          }${entry.title}`,
+        ),
       })),
       // A TTY keeps every row on one aligned line and lets the terminal handle
       // rare overflow; piped output wraps titles under the shared column.
@@ -1519,8 +1541,11 @@ function printSearchResults(
       : result.match === "partial"
       ? " · partial match"
       : " · title or alias match";
+    const kind = result.manual_kind === undefined
+      ? ""
+      : ` · ${manualKindLabel(result.manual_kind)}`;
     const items: string[] = [
-      terminalLine(`${terminalLine(result.title)}${heading}${match}`),
+      terminalLine(`${terminalLine(result.title)}${kind}${heading}${match}`),
     ];
     if (result.snippet !== "") {
       items.push(terminalMultiline(result.snippet));

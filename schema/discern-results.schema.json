@@ -8343,6 +8343,9 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "target": {
+                        "type": "string"
+                      },
                       "path": {
                         "type": "string"
                       },
@@ -8428,6 +8431,9 @@
                 "doc": {
                   "type": "object",
                   "properties": {
+                    "target": {
+                      "type": "string"
+                    },
                     "path": {
                       "type": "string"
                     },
@@ -8468,9 +8474,6 @@
                         "troubleshooting"
                       ]
                     },
-                    "target": {
-                      "type": "string"
-                    },
                     "content": {
                       "type": "string"
                     },
@@ -8498,12 +8501,12 @@
                     }
                   },
                   "required": [
+                    "target",
                     "path",
                     "section",
                     "slug",
                     "title",
                     "description",
-                    "target",
                     "content"
                   ]
                 },
@@ -8518,6 +8521,9 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "target": {
+                        "type": "string"
+                      },
                       "path": {
                         "type": "string"
                       },
@@ -8593,6 +8599,19 @@
                       },
                       "description": {
                         "type": "string"
+                      },
+                      "page_id": {
+                        "type": "string"
+                      },
+                      "manual_kind": {
+                        "type": "string",
+                        "enum": [
+                          "tutorial",
+                          "guide",
+                          "explanation",
+                          "reference",
+                          "troubleshooting"
+                        ]
                       },
                       "match": {
                         "type": "string",
@@ -9008,6 +9027,9 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "target": {
+                        "type": "string"
+                      },
                       "path": {
                         "type": "string"
                       },
@@ -9093,6 +9115,9 @@
                 "doc": {
                   "type": "object",
                   "properties": {
+                    "target": {
+                      "type": "string"
+                    },
                     "path": {
                       "type": "string"
                     },
@@ -9133,9 +9158,6 @@
                         "troubleshooting"
                       ]
                     },
-                    "target": {
-                      "type": "string"
-                    },
                     "content": {
                       "type": "string"
                     },
@@ -9163,12 +9185,12 @@
                     }
                   },
                   "required": [
+                    "target",
                     "path",
                     "section",
                     "slug",
                     "title",
                     "description",
-                    "target",
                     "content"
                   ]
                 },
@@ -9183,6 +9205,9 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "target": {
+                        "type": "string"
+                      },
                       "path": {
                         "type": "string"
                       },
@@ -9258,6 +9283,19 @@
                       },
                       "description": {
                         "type": "string"
+                      },
+                      "page_id": {
+                        "type": "string"
+                      },
+                      "manual_kind": {
+                        "type": "string",
+                        "enum": [
+                          "tutorial",
+                          "guide",
+                          "explanation",
+                          "reference",
+                          "troubleshooting"
+                        ]
                       },
                       "match": {
                         "type": "string",
