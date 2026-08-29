@@ -32,9 +32,10 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     path: "tests/discern_commit_enrolment_test.ts",
     enclosing:
       "the attributed commit boundary quiesces backgrounded hook descendants",
-    operation: "observe that a delayed post-commit descendant cannot write",
+    operation:
+      "release a post-commit descendant after return and observe it cannot write",
     reason:
-      "Absence before the hook's planted delay expires cannot prove that the commit boundary reaped it.",
+      "The assertion is absence after an explicit post-return release, so no positive condition can complete it early.",
     classification: "negative-observation-window",
   },
   "escaped-daemon-hold": {
@@ -212,9 +213,9 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     enclosing:
       "probeWorktreeViability: a backgrounded Git hook is quiesced before teardown",
     operation:
-      "observe that a delayed checkout-hook descendant cannot recreate the probe",
+      "release a checkout-hook descendant after teardown and observe it cannot recreate the probe",
     reason:
-      "Only the full planted hook delay can prove the successful teardown did not return ahead of its process group.",
+      "The assertion is absence after an explicit post-teardown release, so no positive condition can complete it early.",
     classification: "negative-observation-window",
   },
   "worktree-probe-job-quiescence-window": {
@@ -222,9 +223,9 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     enclosing:
       "probeWorktreeViability: a command-owned late writer cannot follow a successful teardown",
     operation:
-      "observe that a delayed command descendant cannot recreate the probe",
+      "release a command descendant after teardown and observe it cannot recreate the probe",
     reason:
-      "The negative post-teardown assertion becomes meaningful only after the planted writer's delay has elapsed.",
+      "The assertion is absence after an explicit post-teardown release, so no positive condition can complete it early.",
     classification: "negative-observation-window",
   },
 } as const satisfies Record<string, TestRealDelayBoundary>;

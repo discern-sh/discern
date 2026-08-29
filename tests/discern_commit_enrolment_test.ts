@@ -150,12 +150,16 @@ Deno.test({
       await Deno.writeTextFile(join(dir, path), "base\n");
       await gitInit(dir);
       await Deno.writeTextFile(join(dir, path), "committed\n");
+      const ready = join(dir, "hook-ready");
+      const release = join(dir, "commit-returned");
+      const late = join(dir, "hook-late");
       const hook = join(dir, ".git", "hooks", "post-commit");
       await Deno.writeTextFile(
         hook,
         [
           "#!/bin/sh",
-          '(sleep 0.15; mkdir -p "$PWD/hook-late") >/dev/null 2>&1 &',
+          '(touch "$PWD/hook-ready"; while [ ! -f "$PWD/commit-returned" ]; do sleep 0.01; done; mkdir -p "$PWD/hook-late") >/dev/null 2>&1 &',
+          'while [ ! -f "$PWD/hook-ready" ]; do sleep 0.01; done',
           "",
         ].join("\n"),
       );
@@ -168,10 +172,15 @@ Deno.test({
         pathspecs: [path],
       });
       assertEquals(commit.success, true, commit.stderr);
-      await realDelay("commit-hook-quiescence-window", 350);
-      const late = await lstatIfExists(join(dir, "hook-late"));
       assertEquals(
-        late,
+        await lstatIfExists(ready) !== undefined,
+        true,
+        "the post-commit descendant did not reach its planted wait boundary",
+      );
+      await Deno.writeTextFile(release, "");
+      await realDelay("commit-hook-quiescence-window", 350);
+      assertEquals(
+        await lstatIfExists(late),
         undefined,
         "the commit returned while its hook group could still write",
       );

@@ -104,6 +104,8 @@ Deno.test({
       await gitInit(dir);
 
       let probeDir = "";
+      const ready = join(dir, "probe-job-ready");
+      const release = join(dir, "probe-torn-down");
       const outcome = await probeWorktreeViability(
         await ctxAt(dir),
         await worktreeRootFor(dir),
@@ -113,11 +115,15 @@ Deno.test({
             {
               label: "late-writer",
               command:
-                '(sleep 0.15; mkdir -p "$LATE_TARGET/observer-state/nested") >/dev/null 2>&1 &',
+                '(touch "$READY_TARGET"; while [ ! -f "$RELEASE_TARGET" ]; do sleep 0.01; done; mkdir -p "$LATE_TARGET/observer-state/nested") >/dev/null 2>&1 & while [ ! -f "$READY_TARGET" ]; do sleep 0.01; done',
             },
             {
               cwd: createdDir,
-              env: { LATE_TARGET: createdDir },
+              env: {
+                LATE_TARGET: createdDir,
+                READY_TARGET: ready,
+                RELEASE_TARGET: release,
+              },
               stream: false,
               write: () => {},
             },
@@ -128,8 +134,12 @@ Deno.test({
       );
 
       assert(outcome.kind === "probed" && outcome.ok === true);
-      // Give the escaped writer time to run after the probe's removal. A success
-      // verdict is valid only if the command boundary first quiesced its group.
+      assertEquals(
+        await lstatIfExists(ready) !== undefined,
+        true,
+        "the command descendant did not reach its planted wait boundary",
+      );
+      await Deno.writeTextFile(release, "");
       await realDelay("worktree-probe-job-quiescence-window", 350);
       await assertNoProbeRemains(dir, probeDir);
     });
@@ -144,12 +154,16 @@ Deno.test({
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
       await gitInit(dir);
+      const ready = join(dir, ".git", "probe-hook-ready");
+      const release = join(dir, ".git", "probe-torn-down");
       const hook = join(dir, ".git", "hooks", "post-checkout");
       await Deno.writeTextFile(
         hook,
         [
           "#!/bin/sh",
-          '(sleep 0.2; mkdir -p "$PWD/hook-late/nested") >/dev/null 2>&1 &',
+          "common_dir=$(git rev-parse --path-format=absolute --git-common-dir)",
+          '(touch "$common_dir/probe-hook-ready"; while [ ! -f "$common_dir/probe-torn-down" ]; do sleep 0.01; done; mkdir -p "$PWD/hook-late/nested") >/dev/null 2>&1 &',
+          'while [ ! -f "$common_dir/probe-hook-ready" ]; do sleep 0.01; done',
           "",
         ].join("\n"),
       );
@@ -166,6 +180,12 @@ Deno.test({
       );
 
       assert(outcome.kind === "probed" && outcome.ok === true);
+      assertEquals(
+        await lstatIfExists(ready) !== undefined,
+        true,
+        "the checkout-hook descendant did not reach its planted wait boundary",
+      );
+      await Deno.writeTextFile(release, "");
       await realDelay("worktree-probe-hook-quiescence-window", 400);
       await assertNoProbeRemains(dir, probeDir);
     });
