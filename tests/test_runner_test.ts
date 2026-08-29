@@ -23,6 +23,36 @@ const DenoTasksSchema = z.object({
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
+const HOSTED_SUITE_MINIMUM_HEADROOM = 4 / 3;
+
+/** Read the measured hosted full-suite duration recorded in the testing Map. */
+function hostedSuiteRuntimeSeconds(testingMap: string): number {
+  const match = testingMap.match(
+    /Two ideal shards could cut ([0-9]+) minutes toward/u,
+  );
+  const minutes = Number(match?.[1]);
+  if (!Number.isSafeInteger(minutes) || minutes <= 0) {
+    throw new TypeError(
+      "project/map/80-development/testing.md must record the hosted full-suite runtime",
+    );
+  }
+  return minutes * 60;
+}
+
+/** Require the configured watchdog to retain one-third measured headroom. */
+function assertHostedSuiteFitsBudget(
+  observedSeconds: number,
+  timeoutSeconds: unknown,
+): void {
+  const minimum = Math.ceil(
+    observedSeconds * HOSTED_SUITE_MINIMUM_HEADROOM,
+  );
+  assert(
+    typeof timeoutSeconds === "number" && timeoutSeconds >= minimum,
+    `the hosted suite needs at least ${minimum}s of test timeout, got ${timeoutSeconds}`,
+  );
+}
+
 Deno.test("the repository admits parallel suites without partitioning Deno workers", async () => {
   const parsed = parseToml(
     await Deno.readTextFile(join(REPO_ROOT, "discern.toml")),
@@ -118,4 +148,32 @@ Deno.test("seeded shuffle rejects a planted order-dependent fixture", async () =
       "order-dependent fixture ran its reader before its writer",
     );
   });
+});
+
+Deno.test("hosted full-suite observations retain one-third timeout headroom", async () => {
+  const testingMap = await Deno.readTextFile(
+    join(REPO_ROOT, "project/map/80-development/testing.md"),
+  );
+  const observedSeconds = hostedSuiteRuntimeSeconds(testingMap);
+  const config = parseToml(
+    await Deno.readTextFile(join(REPO_ROOT, "discern.toml")),
+  );
+  const jobs = config.jobs;
+  assert(
+    typeof jobs === "object" && jobs !== null && !Array.isArray(jobs),
+    "discern.toml must carry a [jobs] table",
+  );
+  const test = Reflect.get(jobs, "test");
+  assert(
+    typeof test === "object" && test !== null && !Array.isArray(test),
+    "the self-hosting test job must use the timeout-bearing table form",
+  );
+
+  assertHostedSuiteFitsBudget(observedSeconds, Reflect.get(test, "timeout"));
+
+  assertThrows(
+    () => assertHostedSuiteFitsBudget(1_200, 1_599),
+    Error,
+    "needs at least 1600s",
+  );
 });
