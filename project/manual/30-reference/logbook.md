@@ -30,6 +30,8 @@ redirect_from:
 
 Look up local Logbook fields, storage, epochs, rotation, archive/reset lifecycle, and practice-stat definitions.
 
+Prerequisite: Logbook recording must be enabled for new evidence. Existing active or sealed history remains readable after recording is disabled.
+
 ## Practice stats
 
 _`discern patterns --stats` reads the [Logbook](logbook.md) for what went well and renders a card of plain counts, each with its denominator beside it._
@@ -137,17 +139,25 @@ The shared result contract keeps one meaning across these routes. A finding's `s
 
 Each line contains names and numbers. It excludes code, prompts, command output, and file contents.
 
+The current event schema major is `1`. Readers skip an unknown major and tolerate additive fields. Every event has `schema`, `at`, optional `writer`, and one of these `kind` values:
+
+Invocation `surface` is `cli` or `mcp`. Completion `outcome` is `ok`, `failed`, `partial`, or `refused`. The lifecycle action names are `archive` and `reset`.
+
+| `kind` | Stored contract |
+| --- | --- |
+| `begin` | Invocation id, verb, surface, driver facts, branch, head, and config epoch captured before an effectful run. |
+| `verb` | One completed invocation with outcome, duration, and any available result metadata. |
+| `config-change` | Branch, changed config-section names, and the new epoch fingerprint. Values are not stored. |
+| `pin` | Branch, Standard name, previous limit, new limit, and measured value. |
+| `prune` | Aggregate digests for raw month shards removed by rotation. |
+
 | Field          | Example                                                                 |
 | -------------- | ----------------------------------------------------------------------- |
+| `schema`       | `1`                                                                     |
+| `at`           | ISO 8601 UTC timestamp                                                  |
 | `kind`         | `"begin"`, `"verb"`, or a rarer event kind                              |
 | `invocation`   | the opaque id joining a start and completion                            |
 | `writer`       | `"1.2.0"` (which discern wrote it)                                      |
-| `verb`         | `"done"`                                                                |
-| `surface`      | `"cli"` or `"mcp"`                                                      |
-| `driver`       | session, mode, CI, spawning invocation, and possible agent signals      |
-| `branch`       | `"agent/fix-upload-retry"`                                              |
-| `head`         | `"<short commit ID>"`                                                   |
-| `clean`        | was the working tree clean?                                             |
 | `tree`         | a checksum of the uncommitted diff                                      |
 | `outcome`      | `"ok"`, `"failed"`, `"partial"`, or `"refused"`                         |
 | `failed_stage` | the Gate stage that went red                                            |
