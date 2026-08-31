@@ -27,7 +27,7 @@ Do not combine several patterns because each contains a good line.
 
 - the page needs launch energy;
 - the category contrast is the strongest entry point;
-- the reader should leave with the one claim no rival can sign.
+- the reader should leave with a claim no rival can sign.
 
 ### Structure
 

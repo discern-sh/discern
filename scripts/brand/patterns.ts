@@ -25,7 +25,7 @@ export const COPY_PATTERNS = [
     title: "Category-led hero",
     useWhen: `- the page needs launch energy;
 - the category contrast is the strongest entry point;
-- the reader should leave with the one claim no rival can sign.`,
+- the reader should leave with a claim no rival can sign.`,
     structure: `<Audience signature or short recognition line>
 
 # <The contrast's first half: what the rest of the industry is doing>
@@ -59,10 +59,12 @@ export const COPY_PATTERNS = [
   {
     id: "fact-led-hero",
     title: "Fact-led hero",
-    useWhen: `- the shared problem is recognizable before any product vocabulary;
+    useWhen:
+      `- the shared problem is recognizable before any product vocabulary;
 - the mechanism is the differentiator;
 - the page can show an artifact immediately below.`,
-    structure: `# <The problem, stated as a plain fact the reader already lives with>
+    structure:
+      `# <The problem, stated as a plain fact the reader already lives with>
 
 <The practice, answering the headline in one sentence.>
 
@@ -488,7 +490,8 @@ Do not compress an entire product page into a social post.`,
     sections: [
       {
         heading: "Working examples",
-        body: `> Every agent session starts from zero and relearns the project from its prompt.
+        body:
+          `> Every agent session starts from zero and relearns the project from its prompt.
 >
 > The practice lives in your project, so every agent arrives already briefed.
 
