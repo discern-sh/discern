@@ -127,6 +127,12 @@ export const REASONS_TO_BELIEVE = [
 /** The differentiation blocks, in rendering order. */
 export const DIFFERENTIATION = [
   {
+    id: "against-limit-removal",
+    title: "Against the promise of no limits",
+    body:
+      "The category's default pitch is the removal of limits: more autonomy, fewer checks, less friction. discern's counter-position is that the right limits are what let more work move and finish — bounded tasks, a declared bar for done, and authority that stays with the person. A rival cannot follow it without arguing against its own pitch.",
+  },
+  {
     id: "against-manual-review",
     title: "Against manual review",
     body:
@@ -310,6 +316,12 @@ export function renderPositioningDoc(): string {
     "",
     "The platform should always feel aspirational. It must not rely on threats about bugs, job loss, angry customers, or model failure to make the reader care.",
     "",
+    "## The organizing idea",
+    "",
+    "discern is named for what it does: it keeps the distinctions that matter (task from task, judgment from verification, readiness from permission, provider from practice) while the project stays connected across them. {{doc:messaging}} holds the full account and its copy-ready forms.",
+    "",
+    "The strategic consequence is a paradox the category's rivals cannot follow: most agent products sell the removal of limits; discern sells the limits that let more work move — and finish. Disciplined boundaries are the mechanism of the expansion, and the reason delegation can grow without dissolving responsibility.",
+    "",
     "## The enduring relationship",
     "",
     "discern rests on an enduring relationship among human judgment, agent capability, and project continuity. The human sets intent and grants authority. The agent interprets direction and implements the work. The project carries shared understanding, conditions, memory, and evidence across agents and tasks.",
@@ -437,6 +449,6 @@ export function renderPositioningDoc(): string {
     "",
     "## Canonical summary",
     "",
-    "> discern is for people who take their software seriously. It responds to a world in which far more people can build far more software, while the attention and discipline required to stand behind it remain scarce. discern installs an engineering practice into the project so coding agents can take on substantial work, the project can retain what matters, and the resulting software can continue to earn confidence. The brand should feel ambitious, premium, culturally alive, and exhilarating. The product earns that confidence through exact mechanisms; the brand begins with the future those mechanisms make possible.",
+    "> discern is for people who take their software seriously. It responds to a world in which far more people can build far more software, while the attention and discipline required to stand behind it remain scarce. discern installs an engineering practice into the project so coding agents can take on substantial work, the project can retain what matters, and the resulting software can continue to earn confidence. Underneath runs the paradox: the right limits are what let one person take on more. The brand should feel ambitious, premium, culturally alive, and exhilarating. The product earns that confidence through exact mechanisms; the brand begins with the future those mechanisms make possible.",
   ].join("\n");
 }
