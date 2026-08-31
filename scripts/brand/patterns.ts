@@ -21,16 +21,16 @@ export const DRAFT_STEPS: readonly string[] = [
 /** The seventeen copy patterns, in document order. */
 export const COPY_PATTERNS = [
   {
-    id: "ambition-led-hero",
-    title: "Ambition-led hero",
-    useWhen: `- the reader already senses the possibility of coding agents;
-- the page needs launch energy;
-- personal reach is the strongest entry point.`,
+    id: "category-led-hero",
+    title: "Category-led hero",
+    useWhen: `- the page needs launch energy;
+- the category contrast is the strongest entry point;
+- the reader should leave with the one claim no rival can sign.`,
     structure: `<Audience signature or short recognition line>
 
-# <A concise expression of expanded possibility>
+# <The contrast's first half: what the rest of the industry is doing>
 
-<Literal sentence: what discern lets coding agents do, and what changes for the human.>
+<The discern half, completed immediately, then the category in plain language.>
 
 <Primary demonstration CTA>    <Secondary action or explanation CTA>
 
@@ -40,51 +40,47 @@ export const COPY_PATTERNS = [
         heading: "Working example",
         body: `> **For people who take their software seriously.**
 >
-> # A bolder way to build.
+> # The labs are making agents better.
 >
-> discern helps coding agents take on substantial work, so one person can take an ambitious project further with confidence in what comes back.
+> discern makes your project a better place for them to work: an engineering practice installed into your repository and inherited by every agent that works there.
 >
-> **See discern in practice**\\
+> **Watch a project get commissioned**\\
 > Tell your agent to set it up
 >
 > _An engineering practice for agent-built software._`,
       },
     ],
     requirements: [
-      "Support “bold” with evidence of discipline so it reads as considered ambition.",
+      "The discern half must arrive in the first line below the headline; the headline alone is a compliment to the labs.",
       "The subhead must clarify the human benefit.",
       "The next section should show a recognizable moment. Use feature details only as supporting evidence.",
     ],
   },
   {
-    id: "elegant-open-hero",
-    title: "Open hero",
-    useWhen: `- the design carries a large amount of atmosphere;
-- the page can explain the category immediately below;
-- a broad audience needs room to project their own ambition.`,
-    structure: `<Audience signature>
+    id: "fact-led-hero",
+    title: "Fact-led hero",
+    useWhen: `- the shared problem is recognizable before any product vocabulary;
+- the mechanism is the differentiator;
+- the page can show an artifact immediately below.`,
+    structure: `# <The problem, stated as a plain fact the reader already lives with>
 
-# <Two- or three-word invitation>
-
-<Specific changed experience.>
+<The practice, answering the headline in one sentence.>
 
 <CTA to a demonstration>    <CTA to literal explanation>`,
     sections: [
       {
         heading: "Working example",
-        body: `> **For people who take their software seriously.**
+        body: `> # Every session, your agent starts from zero.
 >
-> # Build further.
+> discern is the practice your project keeps: every agent arrives already briefed, every change faces your project's own checks, and you decide what ships.
 >
-> Give coding agents a project-owned way to work, and take your software beyond the limits of one person's attention.
->
-> **Watch a project get commissioned**\\
+> **See discern in practice**\\
 > Read how discern works`,
       },
     ],
     requirements: [
-      "Do not leave “further” unexplained for more than one sentence.",
-      "Follow with a concrete story or artifact.",
+      "The answer must arrive in the next sentence; the headline alone is only the problem.",
+      "Follow with the artifact that makes the answer literal.",
     ],
   },
   {
@@ -107,7 +103,7 @@ export const COPY_PATTERNS = [
 >
 > As the project gains users and responsibility, discern gives its coding agents a serious way to keep building it.
 >
-> An engineering practice, installed in the project.
+> An engineering practice, installed in your project.
 >
 > **See the practice**`,
       },
@@ -185,7 +181,7 @@ When <triggering situation>, <changed action or experience>.
     sections: [
       {
         heading: "Working example",
-        body: `> ## Keep the gains the project earns.
+        body: `> ## Lock in the gains the project earns.
 >
 > Better test coverage or a lower complexity ceiling should not disappear because the next branch needs more room.
 >
@@ -444,7 +440,7 @@ Avoid beginning with a company mission statement. Begin with the lived discovery
 > **Install discern**\\
 > Read the setup guide
 
-> # Build further.
+> # Take the project further than one pair of hands.
 >
 > See how one project turns agent capability into a working practice.
 >
@@ -483,7 +479,7 @@ Do not compress an entire product page into a social post.`,
 /** The pattern anti-abuse rules, in rendering order. */
 export const ANTI_ABUSE_RULES: readonly string[] = [
   "Do not use the audience signature on every page.",
-  "Do not place “A bolder way to build,” “Build further,” and “Ship serious software” in one viewport.",
+  "Do not stack several headline-inventory lines in one viewport.",
   "Do not use a Proof block before the page creates desire.",
   "Do not force every capability into a recognisable-moment formula.",
   "Do not split every paragraph into engineer and new-builder variants.",
