@@ -50,18 +50,11 @@ import {
   HUMAN_BENEFIT_CANON,
 } from "../scripts/feature_registry.ts";
 import { CONCEPTS } from "../scripts/brand/bridge.ts";
-import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
-import { configSchema } from "../src/shared/config_schema.ts";
-import { bundledSkillNames } from "../src/lib/skills.ts";
+import { buildPracticeCarrierCatalog } from "../scripts/practice_carriers.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
-/** The sets an upheld key may claim members of, from their single sources. */
-const CARRIER_SETS: Readonly<Record<string, readonly string[]>> = {
-  verb: [...KNOWN_VERBS],
-  config: Object.keys(configSchema.shape),
-  skill: await bundledSkillNames(),
-};
+const PRACTICE_CARRIERS = await buildPracticeCarrierCatalog();
 
 Deno.test("the configured map's practice canon matches the generator (run `deno task codegen`)", async () => {
   const path = join(REPO_AUTHORED_PATHS.map, PRACTICE_CANON_PAGE_REL);
@@ -110,15 +103,13 @@ Deno.test("every upheld key names a live member, on the right tier", () => {
     assert(entries.length > 0, `tenet is upheld by nothing: ${tenet.id}`);
     for (const { tier, keys } of entries) {
       for (const key of keys) {
-        const { set, member } = parseCarrier(key);
-        const members = CARRIER_SETS[set];
+        const { set } = parseCarrier(key);
+        const carriers = tier === "taught"
+          ? PRACTICE_CARRIERS.teaching
+          : PRACTICE_CARRIERS.enforcement;
         assert(
-          members !== undefined,
-          `tenet ${tenet.id} upheld key uses unknown set: ${key}`,
-        );
-        assert(
-          members.includes(member),
-          `tenet ${tenet.id} upheld key names no live member: ${key}`,
+          carriers.some((carrier) => carrier.key === key),
+          `tenet ${tenet.id} ${tier} key names no compatible live carrier: ${key}`,
         );
         if (tier === "taught") {
           assert(
@@ -143,7 +134,7 @@ Deno.test("every bundled skill is claimed by a tenet or recorded absent — exac
       .filter(({ set }) => set === "skill")
       .map(({ member }) => member),
   );
-  const skills = CARRIER_SETS["skill"] ?? [];
+  const skills = PRACTICE_CARRIERS.teaching.map(({ member }) => member);
   for (const skill of skills) {
     const absent = skill in PRACTICE_DELIBERATELY_ABSENT;
     assert(

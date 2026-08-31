@@ -11,6 +11,7 @@ import { dirname, join } from "@std/path";
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { Node, Project } from "ts-morph";
 import {
+  listOrderIssue,
   type ListPatchRequest,
   listValueIssue,
   patchRegistrySource,
@@ -224,9 +225,8 @@ Deno.test("prose values are policed before any syntax work", () => {
 });
 
 Deno.test("typed list values admit each live option once", async () => {
-  const hint = (await buildPickerCatalog()).find((entry) =>
-    entry.source === "hint"
-  );
+  const catalog = await buildPickerCatalog();
+  const hint = catalog.find((entry) => entry.source === "hint");
   assert(hint !== undefined, "the hint picker is supported");
   assertEquals(
     listValueIssue(["gate-prove-it-works", "gate-relay-proof"], hint),
@@ -239,6 +239,45 @@ Deno.test("typed list values admit each live option once", async () => {
   );
   assert(
     listValueIssue(["not-a-registered-hint"], hint)?.includes("not a live"),
+  );
+  const forces = catalog.find((entry) => entry.source === "demand-force");
+  assert(forces !== undefined);
+  assert(
+    listValueIssue([], forces, 1)?.includes("requires at least 1"),
+    "tuple-shaped fields cannot be saved empty",
+  );
+  const enforcement = catalog.find((entry) =>
+    entry.source === "enforcement-carrier"
+  );
+  const teaching = catalog.find((entry) => entry.source === "teaching-carrier");
+  assert(enforcement !== undefined && teaching !== undefined);
+  const skill = teaching.options[0]?.value;
+  const verb = enforcement.options.find((option) =>
+    option.value.startsWith("verb:")
+  )?.value;
+  assert(skill !== undefined && verb !== undefined);
+  assert(
+    listValueIssue([skill], enforcement)?.includes("not a live"),
+    "a taught skill is tier-invalid for enforcement",
+  );
+  assert(
+    listValueIssue([verb], teaching)?.includes("not a live"),
+    "a verb is tier-invalid for teaching",
+  );
+});
+
+Deno.test("typed lists preserve survivors and append additions", () => {
+  assertEquals(
+    listOrderIssue(["one", "two", "three"], ["one", "three", "new"]),
+    undefined,
+  );
+  assert(
+    listOrderIssue(["one", "two"], ["two", "one"])?.includes("order"),
+  );
+  assert(
+    listOrderIssue(["one", "two"], ["one", "new", "two"])?.includes(
+      "append",
+    ),
   );
 });
 
@@ -445,6 +484,77 @@ Deno.test("a typed list patch refuses stale and unknown values", async () => {
     { pickers },
   );
   assert(!unknown.ok && unknown.issue.includes("not a live hint value"));
+
+  const hintPicker = pickers.find((picker) => picker.source === "hint");
+  assert(hintPicker !== undefined);
+  const stalePickers = pickers.map((picker) =>
+    picker.source === "hint"
+      ? {
+        ...picker,
+        options: picker.options.filter((option) =>
+          option.value !== "silent-worktree-divergence"
+        ),
+      }
+      : picker
+  );
+  const retainedStale = patchRegistrySource(
+    REPO_ROOT,
+    listRequest(
+      "agent-benefit",
+      "own-one-isolated-effort",
+      "hints",
+      ["silent-worktree-divergence", "start-mcp-re-root"],
+      ["silent-worktree-divergence", "start-mcp-re-root"],
+    ),
+    { pickers: stalePickers },
+  );
+  assert(
+    !retainedStale.ok && retainedStale.issue.includes("not a live hint value"),
+    "a no-longer-live value must be removed before the list can save",
+  );
+
+  const demand = allDemandEntries().find(({ entry }) =>
+    entry.id === "checkout-collisions"
+  );
+  assert(demand !== undefined);
+  const emptyTuple = patchRegistrySource(
+    REPO_ROOT,
+    listRequest(
+      "demand",
+      demand.entry.id,
+      "forces",
+      demand.entry.forces,
+      [],
+    ),
+    { pickers },
+  );
+  assert(
+    !emptyTuple.ok && emptyTuple.issue.includes("requires at least 1"),
+    "non-empty source tuples cannot be emptied through the picker",
+  );
+
+  const teaching = pickers.find((picker) =>
+    picker.source === "teaching-carrier"
+  );
+  const skill = teaching?.options[0]?.value;
+  const tenet = PRACTICE_CANON[0];
+  assert(skill !== undefined && tenet !== undefined);
+  const tierInvalid = patchRegistrySource(
+    REPO_ROOT,
+    listRequest(
+      "practice",
+      tenet.id,
+      "upheld.automated",
+      tenet.upheld.automated ?? [],
+      [skill],
+    ),
+    { pickers },
+  );
+  assert(
+    !tierInvalid.ok &&
+      tierInvalid.issue.includes("not a live enforcement-carrier value"),
+    "a skill cannot cross into an enforcement tier",
+  );
 });
 
 Deno.test("preview mode proves the patch without touching the tree", async () => {

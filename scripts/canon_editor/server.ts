@@ -66,6 +66,8 @@ const WATCH_DEBOUNCE_MS = 200;
 const WATCHED_SOURCES: readonly string[] = [
   ...new Set(PROSE_REGISTRIES.map((registry) => registry.file)),
   "scripts/feature_surface_catalog.ts",
+  "scripts/practice_carriers.ts",
+  "scripts/brand/model.ts",
   "scripts/canonical_sets.ts",
   "scripts/canon_editor/pickers.ts",
   "src/shared/capabilities.ts",

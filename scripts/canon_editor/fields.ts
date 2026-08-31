@@ -43,10 +43,12 @@ export type PickerSource =
   | "claim"
   | "hint"
   | "surface"
-  | "carrier"
   | "inventory"
   | "evidence-class"
   | "audience"
+  | "demand-force"
+  | "enforcement-carrier"
+  | "teaching-carrier"
   | "free";
 
 /** The register a prose field is judged in, for the as-you-type lint. */
@@ -62,6 +64,8 @@ export type FieldSpec =
     readonly picker: PickerSource;
     /** Present only when this exact field has in-editor write-back. */
     readonly write?: "picker";
+    /** A tuple-shaped source field that may not be saved empty. */
+    readonly minItems?: 1;
   }
   /** An object whose own fields carry the semantics — resolve one deeper. */
   | { readonly edit: "nested" }
@@ -100,7 +104,7 @@ export const HUMAN_BENEFIT_CLUSTER_FIELDS = {
   id: IDENTITY_LOCK,
   title: { edit: "prose", register: "technical" },
   role: { edit: "locked", reason: "the commercial vocabulary is a closed set" },
-  primaryFor: { edit: "list", picker: "audience" },
+  primaryFor: { edit: "list", picker: "audience", write: "picker" },
   promise: { edit: "prose", register: "technical" },
   commercialValue: { edit: "prose", register: "technical" },
   benefits: { edit: "structural" },
@@ -157,8 +161,18 @@ export const DEMAND_ENTRY_FIELDS = {
   situation: { edit: "prose", register: "brand" },
   alternative: { edit: "prose", register: "brand" },
   cost: { edit: "prose", register: "brand" },
-  forces: { edit: "list", picker: "free" },
-  segments: { edit: "list", picker: "audience" },
+  forces: {
+    edit: "list",
+    picker: "demand-force",
+    write: "picker",
+    minItems: 1,
+  },
+  segments: {
+    edit: "list",
+    picker: "audience",
+    write: "picker",
+    minItems: 1,
+  },
   evidence: {
     edit: "locked",
     reason: "evidence rows are shared source constants; edit them in the IDE",
@@ -168,7 +182,12 @@ export const DEMAND_ENTRY_FIELDS = {
 
 /** A demand entry's benefit answer or recorded gap. */
 export const DEMAND_ANSWER_FIELDS = {
-  benefits: { edit: "list", picker: "benefit-entry", write: "picker" },
+  benefits: {
+    edit: "list",
+    picker: "benefit-entry",
+    write: "picker",
+    minItems: 1,
+  },
   gap: { edit: "prose", register: "brand" },
 } as const satisfies Record<keyof DemandAnswer, FieldSpec>;
 
@@ -180,17 +199,29 @@ export const PRACTICE_TENET_FIELDS = {
   body: { edit: "prose", register: "public" },
   arc: { edit: "locked", reason: "the rendering lenses are a closed set" },
   upheld: { edit: "nested" },
-  mechanisms: { edit: "list", picker: "feature-node" },
-  yields: { edit: "list", picker: "benefit-cluster" },
-  agentYields: { edit: "list", picker: "agent-benefit-entry" },
-  holds: { edit: "list", picker: "inventory" },
+  mechanisms: { edit: "list", picker: "feature-node", write: "picker" },
+  yields: { edit: "list", picker: "benefit-cluster", write: "picker" },
+  agentYields: {
+    edit: "list",
+    picker: "agent-benefit-entry",
+    write: "picker",
+  },
+  holds: { edit: "list", picker: "inventory", write: "picker" },
 } as const satisfies Record<keyof PracticeTenet, FieldSpec>;
 
 /** The tenet's upheld tiers — each a carrier list. */
 export const TENET_UPHELD_FIELDS = {
-  enforced: { edit: "list", picker: "carrier" },
-  automated: { edit: "list", picker: "carrier" },
-  taught: { edit: "list", picker: "carrier" },
+  enforced: {
+    edit: "list",
+    picker: "enforcement-carrier",
+    write: "picker",
+  },
+  automated: {
+    edit: "list",
+    picker: "enforcement-carrier",
+    write: "picker",
+  },
+  taught: { edit: "list", picker: "teaching-carrier", write: "picker" },
 } as const satisfies Record<keyof TenetUpheld, FieldSpec>;
 
 /** A glossary term's fields. */
@@ -249,7 +280,7 @@ export const CLAIM_FIELDS = {
     edit: "locked",
     reason: "the claim-audience vocabulary is a closed semantic set",
   },
-  evidence: { edit: "list", picker: "evidence-class" },
+  evidence: { edit: "list", picker: "evidence-class", write: "picker" },
   strongestPublicForm: { edit: "prose", register: "brand" },
   mechanism: { edit: "prose", register: "brand" },
   conditions: { edit: "prose", register: "brand" },
@@ -340,4 +371,11 @@ export function fieldSpecFor(
     }
   }
   return spec;
+}
+
+/** Closed live lists owe typed write-back; only arbitrary lists opt out. */
+export function requiresPickerWrite(
+  spec: FieldSpec,
+): spec is Extract<FieldSpec, { readonly edit: "list" }> {
+  return spec.edit === "list" && spec.picker !== "free";
 }

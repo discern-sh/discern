@@ -77,7 +77,11 @@ export function proseValueIssue(value: string): string | undefined {
 export function listValueIssue(
   values: readonly string[],
   picker: PickerCatalogEntry,
+  minItems = 0,
 ): string | undefined {
+  if (values.length < minItems) {
+    return `the ${picker.source} list requires at least ${minItems} value`;
+  }
   const seen = new Set<string>();
   for (const value of values) {
     if (seen.has(value)) return `the list repeats ${value}`;
@@ -88,6 +92,27 @@ export function listValueIssue(
   return unknown === undefined
     ? undefined
     : `${unknown} is not a live ${picker.source} value — reload the picker`;
+}
+
+/** Refuse reordered survivors or additions inserted ahead of existing values. */
+export function listOrderIssue(
+  expected: readonly string[],
+  values: readonly string[],
+): string | undefined {
+  const requested = new Set(values);
+  const retained = expected.filter((value) => requested.has(value));
+  const existingInRequest = values.filter((value) => expected.includes(value));
+  if (!sameList(retained, existingInRequest)) {
+    return "existing values must keep their original order";
+  }
+  const firstAddition = values.findIndex((value) => !expected.includes(value));
+  if (
+    firstAddition >= 0 &&
+    values.slice(firstAddition).some((value) => expected.includes(value))
+  ) {
+    return "new values must append after retained existing values";
+  }
+  return undefined;
 }
 
 /** Ordered array equality for compare-and-swap. */
@@ -201,8 +226,14 @@ export function patchRegistrySource(
         `${request.field} has no supported ${spec.picker} picker in this editor`,
     };
   }
-  const valueIssue = listValueIssue(request.value, picker);
+  const valueIssue = listValueIssue(
+    request.value,
+    picker,
+    spec.minItems ?? 0,
+  );
   if (valueIssue !== undefined) return { ok: false, issue: valueIssue };
+  const orderIssue = listOrderIssue(request.expected, request.value);
+  if (orderIssue !== undefined) return { ok: false, issue: orderIssue };
   if (
     target.kind !== "string-array" ||
     !Node.isArrayLiteralExpression(target.node)

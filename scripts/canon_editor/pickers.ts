@@ -7,12 +7,19 @@
 
 import { HINTS } from "../../src/shared/hints.ts";
 import {
+  allAgentBenefitEntries,
   allFeatureNodes,
   allHumanBenefitEntries,
+  HUMAN_BENEFIT_AUDIENCES,
+  HUMAN_BENEFIT_CANON,
   SURFACE_SETS,
 } from "../feature_registry.ts";
 import { liveFeatureSurfaceMembers } from "../feature_surface_catalog.ts";
 import { CLAIMS } from "../brand/claims.ts";
+import { DEMAND_FORCES } from "../brand/demand.ts";
+import { EVIDENCE_CLASS_NAMES } from "../brand/model.ts";
+import { PROJECT_INVENTORY } from "../practice_registry.ts";
+import { buildPracticeCarrierCatalog } from "../practice_carriers.ts";
 import type { PickerSource } from "./fields.ts";
 
 /** One saved value and its picker presentation. */
@@ -49,6 +56,17 @@ const PICKER_BUILDERS = {
       label: entry.title,
       group: cluster.title,
     })),
+  "benefit-cluster": (): readonly PickerOption[] =>
+    HUMAN_BENEFIT_CANON.map((cluster) => ({
+      value: cluster.id,
+      label: cluster.title,
+    })),
+  "agent-benefit-entry": (): readonly PickerOption[] =>
+    allAgentBenefitEntries().map(({ cluster, entry }) => ({
+      value: entry.id,
+      label: entry.title,
+      group: cluster.title,
+    })),
   claim: (): readonly PickerOption[] =>
     Object.entries(CLAIMS).map(([value, claim]) => ({
       value,
@@ -70,6 +88,26 @@ const PICKER_BUILDERS = {
       }))
     );
   },
+  inventory: (): readonly PickerOption[] =>
+    PROJECT_INVENTORY.map((value) => ({ value, label: value })),
+  "evidence-class": (): readonly PickerOption[] =>
+    EVIDENCE_CLASS_NAMES.map((value) => ({ value, label: value })),
+  audience: (): readonly PickerOption[] =>
+    HUMAN_BENEFIT_AUDIENCES.map((value) => ({ value, label: value })),
+  "demand-force": (): readonly PickerOption[] =>
+    DEMAND_FORCES.map((value) => ({ value, label: value })),
+  "enforcement-carrier": async (): Promise<readonly PickerOption[]> =>
+    (await buildPracticeCarrierCatalog()).enforcement.map((carrier) => ({
+      value: carrier.key,
+      label: carrier.member,
+      group: carrier.set,
+    })),
+  "teaching-carrier": async (): Promise<readonly PickerOption[]> =>
+    (await buildPracticeCarrierCatalog()).teaching.map((carrier) => ({
+      value: carrier.key,
+      label: carrier.member,
+      group: carrier.set,
+    })),
 } as const satisfies Partial<Record<PickerSource, PickerBuilder>>;
 
 /** A picker source whose complete option authority is wired into the editor. */
