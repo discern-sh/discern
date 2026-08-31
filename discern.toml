@@ -223,9 +223,14 @@
     provides = "canary tests (hot, cheap subset heard before the full suite)"
     timeout = 300
 
+  # Bound to the module rather than to the `project-control` Project Script that
+  # wraps it, like `canary` above: the script namespace is project-owned, so a
+  # check stage must not depend on a file the owner may rename or on its
+  # executable bit surviving a checkout. `discern scripts project-control` runs
+  # the same read-only command by hand.
   [jobs.project-control]
     stage = "check"
-    run = "project/scripts/project-control"
+    run = "deno run --quiet --no-prompt --allow-read --allow-run=git scripts/project_control_integrity.ts"
     provides = "repository planning, TODO, and documenter control-document integrity"
 
   [jobs.promise-effects]
