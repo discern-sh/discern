@@ -16,7 +16,7 @@ export interface ComplexityHotspotBudget {
  */
 export const COMPLEXITY_HOTSPOT_BUDGETS = [
   {
-    file: "project/scripts/project_control_integrity.ts",
+    file: "scripts/project_control_integrity.ts",
     maxScore: 108.17,
     maxCyclo: 266,
     owner: "project controls",

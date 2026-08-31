@@ -14,7 +14,7 @@ import {
   isCanonicalManualPath,
   matchesManualPage,
   parseManualCheckpointInput,
-} from "../project/scripts/manual_doc_checkpoint.ts";
+} from "../scripts/manual_doc_checkpoint.ts";
 import {
   CHECKPOINT_WHEN_INPUT_VERSION,
   type CheckpointWhenInput,
@@ -33,7 +33,6 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const SCRIPT = join(
   REPO_ROOT,
-  "project",
   "scripts",
   "manual_doc_checkpoint.ts",
 );

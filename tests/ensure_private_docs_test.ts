@@ -1,5 +1,5 @@
 /**
- * The private-overlay ensure script (`project/scripts/ensure_private_docs.ts`)
+ * The private-overlay ensure script (`scripts/ensure_private_docs.ts`)
  * must be boring in every environment: it symlinks the main checkout's
  * `project/map/_private/` into a linked worktree when — and only when — the
  * overlay exists there, heals a broken link, never touches a real directory,
@@ -16,7 +16,7 @@ import { git, gitInit } from "./engine_helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 
-const SCRIPT = join(REPO_ROOT, "project", "scripts", "ensure_private_docs.ts");
+const SCRIPT = join(REPO_ROOT, "scripts", "ensure_private_docs.ts");
 
 const OVERLAY_REL = join("project", "map", "_private");
 

@@ -1,19 +1,19 @@
 /** Fire when the manual root adds or replaces a promoted journey. */
 
-import type { CheckpointWhenInput } from "../../src/shared/checkpoints.ts";
-import { lstatIfExists } from "../../src/shared/fs_presence.ts";
-import { resolveContainedProjectReadPath } from "../../src/shared/project_path.ts";
-import { runGit } from "../../src/shared/subprocess.ts";
+import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
+import { lstatIfExists } from "../src/shared/fs_presence.ts";
+import { resolveContainedProjectReadPath } from "../src/shared/project_path.ts";
+import { runGit } from "../src/shared/subprocess.ts";
 import {
   MANUAL_FRONT_DOORS_END,
   MANUAL_FRONT_DOORS_START,
   MANUAL_PAGE_MAX_BYTES,
   manualFrontDoorDestinations,
-} from "../../src/lib/manual.ts";
+} from "../src/lib/manual.ts";
 import {
   MANUAL_FRONT_DOOR_CHECKPOINT_ID,
   REPOSITORY_MANUAL_REL,
-} from "../../src/shared/manual.ts";
+} from "../src/shared/manual.ts";
 import {
   checkpointExactUtf8,
   checkpointGitBytes,

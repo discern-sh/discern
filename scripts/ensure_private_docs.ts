@@ -17,11 +17,8 @@
  */
 
 import { dirname, join, resolve } from "@std/path";
-import {
-  directoryExists,
-  lstatIfExists,
-} from "../../src/shared/fs_presence.ts";
-import { runGit } from "../../src/shared/subprocess.ts";
+import { directoryExists, lstatIfExists } from "../src/shared/fs_presence.ts";
+import { runGit } from "../src/shared/subprocess.ts";
 
 /** The overlay's canonical repository-relative path. */
 const OVERLAY_REL = "project/map/_private";

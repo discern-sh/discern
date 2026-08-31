@@ -16,7 +16,7 @@ import {
   FEATURE_BENEFIT_CURRENCY_CHECKPOINT_ID,
   featureBenefitCanonSections,
   featureBenefitCurrencyReviewRequired,
-} from "../project/scripts/feature_benefit_currency_checkpoint.ts";
+} from "../scripts/feature_benefit_currency_checkpoint.ts";
 import { CHECKPOINT_WHEN_INPUT_VERSION } from "../src/shared/checkpoints.ts";
 import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
@@ -26,7 +26,6 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const SCRIPT = join(
   REPO_ROOT,
-  "project",
   "scripts",
   "feature_benefit_currency_checkpoint.ts",
 );

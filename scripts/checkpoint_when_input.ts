@@ -5,7 +5,7 @@
  */
 
 import { isAbsolute } from "@std/path";
-import { lstatIfExists } from "../../src/shared/fs_presence.ts";
+import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import {
   CHECKPOINT_CHANGE_KINDS,
   CHECKPOINT_MODES,
@@ -13,10 +13,10 @@ import {
   type CheckpointChangeKind,
   type CheckpointMode,
   type CheckpointWhenInput,
-} from "../../src/shared/checkpoints.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../../src/shared/environment_variables.ts";
-import { projectRelativePathIssue } from "../../src/shared/project_path.ts";
-import { type GitResult, runGit } from "../../src/shared/subprocess.ts";
+} from "../src/shared/checkpoints.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
+import { projectRelativePathIssue } from "../src/shared/project_path.ts";
+import { type GitResult, runGit } from "../src/shared/subprocess.ts";
 
 /** Default maximum size of the Engine-authored input file. */
 export const CHECKPOINT_WHEN_INPUT_MAX_BYTES = 512 * 1024;

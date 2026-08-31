@@ -12,7 +12,7 @@ import {
   assertFalse,
   assertStrictEquals,
 } from "@std/assert";
-import { MANUAL_FRONT_DOOR_CHECKPOINT_ID as MATCHER_FRONT_DOOR_CHECKPOINT_ID } from "../project/scripts/manual_front_door_checkpoint.ts";
+import { MANUAL_FRONT_DOOR_CHECKPOINT_ID as MATCHER_FRONT_DOOR_CHECKPOINT_ID } from "../scripts/manual_front_door_checkpoint.ts";
 import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
 import { checkpointWhenInput } from "../src/engine/checkpoints/preflight.ts";
 import { evaluateStructuralTrigger } from "../src/engine/checkpoints/triggers.ts";
@@ -113,7 +113,7 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
       definition.when,
       "deno run --quiet --no-prompt --allow-read " +
         "--allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git " +
-        `project/scripts/manual_doc_checkpoint.ts ${registration.checkpointId}`,
+        `scripts/manual_doc_checkpoint.ts ${registration.checkpointId}`,
     );
   }
   assertFalse(Object.hasOwn(CONFIG.checkpoints, "public-doc-audience"));
@@ -133,7 +133,7 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
     checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).when,
     "deno run --quiet --no-prompt --allow-read " +
       "--allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git " +
-      "project/scripts/manual_front_door_checkpoint.ts",
+      "scripts/manual_front_door_checkpoint.ts",
   );
 
   assertEquals(checkpoint("templates-stay-generic").mode, "stop");
@@ -208,7 +208,7 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
     checkpoint("feature-benefit-currency").when,
     "deno run --quiet --no-prompt --allow-read " +
       "--allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git " +
-      "project/scripts/feature_benefit_currency_checkpoint.ts",
+      "scripts/feature_benefit_currency_checkpoint.ts",
   );
   assertEquals(
     checkpoint("feature-benefit-currency").teach,
@@ -270,9 +270,11 @@ Deno.test("terminal timing checkpoint catches a fresh registered sibling and gen
 Deno.test("project checkpoint matchers share the invocation-root boundary", () => {
   const matcherPaths = new Set<string>();
   for (const definition of RESOLUTION.checkpoints) {
+    // The command names its own module; matching any module path rather than a
+    // fixed tree keeps this boundary true wherever the matchers are stored.
     for (
       const match of definition.when?.matchAll(
-        /(?:^|[\s"'])(project\/scripts\/[A-Za-z0-9_./-]+\.ts)(?=$|[\s"'])/gu,
+        /(?:^|[\s"'])([A-Za-z0-9_./-]+\.ts)(?=$|[\s"'])/gu,
       ) ?? []
     ) {
       const path = match[1];
@@ -289,7 +291,7 @@ Deno.test("project checkpoint matchers share the invocation-root boundary", () =
     .sort();
   assertEquals(directRoots, []);
   assertEquals(AMBIENT_READ_BOUNDARIES["checkpoint-invocation-root"], {
-    path: "project/scripts/checkpoint_when_input.ts",
+    path: "scripts/checkpoint_when_input.ts",
     enclosingFunction: "checkpointInvocationRoot",
     primitive: "cwd",
     operation: "resolve the invoking checkout for project checkpoint matchers",

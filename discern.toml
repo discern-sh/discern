@@ -578,7 +578,7 @@
     # a checkout without the overlay sees a silent no-op, and a session-start
     # re-run heals a broken link.
     ensure = [
-      "deno run --allow-read --allow-write --allow-run=git project/scripts/ensure_private_docs.ts",
+      "deno run --allow-read --allow-write --allow-run=git scripts/ensure_private_docs.ts",
     ]
 
   # ─────────────────────────────────────────────────────────────────────────────
@@ -1414,37 +1414,37 @@
   # from the canonical manual model, and fires closed on unavailable facts.
   [checkpoints.manual-tutorial-comprehension]
     paths = ["project/manual/**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_doc_checkpoint.ts manual-tutorial-comprehension"
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-tutorial-comprehension"
     mode = "stop"
     question = "Can the stated beginner follow this tutorial from its named starting point to the promised first success, recognize that success, and know what to do next without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
     teach = "A tutorial earns its place when its intended beginner can complete and recognize the promised first result."
   [checkpoints.manual-guide-comprehension]
     paths = ["project/manual/**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_doc_checkpoint.ts manual-guide-comprehension"
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-guide-comprehension"
     mode = "stop"
     question = "Can the intended reader start from the named state, take each step, recognize success or refusal, and identify who owns every decision without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
     teach = "A guide must leave its reader able to act safely and recognize the resulting state."
   [checkpoints.manual-explanation-comprehension]
     paths = ["project/manual/**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_doc_checkpoint.ts manual-explanation-comprehension"
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-explanation-comprehension"
     mode = "stop"
     question = "Can the intended reader restate this concept, distinguish its adjacent states and authority boundaries, and predict the important consequence without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
     teach = "An explanation must give the reader a usable mental model, not only a description."
   [checkpoints.manual-reference-comprehension]
     paths = ["project/manual/**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_doc_checkpoint.ts manual-reference-comprehension"
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-reference-comprehension"
     mode = "stop"
     question = "Can the intended reader find an exact, complete, current answer here, including every relevant default and limit, and act on it without repository context? Where this reference names core workflow states, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
     teach = "Reference must answer the lookup precisely and expose the boundaries that change the answer."
   [checkpoints.manual-troubleshooting-comprehension]
     paths = ["project/manual/**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_doc_checkpoint.ts manual-troubleshooting-comprehension"
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-troubleshooting-comprehension"
     mode = "stop"
     question = "Can the intended reader start from the observable symptom, distinguish the likely causes, recover safely, recognize the result, and know when to stop without repository context? Where recovery touches the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
     teach = "Troubleshooting must route from a symptom to bounded recovery and a clear stopping point."
   [checkpoints.manual-front-door-promotion]
     paths = ["project/manual/README.md"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/manual_front_door_checkpoint.ts"
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_front_door_checkpoint.ts"
     mode = "stop"
     question = "Does each added or replacement promoted journey earn scarce front-door space by serving a distinct, high-priority starting need, with a destination that immediately fulfils its label?"
     teach = "Keep promotion deliberately small; publication already gives every page complete navigation, search, raw, export, MCP, and machine reach."
@@ -1525,7 +1525,7 @@
       "templates/**",
       "scripts/brand/claims.ts",
     ]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git project/scripts/feature_benefit_currency_checkpoint.ts"
+    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/feature_benefit_currency_checkpoint.ts"
     mode = "advise"
     question = "Does this change add or alter a user-visible capability, result, boundary, or agent-facing hint, and is every unchanged Feature, Human Benefit, or Agent Benefit Canon region still complete?"
     teach = "The matcher compares all three canon regions independently; an unchanged region may be correct, but it still needs review."

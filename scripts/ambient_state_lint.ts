@@ -74,7 +74,7 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
       "The standalone editor server composes its listening port from the host process before serving requests.",
   },
   "checkpoint-input-path": {
-    path: "project/scripts/checkpoint_when_input.ts",
+    path: "scripts/checkpoint_when_input.ts",
     enclosingFunction: "checkpointWhenInputFromEnvironment",
     primitive: "env.get",
     operation: "read the Gate-provided checkpoint input path",
@@ -82,7 +82,7 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
       "The executable checkpoint adapter reads the Gate-provided path to its invocation payload.",
   },
   "checkpoint-invocation-root": {
-    path: "project/scripts/checkpoint_when_input.ts",
+    path: "scripts/checkpoint_when_input.ts",
     enclosingFunction: "checkpointInvocationRoot",
     primitive: "cwd",
     operation: "resolve the invoking checkout for project checkpoint matchers",
@@ -306,7 +306,7 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
       "The preset command composes its explicit development source override at the host process boundary.",
   },
   "private-docs-checkout-root-cwd": {
-    path: "project/scripts/ensure_private_docs.ts",
+    path: "scripts/ensure_private_docs.ts",
     enclosingFunction: "<module>",
     primitive: "cwd",
     operation: "resolve the current checkout root reported by Git",
@@ -314,7 +314,7 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
       "The executable repository check compares the checkout cwd with Git's reported top level.",
   },
   "private-docs-git-query-cwd": {
-    path: "project/scripts/ensure_private_docs.ts",
+    path: "scripts/ensure_private_docs.ts",
     enclosingFunction: "gitQuery",
     primitive: "cwd",
     operation: "anchor a private-docs Git query",
@@ -322,7 +322,7 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
       "The executable repository check runs each Git query against the invoking checkout cwd.",
   },
   "private-docs-main-root-cwd": {
-    path: "project/scripts/ensure_private_docs.ts",
+    path: "scripts/ensure_private_docs.ts",
     enclosingFunction: "<module>",
     primitive: "cwd",
     operation: "resolve Git's common directory from the checkout",

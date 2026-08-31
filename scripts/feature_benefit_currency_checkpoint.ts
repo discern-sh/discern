@@ -10,10 +10,10 @@
  * judged rather than hidden by an unrelated edit elsewhere in the file.
  */
 
-import type { CheckpointWhenInput } from "../../src/shared/checkpoints.ts";
-import { resolveContainedProjectReadPath } from "../../src/shared/project_path.ts";
-import { lstatIfExists } from "../../src/shared/fs_presence.ts";
-import { type GitResult, runGit } from "../../src/shared/subprocess.ts";
+import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
+import { resolveContainedProjectReadPath } from "../src/shared/project_path.ts";
+import { lstatIfExists } from "../src/shared/fs_presence.ts";
+import { type GitResult, runGit } from "../src/shared/subprocess.ts";
 import {
   checkpointExactUtf8,
   checkpointGitBytes,

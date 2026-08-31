@@ -19,7 +19,7 @@ import {
   projectManualProse,
   withStagedManualProse,
 } from "../scripts/manual_prose_lib.ts";
-import { addsOrReplacesFrontDoor } from "../project/scripts/manual_front_door_checkpoint.ts";
+import { addsOrReplacesFrontDoor } from "../scripts/manual_front_door_checkpoint.ts";
 import { countManualFrontDoors } from "../scripts/manual_front_doors.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { SEARCH_KIND_WEIGHT } from "../src/lib/docs_search.js";

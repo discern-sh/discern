@@ -3,4 +3,4 @@
 set -eu
 
 cd "${DISCERN_ROOT:-.}"
-exec deno run --quiet --no-prompt --allow-read --allow-run=git project/scripts/project_control_integrity.ts "$@"
+exec deno run --quiet --no-prompt --allow-read --allow-run=git scripts/project_control_integrity.ts "$@"

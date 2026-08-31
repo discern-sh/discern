@@ -8,23 +8,23 @@
  * checkpoint over its complete structural match.
  */
 
-import type { CheckpointWhenInput } from "../../src/shared/checkpoints.ts";
-import { lstatIfExists } from "../../src/shared/fs_presence.ts";
-import { resolveContainedProjectReadPath } from "../../src/shared/project_path.ts";
-import { type GitResult, runGit } from "../../src/shared/subprocess.ts";
+import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
+import { lstatIfExists } from "../src/shared/fs_presence.ts";
+import { resolveContainedProjectReadPath } from "../src/shared/project_path.ts";
+import { type GitResult, runGit } from "../src/shared/subprocess.ts";
 import {
   parseFrontmatter,
   readFrontmatterBlock,
   validateFrontmatter,
-} from "../../src/lib/frontmatter.ts";
-import { MANUAL_PAGE_MAX_BYTES } from "../../src/lib/manual.ts";
+} from "../src/lib/frontmatter.ts";
+import { MANUAL_PAGE_MAX_BYTES } from "../src/lib/manual.ts";
 import {
   isManualMarkdownPath,
   MANUAL_KIND_REGISTRY,
   type ManualKind,
   manualKindForCheckpoint,
   REPOSITORY_MANUAL_REL,
-} from "../../src/shared/manual.ts";
+} from "../src/shared/manual.ts";
 import {
   checkpointExactUtf8,
   checkpointGitBytes,

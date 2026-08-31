@@ -11,7 +11,7 @@ import {
   checkProjectControls,
   type ProjectControlFinding,
   type ProjectControlRule,
-} from "../project/scripts/project_control_integrity.ts";
+} from "../scripts/project_control_integrity.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";

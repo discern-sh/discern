@@ -23,12 +23,9 @@ import {
   directoryExists,
   fileExists,
   targetExists,
-} from "../../src/shared/fs_presence.ts";
-import {
-  extractDocLinks,
-  headingAnchors,
-} from "../../src/lib/docs_integrity.ts";
-import { structuralGuardScope } from "../../tests/structural_guard_scope.ts";
+} from "../src/shared/fs_presence.ts";
+import { extractDocLinks, headingAnchors } from "../src/lib/docs_integrity.ts";
+import { structuralGuardScope } from "../tests/structural_guard_scope.ts";
 
 const PLANNING_REL = "project/map/_private/planning";
 const TODO_REL = "project/TODO.md";
@@ -1380,8 +1377,7 @@ async function checkBudgetCopies(
 ): Promise<ProjectControlFinding[]> {
   const findings: ProjectControlFinding[] = [];
   const paths = await structuralGuardScope({
-    guard:
-      "project/scripts/project_control_integrity.ts#documenter-budget-consumers",
+    guard: "scripts/project_control_integrity.ts#documenter-budget-consumers",
     universe: "tracked-markdown",
     narrow: {
       reason:

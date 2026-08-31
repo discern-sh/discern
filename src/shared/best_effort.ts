@@ -1168,7 +1168,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "Process settlement remains authoritative and a raced child exit is already the desired cancellation state.",
   },
   "private-docs-git-query-fallback": {
-    path: "project/scripts/ensure_private_docs.ts",
+    path: "scripts/ensure_private_docs.ts",
     enclosingFunction: "gitQuery",
     operation:
       "skip private-doc generation when its Git location query cannot run",
