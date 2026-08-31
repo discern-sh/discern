@@ -574,8 +574,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: {
       phrase:
         "a saved copy of the proof, attached to the project's shared history",
+      match: String.raw`\bproof\s+notes?\b`,
     },
-    matches: ["proof notes"],
     definition:
       "The repository-resident JSON record of a landed [proof](#proof), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) boundary binds the full commit and preserves the payload bytes for future signatures. Current notes use discern's empty-array unsigned extension. Local recording is default-on, fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Proof notes](../20-quality-gate/proof-notes.md).",
   },
