@@ -424,7 +424,7 @@ Avoid generic labels where the destination is unclear: `Explore`, `Discover`, `C
 
 Do not open with the complete mechanism list. Reveal proof in the order required by belief:
 
-1. **Show the desired future:** greater ambition, earned confidence, meaningful attention.
+1. **Show the desired future:** the reader's own project, taken further than one person could otherwise carry it.
 2. **Show a recognizable moment:** backlog planning, commissioning, parallel work, ready-for-decision return.
 3. **Explain the category:** an engineering practice installed into the project.
 4. **Name the connected mechanisms:** instructions, isolated work, deterministic checks, Standards, Proof, acceptance.
@@ -432,16 +432,30 @@ Do not open with the complete mechanism list. Reveal proof in the order required
 6. **State the boundary:** what the evidence covers and what it does not.
 7. **Offer technical depth:** documentation, source-level explanation, schemas, trust page.
 
+Contrast is part of proof: put the before state — a zero-context session, a silently landed change — beside the after state. The after only reads as remarkable next to its before.
+
+## Testing a line
+
+Run every candidate line through five checks before it ships. A line that fails one is a rewrite, not an exception.
+
+- **The exact-match test.** Search the line in quotes; hundreds of prior uses mean the words are already dead.
+- **The parody test.** Read it aloud as an infomercial announcer; a line that slots in cleanly is a cliché.
+- **The signature test.** Put a rival's logo under the unchanged line; if nothing breaks, it says nothing about discern.
+- **The fact test.** Every adjective should be replaceable by a number, a name, or a demonstrable claim — usually one from the fact inventory.
+- **The contrast test.** Name the before state; a line with no cold water beside it gives the reader nothing to feel.
+
 ## Public-copy guardrails
 
 - A feature supplies supporting evidence; promote it only when it serves the reader's moment.
 - A canonical product noun becomes compelling only when it carries human meaning.
+- Prefer a ledger fact to an adjective; an adjective is a placeholder for a fact not yet found.
+- State a real limit plainly where trust is being earned; honesty cannot be clichéd or parodied.
 - “Serious” should feel aspirational and pleasurable.
 - Give “bold” enough discipline to feel considered.
 - Frame speed as expanded possibility. Avoid celebrating code volume.
 - New builders should be welcomed without erasing engineering expertise.
 - Engineers should be respected without making the brand an insiders' club.
 - Agents should be presented as capable collaborators.
-- Avoid `X, not Y` phrasing; the template reads as contemporary generated copy.
+- Ban the “not just X — Y” rhythm tic, which reads as generated copy; true two-pole contrast — a cold fact set beside a warm one — is encouraged.
 - Do not repeat the same slogan across several adjacent sections.
 - Let natural sentences do more work than fragments and aphorisms.
