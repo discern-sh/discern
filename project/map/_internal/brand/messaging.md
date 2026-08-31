@@ -34,6 +34,7 @@ The grid every message derives from: the default the reader already lives with o
 | Quality drifts as sessions accumulate, and nothing catches it.                 | When quality improves, a Standard locks in the gain; no later change can undo it.                                       |
 | Switching providers means re-teaching the project from scratch.                | The agents you use all get the same instructions and checks; start a task with one provider and finish it with another. |
 | Every lab is making the agent better.                                          | discern makes your project a better place for them to work.                                                             |
+| Agent products sell the removal of limits.                                     | discern installs the limits that let more work move at once, with responsibility intact.                                |
 
 ## Canonical message hierarchy
 
@@ -42,6 +43,22 @@ The grid every message derives from: the default the reader already lives with o
 **Consequential Code**
 
 Internal platform name. The public meaning is that software earns confidence through the way it is built.
+
+### The organizing idea
+
+discern is named for what it does: to discern is to tell one thing from another. Every mechanism in the product keeps a distinction that matters:
+
+- one project, with a separate environment for every task;
+- agent judgment, machine verification, and human authority, each kept distinct;
+- evidence tied to one exact change;
+- the provider's intelligence apart from the project's practice;
+- authored sources apart from generated artifacts;
+- ready apart from permitted to land;
+- ambitious work divided into bounded units that compose again.
+
+Underneath sits the paradox: the right boundaries are what let more work move. Most agent products sell the removal of limits; discern installs the limits that make the bigger handoff workable, with responsibility intact.
+
+Let the reader feel the form as well as the expansion — the distinctions are the reason the expansion holds.
 
 ### Audience signature
 
@@ -217,6 +234,25 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 - implying that human review never matters;
 - treating delegation itself as unique when vendor coding-agent CLIs increasingly offer fleets.
 
+### The right limits
+
+**Human truth:** People hand an agent only as much work as they can afford to have go wrong at once.
+
+**Promise:** discern bounds each piece of work, so more of it can move at the same time.
+
+**Good expressions:**
+
+- The right limits let more work move.
+- One project, a separate environment for every task.
+- discern keeps the right things apart, and the whole thing connected.
+- Ready is the Gate's question; shipping is yours.
+
+**Avoid:**
+
+- framing discern as the brake on an agent's speed;
+- implying agents are hazards to be caged;
+- presenting boundaries as overhead rather than what lets the work scale.
+
 ### Exact reasons to believe
 
 **Human truth:** Confidence needs observable conditions that stand apart from the agent's tone.
@@ -350,6 +386,15 @@ These are testable candidates for the homepage.
 > **Primary CTA:** See the practice\
 > **Secondary CTA:** Explore the evidence
 
+### Hero D — Paradox-led
+
+> # The right limits let more work move.
+>
+> discern gives every task its own environment, holds every change to your project's declared bar, and keeps the shipping decision with you. Those boundaries are what make the bigger handoff possible.
+>
+> **Primary CTA:** Follow a change from brief to acceptance\
+> **Secondary CTA:** Read how discern works
+
 ## Contextual headline inventory
 
 | Line                                                                                           | Best use                                         | Caution                                                                                                 |
@@ -359,6 +404,8 @@ These are testable candidates for the homepage.
 | Agents come and go. The practice stays.                                                        | Provider-continuity section, closing line        | Best where switching pain is already recognized.                                                        |
 | The MVP took a weekend. Now you've got real users depending on it.                             | Consequence-threshold campaign, new-builder page | Celebrate the threshold; never scold the weekend.                                                       |
 | Your agent wrote four thousand lines last night — and you already know what passed.            | Problem-opening ad, delegation essay             | Show the Gate's account nearby so the second half reads as fact.                                        |
+| The right limits let more work move.                                                           | Manifesto, delegation essay, About page          | Name a literal boundary (worktree, Gate, authority) in the next sentence, or it reads as philosophy.    |
+| Ready is the Gate's question; shipping is yours.                                               | Trust page, acceptance section, engineer page    | Introduce the Gate in plain language first.                                                             |
 | Software that holds up.                                                                        | Outcome section, customer story, product page    | Add energy nearby; can feel defensive alone.                                                            |
 | Ship serious software.                                                                         | CTA, guide, campaign, video                      | Do not use as an accusation that current work is unserious.                                             |
 | Software worth putting your name to.                                                           | Founder, pride, responsibility, close            | Avoid overusing “name” alongside ownership language.                                                    |
@@ -433,6 +480,7 @@ Run every candidate line through five checks before it ships. A line that fails 
 - A feature supplies supporting evidence; promote it only when it serves the reader's moment.
 - A canonical product noun becomes compelling only when it carries human meaning.
 - Prefer a ledger fact to an adjective; an adjective is a placeholder for a fact not yet found.
+- When a page shows more work moving, name the boundary that makes it possible beside it.
 - State a real limit plainly where trust is being earned; a stated limit cannot be clichéd or parodied.
 - “Serious” should feel aspirational and pleasurable.
 - Give “bold” enough discipline to feel considered.

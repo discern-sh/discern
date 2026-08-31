@@ -29,6 +29,23 @@ export const TERRITORIES = [
 Internal platform name. The public meaning is that software earns confidence through the way it is built.`,
   },
   {
+    id: "organizing-idea",
+    title: "The organizing idea",
+    body: `discern is named for what it does: to discern is to tell one thing from another. Every mechanism in the product keeps a distinction that matters:
+
+- one project, with a separate environment for every task;
+- agent judgment, machine verification, and human authority, each kept distinct;
+- evidence tied to one exact change;
+- the provider's intelligence apart from the project's practice;
+- authored sources apart from generated artifacts;
+- ready apart from permitted to land;
+- ambitious work divided into bounded units that compose again.
+
+Underneath sits the paradox: the right boundaries are what let more work move. Most agent products sell the removal of limits; discern installs the limits that make the bigger handoff workable, with responsibility intact.
+
+Let the reader feel the form as well as the expansion — the distinctions are the reason the expansion holds.`,
+  },
+  {
     id: "audience-signature",
     title: "Audience signature",
     body: `> **For people who take their software seriously.**
@@ -163,6 +180,13 @@ export const POSITIONING_GRID = [
     against: "Every lab is making the agent better.",
     instead: "discern makes your project a better place for them to work.",
     claims: ["agent-as-operator", "installs-a-practice"],
+  },
+  {
+    id: "limit-removal",
+    against: "Agent products sell the removal of limits.",
+    instead:
+      "discern installs the limits that let more work move at once, with responsibility intact.",
+    claims: ["isolated-worktrees", "gate-grants-no-authority", "shaped-delegation"],
   },
 ] as const satisfies readonly PositioningContrast<ClaimSlug>[];
 
@@ -320,6 +344,30 @@ export const PILLARS = [
       "isolated-worktrees",
       "no-checkout-collisions",
       "reduced-review-burden",
+    ],
+  },
+  {
+    id: "right-limits",
+    title: "The right limits",
+    humanTruth:
+      "People hand an agent only as much work as they can afford to have go wrong at once.",
+    promise:
+      "discern bounds each piece of work, so more of it can move at the same time.",
+    goodExpressions: [
+      "The right limits let more work move.",
+      "One project, a separate environment for every task.",
+      "discern keeps the right things apart, and the whole thing connected.",
+      "Ready is the Gate's question; shipping is yours.",
+    ],
+    avoid: [
+      "framing discern as the brake on an agent's speed;",
+      "implying agents are hazards to be caged;",
+      "presenting boundaries as overhead rather than what lets the work scale.",
+    ],
+    claims: [
+      "isolated-worktrees",
+      "gate-grants-no-authority",
+      "shaped-delegation",
     ],
   },
   {
@@ -488,6 +536,15 @@ export const HERO_SYSTEMS = [
     primaryCta: "See the practice",
     secondaryCta: "Explore the evidence",
   },
+  {
+    id: "hero-d",
+    title: "Hero D — Paradox-led",
+    headline: "The right limits let more work move.",
+    sub:
+      "discern gives every task its own environment, holds every change to your project's declared bar, and keeps the shipping decision with you. Those boundaries are what make the bigger handoff possible.",
+    primaryCta: "Follow a change from brief to acceptance",
+    secondaryCta: "Read how discern works",
+  },
 ] as const satisfies readonly HeroSystem[];
 
 /** The contextual headline inventory. */
@@ -520,6 +577,17 @@ export const HEADLINES = [
       "Your agent wrote four thousand lines last night — and you already know what passed.",
     bestUse: "Problem-opening ad, delegation essay",
     caution: "Show the Gate's account nearby so the second half reads as fact.",
+  },
+  {
+    line: "The right limits let more work move.",
+    bestUse: "Manifesto, delegation essay, About page",
+    caution:
+      "Name a literal boundary (worktree, Gate, authority) in the next sentence, or it reads as philosophy.",
+  },
+  {
+    line: "Ready is the Gate's question; shipping is yours.",
+    bestUse: "Trust page, acceptance section, engineer page",
+    caution: "Introduce the Gate in plain language first.",
   },
   {
     line: "Software that holds up.",
@@ -656,6 +724,7 @@ export const PUBLIC_COPY_GUARDRAILS: readonly string[] = [
   "A feature supplies supporting evidence; promote it only when it serves the reader's moment.",
   "A canonical product noun becomes compelling only when it carries human meaning.",
   "Prefer a ledger fact to an adjective; an adjective is a placeholder for a fact not yet found.",
+  "When a page shows more work moving, name the boundary that makes it possible beside it.",
   "State a real limit plainly where trust is being earned; a stated limit cannot be clichéd or parodied.",
   "“Serious” should feel aspirational and pleasurable.",
   "Give “bold” enough discipline to feel considered.",
