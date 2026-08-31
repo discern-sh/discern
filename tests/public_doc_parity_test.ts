@@ -46,6 +46,13 @@ const PUBLISH_ACCESS_EXCEPTIONS = new Map<string, string>([
     "src/lib/manual.ts",
     "is the strict manual corpus-policy wrapper over the neutral predicate",
   ],
+  [
+    "scripts/manual_doc_checkpoint.ts",
+    "reads one changed page's raw frontmatter from a Git tree to decide " +
+    "whether a checkpoint covers it; the corpus projection cannot answer for " +
+    "a deleted page, and a page missing the key must fire the checkpoint " +
+    "closed rather than resolve to unpublished",
+  ],
 ]);
 
 const consumesPredicate = (text: string): boolean =>
@@ -80,7 +87,7 @@ Deno.test("no module outside the registry touches the page-level publish axis", 
       universe: "authored-ts",
       narrow: {
         reason:
-          "The publication model governs production, site, and repository-tool modules; tests and project scripts consume its outputs as controls.",
+          "The publication model governs production, site, and repository-tool modules; tests consume its outputs as controls.",
         include: (path) =>
           path.startsWith("src/") || path.startsWith("site/") ||
           path.startsWith("scripts/"),
