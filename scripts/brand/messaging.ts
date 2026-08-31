@@ -80,7 +80,8 @@ Warmer and more explicit. Useful in founder, customer, and new-builder narrative
   {
     id: "primary-conversion",
     title: "Primary conversion territory",
-    body: `> **The work comes back finished. What's left is the part only you can do.**
+    body:
+      `> **The work comes back finished. What's left is the part only you can do.**
 
 The territory's job is a changed relationship to delegated work, for both audiences:
 
@@ -518,8 +519,7 @@ export const HEADLINES = [
     line:
       "Your agent wrote four thousand lines last night — and you already know what passed.",
     bestUse: "Problem-opening ad, delegation essay",
-    caution:
-      "Show the Gate's account nearby so the second half reads as fact.",
+    caution: "Show the Gate's account nearby so the second half reads as fact.",
   },
   {
     line: "Software that holds up.",
