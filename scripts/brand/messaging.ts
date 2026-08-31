@@ -31,33 +31,37 @@ Internal platform name. The public meaning is that software earns confidence thr
     title: "Audience signature",
     body: `> **For people who take their software seriously.**
 
-Use sparingly. It works best as a signature, eyebrow, manifesto line, social bio, or campaign closer. Its force depends on the unspoken second reading: the builder wants the software to be taken seriously by others.`,
+Use sparingly. It works best as a signature, eyebrow, manifesto line, social bio, or campaign closer. Its force depends on the unspoken second reading: the builder wants the software to be taken seriously by others.
+
+Any developer tool could sign this line, so it seasons a page rather than carrying one; the lines that carry a page are the ones only discern can say.`,
   },
   {
-    id: "lead-creative",
-    title: "Lead creative territory",
-    body: `Approved candidates:
+    id: "category",
+    title: "Lead territory — the category claim",
+    body: `> **An engineering practice for agent-built software.**
 
-> **A bolder way to build.**
+> **discern installs that practice into the project.**
 
-Best when the page should feel ambitious, audacious, and founder-led. “Bolder” describes the builder's reach. It does not describe the codebase's size.
+This is the lead: the one claim no competitor can put their logo under. Agent vendors sell the agent; discern installs the practice the project keeps. When a page can make only one point, it makes this one.
 
-> **Build further.**
+The sharpest expression of the contrast:
 
-Best when restraint, elegance, and flexibility matter. It can mean further into an idea, beyond one person's capacity, or toward software people can depend on.
+> **The labs are making agents better. discern makes your project better at receiving them.**
 
-> **A bigger way to build.**
+Alternative contextual forms:
 
-Retained as a contextual candidate because of its cadence and impact. Use it where nearby copy makes clear that “bigger” means capability and ambition.
+- An agent-native engineering practice.
+- A serious engineering practice, installed in your project.
+- A working practice for coding agents and the people responsible for what ships.
 
-Avoid defaulting to **A better way to build**. It is broadly true but insufficiently distinctive unless a specific comparison gives “better” content.`,
+The category line orients. Pair it with a fact line or a recognizable moment; it does not need an abstract emotional headline above it.`,
   },
   {
     id: "durable-outcome",
     title: "Durable outcome territory",
     body: `> **Software that holds up.**
 
-A flexible expression covering ongoing change, scrutiny, real users, coherence, and maintainability.
+A flexible expression covering ongoing change, scrutiny, real users, coherence, and maintainability. It carries an implicit before-state — software that gives way under those pressures — which is what keeps it from reading as filler.
 
 > **Ship serious software.**
 
@@ -72,36 +76,25 @@ Personal and premium. Best where pride, authorship, and reputation are already p
 Warmer and more explicit. Useful in founder, customer, and new-builder narratives.`,
   },
   {
-    id: "category",
-    title: "Category",
-    body: `> **An engineering practice for agent-built software.**
-
-> **discern installs that practice into the project.**
-
-Alternative contextual forms:
-
-- An agent-native engineering practice.
-- A serious engineering practice, installed in your project.
-- A working practice for coding agents and the people responsible for what ships.
-
-The category line should orient. Let the emotional headline do a different job.`,
-  },
-  {
     id: "primary-conversion",
     title: "Primary conversion territory",
-    body: `> **Spend your attention where your judgment matters most.**
+    body: `> **Come back to work that is ready for a decision.**
 
-This works across audiences:
+The territory's job is a changed relationship to delegated work, for both audiences:
 
 - the engineer moves away from routine implementation inspection;
 - the new builder receives a meaningful basis for decisions without pretending to become a code reviewer.
 
+“Spend your attention where your judgment matters most” is retired from lead use: it is the shared promise of every agent vendor, so any of them could sign it. The replacement expressions carry the mechanism that makes the promise discern's own.
+
 Supporting expressions:
 
-- Let substantial work move without staying inside every detail.
-- Come back to work that is ready for a decision.
-- Give the agent the work; keep your attention for direction and consequence.
-- Hand over the complete unit of work. This is strongest on engineer-focused conversion pages and needs careful translation for new builders.`,
+- The work returns with evidence attached to the exact change.
+- Several pieces can move at once without making you their courier.
+- Give the agent the work; keep the decision to ship.
+- Your agent wrote four thousand lines last night. Which ones did you read?
+
+The last line opens the problem. Follow it with the practice in the next breath, never with fear.`,
   },
   {
     id: "technical-distinction",
@@ -116,6 +109,21 @@ Supporting expressions:
 - Context treated as a budget.
 
 This territory leads the For Agents page and technical thought leadership.`,
+  },
+  {
+    id: "deferred-creative",
+    title: "Deferred creative territory",
+    body: `Held for later, not for launch:
+
+> **A bolder way to build.**
+
+> **Build further.**
+
+> **A bigger way to build.**
+
+Each is an open line that any builder's tool could sign, and each needs a subhead to explain itself — the mark of a line spending equity the brand has not yet earned. An open line works once years of concrete campaigns have given it content; until then, the concrete territories above do the work. Revisit when launch evidence exists.
+
+Avoid defaulting to **A better way to build** for the same reason at greater strength.`,
   },
 ] as const satisfies readonly Territory[];
 
