@@ -1,6 +1,6 @@
 /**
- * The copy patterns as typed registry data: the seventeen reusable
- * structures, the per-draft procedure, and the anti-abuse rules.
+ * The copy patterns as typed registry data: the reusable structures, the
+ * per-draft procedure, and the anti-abuse rules.
  * `copy-patterns.md` compiles from this module; a pattern's number is its
  * position in `COPY_PATTERNS`, so the sequence can never skip or repeat.
  */
@@ -18,7 +18,7 @@ export const DRAFT_STEPS: readonly string[] = [
   "run the copy review.",
 ];
 
-/** The seventeen copy patterns, in document order. */
+/** The copy patterns, in document order. */
 export const COPY_PATTERNS = [
   {
     id: "category-led-hero",
@@ -472,6 +472,36 @@ Avoid beginning with a company mission statement. Begin with the lived discovery
 
 Do not compress an entire product page into a social post.`,
       },
+    ],
+  },
+  {
+    id: "contrast-pair",
+    title: "Contrast pair",
+    useWhen:
+      "The default's cost is invisible until discern's answer stands beside it.",
+    structure: `<The default, stated plainly as fact.>
+
+<discern's answer, stated plainly as fact.>
+
+<Optional artifact making both halves literal.>`,
+    structureLang: "text",
+    sections: [
+      {
+        heading: "Working examples",
+        body: `> Every agent session starts from zero and relearns the project from its prompt.
+>
+> The practice lives in your project, so every agent arrives already briefed.
+
+> Agent products sell the removal of limits.
+>
+> discern installs the limits that let more work move at once, with responsibility intact.`,
+      },
+    ],
+    requirements: [
+      "Draw both halves from the positioning grid or the fact inventory in {{doc:messaging}}; invent neither half.",
+      "Both halves must be facts the reader can check; the gap between them is the argument.",
+      "Keep the pair free of the “It's not X — it's Y” rhythm tic; two plain sentences carry the contrast.",
+      "A demonstration strengthens the pair: the same change with and without discern.",
     ],
   },
 ] as const satisfies readonly CopyPattern[];

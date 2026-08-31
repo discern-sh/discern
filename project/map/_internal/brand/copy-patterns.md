@@ -565,6 +565,41 @@ The page has already established desire and belief.
 
 Do not compress an entire product page into a social post.
 
+---
+
+## Pattern 18 — Contrast pair
+
+### Use when
+
+The default's cost is invisible until discern's answer stands beside it.
+
+### Structure
+
+```text
+<The default, stated plainly as fact.>
+
+<discern's answer, stated plainly as fact.>
+
+<Optional artifact making both halves literal.>
+```
+
+### Working examples
+
+> Every agent session starts from zero and relearns the project from its prompt.
+>
+> The practice lives in your project, so every agent arrives already briefed.
+
+> Agent products sell the removal of limits.
+>
+> discern installs the limits that let more work move at once, with responsibility intact.
+
+### Requirements
+
+- Draw both halves from the positioning grid or the fact inventory in [`messaging.md`](messaging.md); invent neither half.
+- Both halves must be facts the reader can check; the gap between them is the argument.
+- Keep the pair free of the “It's not X — it's Y” rhythm tic; two plain sentences carry the contrast.
+- A demonstration strengthens the pair: the same change with and without discern.
+
 ## Rewriting feature-first copy
 
 When a draft starts with a feature, use this ladder:
