@@ -349,6 +349,20 @@ export const TRANSLATIONS = [
     ],
   },
   {
+    id: "acceptance",
+    title: "Acceptance",
+    productTruth:
+      "a passing Gate makes a change eligible; landing requires conversational consent or a recorded grant checked at the boundary.",
+    weakLiteralTranslation: "Authority-gated fast-forward merge workflow.",
+    betterHumanTranslations: [
+      "Ready is the Gate's question; shipping is yours.",
+      "Nothing lands on an agent's say-so.",
+      "Grant independence once, at a boundary you choose.",
+    ],
+    productNounEntry:
+      "Passing the Gate makes a change eligible to land; acceptance is the recorded decision that ships it.",
+  },
+  {
     id: "patterns",
     title: "Patterns",
     productTruth:
@@ -386,6 +400,7 @@ export const DRAFTING_PROCEDURE: readonly string[] = [
   "Decide whether that change deserves public prominence.",
   "Write the human proposition without product nouns.",
   "Reintroduce only the product nouns required to explain or prove it.",
+  "Run the line tests in {{doc:messaging}} on any line meant for a public page.",
   "Check the proposed claim against {{doc:claims-and-evidence}}.",
 ];
 
@@ -464,6 +479,8 @@ export function renderBridgeDoc(): string {
     "Only features that help the reader understand or believe the human proposition belong in marketing.",
     "",
     "Use the product canon as evidence after defining the human proposition.",
+    "",
+    "The fact inventory in {{doc:messaging}} holds pre-cleared lines whose trace to the claims ledger is already recorded; prefer one of those before translating a feature from scratch.",
     "",
     "## Drafting procedure",
     "",

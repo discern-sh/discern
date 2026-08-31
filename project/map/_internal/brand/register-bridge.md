@@ -15,6 +15,8 @@ Only features that help the reader understand or believe the human proposition b
 
 Use the product canon as evidence after defining the human proposition.
 
+The fact inventory in [`messaging.md`](messaging.md) holds pre-cleared lines whose trace to the claims ledger is already recorded; prefer one of those before translating a feature from scratch.
+
 ## Drafting procedure
 
 Before writing public copy about a feature:
@@ -26,7 +28,8 @@ Before writing public copy about a feature:
 5. Decide whether that change deserves public prominence.
 6. Write the human proposition without product nouns.
 7. Reintroduce only the product nouns required to explain or prove it.
-8. Check the proposed claim against [`claims-and-evidence.md`](claims-and-evidence.md).
+8. Run the line tests in [`messaging.md`](messaging.md) on any line meant for a public page.
+9. Check the proposed claim against [`claims-and-evidence.md`](claims-and-evidence.md).
 
 ## Core concept map
 
@@ -131,6 +134,22 @@ Before writing public copy about a feature:
 - Give several agents complete, non-overlapping responsibilities.
 - Let dependencies resolve without becoming the courier between sessions.
 - What comes back has already faced an independent technical pass.
+
+### Acceptance
+
+**Product truth:** a passing Gate makes a change eligible; landing requires conversational consent or a recorded grant checked at the boundary.
+
+**Weak literal translation:** `Authority-gated fast-forward merge workflow.`
+
+**Better human translations:**
+
+- Ready is the Gate's question; shipping is yours.
+- Nothing lands on an agent's say-so.
+- Grant independence once, at a boundary you choose.
+
+**Where the product noun enters:**
+
+> Passing the Gate makes a change eligible to land; acceptance is the recorded decision that ships it.
 
 ### Patterns
 
