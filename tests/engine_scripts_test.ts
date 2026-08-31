@@ -98,6 +98,28 @@ Deno.test("Desk script discovery retains a non-executable command with safely qu
   });
 });
 
+Deno.test("Desk script discovery does not offer the executable bit to a module", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const config = await loadConfig(dir);
+    const initial = await inspectDeskProjectScriptsWithConfig(dir, config);
+    await Deno.mkdir(initial.directory, { recursive: true });
+    const path = join(initial.directory, "matcher.ts");
+    await Deno.writeTextFile(path, 'import { thing } from "./other.ts";\n');
+
+    const inventory = await inspectDeskProjectScriptsWithConfig(dir, config);
+    const script = inventory.scripts.find((candidate) =>
+      candidate.name === "matcher.ts"
+    );
+    assert(script !== undefined);
+    assertEquals(script.availability, "disabled");
+    assertStringIncludes(script.reason ?? "", "names no interpreter");
+    // Setting the bit would list a command that still cannot run, so the
+    // remedy must send the author out of the directory instead.
+    assertEquals(script.reason?.includes("chmod") ?? false, false);
+  });
+});
+
 Deno.test("scripts lists every executable project script in deterministic order", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -275,6 +297,29 @@ Deno.test("scripts: an existing non-executable file is reported, not run", async
       'script "deploy" exists but is not executable',
     );
     assertTerminalTextIncludes(r.stderr, "chmod +x");
+  });
+});
+
+Deno.test("scripts: a file that names no interpreter is not offered the executable bit", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "discern/scripts/matcher.ts"),
+      'import { thing } from "./other.ts";\nthing();\n',
+    );
+    const r = await runAgent(dir, ["scripts", "matcher.ts"]);
+    assertEquals(r.code, 1);
+    assertTerminalTextIncludes(
+      r.stderr,
+      'script "matcher.ts" is not a runnable Project Script',
+    );
+    assertTerminalTextIncludes(r.stderr, "names no interpreter");
+    assertEquals(
+      r.stderr.includes("chmod +x"),
+      false,
+      "setting the bit would leave a listed command that still cannot run",
+    );
   });
 });
 

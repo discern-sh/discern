@@ -62,8 +62,7 @@ export interface DeskProjectScriptInventory {
 }
 
 /** Read a Project Script's first `# desc:` line, or undefined when absent. */
-async function firstDescLine(file: string): Promise<string | undefined> {
-  const text = await readTextIfExists(file);
+function descLineIn(text: string | undefined): string | undefined {
   if (text === undefined) return undefined;
   for (const line of text.split("\n")) {
     const match = line.match(/^# desc:\s?(.*)$/);
@@ -73,6 +72,46 @@ async function firstDescLine(file: string): Promise<string | undefined> {
   }
   return undefined;
 }
+
+/** Read a Project Script's first `# desc:` line, or undefined when absent. */
+async function firstDescLine(file: string): Promise<string | undefined> {
+  return descLineIn(await readTextIfExists(file));
+}
+
+/**
+ * Why an unrunnable file in the scripts directory cannot run, and what to do.
+ *
+ * A file that names an interpreter is a command that lost its executable bit,
+ * so the bit is the whole repair. A file without one was never spawnable —
+ * typically an implementation module the project invokes some other way — and
+ * telling its author to set the bit would produce a listed command that still
+ * cannot run. Naming that difference is the difference between a useful
+ * remedy and a misleading one.
+ */
+function inexecutableReason(path: string, text: string | undefined): string {
+  if (namesAnInterpreter(text)) {
+    return `Project Script ${path} is not executable. Run: ${
+      commandEvidence(["chmod", "+x", path])
+    }`;
+  }
+  return `${path} ${NOT_A_COMMAND}`;
+}
+
+/** Whether a file's own first line makes it spawnable. */
+function namesAnInterpreter(text: string | undefined): boolean {
+  return text?.startsWith("#!") ?? false;
+}
+
+/**
+ * The one explanation for a file in the scripts directory that was never a
+ * command, shared by the Desk's disabled entry and the run refusal so both
+ * surfaces send an author the same way.
+ */
+const NOT_A_COMMAND =
+  `names no interpreter on a first "#!" line, so discern cannot run it as a command. ` +
+  `A Project Script is an executable file in any language; a module the project runs ` +
+  `another way belongs outside this directory, with a script here to call it if it ` +
+  `also needs a command.`;
 
 /** Whether a path is an executable regular file. */
 async function isExecutable(path: string): Promise<boolean> {
@@ -140,18 +179,15 @@ export async function inspectDeskProjectScriptsWithConfig(
     if (!entry.isFile) continue;
     const path = join(directory.abs, entry.name);
     const executable = await isExecutable(path);
-    const description = await firstDescLine(path);
+    const text = await readTextIfExists(path);
+    const description = descLineIn(text);
     scripts.push({
       name: entry.name,
       ...(description === undefined ? {} : { description }),
       path,
       workingDirectory: root,
       availability: executable ? "enabled" : "disabled",
-      ...(executable ? {} : {
-        reason: `Project Script ${path} is not executable. Run: ${
-          commandEvidence(["chmod", "+x", path])
-        }`,
-      }),
+      ...(executable ? {} : { reason: inexecutableReason(path, text) }),
       confirmation: "required",
       destructive: "undeclared",
     });
@@ -247,11 +283,20 @@ export async function runProjectScriptAt(
   }
 
   if (await pathExists(scriptFile)) {
-    reportFailure(
-      new Logger({ json: false, noColor: false }),
-      `script "${name}" exists but is not executable: ${scriptFile}`,
-      [`Run: chmod +x "${scriptFile}"`],
-    );
+    const logger = new Logger({ json: false, noColor: false });
+    if (namesAnInterpreter(await readTextIfExists(scriptFile))) {
+      reportFailure(
+        logger,
+        `script "${name}" exists but is not executable: ${scriptFile}`,
+        [`Run: chmod +x "${scriptFile}"`],
+      );
+    } else {
+      reportFailure(
+        logger,
+        `script "${name}" is not a runnable Project Script: ${scriptFile}`,
+        [`This file ${NOT_A_COMMAND}`],
+      );
+    }
     return 1;
   }
 
