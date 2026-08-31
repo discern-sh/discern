@@ -29,10 +29,8 @@ import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
 import { renderCrossAgentReferenceDoc } from "./cross_agent_registry.ts";
 import { renderAgentIntegrationCoverageDoc } from "./agent_integration_registry.ts";
 import { renderManualEnvironmentVariableReferenceDoc } from "./environment_variable_reference.ts";
-import {
-  renderGlossaryDoc,
-  renderManualGlossaryDoc,
-} from "./glossary_registry.ts";
+import { renderGlossaryDoc } from "./glossary_registry.ts";
+import { renderManualGlossaryArtifact } from "./glossary_codegen.ts";
 import {
   FEATURE_CANON_AGENT_BENEFITS_PAGE_REL,
   FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL,
@@ -310,17 +308,7 @@ const renderedGlossary = renderGlossaryDoc();
 await write(glossary, renderedGlossary);
 await write(
   manualGlossary,
-  renderGeneratedManualDocument(
-    renderManualGlossaryDoc(),
-    "00-orientation/glossary.md",
-    "30-reference/glossary.md",
-    {
-      id: "reference-glossary",
-      order: 120,
-      redirects: ["/docs/orientation/glossary"],
-    },
-    manualProjection,
-  ),
+  renderManualGlossaryArtifact(manualProjection),
 );
 console.log(
   "Regenerating the feature canon from scripts/feature_registry.ts:",

@@ -2683,10 +2683,14 @@ export type HumanBenefitCommercialRole =
   | "adoption benefit"
   | "trust assurance";
 
+/** The primary readers a benefit cluster may serve, in display order. */
+export const HUMAN_BENEFIT_AUDIENCES = [
+  "experienced engineers",
+  "new consequential builders",
+] as const;
+
 /** A primary reader whose situation makes a benefit cluster especially useful. */
-export type HumanBenefitAudience =
-  | "experienced engineers"
-  | "new consequential builders";
+export type HumanBenefitAudience = (typeof HUMAN_BENEFIT_AUDIENCES)[number];
 
 /** One benefit: a commercial outcome composed from cited feature nodes. */
 export interface HumanBenefitEntry {

@@ -17,7 +17,7 @@
  */
 
 import { walk } from "@std/fs";
-import { dirname, join, relative } from "@std/path";
+import { dirname, join, relative, resolve } from "@std/path";
 import { z } from "@zod/zod";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { decodeJson } from "../src/shared/runtime_decode.ts";
@@ -50,6 +50,13 @@ export interface StagedProseInput {
   readonly words: number;
 }
 
+/** One exact source-backed file to place in a temporary prose corpus. */
+export interface ProseStageFile {
+  readonly stagePath: string;
+  readonly source: string;
+  readonly prose: string;
+}
+
 /** Frontmatter replaced by an equal number of blank lines (line-stable). */
 export function blankFrontmatter(text: string): string {
   const { body } = parseFrontmatter(text);
@@ -62,6 +69,21 @@ export function blankFrontmatter(text: string): string {
 /** Count lexical words in the same text Vale receives. */
 export function proseWordCount(text: string): number {
   return text.match(/[\p{L}\p{N}][\p{L}\p{N}'-]*/gu)?.length ?? 0;
+}
+
+/** Stage exact prose files and retain every authored-source coordinate. */
+export async function stageProseFiles(
+  dir: string,
+  files: readonly ProseStageFile[],
+): Promise<ReadonlyMap<string, string>> {
+  const sources = new Map<string, string>();
+  for (const file of files) {
+    const destination = join(dir, file.stagePath);
+    await Deno.mkdir(dirname(destination), { recursive: true });
+    await Deno.writeTextFile(destination, file.prose);
+    sources.set(resolve(destination), resolve(file.source));
+  }
+  return sources;
 }
 
 /**

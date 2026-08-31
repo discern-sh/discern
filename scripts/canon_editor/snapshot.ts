@@ -51,6 +51,10 @@ import {
   retiredPattern,
   retiredSynonyms,
 } from "../glossary_registry.ts";
+import {
+  MANUAL_GLOSSARY_REL,
+  renderManualGlossaryArtifact,
+} from "../glossary_codegen.ts";
 import { CLAIMS } from "../brand/claims.ts";
 import {
   DEMAND_CANON,
@@ -62,6 +66,9 @@ import { CANONICAL_SETS, REGISTRY_ATLAS_PAGE_REL } from "../canonical_sets.ts";
 import { plainReadingGrade } from "../plain_reading_grade_lib.ts";
 import { formatMarkdownText } from "../../src/lib/tidy_format.ts";
 import { readFrontmatterBlock } from "../../src/lib/frontmatter.ts";
+import { discoverDocs } from "../../src/lib/docs.ts";
+import { buildManualProjection } from "../../src/lib/manual.ts";
+import { resolveRepositoryManualDir } from "../../src/lib/paths.ts";
 import { buildPickerCatalog, WRITABLE_PICKER_SOURCES } from "./pickers.ts";
 import type { ProseRegistry } from "./annotation.ts";
 
@@ -71,6 +78,10 @@ export const snapshotPageSchema = z.object({
   /** Repo-relative path of the committed page this render corresponds to. */
   rel: z.string(),
   title: z.string(),
+  /** The authored reading corpus this generated page belongs to. */
+  corpus: z.enum(["map", "manual"]),
+  /** The gate-authoritative prose policy a changed page must pass. */
+  prosePolicy: z.enum(["map", "manual"]),
   /** The formatted, annotated body with any frontmatter stripped for display. */
   body: z.string(),
   /** Complete formatted text, including frontmatter and annotation markers. */
@@ -556,85 +567,145 @@ async function buildPages(): Promise<SnapshotPage[]> {
   const atlas = await Deno.readTextFile(
     join(REPO_ROOT, "project", "map", REGISTRY_ATLAS_PAGE_REL),
   );
+  const manualDir = resolveRepositoryManualDir(REPO_ROOT).abs;
+  const manualTree = await discoverDocs({ cwd: REPO_ROOT, dir: manualDir });
+  if (manualTree === undefined) {
+    throw new Error(`could not discover the repository manual at ${manualDir}`);
+  }
+  const manualProjection = await buildManualProjection(manualTree.entries);
   setProseAnnotator(markerAnnotator);
-  let rendered: readonly [string, string, string, boolean][];
+  let rendered: readonly [
+    id: string,
+    rel: string,
+    title: string,
+    markdown: string,
+    annotated: boolean,
+    corpus: "map" | "manual",
+    prosePolicy: "map" | "manual",
+  ][];
   try {
     rendered = [
-      ["feature-canon", FEATURE_CANON_PAGE_REL, renderFeatureCanonDoc(), true],
+      [
+        "feature-canon",
+        join("project", "map", FEATURE_CANON_PAGE_REL),
+        "Feature canon",
+        renderFeatureCanonDoc(),
+        true,
+        "map",
+        "map",
+      ],
       [
         "feature-canon-plain",
-        FEATURE_CANON_PLAIN_PAGE_REL,
+        join("project", "map", FEATURE_CANON_PLAIN_PAGE_REL),
+        "The complete feature guide",
         renderFeatureCanonPlainDoc(),
         true,
+        "map",
+        "map",
       ],
       [
         "feature-canon-human-benefits",
-        FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL,
+        join("project", "map", FEATURE_CANON_HUMAN_BENEFITS_PAGE_REL),
+        "Human Benefit Canon",
         renderFeatureCanonHumanBenefitsDoc(),
         true,
+        "map",
+        "map",
       ],
       [
         "feature-canon-agent-benefits",
-        FEATURE_CANON_AGENT_BENEFITS_PAGE_REL,
+        join("project", "map", FEATURE_CANON_AGENT_BENEFITS_PAGE_REL),
+        "Agent Benefit Canon",
         renderFeatureCanonAgentBenefitsDoc(),
         true,
+        "map",
+        "map",
       ],
       [
         "demand-canon",
-        join("_internal", "brand", "demand-canon.md"),
+        join("project", "map", "_internal", "brand", "demand-canon.md"),
+        "Demand canon",
         renderBrandDoc("demand-canon"),
         true,
+        "map",
+        "map",
       ],
       [
         "practice-canon",
-        PRACTICE_CANON_PAGE_REL,
+        join("project", "map", PRACTICE_CANON_PAGE_REL),
+        "Practice canon",
         renderPracticeCanonDoc(),
         true,
+        "map",
+        "map",
       ],
       [
         "the-practice",
-        PRACTICE_PUBLIC_PAGE_REL,
+        join("project", "map", PRACTICE_PUBLIC_PAGE_REL),
+        "The practice",
         renderPracticePublicDoc(),
         true,
+        "map",
+        "map",
       ],
       [
         "glossary",
-        join("00-orientation", "glossary.md"),
+        join("project", "map", "00-orientation", "glossary.md"),
+        "Glossary — Map",
         renderGlossaryDoc(),
         true,
+        "map",
+        "map",
+      ],
+      [
+        "manual-glossary",
+        join("project", "manual", MANUAL_GLOSSARY_REL),
+        "Glossary — Manual",
+        renderManualGlossaryArtifact(manualProjection),
+        true,
+        "manual",
+        "manual",
       ],
       [
         "claims-and-evidence",
-        join("_internal", "brand", "claims-and-evidence.md"),
+        join(
+          "project",
+          "map",
+          "_internal",
+          "brand",
+          "claims-and-evidence.md",
+        ),
+        "Claims and evidence",
         renderBrandDoc("claims-and-evidence"),
         true,
+        "map",
+        "map",
       ],
-      ["registry-atlas", REGISTRY_ATLAS_PAGE_REL, atlas, false],
+      [
+        "registry-atlas",
+        join("project", "map", REGISTRY_ATLAS_PAGE_REL),
+        "Registry atlas",
+        atlas,
+        false,
+        "map",
+        "map",
+      ],
     ];
   } finally {
     setProseAnnotator(undefined);
   }
-  const titles: Readonly<Record<string, string>> = {
-    "feature-canon": "Feature canon",
-    "feature-canon-plain": "The complete feature guide",
-    "feature-canon-human-benefits": "Human Benefit Canon",
-    "feature-canon-agent-benefits": "Agent Benefit Canon",
-    "demand-canon": "Demand canon",
-    "practice-canon": "Practice canon",
-    "the-practice": "The practice",
-    "glossary": "Glossary",
-    "claims-and-evidence": "Claims and evidence",
-    "registry-atlas": "Registry atlas",
-  };
   const pages: SnapshotPage[] = [];
-  for (const [id, rel, markdown, annotated] of rendered) {
-    const mapRel = join("project", "map", rel);
-    const formatted = await formatMarkdownText(mapRel, markdown);
+  for (
+    const [id, rel, title, markdown, annotated, corpus, prosePolicy] of rendered
+  ) {
+    const formatted = await formatMarkdownText(rel, markdown);
     const body = readFrontmatterBlock(formatted)?.body ?? formatted;
     pages.push({
       id,
-      rel: mapRel,
-      title: titles[id] ?? id,
+      rel,
+      title,
+      corpus,
+      prosePolicy,
       body,
       full: formatted,
       annotated,

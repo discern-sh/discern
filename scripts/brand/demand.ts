@@ -46,7 +46,9 @@ export type DemandEvidenceClass = (typeof DEMAND_EVIDENCE_CLASS_NAMES)[number];
  * current way. Anxiety and habit entries are the objections copy must
  * answer.
  */
-export type DemandForce = "push" | "pull" | "anxiety" | "habit";
+export const DEMAND_FORCES = ["push", "pull", "anxiety", "habit"] as const;
+
+export type DemandForce = (typeof DEMAND_FORCES)[number];
 
 /** A human segment demand can be attributed to. Agents mediate adoption but
  * do not struggle, so the coding-agent audience carries no demand entries. */

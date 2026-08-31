@@ -4,6 +4,11 @@
    document itself never shifts while a field editor is open. */
 
 import { SYSTEM_SCHEDULER } from "/assets/scheduler.js";
+import {
+  composeAgentBrief,
+  copyVisibleBrief,
+  DEFAULT_AGENT_OUTCOME,
+} from "./brief.js";
 
 const boot = JSON.parse(
   document.getElementById("canon-editor-boot").textContent,
@@ -21,10 +26,20 @@ const bench = {
   cancel: document.getElementById("canon-editor-bench-cancel"),
   save: document.getElementById("canon-editor-bench-save"),
 };
+const brief = {
+  root: document.getElementById("canon-editor-brief"),
+  close: document.getElementById("canon-editor-brief-close"),
+  outcome: document.getElementById("canon-editor-brief-outcome"),
+  preview: document.getElementById("canon-editor-brief-preview"),
+  status: document.getElementById("canon-editor-brief-status"),
+  copy: document.getElementById("canon-editor-brief-copy"),
+};
 
 let selected = null;
 let currentEntry = null;
+let focusedField = null;
 let editing = null;
+let briefContext = null;
 const runningGuards = new Set();
 
 /** The pending plain-twin reviews that editing has queued. */
@@ -174,9 +189,50 @@ function ideButton(entry, activeField) {
   return wrap;
 }
 
+/** Recompose the visible handoff from its bounded repository context. */
+function refreshBriefPreview() {
+  if (!briefContext) return;
+  brief.preview.value = composeAgentBrief({
+    ...briefContext,
+    outcome: brief.outcome.value,
+  });
+  brief.status.textContent = "";
+}
+
+/** Open the copy-only handoff for the selected entry or focused field. */
+function openAgentBrief(entry) {
+  const registryGuards = boot.guards.find((item) =>
+    item.registry === entry.registry
+  );
+  const field = focusedField === null
+    ? undefined
+    : entry.fields.find((candidate) => candidate.path === focusedField);
+  briefContext = {
+    page: boot.page,
+    entry,
+    field,
+    guards: registryGuards?.guards ?? [],
+  };
+  brief.outcome.value = DEFAULT_AGENT_OUTCOME;
+  refreshBriefPreview();
+  brief.root.hidden = false;
+  document.body.classList.add("canon-editor-brief-open");
+  brief.outcome.focus();
+  brief.outcome.select();
+}
+
+/** Close the handoff panel without changing the current entry or draft. */
+function closeAgentBrief() {
+  brief.root.hidden = true;
+  briefContext = null;
+  brief.status.textContent = "";
+  document.body.classList.remove("canon-editor-brief-open");
+}
+
 /** Fill the inspector rail: source, fields, citation web, and guard panel. */
 function renderRail(entry, activeField) {
   currentEntry = entry;
+  focusedField = activeField ?? null;
   rail.textContent = "";
   rail.append(
     el("p", { class: "canon-editor-rail-title", text: entry.title }),
@@ -184,25 +240,13 @@ function renderRail(entry, activeField) {
       class: "canon-editor-kind",
       text: `${entry.registry} ${entry.kind} · ${entry.id}`,
     }),
+    el("button", {
+      class: "canon-editor-btn canon-editor-primary canon-editor-brief-button",
+      type: "button",
+      text: "Brief an agent",
+      onclick: () => openAgentBrief(entry),
+    }),
   );
-
-  const active = entry.fields.find((field) => field.path === activeField);
-  if (active?.editor === "prose" && selected) {
-    const span = selected;
-    rail.append(
-      el("button", {
-        class: "canon-editor-btn canon-editor-primary",
-        text: `Edit ${active.path}`,
-        onclick: () =>
-          openEditor(
-            span,
-            { registry: entry.registry, slug: entry.slug, field: active.path },
-            active.value ?? "",
-            entry.kind,
-          ),
-      }),
-    );
-  }
 
   rail.append(
     el("h3", { text: "Source" }),
@@ -249,12 +293,19 @@ function renderRail(entry, activeField) {
           title: `choose ${field.picker.source} values`,
           onclick: () => openListEditor(entry, field, row),
         }));
+      } else if (field.editor === "prose") {
+        row.append(el("button", {
+          class: "canon-editor-field-action",
+          type: "button",
+          text: "Edit",
+          title: `edit ${field.path} prose`,
+          onclick: () => openProseField(entry, field, row),
+        }));
       } else {
         row.append(el("span", {
-          text: field.editor === "prose" ? "✎" : "🔒 " + field.kind,
-          title: field.editor === "prose"
-            ? "editable prose"
-            : "derived or structured — edit at the source",
+          text: "🔒 " + field.kind,
+          title: field.lockedReason ??
+            "derived or structured; edit at the source",
         }));
       }
       rail.append(row);
@@ -305,7 +356,7 @@ function renderRail(entry, activeField) {
     onclick: () => {
       if (editing) return;
       runningGuards.add(entry.registry);
-      renderRail(currentEntry, activeField);
+      renderRail(currentEntry, focusedField);
       postJson("/api/guards/run", { registry: entry.registry });
     },
   });
@@ -318,6 +369,7 @@ function deselect() {
   if (selected) selected.classList.remove("canon-editor-selected");
   selected = null;
   currentEntry = null;
+  focusedField = null;
   rail.innerHTML = railEmptyHtml;
 }
 
@@ -384,23 +436,31 @@ function benchClose() {
   document.body.classList.remove("canon-editor-benched");
 }
 
-/** Close either editor, restoring the prose span or removing the picker. */
+/** Close either editor, restoring its source surface or removing its panel. */
 function closeEditor() {
   if (!editing) return;
   const closed = editing;
   if (closed.mode === "prose") {
-    closed.span.innerHTML = closed.original;
-    closed.span.classList.remove("canon-editor-editing", "canon-editor-saving");
+    if (closed.transient) {
+      closed.host.remove();
+      closed.row.dataset.active = "false";
+    } else {
+      closed.host.innerHTML = closed.original;
+      closed.host.classList.remove(
+        "canon-editor-editing",
+        "canon-editor-saving",
+      );
+    }
   } else {
     closed.panel.remove();
     closed.row.dataset.active = "false";
   }
   editing = null;
   benchClose();
-  if (closed.mode === "prose") {
+  if (closed.mode === "prose" && !closed.transient) {
     if (selected) selected.classList.remove("canon-editor-selected");
-    selected = closed.span;
-    closed.span.classList.add("canon-editor-selected");
+    selected = closed.host;
+    closed.host.classList.add("canon-editor-selected");
   }
 }
 
@@ -433,7 +493,7 @@ async function submitEditor() {
   bench.status.append(stage);
   activeEditor.stageEl = stage;
   if (activeEditor.mode === "prose") {
-    activeEditor.span.classList.add("canon-editor-saving");
+    activeEditor.host.classList.add("canon-editor-saving");
   } else {
     activeEditor.panel.classList.add("canon-editor-saving");
   }
@@ -441,7 +501,7 @@ async function submitEditor() {
   const report = await response.json();
   if (editing !== activeEditor) return;
   if (activeEditor.mode === "prose") {
-    activeEditor.span.classList.remove("canon-editor-saving");
+    activeEditor.host.classList.remove("canon-editor-saving");
   } else {
     activeEditor.panel.classList.remove("canon-editor-saving");
   }
@@ -528,9 +588,46 @@ async function lintDraft(vale) {
   }
 }
 
+/** The selected document span, only when it represents this exact field. */
+function selectedFieldSpan(entry, field) {
+  if (!selected?.dataset.ref) return null;
+  const ref = parseRef(selected.dataset.ref);
+  return ref.registry === entry.registry && ref.slug === entry.slug &&
+      ref.field === field.path
+    ? selected
+    : null;
+}
+
+/** Open editable literal prose from either its span or an inspector surface. */
+function openProseField(entry, field, row) {
+  if (editing) closeEditor();
+  focusedField = field.path;
+  const ref = {
+    registry: entry.registry,
+    slug: entry.slug,
+    field: field.path,
+  };
+  const span = selectedFieldSpan(entry, field);
+  if (span) {
+    openEditor(span, ref, field.value ?? "", entry.kind);
+    return;
+  }
+  const host = el("section", {
+    class: "canon-editor-inspector-prose",
+    "aria-label": `Editing ${field.path}`,
+  });
+  row.after(host);
+  row.dataset.active = "true";
+  openEditor(host, ref, field.value ?? "", entry.kind, {
+    transient: true,
+    row,
+  });
+}
+
 /** Open a searchable checkbox picker for one supported ordered-list field. */
 function openListEditor(entry, field, row) {
   if (editing) closeEditor();
+  focusedField = field.path;
   const expected = Array.isArray(field.value) ? [...field.value] : [];
   const live = new Set(field.picker.options.map((option) => option.value));
   const options = [
@@ -638,29 +735,34 @@ function openListEditor(entry, field, row) {
   search.focus();
 }
 
-/** Open the in-place editor over a span, seeded with the field's source. */
-function openEditor(span, ref, value, kind) {
+/** Open the shared prose workbench on a document or inspector host. */
+function openEditor(host, ref, value, kind, surface = {}) {
   if (editing) closeEditor();
-  if (selected) selected.classList.remove("canon-editor-selected");
-  selected = span;
-  const original = span.innerHTML;
-  span.classList.add("canon-editor-editing");
-  span.classList.remove("canon-editor-selected");
-  span.innerHTML = "";
+  const transient = surface.transient === true;
+  if (!transient) {
+    if (selected) selected.classList.remove("canon-editor-selected");
+    selected = host;
+  }
+  const original = host.innerHTML;
+  host.classList.add("canon-editor-editing");
+  host.classList.remove("canon-editor-selected");
+  host.innerHTML = "";
   const box = el("span", {
     class: "canon-editor-editor",
     contenteditable: "plaintext-only",
     spellcheck: "true",
   });
   box.textContent = value;
-  span.append(box);
+  host.append(box);
   editing = {
     mode: "prose",
-    span,
+    host,
     ref,
     box,
     kind,
     original,
+    transient,
+    row: surface.row ?? null,
     expected: value,
     diskNote: false,
     stageEl: null,
@@ -731,7 +833,7 @@ async function selectSpan(span) {
 
 doc.addEventListener("click", (event) => {
   if (editing?.mode === "list") return;
-  if (editing?.mode === "prose" && editing.span.contains(event.target)) return;
+  if (editing?.mode === "prose") return;
   const outside = event.target.closest("a[data-outside]");
   if (outside) {
     event.preventDefault();
@@ -752,7 +854,7 @@ doc.addEventListener("dblclick", (event) => {
   if (editing?.mode === "list") return;
   const span = event.target.closest(".canon-editor-field");
   if (!span || span.classList.contains("canon-editor-locked")) return;
-  if (editing?.mode === "prose" && editing.span === span) return;
+  if (editing?.mode === "prose" && editing.host === span) return;
   event.preventDefault();
   editField(span, parseRef(span.dataset.ref));
 });
@@ -765,7 +867,9 @@ doc.addEventListener("keydown", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
-    if (editing) {
+    if (!brief.root.hidden) {
+      closeAgentBrief();
+    } else if (editing) {
       if (bench.root.dataset.state !== "saving") closeEditor();
     } else if (selected) deselect();
   }
@@ -799,6 +903,17 @@ bench.detailsToggle.addEventListener("click", () => {
   bench.detailsToggle.textContent = open ? "Hide details" : "Show details";
   bench.detailsToggle.setAttribute("aria-expanded", String(open));
 });
+brief.close.addEventListener("click", closeAgentBrief);
+brief.outcome.addEventListener("input", refreshBriefPreview);
+brief.copy.addEventListener("click", async () => {
+  brief.copy.disabled = true;
+  const result = await copyVisibleBrief(brief.preview, navigator.clipboard);
+  brief.status.textContent = result.message;
+  brief.copy.disabled = false;
+});
+brief.root.addEventListener("click", (event) => {
+  if (event.target === brief.root) closeAgentBrief();
+});
 
 /** Pull server state: dirty files, the reading grade, and guard reports. */
 async function refreshState() {
@@ -822,10 +937,7 @@ async function refreshState() {
     }`;
   }
   if (currentEntry && !editing) {
-    renderRail(
-      currentEntry,
-      selected ? parseRef(selected.dataset.ref).field : undefined,
-    );
+    renderRail(currentEntry, focusedField);
   }
 }
 
@@ -898,10 +1010,7 @@ events.addEventListener("message", (event) => {
     if (payload.status === "running") {
       runningGuards.add(payload.registry);
       if (currentEntry && !editing) {
-        renderRail(
-          currentEntry,
-          selected ? parseRef(selected.dataset.ref).field : undefined,
-        );
+        renderRail(currentEntry, focusedField);
       }
       return;
     }

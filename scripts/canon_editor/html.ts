@@ -31,6 +31,7 @@ const PAGE_ROUTES: Readonly<Record<string, string>> = {
   "practice-canon.md": "practice-canon",
   "the-practice.md": "the-practice",
   "glossary.md": "glossary",
+  "30-reference/glossary.md": "manual-glossary",
   "claims-and-evidence.md": "claims-and-evidence",
   "brand/claims-and-evidence.md": "claims-and-evidence",
   "registry-atlas.md": "registry-atlas",
@@ -184,7 +185,12 @@ export function renderShell(options: {
       count: counts.get("practice"),
     },
     { id: "the-practice", title: "The practice (public)" },
-    { id: "glossary", title: "Glossary", count: counts.get("glossary") },
+    {
+      id: "glossary",
+      title: "Glossary (Map)",
+      count: counts.get("glossary"),
+    },
+    { id: "manual-glossary", title: "Glossary (Manual)" },
     {
       id: "claims-and-evidence",
       title: "Claims ledger",
@@ -219,8 +225,13 @@ export function renderShell(options: {
       grade.limit === undefined ? "" : ` / ${grade.limit}`
     }</span>`;
   const boot = {
-    page: page.id,
-    rel: page.rel,
+    page: {
+      id: page.id,
+      title: page.title,
+      rel: page.rel,
+      corpus: page.corpus,
+      prosePolicy: page.prosePolicy,
+    },
     guards: snapshot.guards,
     standards: snapshot.standards,
     requestToken,
@@ -275,6 +286,22 @@ ${docHtml}
 </div>
 <pre class="canon-editor-bench-details" id="canon-editor-bench-details" hidden></pre>
 </div>
+<section class="canon-editor-brief" id="canon-editor-brief" role="dialog" aria-modal="true" aria-labelledby="canon-editor-brief-title" hidden>
+<div class="canon-editor-brief-card">
+<div class="canon-editor-brief-heading">
+<h2 id="canon-editor-brief-title">Brief an agent</h2>
+<button type="button" class="canon-editor-btn" id="canon-editor-brief-close" aria-label="Close agent brief">Close</button>
+</div>
+<label for="canon-editor-brief-outcome">Desired outcome</label>
+<textarea id="canon-editor-brief-outcome" rows="3" maxlength="800">Make the smallest coherent change needed for this entry.</textarea>
+<label for="canon-editor-brief-preview">Markdown brief</label>
+<textarea class="canon-editor-brief-preview" id="canon-editor-brief-preview" rows="18" readonly></textarea>
+<div class="canon-editor-brief-actions">
+<span id="canon-editor-brief-status" role="status" aria-live="polite"></span>
+<button type="button" class="canon-editor-btn canon-editor-primary" id="canon-editor-brief-copy">Copy brief</button>
+</div>
+</div>
+</section>
 <script id="canon-editor-boot" type="application/json">${
     JSON.stringify(boot).replaceAll("</", "<\\/")
   }</script>

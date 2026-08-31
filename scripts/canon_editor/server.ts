@@ -26,7 +26,7 @@ import { type GuardRunReport, runGuardFiles } from "./guards.ts";
 import { saveField, spawnSnapshot } from "./pipeline.ts";
 import type { PatchRequest } from "./patch.ts";
 import { lintFieldText, valeFindings } from "./lint.ts";
-import { fieldSpecFor } from "./fields.ts";
+import { fieldLockedReason, fieldSpecFor } from "./fields.ts";
 import type { RegistryName } from "./registry_ast.ts";
 import { PROSE_REGISTRIES } from "./registry_ast.ts";
 import {
@@ -66,6 +66,8 @@ const WATCH_DEBOUNCE_MS = 200;
 const WATCHED_SOURCES: readonly string[] = [
   ...new Set(PROSE_REGISTRIES.map((registry) => registry.file)),
   "scripts/feature_surface_catalog.ts",
+  "scripts/practice_carriers.ts",
+  "scripts/brand/model.ts",
   "scripts/canonical_sets.ts",
   "scripts/canon_editor/pickers.ts",
   "src/shared/capabilities.ts",
@@ -355,6 +357,12 @@ export async function startCanonEditor(
     claimsCarried: found.claimsCarried ?? [],
     fields: (record?.leaves ?? []).map((leaf) => {
       const editor = fieldEditor(found.registry, found.kind, leaf);
+      const known = PROSE_REGISTRIES.find((item) =>
+        item.name === found.registry
+      )?.name;
+      const semantics = known === undefined
+        ? undefined
+        : fieldSpecFor(known, found.kind, leaf.path);
       return {
         path: leaf.path,
         kind: leaf.kind,
@@ -362,6 +370,12 @@ export async function startCanonEditor(
         editable: editor !== undefined,
         editor: editor?.kind ?? null,
         picker: editor?.kind === "list" ? editor.picker : null,
+        semantics: semantics ?? null,
+        lockedReason: fieldLockedReason(
+          semantics,
+          leaf.kind,
+          editor !== undefined,
+        ) ?? null,
         value: valueAt(found.data, leaf.path) ?? null,
       };
     }),
@@ -395,7 +409,7 @@ export async function startCanonEditor(
     const writable = [
       ...PROSE_REGISTRIES.map((spec) => spec.file),
       ...(snapshot?.pages ?? [])
-        .filter((page) => page.annotated && page.rel.startsWith("project/map/"))
+        .filter((page) => page.annotated)
         .map((page) => page.rel),
     ];
     try {
@@ -702,7 +716,10 @@ export async function startCanonEditor(
         },
       });
     }
-    if (path === "/assets/app.css" || path === "/assets/app.js") {
+    if (
+      path === "/assets/app.css" || path === "/assets/app.js" ||
+      path === "/assets/brief.js"
+    ) {
       return await file(
         join(
           REPO_ROOT,

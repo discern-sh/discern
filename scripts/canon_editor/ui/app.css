@@ -16,6 +16,9 @@
     margin: 0;
     background: var(--discern-color-canvas);
   }
+  body.canon-editor-brief-open {
+    overflow: hidden;
+  }
 
   /* ——— Header ——— */
   .canon-editor-header {
@@ -392,6 +395,22 @@
   .canon-editor-field-action:hover {
     text-decoration: underline;
   }
+  .canon-editor-field-action:focus-visible {
+    outline: 2px solid var(--canon-editor-accent);
+    outline-offset: 2px;
+  }
+  .canon-editor-inspector-prose {
+    margin: 0.35rem 0 0.75rem;
+  }
+  .canon-editor-inspector-prose .canon-editor-editor {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 4.5rem;
+    font-family: var(--discern-font-body);
+    font-size: var(--discern-font-size-sm);
+  }
   .canon-editor-picker {
     margin: 0.35rem 0 0.75rem;
     padding: 0.55rem;
@@ -505,6 +524,87 @@
     padding: 0.5rem;
     max-height: 14rem;
     overflow: auto;
+  }
+  .canon-editor-brief-button {
+    margin: 0.8rem 0 0.2rem;
+  }
+  .canon-editor-brief {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    padding: 1.5rem;
+    background: rgb(0 0 0 / 0.46);
+  }
+  .canon-editor-brief[hidden] {
+    display: none;
+  }
+  .canon-editor-brief-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    box-sizing: border-box;
+    width: min(52rem, 100%);
+    max-height: calc(100vh - 3rem);
+    padding: 1rem;
+    border: 1px solid var(--discern-color-border);
+    border-radius: var(--discern-radius-md);
+    background: var(--discern-color-surface);
+    box-shadow: 0 18px 60px rgb(0 0 0 / 0.25);
+    color: var(--discern-color-ink);
+    font-family: var(--discern-font-ui);
+  }
+  .canon-editor-brief-heading,
+  .canon-editor-brief-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .canon-editor-brief-heading h2 {
+    flex: 1;
+    margin: 0;
+    font-family: var(--discern-font-display);
+    font-size: var(--discern-font-size-lg);
+  }
+  .canon-editor-brief label {
+    font-size: var(--discern-font-size-sm);
+    font-weight: 600;
+  }
+  .canon-editor-brief textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--discern-color-border);
+    border-radius: var(--discern-radius-sm);
+    background: var(--discern-color-canvas);
+    color: var(--discern-color-ink);
+    font: inherit;
+    line-height: 1.45;
+    resize: vertical;
+  }
+  .canon-editor-brief textarea:focus {
+    border-color: var(--canon-editor-accent);
+    outline: 2px solid var(--canon-editor-accent-soft);
+  }
+  .canon-editor-brief-preview {
+    min-height: 18rem;
+    font-family: var(--discern-font-mono) !important;
+    font-size: var(--discern-font-size-xs) !important;
+    white-space: pre;
+  }
+  .canon-editor-brief-actions {
+    justify-content: flex-end;
+  }
+  .canon-editor-brief-actions [role="status"] {
+    flex: 1;
+    color: var(--discern-color-ink-muted);
+    font-size: var(--discern-font-size-sm);
+  }
+  .canon-editor-brief .canon-editor-btn {
+    width: auto;
+    margin: 0;
   }
 
   @media (max-width: 80rem) {
