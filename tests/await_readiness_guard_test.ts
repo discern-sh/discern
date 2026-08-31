@@ -1,9 +1,9 @@
 /**
- * Class guard for await tests that cross a watched transition after an
- * arbitrary sleep. Scheduler load can let the transition happen before the
- * await core captures its baseline, so elapsed time is never readiness
- * evidence. The sweep follows the Git-derived authored-test universe: a new
- * test module enters without being named here.
+ * Class guard for tests that launch a pending operation before observing its
+ * readiness boundary. A raw condition poll can expire under scheduler load
+ * before the behavior under test begins, while an arbitrary delay can let the
+ * transition precede its baseline. The sweep follows the Git-derived authored
+ * test universe: a new test module enters without being named here.
  */
 
 import { assertEquals } from "@std/assert";
@@ -50,6 +50,11 @@ interface RunParallelTimerViolation {
   readonly timerLine: number;
 }
 
+interface PendingConditionViolation {
+  readonly line: number;
+  readonly pendingLine: number;
+}
+
 /** The nearest function owns a timer and the behavior whose runtime it judges. */
 function enclosingFunction(node: Node): Node | undefined {
   return node.getFirstAncestor((ancestor) =>
@@ -93,6 +98,169 @@ function preReadinessRunParallelTimers(
         timerLine:
           sourceFile.getLineAndColumnAtPos(declaration.getStart()).line,
       });
+    }
+  }
+  return violations;
+}
+
+/** Whether this await directly settles the named pending operation. */
+function directlyAwaits(awaited: Node, name: string): boolean {
+  if (!Node.isAwaitExpression(awaited)) return false;
+  const expression = awaited.getExpression();
+  if (Node.isIdentifier(expression)) return expression.getText() === name;
+  if (Node.isPropertyAccessExpression(expression)) {
+    return expression.getExpression().getText() === name;
+  }
+  if (!Node.isCallExpression(expression)) return false;
+  const callee = expression.getExpression();
+  if (
+    callee.getText() === "settlePending" &&
+    expression.getArguments()[0]?.getText() === name
+  ) {
+    return true;
+  }
+  if (
+    Node.isPropertyAccessExpression(callee) &&
+    callee.getExpression().getText() === name
+  ) {
+    return true;
+  }
+  if (
+    !Node.isPropertyAccessExpression(callee) ||
+    callee.getExpression().getText() !== "Promise" ||
+    !["all", "allSettled", "any", "race"].includes(callee.getName())
+  ) {
+    return false;
+  }
+  return expression.getArguments().some((argument) =>
+    argument.getDescendantsOfKind(SyntaxKind.Identifier).some((identifier) =>
+      identifier.getText() === name
+    ) || (Node.isIdentifier(argument) && argument.getText() === name)
+  );
+}
+
+/** Resolve the callable declarations behind a local or imported expression. */
+function callableDeclarations(expression: Node): Node[] {
+  const symbol = expression.getSymbol();
+  if (symbol === undefined) return [];
+  return symbol.getAliasedSymbol()?.getDeclarations() ??
+    symbol.getDeclarations();
+}
+
+/** The function-like node represented by one callable declaration. */
+function callableNode(declaration: Node): Node | undefined {
+  if (
+    Node.isFunctionDeclaration(declaration) ||
+    Node.isFunctionExpression(declaration) ||
+    Node.isArrowFunction(declaration) ||
+    Node.isMethodDeclaration(declaration)
+  ) {
+    return declaration;
+  }
+  if (!Node.isVariableDeclaration(declaration)) return undefined;
+  const initializer = declaration.getInitializer();
+  return Node.isFunctionExpression(initializer) ||
+      Node.isArrowFunction(initializer)
+    ? initializer
+    : undefined;
+}
+
+/** The named waiting authority represented by one declaration, when any. */
+function waitingAuthorityName(declaration: Node): string | undefined {
+  if (
+    !declaration.getSourceFile().getFilePath().endsWith("/tests/waiting.ts")
+  ) {
+    return undefined;
+  }
+  if (Node.isFunctionDeclaration(declaration)) return declaration.getName();
+  if (!Node.isVariableDeclaration(declaration)) return undefined;
+  const name = declaration.getNameNode();
+  return Node.isIdentifier(name) ? name.getText() : undefined;
+}
+
+/** Whether a helper's call graph reaches raw waiting instead of the authority. */
+function declarationUsesRawWait(
+  declaration: Node,
+  seen: Set<string>,
+): boolean {
+  const authority = waitingAuthorityName(declaration);
+  if (authority === "waitUntil") return true;
+  if (
+    authority === "waitForPendingCondition" || authority === "settlePending"
+  ) {
+    return false;
+  }
+  const callable = callableNode(declaration);
+  if (callable === undefined) return false;
+  const key =
+    `${declaration.getSourceFile().getFilePath()}:${declaration.getStart()}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return callable.getDescendantsOfKind(SyntaxKind.CallExpression).some(
+    (nested) => {
+      if (enclosingFunction(nested) !== callable) return false;
+      const callee = nested.getExpression();
+      if (callee.getText() === "waitUntil") return true;
+      return callableDeclarations(callee).some((candidate) =>
+        declarationUsesRawWait(candidate, seen)
+      );
+    },
+  );
+}
+
+/** Whether an awaited helper ultimately delegates to raw condition waiting. */
+function helperWaitsUntil(call: Node): boolean {
+  if (!Node.isCallExpression(call)) return false;
+  const callee = call.getExpression();
+  if (callee.getText() === "waitUntil") return true;
+  return callableDeclarations(callee).some((declaration) =>
+    declarationUsesRawWait(declaration, new Set())
+  );
+}
+
+/**
+ * Find a pending operation whose positive condition is polled without also
+ * observing that operation. Its wall-clock poll can expire under scheduler
+ * load before the behavior being tested has even begun.
+ */
+function preReadinessConditionWaits(
+  sourceFile: SourceFile,
+): PendingConditionViolation[] {
+  const violations: PendingConditionViolation[] = [];
+  for (
+    const declaration of sourceFile.getDescendantsOfKind(
+      SyntaxKind.VariableDeclaration,
+    )
+  ) {
+    const nameNode = declaration.getNameNode();
+    const initializer = declaration.getInitializer();
+    if (
+      !Node.isIdentifier(nameNode) || initializer === undefined ||
+      Node.isAwaitExpression(initializer)
+    ) {
+      continue;
+    }
+    const scope = enclosingFunction(declaration);
+    if (scope === undefined) continue;
+    const name = nameNode.getText();
+    const awaits = scope.getDescendantsOfKind(SyntaxKind.AwaitExpression)
+      .filter((awaited) =>
+        awaited.getStart() > declaration.getEnd() &&
+        enclosingFunction(awaited) === scope
+      );
+    const settlementIndex = awaits.findIndex((awaited) =>
+      directlyAwaits(awaited, name)
+    );
+    if (settlementIndex < 0) continue;
+    for (const awaited of awaits.slice(0, settlementIndex)) {
+      const expression = awaited.getExpression();
+      if (!helperWaitsUntil(expression)) continue;
+      violations.push({
+        line: sourceFile.getLineAndColumnAtPos(awaited.getStart()).line,
+        pendingLine:
+          sourceFile.getLineAndColumnAtPos(declaration.getStart()).line,
+      });
+      break;
     }
   }
   return violations;
@@ -211,7 +379,8 @@ function preReadinessAwaits(source: string): ReadinessViolation[] {
   return offenders;
 }
 
-Deno.test("await harness: elapsed time cannot stand in for readiness", async () => {
+Deno.test("test harness: pending operations participate in readiness", async () => {
+  const project = new Project({ useInMemoryFileSystem: true });
   const syntheticCore = [
     "const pendingObservation = " + "awaitResult(root, { trunkMoved: true });",
     "await " + "letClockPass(WAIT_WINDOW);",
@@ -237,21 +406,128 @@ Deno.test("await harness: elapsed time cannot stand in for readiness", async () 
   ]);
   assertEquals(preReadinessAwaits(synchronized), []);
 
+  const futureSibling = project.createSourceFile(
+    "future-sibling.ts",
+    [
+      "async function waitForBeacon() {",
+      "  await waitUntil(() => beaconExists(), 'unrelated beacon');",
+      "}",
+      "async function observe() {",
+      "  const expedition = hydrateSatellite();",
+      "  await waitForBeacon();",
+      "  return await expedition;",
+      "}",
+      "export {};",
+    ].join("\n"),
+  );
+  assertEquals(preReadinessConditionWaits(futureSibling), [{
+    line: 6,
+    pendingLine: 5,
+  }]);
+
+  const synchronizedSibling = project.createSourceFile(
+    "synchronized-sibling.ts",
+    [
+      "async function waitForBeacon(pending: Promise<unknown>) {",
+      "  await waitForPendingCondition(pending, () => beaconExists(), 'unrelated beacon');",
+      "}",
+      "async function observe() {",
+      "  const expedition = hydrateSatellite();",
+      "  await waitForBeacon(expedition);",
+      "  return await expedition;",
+      "}",
+      "export {};",
+    ].join("\n"),
+  );
+  assertEquals(preReadinessConditionWaits(synchronizedSibling), []);
+
+  const deceptiveSibling = project.createSourceFile(
+    "deceptive-sibling.ts",
+    [
+      "async function waitForBeacon(_pending: Promise<unknown>) {",
+      "  await waitUntil(() => beaconExists(), 'unrelated beacon');",
+      "}",
+      "async function observe() {",
+      "  const expedition = hydrateSatellite();",
+      "  await waitForBeacon(expedition);",
+      "  return await expedition;",
+      "}",
+      "export {};",
+    ].join("\n"),
+  );
+  assertEquals(preReadinessConditionWaits(deceptiveSibling), [{
+    line: 6,
+    pendingLine: 5,
+  }]);
+
+  project.createSourceFile(
+    "readiness/raw-beacon.ts",
+    [
+      "export async function waitForBeacon() {",
+      "  await waitUntil(() => beaconExists(), 'unrelated beacon');",
+      "}",
+    ].join("\n"),
+  );
+  const importedSibling = project.createSourceFile(
+    "readiness/imported-sibling.ts",
+    [
+      "import { waitForBeacon } from './raw-beacon.ts';",
+      "async function observe() {",
+      "  const expedition = hydrateSatellite();",
+      "  await waitForBeacon();",
+      "  return await expedition;",
+      "}",
+    ].join("\n"),
+  );
+  assertEquals(preReadinessConditionWaits(importedSibling), [{
+    line: 4,
+    pendingLine: 3,
+  }]);
+
+  const combinedSibling = project.createSourceFile(
+    "combined-sibling.ts",
+    [
+      "async function observe() {",
+      "  const firstExpedition = hydrateSatellite();",
+      "  const secondExpedition = hydrateSatellite();",
+      "  await waitUntil(() => beaconExists(), 'unrelated beacon');",
+      "  return await Promise.all([firstExpedition, secondExpedition]);",
+      "}",
+    ].join("\n"),
+  );
+  assertEquals(preReadinessConditionWaits(combinedSibling), [
+    { line: 4, pendingLine: 2 },
+    { line: 4, pendingLine: 3 },
+  ]);
+
+  const authoredSources = await Promise.all(
+    AWAIT_TEST_FILES.map(async (rel) => ({
+      rel,
+      source: await Deno.readTextFile(join(REPO_ROOT, rel)),
+    })),
+  );
+  for (const { rel, source } of authoredSources) {
+    project.createSourceFile(rel, source, { overwrite: true });
+  }
+
   const offenders: string[] = [];
-  for (
-    const rel of AWAIT_TEST_FILES
-  ) {
-    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+  for (const { rel, source } of authoredSources) {
     for (const violation of preReadinessAwaits(source)) {
       offenders.push(
         `${rel}:${violation.line} starts from pending await at line ${violation.pendingLine}`,
+      );
+    }
+    const sourceFile = project.getSourceFileOrThrow(rel);
+    for (const violation of preReadinessConditionWaits(sourceFile)) {
+      offenders.push(
+        `${rel}:${violation.line} polls a condition without pending operation from line ${violation.pendingLine}`,
       );
     }
   }
   assertEquals(
     offenders,
     [],
-    "await tests must synchronize on an observable readiness boundary",
+    "pending-operation readiness must use waitForPendingCondition with the pending promise; raw waitUntil turns parallel scheduler load into a false timeout — see project/map/80-development/testing.md#waiting-and-time-boundaries",
   );
 });
 

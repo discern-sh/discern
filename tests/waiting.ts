@@ -244,8 +244,31 @@ export interface WaitUntilOptions {
   readonly scheduler?: Scheduler;
 }
 
+/** Load-safe infrastructure allowance for a real child or async operation. */
+export const TEST_PROCESS_TIMEOUT_MS = 180_000;
+
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_INTERVAL_MS = 10;
+
+type PendingOutcome<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: unknown };
+
+/** Observe one promise without introducing another timer or rejection path. */
+function observePending<T>(
+  pending: Promise<T>,
+): () => PendingOutcome<T> | undefined {
+  let outcome: PendingOutcome<T> | undefined;
+  void pending.then(
+    (value) => {
+      outcome = { ok: true, value };
+    },
+    (error: unknown) => {
+      outcome = { ok: false, error };
+    },
+  );
+  return () => outcome;
+}
 
 /** One scheduler turn whose timer is intercepted by the test stack's FakeTime. */
 function schedulerDelay(
@@ -334,6 +357,80 @@ export async function waitUntil(
       scheduler,
     );
   }
+}
+
+/** Options for infrastructure readiness; its timeout is one shared policy. */
+export type PendingConditionOptions<T> =
+  & Omit<
+    WaitUntilOptions,
+    "timeoutMs"
+  >
+  & {
+    /** Add operation-specific evidence when it resolves before readiness. */
+    readonly settledError?: (value: T) => Error | Promise<Error>;
+  };
+
+/**
+ * Wait for a positive condition planted by a pending operation. Readiness is
+ * infrastructure, not the behavior under test: parallel-suite load may delay
+ * it up to the canonical process allowance. An operation that settles before
+ * its marker fails immediately instead of spending that allowance.
+ */
+export async function waitForPendingCondition<T>(
+  pending: Promise<T>,
+  condition: () => boolean | Promise<boolean>,
+  describe: string,
+  options: PendingConditionOptions<T> = {},
+): Promise<void> {
+  const observed = observePending(pending);
+  const { settledError, ...waitOptions } = options;
+  let earlyFailure: { readonly error: unknown } | undefined;
+  try {
+    await waitUntil(
+      async () => {
+        if (await condition()) return true;
+        const outcome = observed();
+        if (outcome === undefined) return false;
+        const error = !outcome.ok
+          ? outcome.error
+          : settledError !== undefined
+          ? await settledError(outcome.value)
+          : new Error(
+            `${describe} was not observed before the pending operation settled: ${
+              JSON.stringify(outcome.value)
+            }`,
+          );
+        earlyFailure = { error };
+        throw error;
+      },
+      describe,
+      { ...waitOptions, timeoutMs: TEST_PROCESS_TIMEOUT_MS },
+    );
+  } catch (error) {
+    if (earlyFailure !== undefined) throw earlyFailure.error;
+    throw error;
+  }
+}
+
+/** A required, behavior-specific budget for settling one known-ready operation. */
+export type PendingSettlementOptions = WaitUntilOptions & {
+  readonly timeoutMs: number;
+};
+
+/** Await one operation inside an explicit post-readiness behavior budget. */
+export async function settlePending<T>(
+  pending: Promise<T>,
+  describe: string,
+  options: PendingSettlementOptions,
+): Promise<T> {
+  const observed = observePending(pending);
+  await waitUntil(() => observed() !== undefined, describe, options);
+  const outcome = observed();
+  if (outcome === undefined) {
+    throw new Error(`${describe} settled without observable evidence`);
+  }
+  if (!outcome.ok) throw outcome.error;
+  return outcome.value;
 }
 
 /** Spend one registry-enrolled interval whose assertion subject is wall time. */

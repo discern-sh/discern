@@ -44,7 +44,7 @@ import {
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { decodeWith } from "./decode_cli_result.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 
 const DeskDriverResultSchema = z.object({
   resumed: z.boolean(),
@@ -61,7 +61,6 @@ const POLL_INTERVAL_MS = 50;
 // Readiness is infrastructure, not the behaviour under test. Cold Deno/module
 // startup may queue behind another capped suite; the signal-to-reap clock below
 // starts only after the planted child tree has written every readiness artifact.
-const SURFACE_READINESS_TIMEOUT_MS = 180_000;
 const TREE_SHUTDOWN_TIMEOUT_MS = 10_000;
 const EARLY_EXIT_DIAGNOSTIC_CEILING_MS = 10_000;
 
@@ -73,37 +72,22 @@ async function waitForSurfaceStart(
   statusPromise: Promise<Deno.CommandStatus>,
   drained: Promise<[string, string]>,
 ): Promise<void> {
-  let earlyStatus: Deno.CommandStatus | undefined;
-  void statusPromise.then((status) => {
-    earlyStatus = status;
-  });
-
-  await waitUntil(
-    () => {
-      if (earlyStatus !== undefined) {
-        throw new Error(
-          `the surface exited before its child tree started: ${
-            JSON.stringify(earlyStatus)
-          }`,
-        );
-      }
-      return check();
-    },
+  await waitForPendingCondition(
+    statusPromise,
+    check,
     "the surface's child tree to become ready",
     {
-      timeoutMs: SURFACE_READINESS_TIMEOUT_MS,
       intervalMs: POLL_INTERVAL_MS,
+      settledError: async (status) => {
+        const [outText, errText] = await drained;
+        return new Error(
+          `the surface exited before its child tree started: ${
+            JSON.stringify(status)
+          }\nstdout:\n${outText}\nstderr:\n${errText}`,
+        );
+      },
     },
-  ).catch(async (error: unknown) => {
-    if (earlyStatus === undefined) throw error;
-    const [outText, errText] = await drained;
-    throw new Error(
-      `the surface exited before its child tree started: ${
-        JSON.stringify(earlyStatus)
-      }\nstdout:\n${outText}\nstderr:\n${errText}`,
-      { cause: error },
-    );
-  });
+  );
 }
 
 /** Whether a PID is still alive (signal 0 semantics via a harmless SIGCONT). */

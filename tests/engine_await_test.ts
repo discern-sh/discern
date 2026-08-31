@@ -43,7 +43,7 @@ import {
   AWAIT_CONDITIONS,
   type AwaitConditionKind,
 } from "../src/shared/result_schemas.ts";
-import { waitUntil } from "./waiting.ts";
+import { settlePending, waitForPendingCondition } from "./waiting.ts";
 import {
   AWAIT_CALL_PROFILES,
   type AwaitCallProfile,
@@ -53,7 +53,6 @@ import { writeProofNote } from "../src/engine/gate/proof_notes.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { resolveCommonGitDir } from "../src/engine/worktree/git.ts";
 
-const AWAIT_READINESS_TIMEOUT_MS = 180_000;
 const AWAIT_READINESS_POLL_MS = 25;
 
 type AwaitReadinessProbe = (
@@ -85,45 +84,21 @@ async function armAwaitReadinessProbe(
   await Deno.mkdir(directory, { recursive: true });
   const before = await awaitContinuations(directory);
   return async (pending: Promise<unknown>, what: string): Promise<void> => {
-    let settled:
-      | { readonly ok: true; readonly value: unknown }
-      | { readonly ok: false; readonly error: unknown }
-      | undefined;
-    void pending.then(
-      (value) => {
-        settled = { ok: true, value };
-      },
-      (error: unknown) => {
-        settled = { ok: false, error };
-      },
-    );
-    await waitUntil(
+    await waitForPendingCondition(
+      pending,
       async () => {
         const after = await awaitContinuations(directory);
-        if ([...after].some((record) => !before.has(record))) {
-          return true;
-        }
-        if (settled !== undefined) {
-          if (settled.ok) {
-            throw new Error(
-              `${what} settled before recording readiness: ${
-                JSON.stringify(settled.value)
-              }`,
-            );
-          }
-          if (settled.error instanceof Error) {
-            throw settled.error;
-          }
-          throw new Error(
-            `${what} rejected before readiness: ${settled.error}`,
-          );
-        }
-        return false;
+        return [...after].some((record) => !before.has(record));
       },
       `${what} readiness`,
       {
-        timeoutMs: AWAIT_READINESS_TIMEOUT_MS,
         intervalMs: AWAIT_READINESS_POLL_MS,
+        settledError: (value) =>
+          new Error(
+            `${what} settled before recording readiness: ${
+              JSON.stringify(value)
+            }`,
+          ),
       },
     );
   };
@@ -1113,14 +1088,11 @@ Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () =>
     await readiness(child.status, "CLI await --trunk-moved");
     child.kill("SIGINT");
     const killedAt = SYSTEM_CLOCK.wallNow();
-    let status: Deno.CommandOutput | undefined;
-    const output = child.output().then((value) => {
-      status = value;
-      return value;
-    });
+    const output = child.output();
+    let observed: Deno.CommandOutput;
     try {
-      await waitUntil(
-        () => status !== undefined,
+      observed = await settlePending(
+        output,
         "the interrupted await process to exit",
         {
           timeoutMs: 8_000,
@@ -1131,7 +1103,6 @@ Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () =>
       await output;
       throw error;
     }
-    const observed = await output;
     assert(
       SYSTEM_CLOCK.wallNow() - killedAt < 5_000,
       "the interrupted wait must die promptly, not run out its timeout",

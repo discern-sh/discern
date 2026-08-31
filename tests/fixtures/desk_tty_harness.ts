@@ -66,8 +66,8 @@ import {
   type PtyInputPhase,
   type PtyObservedOutput,
   runPtyProcess,
-  TEST_PROCESS_TIMEOUT_MS,
 } from "./pty_process.ts";
+import { TEST_PROCESS_TIMEOUT_MS } from "../waiting.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "../decode_cli_result.ts";
 

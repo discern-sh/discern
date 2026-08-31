@@ -21,7 +21,7 @@ import {
   withTempDir,
 } from "./helpers.ts";
 import { lstatIfExists, targetExists } from "../src/shared/fs_presence.ts";
-import { realDelay, waitUntil } from "./waiting.ts";
+import { realDelay, waitForPendingCondition, waitUntil } from "./waiting.ts";
 
 const CWD = Deno.cwd();
 
@@ -612,7 +612,8 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
       write: () => {},
     });
     // Give the jobs a moment to start, then cancel from outside.
-    await waitUntil(
+    await waitForPendingCondition(
+      run,
       async () => await targetExists(join(dir, "inner.pid")),
       "the timed job's inner process to start",
       { intervalMs: 25 },
@@ -659,7 +660,8 @@ Deno.test("runParallel: an external abort stays bounded when an escaped descenda
     // The marker is written only after the direct shell has exited 0. Abort
     // while the escaped daemon alone holds the pipes: cancellation belongs to
     // the full unsettled job, not merely to a non-zero leader exit.
-    await waitUntil(
+    await waitForPendingCondition(
+      run,
       async () => await targetExists(join(dir, "daemon.up")),
       "the escaped daemon to hold the job pipes",
       { intervalMs: 25 },
@@ -712,7 +714,8 @@ Deno.test("runSerial: an external abort kills the running job and skips the rest
       signal: external.signal,
       write: () => {},
     });
-    await waitUntil(
+    await waitForPendingCondition(
+      run,
       async () => await targetExists(join(dir, "current.pid")),
       "the serial job to start",
       { intervalMs: 25 },

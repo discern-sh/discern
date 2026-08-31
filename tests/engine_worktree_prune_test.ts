@@ -39,7 +39,7 @@ import {
   sweepOrphanWorktrees,
 } from "../src/engine/worktree/git.ts";
 import { Logger } from "../src/lib/log.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition } from "./waiting.ts";
 import {
   pruneReappearedWorktreePaths,
   readRetiredWorktreePathRecords,
@@ -206,7 +206,8 @@ Deno.test("remove-worktree-safely detects a path recreated while retirement evid
     await evidenceLock.lock(true);
     const removal = runAgent(dir, ["remove-worktree-safely", wt]);
     try {
-      await waitUntil(
+      await waitForPendingCondition(
+        removal,
         async () => {
           try {
             await Deno.lstat(wt);
@@ -285,7 +286,8 @@ Deno.test("remove-worktree-safely detects a symlink swap at the final absence bo
     await evidenceLock.lock(true);
     const removal = runAgent(dir, ["remove-worktree-safely", wt]);
     try {
-      await waitUntil(
+      await waitForPendingCondition(
+        removal,
         async () => {
           try {
             await Deno.lstat(wt);

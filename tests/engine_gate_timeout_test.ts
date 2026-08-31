@@ -39,12 +39,11 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 
 // Startup and behaviour are separate clocks. A loaded parallel suite may delay
 // a cold engine before it reaches its configured command; once that command
 // writes its readiness marker, the watchdog keeps the tight behavioural bound.
-const ENGINE_READINESS_TIMEOUT_MS = 180_000;
 const DIRECT_WATCHDOG_CEILING_MS = 10_000;
 const FULL_GATE_POST_READY_CEILING_MS = 15_000;
 const OVERRIDE_WATCHDOG_CEILING_MS = 15_000;
@@ -56,38 +55,11 @@ async function waitForReadiness<T>(
   pending: Promise<T>,
   what: string,
 ): Promise<void> {
-  let settled:
-    | { readonly ok: true; readonly value: T }
-    | { readonly ok: false; readonly error: unknown }
-    | undefined;
-  void pending.then(
-    (value) => {
-      settled = { ok: true, value };
-    },
-    (error: unknown) => {
-      settled = { ok: false, error };
-    },
-  );
-  await waitUntil(
-    async () => {
-      if (await targetExists(path)) {
-        return true;
-      }
-      if (settled !== undefined) {
-        if (!settled.ok) {
-          throw settled.error;
-        }
-        throw new Error(
-          `${what} settled before writing its readiness marker: ${
-            JSON.stringify(settled.value)
-          }`,
-        );
-      }
-      return false;
-    },
+  await waitForPendingCondition(
+    pending,
+    async () => await targetExists(path),
     `${what} readiness`,
     {
-      timeoutMs: ENGINE_READINESS_TIMEOUT_MS,
       intervalMs: 25,
     },
   );

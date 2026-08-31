@@ -32,7 +32,7 @@ import {
   decodeWith,
 } from "./decode_cli_result.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition } from "./waiting.ts";
 
 type StandardsJson = CliResultForCommand<"standards">;
 
@@ -229,7 +229,8 @@ Deno.test("standardsResult: cancellation starts no work and stops in-flight work
       }
       const pending = standardsResult(dir, { signal: controller.signal });
       if (timing === "mid-run") {
-        await waitUntil(
+        await waitForPendingCondition(
+          pending,
           async () => await targetExists(ready),
           "the Standard measurement to start before cancellation",
         );

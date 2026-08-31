@@ -10,7 +10,6 @@ import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
 import { parseQueueInvocation } from "../src/engine/queue.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
-import { TEST_PROCESS_TIMEOUT_MS } from "./fixtures/pty_process.ts";
 import {
   addWorktree,
   engineEnv,
@@ -30,7 +29,7 @@ import {
 import { logbookEventSchema } from "../src/engine/logbook/schema.ts";
 import { z } from "@zod/zod";
 import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
-import { waitUntil } from "./waiting.ts";
+import { TEST_PROCESS_TIMEOUT_MS, waitUntil } from "./waiting.ts";
 
 const DENO_TASKS_SCHEMA = z.object({
   tasks: z.record(z.string(), z.string()).optional(),

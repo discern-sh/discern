@@ -16,7 +16,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition } from "./waiting.ts";
 import {
   configSchema,
   parseConfigOrThrow,
@@ -524,7 +524,8 @@ Deno.test("store: reset detaches the logbook from concurrent writers before clea
     })();
 
     try {
-      await waitUntil(
+      await waitForPendingCondition(
+        writer,
         () => writes > 0 || writerError !== undefined,
         "the logbook writer's first write",
       );
@@ -534,7 +535,8 @@ Deno.test("store: reset detaches the logbook from concurrent writers before clea
       // mkdir + write land on the recreated canonical path and the read below
       // is deterministic rather than timing-dependent.
       const base = writes;
-      await waitUntil(
+      await waitForPendingCondition(
+        writer,
         () => writes >= base + 2 || writerError !== undefined,
         "two post-reset logbook writes",
       );
