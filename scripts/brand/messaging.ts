@@ -464,7 +464,7 @@ export const HERO_SYSTEMS = [
     eyebrow: "For people who take their software seriously.",
     headline: "The labs are making agents better.",
     sub:
-      "discern makes your project better at receiving them: an engineering practice installed into the repository, kept by the project, and inherited by every agent that works there.",
+      "discern makes your project a better place for them to work: an engineering practice installed into your repository and inherited by every agent that works there.",
     primaryCta: "Watch a project get commissioned",
     secondaryCta: "Tell your agent to set it up",
     signature: "An engineering practice for agent-built software.",
@@ -474,7 +474,7 @@ export const HERO_SYSTEMS = [
     title: "Hero B — Fact-led",
     headline: "Every session, your agent starts from zero.",
     sub:
-      "discern is the practice your project keeps: one file every agent inherits, a Gate that decides what is done, and Proof bound to the exact change that passed.",
+      "discern is the practice your project keeps: every agent arrives already briefed, every change faces your project's own checks, and you decide what ships.",
     primaryCta: "See discern in practice",
     secondaryCta: "Read how discern works",
   },
@@ -493,7 +493,7 @@ export const HERO_SYSTEMS = [
 export const HEADLINES = [
   {
     line:
-      "The labs are making agents better. discern makes your project better at receiving them.",
+      "The labs are making agents better. discern makes your project a better place for them to work.",
     bestUse: "Homepage hero, category explanation, launch",
     caution:
       "Keep both sentences together; the first alone is a compliment to the labs.",
@@ -510,27 +510,16 @@ export const HEADLINES = [
     caution: "Best where switching pain is already recognized.",
   },
   {
-    line: "The demo took a weekend. Now people depend on it.",
+    line: "The MVP took a weekend. Now you've got real users depending on it.",
     bestUse: "Consequence-threshold campaign, new-builder page",
     caution: "Celebrate the threshold; never scold the weekend.",
   },
   {
     line:
-      "Your agent wrote four thousand lines last night. Which ones did you read?",
+      "Your agent wrote four thousand lines last night — and you already know what passed.",
     bestUse: "Problem-opening ad, delegation essay",
     caution:
-      "Ask it as a question; answer with the practice in the next breath.",
-  },
-  {
-    line: "A bolder way to build.",
-    bestUse: "Deferred; post-launch campaign at the earliest",
-    caution:
-      "An open line any tool could sign; revisit once concrete campaigns have given it content.",
-  },
-  {
-    line: "Build further.",
-    bestUse: "Deferred; brand film once equity exists",
-    caution: "Open two-word lines spend equity the brand has not yet earned.",
+      "Show the Gate's account nearby so the second half reads as fact.",
   },
   {
     line: "Software that holds up.",

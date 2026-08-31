@@ -325,7 +325,7 @@ These are testable candidates for the homepage.
 >
 > # The labs are making agents better.
 >
-> discern makes your project better at receiving them: an engineering practice installed into the repository, kept by the project, and inherited by every agent that works there.
+> discern makes your project a better place for them to work: an engineering practice installed into your repository and inherited by every agent that works there.
 >
 > **Primary CTA:** Watch a project get commissioned\
 > **Secondary CTA:** Tell your agent to set it up
@@ -336,7 +336,7 @@ These are testable candidates for the homepage.
 
 > # Every session, your agent starts from zero.
 >
-> discern is the practice your project keeps: one file every agent inherits, a Gate that decides what is done, and Proof bound to the exact change that passed.
+> discern is the practice your project keeps: every agent arrives already briefed, every change faces your project's own checks, and you decide what ships.
 >
 > **Primary CTA:** See discern in practice\
 > **Secondary CTA:** Read how discern works
@@ -352,22 +352,20 @@ These are testable candidates for the homepage.
 
 ## Contextual headline inventory
 
-| Line                                                                                    | Best use                                         | Caution                                                                                                 |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| The labs are making agents better. discern makes your project better at receiving them. | Homepage hero, category explanation, launch      | Keep both sentences together; the first alone is a compliment to the labs.                              |
-| Every session, your agent starts from zero.                                             | Homepage hero, practice-retained section         | Only the problem; the practice the project keeps must follow immediately.                               |
-| Agents come and go. The practice stays.                                                 | Provider-continuity section, closing line        | Best where switching pain is already recognized.                                                        |
-| The demo took a weekend. Now people depend on it.                                       | Consequence-threshold campaign, new-builder page | Celebrate the threshold; never scold the weekend.                                                       |
-| Your agent wrote four thousand lines last night. Which ones did you read?               | Problem-opening ad, delegation essay             | Ask it as a question; answer with the practice in the next breath.                                      |
-| A bolder way to build.                                                                  | Deferred; post-launch campaign at the earliest   | An open line any tool could sign; revisit once concrete campaigns have given it content.                |
-| Build further.                                                                          | Deferred; brand film once equity exists          | Open two-word lines spend equity the brand has not yet earned.                                          |
-| Software that holds up.                                                                 | Outcome section, customer story, product page    | Add energy nearby; can feel defensive alone.                                                            |
-| Ship serious software.                                                                  | CTA, guide, campaign, video                      | Do not use as an accusation that current work is unserious.                                             |
-| Software worth putting your name to.                                                    | Founder, pride, responsibility, close            | Avoid overusing “name” alongside ownership language.                                                    |
-| Spend your attention where your judgment matters most.                                  | Retired from lead use                            | Every agent vendor makes this promise; where it appears, ground it in mechanism within the same breath. |
-| When the prototype becomes the product.                                                 | Acquisition campaign, new-builder page           | Situational; exclude from master-brand use.                                                             |
-| When people start depending on it.                                                      | Consequence-threshold campaign                   | Follow with a positive promise that celebrates the threshold.                                           |
-| Agent ergonomics.                                                                       | For Agents, technical essay                      | Human benefit must follow on mixed-audience surfaces.                                                   |
+| Line                                                                                           | Best use                                         | Caution                                                                                                 |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| The labs are making agents better. discern makes your project a better place for them to work. | Homepage hero, category explanation, launch      | Keep both sentences together; the first alone is a compliment to the labs.                              |
+| Every session, your agent starts from zero.                                                    | Homepage hero, practice-retained section         | Only the problem; the practice the project keeps must follow immediately.                               |
+| Agents come and go. The practice stays.                                                        | Provider-continuity section, closing line        | Best where switching pain is already recognized.                                                        |
+| The MVP took a weekend. Now you've got real users depending on it.                             | Consequence-threshold campaign, new-builder page | Celebrate the threshold; never scold the weekend.                                                       |
+| Your agent wrote four thousand lines last night — and you already know what passed.            | Problem-opening ad, delegation essay             | Show the Gate's account nearby so the second half reads as fact.                                        |
+| Software that holds up.                                                                        | Outcome section, customer story, product page    | Add energy nearby; can feel defensive alone.                                                            |
+| Ship serious software.                                                                         | CTA, guide, campaign, video                      | Do not use as an accusation that current work is unserious.                                             |
+| Software worth putting your name to.                                                           | Founder, pride, responsibility, close            | Avoid overusing “name” alongside ownership language.                                                    |
+| Spend your attention where your judgment matters most.                                         | Retired from lead use                            | Every agent vendor makes this promise; where it appears, ground it in mechanism within the same breath. |
+| When the prototype becomes the product.                                                        | Acquisition campaign, new-builder page           | Situational; exclude from master-brand use.                                                             |
+| When people start depending on it.                                                             | Consequence-threshold campaign                   | Follow with a positive promise that celebrates the threshold.                                           |
+| Agent ergonomics.                                                                              | For Agents, technical essay                      | Human benefit must follow on mixed-audience surfaces.                                                   |
 
 ## CTA system
 
