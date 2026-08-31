@@ -470,23 +470,22 @@ export const DESCRIPTIONS = [
 export const HERO_SYSTEMS = [
   {
     id: "hero-a",
-    title: "Hero A — Ambition-led",
+    title: "Hero A — Category-led",
     eyebrow: "For people who take their software seriously.",
-    headline: "A bolder way to build.",
+    headline: "The labs are making agents better.",
     sub:
-      "discern helps coding agents take on substantial work, so one person can take an ambitious project further with confidence in what comes back.",
-    primaryCta: "See discern in practice",
+      "discern makes your project better at receiving them: an engineering practice installed into the repository, kept by the project, and inherited by every agent that works there.",
+    primaryCta: "Watch a project get commissioned",
     secondaryCta: "Tell your agent to set it up",
     signature: "An engineering practice for agent-built software.",
   },
   {
     id: "hero-b",
-    title: "Hero B — Open",
-    eyebrow: "For people who take their software seriously.",
-    headline: "Build further.",
+    title: "Hero B — Fact-led",
+    headline: "Every session, your agent starts from zero.",
     sub:
-      "Give coding agents a project-owned way to work, and take your software beyond the limits of one person's attention.",
-    primaryCta: "Watch a project get commissioned",
+      "discern is the practice your project keeps: one file every agent inherits, a Gate that decides what is done, and Proof bound to the exact change that passed.",
+    primaryCta: "See discern in practice",
     secondaryCta: "Read how discern works",
   },
   {
@@ -503,20 +502,45 @@ export const HERO_SYSTEMS = [
 /** The contextual headline inventory. */
 export const HEADLINES = [
   {
-    line: "A bolder way to build.",
-    bestUse: "Homepage, launch, founder-led campaign",
+    line:
+      "The labs are making agents better. discern makes your project better at receiving them.",
+    bestUse: "Homepage hero, category explanation, launch",
     caution:
-      "Support with seriousness quickly so “bold” does not read as reckless.",
+      "Keep both sentences together; the first alone is a compliment to the labs.",
+  },
+  {
+    line: "Every session, your agent starts from zero.",
+    bestUse: "Homepage hero, practice-retained section",
+    caution:
+      "Only the problem; the practice the project keeps must follow immediately.",
+  },
+  {
+    line: "Agents come and go. The practice stays.",
+    bestUse: "Provider-continuity section, closing line",
+    caution: "Best where switching pain is already recognized.",
+  },
+  {
+    line: "The demo took a weekend. Now people depend on it.",
+    bestUse: "Consequence-threshold campaign, new-builder page",
+    caution: "Celebrate the threshold; never scold the weekend.",
+  },
+  {
+    line:
+      "Your agent wrote four thousand lines last night. Which ones did you read?",
+    bestUse: "Problem-opening ad, delegation essay",
+    caution:
+      "A question, not an accusation; answer with the practice in the next breath.",
+  },
+  {
+    line: "A bolder way to build.",
+    bestUse: "Deferred; post-launch campaign at the earliest",
+    caution:
+      "An open line any tool could sign; revisit once concrete campaigns have given it content.",
   },
   {
     line: "Build further.",
-    bestUse: "Homepage variant, brand film, closing line",
-    caution: "Needs a literal subhead because it is intentionally open.",
-  },
-  {
-    line: "A bigger way to build.",
-    bestUse: "Parallel-work demo, launch campaign",
-    caution: "Clarify the capability and ambition the line describes.",
+    bestUse: "Deferred; brand film once equity exists",
+    caution: "Open two-word lines spend equity the brand has not yet earned.",
   },
   {
     line: "Software that holds up.",
@@ -535,8 +559,9 @@ export const HEADLINES = [
   },
   {
     line: "Spend your attention where your judgment matters most.",
-    bestUse: "Delegation section, engineer page",
-    caution: "Long for a hero; strongest as a section proposition.",
+    bestUse: "Retired from lead use",
+    caution:
+      "Every agent vendor makes this promise; where it appears, ground it in mechanism within the same breath.",
   },
   {
     line: "When the prototype becomes the product.",
@@ -564,6 +589,7 @@ export const CTA_BANKS = [
       "See discern in practice",
       "See a backlog become a plan",
       "Watch a project get commissioned",
+      "Watch the Gate refuse a change",
       "Follow a change from brief to acceptance",
       "See how several agents work together",
     ],

@@ -333,28 +333,26 @@ The quota message is timely and practical. It should not become the enduring mas
 
 These are testable candidates for the homepage.
 
-### Hero A — Ambition-led
+### Hero A — Category-led
 
 > **For people who take their software seriously.**
 >
-> # A bolder way to build.
+> # The labs are making agents better.
 >
-> discern helps coding agents take on substantial work, so one person can take an ambitious project further with confidence in what comes back.
+> discern makes your project better at receiving them: an engineering practice installed into the repository, kept by the project, and inherited by every agent that works there.
 >
-> **Primary CTA:** See discern in practice\
+> **Primary CTA:** Watch a project get commissioned\
 > **Secondary CTA:** Tell your agent to set it up
 >
 > _An engineering practice for agent-built software._
 
-### Hero B — Open
+### Hero B — Fact-led
 
-> **For people who take their software seriously.**
+> # Every session, your agent starts from zero.
 >
-> # Build further.
+> discern is the practice your project keeps: one file every agent inherits, a Gate that decides what is done, and Proof bound to the exact change that passed.
 >
-> Give coding agents a project-owned way to work, and take your software beyond the limits of one person's attention.
->
-> **Primary CTA:** Watch a project get commissioned\
+> **Primary CTA:** See discern in practice\
 > **Secondary CTA:** Read how discern works
 
 ### Hero C — Outcome-led
@@ -368,18 +366,22 @@ These are testable candidates for the homepage.
 
 ## Contextual headline inventory
 
-| Line                                                   | Best use                                      | Caution                                                               |
-| ------------------------------------------------------ | --------------------------------------------- | --------------------------------------------------------------------- |
-| A bolder way to build.                                 | Homepage, launch, founder-led campaign        | Support with seriousness quickly so “bold” does not read as reckless. |
-| Build further.                                         | Homepage variant, brand film, closing line    | Needs a literal subhead because it is intentionally open.             |
-| A bigger way to build.                                 | Parallel-work demo, launch campaign           | Clarify the capability and ambition the line describes.               |
-| Software that holds up.                                | Outcome section, customer story, product page | Add energy nearby; can feel defensive alone.                          |
-| Ship serious software.                                 | CTA, guide, campaign, video                   | Do not use as an accusation that current work is unserious.           |
-| Software worth putting your name to.                   | Founder, pride, responsibility, close         | Avoid overusing “name” alongside ownership language.                  |
-| Spend your attention where your judgment matters most. | Delegation section, engineer page             | Long for a hero; strongest as a section proposition.                  |
-| When the prototype becomes the product.                | Acquisition campaign, new-builder page        | Situational; exclude from master-brand use.                           |
-| When people start depending on it.                     | Consequence-threshold campaign                | Follow with a positive promise that celebrates the threshold.         |
-| Agent ergonomics.                                      | For Agents, technical essay                   | Human benefit must follow on mixed-audience surfaces.                 |
+| Line                                                                                    | Best use                                         | Caution                                                                                                 |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| The labs are making agents better. discern makes your project better at receiving them. | Homepage hero, category explanation, launch      | Keep both sentences together; the first alone is a compliment to the labs.                              |
+| Every session, your agent starts from zero.                                             | Homepage hero, practice-retained section         | Only the problem; the practice the project keeps must follow immediately.                               |
+| Agents come and go. The practice stays.                                                 | Provider-continuity section, closing line        | Best where switching pain is already recognized.                                                        |
+| The demo took a weekend. Now people depend on it.                                       | Consequence-threshold campaign, new-builder page | Celebrate the threshold; never scold the weekend.                                                       |
+| Your agent wrote four thousand lines last night. Which ones did you read?               | Problem-opening ad, delegation essay             | A question, not an accusation; answer with the practice in the next breath.                             |
+| A bolder way to build.                                                                  | Deferred; post-launch campaign at the earliest   | An open line any tool could sign; revisit once concrete campaigns have given it content.                |
+| Build further.                                                                          | Deferred; brand film once equity exists          | Open two-word lines spend equity the brand has not yet earned.                                          |
+| Software that holds up.                                                                 | Outcome section, customer story, product page    | Add energy nearby; can feel defensive alone.                                                            |
+| Ship serious software.                                                                  | CTA, guide, campaign, video                      | Do not use as an accusation that current work is unserious.                                             |
+| Software worth putting your name to.                                                    | Founder, pride, responsibility, close            | Avoid overusing “name” alongside ownership language.                                                    |
+| Spend your attention where your judgment matters most.                                  | Retired from lead use                            | Every agent vendor makes this promise; where it appears, ground it in mechanism within the same breath. |
+| When the prototype becomes the product.                                                 | Acquisition campaign, new-builder page           | Situational; exclude from master-brand use.                                                             |
+| When people start depending on it.                                                      | Consequence-threshold campaign                   | Follow with a positive promise that celebrates the threshold.                                           |
+| Agent ergonomics.                                                                       | For Agents, technical essay                      | Human benefit must follow on mixed-audience surfaces.                                                   |
 
 ## CTA system
 
@@ -390,6 +392,7 @@ CTAs should describe a destination or action.
 - See discern in practice
 - See a backlog become a plan
 - Watch a project get commissioned
+- Watch the Gate refuse a change
 - Follow a change from brief to acceptance
 - See how several agents work together
 
