@@ -24,6 +24,7 @@ const bench = {
 
 let selected = null;
 let currentEntry = null;
+let focusedField = null;
 let editing = null;
 const runningGuards = new Set();
 
@@ -177,6 +178,7 @@ function ideButton(entry, activeField) {
 /** Fill the inspector rail: source, fields, citation web, and guard panel. */
 function renderRail(entry, activeField) {
   currentEntry = entry;
+  focusedField = activeField ?? null;
   rail.textContent = "";
   rail.append(
     el("p", { class: "canon-editor-rail-title", text: entry.title }),
@@ -185,24 +187,6 @@ function renderRail(entry, activeField) {
       text: `${entry.registry} ${entry.kind} · ${entry.id}`,
     }),
   );
-
-  const active = entry.fields.find((field) => field.path === activeField);
-  if (active?.editor === "prose" && selected) {
-    const span = selected;
-    rail.append(
-      el("button", {
-        class: "canon-editor-btn canon-editor-primary",
-        text: `Edit ${active.path}`,
-        onclick: () =>
-          openEditor(
-            span,
-            { registry: entry.registry, slug: entry.slug, field: active.path },
-            active.value ?? "",
-            entry.kind,
-          ),
-      }),
-    );
-  }
 
   rail.append(
     el("h3", { text: "Source" }),
@@ -249,12 +233,18 @@ function renderRail(entry, activeField) {
           title: `choose ${field.picker.source} values`,
           onclick: () => openListEditor(entry, field, row),
         }));
+      } else if (field.editor === "prose") {
+        row.append(el("button", {
+          class: "canon-editor-field-action",
+          type: "button",
+          text: "Edit",
+          title: `edit ${field.path} prose`,
+          onclick: () => openProseField(entry, field, row),
+        }));
       } else {
         row.append(el("span", {
-          text: field.editor === "prose" ? "✎" : "🔒 " + field.kind,
-          title: field.editor === "prose"
-            ? "editable prose"
-            : "derived or structured — edit at the source",
+          text: "🔒 " + field.kind,
+          title: "derived or structured — edit at the source",
         }));
       }
       rail.append(row);
@@ -305,7 +295,7 @@ function renderRail(entry, activeField) {
     onclick: () => {
       if (editing) return;
       runningGuards.add(entry.registry);
-      renderRail(currentEntry, activeField);
+      renderRail(currentEntry, focusedField);
       postJson("/api/guards/run", { registry: entry.registry });
     },
   });
@@ -318,6 +308,7 @@ function deselect() {
   if (selected) selected.classList.remove("canon-editor-selected");
   selected = null;
   currentEntry = null;
+  focusedField = null;
   rail.innerHTML = railEmptyHtml;
 }
 
@@ -384,23 +375,31 @@ function benchClose() {
   document.body.classList.remove("canon-editor-benched");
 }
 
-/** Close either editor, restoring the prose span or removing the picker. */
+/** Close either editor, restoring its source surface or removing its panel. */
 function closeEditor() {
   if (!editing) return;
   const closed = editing;
   if (closed.mode === "prose") {
-    closed.span.innerHTML = closed.original;
-    closed.span.classList.remove("canon-editor-editing", "canon-editor-saving");
+    if (closed.transient) {
+      closed.host.remove();
+      closed.row.dataset.active = "false";
+    } else {
+      closed.host.innerHTML = closed.original;
+      closed.host.classList.remove(
+        "canon-editor-editing",
+        "canon-editor-saving",
+      );
+    }
   } else {
     closed.panel.remove();
     closed.row.dataset.active = "false";
   }
   editing = null;
   benchClose();
-  if (closed.mode === "prose") {
+  if (closed.mode === "prose" && !closed.transient) {
     if (selected) selected.classList.remove("canon-editor-selected");
-    selected = closed.span;
-    closed.span.classList.add("canon-editor-selected");
+    selected = closed.host;
+    closed.host.classList.add("canon-editor-selected");
   }
 }
 
@@ -433,7 +432,7 @@ async function submitEditor() {
   bench.status.append(stage);
   activeEditor.stageEl = stage;
   if (activeEditor.mode === "prose") {
-    activeEditor.span.classList.add("canon-editor-saving");
+    activeEditor.host.classList.add("canon-editor-saving");
   } else {
     activeEditor.panel.classList.add("canon-editor-saving");
   }
@@ -441,7 +440,7 @@ async function submitEditor() {
   const report = await response.json();
   if (editing !== activeEditor) return;
   if (activeEditor.mode === "prose") {
-    activeEditor.span.classList.remove("canon-editor-saving");
+    activeEditor.host.classList.remove("canon-editor-saving");
   } else {
     activeEditor.panel.classList.remove("canon-editor-saving");
   }
@@ -528,9 +527,46 @@ async function lintDraft(vale) {
   }
 }
 
+/** The selected document span, only when it represents this exact field. */
+function selectedFieldSpan(entry, field) {
+  if (!selected?.dataset.ref) return null;
+  const ref = parseRef(selected.dataset.ref);
+  return ref.registry === entry.registry && ref.slug === entry.slug &&
+      ref.field === field.path
+    ? selected
+    : null;
+}
+
+/** Open editable literal prose from either its span or an inspector surface. */
+function openProseField(entry, field, row) {
+  if (editing) closeEditor();
+  focusedField = field.path;
+  const ref = {
+    registry: entry.registry,
+    slug: entry.slug,
+    field: field.path,
+  };
+  const span = selectedFieldSpan(entry, field);
+  if (span) {
+    openEditor(span, ref, field.value ?? "", entry.kind);
+    return;
+  }
+  const host = el("section", {
+    class: "canon-editor-inspector-prose",
+    "aria-label": `Editing ${field.path}`,
+  });
+  row.after(host);
+  row.dataset.active = "true";
+  openEditor(host, ref, field.value ?? "", entry.kind, {
+    transient: true,
+    row,
+  });
+}
+
 /** Open a searchable checkbox picker for one supported ordered-list field. */
 function openListEditor(entry, field, row) {
   if (editing) closeEditor();
+  focusedField = field.path;
   const expected = Array.isArray(field.value) ? [...field.value] : [];
   const live = new Set(field.picker.options.map((option) => option.value));
   const options = [
@@ -638,29 +674,34 @@ function openListEditor(entry, field, row) {
   search.focus();
 }
 
-/** Open the in-place editor over a span, seeded with the field's source. */
-function openEditor(span, ref, value, kind) {
+/** Open the shared prose workbench on a document or inspector host. */
+function openEditor(host, ref, value, kind, surface = {}) {
   if (editing) closeEditor();
-  if (selected) selected.classList.remove("canon-editor-selected");
-  selected = span;
-  const original = span.innerHTML;
-  span.classList.add("canon-editor-editing");
-  span.classList.remove("canon-editor-selected");
-  span.innerHTML = "";
+  const transient = surface.transient === true;
+  if (!transient) {
+    if (selected) selected.classList.remove("canon-editor-selected");
+    selected = host;
+  }
+  const original = host.innerHTML;
+  host.classList.add("canon-editor-editing");
+  host.classList.remove("canon-editor-selected");
+  host.innerHTML = "";
   const box = el("span", {
     class: "canon-editor-editor",
     contenteditable: "plaintext-only",
     spellcheck: "true",
   });
   box.textContent = value;
-  span.append(box);
+  host.append(box);
   editing = {
     mode: "prose",
-    span,
+    host,
     ref,
     box,
     kind,
     original,
+    transient,
+    row: surface.row ?? null,
     expected: value,
     diskNote: false,
     stageEl: null,
@@ -731,7 +772,7 @@ async function selectSpan(span) {
 
 doc.addEventListener("click", (event) => {
   if (editing?.mode === "list") return;
-  if (editing?.mode === "prose" && editing.span.contains(event.target)) return;
+  if (editing?.mode === "prose") return;
   const outside = event.target.closest("a[data-outside]");
   if (outside) {
     event.preventDefault();
@@ -752,7 +793,7 @@ doc.addEventListener("dblclick", (event) => {
   if (editing?.mode === "list") return;
   const span = event.target.closest(".canon-editor-field");
   if (!span || span.classList.contains("canon-editor-locked")) return;
-  if (editing?.mode === "prose" && editing.span === span) return;
+  if (editing?.mode === "prose" && editing.host === span) return;
   event.preventDefault();
   editField(span, parseRef(span.dataset.ref));
 });
@@ -822,10 +863,7 @@ async function refreshState() {
     }`;
   }
   if (currentEntry && !editing) {
-    renderRail(
-      currentEntry,
-      selected ? parseRef(selected.dataset.ref).field : undefined,
-    );
+    renderRail(currentEntry, focusedField);
   }
 }
 
@@ -898,10 +936,7 @@ events.addEventListener("message", (event) => {
     if (payload.status === "running") {
       runningGuards.add(payload.registry);
       if (currentEntry && !editing) {
-        renderRail(
-          currentEntry,
-          selected ? parseRef(selected.dataset.ref).field : undefined,
-        );
+        renderRail(currentEntry, focusedField);
       }
       return;
     }

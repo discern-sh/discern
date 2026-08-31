@@ -319,6 +319,18 @@ Deno.test("the patcher refuses everything but editable prose literals", () => {
       field: "retired.0.pattern",
       expect: /locked/,
     },
+    {
+      registry: "glossary",
+      slug: "engine",
+      field: "plain.match",
+      expect: /locked/,
+    },
+    {
+      registry: "glossary",
+      slug: "file-ownership",
+      field: "plain.phrase",
+      expect: /adding a field is structural work/,
+    },
   ];
   for (const row of cases) {
     const outcome = patchRegistrySource(
@@ -820,6 +832,74 @@ Deno.test("a glossary definition save regenerates its Map and Manual projections
     }
   });
 });
+
+for (
+  const fixture of [
+    { term: "Accept", slug: "accept", field: "plain.phrase" },
+    {
+      term: "File ownership",
+      slug: "file-ownership",
+      field: "plain.keep",
+    },
+  ] as const
+) {
+  Deno.test(`a literal glossary ${fixture.field} saves through the shared pipeline`, async () => {
+    await withPipelineFixture(async (root) => {
+      await installGlossaryProjections(root);
+      const entry = GLOSSARY.find((candidate) =>
+        candidate.term === fixture.term
+      );
+      assert(entry !== undefined);
+      const before = fixture.field === "plain.phrase"
+        ? "phrase" in entry.plain ? entry.plain.phrase : undefined
+        : "keep" in entry.plain
+        ? entry.plain.keep
+        : undefined;
+      assert(
+        before !== undefined,
+        `${fixture.term} carries the expected variant`,
+      );
+      const after = `${before}; edited from the inspector`;
+      const projectionEntry = GLOSSARY.find((candidate) =>
+        candidate.term === "File ownership"
+      );
+      assert(projectionEntry !== undefined);
+      const pages = await glossaryProjectionPages(projectionEntry.definition);
+      let renders = 0;
+      const report = await saveField(
+        editRequest("glossary", fixture.slug, fixture.field, before, after),
+        {
+          root,
+          guardsFor: () => [],
+          buildSnapshot: () => {
+            renders += 1;
+            return Promise.resolve(fixtureSnapshot(pages));
+          },
+        },
+      );
+      assert(report.ok && report.applied);
+      assertEquals(renders, 1, "the normal save path rerenders the glossary");
+      assertEquals(
+        report.pages,
+        [],
+        "plain metadata does not invent visible projection content",
+      );
+      assert(
+        (await Deno.readTextFile(
+          join(root, "scripts", "glossary_registry.ts"),
+        )).includes(after),
+        "the existing literal changes without rewriting the object variant",
+      );
+      for (const page of pages) {
+        assertEquals(
+          await Deno.readTextFile(join(root, page.rel)),
+          stripAnnotationMarkers(page.full),
+          `${page.id}: both real glossary producers remain exact`,
+        );
+      }
+    });
+  });
+}
 
 for (const refusedPolicy of ["map", "manual"] as const) {
   Deno.test(`a red ${refusedPolicy} prose policy restores the registry and both glossary projections`, async () => {

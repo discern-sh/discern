@@ -8,6 +8,8 @@
 
 import { join } from "@std/path";
 import { assert, assertEquals } from "@std/assert";
+// @ts-types="@types/jsdom"
+import { JSDOM } from "jsdom";
 import {
   MARK_CLOSE,
   MARK_OPEN,
@@ -30,6 +32,11 @@ import {
 import { withTempDir } from "./helpers.ts";
 
 const TEST_REQUEST_TOKEN = "canon-editor-test-token";
+
+/** Flush the promise turns used by the inspector's asynchronous handlers. */
+async function flushEditorUi(): Promise<void> {
+  for (let turn = 0; turn < 8; turn += 1) await Promise.resolve();
+}
 
 /** Run one test body against a hermetic, socketless editor. */
 async function withCanonEditor(
@@ -240,11 +247,56 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
 
     const term = await (
       await request(editor, "/api/entry/glossary/file-ownership")
-    ).json() as { fields: { path: string; kind: string }[] };
+    ).json() as {
+      fields: {
+        path: string;
+        kind: string;
+        editable: boolean;
+        editor: string | null;
+      }[];
+    };
+    const keep = term.fields.find((field) => field.path === "plain.keep");
+    assertEquals(keep?.kind, "string");
+    assertEquals(keep?.editable, true);
+    assertEquals(keep?.editor, "prose");
+    assertEquals(
+      term.fields.some((field) => field.path === "plain.phrase"),
+      false,
+      "the rail never invents the other plain-rendering variant",
+    );
     assertEquals(
       term.fields.find((field) => field.path === "retired.0.pattern")?.kind,
       "template",
     );
+
+    const accept = await (
+      await request(editor, "/api/entry/glossary/accept")
+    ).json() as {
+      fields: {
+        path: string;
+        kind: string;
+        editable: boolean;
+        editor: string | null;
+      }[];
+    };
+    const phrase = accept.fields.find((field) => field.path === "plain.phrase");
+    assertEquals(phrase?.kind, "string");
+    assertEquals(phrase?.editable, true);
+    assertEquals(phrase?.editor, "prose");
+    assertEquals(
+      accept.fields.some((field) => field.path === "plain.keep"),
+      false,
+      "switching a phrase to keep remains structural work",
+    );
+
+    const engine = await (
+      await request(editor, "/api/entry/glossary/engine")
+    ).json() as {
+      fields: { path: string; editable: boolean; editor: string | null }[];
+    };
+    const matcher = engine.fields.find((field) => field.path === "plain.match");
+    assertEquals(matcher?.editable, false);
+    assertEquals(matcher?.editor, null);
 
     const missing = await request(editor, "/api/entry/feature/nope");
     assertEquals(missing.status, 404);
@@ -368,6 +420,170 @@ Deno.test("a list save refuses values outside its live picker", async () => {
     assertEquals(report.ok, false);
     assert(report.issue.includes("not a live hint value"));
   });
+});
+
+Deno.test("literal glossary plain fields open from the rail and use the normal save route", async () => {
+  const appSource = await Deno.readTextFile(
+    join(REPO_ROOT, "scripts", "canon_editor", "ui", "app.js"),
+  );
+  const executable = appSource.replace(
+    'import { SYSTEM_SCHEDULER } from "/assets/scheduler.js";',
+    "const SYSTEM_SCHEDULER = globalThis.__CANON_TEST_SCHEDULER;",
+  );
+  for (
+    const fixture of [
+      {
+        slug: "accept",
+        title: "Accept",
+        field: "plain.phrase",
+        value: "move finished work onto the main shared version",
+      },
+      {
+        slug: "file-ownership",
+        title: "File ownership",
+        field: "plain.keep",
+        value: "ownership of files is everyday English",
+      },
+    ]
+  ) {
+    const boot = {
+      requestTokenHeader: CANON_EDITOR_REQUEST_TOKEN_HEADER,
+      requestToken: TEST_REQUEST_TOKEN,
+      guards: [{ registry: "glossary", guards: [] }],
+    };
+    const dom = new JSDOM(
+      `<!doctype html><body>
+        <script id="canon-editor-boot" type="application/json">${
+        JSON.stringify(boot)
+      }</script>
+        <header class="canon-editor-header"><div class="canon-editor-header-right"></div></header>
+        <main id="canon-editor-doc"><span class="canon-editor-field" tabindex="0" data-ref="glossary:${fixture.slug}:definition">Definition</span></main>
+        <aside id="canon-editor-rail"><p>Select a field.</p></aside>
+        <section id="canon-editor-bench" data-state="lint" hidden>
+          <span id="canon-editor-bench-path"></span>
+          <div id="canon-editor-bench-status"></div>
+          <button id="canon-editor-bench-details-toggle" type="button" hidden></button>
+          <pre id="canon-editor-bench-details" hidden></pre>
+          <button id="canon-editor-bench-cancel" type="button">Cancel</button>
+          <button id="canon-editor-bench-save" type="button">Save</button>
+        </section>
+      </body>`,
+      { runScripts: "outside-only", url: "http://localhost/page/glossary" },
+    );
+    const editorWindow = dom.window;
+    const saves: string[] = [];
+    Object.defineProperty(editorWindow, "EventSource", {
+      value: class {
+        addEventListener(): void {}
+      },
+    });
+    Object.defineProperty(editorWindow, "__CANON_TEST_SCHEDULER", {
+      value: {
+        scheduleTimeout: (): number => 1,
+        cancelTimeout: (): void => {},
+      },
+    });
+    editorWindow.scrollBy = () => {};
+    editorWindow.fetch = ((
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ): Promise<Response> => {
+      const path = String(input);
+      if (path === "/api/state") {
+        return Promise.resolve(
+          Response.json({ reports: [], dirty: [], standards: [] }),
+        );
+      }
+      if (path === `/api/entry/glossary/${fixture.slug}`) {
+        return Promise.resolve(Response.json({
+          registry: "glossary",
+          id: fixture.title,
+          slug: fixture.slug,
+          title: fixture.title,
+          kind: "term",
+          parent: null,
+          file: "scripts/glossary_registry.ts",
+          line: 1,
+          outward: [],
+          inward: [],
+          claimsCarried: [],
+          fields: [
+            {
+              path: "definition",
+              kind: "string",
+              line: 2,
+              editable: true,
+              editor: "prose",
+              picker: null,
+              value: "Definition",
+            },
+            {
+              path: fixture.field,
+              kind: "string",
+              line: 3,
+              editable: true,
+              editor: "prose",
+              picker: null,
+              value: fixture.value,
+            },
+          ],
+        }));
+      }
+      if (path === "/api/lint") {
+        return Promise.resolve(
+          Response.json({ findings: [], grade: 8, register: "plain" }),
+        );
+      }
+      if (path === "/api/save") {
+        saves.push(String(init?.body));
+        return Promise.resolve(Response.json({
+          ok: false,
+          stage: "patch",
+          issue: "fixture stops before mutation",
+          restored: false,
+        }));
+      }
+      return Promise.resolve(new Response("not found", { status: 404 }));
+    }) as typeof editorWindow.fetch;
+    editorWindow.eval(executable);
+
+    const definition = editorWindow.document.querySelector<HTMLElement>(
+      ".canon-editor-field",
+    );
+    assert(definition !== null);
+    definition.click();
+    await flushEditorUi();
+    const row = [...editorWindow.document.querySelectorAll<HTMLElement>(
+      ".canon-editor-fieldrow",
+    )].find((candidate) => candidate.textContent?.includes(fixture.field));
+    const edit = row?.querySelector<HTMLButtonElement>("button");
+    assert(edit !== null && edit !== undefined);
+    assertEquals(edit.type, "button", "the rail action is keyboard-operable");
+    assertEquals(edit.textContent, "Edit");
+    edit.click();
+    await flushEditorUi();
+    const box = editorWindow.document.querySelector<HTMLElement>(
+      ".canon-editor-inspector-prose .canon-editor-editor",
+    );
+    assert(box !== null, `${fixture.field} opens without a document span`);
+    assertEquals(box.textContent, fixture.value);
+    assertEquals(
+      editorWindow.document.getElementById("canon-editor-bench-path")
+        ?.textContent,
+      `glossary · ${fixture.slug} · ${fixture.field}`,
+    );
+    box.textContent = `${fixture.value}; revised`;
+    editorWindow.document.getElementById("canon-editor-bench-save")?.click();
+    await flushEditorUi();
+    assertEquals(saves, [JSON.stringify({
+      registry: "glossary",
+      slug: fixture.slug,
+      field: fixture.field,
+      expected: fixture.value,
+      value: `${fixture.value}; revised`,
+    })]);
+    dom.window.close();
+  }
 });
 
 Deno.test("the editor serves worktrees only", async () => {
