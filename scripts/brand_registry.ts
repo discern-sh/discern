@@ -94,7 +94,7 @@ export const BRAND_DOCUMENTS = [
     file: "messaging.md",
     status: "Canonical",
     job:
-      "Turns the positioning into message territories, descriptions, proof order, CTAs, and approved creative directions.",
+      "Turns the positioning into the grid, message territories, ledger-backed fact lines, descriptions, heroes, CTAs, proof order, and the line tests.",
     mode: { kind: "generated", render: renderMessagingDoc },
   },
   {
