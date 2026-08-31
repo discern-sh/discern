@@ -36,7 +36,7 @@ import {
   TestOutputSchema,
   UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
-import { waitUntil } from "./waiting.ts";
+import { TEST_PROCESS_TIMEOUT_MS, waitUntil } from "./waiting.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import { z } from "@zod/zod";
 import { assertResultDataKey, decodeWith } from "./decode_cli_result.ts";
@@ -228,7 +228,7 @@ const MCP_RECV_TIMEOUT_MS: number = (() => {
   const raw = Number(
     Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.testMcpTimeoutMs) ?? "",
   );
-  return Number.isFinite(raw) && raw > 0 ? raw : 180_000;
+  return Number.isFinite(raw) && raw > 0 ? raw : TEST_PROCESS_TIMEOUT_MS;
 })();
 
 /**
@@ -243,7 +243,7 @@ const MCP_SERVER_READINESS_TIMEOUT_MS: number = (() => {
       DISCERN_ENVIRONMENT_VARIABLES.testMcpReadinessTimeoutMs,
     ) ?? "",
   );
-  return Number.isFinite(raw) && raw > 0 ? raw : 180_000;
+  return Number.isFinite(raw) && raw > 0 ? raw : TEST_PROCESS_TIMEOUT_MS;
 })();
 
 Deno.test("MCP success responses retain the load-safe readiness allowance", () => {

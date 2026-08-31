@@ -12,7 +12,7 @@ import {
 } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { standardsResult } from "../src/engine/gate/standards.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition } from "./waiting.ts";
 
 interface StandardFixture {
   name: string;
@@ -73,11 +73,15 @@ async function invocationCount(dir: string): Promise<number> {
 }
 
 /** Wait until the planted process counter proves the shared command started. */
-async function waitForInvocation(dir: string): Promise<void> {
-  await waitUntil(
+async function waitForInvocation(
+  dir: string,
+  pending: Promise<unknown>,
+): Promise<void> {
+  await waitForPendingCondition(
+    pending,
     async () => await invocationCount(dir) > 0,
     "the shared Standard process to start",
-    { timeoutMs: 5_000, intervalMs: 20 },
+    { intervalMs: 20 },
   );
 }
 
@@ -430,7 +434,7 @@ Deno.test("shared Standard measurement: cancellation fans out without a second p
 
     const controller = new AbortController();
     const pending = standardsResult(dir, { signal: controller.signal });
-    await waitForInvocation(dir);
+    await waitForInvocation(dir, pending);
     controller.abort();
     const result = await pending;
 

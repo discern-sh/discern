@@ -41,7 +41,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition } from "./waiting.ts";
 import {
   assertResultDataKey,
   decodeCliResult,
@@ -221,46 +221,15 @@ async function acceptEvents(dir: string): Promise<LogbookEvent[]> {
   return events;
 }
 
-const ACCEPT_READINESS_TIMEOUT_MS = 180_000;
-
 /** Wait for an acceptance boundary artifact while failing if the operation settles first. */
 async function waitForPath<T>(
   path: string,
   pending: Promise<T>,
 ): Promise<void> {
-  let settled:
-    | { readonly ok: true; readonly value: T }
-    | { readonly ok: false; readonly error: unknown }
-    | undefined;
-  void pending.then(
-    (value) => {
-      settled = { ok: true, value };
-    },
-    (error: unknown) => {
-      settled = { ok: false, error };
-    },
-  );
-  await waitUntil(
-    async () => {
-      if (await targetExists(path)) {
-        return true;
-      }
-      if (settled !== undefined) {
-        if (!settled.ok) {
-          throw settled.error;
-        }
-        throw new Error(
-          `accept settled before writing its readiness marker: ${
-            JSON.stringify(settled.value)
-          }`,
-        );
-      }
-      return false;
-    },
+  await waitForPendingCondition(
+    pending,
+    async () => await targetExists(path),
     `accept readiness marker ${path}`,
-    {
-      timeoutMs: ACCEPT_READINESS_TIMEOUT_MS,
-    },
   );
 }
 

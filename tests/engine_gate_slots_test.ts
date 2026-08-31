@@ -43,7 +43,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 import {
   assertResultDataKey,
   type CliResultEnvelope,
@@ -219,7 +219,8 @@ Deno.test("test slots: a killed holder's slot is immediately acquirable (the OS 
     }).spawn();
     const status = holder.status;
     try {
-      await waitUntil(
+      await waitForPendingCondition(
+        status,
         async () => {
           try {
             return (await Deno.readTextFile(readyPath)) === "locked";
@@ -229,7 +230,6 @@ Deno.test("test slots: a killed holder's slot is immediately acquirable (the OS 
         },
         "the holder to take the lock",
         {
-          timeoutMs: 30_000,
           intervalMs: 100,
         },
       );
@@ -326,10 +326,11 @@ Deno.test("test slots: a queued acquire fires the wait notice, then resolves whe
       assert(slots !== undefined, "cap=1 must build a slot surface");
       assertEquals(slots.cap, 1);
       const pending = slots.acquire(makeOut(false, { quiet: true }));
-      await waitUntil(
+      await waitForPendingCondition(
+        pending,
         () => slots.waits.some((h) => h.text.includes(QUEUED_TEXT)),
         "the queued notice",
-        { timeoutMs: 30_000, intervalMs: 100 },
+        { intervalMs: 100 },
       );
       release();
       const hold = await pending;
@@ -432,13 +433,15 @@ Deno.test("gate slots: cap=1 serializes two concurrent test runs and begins befo
       try {
         const runA = runAgent(dir, ["test", "--json"]);
         const runB = runAgent(worktree, ["test", "--json"]);
+        const runs = Promise.all([runA, runB]);
         // Deliverable-shaped ordering proof: both runs' begin events reach the
         // logbook while the slot is still held and no test job has started —
         // a queued gate reads as running on fleet rows, never dormant.
-        await waitUntil(
+        await waitForPendingCondition(
+          runs,
           async () => (await beginEvents(dir, "test")) >= 2,
           "both begin events",
-          { timeoutMs: 30_000, intervalMs: 100 },
+          { intervalMs: 100 },
         );
         assertEquals(
           await logLines(logPath),
@@ -446,7 +449,7 @@ Deno.test("gate slots: cap=1 serializes two concurrent test runs and begins befo
           "no test job may start while the slot is held",
         );
         release();
-        const [a, b] = await Promise.all([runA, runB]);
+        const [a, b] = await runs;
         const envelopeA = parseEnvelope(a.stdout, "test", "run A");
         const envelopeB = parseEnvelope(b.stdout, "test", "run B");
         assertEquals(a.code, 0, a.output);
@@ -524,15 +527,17 @@ Deno.test("gate slots: a contended done displays slot wait beside run timings", 
       return stderrText;
     })();
     const status = child.status;
+    const completion = Promise.all([status, stdout, stderr]);
     let settled = false;
     try {
-      await waitUntil(
+      await waitForPendingCondition(
+        completion,
         () => `${stdoutText}${stderrText}`.includes(QUEUED_TEXT),
         "done to report its queue wait",
-        { timeoutMs: 30_000, intervalMs: 100 },
+        { intervalMs: 100 },
       );
       release();
-      const [exit, out, err] = await Promise.all([status, stdout, stderr]);
+      const [exit, out, err] = await completion;
       settled = true;
       assertEquals(exit.code, 0, `${out}${err}`);
       const output = `${out}${err}`;
@@ -752,10 +757,12 @@ Deno.test("gate slots: standards' measurement pass enrols like a test run", asyn
       try {
         const runA = runAgent(dir, ["standards", "--json"]);
         const runB = runAgent(worktree, ["standards", "--json"]);
-        await waitUntil(
+        const runs = Promise.all([runA, runB]);
+        await waitForPendingCondition(
+          runs,
           async () => (await beginEvents(dir, "standards")) >= 2,
           "both standards begin events",
-          { timeoutMs: 30_000, intervalMs: 100 },
+          { intervalMs: 100 },
         );
         assertEquals(
           await logLines(logPath),
@@ -763,7 +770,7 @@ Deno.test("gate slots: standards' measurement pass enrols like a test run", asyn
           "no measurement may run while the slot is held",
         );
         release();
-        const [a, b] = await Promise.all([runA, runB]);
+        const [a, b] = await runs;
         const envelopeA = parseEnvelope(a.stdout, "standards", "standards A");
         const envelopeB = parseEnvelope(b.stdout, "standards", "standards B");
         assertEquals(a.code, 0, a.output);

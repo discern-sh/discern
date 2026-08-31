@@ -31,7 +31,7 @@ import {
 } from "../src/engine/worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { spawnJob } from "../src/engine/jobs/command.ts";
-import { realDelay, waitUntil } from "./waiting.ts";
+import { realDelay, waitForPendingCondition } from "./waiting.ts";
 
 /** A quiet lifecycle context rooted at the main checkout `dir`. */
 async function ctxAt(dir: string): Promise<LifecycleContext> {
@@ -234,7 +234,8 @@ Deno.test({
 
       try {
         await created;
-        await waitUntil(
+        await waitForPendingCondition(
+          probing,
           async () => {
             try {
               await Deno.lstat(probeDir);

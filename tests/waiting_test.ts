@@ -6,7 +6,13 @@ import type {
   Scheduler,
   TimeoutHandle,
 } from "../src/shared/scheduler.ts";
-import { realDelay, waitUntil } from "./waiting.ts";
+import {
+  realDelay,
+  settlePending,
+  TEST_PROCESS_TIMEOUT_MS,
+  waitForPendingCondition,
+  waitUntil,
+} from "./waiting.ts";
 
 interface ControlledTiming {
   readonly clock: Clock;
@@ -178,6 +184,56 @@ Deno.test("waitUntil reports a thrown condition with its original cause", async 
     "condition 'the fallible probe' threw on attempt 1 after 0ms",
   );
   assertEquals(error.cause, cause);
+});
+
+Deno.test("pending-condition readiness keeps one load-safe infrastructure budget", async () => {
+  const timing = controlledTiming(2_000);
+  const never = new Promise<never>(() => {});
+  const pending = assertRejects(
+    () =>
+      waitForPendingCondition(
+        never,
+        () => false,
+        "the delayed process marker",
+        {
+          intervalMs: TEST_PROCESS_TIMEOUT_MS,
+          clock: timing.clock,
+          scheduler: timing.scheduler,
+        },
+      ),
+    Error,
+  );
+  await flushWaitTurn();
+  timing.scheduler.fireNextTimeout();
+  await flushWaitTurn();
+  const error = await pending;
+  assertStringIncludes(error.message, "the delayed process marker");
+  assertStringIncludes(error.message, `budget ${TEST_PROCESS_TIMEOUT_MS}ms`);
+});
+
+Deno.test("pending-condition readiness reports early operation settlement", async () => {
+  const error = await assertRejects(
+    () =>
+      waitForPendingCondition(
+        Promise.resolve({ kind: "finished" }),
+        () => false,
+        "the planted marker",
+      ),
+    Error,
+  );
+  assertStringIncludes(
+    error.message,
+    "was not observed before the pending operation settled",
+  );
+});
+
+Deno.test("settlePending keeps post-readiness behavior budgets explicit", async () => {
+  assertEquals(
+    await settlePending(Promise.resolve("complete"), "the ready operation", {
+      timeoutMs: 25,
+    }),
+    "complete",
+  );
 });
 
 Deno.test("realDelay follows the test scheduler without spending wall time", async () => {

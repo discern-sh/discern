@@ -28,7 +28,7 @@ import {
   TEMP_ARTIFACT_SUFFIX,
 } from "../src/shared/temp_artifacts.ts";
 import { decodeWith } from "./decode_cli_result.ts";
-import { waitUntil } from "./waiting.ts";
+import { waitForPendingCondition } from "./waiting.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 
 const CheckpointWhenInputSchema = z.object({
@@ -63,11 +63,15 @@ const INPUT: CheckpointWhenInput = {
 };
 
 /** Wait until a child has written its synchronization marker. */
-async function waitForPath(path: string): Promise<void> {
-  await waitUntil(
+async function waitForPath(
+  path: string,
+  pending: Promise<unknown>,
+): Promise<void> {
+  await waitForPendingCondition(
+    pending,
     async () => await targetExists(path),
     `child marker ${path}`,
-    { timeoutMs: 1_000, intervalMs: 5 },
+    { intervalMs: 5 },
   );
 }
 
@@ -201,7 +205,7 @@ Deno.test("when: removes structured input after pass, failure, timeout, and canc
       `printf %s "$DISCERN_CHECKPOINT_INPUT" > "${record}"; sleep 30`,
       { input: INPUT, signal: controller.signal },
     );
-    await waitForPath(record);
+    await waitForPath(record, pending);
     controller.abort();
     await pending;
     const inputPath = await Deno.readTextFile(record);

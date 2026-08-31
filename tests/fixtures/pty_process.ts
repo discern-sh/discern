@@ -1,6 +1,10 @@
 /** Generic real-PTY process driver shared by interactive integration harnesses. */
 
-import { realDelay, waitUntil } from "../waiting.ts";
+import {
+  realDelay,
+  TEST_PROCESS_TIMEOUT_MS,
+  waitUntil,
+} from "../waiting.ts";
 import {
   claimRealPtyBoundary,
   realPtyEvidence,
@@ -10,9 +14,6 @@ import {
 const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
 const ESCAPE_BYTE = 0x1b;
-
-/** Infrastructure allowance for a successful process under concurrent suite load. */
-export const TEST_PROCESS_TIMEOUT_MS = 180_000;
 
 /** One input write relative to an observed-ready phase. */
 export interface PtyInputStep {
