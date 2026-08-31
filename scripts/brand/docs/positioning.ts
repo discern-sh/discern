@@ -95,9 +95,9 @@ export const REASONS_TO_BELIEVE = [
   },
   {
     id: "standards-retain-gains",
-    name: "Standards that retain gains",
+    name: "Standards that lock in gains",
     detail:
-      "a measurable improvement can be captured and may not be surrendered by a later branch.",
+      "a measurable improvement can be captured as the new limit and may not be surrendered by a later branch.",
   },
   {
     id: "exact-change-evidence",
@@ -121,6 +121,12 @@ export const REASONS_TO_BELIEVE = [
     name: "Provider continuity",
     detail:
       "the intelligence may change while the project's working practice remains.",
+  },
+  {
+    id: "self-hosting",
+    name: "Self-hosting",
+    detail:
+      "discern is developed under its own Gate, worktrees, Standards, Map, and Logbook; the practice it installs is the practice it is built with.",
   },
 ] as const satisfies readonly ReasonToBelieve[];
 
@@ -174,6 +180,7 @@ export const STRATEGIC_TESTS: readonly string[] = [
   "It does not imply security, total correctness, or autonomous shipping authority.",
   "It is something the founder can say aloud with conviction.",
   "It sounds recognizably like discern and avoids generic AI developer-tool language.",
+  "A rival could not put their logo under it unchanged.",
 ];
 
 /** What the brand must not be positioned as. */
@@ -187,6 +194,7 @@ export const BRAND_IS_NOT: readonly string[] = [
   "a fleet dashboard;",
   "a certification of the builder's status;",
   "a shortcut that makes engineering knowledge irrelevant;",
+  "a brake on the agent's speed;",
   "a solemn duty imposed through fear.",
 ];
 

@@ -220,11 +220,12 @@ A connected system supports the brand promise:
 3. **Shaped delegation:** substantial work can become complete briefs, parallel waves, or staged dependencies with explicit authority and independent review.
 4. **Isolated work:** each task receives its own checkout, branch, identity, environment values, and declared resources.
 5. **Deterministic completion:** the project runs its declared checks; no AI model judges another model's confidence.
-6. **Standards that retain gains:** a measurable improvement can be captured and may not be surrendered by a later branch.
+6. **Standards that lock in gains:** a measurable improvement can be captured as the new limit and may not be surrendered by a later branch.
 7. **Exact-change evidence:** the completion artifact identifies the committed tree and declared conditions it covers.
 8. **Human acceptance:** passing conditions do not independently grant authority to land.
 9. **Practice evidence:** local history can reveal recurring friction, provider cohorts, cycle time, gate fit, and quality trajectories.
 10. **Provider continuity:** the intelligence may change while the project's working practice remains.
+11. **Self-hosting:** discern is developed under its own Gate, worktrees, Standards, Map, and Logbook; the practice it installs is the practice it is built with.
 
 ## Differentiation
 
@@ -275,6 +276,7 @@ Do not position discern as:
 - a fleet dashboard;
 - a certification of the builder's status;
 - a shortcut that makes engineering knowledge irrelevant;
+- a brake on the agent's speed;
 - a solemn duty imposed through fear.
 
 ## Founder fit
@@ -297,6 +299,7 @@ A proposed message belongs in the core brand only when it passes these tests:
 6. It does not imply security, total correctness, or autonomous shipping authority.
 7. It is something the founder can say aloud with conviction.
 8. It sounds recognizably like discern and avoids generic AI developer-tool language.
+9. A rival could not put their logo under it unchanged.
 
 ## Canonical summary
 
