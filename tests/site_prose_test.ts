@@ -4,7 +4,8 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join, resolve } from "@std/path";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { renderAgents } from "../site/page-src/agents.tsx";
-import { COPY_PROMPT_TEXT, renderLanding } from "../site/page-src/landing.tsx";
+import { COPY_PROMPT_TEXT } from "../site/page-src/campaign.tsx";
+import { renderLanding } from "../site/page-src/landing.tsx";
 import { renderTrust } from "../site/page-src/trust.tsx";
 import { proseWordCount } from "../scripts/prose_lib.ts";
 import {

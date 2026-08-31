@@ -21,7 +21,7 @@ export interface PageDocument {
   readonly description: string;
   /** Compositions-bundle stylesheet files, in load order. */
   readonly styles: readonly string[];
-  /** Compositions-bundle deferred script files. */
+  /** Compositions-bundle deferred ECMAScript module files. */
   readonly scripts: readonly string[];
   /** Rendered static body markup. */
   readonly body: string;
@@ -35,7 +35,7 @@ export function pageDocument(page: PageDocument): string {
     }" />`
   ).join("\n");
   const scripts = page.scripts.map((file) =>
-    `<script defer src="${
+    `<script type="module" defer src="${
       designSystemAssetPath("compositions", file)
     }"></script>`
   ).join("\n");

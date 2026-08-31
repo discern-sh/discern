@@ -33,8 +33,10 @@ export const GENERATED_SITE_OUTPUTS = [
 export const COPIED_PAGE_ASSETS = [
   "agents.css",
   "agents.js",
-  "landing-v3.css",
-  "landing.js",
+  "campaign.css",
+  "copy-prompt.js",
+  "clarity-first.css",
+  "clarity-first.js",
   "trust.css",
 ] as const;
 

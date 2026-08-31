@@ -1,0 +1,11 @@
+/* Stable public-campaign chrome shared across page compositions. */
+
+@layer discern.components {
+  .landing-brand-name {
+    font-family: var(--discern-font-mono);
+  }
+
+  .landing-footer {
+    --discern-page-max: 86rem;
+  }
+}
