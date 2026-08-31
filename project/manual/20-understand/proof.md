@@ -29,9 +29,9 @@ discern uses Proof to do that checking for you. It confirms that the project's d
 
 After a successful `discern done`, the agent returns a one-line summary such as this:
 
-> Proof: gate passed on `agent/user-onboarding-fixes-0a7563` @ c5a02addf12a · 6 files +568 −345 vs main · standards held, 8 improved · 1 checkpoint declared met · full proof: `discern status --verbose`
+> **Proof:** The Gate passed for `agent/user-onboarding-fixes-0a7563` at `c5a02addf12a` · 6 files changed (+568 −345) vs `main` · Standards held (8 improved) · 1 checkpoint declared met · View the full Proof: `discern status --verbose`
 
-The line gives a reviewer the essential facts at a glance; `discern status --verbose` opens the full evidence. The agent receives Proof before landing, so you can review the exact result and decide what becomes part of the project. After an accepted change lands, discern keeps the full Proof as a durable Git note on that commit.
+The blockquote visually distinguishes Proof from the agent's account, while code styling separates Git identities and the inspection command from prose. The line gives a reviewer the essential facts at a glance; `discern status --verbose` opens the full evidence. The agent receives Proof before landing, so you can review the exact result and decide what becomes part of the project. After an accepted change lands, discern keeps the full Proof as a durable Git note on that commit.
 
 ## What green establishes
 

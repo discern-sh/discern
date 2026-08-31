@@ -88,7 +88,7 @@ The agent returns to you only for decisions the code can't settle, such as a wro
 
 When the authoring is committed, the agent runs `discern setup done`. discern diagnoses the authored setup for completeness, exercises it in a throwaway worktree, and runs the full Gate. Success returns Proof, discern's evidence that one exact commit passed the declared checks, as a single line:
 
-> Proof: gate passed on discern-setup @ 4561b231d9c4 · 26 files +1758 −0 vs main · full proof: discern status --verbose
+> **Proof:** The Gate passed for `discern-setup` at `4561b231d9c4` · 26 files changed (+1758 −0) vs `main` · View the full Proof: `discern status --verbose`
 
 The agent relays a handoff with that line: where future sessions will start, which checks are now active, one important rule it found, and what remains open. Then it waits.
 
