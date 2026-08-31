@@ -36,6 +36,7 @@ export interface RepoAuthoredPaths {
   manual: string;
   manualRel: string;
   scripts: string;
+  scriptsRel: string;
   skills: string;
   todo: string;
 }
@@ -43,6 +44,7 @@ export interface RepoAuthoredPaths {
 const config = await loadConfig(REPO_ROOT);
 const map = resolveMapDir(REPO_ROOT, config).abs;
 const manual = resolveRepositoryManualDir(REPO_ROOT).abs;
+const scripts = resolveScriptsDir(REPO_ROOT, config).abs;
 
 export const REPO_AUTHORED_PATHS: RepoAuthoredPaths = {
   instructions: await resolveInstructionSources(REPO_ROOT, config),
@@ -50,7 +52,8 @@ export const REPO_AUTHORED_PATHS: RepoAuthoredPaths = {
   mapRel: relative(REPO_ROOT, map),
   manual,
   manualRel: relative(REPO_ROOT, manual),
-  scripts: resolveScriptsDir(REPO_ROOT, config).abs,
+  scripts,
+  scriptsRel: relative(REPO_ROOT, scripts),
   skills: resolveSkillsDir(REPO_ROOT, config).abs,
   todo: resolveTodoPath(REPO_ROOT, config).abs,
 };

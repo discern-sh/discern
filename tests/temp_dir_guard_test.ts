@@ -234,7 +234,7 @@ Deno.test("raw temp-directory detection covers every authored tree and executabl
   const plants = [
     "src/future.ts",
     "scripts/future.ts",
-    "project/scripts/future.ts",
+    "project/future.ts",
     "tests/future_test.ts",
     "tests/fixtures/future_runner.ts",
     "future_tools/new_root.ts",
@@ -267,7 +267,7 @@ Deno.test("the Git-derived guard enrolls planted roots and only exempts live aut
     const plants = [
       "src/future.ts",
       "scripts/future.ts",
-      "project/scripts/future.ts",
+      "project/future.ts",
       "tests/future_test.ts",
       "tests/fixtures/future_runner.ts",
       "future_tools/new_root.ts",
