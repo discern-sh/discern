@@ -18,6 +18,11 @@ import {
 import { mainCheckoutIssue, REPO_ROOT } from "../scripts/canon_editor/root.ts";
 import { buildSnapshot } from "../scripts/canon_editor/snapshot.ts";
 import { fieldSpecFor } from "../scripts/canon_editor/fields.ts";
+import {
+  agentWorktreeName,
+  composeAgentBrief,
+  copyVisibleBrief,
+} from "../scripts/canon_editor/ui/brief.js";
 import { buildPickerCatalog } from "../scripts/canon_editor/pickers.ts";
 import {
   fieldLeaves,
@@ -143,6 +148,8 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
             source: string;
             options: { value: string }[];
           } | null;
+          semantics: Record<string, unknown> | null;
+          lockedReason: string | null;
         }[];
         inward: { registry: string }[];
       };
@@ -151,6 +158,8 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
     assert(proof.claimsCarried.includes("proof-exact-tree"));
     const what = proof.fields.find((field) => field.path === "what");
     assertEquals(what?.editable, true);
+    assertEquals(what?.semantics, { edit: "prose", register: "technical" });
+    assertEquals(what?.lockedReason, null);
 
     const agentBenefit = await (
       await request(
@@ -169,6 +178,7 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
           source: string;
           options: { value: string }[];
         } | null;
+        semantics: Record<string, unknown> | null;
       }[];
     };
     assertEquals(agentBenefit.file, "scripts/feature_registry.ts");
@@ -177,6 +187,11 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
     assertEquals(hints?.editable, true);
     assertEquals(hints?.editor, "list");
     assertEquals(hints?.picker?.source, "hint");
+    assertEquals(hints?.semantics, {
+      edit: "list",
+      picker: "hint",
+      write: "picker",
+    });
     assert(
       hints?.picker?.options.some((option) =>
         option.value === "start-mcp-re-root"
@@ -292,11 +307,34 @@ Deno.test("the entry API merges evaluation with syntax positions", async () => {
     const engine = await (
       await request(editor, "/api/entry/glossary/engine")
     ).json() as {
-      fields: { path: string; editable: boolean; editor: string | null }[];
+      fields: {
+        path: string;
+        editable: boolean;
+        editor: string | null;
+        semantics: Record<string, unknown> | null;
+        lockedReason: string | null;
+      }[];
     };
     const matcher = engine.fields.find((field) => field.path === "plain.match");
     assertEquals(matcher?.editable, false);
     assertEquals(matcher?.editor, null);
+    assertEquals(matcher?.semantics?.edit, "locked");
+    assert(matcher?.lockedReason?.includes("matcher override"));
+
+    const jobs = await (
+      await request(editor, "/api/entry/feature/jobs-table")
+    ).json() as {
+      fields: {
+        path: string;
+        kind: string;
+        editable: boolean;
+        lockedReason: string | null;
+      }[];
+    };
+    const derived = jobs.fields.find((field) => field.path === "what");
+    assertEquals(derived?.kind, "template");
+    assertEquals(derived?.editable, false);
+    assert(derived?.lockedReason?.includes("only a plain string literal"));
 
     const missing = await request(editor, "/api/entry/feature/nope");
     assertEquals(missing.status, 404);
@@ -317,7 +355,12 @@ Deno.test("literal editability never overrides a field's semantics", async () =>
       );
       assertEquals(response.status, 200, `${entry.registry}:${entry.slug}`);
       const payload = await response.json() as {
-        fields: { path: string; kind: string; editable: boolean }[];
+        fields: {
+          path: string;
+          kind: string;
+          editable: boolean;
+          lockedReason: string | null;
+        }[];
       };
       for (const leaf of fieldLeaves(entry)) {
         const field = payload.fields.find((item) => item.path === leaf.path);
@@ -335,6 +378,12 @@ Deno.test("literal editability never overrides a field's semantics", async () =>
               supportedPickers.has(semantics.picker)),
           `${entry.registry} ${entry.id} · ${leaf.path}`,
         );
+        if (!field.editable) {
+          assert(
+            field.lockedReason !== null && field.lockedReason.trim() !== "",
+            `${entry.registry} ${entry.id} · ${leaf.path} explains its lock`,
+          );
+        }
       }
     }
 
@@ -422,14 +471,215 @@ Deno.test("a list save refuses values outside its live picker", async () => {
   });
 });
 
+Deno.test("the agent brief is deterministic, bounded, and operationally complete", () => {
+  const references = Array.from({ length: 30 }, (_, index) => ({
+    registry: "feature",
+    slug: `feature-${index}`,
+    label: `Feature ${index} ${"x".repeat(400)}`,
+  }));
+  const context = {
+    page: {
+      id: "manual-glossary",
+      title: "Glossary (Manual)",
+      rel: "project/manual/30-reference/glossary.md",
+      corpus: "manual",
+      prosePolicy: "manual",
+    },
+    entry: {
+      registry: "glossary",
+      id: "File ownership",
+      slug: "file-ownership",
+      title: "File ownership",
+      kind: "term",
+      parent: null,
+      file: "scripts/glossary_registry.ts",
+      line: 365,
+      outward: [{ field: "definition", refs: references }],
+      inward: references.map((reference, index) => ({
+        ...reference,
+        via: `field-${index}`,
+      })),
+      claimsCarried: Array.from({ length: 20 }, (_, index) => `claim-${index}`),
+    },
+    field: {
+      path: "plain.keep",
+      kind: "string",
+      line: 366,
+      editable: true,
+      editor: "prose",
+      semantics: { edit: "prose", register: "plain" },
+      lockedReason: null,
+      value: "v".repeat(4_000),
+    },
+    outcome: `Clarify the structural boundary. ${"goal ".repeat(400)}`,
+    guards: Array.from(
+      { length: 20 },
+      (_, index) => `tests/glossary_guard_${index}_test.ts`,
+    ),
+  };
+  const brief = composeAgentBrief(context);
+  assertEquals(
+    composeAgentBrief(context),
+    brief,
+    "composition is deterministic",
+  );
+  for (
+    const required of [
+      "# Brief an agent: File ownership",
+      "Clarify the structural boundary.",
+      '`"canon-glossary-file-ownership"`',
+      "Glossary (Manual)",
+      "scripts/glossary_registry.ts:365",
+      "plain.keep",
+      "register=plain",
+      "Current bounded value",
+      "Outward citations",
+      "Inward citations",
+      "Claims carried",
+      "Registry guards",
+      "remains authoritative",
+      "Do not hand-edit generated files.",
+      "Keep computed and template values source-derived.",
+      "Regenerate every projection through its real producer",
+      "practical regression guard",
+      "discern_prepare",
+      "discern_done",
+      "proof line",
+    ]
+  ) {
+    assert(brief.includes(required), `brief includes ${required}`);
+  }
+  assert(brief.includes("additional item(s) omitted"));
+  assert(brief.includes("[truncated]"));
+  assert(brief.length < 16_000, `bounded brief grew to ${brief.length} bytes`);
+  const entryBrief = composeAgentBrief({ ...context, field: undefined });
+  assert(
+    entryBrief.includes(
+      "The entry is the focus; no individual field is selected.",
+    ),
+  );
+  const lockedBrief = composeAgentBrief({
+    ...context,
+    field: {
+      ...context.field,
+      path: "plain.match",
+      kind: "template",
+      editable: false,
+      editor: null,
+      semantics: {
+        edit: "locked",
+        reason: "a matcher override; edit beside the pattern it tunes",
+      },
+      lockedReason: "a matcher override; edit beside the pattern it tunes",
+    },
+  });
+  assert(
+    lockedBrief.includes(
+      "Locked reason: `a matcher override; edit beside the pattern it tunes`",
+    ),
+  );
+  assertEquals(
+    agentWorktreeName(
+      "Glossary / unsafe",
+      "Entry ../../ with a very long identity ".repeat(4),
+    ),
+    agentWorktreeName(
+      "Glossary / unsafe",
+      "Entry ../../ with a very long identity ".repeat(4),
+    ),
+  );
+  assert(
+    /^[a-z0-9-]{1,48}$/.test(
+      agentWorktreeName(
+        "Glossary / unsafe",
+        "Entry ../../ with a very long identity ".repeat(4),
+      ),
+    ),
+    "the literal worktree name is short and shell-safe",
+  );
+});
+
+Deno.test("brief copying uses the visible text and selects it on failure", async () => {
+  const dom = new JSDOM(
+    '<textarea id="preview">Exact visible Markdown\nSecond line</textarea>',
+    { url: "http://localhost" },
+  );
+  const preview = dom.window.document.querySelector<HTMLTextAreaElement>(
+    "#preview",
+  );
+  assert(preview !== null);
+  const copied: string[] = [];
+  const success = await copyVisibleBrief(preview, {
+    writeText: (text: string): Promise<void> => {
+      copied.push(text);
+      return Promise.resolve();
+    },
+  });
+  assertEquals(copied, [preview.value]);
+  assertEquals(success, { ok: true, message: "Brief copied." });
+
+  preview.setSelectionRange(2, 4);
+  const failure = await copyVisibleBrief(preview, {
+    writeText: (): Promise<void> => Promise.reject(new Error("denied")),
+  });
+  assertEquals(failure.ok, false);
+  assert(failure.message.includes("copy it manually"));
+  assertEquals(dom.window.document.activeElement, preview);
+  assertEquals(preview.selectionStart, 0);
+  assertEquals(preview.selectionEnd, preview.value.length);
+  dom.window.close();
+});
+
+Deno.test("Brief an agent remains a static copy surface with no effect route", async () => {
+  const source = await Deno.readTextFile(
+    join(REPO_ROOT, "scripts", "canon_editor", "ui", "brief.js"),
+  );
+  for (
+    const forbidden of [
+      "fetch(",
+      "XMLHttpRequest",
+      "EventSource",
+      "WebSocket",
+      "Deno.Command",
+      "/api/",
+      "create_thread",
+      "discern_accept(",
+    ]
+  ) {
+    assert(!source.includes(forbidden), `brief module contains ${forbidden}`);
+  }
+  await withCanonEditor(async (editor) => {
+    const asset = await request(editor, "/assets/brief.js");
+    assertEquals(asset.status, 200);
+    assert((await asset.text()).includes("composeAgentBrief"));
+    const noRoute = await trustedPost(editor, "/api/brief", {});
+    assertEquals(noRoute.status, 404);
+    await noRoute.body?.cancel();
+  });
+});
+
 Deno.test("literal glossary plain fields open from the rail and use the normal save route", async () => {
-  const appSource = await Deno.readTextFile(
-    join(REPO_ROOT, "scripts", "canon_editor", "ui", "app.js"),
-  );
-  const executable = appSource.replace(
-    'import { SYSTEM_SCHEDULER } from "/assets/scheduler.js";',
-    "const SYSTEM_SCHEDULER = globalThis.__CANON_TEST_SCHEDULER;",
-  );
+  const [appSource, briefSource] = await Promise.all([
+    Deno.readTextFile(
+      join(REPO_ROOT, "scripts", "canon_editor", "ui", "app.js"),
+    ),
+    Deno.readTextFile(
+      join(REPO_ROOT, "scripts", "canon_editor", "ui", "brief.js"),
+    ),
+  ]);
+  const briefImport = `import {
+  composeAgentBrief,
+  copyVisibleBrief,
+  DEFAULT_AGENT_OUTCOME,
+} from "./brief.js";`;
+  const executable = `${briefSource.replace(/^export /gm, "")}\n${
+    appSource
+      .replace(
+        'import { SYSTEM_SCHEDULER } from "/assets/scheduler.js";',
+        "const SYSTEM_SCHEDULER = globalThis.__CANON_TEST_SCHEDULER;",
+      )
+      .replace(briefImport, "")
+  }`;
   for (
     const fixture of [
       {
@@ -449,7 +699,17 @@ Deno.test("literal glossary plain fields open from the rail and use the normal s
     const boot = {
       requestTokenHeader: CANON_EDITOR_REQUEST_TOKEN_HEADER,
       requestToken: TEST_REQUEST_TOKEN,
-      guards: [{ registry: "glossary", guards: [] }],
+      page: {
+        id: "glossary",
+        title: "Glossary (Map)",
+        rel: "project/map/00-orientation/glossary.md",
+        corpus: "map",
+        prosePolicy: "map",
+      },
+      guards: [{
+        registry: "glossary",
+        guards: ["tests/glossary_guard_test.ts"],
+      }],
     };
     const dom = new JSDOM(
       `<!doctype html><body>
@@ -466,6 +726,13 @@ Deno.test("literal glossary plain fields open from the rail and use the normal s
           <pre id="canon-editor-bench-details" hidden></pre>
           <button id="canon-editor-bench-cancel" type="button">Cancel</button>
           <button id="canon-editor-bench-save" type="button">Save</button>
+        </section>
+        <section id="canon-editor-brief" hidden>
+          <button id="canon-editor-brief-close" type="button">Close</button>
+          <textarea id="canon-editor-brief-outcome">Make the smallest coherent change needed for this entry.</textarea>
+          <textarea id="canon-editor-brief-preview" readonly></textarea>
+          <span id="canon-editor-brief-status"></span>
+          <button id="canon-editor-brief-copy" type="button">Copy brief</button>
         </section>
       </body>`,
       { runScripts: "outside-only", url: "http://localhost/page/glossary" },
@@ -515,6 +782,8 @@ Deno.test("literal glossary plain fields open from the rail and use the normal s
               editable: true,
               editor: "prose",
               picker: null,
+              semantics: { edit: "prose", register: "public" },
+              lockedReason: null,
               value: "Definition",
             },
             {
@@ -524,6 +793,8 @@ Deno.test("literal glossary plain fields open from the rail and use the normal s
               editable: true,
               editor: "prose",
               picker: null,
+              semantics: { edit: "prose", register: "plain" },
+              lockedReason: null,
               value: fixture.value,
             },
           ],
@@ -572,6 +843,23 @@ Deno.test("literal glossary plain fields open from the rail and use the normal s
         ?.textContent,
       `glossary · ${fixture.slug} · ${fixture.field}`,
     );
+    const briefButton = [...editorWindow.document.querySelectorAll("button")]
+      .find((button) => button.textContent === "Brief an agent");
+    assert(briefButton !== undefined);
+    briefButton.click();
+    const briefPanel = editorWindow.document.getElementById(
+      "canon-editor-brief",
+    );
+    assertEquals(briefPanel?.hidden, false);
+    const preview = editorWindow.document.querySelector<HTMLTextAreaElement>(
+      "#canon-editor-brief-preview",
+    );
+    assert(preview !== null);
+    assert(preview.value.includes(`- Field: \`${fixture.field}\``));
+    assert(preview.value.includes("tests/glossary_guard_test.ts"));
+    assert(!preview.value.includes(TEST_REQUEST_TOKEN));
+    editorWindow.document.getElementById("canon-editor-brief-close")?.click();
+    assertEquals(briefPanel?.hidden, true);
     box.textContent = `${fixture.value}; revised`;
     editorWindow.document.getElementById("canon-editor-bench-save")?.click();
     await flushEditorUi();

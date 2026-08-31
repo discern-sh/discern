@@ -32,7 +32,7 @@ import type {
   DemandEntry,
   DemandTerritory,
 } from "../brand/demand.ts";
-import type { RegistryName } from "./registry_ast.ts";
+import type { FieldValueKind, RegistryName } from "./registry_ast.ts";
 
 /** The live set a list field's picker draws from. */
 export type PickerSource =
@@ -378,4 +378,33 @@ export function requiresPickerWrite(
   spec: FieldSpec,
 ): spec is Extract<FieldSpec, { readonly edit: "list" }> {
   return spec.edit === "list" && spec.picker !== "free";
+}
+
+/** Explain why one syntax leaf has no Canon Editor write-back. */
+export function fieldLockedReason(
+  spec: FieldSpec | undefined,
+  kind: FieldValueKind,
+  editorAvailable: boolean,
+): string | undefined {
+  if (editorAvailable) return undefined;
+  if (spec === undefined) return "the field has no Canon Editor semantics";
+  if (spec.edit === "locked") return spec.reason;
+  if (spec.edit === "structural") {
+    return "child entries and object-shape changes are structural agent work";
+  }
+  if (spec.edit === "nested") {
+    return "the field is a structural container; edit one existing classified leaf";
+  }
+  if (spec.edit === "prose") {
+    return `the source value is ${kind}; only a plain string literal can be edited`;
+  }
+  if (spec.write !== "picker") {
+    return spec.picker === "free"
+      ? "the string list is free-form and remains source editing"
+      : "the field has no picker write-back";
+  }
+  if (kind !== "string-array") {
+    return `the source value is ${kind}; computed and interpolated lists remain source-derived`;
+  }
+  return `the ${spec.picker} live option authority is unavailable`;
 }

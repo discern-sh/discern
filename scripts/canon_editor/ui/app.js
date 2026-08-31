@@ -4,6 +4,11 @@
    document itself never shifts while a field editor is open. */
 
 import { SYSTEM_SCHEDULER } from "/assets/scheduler.js";
+import {
+  composeAgentBrief,
+  copyVisibleBrief,
+  DEFAULT_AGENT_OUTCOME,
+} from "./brief.js";
 
 const boot = JSON.parse(
   document.getElementById("canon-editor-boot").textContent,
@@ -21,11 +26,20 @@ const bench = {
   cancel: document.getElementById("canon-editor-bench-cancel"),
   save: document.getElementById("canon-editor-bench-save"),
 };
+const brief = {
+  root: document.getElementById("canon-editor-brief"),
+  close: document.getElementById("canon-editor-brief-close"),
+  outcome: document.getElementById("canon-editor-brief-outcome"),
+  preview: document.getElementById("canon-editor-brief-preview"),
+  status: document.getElementById("canon-editor-brief-status"),
+  copy: document.getElementById("canon-editor-brief-copy"),
+};
 
 let selected = null;
 let currentEntry = null;
 let focusedField = null;
 let editing = null;
+let briefContext = null;
 const runningGuards = new Set();
 
 /** The pending plain-twin reviews that editing has queued. */
@@ -175,6 +189,46 @@ function ideButton(entry, activeField) {
   return wrap;
 }
 
+/** Recompose the visible handoff from its bounded repository context. */
+function refreshBriefPreview() {
+  if (!briefContext) return;
+  brief.preview.value = composeAgentBrief({
+    ...briefContext,
+    outcome: brief.outcome.value,
+  });
+  brief.status.textContent = "";
+}
+
+/** Open the copy-only handoff for the selected entry or focused field. */
+function openAgentBrief(entry) {
+  const registryGuards = boot.guards.find((item) =>
+    item.registry === entry.registry
+  );
+  const field = focusedField === null
+    ? undefined
+    : entry.fields.find((candidate) => candidate.path === focusedField);
+  briefContext = {
+    page: boot.page,
+    entry,
+    field,
+    guards: registryGuards?.guards ?? [],
+  };
+  brief.outcome.value = DEFAULT_AGENT_OUTCOME;
+  refreshBriefPreview();
+  brief.root.hidden = false;
+  document.body.classList.add("canon-editor-brief-open");
+  brief.outcome.focus();
+  brief.outcome.select();
+}
+
+/** Close the handoff panel without changing the current entry or draft. */
+function closeAgentBrief() {
+  brief.root.hidden = true;
+  briefContext = null;
+  brief.status.textContent = "";
+  document.body.classList.remove("canon-editor-brief-open");
+}
+
 /** Fill the inspector rail: source, fields, citation web, and guard panel. */
 function renderRail(entry, activeField) {
   currentEntry = entry;
@@ -185,6 +239,12 @@ function renderRail(entry, activeField) {
     el("div", {
       class: "canon-editor-kind",
       text: `${entry.registry} ${entry.kind} · ${entry.id}`,
+    }),
+    el("button", {
+      class: "canon-editor-btn canon-editor-primary canon-editor-brief-button",
+      type: "button",
+      text: "Brief an agent",
+      onclick: () => openAgentBrief(entry),
     }),
   );
 
@@ -244,7 +304,8 @@ function renderRail(entry, activeField) {
       } else {
         row.append(el("span", {
           text: "🔒 " + field.kind,
-          title: "derived or structured — edit at the source",
+          title: field.lockedReason ??
+            "derived or structured; edit at the source",
         }));
       }
       rail.append(row);
@@ -806,7 +867,9 @@ doc.addEventListener("keydown", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
-    if (editing) {
+    if (!brief.root.hidden) {
+      closeAgentBrief();
+    } else if (editing) {
       if (bench.root.dataset.state !== "saving") closeEditor();
     } else if (selected) deselect();
   }
@@ -839,6 +902,17 @@ bench.detailsToggle.addEventListener("click", () => {
   bench.details.hidden = !open;
   bench.detailsToggle.textContent = open ? "Hide details" : "Show details";
   bench.detailsToggle.setAttribute("aria-expanded", String(open));
+});
+brief.close.addEventListener("click", closeAgentBrief);
+brief.outcome.addEventListener("input", refreshBriefPreview);
+brief.copy.addEventListener("click", async () => {
+  brief.copy.disabled = true;
+  const result = await copyVisibleBrief(brief.preview, navigator.clipboard);
+  brief.status.textContent = result.message;
+  brief.copy.disabled = false;
+});
+brief.root.addEventListener("click", (event) => {
+  if (event.target === brief.root) closeAgentBrief();
 });
 
 /** Pull server state: dirty files, the reading grade, and guard reports. */
