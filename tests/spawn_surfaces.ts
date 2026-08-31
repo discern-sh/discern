@@ -120,10 +120,10 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   },
   {
     path: "scripts/canon_editor/pipeline.ts",
-    enclosingFunction: "proseGate",
-    operation: "run the prose gate for an editor transaction",
+    enclosingFunction: "mapProseGate",
+    operation: "run the Map prose gate for an editor transaction",
     reason:
-      "the editor invokes the repository prose task with transaction-specific environment and diagnostics",
+      "the editor invokes the repository Map prose task with transaction-specific environment and diagnostics",
     may: ["other"],
     role: "registered-boundary",
   },

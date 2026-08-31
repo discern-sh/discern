@@ -3637,7 +3637,7 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `scripts/canon_editor/locate.ts#openInIde`
   - `scripts/canon_editor/pipeline.ts#spawnSnapshot`
   - `scripts/canon_editor/pipeline.ts#formatTs`
-  - `scripts/canon_editor/pipeline.ts#proseGate`
+  - `scripts/canon_editor/pipeline.ts#mapProseGate`
   - `scripts/cli_install.ts#capture`
   - `scripts/coverage.ts#denoCommand`
   - `scripts/release_smoke.ts#run`
