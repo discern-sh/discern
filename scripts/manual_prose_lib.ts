@@ -1,6 +1,6 @@
 /** Canonical published-manual prose projection for voice and complexity. */
 
-import { dirname, join, resolve } from "@std/path";
+import { join, resolve } from "@std/path";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection, type ManualPage } from "../src/lib/manual.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
@@ -15,6 +15,7 @@ import {
   blankFrontmatter,
   decodeValeReport,
   selectProseGateAlerts,
+  stageProseFiles,
   valeAlertCount,
   type ValeReport,
   valeReportSchema,
@@ -136,20 +137,15 @@ export async function withStagedManualProse<T>(
   fn: (stage: StagedManualProse) => T | Promise<T>,
   sourceFilter?: readonly string[],
 ): Promise<T> {
+  const pages = await projectManualProse(repoRoot, sourceFilter);
+  const files = pages.map((projected) => ({
+    stagePath: join("_manual-product", projected.page.entry.relToDocs),
+    source: projected.source,
+    prose: projected.valeMarkdown,
+  }));
   return await withToolTempDir("manual-prose-stage", async (dir) => {
-    const pages = await projectManualProse(repoRoot, sourceFilter);
-    const sourceMap = new Map<string, string>();
-    for (const projected of pages) {
-      const destination = join(
-        dir,
-        "_manual-product",
-        projected.page.entry.relToDocs,
-      );
-      await Deno.mkdir(dirname(destination), { recursive: true });
-      await Deno.writeTextFile(destination, projected.valeMarkdown);
-      sourceMap.set(resolve(destination), resolve(projected.source));
-    }
-    return await fn({ dir, pages, sources: sourceMap });
+    const sources = await stageProseFiles(dir, files);
+    return await fn({ dir, pages, sources });
   });
 }
 
