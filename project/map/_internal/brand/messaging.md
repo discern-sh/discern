@@ -20,7 +20,7 @@ The order is usually:
 5. evidence and limits;
 6. action.
 
-Two standing rules: every public page carries at least one line from the fact inventory, and no page leads with a line a competitor could sign unchanged.
+The standing rules: every public page carries at least one line from the fact inventory, and no page leads with a line a competitor could sign unchanged.
 
 ## The positioning grid
 
@@ -31,7 +31,7 @@ The grid every message derives from: the default the reader already lives with o
 | Every agent session starts from zero and relearns the project from its prompt. | The practice lives in the project; every agent starts with it already in view.        |
 | The human shapes, relays, checks, and coordinates everything around the code.  | Work moves as a complete handoff and returns ready for a decision, evidence attached. |
 | Confidence rests on the agent's own account of what it did.                    | The declared Gate evaluates the exact committed change; Proof records what passed.    |
-| Quality drifts quietly as sessions accumulate.                                 | A Standard may tighten, and a branch cannot weaken it.                                |
+| Quality drifts as sessions accumulate, and nothing catches it.                 | A Standard may tighten, and a branch cannot weaken it.                                |
 | Switching providers means re-teaching the project from scratch.                | The project keeps its way of working when the agent changes.                          |
 | Every lab is making the agent better.                                          | discern makes the project better at receiving them.                                   |
 
@@ -57,7 +57,7 @@ Any developer tool could sign this line, so it seasons a page rather than carryi
 
 > **discern installs that practice into the project.**
 
-This is the lead: the one claim no competitor can put their logo under. Agent vendors sell the agent; discern installs the practice the project keeps. When a page can make only one point, it makes this one.
+This is the lead. A competitor cannot put their logo under it: agent vendors sell the agent; discern installs the practice the project keeps. When a page can make only one point, it makes this one.
 
 The sharpest expression of the contrast:
 
@@ -75,7 +75,7 @@ The category line orients. Pair it with a fact line or a recognizable moment; it
 
 > **Software that holds up.**
 
-A flexible expression covering ongoing change, scrutiny, real users, coherence, and maintainability. It carries an implicit before-state — software that gives way under those pressures — which is what keeps it from reading as filler.
+A flexible expression covering ongoing change, scrutiny, real users, coherence, and maintainability. It carries an implicit before-state (software that gives way under those pressures), which keeps it from reading as filler.
 
 > **Ship serious software.**
 
@@ -107,7 +107,7 @@ Supporting expressions:
 - Give the agent the work; keep the decision to ship.
 - Your agent wrote four thousand lines last night. Which ones did you read?
 
-The last line opens the problem. Follow it with the practice in the next breath, never with fear.
+The last line opens the problem. Follow it with the practice in the next breath.
 
 ### Technical distinction
 
@@ -124,7 +124,7 @@ This territory leads the For Agents page and technical thought leadership.
 
 ### Deferred creative territory
 
-Held for later, not for launch:
+Held for later:
 
 > **A bolder way to build.**
 
@@ -145,7 +145,7 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 - **A Standard may tighten; a branch cannot weaken its limit.** — [`standards-cannot-loosen`](claims-and-evidence.md#standards-cannot-loosen--a-standard-cannot-be-loosened-on-a-branch).
 - **Proof names the exact committed change that passed; a later commit invalidates it.** — [`proof-exact-tree`](claims-and-evidence.md#proof-exact-tree--proof-covers-the-exact-committed-tree-that-passed).
 - **discern contains no AI model and needs no API key.** — [`no-model-inside`](claims-and-evidence.md#no-model-inside--discern-contains-no-ai-model-and-needs-no-api-key).
-- **Passing makes a change eligible for a decision; it does not decide what ships.** — [`gate-grants-no-authority`](claims-and-evidence.md#gate-grants-no-authority--a-passing-gate-does-not-grant-authority-to-land). Also the honest-limit line: state it plainly where trust is being earned.
+- **Passing makes a change eligible for a decision; it does not decide what ships.** — [`gate-grants-no-authority`](claims-and-evidence.md#gate-grants-no-authority--a-passing-gate-does-not-grant-authority-to-land). Also the boundary line: state it plainly where trust is being earned.
 - **Parallel agents work in separate checkouts and cannot overwrite one another's working tree.** — [`no-checkout-collisions`](claims-and-evidence.md#no-checkout-collisions--parallel-efforts-cannot-overwrite-the-same-checkout).
 - **Change coding agents without starting the project explanation over.** — [`switch-without-reteaching`](claims-and-evidence.md#switch-without-reteaching--switching-providers-does-not-require-re-teaching-the-project).
 
@@ -223,7 +223,7 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 - Come back to work that is ready for a real decision.
 - Give the work a complete handoff.
 - Several pieces can move at once without making you their courier.
-- It returns finished, with evidence for exactly what passed.
+- It returns finished, with evidence for the exact change.
 
 **Avoid:**
 
@@ -297,7 +297,7 @@ The quota message is timely and practical. It should not become the enduring mas
 
 ### One sentence
 
-> discern installs an engineering practice into agent-built projects — the project keeps the way of working, and every change returns with evidence for exactly what passed.
+> discern installs an engineering practice into agent-built projects — the project keeps the way of working, and Proof binds the evidence to the exact change that passed.
 
 ### Approximately 30 words
 
@@ -372,7 +372,7 @@ These are testable candidates for the homepage.
 | Every session, your agent starts from zero.                                             | Homepage hero, practice-retained section         | Only the problem; the practice the project keeps must follow immediately.                               |
 | Agents come and go. The practice stays.                                                 | Provider-continuity section, closing line        | Best where switching pain is already recognized.                                                        |
 | The demo took a weekend. Now people depend on it.                                       | Consequence-threshold campaign, new-builder page | Celebrate the threshold; never scold the weekend.                                                       |
-| Your agent wrote four thousand lines last night. Which ones did you read?               | Problem-opening ad, delegation essay             | A question, not an accusation; answer with the practice in the next breath.                             |
+| Your agent wrote four thousand lines last night. Which ones did you read?               | Problem-opening ad, delegation essay             | Ask it as a question; answer with the practice in the next breath.                                      |
 | A bolder way to build.                                                                  | Deferred; post-launch campaign at the earliest   | An open line any tool could sign; revisit once concrete campaigns have given it content.                |
 | Build further.                                                                          | Deferred; brand film once equity exists          | Open two-word lines spend equity the brand has not yet earned.                                          |
 | Software that holds up.                                                                 | Outcome section, customer story, product page    | Add energy nearby; can feel defensive alone.                                                            |
@@ -432,11 +432,11 @@ Do not open with the complete mechanism list. Reveal proof in the order required
 6. **State the boundary:** what the evidence covers and what it does not.
 7. **Offer technical depth:** documentation, source-level explanation, schemas, trust page.
 
-Contrast is part of proof: put the before state — a zero-context session, a silently landed change — beside the after state. The after only reads as remarkable next to its before.
+Contrast is part of proof: put the before state (a zero-context session, a change that landed with no evidence) beside the after state. The after only reads as remarkable next to its before.
 
 ## Testing a line
 
-Run every candidate line through five checks before it ships. A line that fails one is a rewrite, not an exception.
+Run every candidate line through five checks before it ships. A line that fails one gets rewritten.
 
 - **The exact-match test.** Search the line in quotes; hundreds of prior uses mean the words are already dead.
 - **The parody test.** Read it aloud as an infomercial announcer; a line that slots in cleanly is a cliché.
@@ -449,7 +449,7 @@ Run every candidate line through five checks before it ships. A line that fails 
 - A feature supplies supporting evidence; promote it only when it serves the reader's moment.
 - A canonical product noun becomes compelling only when it carries human meaning.
 - Prefer a ledger fact to an adjective; an adjective is a placeholder for a fact not yet found.
-- State a real limit plainly where trust is being earned; honesty cannot be clichéd or parodied.
+- State a real limit plainly where trust is being earned; a stated limit cannot be clichéd or parodied.
 - “Serious” should feel aspirational and pleasurable.
 - Give “bold” enough discipline to feel considered.
 - Frame speed as expanded possibility. Avoid celebrating code volume.

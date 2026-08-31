@@ -44,7 +44,7 @@ Any developer tool could sign this line, so it seasons a page rather than carryi
 
 > **discern installs that practice into the project.**
 
-This is the lead: the one claim no competitor can put their logo under. Agent vendors sell the agent; discern installs the practice the project keeps. When a page can make only one point, it makes this one.
+This is the lead. A competitor cannot put their logo under it: agent vendors sell the agent; discern installs the practice the project keeps. When a page can make only one point, it makes this one.
 
 The sharpest expression of the contrast:
 
@@ -63,7 +63,7 @@ The category line orients. Pair it with a fact line or a recognizable moment; it
     title: "Durable outcome territory",
     body: `> **Software that holds up.**
 
-A flexible expression covering ongoing change, scrutiny, real users, coherence, and maintainability. It carries an implicit before-state — software that gives way under those pressures — which is what keeps it from reading as filler.
+A flexible expression covering ongoing change, scrutiny, real users, coherence, and maintainability. It carries an implicit before-state (software that gives way under those pressures), which keeps it from reading as filler.
 
 > **Ship serious software.**
 
@@ -96,7 +96,7 @@ Supporting expressions:
 - Give the agent the work; keep the decision to ship.
 - Your agent wrote four thousand lines last night. Which ones did you read?
 
-The last line opens the problem. Follow it with the practice in the next breath, never with fear.`,
+The last line opens the problem. Follow it with the practice in the next breath.`,
   },
   {
     id: "technical-distinction",
@@ -115,7 +115,7 @@ This territory leads the For Agents page and technical thought leadership.`,
   {
     id: "deferred-creative",
     title: "Deferred creative territory",
-    body: `Held for later, not for launch:
+    body: `Held for later:
 
 > **A bolder way to build.**
 
@@ -160,7 +160,7 @@ export const POSITIONING_GRID = [
   },
   {
     id: "quality-drift",
-    against: "Quality drifts quietly as sessions accumulate.",
+    against: "Quality drifts as sessions accumulate, and nothing catches it.",
     instead: "A Standard may tighten, and a branch cannot weaken it.",
     claims: ["standards-cannot-loosen", "pin-measured-gains"],
   },
@@ -185,7 +185,8 @@ export const POSITIONING_GRID = [
 export const FACT_LINES = [
   {
     id: "one-file",
-    line: "All project-specific discern settings live in one root file, `discern.toml`.",
+    line:
+      "All project-specific discern settings live in one root file, `discern.toml`.",
     claim: "one-config-file",
     note:
       "The smallest demonstration of the footprint; show the file itself where the layout allows.",
@@ -195,7 +196,8 @@ export const FACT_LINES = [
     line:
       "discern is developed under its own Gate, worktrees, Standards, Map, and Logbook.",
     claim: "runs-on-itself",
-    note: "The sincerity fact: the practice is trusted with its own development.",
+    note:
+      "The sincerity fact: the practice is trusted with its own development.",
   },
   {
     id: "ratchet",
@@ -219,7 +221,7 @@ export const FACT_LINES = [
       "Passing makes a change eligible for a decision; it does not decide what ships.",
     claim: "gate-grants-no-authority",
     note:
-      "Also the honest-limit line: state it plainly where trust is being earned.",
+      "Also the boundary line: state it plainly where trust is being earned.",
   },
   {
     id: "isolated-checkouts",
@@ -317,7 +319,7 @@ export const PILLARS = [
       "Come back to work that is ready for a real decision.",
       "Give the work a complete handoff.",
       "Several pieces can move at once without making you their courier.",
-      "It returns finished, with evidence for exactly what passed.",
+      "It returns finished, with evidence for the exact change.",
     ],
     avoid: [
       "fully autonomous factory claims;",
@@ -413,7 +415,7 @@ export const DESCRIPTIONS = [
     group: "length",
     heading: "One sentence",
     body:
-      `> discern installs an engineering practice into agent-built projects — the project keeps the way of working, and every change returns with evidence for exactly what passed.`,
+      `> discern installs an engineering practice into agent-built projects — the project keeps the way of working, and Proof binds the evidence to the exact change that passed.`,
   },
   {
     id: "thirty-words",
@@ -529,7 +531,7 @@ export const HEADLINES = [
       "Your agent wrote four thousand lines last night. Which ones did you read?",
     bestUse: "Problem-opening ad, delegation essay",
     caution:
-      "A question, not an accusation; answer with the practice in the next breath.",
+      "Ask it as a question; answer with the practice in the next breath.",
   },
   {
     line: "A bolder way to build.",
@@ -677,7 +679,7 @@ export const PUBLIC_COPY_GUARDRAILS: readonly string[] = [
   "A feature supplies supporting evidence; promote it only when it serves the reader's moment.",
   "A canonical product noun becomes compelling only when it carries human meaning.",
   "Prefer a ledger fact to an adjective; an adjective is a placeholder for a fact not yet found.",
-  "State a real limit plainly where trust is being earned; honesty cannot be clichéd or parodied.",
+  "State a real limit plainly where trust is being earned; a stated limit cannot be clichéd or parodied.",
   "“Serious” should feel aspirational and pleasurable.",
   "Give “bold” enough discipline to feel considered.",
   "Frame speed as expanded possibility. Avoid celebrating code volume.",
@@ -777,7 +779,7 @@ export function renderMessagingDoc(): string {
     "5. evidence and limits;",
     "6. action.",
     "",
-    "Two standing rules: every public page carries at least one line from the fact inventory, and no page leads with a line a competitor could sign unchanged.",
+    "The standing rules: every public page carries at least one line from the fact inventory, and no page leads with a line a competitor could sign unchanged.",
     "",
     "## The positioning grid",
     "",
@@ -843,11 +845,11 @@ export function renderMessagingDoc(): string {
       (entry, index) => `${index + 1}. **${entry.step}:** ${entry.detail}`,
     ),
     "",
-    "Contrast is part of proof: put the before state — a zero-context session, a silently landed change — beside the after state. The after only reads as remarkable next to its before.",
+    "Contrast is part of proof: put the before state (a zero-context session, a change that landed with no evidence) beside the after state. The after only reads as remarkable next to its before.",
     "",
     "## Testing a line",
     "",
-    "Run every candidate line through five checks before it ships. A line that fails one is a rewrite, not an exception.",
+    "Run every candidate line through five checks before it ships. A line that fails one gets rewritten.",
     "",
     bullets(LINE_TESTS),
     "",
