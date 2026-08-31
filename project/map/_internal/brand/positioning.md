@@ -84,6 +84,8 @@ The person can spend more of their judgment on:
 - the working result;
 - the decision to make a change shared.
 
+The work comes back finished; what remains is the part only the person can do.
+
 The emotional movement is:
 
 > **Ambition → momentum → confidence → pride**
@@ -150,7 +152,7 @@ A discern practice includes:
 
 ## Positioning statement
 
-> **For people building software with real consequences, discern is an agent-native engineering practice that gives coding agents a project-owned way to plan, work, verify, and return changes. It lets one person build further while the software continues to earn confidence.**
+> **For people building software with real consequences, discern is an agent-native engineering practice installed into the project itself. Every agent inherits it, every task gets its own bounded environment, and every change returns with evidence for a human decision — so one person can take on more while the software keeps earning confidence.**
 
 ## Strategic platform roles
 
@@ -160,13 +162,13 @@ This provides the worldview, audience identity, cultural breadth, and durable re
 
 ### Creative energy: Personal reach
 
-This supplies ambition and momentum through territories such as:
+This supplies ambition and momentum through concrete lines:
 
-- **A bolder way to build.**
-- **Build further.**
-- **A bigger way to build.** Use it where the surrounding copy clearly establishes capability and ambition.
+- **Take the project further than one pair of hands.**
+- **Start the project that used to be too big for one person.**
+- **The right limits let more work move — and finish.**
 
-This territory should make discern enjoyable to promote and exciting to discover.
+This territory should make discern enjoyable to promote and exciting to discover. The energy comes from specificity — a named moment, a ledger fact, or the paradox made literal; [`messaging.md`](messaging.md) holds the full headline inventory.
 
 ### Conversion benefit: Meaningful delegation
 
