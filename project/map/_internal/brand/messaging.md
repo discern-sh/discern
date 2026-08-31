@@ -155,15 +155,14 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 
 **Human truth:** Coding agents let one person attempt work that used to require more people, time, or specialist access.
 
-**Promise:** discern helps that capability become usable at greater scope.
+**Promise:** discern gives that reach a practice that can carry it.
 
 **Good expressions:**
 
-- A bolder way to build.
-- Build further.
 - Take the project further than one pair of hands.
-- Turn a backlog into organized progress.
-- Let your judgment influence more of the work.
+- Take on the project you kept postponing.
+- Turn a standing backlog into work in flight.
+- One person, several workstreams, one decision at the end.
 
 **Avoid:**
 
@@ -184,6 +183,7 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 - Ship serious software.
 - Software worth putting your name to.
 - When people start depending on it, the way you build it matters.
+- The demo took a weekend. Now people depend on it.
 - The prototype can become a product.
 
 **Avoid:**
@@ -201,6 +201,7 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 **Good expressions:**
 
 - An engineering practice, installed in the project.
+- Every session starts from zero — unless the project remembers.
 - Every agent starts with the project already in view.
 - Change agents without starting the project over.
 - The project retains the decisions, methods, and standards that matter.
@@ -219,10 +220,10 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 
 **Good expressions:**
 
-- Spend your attention where your judgment matters most.
+- Come back to work that is ready for a real decision.
 - Give the work a complete handoff.
 - Several pieces can move at once without making you their courier.
-- Come back to work that is ready for a real decision.
+- It returns finished, with evidence for exactly what passed.
 
 **Avoid:**
 
@@ -238,8 +239,8 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 
 **Good expressions:**
 
-- Evidence for the exact change.
-- A measurable gain can become the new floor.
+- Proof names the exact change that passed.
+- A measured gain becomes the limit the next branch inherits.
 - The project declares what must pass.
 - The final decision remains yours.
 
@@ -259,6 +260,7 @@ Use the product names **Gate**, **Standard**, and **Proof** after they have been
 
 **Good expressions:**
 
+- Agents come and go. The practice stays.
 - Keep the project consistent when you change agents.
 - Switch providers without re-teaching the work.
 - One project understanding across the agents you use.
@@ -290,24 +292,24 @@ The quota message is timely and practical. It should not become the enduring mas
 ### Five words
 
 - Engineering practice for agent-built software.
-- Build further with coding agents.
+- The practice your project keeps.
 - Serious software, built with agents.
 
 ### One sentence
 
-> discern installs an engineering practice into agent-built projects, helping one person build further while the software continues to earn confidence.
+> discern installs an engineering practice into agent-built projects — the project keeps the way of working, and every change returns with evidence for exactly what passed.
 
 ### Approximately 30 words
 
-> discern gives coding agents a project-owned way to plan, work, verify, and deliver changes. Ambitious software can move faster without making your attention scale with every implementation detail.
+> discern gives coding agents a project-owned practice: instructions every agent inherits, an isolated worktree for every task, a Gate that decides what is done, and Proof bound to the exact change.
 
 ### Approximately 60 words
 
-> Coding agents can take a project further than one person could build alone. discern installs a serious engineering practice into the repository: shared project understanding, isolated work for every task, deterministic checks, quality measures that retain gains, and evidence for the exact change. The agents do more of the work; you stay responsible for what gets launched.
+> Coding agents can take a project further than one person could build alone. discern installs a serious engineering practice into the repository: shared project understanding, isolated work for every task, deterministic checks, Standards that can only tighten, and evidence for the exact change. The agents do more of the work; you stay responsible for what gets launched.
 
 ### Approximately 100 words
 
-> discern is an engineering practice for software built with coding agents. Your agent studies the repository, learns what matters, wires the project's real checks, and leaves every future agent with a shared understanding and working methods. Each task gets its own isolated environment. Substantial work can be divided, coordinated, reviewed, and returned with evidence attached to the exact completed change. Measurable improvements can become the new floor, and the person responsible for the project retains authority over what lands. The result is a bolder way to build: more ambition and reach, with software that continues to earn confidence as it grows.
+> discern is an engineering practice for software built with coding agents. Your agent studies the repository, learns what matters, wires the project's real checks, and leaves every future agent with a shared understanding and working methods. Each task gets its own isolated environment. Substantial work can be divided, coordinated, reviewed, and returned with evidence attached to the exact completed change. Measurable improvements can become the new floor, and the person responsible for the project retains authority over what lands. discern is developed under its own Gate and worktrees — the practice it installs is the practice it is built with. One person takes on more; the software keeps earning confidence as it grows.
 
 ## Audience variants
 
