@@ -13,6 +13,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import {
+  type DeskProjectScript,
   inspectDeskProjectScriptsWithConfig,
   runProjectScriptAt,
 } from "../src/engine/project_scripts.ts";
@@ -73,46 +74,48 @@ Deno.test("Project Script core runs in an explicitly selected worktree", async (
   });
 });
 
+/**
+ * Plant one non-executable file in a fresh project's scripts directory and
+ * return the Desk's entry for it, with the absolute path it was written to.
+ */
+async function deskEntryFor(
+  dir: string,
+  name: string,
+  source: string,
+): Promise<{ script: DeskProjectScript; path: string }> {
+  await scaffoldEngine(dir);
+  const config = await loadConfig(dir);
+  const directory =
+    (await inspectDeskProjectScriptsWithConfig(dir, config)).directory;
+  await Deno.mkdir(directory, { recursive: true });
+  const path = join(directory, name);
+  await Deno.writeTextFile(path, source);
+
+  const inventory = await inspectDeskProjectScriptsWithConfig(dir, config);
+  const script = inventory.scripts.find((candidate) => candidate.name === name);
+  assert(script !== undefined, `the Desk did not list ${name}`);
+  assertEquals(script.availability, "disabled");
+  return { script, path };
+}
+
 Deno.test("Desk script discovery retains a non-executable command with safely quoted recovery", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    const config = await loadConfig(dir);
-    const initial = await inspectDeskProjectScriptsWithConfig(dir, config);
-    await Deno.mkdir(initial.directory, { recursive: true });
-    const path = join(initial.directory, "$release task");
-    await Deno.writeTextFile(path, "#!/usr/bin/env sh\n");
-
-    const inventory = await inspectDeskProjectScriptsWithConfig(
+    const { script, path } = await deskEntryFor(
       dir,
-      config,
+      "$release task",
+      "#!/usr/bin/env sh\n",
     );
-    const script = inventory.scripts.find((candidate) =>
-      candidate.name === "$release task"
-    );
-    assert(script !== undefined);
-    assertEquals(script.availability, "disabled");
-    assertStringIncludes(
-      script.reason ?? "",
-      `chmod +x '${path}'`,
-    );
+    assertStringIncludes(script.reason ?? "", `chmod +x '${path}'`);
   });
 });
 
 Deno.test("Desk script discovery does not offer the executable bit to a module", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    const config = await loadConfig(dir);
-    const initial = await inspectDeskProjectScriptsWithConfig(dir, config);
-    await Deno.mkdir(initial.directory, { recursive: true });
-    const path = join(initial.directory, "matcher.ts");
-    await Deno.writeTextFile(path, 'import { thing } from "./other.ts";\n');
-
-    const inventory = await inspectDeskProjectScriptsWithConfig(dir, config);
-    const script = inventory.scripts.find((candidate) =>
-      candidate.name === "matcher.ts"
+    const { script } = await deskEntryFor(
+      dir,
+      "matcher.ts",
+      'import { thing } from "./other.ts";\n',
     );
-    assert(script !== undefined);
-    assertEquals(script.availability, "disabled");
     assertStringIncludes(script.reason ?? "", "names no interpreter");
     // Setting the bit would list a command that still cannot run, so the
     // remedy must send the author out of the directory instead.
