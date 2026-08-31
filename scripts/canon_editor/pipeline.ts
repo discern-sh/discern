@@ -17,6 +17,15 @@ import { fieldSpecFor, PLAIN_TWIN } from "./fields.ts";
 import { type GuardRunReport, metricProbe, runGuardFiles } from "./guards.ts";
 import { type Snapshot, snapshotSchema } from "./snapshot.ts";
 import { decodeValeReport, type ValeReport } from "../prose_lib.ts";
+import { checkManualProse } from "../manual_prose_lib.ts";
+
+/** The page-owned prose policy a rewritten projection must pass. */
+export type PageProsePolicy = Snapshot["pages"][number]["prosePolicy"];
+
+/** One page-policy verdict, injectable in transactional tests. */
+export type PageProseVerdict =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly issue: string };
 
 /** Where a refused save stopped. */
 export type SaveStage = "patch" | "format" | "render" | "prose" | "guards";
@@ -62,6 +71,11 @@ export interface SaveContext {
   readonly guardsFor: (registry: string) => readonly string[];
   /** A fresh evaluation of the registries — normally the subprocess. */
   readonly buildSnapshot: () => Promise<Snapshot>;
+  /** The gate-authoritative page policy; production uses the shared checks. */
+  readonly checkProse?: (
+    policy: PageProsePolicy,
+    pages: readonly string[],
+  ) => Promise<PageProseVerdict>;
   /** Progress callback for the editor's stage chips. */
   readonly onStage?: (stage: string) => void;
   /** False previews the patch and format without touching the tree. */
@@ -174,10 +188,10 @@ function proseIssueLines(findings: ValeReport): string[] {
  * moved from `discern done` to save time so a save can never leave a tree
  * the gate's prose job refuses.
  */
-async function proseGate(
+async function mapProseGate(
   root: string,
   pages: readonly string[],
-): Promise<{ ok: true } | { ok: false; issue: string }> {
+): Promise<PageProseVerdict> {
   const command = new Deno.Command(Deno.execPath(), {
     args: [
       "run",
@@ -216,6 +230,37 @@ async function proseGate(
     issue:
       `the gate's prose check refuses the rewritten page(s) — the save was rolled back\n\n${detail}`,
   };
+}
+
+/** Hold changed Manual pages to the same published-corpus implementation as the gate. */
+async function manualProseGate(
+  root: string,
+  pages: readonly string[],
+): Promise<PageProseVerdict> {
+  const result = await checkManualProse(
+    root,
+    pages.map((page) => join(root, page)),
+  );
+  if (result.code === 0) return { ok: true };
+  const lines = proseIssueLines(result.alerts);
+  const detail = lines.length > 0
+    ? lines.join("\n")
+    : result.issue ?? (result.raw + result.stderr).trim().slice(-1200);
+  return {
+    ok: false,
+    issue:
+      `the Manual's prose check refuses the rewritten page(s) — the save was rolled back\n\n${detail}`,
+  };
+}
+
+/** Dispatch explicitly from the page descriptor, never from a path prefix. */
+async function proseGateFor(
+  root: string,
+  policy: PageProsePolicy,
+  pages: readonly string[],
+): Promise<PageProseVerdict> {
+  if (policy === "map") return await mapProseGate(root, pages);
+  return await manualProseGate(root, pages);
 }
 
 /**
@@ -282,25 +327,44 @@ export async function saveField(
   }
 
   const changed: PageChange[] = [];
-  for (const page of snapshot.pages) {
-    if (!page.annotated) continue;
-    if (!page.rel.startsWith("project/map/")) continue;
-    const path = join(context.root, page.rel);
-    const expected = stripAnnotationMarkers(page.full);
-    const before = await holdFile(path);
-    const current = before.existed ? before.bytes : "";
-    if (current === expected) continue;
-    held.set(path, before);
-    await Deno.writeTextFile(path, expected);
-    changed.push({ id: page.id, rel: page.rel });
+  const changedPolicies = new Map<PageProsePolicy, string[]>();
+  try {
+    for (const page of snapshot.pages) {
+      if (!page.annotated) continue;
+      const path = join(context.root, page.rel);
+      const expected = stripAnnotationMarkers(page.full);
+      const before = await holdFile(path);
+      const current = before.existed ? before.bytes : "";
+      if (current === expected) continue;
+      held.set(path, before);
+      await Deno.writeTextFile(path, expected);
+      changed.push({ id: page.id, rel: page.rel });
+      const policyPages = changedPolicies.get(page.prosePolicy) ?? [];
+      policyPages.push(page.rel);
+      changedPolicies.set(page.prosePolicy, policyPages);
+    }
+  } catch (error) {
+    await restore(held);
+    return {
+      ok: false,
+      stage: "render",
+      issue: error instanceof Error ? error.message : String(error),
+      restored: true,
+    };
   }
 
-  if (changed.length > 0) {
+  for (const [policy, pages] of changedPolicies) {
     stage("prose");
-    const prose = await proseGate(
-      context.root,
-      changed.map((page) => page.rel),
-    );
+    let prose: PageProseVerdict;
+    try {
+      prose = await (context.checkProse ?? ((selected, changedPages) =>
+        proseGateFor(context.root, selected, changedPages)))(policy, pages);
+    } catch (error) {
+      prose = {
+        ok: false,
+        issue: error instanceof Error ? error.message : String(error),
+      };
+    }
     if (!prose.ok) {
       await restore(held);
       return { ok: false, stage: "prose", issue: prose.issue, restored: true };
@@ -325,10 +389,9 @@ export async function saveField(
     };
   }
 
-  const spec = fieldSpecFor(request.registry, "node", request.field);
+  const spec = fieldSpecFor(request.registry, patched.kind, request.field);
   const grade = request.mode === "prose" && spec?.edit === "prose" &&
-      spec.register === "plain" &&
-      request.registry === "feature"
+      spec.register === "plain"
     ? await metricProbe(
       join("scripts", "plain_reading_grade.ts"),
       "plain_reading_grade",

@@ -57,11 +57,19 @@ import {
   renderPracticePublicDoc,
 } from "../scripts/practice_registry.ts";
 import { GLOSSARY, renderGlossaryDoc } from "../scripts/glossary_registry.ts";
+import {
+  MANUAL_GLOSSARY_REL,
+  renderManualGlossaryArtifact,
+} from "../scripts/glossary_codegen.ts";
 import { CLAIMS } from "../scripts/brand/claims.ts";
 import { allDemandEntries, DEMAND_CANON } from "../scripts/brand/demand.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { renderBrandDoc } from "../scripts/brand_registry.ts";
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
+import { buildSnapshot } from "../scripts/canon_editor/snapshot.ts";
+import { discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
+import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 
 interface CanonPage {
   readonly id: string;
@@ -69,6 +77,11 @@ interface CanonPage {
   readonly rel: string;
   readonly render: () => string;
 }
+
+const manualDir = resolveRepositoryManualDir(REPO_ROOT).abs;
+const manualTree = await discoverDocs({ cwd: REPO_ROOT, dir: manualDir });
+assert(manualTree !== undefined, "the repository Manual must be discoverable");
+const manualProjection = await buildManualProjection(manualTree.entries);
 
 const PAGES: readonly CanonPage[] = [
   {
@@ -112,6 +125,11 @@ const PAGES: readonly CanonPage[] = [
     render: renderGlossaryDoc,
   },
   {
+    id: "manual-glossary",
+    rel: `project/manual/${MANUAL_GLOSSARY_REL}`,
+    render: () => renderManualGlossaryArtifact(manualProjection),
+  },
+  {
     id: "claims-and-evidence",
     rel: "project/map/_internal/brand/claims-and-evidence.md",
     render: () => renderBrandDoc("claims-and-evidence"),
@@ -130,6 +148,48 @@ function renderPages(annotated: boolean): Map<string, string> {
 
 const PLAIN = renderPages(false);
 const ANNOTATED = renderPages(true);
+
+Deno.test("every annotated projection declares its corpus and prose policy", async () => {
+  const pages = (await buildSnapshot()).pages as readonly (
+    & {
+      readonly id: string;
+      readonly annotated: boolean;
+      readonly full: string;
+    }
+    & {
+      readonly corpus?: "map" | "manual";
+      readonly prosePolicy?: "map" | "manual";
+    }
+  )[];
+  const annotated = pages.filter((page) => page.annotated);
+  for (const page of annotated) {
+    assert(
+      page.corpus === "map" || page.corpus === "manual",
+      `${page.id}: an annotated page must declare its corpus`,
+    );
+    assert(
+      page.prosePolicy === "map" || page.prosePolicy === "manual",
+      `${page.id}: an annotated page must declare its gate prose policy`,
+    );
+  }
+  const glossaryPages = annotated.filter((page) =>
+    page.id === "glossary" || page.id === "manual-glossary"
+  );
+  assertEquals(
+    glossaryPages.map((page) => [page.id, page.corpus, page.prosePolicy]),
+    [
+      ["glossary", "map", "map"],
+      ["manual-glossary", "manual", "manual"],
+    ],
+    "both glossary publications enroll explicitly instead of relying on a path prefix",
+  );
+  for (const page of glossaryPages) {
+    assert(
+      refTokensIn(page.full).includes("glossary:file-ownership:definition"),
+      `${page.id}: glossary definitions must resolve to the shared registry field`,
+    );
+  }
+});
 
 /** Every ref token carried by a page's markers, in emission order. */
 function refTokensIn(text: string): string[] {
@@ -173,6 +233,25 @@ Deno.test("markers survive canonical formatting without changing it", async () =
       stripAnnotationMarkers(annotated),
       plain,
       `${page.id}: markers changed the canonical formatting`,
+    );
+  }
+});
+
+Deno.test("both glossary projections strip to their exact committed generator bytes", async () => {
+  for (const id of ["glossary", "manual-glossary"]) {
+    const page = PAGES.find((candidate) => candidate.id === id);
+    assert(page !== undefined);
+    const committed = await Deno.readTextFile(page.rel);
+    const plain = await formatMarkdownText(page.rel, PLAIN.get(id) ?? "");
+    const annotated = await formatMarkdownText(
+      page.rel,
+      ANNOTATED.get(id) ?? "",
+    );
+    assertEquals(committed, plain, `${id}: committed bytes match the producer`);
+    assertEquals(
+      stripAnnotationMarkers(annotated),
+      committed,
+      `${id}: annotations strip to the committed bytes`,
     );
   }
 });

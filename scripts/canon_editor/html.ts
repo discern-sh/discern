@@ -31,6 +31,7 @@ const PAGE_ROUTES: Readonly<Record<string, string>> = {
   "practice-canon.md": "practice-canon",
   "the-practice.md": "the-practice",
   "glossary.md": "glossary",
+  "30-reference/glossary.md": "manual-glossary",
   "claims-and-evidence.md": "claims-and-evidence",
   "brand/claims-and-evidence.md": "claims-and-evidence",
   "registry-atlas.md": "registry-atlas",
@@ -184,7 +185,12 @@ export function renderShell(options: {
       count: counts.get("practice"),
     },
     { id: "the-practice", title: "The practice (public)" },
-    { id: "glossary", title: "Glossary", count: counts.get("glossary") },
+    {
+      id: "glossary",
+      title: "Glossary (Map)",
+      count: counts.get("glossary"),
+    },
+    { id: "manual-glossary", title: "Glossary (Manual)" },
     {
       id: "claims-and-evidence",
       title: "Claims ledger",

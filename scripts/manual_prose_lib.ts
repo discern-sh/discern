@@ -11,8 +11,16 @@ import {
   fleschKincaidGrade,
   type ProseCounts,
 } from "./plain_reading_grade_lib.ts";
-import { blankFrontmatter } from "./prose_lib.ts";
+import {
+  blankFrontmatter,
+  decodeValeReport,
+  selectProseGateAlerts,
+  valeAlertCount,
+  type ValeReport,
+  valeReportSchema,
+} from "./prose_lib.ts";
 import { withToolTempDir } from "./temp_dir.ts";
+import { runVale } from "./vale_lib.ts";
 
 /** One published manual page and the exact prose projections it supplies. */
 export interface ManualProsePage {
@@ -29,6 +37,15 @@ export interface StagedManualProse {
   readonly dir: string;
   readonly pages: readonly ManualProsePage[];
   readonly sources: ReadonlyMap<string, string>;
+}
+
+/** The shared Manual prose-policy verdict used by the gate and Canon Editor. */
+export interface ManualProseCheckResult {
+  readonly code: number;
+  readonly alerts: ValeReport;
+  readonly raw: string;
+  readonly stderr: string;
+  readonly issue?: string;
 }
 
 /** Remove code and comments while retaining every reader-visible prose line. */
@@ -79,12 +96,30 @@ export function measuredManualProse(markdown: string): string {
 /** Load the strict published projection once, then derive every prose page. */
 export async function projectManualProse(
   repoRoot: string,
+  sources?: readonly string[],
 ): Promise<ManualProsePage[]> {
   const manualDir = resolveRepositoryManualDir(repoRoot).abs;
   const tree = await discoverDocs({ cwd: repoRoot, dir: manualDir });
   if (tree === undefined) throw new Error(`no product manual at ${manualDir}`);
   const manual = await buildManualProjection(tree.entries);
-  return await Promise.all(manual.pages.map(async (page) => {
+  const requested = sources === undefined
+    ? undefined
+    : new Set(sources.map((source) => resolve(source)));
+  const selected = requested === undefined
+    ? manual.pages
+    : manual.pages.filter((page) => requested.has(resolve(page.entry.absPath)));
+  if (requested !== undefined) {
+    const enrolled = new Set(
+      selected.map((page) => resolve(page.entry.absPath)),
+    );
+    const missing = [...requested].filter((source) => !enrolled.has(source));
+    if (missing.length > 0) {
+      throw new Error(
+        `not a published Manual page: ${missing.join(", ")}`,
+      );
+    }
+  }
+  return await Promise.all(selected.map(async (page) => {
     const markdown = await Deno.readTextFile(page.entry.absPath);
     return {
       page,
@@ -99,10 +134,11 @@ export async function projectManualProse(
 export async function withStagedManualProse<T>(
   repoRoot: string,
   fn: (stage: StagedManualProse) => T | Promise<T>,
+  sourceFilter?: readonly string[],
 ): Promise<T> {
   return await withToolTempDir("manual-prose-stage", async (dir) => {
-    const pages = await projectManualProse(repoRoot);
-    const sources = new Map<string, string>();
+    const pages = await projectManualProse(repoRoot, sourceFilter);
+    const sourceMap = new Map<string, string>();
     for (const projected of pages) {
       const destination = join(
         dir,
@@ -111,10 +147,60 @@ export async function withStagedManualProse<T>(
       );
       await Deno.mkdir(dirname(destination), { recursive: true });
       await Deno.writeTextFile(destination, projected.valeMarkdown);
-      sources.set(resolve(destination), resolve(projected.source));
+      sourceMap.set(resolve(destination), resolve(projected.source));
     }
-    return await fn({ dir, pages, sources });
+    return await fn({ dir, pages, sources: sourceMap });
   });
+}
+
+/**
+ * Run the Manual's gate-authoritative product-voice policy over the published
+ * corpus, or over exact published source pages. Both callers share the same
+ * projection, staging, Vale severity, alert selection, and source mapping.
+ */
+export async function checkManualProse(
+  repoRoot: string,
+  sources?: readonly string[],
+): Promise<ManualProseCheckResult> {
+  return await withStagedManualProse(repoRoot, async (stage) => {
+    const run = await runVale(repoRoot, [
+      "--minAlertLevel",
+      "suggestion",
+      "--output=JSON",
+      stage.dir,
+    ]);
+    const decoder = new TextDecoder();
+    const raw = decoder.decode(run.stdout);
+    const stderr = decoder.decode(run.stderr);
+    let parsed: ValeReport;
+    try {
+      parsed = decodeValeReport(raw, "Vale output for the manual prose gate");
+    } catch (error) {
+      return {
+        code: run.code === 0 ? 1 : run.code,
+        alerts: {},
+        raw,
+        stderr,
+        issue: error instanceof Error ? error.message : String(error),
+      };
+    }
+    const selected = valeReportSchema.parse(selectProseGateAlerts(parsed));
+    const mapped: ValeReport = {};
+    for (const [path, alerts] of Object.entries(selected)) {
+      const source = manualProseSource(path, stage);
+      mapped[source] ??= [];
+      mapped[source].push(...alerts);
+    }
+    const rawHasAlerts = Object.values(parsed).some((alerts) =>
+      alerts.length > 0
+    );
+    const code = run.code !== 0 && !rawHasAlerts
+      ? run.code
+      : valeAlertCount(mapped) > 0
+      ? 1
+      : 0;
+    return { code, alerts: mapped, raw, stderr };
+  }, sources);
 }
 
 /** Map one staged Vale path back to the exact authored manual source. */

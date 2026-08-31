@@ -395,7 +395,7 @@ export async function startCanonEditor(
     const writable = [
       ...PROSE_REGISTRIES.map((spec) => spec.file),
       ...(snapshot?.pages ?? [])
-        .filter((page) => page.annotated && page.rel.startsWith("project/map/"))
+        .filter((page) => page.annotated)
         .map((page) => page.rel),
     ];
     try {

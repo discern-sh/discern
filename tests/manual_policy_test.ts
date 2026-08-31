@@ -4,6 +4,7 @@ import {
   assert,
   assertEquals,
   assertFalse,
+  assertRejects,
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
@@ -304,4 +305,23 @@ Deno.test("manual product-voice staging maps diagnostics to exact authored sourc
       assertFalse(markdown.includes(`id: ${page.page.id}`));
     }
   });
+});
+
+Deno.test("the Manual prose policy can target one published page without weakening its projection", async () => {
+  const glossary = join(
+    REPO_ROOT,
+    "project",
+    "manual",
+    "30-reference",
+    "glossary.md",
+  );
+  await withStagedManualProse(REPO_ROOT, (stage) => {
+    assertEquals(stage.pages.map((page) => page.source), [glossary]);
+    assertEquals(stage.sources.size, 1);
+  }, [glossary]);
+  await assertRejects(
+    () => projectManualProse(REPO_ROOT, [join(REPO_ROOT, "not-manual.md")]),
+    Error,
+    "not a published Manual page",
+  );
 });

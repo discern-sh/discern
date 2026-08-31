@@ -6,7 +6,7 @@ import {
   renderManualGlossaryDoc,
   sortedGlossary,
 } from "../scripts/glossary_registry.ts";
-import { renderGeneratedManualDocument } from "../scripts/manual_codegen.ts";
+import { renderManualGlossaryArtifact } from "../scripts/glossary_codegen.ts";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
@@ -36,17 +36,7 @@ Deno.test("the public manual's glossary matches the term registry", async () => 
   assert(tree !== undefined);
   const manual = await buildManualProjection(tree.entries);
   const path = `${REPO_AUTHORED_PATHS.manual}/30-reference/glossary.md`;
-  const rendered = renderGeneratedManualDocument(
-    renderManualGlossaryDoc(),
-    "00-orientation/glossary.md",
-    "30-reference/glossary.md",
-    {
-      id: "reference-glossary",
-      order: 120,
-      redirects: ["/docs/orientation/glossary"],
-    },
-    manual,
-  );
+  const rendered = renderManualGlossaryArtifact(manual);
   assertEquals(
     await Deno.readTextFile(path),
     await canonicalGeneratedMarkdown(path, rendered),

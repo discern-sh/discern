@@ -24,14 +24,41 @@ import type {
   SnapshotPage,
 } from "../scripts/canon_editor/snapshot.ts";
 import { MARK_OPEN } from "../scripts/canon_editor/annotation.ts";
+import {
+  markerAnnotator,
+  setProseAnnotator,
+  stripAnnotationMarkers,
+} from "../scripts/canon_editor/annotation.ts";
 import { REPO_ROOT } from "../scripts/canon_editor/root.ts";
 import { allFeatureNodes } from "../scripts/feature_registry.ts";
 import { PRACTICE_CANON } from "../scripts/practice_registry.ts";
 import { buildPickerCatalog } from "../scripts/canon_editor/pickers.ts";
 import { allDemandEntries } from "../scripts/brand/demand.ts";
 import { withTempDir } from "./helpers.ts";
+import { GLOSSARY, renderGlossaryDoc } from "../scripts/glossary_registry.ts";
+import {
+  MANUAL_GLOSSARY_REL,
+  renderManualGlossaryArtifact,
+} from "../scripts/glossary_codegen.ts";
+import { discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
+import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
+import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 
 const FEATURE_FILE = join(REPO_ROOT, "scripts", "feature_registry.ts");
+const GLOSSARY_MAP_REL = join(
+  "project",
+  "map",
+  "00-orientation",
+  "glossary.md",
+);
+const GLOSSARY_MANUAL_REL = join("project", "manual", MANUAL_GLOSSARY_REL);
+const manualTree = await discoverDocs({
+  cwd: REPO_ROOT,
+  dir: resolveRepositoryManualDir(REPO_ROOT).abs,
+});
+assert(manualTree !== undefined, "the Manual fixture must be discoverable");
+const manualProjection = await buildManualProjection(manualTree.entries);
 
 /** One compare-and-swap request, explicit even before the type requires it. */
 function editRequest(
@@ -68,14 +95,77 @@ function fixtureSnapshot(pages: readonly SnapshotPage[] = []): Snapshot {
 }
 
 /** One annotated page the fake renderer says should exist. */
-function fixturePage(rel: string, full: string): SnapshotPage {
+function fixturePage(
+  rel: string,
+  full: string,
+  corpus: SnapshotPage["corpus"] = "map",
+  id = "fixture-page",
+): SnapshotPage {
   return {
-    id: "fixture-page",
+    id,
     rel,
     title: "Fixture page",
+    corpus,
+    prosePolicy: corpus,
     body: full,
     full,
     annotated: true,
+  };
+}
+
+/** Render the two glossary artifacts through their real annotated producers. */
+async function glossaryProjectionPages(
+  definition: string,
+): Promise<readonly SnapshotPage[]> {
+  const glossary = GLOSSARY.map((entry) =>
+    entry.term === "File ownership" ? { ...entry, definition } : entry
+  );
+  setProseAnnotator(markerAnnotator);
+  let map: string;
+  let manual: string;
+  try {
+    map = renderGlossaryDoc(glossary);
+    manual = renderManualGlossaryArtifact(manualProjection, glossary);
+  } finally {
+    setProseAnnotator(undefined);
+  }
+  return [
+    fixturePage(
+      GLOSSARY_MAP_REL,
+      await formatMarkdownText(GLOSSARY_MAP_REL, map),
+      "map",
+      "glossary",
+    ),
+    fixturePage(
+      GLOSSARY_MANUAL_REL,
+      await formatMarkdownText(GLOSSARY_MANUAL_REL, manual),
+      "manual",
+      "manual-glossary",
+    ),
+  ];
+}
+
+/** Copy both committed glossary projections into one isolated save fixture. */
+async function installGlossaryProjections(root: string): Promise<void> {
+  for (const rel of [GLOSSARY_MAP_REL, GLOSSARY_MANUAL_REL]) {
+    const target = join(root, rel);
+    await Deno.mkdir(dirname(target), { recursive: true });
+    await Deno.copyFile(join(REPO_ROOT, rel), target);
+  }
+}
+
+/** The live fixture entry and a harmless replacement definition. */
+function glossaryDefinitionFixture(): {
+  readonly before: string;
+  readonly after: string;
+} {
+  const entry = GLOSSARY.find((candidate) =>
+    candidate.term === "File ownership"
+  );
+  assert(entry !== undefined);
+  return {
+    before: entry.definition,
+    after: `${entry.definition} The registry remains the sole source.`,
   };
 }
 
@@ -569,5 +659,163 @@ Deno.test("rollback removes a generated page that was absent before save", async
       () => Deno.stat(pagePath),
       Deno.errors.NotFound,
     );
+  });
+});
+
+Deno.test("a glossary definition save regenerates its Map and Manual projections in one transaction", async () => {
+  await withPipelineFixture(async (root) => {
+    await installGlossaryProjections(root);
+    const { before, after } = glossaryDefinitionFixture();
+    const pages = await glossaryProjectionPages(after);
+    const checked: Array<{
+      policy: "map" | "manual";
+      pages: readonly string[];
+    }> = [];
+    const report = await saveField(
+      editRequest("glossary", "file-ownership", "definition", before, after),
+      {
+        root,
+        guardsFor: () => [],
+        buildSnapshot: () => Promise.resolve(fixtureSnapshot(pages)),
+        checkProse: (policy, changed) => {
+          checked.push({ policy, pages: changed });
+          return Promise.resolve({ ok: true });
+        },
+      },
+    );
+    assert(report.ok && report.applied);
+    assertEquals(
+      report.pages,
+      [
+        { id: "glossary", rel: GLOSSARY_MAP_REL },
+        { id: "manual-glossary", rel: GLOSSARY_MANUAL_REL },
+      ],
+    );
+    assertEquals(checked, [
+      { policy: "map", pages: [GLOSSARY_MAP_REL] },
+      { policy: "manual", pages: [GLOSSARY_MANUAL_REL] },
+    ]);
+    assert(
+      (await Deno.readTextFile(
+        join(root, "scripts", "glossary_registry.ts"),
+      )).includes(after),
+      "the registry literal changes once",
+    );
+    for (const page of pages) {
+      assertEquals(
+        await Deno.readTextFile(join(root, page.rel)),
+        stripAnnotationMarkers(page.full),
+        `${page.id}: the saved bytes are the real producer's bytes`,
+      );
+    }
+  });
+});
+
+for (const refusedPolicy of ["map", "manual"] as const) {
+  Deno.test(`a red ${refusedPolicy} prose policy restores the registry and both glossary projections`, async () => {
+    await withPipelineFixture(async (root) => {
+      await installGlossaryProjections(root);
+      const registryPath = join(root, "scripts", "glossary_registry.ts");
+      const held = new Map<string, string>();
+      for (
+        const path of [
+          registryPath,
+          join(root, GLOSSARY_MAP_REL),
+          join(root, GLOSSARY_MANUAL_REL),
+        ]
+      ) {
+        held.set(path, await Deno.readTextFile(path));
+      }
+      const { before, after } = glossaryDefinitionFixture();
+      const report = await saveField(
+        editRequest(
+          "glossary",
+          "file-ownership",
+          "definition",
+          before,
+          after,
+        ),
+        {
+          root,
+          guardsFor: () => [],
+          buildSnapshot: async () =>
+            fixtureSnapshot(await glossaryProjectionPages(after)),
+          checkProse: (policy) =>
+            Promise.resolve(
+              policy === refusedPolicy
+                ? { ok: false, issue: `${policy} fixture red` }
+                : { ok: true },
+            ),
+        },
+      );
+      assert(!report.ok && report.stage === "prose" && report.restored);
+      for (const [path, bytes] of held) {
+        assertEquals(await Deno.readTextFile(path), bytes, path);
+      }
+    });
+  });
+}
+
+Deno.test("a glossary render failure restores the registry before any projection moves", async () => {
+  await withPipelineFixture(async (root) => {
+    await installGlossaryProjections(root);
+    const registryPath = join(root, "scripts", "glossary_registry.ts");
+    const beforeBytes = await Deno.readTextFile(registryPath);
+    const mapBytes = await Deno.readTextFile(join(root, GLOSSARY_MAP_REL));
+    const manualBytes = await Deno.readTextFile(
+      join(root, GLOSSARY_MANUAL_REL),
+    );
+    const { before, after } = glossaryDefinitionFixture();
+    const report = await saveField(
+      editRequest("glossary", "file-ownership", "definition", before, after),
+      {
+        root,
+        guardsFor: () => [],
+        buildSnapshot: () => Promise.reject(new Error("fixture render red")),
+      },
+    );
+    assert(!report.ok && report.stage === "render" && report.restored);
+    assertEquals(await Deno.readTextFile(registryPath), beforeBytes);
+    assertEquals(
+      await Deno.readTextFile(join(root, GLOSSARY_MAP_REL)),
+      mapBytes,
+    );
+    assertEquals(
+      await Deno.readTextFile(join(root, GLOSSARY_MANUAL_REL)),
+      manualBytes,
+    );
+  });
+});
+
+Deno.test("a red glossary guard restores the registry and both projections", async () => {
+  await withPipelineFixture(async (root) => {
+    await installGlossaryProjections(root);
+    const registryPath = join(root, "scripts", "glossary_registry.ts");
+    const held = new Map<string, string>();
+    for (
+      const path of [
+        registryPath,
+        join(root, GLOSSARY_MAP_REL),
+        join(root, GLOSSARY_MANUAL_REL),
+      ]
+    ) {
+      held.set(path, await Deno.readTextFile(path));
+    }
+    const guard = await writeGuard(root, "fixture_glossary_red", false);
+    const { before, after } = glossaryDefinitionFixture();
+    const report = await saveField(
+      editRequest("glossary", "file-ownership", "definition", before, after),
+      {
+        root,
+        guardsFor: () => [guard],
+        buildSnapshot: async () =>
+          fixtureSnapshot(await glossaryProjectionPages(after)),
+        checkProse: () => Promise.resolve({ ok: true }),
+      },
+    );
+    assert(!report.ok && report.stage === "guards" && report.restored);
+    for (const [path, bytes] of held) {
+      assertEquals(await Deno.readTextFile(path), bytes, path);
+    }
   });
 });

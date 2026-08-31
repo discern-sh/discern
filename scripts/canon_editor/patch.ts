@@ -51,7 +51,12 @@ export interface PatchContext {
 
 /** The patch outcome: the whole patched source, or the refusal. */
 export type PatchOutcome =
-  | { readonly ok: true; readonly file: string; readonly text: string }
+  | {
+    readonly ok: true;
+    readonly file: string;
+    readonly kind: string;
+    readonly text: string;
+  }
   | { readonly ok: false; readonly issue: string; readonly conflict?: true };
 
 /** Refuse values that cannot be honest single-paragraph registry prose. */
@@ -180,6 +185,7 @@ export function patchRegistrySource(
     return {
       ok: true,
       file: entry.file,
+      kind: entry.kind,
       text: target.node.getSourceFile().getFullText(),
     };
   }
@@ -226,6 +232,7 @@ export function patchRegistrySource(
   return {
     ok: true,
     file: entry.file,
+    kind: entry.kind,
     text: target.node.getSourceFile().getFullText(),
   };
 }

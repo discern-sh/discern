@@ -397,7 +397,7 @@ Deno.test("state and page routes answer sanely", async () => {
       pages: { id: string }[];
       standards: { name: string }[];
     };
-    assertEquals(state.pages.length, 10);
+    assertEquals(state.pages.length, 11);
     const shell = await (await request(editor, "/page/feature-canon")).text();
     for (const page of state.pages) {
       assert(
