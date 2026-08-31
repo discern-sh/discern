@@ -456,6 +456,6 @@ Run every candidate line through five checks before it ships. A line that fails 
 - New builders should be welcomed without erasing engineering expertise.
 - Engineers should be respected without making the brand an insiders' club.
 - Agents should be presented as capable collaborators.
-- Ban the “not just X — Y” rhythm tic, which reads as generated copy; true two-pole contrast — a cold fact set beside a warm one — is encouraged.
+- Ban the “It's not X — it's Y” rhythm tic, which reads as generated copy; true two-pole contrast — a cold fact set beside a warm one — is encouraged.
 - Do not repeat the same slogan across several adjacent sections.
 - Let natural sentences do more work than fragments and aphorisms.
