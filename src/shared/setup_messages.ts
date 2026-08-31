@@ -532,9 +532,10 @@ function landingLine(l: CompletionLanding): string {
  * first-person message covering what the project now has (honest coverage), the
  * contained footprint (the root `discern.toml` plus the `discern/` folder — the
  * namespace story the consent message opened with, closed honestly), the
- * qualitative project context, mechanical inventory, Proof, and the next valid
- * phase. An unlanded result stops at the landing choice; an integrated result
- * sequences fresh-session activation before optional improvement. Composed from the already-computed
+ * qualitative project context, mechanical inventory, and the next valid
+ * phase, then closes with the exact Proof line. An unlanded result stops at the
+ * landing choice; an integrated result sequences fresh-session activation before
+ * optional improvement. Composed from the already-computed
  * {@link CompletionContext} pieces — never recomputed.
  */
 export function completionMessage(ctx: CompletionContext): string {
@@ -598,10 +599,6 @@ export function completionMessage(ctx: CompletionContext): string {
     "",
     headline,
     "",
-    ...(proofLine === undefined ? [] : [
-      "  • The proof that the finished change passed the project's checks (Proof) is recorded exactly on the next line:",
-      `  • ${proofLine}`,
-    ]),
     `  • ${coverageLine(assurance)}`,
     ...inventoryLines,
     `  • The installed footprint is \`discern.toml\`, the \`discern/\` folder, and the selected coding tools' integration files. ${SETUP_REVERSIBILITY.uninstall}`,
@@ -611,6 +608,7 @@ export function completionMessage(ctx: CompletionContext): string {
         : landingLine(landing)
     }`,
     ...activationLines,
+    ...(proofLine === undefined ? [] : ["", proofLine]),
     "",
     fence("end of message"),
   ].join("\n");

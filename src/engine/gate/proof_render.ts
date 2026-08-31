@@ -2,10 +2,10 @@
  * The **proof** (ADR 0114, relay contract amended by ADR 0188) — what a green
  * gate hands the review moment, rendered in two forms from one set of facts:
  *
- * - the **line** — one sentence (branch, validated sha, diffstat vs the trunk,
- *   standards state, the command that prints the page). The only proof content
- *   an agent puts in a message; the sha lets the owner check the claim against
- *   the marker instead of trusting the message.
+ * - the **line** — one-line CommonMark source (branch, validated sha, diffstat
+ *   vs the trunk, standards state, the command that prints the page). The only
+ *   proof content an agent puts in a message; the sha lets the owner check the
+ *   claim against the marker instead of trusting the message.
  * - the **page** (`markdown`) — the review summary the owner pulls from discern
  *   (`done` at a terminal, `status --verbose`, `accept`'s landing record; always
  *   in `--json`/MCP). Standards render before the job table so a deviation is
@@ -49,6 +49,9 @@ import { diffFiles } from "../worktree/git.ts";
 import { isWorktreeFullyClean } from "./proof.ts";
 import { fmtRate } from "./standards.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
+import { markdownBlockquote } from "../../shared/markdown_blockquote.ts";
+
+const PROOF_LINE_SEPARATOR = " · ";
 
 /** The facts half of a {@link Proof} — everything but the two renderings. */
 type ProofFacts = Omit<Proof, "markdown" | "line">;
@@ -145,8 +148,8 @@ function standardsSection(
   return lines;
 }
 
-/** The line's standards segment: `standards held` with improved/deferred counts
- * appended, `standards deferred` when nothing was measured, the UNVERIFIED
+/** The line's Standards segment: `Standards held` with improved/deferred counts
+ * appended, `Standards deferred` when nothing was measured, the UNVERIFIED
  * disclosure when the trunk's limits could not be checked — or `undefined` when
  * no standards are configured (nothing to claim). A proof only exists for a
  * green gate, so a measured standard here held or improved by construction. */
@@ -155,7 +158,7 @@ function lineStandardsSegment(
   limits: StandardsLimitsData | undefined,
 ): string | undefined {
   if (limits?.status === "unverified") {
-    return "standards UNVERIFIED";
+    return "Standards UNVERIFIED";
   }
   if (standards.length === 0) {
     return undefined;
@@ -164,7 +167,7 @@ function lineStandardsSegment(
     (o) => o.measurement === "deferred" || o.measurement === "skipped",
   ).length;
   if (deferred === standards.length) {
-    return `standards deferred (${deferred})`;
+    return `Standards deferred (${deferred})`;
   }
   const improved = standards.filter((o) => o.verdict === "improved").length;
   const counts = [
@@ -172,8 +175,8 @@ function lineStandardsSegment(
     ...(deferred > 0 ? [`${deferred} deferred`] : []),
   ];
   return counts.length > 0
-    ? `standards held, ${counts.join(", ")}`
-    : "standards held";
+    ? `Standards held (${counts.join(", ")})`
+    : "Standards held";
 }
 
 /** Proposal-bearing Proof is intentionally loud: the exact value and verbatim
@@ -219,8 +222,10 @@ function proposalsLineSegment(
 ): string {
   const [only] = proposals;
   return proposals.length === 1 && only !== undefined
-    ? `proposal ${state}: ${only.standard} ${only.trunk_limit} → ${only.proposed_limit}`
-    : `${proposals.length} proposals ${state}`;
+    ? `Standard proposal ${state}: ${
+      code(only.standard)
+    } ${only.trunk_limit} → ${only.proposed_limit}`
+    : `${proposals.length} Standard proposals ${state}`;
 }
 
 /** The one-line Proof's proposal segment: the open proposal as a present-state
@@ -371,12 +376,21 @@ function lineCheckpointsSegment(
   return undefined;
 }
 
-/** The diffstat fragment both renderings share: `2 files +42 −7`. */
+/** The diffstat fragment both renderings share: `2 files changed (+42 −7)`. */
 function diffstat(facts: ProofFacts): string {
   const files = `${facts.files_total} file${
     facts.files_total === 1 ? "" : "s"
   }`;
-  return `${files} +${facts.insertions} −${facts.deletions}`;
+  return `${files} changed (+${facts.insertions} −${facts.deletions})`;
+}
+
+/** Assemble the canonical CommonMark source relayed by agents and projected by
+ * terminal surfaces. Keeping the wrapper and separator here makes presentation
+ * changes atomic across validation and landing lines. */
+function proofLine(segments: readonly string[]): string {
+  return markdownBlockquote(
+    `**Proof:** ${segments.join(PROOF_LINE_SEPARATOR)}`,
+  );
 }
 
 /**
@@ -394,14 +408,14 @@ export function renderProofLine(
   );
   const checkpointsSegment = lineCheckpointsSegment(facts.checkpoints);
   const segments = [
-    `gate passed on ${facts.branch} @ ${facts.head}`,
-    `${diffstat(facts)} vs ${facts.trunk}`,
+    `The Gate passed for ${code(facts.branch)} at ${code(facts.head)}`,
+    `${diffstat(facts)} vs ${code(facts.trunk)}`,
     ...(standardsSegment !== undefined ? [standardsSegment] : []),
     ...(proposalsSegment !== undefined ? [proposalsSegment] : []),
     ...(checkpointsSegment !== undefined ? [checkpointsSegment] : []),
-    "full proof: discern status --verbose",
+    `View the full Proof: ${code("discern status --verbose")}`,
   ];
-  return `Proof: ${segments.join(" · ")}`;
+  return proofLine(segments);
 }
 
 /** The owner decisions a landing resolves, which rewrite the validation
@@ -424,9 +438,12 @@ function resolveLineSegment(
   open: string | undefined,
   resolved: string,
 ): string {
-  return open !== undefined && line.includes(` · ${open}`)
-    ? line.replace(` · ${open}`, ` · ${resolved}`)
-    : `${line} · ${resolved}`;
+  const openSegment = open === undefined
+    ? undefined
+    : `${PROOF_LINE_SEPARATOR}${open}`;
+  return openSegment !== undefined && line.includes(openSegment)
+    ? line.replace(openSegment, `${PROOF_LINE_SEPARATOR}${resolved}`)
+    : `${line}${PROOF_LINE_SEPARATOR}${resolved}`;
 }
 
 /**
@@ -464,11 +481,11 @@ export function renderLandingProofLine(
   }
   switch (consent.source) {
     case "conversation":
-      return `${line} · landed with conversation consent`;
+      return `${line}${PROOF_LINE_SEPARATOR}landed with conversation consent`;
     case "effort-grant":
-      return `${line} · landed under effort grant`;
+      return `${line}${PROOF_LINE_SEPARATOR}landed under effort grant`;
     case "standing-grant":
-      return `${line} · landed under standing grant: ${
+      return `${line}${PROOF_LINE_SEPARATOR}landed under standing grant: ${
         consent.scopes?.join(", ") ?? "(none)"
       }`;
   }

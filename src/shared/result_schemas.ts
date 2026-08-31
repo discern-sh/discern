@@ -396,12 +396,12 @@ const changedFileSchema = z.strictObject({
  * The **proof** — the deterministic review claim a green gate emits over a
  * clean committed tree, in two renderings from one set of facts (ADR 0188): the
  * branch, the validated commit (`head`, abbreviated), and the whole-diff stats
- * vs the trunk; `line` — the one sentence an agent closes its report with; and
- * `markdown` — the review page the owner pulls from discern. Derived ONCE from
- * the result envelope: both renderings are a function of these fields plus the
- * envelope's `steps[]` (what ran, with command and duration), never a second
- * computation. Commit and per-file lists are git's to report (`git diff
- * <trunk>...<branch>`), so they are not mirrored here.
+ * vs the trunk; `line` — the one-line CommonMark blockquote an agent closes its
+ * report with; and `markdown` — the review page the owner pulls from discern.
+ * Derived ONCE from the result envelope: both renderings are a function of
+ * these fields plus the envelope's `steps[]` (what ran, with command and
+ * duration), never a second computation. Commit and per-file lists are git's
+ * to report (`git diff <trunk>...<branch>`), so they are not mirrored here.
  */
 const DURABLE_PROOF_FACT_FIELDS = {
   branch: z.string(),

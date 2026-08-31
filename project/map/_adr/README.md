@@ -346,6 +346,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0358 — Recovery observes before repair and Park preserves the branch](0358-recovery-observes-before-repair-and-park-preserves-the-branch.md)
 - [0359 — Worktree targets share one resolution contract](0359-worktree-targets-share-one-resolution-contract.md)
 - [0360 — The Project Script namespace holds only commands](0360-the-project-script-namespace-holds-only-commands.md)
+- [0361 — The Proof line is canonical CommonMark](0361-the-proof-line-is-canonical-commonmark.md)
 
 <!-- END GENERATED: current ADR records -->
 

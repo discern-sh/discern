@@ -57,7 +57,7 @@ const FULL_PROOF = {
   insertions: 21,
   deletions: 8,
   line:
-    "Proof: gate passed on agent/presentation @ abc123def456 · 3 files +21 −8 vs main",
+    "> **Proof:** The Gate passed for `agent/presentation` at `abc123def456` · 3 files changed (+21 −8) vs `main` · View the full Proof: `discern status --verbose`",
   markdown: PROOF_SENTINEL,
 };
 
@@ -396,6 +396,7 @@ Deno.test("status wire and Markdown remove repeated Proof pages within a combine
   assert(!markdown.includes(PROOF_SENTINEL), markdown.slice(0, 1_000));
   assertStringIncludes(structured, FULL_PROOF.line);
   assertStringIncludes(markdown, FULL_PROOF.line);
+  assert(!markdown.includes(`- ${FULL_PROOF.line}`), markdown);
   assertStringIncludes(markdown, "Fleet: 1 active worktree.");
   assertStringIncludes(
     markdown,
@@ -695,6 +696,7 @@ Deno.test("setup Markdown relays the canonical Proof used by structured results"
     );
     assertStringIncludes(rendered, FULL_PROOF.line);
     assertEquals(rendered.split(FULL_PROOF.line).length - 1, 1);
+    assert(!rendered.includes(`- ${FULL_PROOF.line}`), rendered);
   }
 });
 

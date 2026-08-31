@@ -4,6 +4,7 @@
 >
 > - **Vocabulary ([ADR 0245](0245-receipt-renamed-to-proof.md)):** this decision's receipt-family terms are renamed to **proof**; the reasoning below is unchanged.
 > - **[ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md) — landing line:** A successful `accept` now derives `data.receipt_line` from the validated gate-receipt line and appends the recorded consent source, including scope names for a standing grant. The pre-landing line remains the review claim this record defines; the derived landing line is its authority-bearing acceptance record.
+> - **Presentation ([ADR 0361](0361-the-proof-line-is-canonical-commonmark.md)):** the one-line relay is canonical CommonMark blockquote source. Its facts and pull-not-paste role remain unchanged.
 
 **Status**: accepted; amends the relay contract of [ADR 0114](0114-the-gate-emits-the-receipt.md) (the derivation, storage, and no-review-verb decisions stand).
 

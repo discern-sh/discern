@@ -12,9 +12,9 @@ aliases:
 
 _A clean green Gate records what ran and identifies the exact branch state ready for review._
 
-`discern done` derives a structured Proof when the run passes on a clean, committed branch that is ahead of trunk. It renders in two forms from the same object ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md), [ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)):
+`discern done` derives a structured Proof when the run passes on a clean, committed branch that is ahead of trunk. It renders in two forms from the same object ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md), [ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md), [ADR 0361](../_adr/0361-the-proof-line-is-canonical-commonmark.md)):
 
-- **The line**: one sentence naming the branch, validated commit, diffstat, Standards state, any Standard limit proposals, and the page command. JSON and MCP carry it as `data.proof.line`; `accept` derives `data.proof_line` by rewriting awaiting-decision segments to their resolved state and appending the consent source. Agents quote that line verbatim after their account.
+- **The line**: a one-line CommonMark blockquote naming the branch, validated commit, diffstat, Standards state, any Standard limit proposals, and the page command. `data.proof.line` is the canonical Markdown source: JSON, MCP, the marker, and Proof notes carry it unchanged. Markdown results place it as a standalone block, while terminal and Desk surfaces render it through the shared Markdown presenter. `accept` derives `data.proof_line` by rewriting awaiting-decision segments to their resolved state and appending the consent source. Agents copy the source verbatim after their account, so Markdown-capable transcripts give it the same visual identity everywhere.
 - **The page**: Standard limit proposals, routine Standards, declared jobs and scope gates, then the diff command. It stays in the worktree marker and landed Proof note. Terminal `status --verbose` prints a valid page. Git owns commit and per-file lists; `Inspect:` names the command.
 
 The complete in-process Proof owns both renderings. Compact results use a projection with branch, trunk, validated commit, diff counts, and line. They omit the page, which can otherwise appear several times in one status fleet. `discern <verb> --markdown` selects an authored result presentation; it does not substitute the full Proof page for that presentation.
@@ -23,7 +23,7 @@ An ordinary `discern done` Proof is strict landing evidence. An explicit `discer
 
 Proof also carries every structured checkpoint drop from the run: an uncertainty that prevented checkpoint enforcement while leaving the Gate fail-open. The same bounded record survives compact results, status, acceptance review, and the landed note. It tells the owner which enforcement uncertainty remained in a green run.
 
-`done` and `prepare` share package progress, grouped jobs, activity, and commands. `done` adds review, recording, and readiness facts; only `recorded` passes. `prepare` names omitted work. The byte-exact relay stays separate.
+`done` and `prepare` share package progress, grouped jobs, activity, and commands. `done` adds review, recording, and readiness facts; only `recorded` passes. `prepare` names omitted work. The byte-exact CommonMark relay stays separate.
 
 On exact, complete, current green Proof, ordinary `done` returns that Proof without Gate work. `data.gate_ran` distinguishes measurement (`true`) from reuse (`false`).
 
@@ -114,3 +114,4 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 - The preflight is a point-in-time check. Proof writes remain best-effort against a permission change or filesystem failure that occurs after the probe; that rare late failure remains visible in `data.gate_proof`.
 - A Logbook hint is advice beside the Proof. The stored Markdown and its commit identity remain unchanged.
 - A proposal-bearing Proof is green Gate evidence with an unresolved owner decision. Report the proposal and use the approval command served by `discern accept`. Do not describe the branch as approved to land.
+- Proof lines written by older engines remain valid source and continue to relay and land. New engines do not rewrite an honored line merely to adopt the current presentation.

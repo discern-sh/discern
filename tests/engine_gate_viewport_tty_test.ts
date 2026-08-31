@@ -175,7 +175,7 @@ function assertFinalRegionOnce(
   const detail = verb === "test" ? "test passed" : "lint passed";
   assertStringIncludes(result.output, detail);
   if (verb === "done") {
-    assertEquals(occurrences(result.output, "Proof: gate passed"), 1);
+    assertEquals(occurrences(result.output, "Proof: The Gate passed"), 1);
   } else if (verb === "prepare") {
     assertEquals(
       occurrences(

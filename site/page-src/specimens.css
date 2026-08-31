@@ -796,7 +796,10 @@
     color: var(--discern-color-ink-muted);
     font-size: 0.68rem;
     line-height: 1.6;
-    white-space: pre-wrap;
+  }
+
+  .proof-line p {
+    margin: 0;
   }
 
   .proof-tree {

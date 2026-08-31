@@ -431,7 +431,7 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
     assertEquals(proof.standard_proposals?.[0]?.standard, "sources");
     assertStringIncludes(
       proof.line,
-      "proposal awaiting exact owner approval: sources",
+      "Standard proposal awaiting exact owner approval: `sources`",
     );
     assertEquals(doneData.standards?.[0]?.measurement, "measured");
 
@@ -536,7 +536,7 @@ Deno.test("accept lands the already-proved proposal commit after exact approval"
     // awaiting-decision segment never survives next to its own resolution.
     assertStringIncludes(
       String(data.proof_line),
-      "proposal approved by the owner: sources",
+      "Standard proposal approved by the owner: `sources`",
     );
     assertEquals(String(data.proof_line).includes("awaiting"), false);
     assertEquals(data.standard_approvals?.[0]?.standard, "sources");

@@ -318,6 +318,7 @@ import {
 import { finishResult } from "../gate/finish.ts";
 import { inspectGateProof, pinValidatedTree } from "../gate/proof.ts";
 import { renderLandingProofLine } from "../gate/proof_render.ts";
+import { renderProofLineCli } from "../gate/presentation.ts";
 import {
   proofNotesFetchSucceeded,
   reconcileProofNotesFetch,
@@ -3502,7 +3503,7 @@ async function executeAcceptPlan(
   ctx.log.heading("Acceptance complete.");
   ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
   if (proofLine !== undefined) {
-    ctx.log.line(proofLine);
+    ctx.log.line(renderProofLineCli(proofLine, ctx.log.terminal));
   }
   // The landing record: the proof for the tree that just landed, pasteable
   // into a PR body. Printed unindented so it relays as clean markdown; dimmed

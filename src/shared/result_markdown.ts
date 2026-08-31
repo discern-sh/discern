@@ -301,14 +301,19 @@ function gateProofFact(value: unknown): string | undefined {
     return undefined;
   }
   const status = text(proof.status);
-  const line = proofLine(proof.proof) ?? text(proof.proof_line);
   const reason = text(proof.reason);
   if (status === undefined) {
-    return line;
+    return undefined;
   }
   return `Gate Proof: ${code(status)}${
     reason === undefined ? "" : ` (${reason})`
-  }${line === undefined ? "." : `. ${line}`}`;
+  }.`;
+}
+
+/** Read canonical CommonMark Proof-line source from a compact inspection. */
+function gateProofLine(value: unknown): string | undefined {
+  const proof = object(value);
+  return proofLine(proof?.proof) ?? text(proof?.proof_line);
 }
 
 /** Build bounded evidence shared by every envelope contract. */
@@ -893,9 +898,12 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
         ? omitted(unmet.length - MAX_LIST_ITEMS, "setup check")
         : undefined,
     ]),
-    supportingMarkdown: instructions === undefined
-      ? []
-      : [`### Completion instructions\n\n${instructions}`],
+    supportingMarkdown: uniqueVerbatim([
+      gateProofLine(data.proof),
+      instructions === undefined
+        ? undefined
+        : `### Completion instructions\n\n${instructions}`,
+    ]),
     action,
   };
 };
@@ -937,6 +945,7 @@ const presentSetupAccept: ResultMarkdownPresenter = (result) => {
         : undefined,
       landed === true ? text(data.activation_context) : undefined,
     ]),
+    supportingMarkdown: uniqueVerbatim([gateProofLine(data.proof)]),
     action: landed !== true ? [] : unique([
       ...records(reactivation?.per_agent).flatMap((agent) =>
         unique([text(agent.step)])
@@ -1241,8 +1250,11 @@ const presentGate: ResultMarkdownPresenter = (result) => {
           "Standard limit proposal",
         )
         : undefined,
-      proofLine(proof),
       gateProofFact(data.gate_proof),
+    ]),
+    supportingMarkdown: uniqueVerbatim([
+      proofLine(proof),
+      gateProofLine(data.gate_proof),
     ]),
     boundary: landingBoundary(data),
   };
@@ -1773,6 +1785,7 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
         strings(data.unlanded_branches),
       ),
     ]),
+    supportingMarkdown: uniqueVerbatim([gateProofLine(data.gate_proof)]),
     boundary: landingBoundary(data),
   };
 };
@@ -1861,7 +1874,6 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
         }; branch deleted: ${
           boolean(landing.branch_deleted) === true ? "yes" : "no"
         }.`,
-      text(data.proof_line),
       listFact("Authority warnings", strings(data.authority_warnings)),
       ...records(data.standard_approvals).map((proposal) =>
         `Standard limit proposal approved by the owner: ${
@@ -1882,6 +1894,7 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       }),
       ...records(data.checkpoint_drops).map(checkpointDropLine),
     ]),
+    supportingMarkdown: uniqueVerbatim([text(data.proof_line)]),
     boundary: consent === undefined
       ? []
       : [`Landing used ${code(text(consent.source) ?? "recorded")} consent.`],

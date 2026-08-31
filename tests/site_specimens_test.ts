@@ -225,6 +225,19 @@ Deno.test("Proof markers stay inside the section they annotate", () => {
   futureSibling.window.close();
 });
 
+Deno.test("the Proof specimen uses the canonical CommonMark semantics", () => {
+  const rendered = new JSDOM(renderSpecimens());
+  const proofLine = rendered.window.document.querySelector(".proof-line");
+  assertEquals(proofLine?.tagName, "BLOCKQUOTE");
+  assertEquals(proofLine?.querySelector("strong")?.textContent, "Proof:");
+  assertEquals(proofLine?.querySelectorAll("code").length, 4);
+  assertStringIncludes(
+    readableText(proofLine?.textContent ?? null),
+    "The Gate passed for agent/homepage-1a-b9ab45 at 9457535abebe",
+  );
+  rendered.window.close();
+});
+
 Deno.test("specimen typography reserves monospace for the name and code", async () => {
   const css = await Deno.readTextFile(SPECIMEN_CSS);
   assertEquals(monoSelectors(css), [

@@ -559,11 +559,11 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
     assertEquals(proof.head, shortHead);
     assertStringIncludes(
       proof.line,
-      `Proof: gate passed on agent/alpha @ ${shortHead} · 1 file `,
+      `> **Proof:** The Gate passed for \`agent/alpha\` at \`${shortHead}\` · 1 file changed `,
     );
     assertStringIncludes(
       proof.line,
-      "full proof: discern status --verbose",
+      "View the full Proof: `discern status --verbose`",
     );
     assertEquals("markdown" in proof, false);
 
@@ -580,7 +580,7 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
     const marker = await Deno.readTextFile(obj.data.gate_proof.path);
     const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();
     assert(
-      marker.startsWith(`${head}\nline: Proof: `),
+      marker.startsWith(`${head}\nline: > **Proof:** `),
       `marker must carry sha + line: ${marker.slice(0, 80)}`,
     );
     assertStringIncludes(marker, "\n\n### Proof");

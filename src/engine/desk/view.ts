@@ -52,6 +52,7 @@ import {
   type TerminalSize,
 } from "../../lib/terminal.ts";
 import { truncateText } from "../../lib/text.ts";
+import { renderProofLineCli } from "../gate/presentation.ts";
 import {
   DESK_STATES,
   type DeskAction,
@@ -959,12 +960,21 @@ export function renderDeskRecentCompleted(
     rows: recent.map((task) => [
       terminalLine(task.branch),
       terminalLine(task.completed_at),
-      terminalMultiline(task.proof_line ?? task.head ?? "Landing recorded"),
+      terminalLine(
+        task.proof_line === undefined
+          ? task.head ?? "Landing recorded"
+          : "Proof recorded",
+      ),
     ]),
     width,
   })];
+  const proofLines = recent.flatMap((task) =>
+    task.proof_line === undefined
+      ? []
+      : [renderProofLineCli(task.proof_line, terminal, width)]
+  );
   const text = composeFrames(
-    [summary, ...table],
+    [summary, ...table, ...proofLines],
     viewportDimension(viewport.rows),
   );
   return { text, rows: frameRows(text) };
@@ -1225,16 +1235,13 @@ export function renderDeskTaskDetail(
         ? {}
         : { value: terminalLine(row.decision.proof.detail) }),
     }],
-    ...(row.decision.proof.line === undefined ? {} : {
-      meta: [{
-        label: terminalLine("Proof line"),
-        value: terminalLine(row.decision.proof.line),
-      }],
-    }),
     maxWidth: width,
   });
+  const proofLine = row.decision.proof.line === undefined
+    ? []
+    : [renderProofLineCli(row.decision.proof.line, terminal, width)];
   const text = composeFrames(
-    [heading, taskMetadata, decision, facts, proof],
+    [heading, taskMetadata, decision, facts, proof, ...proofLine],
     viewportDimension(viewport.rows),
   );
   return { text, rows: frameRows(text) };
@@ -1498,7 +1505,7 @@ export function renderDeskReview(
   const presenter = terminal.presenter;
   const proof = review.proof;
   const proofPage = proof.proof ?? proof.proof_data?.markdown;
-  const proofLine = proof.proof_line ?? proof.proof_data?.line;
+  const proofLineSource = proof.proof_line ?? proof.proof_data?.line;
   const heading = presenter.present(renderHeadingCli, {
     text: terminalLine(`Review ${row.task.name}`),
     level: 1,
@@ -1524,10 +1531,6 @@ export function renderDeskReview(
       ),
     }],
     meta: [
-      ...(proofLine === undefined ? [] : [{
-        label: terminalLine("Proof line"),
-        value: terminalMultiline(proofLine),
-      }]),
       ...(proof.head === undefined ? [] : [{
         label: terminalLine("Current commit"),
         value: terminalLine(proof.head),
@@ -1539,6 +1542,9 @@ export function renderDeskReview(
     ],
     maxWidth: width,
   });
+  const proofLine = proofLineSource === undefined
+    ? []
+    : [renderProofLineCli(proofLineSource, terminal, width)];
   const diffstat = presenter.present(renderDiffstatCli, {
     added: review.insertions,
     removed: review.deletions,
@@ -1647,6 +1653,7 @@ export function renderDeskReview(
     [
       heading,
       proofReport,
+      ...proofLine,
       ...page,
       diffstat,
       ...meters,

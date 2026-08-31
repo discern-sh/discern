@@ -28,6 +28,7 @@ import {
   renderGateProof,
   renderGateProofCheck,
   renderGateStandards,
+  renderProofLineCli,
 } from "../src/engine/gate/presentation.ts";
 import {
   renderProofLine,
@@ -752,7 +753,7 @@ Deno.test("Gate Proof presents every recording and currency state truthfully", (
     assertStringIncludes(rendered, state.summary);
     assertStringIncludes(rendered, "1 passed, 1 skipped");
     assertEquals(rendered.includes("[✓]"), status === "recorded");
-    assertEquals(rendered.split("\n").at(-1), PROOF.line);
+    assert(rendered.endsWith(renderProofLineCli(PROOF.line, PLAIN, 76)));
   }
 
   for (const status of GATE_PROOF_CHECK_STATUSES) {
@@ -768,7 +769,10 @@ Deno.test("Gate Proof presents every recording and currency state truthfully", (
     assertStringIncludes(rendered, state.stateLabel);
     assertStringIncludes(rendered, state.summary);
     assertEquals(rendered.includes("[✓]"), status === "honored");
-    assertEquals(rendered.includes(PROOF.line), status === "honored");
+    assertEquals(
+      rendered.includes(renderProofLineCli(PROOF.line, PLAIN, 76)),
+      status === "honored",
+    );
   }
 });
 
