@@ -141,12 +141,12 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 
 **Human truth:** Coding agents let one person attempt work that used to require more people, time, or specialist access.
 
-**Promise:** discern gives that reach a practice that can carry it.
+**Promise:** discern backs that bigger project with an engineering practice, so it gets planned, checked, and delivered.
 
 **Good expressions:**
 
 - Take the project further than one pair of hands.
-- Take on the project you kept postponing.
+- Start the project that used to be too big for one person.
 - Turn a standing backlog into work in flight.
 - One person, several workstreams, one decision at the end.
 
@@ -169,7 +169,7 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 - Ship serious software.
 - Software worth putting your name to.
 - When people start depending on it, the way you build it matters.
-- The demo took a weekend. Now people depend on it.
+- The MVP took a weekend. Now you've got real users depending on it.
 - The prototype can become a product.
 
 **Avoid:**
@@ -186,9 +186,9 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 
 **Good expressions:**
 
-- An engineering practice, installed in the project.
-- Every session starts from zero — unless the project remembers.
-- Every agent starts with the project already in view.
+- An engineering practice, installed in your project.
+- What you've taught the project outlives every session.
+- Every agent arrives already briefed.
 - Change agents without starting the project over.
 - The project retains the decisions, methods, and standards that matter.
 
@@ -206,10 +206,10 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 
 **Good expressions:**
 
-- Come back to work that is ready for a real decision.
+- The work comes back finished. What's left is the part only you can do.
 - Give the work a complete handoff.
 - Several pieces can move at once without making you their courier.
-- It returns finished, with evidence for the exact change.
+- Evidence arrives attached to the exact change.
 
 **Avoid:**
 
@@ -225,7 +225,7 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 
 **Good expressions:**
 
-- Proof names the exact change that passed.
+- Proof shows the change passing your project's own checks.
 - A measured gain becomes the limit the next branch inherits.
 - The project declares what must pass.
 - The final decision remains yours.
@@ -283,15 +283,15 @@ The quota message is timely and practical. It should not become the enduring mas
 
 ### One sentence
 
-> discern installs an engineering practice into agent-built projects — the project keeps the way of working, and Proof binds the evidence to the exact change that passed.
+> discern installs an engineering practice into your project, so you can hand more work to coding agents and stay confident in what comes back.
 
 ### Approximately 30 words
 
-> discern gives coding agents a project-owned practice: instructions every agent inherits, an isolated worktree for every task, a Gate that decides what is done, and Proof bound to the exact change.
+> discern gives your coding agents a shared practice: every agent works from the same instructions, every task gets its own isolated workspace, and every change returns with evidence it passed your project's checks.
 
 ### Approximately 60 words
 
-> Coding agents can take a project further than one person could build alone. discern installs a serious engineering practice into the repository: shared project understanding, isolated work for every task, deterministic checks, Standards that can only tighten, and evidence for the exact change. The agents do more of the work; you stay responsible for what gets launched.
+> Coding agents can take a project further than one person could build alone. discern installs a serious engineering practice into the repository: shared project understanding, isolated work for every task, deterministic checks, Standards that lock in every gain, and evidence for the exact change. The agents do more of the work; you stay responsible for what gets launched.
 
 ### Approximately 100 words
 

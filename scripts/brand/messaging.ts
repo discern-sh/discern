@@ -230,10 +230,11 @@ export const PILLARS = [
     title: "Ambition and personal reach",
     humanTruth:
       "Coding agents let one person attempt work that used to require more people, time, or specialist access.",
-    promise: "discern gives that reach a practice that can carry it.",
+    promise:
+      "discern backs that bigger project with an engineering practice, so it gets planned, checked, and delivered.",
     goodExpressions: [
       "Take the project further than one pair of hands.",
-      "Take on the project you kept postponing.",
+      "Start the project that used to be too big for one person.",
       "Turn a standing backlog into work in flight.",
       "One person, several workstreams, one decision at the end.",
     ],
@@ -257,7 +258,7 @@ export const PILLARS = [
       "Ship serious software.",
       "Software worth putting your name to.",
       "When people start depending on it, the way you build it matters.",
-      "The demo took a weekend. Now people depend on it.",
+      "The MVP took a weekend. Now you've got real users depending on it.",
       "The prototype can become a product.",
     ],
     avoid: [
@@ -278,9 +279,9 @@ export const PILLARS = [
       "Repeated prompts and personal memory are weak places to store a project's standards.",
     promise: "discern gives future agents a persistent way of working.",
     goodExpressions: [
-      "An engineering practice, installed in the project.",
-      "Every session starts from zero — unless the project remembers.",
-      "Every agent starts with the project already in view.",
+      "An engineering practice, installed in your project.",
+      "What you've taught the project outlives every session.",
+      "Every agent arrives already briefed.",
       "Change agents without starting the project over.",
       "The project retains the decisions, methods, and standards that matter.",
     ],
@@ -303,10 +304,10 @@ export const PILLARS = [
     promise:
       "more of the complete unit of work can move without continuous human administration.",
     goodExpressions: [
-      "Come back to work that is ready for a real decision.",
+      "The work comes back finished. What's left is the part only you can do.",
       "Give the work a complete handoff.",
       "Several pieces can move at once without making you their courier.",
-      "It returns finished, with evidence for the exact change.",
+      "Evidence arrives attached to the exact change.",
     ],
     avoid: [
       "fully autonomous factory claims;",
@@ -328,7 +329,7 @@ export const PILLARS = [
     promise:
       "discern can show what was evaluated and which change the evidence belongs to.",
     goodExpressions: [
-      "Proof names the exact change that passed.",
+      "Proof shows the change passing your project's own checks.",
       "A measured gain becomes the limit the next branch inherits.",
       "The project declares what must pass.",
       "The final decision remains yours.",
@@ -402,21 +403,21 @@ export const DESCRIPTIONS = [
     group: "length",
     heading: "One sentence",
     body:
-      `> discern installs an engineering practice into agent-built projects — the project keeps the way of working, and Proof binds the evidence to the exact change that passed.`,
+      `> discern installs an engineering practice into your project, so you can hand more work to coding agents and stay confident in what comes back.`,
   },
   {
     id: "thirty-words",
     group: "length",
     heading: "Approximately 30 words",
     body:
-      `> discern gives coding agents a project-owned practice: instructions every agent inherits, an isolated worktree for every task, a Gate that decides what is done, and Proof bound to the exact change.`,
+      `> discern gives your coding agents a shared practice: every agent works from the same instructions, every task gets its own isolated workspace, and every change returns with evidence it passed your project's checks.`,
   },
   {
     id: "sixty-words",
     group: "length",
     heading: "Approximately 60 words",
     body:
-      `> Coding agents can take a project further than one person could build alone. discern installs a serious engineering practice into the repository: shared project understanding, isolated work for every task, deterministic checks, Standards that can only tighten, and evidence for the exact change. The agents do more of the work; you stay responsible for what gets launched.`,
+      `> Coding agents can take a project further than one person could build alone. discern installs a serious engineering practice into the repository: shared project understanding, isolated work for every task, deterministic checks, Standards that lock in every gain, and evidence for the exact change. The agents do more of the work; you stay responsible for what gets launched.`,
   },
   {
     id: "hundred-words",
