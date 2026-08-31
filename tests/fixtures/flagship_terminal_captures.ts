@@ -138,7 +138,7 @@ const commitIdentifiers: TerminalCaptureNormalizer = {
   name: "commit-identifiers",
   normalize: (output: string): string =>
     output.replace(
-      /\b[0-9a-f]{12,40}\b/gu,
+      /(?<![0-9a-f])[0-9a-f]{12,40}(?![0-9a-f])/gu,
       (value: string): string => value.replaceAll(/[0-9a-f]/gu, "0"),
     ),
 };

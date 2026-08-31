@@ -41,6 +41,7 @@ Deno.test("flagship normalizers replace facts without hiding visible structure",
     "discern 9.8.7 · linux/x86_64 · git 2.44.0 (vendor build)",
     "\x1b[38;5;151m✓\x1b[0m git: 2.44.0 (vendor build)",
     "Commit: abcdef0123456789",
+    "Proof at \x1b[1mabcdef012345\x1b[0m",
     "└────────────────────┘",
     "",
   ].join("\n");
@@ -72,6 +73,7 @@ Deno.test("flagship normalizers replace facts without hiding visible structure",
   );
   assertStringIncludes(normalized, "git: 0.00.0");
   assertStringIncludes(normalized, "Commit: 0000000000000000");
+  assertStringIncludes(normalized, "Proof at \x1b[1m000000000000\x1b[0m");
   assertEquals(normalized.split("\n").length, source.split("\n").length);
   assertStringIncludes(normalized, "\x1b[38;5;151m✓\x1b[0m");
   assertStringIncludes(normalized, "└────────────────────┘");

@@ -29,6 +29,7 @@ import {
   terminalLine,
   terminalMultiline,
 } from "../../lib/terminal.ts";
+import { renderMarkdown } from "../../lib/markdown.ts";
 import {
   type Diagnostic,
   type EnginePlan,
@@ -63,6 +64,18 @@ export interface GatePresentationOptions {
   readonly width: number;
   /** Package spinner phase. Time remains an effectful caller concern. */
   readonly phase?: number;
+}
+
+/** Project canonical CommonMark Proof-line source into the active terminal. */
+export function renderProofLineCli(
+  line: string,
+  options: GatePresentationOptions,
+): string {
+  return renderMarkdown(line, {
+    color: options.terminal.color,
+    terminal: options.terminal,
+    width: presentationWidth(options.width),
+  });
 }
 
 /** Live and final states presented by the Gate workflow. */
@@ -1005,7 +1018,7 @@ export function renderGateProof(
     footer: "Full proof: discern status --verbose",
     maxWidth: width,
   });
-  return `${proofPanel}\n\n${safeLine(proof.line)}`;
+  return `${proofPanel}\n\n${renderProofLineCli(proof.line, options)}`;
 }
 
 /** Render one inspected Proof currency state without re-running the Gate. */
@@ -1046,5 +1059,5 @@ export function renderGateProofCheck(
   });
   return check.proof_line === undefined
     ? proofPanel
-    : `${proofPanel}\n\n${safeLine(check.proof_line)}`;
+    : `${proofPanel}\n\n${renderProofLineCli(check.proof_line, options)}`;
 }

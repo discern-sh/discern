@@ -50,6 +50,7 @@ import {
 } from "../lib/config_doc.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { rebaseMarkdownLinks } from "../lib/markdown_links.ts";
+import { renderMarkdown } from "../lib/markdown.ts";
 import { stampSchemaVersion } from "../lib/schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
@@ -2940,9 +2941,20 @@ function printDoneSuccess(view: DoneSuccessView): void {
 
   // The ready-to-relay completion message, carried verbatim (identical to the `--json`
   // `instructions` field) so a courier agent can hand the human a warm close (ADR 0086).
-  new Logger({ json: false, noColor: false }).line(renderHumanOutputGroups([
+  const log = new Logger({ json: false, noColor: false });
+  const renderedProofLine = proofLine === undefined
+    ? undefined
+    : renderMarkdown(proofLine, {
+      color: log.terminal.color,
+      terminal: log.terminal,
+      width: log.terminal.size.columns,
+    });
+  log.line(renderHumanOutputGroups([
     { id: "completion", items: completionLines },
-    { id: "proof", items: proofLine === undefined ? [] : [proofLine] },
+    {
+      id: "proof",
+      items: renderedProofLine === undefined ? [] : [renderedProofLine],
+    },
     { id: "assurance", items: assuranceGroupLines },
     { id: "inventory", items: inventoryLines },
     { id: "worktree-proof", items: worktreeLines },

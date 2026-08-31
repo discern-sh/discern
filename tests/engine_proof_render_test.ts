@@ -18,6 +18,7 @@ import {
   renderGateTtyStatus,
   renderGateTtyTable,
 } from "../src/engine/gate/gate_tty.ts";
+import { renderProofLineCli } from "../src/engine/gate/presentation.ts";
 import {
   dimBlock,
   type StepResult,
@@ -139,7 +140,7 @@ Deno.test("proof render: fixed facts + steps pin the exact page", () => {
   const expected = [
     "### Proof — `agent/upload-retry`",
     "",
-    "All gate checks passed on a clean tree at `abc1234def01` · diff vs `main`: 2 files +42 −7",
+    "All gate checks passed on a clean tree at `abc1234def01` · diff vs `main`: 2 files changed (+42 −7)",
     "",
     "| ran | command | result |",
     "| --- | --- | --- |",
@@ -157,7 +158,7 @@ Deno.test("proof render: standards render before the job table", () => {
   const expected = [
     "### Proof — `agent/upload-retry`",
     "",
-    "All gate checks passed on a clean tree at `abc1234def01` · diff vs `main`: 2 files +42 −7",
+    "All gate checks passed on a clean tree at `abc1234def01` · diff vs `main`: 2 files changed (+42 −7)",
     "",
     "Standards (limits verified against `main`):",
     "",
@@ -222,7 +223,7 @@ Deno.test("proof render: Standard limit proposal leads routine standards and nam
   );
   assertStringIncludes(
     renderProofLine(facts),
-    "· proposal awaiting exact owner approval: source_count 10 → 12 ·",
+    "· Standard proposal awaiting exact owner approval: `source_count` 10 → 12 ·",
   );
 });
 
@@ -238,7 +239,7 @@ Deno.test("landing proof line resolves the proposal segment in place", () => {
   );
   assertStringIncludes(
     landed,
-    "· proposal approved by the owner: source_count 10 → 12 ·",
+    "· Standard proposal approved by the owner: `source_count` 10 → 12 ·",
   );
   // The resolution replaces the awaiting-decision segment — a landed line
   // never states a demand next to the record of its satisfaction.
@@ -254,11 +255,17 @@ Deno.test("landing proof line resolves several proposals as a count", () => {
   const proposals = [GROWTH_PROPOSAL, second];
   const facts: ProofFacts = { ...FACTS, standard_proposals: proposals };
   const line = renderProofLine(facts);
-  assertStringIncludes(line, "· 2 proposals awaiting exact owner approval ·");
+  assertStringIncludes(
+    line,
+    "· 2 Standard proposals awaiting exact owner approval ·",
+  );
   const landed = renderLandingProofLine(line, { source: "conversation" }, {
     proposals,
   });
-  assertStringIncludes(landed, "· 2 proposals approved by the owner ·");
+  assertStringIncludes(
+    landed,
+    "· 2 Standard proposals approved by the owner ·",
+  );
   assertEquals(landed.includes("awaiting"), false);
 });
 
@@ -297,7 +304,7 @@ Deno.test("landing proof line appends a resolution it cannot locate exactly once
   });
   assertStringIncludes(
     landed,
-    "· proposal approved by the owner: source_count 10 → 12 · landed with conversation consent",
+    "· Standard proposal approved by the owner: `source_count` 10 → 12 · landed with conversation consent",
   );
 });
 
@@ -395,7 +402,12 @@ Deno.test("done TTY render: the package workflow leads into a truthful Proof", (
   ) {
     assertStringIncludes(rendered, fact);
   }
-  assertEquals(rendered.split("\n").at(-1), proof.line);
+  assert(
+    rendered.endsWith(renderProofLineCli(proof.line, {
+      width: 80,
+      terminal: PLAIN_TERMINAL,
+    })),
+  );
   assert(rendered.indexOf("Gate progress") < rendered.indexOf("Gate proof"));
 });
 
@@ -426,10 +438,9 @@ Deno.test("done TTY render: color paints success and the proof without widening 
     { status: "recorded" },
   );
   assert(SGR.test(rendered));
-  assertEquals(stripSgr(rendered), plain);
-  for (
-    const line of rendered.split("\n").filter((line) => line !== proof.line)
-  ) {
+  assertStringIncludes(stripSgr(rendered), "│ Proof: The Gate passed");
+  assertStringIncludes(plain, "│ **Proof:** The Gate passed");
+  for (const line of [...rendered.split("\n"), ...plain.split("\n")]) {
     assert(
       displayWidth(line) <= 80,
       `TTY line is ${displayWidth(line)} columns: ${line}`,
@@ -507,11 +518,11 @@ Deno.test("gate TTY render: color changes styling only and every line stays with
   }
 });
 
-Deno.test("proof line: fixed facts pin the exact sentence", () => {
+Deno.test("proof line: fixed facts pin the exact CommonMark blockquote", () => {
   assertEquals(
     renderProofLine(FACTS),
-    "Proof: gate passed on agent/upload-retry @ abc1234def01 · " +
-      "2 files +42 −7 vs main · full proof: discern status --verbose",
+    "> **Proof:** The Gate passed for `agent/upload-retry` at `abc1234def01` · " +
+      "2 files changed (+42 −7) vs `main` · View the full Proof: `discern status --verbose`",
   );
 });
 
@@ -522,13 +533,13 @@ Deno.test("proof line: a single file reads in the singular", () => {
     insertions: 5,
     deletions: 0,
   });
-  assertStringIncludes(line, "1 file +5 −0 vs main");
+  assertStringIncludes(line, "1 file changed (+5 −0) vs `main`");
 });
 
 Deno.test("proof line: held standards claim one segment", () => {
   assertStringIncludes(
     renderProofLine(FACTS, [HELD], VERIFIED),
-    "· standards held ·",
+    "· Standards held ·",
   );
 });
 
@@ -546,7 +557,7 @@ Deno.test("proof line: improved and deferred standards are counted", () => {
   };
   assertStringIncludes(
     renderProofLine(FACTS, [HELD, improved, deferred], VERIFIED),
-    "· standards held, 1 improved, 1 deferred ·",
+    "· Standards held (1 improved, 1 deferred) ·",
   );
 });
 
@@ -559,7 +570,7 @@ Deno.test("proof line: all standards deferred is stated as such", () => {
   };
   assertStringIncludes(
     renderProofLine(FACTS, [deferred], VERIFIED),
-    "· standards deferred (1) ·",
+    "· Standards deferred (1) ·",
   );
 });
 
@@ -570,13 +581,13 @@ Deno.test("proof line: unverified limits are disclosed loudly", () => {
       trunk: "main",
       reason: "trunk config unavailable",
     }),
-    "· standards UNVERIFIED ·",
+    "· Standards UNVERIFIED ·",
   );
 });
 
 Deno.test("proof line: no standards configured claims nothing", () => {
   const line = renderProofLine(FACTS, []);
-  assertEquals(line.includes("standards"), false);
+  assertEquals(line.includes("Standards"), false);
 });
 
 Deno.test("landing proof line records each canonical consent source", () => {

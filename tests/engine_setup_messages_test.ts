@@ -20,6 +20,8 @@ import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import type { SetupAssurance } from "../src/shared/setup_assurance.ts";
 
 const WT = "/repo.worktrees";
+const PROOF_LINE =
+  "> **Proof:** The Gate passed for `agent/setup` at `abc123def456` · View the full Proof: `discern status --verbose`";
 
 /** A detected two-agent set for the consent-context constructions. */
 const AGENTS = {
@@ -332,7 +334,7 @@ function completionContext(
     inventory: INVENTORY,
     landing,
     reactivation: READY_REACTIVATION,
-    proofLine: "Proof abc123 — gate green",
+    proofLine: PROOF_LINE,
     forced: false,
   };
 }
@@ -357,6 +359,11 @@ Deno.test("welcome, consent, and completion derive one reversibility authority",
   assertStringIncludes(consent, SETUP_REVERSIBILITY.beforeLanding);
   assertStringIncludes(consent, SETUP_REVERSIBILITY.uninstall);
   assertStringIncludes(completion, SETUP_REVERSIBILITY.uninstall);
+  assertStringIncludes(
+    completion,
+    `${PROOF_LINE}\n\n─── end of message`,
+  );
+  assert(!completion.includes(`• ${PROOF_LINE}`));
 });
 
 Deno.test("completionMessage renders honest coverage for each verdict", () => {
@@ -494,7 +501,7 @@ Deno.test("completionMessage withholds restart and improvement until landing, th
     inventory: INVENTORY,
     landing,
     reactivation: { summary: "", per_agent: [] },
-    proofLine: "Proof abc123 — gate green",
+    proofLine: PROOF_LINE,
     forced: false,
   });
   assert(

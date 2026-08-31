@@ -1247,7 +1247,7 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     // review-ready hint tells the agent to end its report with.
     assertStringIncludes(
       obj.data.gate_proof.proof.line,
-      "Proof: gate passed on agent/alpha @ ",
+      "> **Proof:** The Gate passed for `agent/alpha` at ",
     );
     assertHasHint(obj, HINTS["status-ready-for-review"], {
       trunk: "main",
@@ -1291,7 +1291,7 @@ Deno.test("status: a clean worktree ahead of main with a finish proof is ready f
     assertEquals(row.gate_proof.status, "honored");
     assertStringIncludes(
       row.gate_proof.proof.line,
-      "Proof: gate passed on agent/alpha @ ",
+      "> **Proof:** The Gate passed for `agent/alpha` at ",
     );
 
     // The supervisor's pull: --verbose from the main checkout prints the ready

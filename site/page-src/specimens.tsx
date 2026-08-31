@@ -602,7 +602,17 @@ export function ProofSpecimen() {
               <Badge tone="success" dot>Gate passed</Badge>
             </header>
 
-            <pre className="proof-line"><code>Proof: gate passed on agent/homepage-1a-b9ab45 @ 9457535abebe · 7 files +182 −149 vs main · standards held, 5 improved, 2 deferred</code></pre>
+            <blockquote className="proof-line">
+              <p>
+                <strong>Proof:</strong> The Gate passed for{" "}
+                <code>agent/homepage-1a-b9ab45</code> at{" "}
+                <code>9457535abebe</code> · 7 files changed (+182 −149) vs{" "}
+                <code>main</code>{" "}
+                · Standards held (5 improved, 2 deferred) · View the full Proof:
+                {" "}
+                <code>discern status --verbose</code>
+              </p>
+            </blockquote>
 
             <dl className="proof-tree">
               <div data-proof-section="tree">
