@@ -244,7 +244,7 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 
 - The right limits let more work move.
 - One project, a separate environment for every task.
-- discern keeps the right things apart, and the whole thing connected.
+- discern keeps the right things apart, and the system connected.
 - Ready is the Gate's question; shipping is yours.
 
 **Avoid:**

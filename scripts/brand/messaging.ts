@@ -31,7 +31,8 @@ Internal platform name. The public meaning is that software earns confidence thr
   {
     id: "organizing-idea",
     title: "The organizing idea",
-    body: `discern is named for what it does: to discern is to tell one thing from another. Every mechanism in the product keeps a distinction that matters:
+    body:
+      `discern is named for what it does: to discern is to tell one thing from another. Every mechanism in the product keeps a distinction that matters:
 
 - one project, with a separate environment for every task;
 - agent judgment, machine verification, and human authority, each kept distinct;
@@ -186,7 +187,11 @@ export const POSITIONING_GRID = [
     against: "Agent products sell the removal of limits.",
     instead:
       "discern installs the limits that let more work move at once, with responsibility intact.",
-    claims: ["isolated-worktrees", "gate-grants-no-authority", "shaped-delegation"],
+    claims: [
+      "isolated-worktrees",
+      "gate-grants-no-authority",
+      "shaped-delegation",
+    ],
   },
 ] as const satisfies readonly PositioningContrast<ClaimSlug>[];
 
@@ -356,7 +361,7 @@ export const PILLARS = [
     goodExpressions: [
       "The right limits let more work move.",
       "One project, a separate environment for every task.",
-      "discern keeps the right things apart, and the whole thing connected.",
+      "discern keeps the right things apart, and the system connected.",
       "Ready is the Gate's question; shipping is yours.",
     ],
     avoid: [
