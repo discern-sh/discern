@@ -971,7 +971,7 @@ export function renderDeskRecentCompleted(
   const proofLines = recent.flatMap((task) =>
     task.proof_line === undefined
       ? []
-      : [renderProofLineCli(task.proof_line, { terminal, width })]
+      : [renderProofLineCli(task.proof_line, terminal, width)]
   );
   const text = composeFrames(
     [summary, ...table, ...proofLines],
@@ -1239,7 +1239,7 @@ export function renderDeskTaskDetail(
   });
   const proofLine = row.decision.proof.line === undefined
     ? []
-    : [renderProofLineCli(row.decision.proof.line, { terminal, width })];
+    : [renderProofLineCli(row.decision.proof.line, terminal, width)];
   const text = composeFrames(
     [heading, taskMetadata, decision, facts, proof, ...proofLine],
     viewportDimension(viewport.rows),
@@ -1544,7 +1544,7 @@ export function renderDeskReview(
   });
   const proofLine = proofLineSource === undefined
     ? []
-    : [renderProofLineCli(proofLineSource, { terminal, width })];
+    : [renderProofLineCli(proofLineSource, terminal, width)];
   const diffstat = presenter.present(renderDiffstatCli, {
     added: review.insertions,
     removed: review.deletions,

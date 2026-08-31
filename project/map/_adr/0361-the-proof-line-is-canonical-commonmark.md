@@ -18,7 +18,7 @@ The existing line also compressed Git identities and prose into the same visual 
 
 The contract uses only core CommonMark: a blockquote, strong label, and code spans. Branches, commits, trunk names, commands, and named Standard proposals are code. Words carry state; the line does not add emoji or a check glyph. The middle dot separates facts, the true minus sign distinguishes deletion counts, and the arrow remains reserved for proposal value transitions.
 
-`renderLandingProofLine` rewrites open decision segments and appends consent evidence in the same source, using the same separator. JSON, Model Context Protocol, Gate markers, and Proof notes preserve the source exactly. Authored result Markdown includes it as a standalone block rather than a list item. Terminal and Desk views render it through the shared Markdown presenter; setup's agent-to-human message ends with the exact source.
+`renderLandingProofLine` rewrites open decision segments and appends consent evidence in the same source, using the same separator. JSON, Model Context Protocol, Gate markers, and Proof notes preserve the source exactly. Authored result Markdown includes it as a standalone block rather than a list item. Gate, acceptance, and Desk views render it through the shared Markdown presenter. Setup preserves the source in its ready-to-relay terminal output, and its agent-to-human message ends with that exact source.
 
 There is no parallel plain-text field, presentation enum, or Proof-line abstract syntax tree. Older stored plain-text lines remain valid CommonMark and are relayed without migration; landing can still append or resolve their segments. Presentation changes do not alter durable Proof identity.
 

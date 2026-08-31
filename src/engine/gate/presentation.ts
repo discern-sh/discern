@@ -69,12 +69,13 @@ export interface GatePresentationOptions {
 /** Project canonical CommonMark Proof-line source into the active terminal. */
 export function renderProofLineCli(
   line: string,
-  options: GatePresentationOptions,
+  terminal: TerminalContext,
+  width: number = terminal.size.columns,
 ): string {
   return renderMarkdown(line, {
-    color: options.terminal.color,
-    terminal: options.terminal,
-    width: presentationWidth(options.width),
+    color: terminal.color,
+    terminal,
+    width: presentationWidth(width),
   });
 }
 
@@ -1018,7 +1019,9 @@ export function renderGateProof(
     footer: "Full proof: discern status --verbose",
     maxWidth: width,
   });
-  return `${proofPanel}\n\n${renderProofLineCli(proof.line, options)}`;
+  return `${proofPanel}\n\n${
+    renderProofLineCli(proof.line, options.terminal, options.width)
+  }`;
 }
 
 /** Render one inspected Proof currency state without re-running the Gate. */
@@ -1059,5 +1062,7 @@ export function renderGateProofCheck(
   });
   return check.proof_line === undefined
     ? proofPanel
-    : `${proofPanel}\n\n${renderProofLineCli(check.proof_line, options)}`;
+    : `${proofPanel}\n\n${
+      renderProofLineCli(check.proof_line, options.terminal, options.width)
+    }`;
 }

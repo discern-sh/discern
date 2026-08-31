@@ -313,9 +313,7 @@ function gateProofFact(value: unknown): string | undefined {
 /** Read canonical CommonMark Proof-line source from a compact inspection. */
 function gateProofLine(value: unknown): string | undefined {
   const proof = object(value);
-  return proof === undefined
-    ? undefined
-    : proofLine(proof.proof) ?? text(proof.proof_line);
+  return proofLine(proof?.proof) ?? text(proof?.proof_line);
 }
 
 /** Build bounded evidence shared by every envelope contract. */

@@ -3503,10 +3503,7 @@ async function executeAcceptPlan(
   ctx.log.heading("Acceptance complete.");
   ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
   if (proofLine !== undefined) {
-    ctx.log.line(renderProofLineCli(proofLine, {
-      terminal: ctx.log.terminal,
-      width: ctx.log.terminal.size.columns,
-    }));
+    ctx.log.line(renderProofLineCli(proofLine, ctx.log.terminal));
   }
   // The landing record: the proof for the tree that just landed, pasteable
   // into a PR body. Printed unindented so it relays as clean markdown; dimmed

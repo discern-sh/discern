@@ -403,10 +403,7 @@ Deno.test("done TTY render: the package workflow leads into a truthful Proof", (
     assertStringIncludes(rendered, fact);
   }
   assert(
-    rendered.endsWith(renderProofLineCli(proof.line, {
-      width: 80,
-      terminal: PLAIN_TERMINAL,
-    })),
+    rendered.endsWith(renderProofLineCli(proof.line, PLAIN_TERMINAL, 80)),
   );
   assert(rendered.indexOf("Gate progress") < rendered.indexOf("Gate proof"));
 });
