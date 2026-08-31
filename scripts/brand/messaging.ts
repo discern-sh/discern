@@ -39,7 +39,7 @@ Internal platform name. The public meaning is that software earns confidence thr
 - evidence tied to one exact change;
 - the provider's intelligence apart from the project's practice;
 - authored sources apart from generated artifacts;
-- ready apart from permitted to land;
+- readiness apart from permission to land;
 - ambitious work divided into bounded units that compose again.
 
 Underneath sits the paradox: the right boundaries are what let more work move. Most agent products sell the removal of limits; discern installs the limits that make the bigger handoff workable, with responsibility intact.
@@ -357,11 +357,11 @@ export const PILLARS = [
     humanTruth:
       "People hand an agent only as much work as they can afford to have go wrong at once.",
     promise:
-      "discern bounds each piece of work, so more of it can move at the same time.",
+      "discern bounds each piece of work, so more can move at once: each piece in its own environment, and nothing counted done below the project's bar.",
     goodExpressions: [
-      "The right limits let more work move.",
+      "The right limits let more work move — and finish.",
       "One project, a separate environment for every task.",
-      "discern keeps the right things apart, and the system connected.",
+      "discern draws the right boundaries, and keeps the project connected across them.",
       "Ready is the Gate's question; shipping is yours.",
     ],
     avoid: [
@@ -544,9 +544,9 @@ export const HERO_SYSTEMS = [
   {
     id: "hero-d",
     title: "Hero D — Paradox-led",
-    headline: "The right limits let more work move.",
+    headline: "The right limits let more work move — and finish.",
     sub:
-      "discern gives every task its own environment, holds every change to your project's declared bar, and keeps the shipping decision with you. Those boundaries are what make the bigger handoff possible.",
+      "discern gives every task its own environment, holds every change to your project's declared bar, and keeps the shipping decision with you. Those boundaries are why you can hand over more, and trust what comes back.",
     primaryCta: "Follow a change from brief to acceptance",
     secondaryCta: "Read how discern works",
   },
@@ -584,7 +584,7 @@ export const HEADLINES = [
     caution: "Show the Gate's account nearby so the second half reads as fact.",
   },
   {
-    line: "The right limits let more work move.",
+    line: "The right limits let more work move — and finish.",
     bestUse: "Manifesto, delegation essay, About page",
     caution:
       "Name a literal boundary (worktree, Gate, authority) in the next sentence, or it reads as philosophy.",

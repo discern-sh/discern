@@ -53,7 +53,7 @@ discern is named for what it does: to discern is to tell one thing from another.
 - evidence tied to one exact change;
 - the provider's intelligence apart from the project's practice;
 - authored sources apart from generated artifacts;
-- ready apart from permitted to land;
+- readiness apart from permission to land;
 - ambitious work divided into bounded units that compose again.
 
 Underneath sits the paradox: the right boundaries are what let more work move. Most agent products sell the removal of limits; discern installs the limits that make the bigger handoff workable, with responsibility intact.
@@ -238,13 +238,13 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 
 **Human truth:** People hand an agent only as much work as they can afford to have go wrong at once.
 
-**Promise:** discern bounds each piece of work, so more of it can move at the same time.
+**Promise:** discern bounds each piece of work, so more can move at once: each piece in its own environment, and nothing counted done below the project's bar.
 
 **Good expressions:**
 
-- The right limits let more work move.
+- The right limits let more work move — and finish.
 - One project, a separate environment for every task.
-- discern keeps the right things apart, and the system connected.
+- discern draws the right boundaries, and keeps the project connected across them.
 - Ready is the Gate's question; shipping is yours.
 
 **Avoid:**
@@ -388,9 +388,9 @@ These are testable candidates for the homepage.
 
 ### Hero D — Paradox-led
 
-> # The right limits let more work move.
+> # The right limits let more work move — and finish.
 >
-> discern gives every task its own environment, holds every change to your project's declared bar, and keeps the shipping decision with you. Those boundaries are what make the bigger handoff possible.
+> discern gives every task its own environment, holds every change to your project's declared bar, and keeps the shipping decision with you. Those boundaries are why you can hand over more, and trust what comes back.
 >
 > **Primary CTA:** Follow a change from brief to acceptance\
 > **Secondary CTA:** Read how discern works
@@ -404,7 +404,7 @@ These are testable candidates for the homepage.
 | Agents come and go. The practice stays.                                                        | Provider-continuity section, closing line        | Best where switching pain is already recognized.                                                        |
 | The MVP took a weekend. Now you've got real users depending on it.                             | Consequence-threshold campaign, new-builder page | Celebrate the threshold; never scold the weekend.                                                       |
 | Your agent wrote four thousand lines last night — and you already know what passed.            | Problem-opening ad, delegation essay             | Show the Gate's account nearby so the second half reads as fact.                                        |
-| The right limits let more work move.                                                           | Manifesto, delegation essay, About page          | Name a literal boundary (worktree, Gate, authority) in the next sentence, or it reads as philosophy.    |
+| The right limits let more work move — and finish.                                              | Manifesto, delegation essay, About page          | Name a literal boundary (worktree, Gate, authority) in the next sentence, or it reads as philosophy.    |
 | Ready is the Gate's question; shipping is yours.                                               | Trust page, acceptance section, engineer page    | Introduce the Gate in plain language first.                                                             |
 | Software that holds up.                                                                        | Outcome section, customer story, product page    | Add energy nearby; can feel defensive alone.                                                            |
 | Ship serious software.                                                                         | CTA, guide, campaign, video                      | Do not use as an accusation that current work is unserious.                                             |
