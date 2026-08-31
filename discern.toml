@@ -232,7 +232,6 @@
     stage = "check"
     run = "deno task promise-effects"
     provides = "type-aware promise-effect ownership and exact deliberate-detachment enrollment"
-    timeout = 120
 
 # Setup assurance counts every known job as applicable unless its lifecycle is
 # explicitly absent here. This declaration never changes Gate scheduling.
