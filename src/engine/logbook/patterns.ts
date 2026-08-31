@@ -30,10 +30,10 @@ import {
   renderFileChangeCli,
   renderMeterCli,
   renderProcedureCli,
-  renderReceiptCli,
   renderResultSummaryCli,
   renderResultSummaryGroupCli,
   renderStatCli,
+  renderVerificationReportCli,
   type ResultSummaryCliProps,
   type ResultSummaryGroupCliItem,
 } from "discern-design-system/cli";
@@ -1830,7 +1830,7 @@ function renderResetScope(out: Out, data: PatternsResetData): void {
   const { presenter, width } = presentationFacts(out);
   out.heading(terminalLine("Active Logbook reset"));
   out.raw(`${
-    presenter.present(renderReceiptCli, {
+    presenter.present(renderVerificationReportCli, {
       title: terminalLine("Reset scope"),
       meta: [
         {
@@ -1875,7 +1875,7 @@ function renderArchiveScope(out: Out, data: PatternsArchiveData): void {
   const { presenter, width } = presentationFacts(out);
   out.heading(terminalLine("Active Logbook archive"));
   out.raw(`${
-    presenter.present(renderReceiptCli, {
+    presenter.present(renderVerificationReportCli, {
       title: terminalLine("Archive scope"),
       meta: [
         {
@@ -2542,7 +2542,7 @@ export async function runPatternsArchives(
       })
     }\n`);
     out.raw(`${
-      presenter.present(renderReceiptCli, {
+      presenter.present(renderVerificationReportCli, {
         title: terminalLine("Archive evidence"),
         meta: [
           {

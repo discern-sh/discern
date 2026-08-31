@@ -25,8 +25,8 @@ import {
   renderGateDiagnostics,
   renderGateFailureSummary,
   renderGatePlan,
-  renderGateProofCheckReceipt,
-  renderGateProofReceipt,
+  renderGateProof,
+  renderGateProofCheck,
   renderGateStandards,
 } from "../src/engine/gate/presentation.ts";
 import {
@@ -281,8 +281,8 @@ Deno.test("Gate output policy separates live presentation from static transcript
   assertEquals(quiet.capture, "buffered-full");
 });
 
-Deno.test("Gate receipt makes landing readiness explicit without claiming consent", () => {
-  const authorized = renderGateProofReceipt(
+Deno.test("Gate Proof makes landing readiness explicit without claiming consent", () => {
+  const authorized = renderGateProof(
     PROOF,
     { status: "recorded" },
     PROOF_STEPS,
@@ -293,7 +293,7 @@ Deno.test("Gate receipt makes landing readiness explicit without claiming consen
   assertStringIncludes(authorized, "effort-grant");
   assertStringIncludes(authorized, "authorized");
 
-  const conversational = renderGateProofReceipt(
+  const conversational = renderGateProof(
     PROOF,
     { status: "recorded" },
     PROOF_STEPS,
@@ -734,13 +734,13 @@ Deno.test("Gate diagnostics preserve severity, location, controls, excerpt, and 
   assertWithinWidth(rendered, 48);
 });
 
-Deno.test("Gate Proof receipts present every recording and currency state truthfully", () => {
+Deno.test("Gate Proof presents every recording and currency state truthfully", () => {
   for (
     const status of Object.keys(
       GATE_PROOF_RECORD_PRESENTATION,
     ) as GateProofRecord["status"][]
   ) {
-    const rendered = renderGateProofReceipt(
+    const rendered = renderGateProof(
       PROOF,
       { status },
       PROOF_STEPS,
@@ -756,7 +756,7 @@ Deno.test("Gate Proof receipts present every recording and currency state truthf
   }
 
   for (const status of GATE_PROOF_CHECK_STATUSES) {
-    const rendered = renderGateProofCheckReceipt({
+    const rendered = renderGateProofCheck({
       status,
       path: ".git/discern-proof.json",
       recorded: "abc1234",

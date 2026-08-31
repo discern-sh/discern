@@ -552,7 +552,7 @@ Deno.test("status dashboard: every proof-check state auto-enrols in the human vo
       plain(output).split("\n").some((line) =>
         line.includes("Proof") && line.includes(PROOF_LABELS[status])
       ),
-      `${status} receipt state is absent from the package-backed Proof row`,
+      `${status} state is absent from the package-backed Proof row`,
     );
   }
 });

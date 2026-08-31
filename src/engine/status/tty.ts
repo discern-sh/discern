@@ -16,9 +16,9 @@ import {
   renderListCli,
   renderParagraphCli,
   renderRawOutputCli,
-  renderReceiptCli,
   renderResultSummaryCli,
   renderSectionCli,
+  renderVerificationReportCli as renderReportCli,
 } from "discern-design-system/cli";
 import {
   firedHintsFromTexts,
@@ -677,8 +677,8 @@ export const FLEET_ROW_RESULT_STATE = {
   >
 >;
 
-/** Exhaustive Proof-state adaptation into Receipt check semantics. */
-export const STATUS_PROOF_RECEIPT_STATE = {
+/** Exhaustive Proof-state adaptation into package check semantics. */
+export const STATUS_PROOF_STATE = {
   honored: "pass",
   report_only: "fail",
   missing: "skip",
@@ -857,11 +857,11 @@ function renderWorktrees(
         ),
       })),
     ];
-    const receipt = terminal.presenter.present(renderReceiptCli, {
+    const proofReport = terminal.presenter.present(renderReportCli, {
       title: terminalLine(`${displayName} Proof`),
       checks: [{
         label: terminalLine("Proof"),
-        state: STATUS_PROOF_RECEIPT_STATE[row.proof.status],
+        state: STATUS_PROOF_STATE[row.proof.status],
         stateLabel: terminalLine(row.proof.label),
         ...(row.proof.detail === undefined
           ? {}
@@ -877,7 +877,7 @@ function renderWorktrees(
     });
     components.push(
       styledDiscernCommands(summary, terminal),
-      receipt,
+      proofReport,
     );
   }
   if (ownershipCaption) {
@@ -1336,7 +1336,7 @@ function renderLastLanding(
   if (data.landed_proof !== undefined) {
     const proof = data.landed_proof.proof;
     const age = relativeAge(data.landed_proof.commit_at, nowMs);
-    const receipt = c.presenter.present(renderReceiptCli, {
+    const landingReport = c.presenter.present(renderReportCli, {
       title: terminalLine("Last landing"),
       stamp: "pass",
       meta: [
@@ -1355,7 +1355,7 @@ function renderLastLanding(
     });
     const changedLines = proof.insertions + proof.deletions;
     return [
-      receipt,
+      landingReport,
       ...(changedLines === 0 ? [] : [
         c.presenter.present(renderDiffstatCli, {
           added: proof.insertions,

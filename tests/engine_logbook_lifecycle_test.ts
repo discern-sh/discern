@@ -140,9 +140,9 @@ async function seedActiveLogbook(dir: string): Promise<string> {
   return path;
 }
 
-/** Assert the stable semantics of a Receipt check row while leaving its
+/** Assert the stable semantics of a verification check row while leaving its
  * capability-selected marker to the package renderer. */
-function assertReceiptCheckSemantics(
+function assertCheckRowSemantics(
   output: string,
   expected: {
     readonly label: string;
@@ -153,7 +153,7 @@ function assertReceiptCheckSemantics(
   const line = stripAnsi(output).split(/\r?\n/u).find((candidate) =>
     candidate.includes(expected.label)
   );
-  assert(line !== undefined, `missing Receipt check ${expected.label}`);
+  assert(line !== undefined, `missing verification check ${expected.label}`);
   const labelAt = line.indexOf(expected.label);
   const valueToken = ` ${expected.value} `;
   const valueAt = line.indexOf(valueToken, labelAt + expected.label.length);
@@ -161,12 +161,12 @@ function assertReceiptCheckSemantics(
   const stateAt = line.indexOf(stateToken, valueAt + valueToken.length);
   assert(
     labelAt >= 0 && valueAt > labelAt && stateAt > valueAt,
-    `Receipt check must show label, value, and state in order: ${line}`,
+    `verification check must show label, value, and state in order: ${line}`,
   );
   const marker = line.slice(valueAt + valueToken.length, stateAt).trim();
   assert(
     marker.length > 0,
-    `Receipt check must retain a visible state marker: ${line}`,
+    `verification check must retain a visible state marker: ${line}`,
   );
 }
 
@@ -537,7 +537,7 @@ realPtyTest({
       assertEquals(humanListing.code, 0, humanListing.output);
       assertStringIncludes(humanListing.output, filename);
       assertTerminalTextIncludes(humanListing.output, "Events: 3");
-      assertReceiptCheckSemantics(humanListing.output, {
+      assertCheckRowSemantics(humanListing.output, {
         label: "Unparsable lines",
         value: "2",
         state: "fail",

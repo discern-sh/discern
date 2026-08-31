@@ -1,4 +1,4 @@
-/** Package-backed Proof receipt following the shared Gate workflow. */
+/** Package-backed Proof following the shared Gate workflow. */
 
 import type { StepResult } from "../../shared/result.ts";
 import type {
@@ -8,11 +8,11 @@ import type {
   Proof,
 } from "../../shared/result_schemas.ts";
 import { type GateTtyOptions, renderGateTtyTable } from "./gate_tty.ts";
-import { renderGateProofReceipt } from "./presentation.ts";
+import { renderGateProof } from "./presentation.ts";
 
 type GateProofRecord = NonNullable<GateData["gate_proof"]>;
 
-/** Render the truthful Proof receipt and exact one-line relay. */
+/** Render the truthful Proof and exact one-line relay. */
 export function renderDoneTtyProofPanel(
   proof: Proof,
   options: GateTtyOptions,
@@ -20,7 +20,7 @@ export function renderDoneTtyProofPanel(
   steps: readonly StepResult[] = [],
   landingAuthority?: LandingAuthorityData,
 ): string {
-  return renderGateProofReceipt(
+  return renderGateProof(
     proof,
     record,
     steps,
@@ -29,7 +29,7 @@ export function renderDoneTtyProofPanel(
   );
 }
 
-/** Render the complete green TTY tail: workflow, Standards, then Proof receipt. */
+/** Render the complete green TTY tail: workflow, Standards, then Proof. */
 export function renderDoneTtySummary(
   steps: readonly StepResult[],
   proof: Proof,

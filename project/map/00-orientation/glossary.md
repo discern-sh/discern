@@ -66,8 +66,6 @@ aliases:
   - estate
   - guidance
   - discern script
-  - receipt
-  - receipt note
   - criterion
   - scopes.docs
   - co-managed seed

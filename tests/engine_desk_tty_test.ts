@@ -328,7 +328,7 @@ realPtyTest({
         }, {
           waitFor: "Press Enter to continue.",
           capture: textCapture(
-            "creation-receipt",
+            "creation-report",
             "Created identity",
             title,
             brief,
@@ -353,7 +353,7 @@ realPtyTest({
       assertUniqueFocus(frame(result, "creation-title-route"));
       assertStringIncludes(frame(result, "creation-preview").text, title);
       assertStringIncludes(frame(result, "creation-preview").text, brief);
-      assertStringIncludes(frame(result, "creation-receipt").text, "Path");
+      assertStringIncludes(frame(result, "creation-report").text, "Path");
       assertStringIncludes(
         result.transcript,
         `# ${title}\r\n\r\nTask metadata\r\nOutcome: ${brief}`,

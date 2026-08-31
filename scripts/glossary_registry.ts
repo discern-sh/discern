@@ -568,12 +568,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     },
     definition:
       "The review claim `discern done` emits after a clean, committed worktree passes the full [gate](#gate). It includes the proof line the agent ends its report with and a full page with check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD`. The owner reads the page with `discern status --verbose`; `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The proof](../20-quality-gate/the-proof.md).",
-    retired: [
-      {
-        phrase: "receipt",
-        pattern: String.raw`\breceipts?\b`,
-      },
-    ],
   },
   {
     term: "Proof note",
@@ -581,14 +575,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       phrase:
         "a saved copy of the proof, attached to the project's shared history",
     },
+    matches: ["proof notes"],
     definition:
       "The repository-resident JSON record of a landed [proof](#proof), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) boundary binds the full commit and preserves the payload bytes for future signatures. Current notes use discern's empty-array unsigned extension. Local recording is default-on, fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Proof notes](../20-quality-gate/proof-notes.md).",
-    retired: [
-      {
-        phrase: "receipt note",
-        pattern: String.raw`\breceipt\s+notes?\b`,
-      },
-    ],
   },
   {
     term: "Schema version",

@@ -22,12 +22,12 @@ import {
   renderProcedureCli,
   renderProcedureStepCli,
   renderRawOutputCli,
-  renderReceiptCli,
   renderResultSummaryCli,
   renderRetryNoticeCli,
   renderStandardMeterCli,
   renderTableCli,
   renderTaskMetadataCli,
+  renderVerificationReportCli as renderProofCli,
   wrapInlineCluster,
 } from "discern-design-system/cli";
 import { DISCERN_WORDMARK } from "../../shared/brand.ts";
@@ -508,7 +508,7 @@ const DESK_STATE_RESULT = {
   empty: "unchanged",
 } as const satisfies Readonly<Record<DeskState, ResultState>>;
 
-const PROOF_RECEIPT_STATE = {
+const PROOF_STATE = {
   honored: "pass",
   report_only: "fail",
   missing: "skip",
@@ -1215,11 +1215,11 @@ export function renderDeskTaskDetail(
     ]),
     width,
   });
-  const proof = presenter.present(renderReceiptCli, {
+  const proof = presenter.present(renderProofCli, {
     title: terminalLine("Proof"),
     checks: [{
       label: terminalLine("Currency"),
-      state: PROOF_RECEIPT_STATE[row.decision.proof.status],
+      state: PROOF_STATE[row.decision.proof.status],
       stateLabel: terminalLine(row.decision.proof.summary),
       ...(row.decision.proof.detail === undefined
         ? {}
@@ -1506,12 +1506,12 @@ export function renderDeskReview(
     overflow: "wrap",
     maxWidth: width,
   });
-  const receipt = presenter.present(renderReceiptCli, {
+  const proofReport = presenter.present(renderProofCli, {
     title: terminalLine("Proof"),
     ...(proof.status === "honored" ? { stamp: "pass" as const } : {}),
     checks: [{
       label: terminalLine("Currency"),
-      state: PROOF_RECEIPT_STATE[proof.status],
+      state: PROOF_STATE[proof.status],
       stateLabel: terminalLine(row.decision.proof.summary),
       ...(proof.reason === undefined
         ? {}
@@ -1646,7 +1646,7 @@ export function renderDeskReview(
   const text = composeFrames(
     [
       heading,
-      receipt,
+      proofReport,
       ...page,
       diffstat,
       ...meters,

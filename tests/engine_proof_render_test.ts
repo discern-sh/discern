@@ -362,7 +362,7 @@ Deno.test("proof render: a no-op gate is stated honestly", () => {
   );
 });
 
-Deno.test("done TTY render: the package workflow leads into a truthful receipt", () => {
+Deno.test("done TTY render: the package workflow leads into a truthful Proof", () => {
   const proof: Proof = {
     ...FACTS,
     line: renderProofLine(FACTS),

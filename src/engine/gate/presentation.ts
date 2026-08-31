@@ -9,20 +9,20 @@
 
 import {
   type DiagnosticCliProps,
-  type ReceiptCliProps,
   renderCommandCli,
   renderDiagnosticCli,
   renderMeterCli,
   renderPrerequisiteListCli,
   renderProcedureCli,
   renderRawOutputCli,
-  renderReceiptCli,
   renderResultSummaryCli,
   renderRetryNoticeCli,
   renderStandardMeterCli,
+  renderVerificationReportCli as renderProofCli,
   type ResultSummaryCliProps,
   type SequentialStepStatus,
   type StandardMeterCliProps,
+  type VerificationReportCliProps as ProofReportCliProps,
 } from "discern-design-system/cli";
 import {
   type TerminalContext,
@@ -195,11 +195,13 @@ export const GATE_STANDARD_MEASUREMENT_LABEL = {
 type GateProofRecord = NonNullable<GateData["gate_proof"]>;
 type GateProofRecordStatus = GateProofRecord["status"];
 
-interface ReceiptPresentationState {
-  readonly checkState: NonNullable<ReceiptCliProps["checks"]>[number]["state"];
+interface ProofPresentationState {
+  readonly checkState: NonNullable<
+    ProofReportCliProps["checks"]
+  >[number]["state"];
   readonly stateLabel: string;
   readonly summary: string;
-  readonly stamp?: NonNullable<ReceiptCliProps["stamp"]>;
+  readonly stamp?: NonNullable<ProofReportCliProps["stamp"]>;
 }
 
 /**
@@ -244,7 +246,7 @@ export const GATE_PROOF_RECORD_PRESENTATION = {
     summary: "The Gate failed, and its prior Proof could not be cleared.",
   },
 } as const satisfies Readonly<
-  Record<GateProofRecordStatus, ReceiptPresentationState>
+  Record<GateProofRecordStatus, ProofPresentationState>
 >;
 
 /** Exhaustive inspection-state mapping prepared for Proof consumers. */
@@ -286,10 +288,10 @@ export const GATE_PROOF_CHECK_PRESENTATION = {
     summary: "The recorded Proof could not be read.",
   },
 } as const satisfies Readonly<
-  Record<GateProofCheckStatus, ReceiptPresentationState>
+  Record<GateProofCheckStatus, ProofPresentationState>
 >;
 
-/** Exhaustive landing-readiness mapping for the Gate receipt. */
+/** Exhaustive landing-readiness mapping for the Gate Proof. */
 export const GATE_LANDING_AUTHORITY_PRESENTATION = {
   authorized: {
     state: "pass",
@@ -303,7 +305,9 @@ export const GATE_LANDING_AUTHORITY_PRESENTATION = {
   Record<
     (typeof LANDING_AUTHORITY_KINDS)[number],
     {
-      readonly state: NonNullable<ReceiptCliProps["checks"]>[number]["state"];
+      readonly state: NonNullable<
+        ProofReportCliProps["checks"]
+      >[number]["state"];
       readonly stateLabel: string;
     }
   >
@@ -925,8 +929,8 @@ export function renderGateStatus(
   });
 }
 
-/** Render a truthful Proof receipt and retain the exact copyable proof line. */
-export function renderGateProofReceipt(
+/** Render a truthful Proof and retain the exact copyable proof line. */
+export function renderGateProof(
   proof: Proof,
   record: GateProofRecord | undefined,
   steps: readonly StepResult[],
@@ -934,7 +938,7 @@ export function renderGateProofReceipt(
   landingAuthority?: LandingAuthorityData,
 ): string {
   const width = presentationWidth(options.width);
-  const state: ReceiptPresentationState = record === undefined
+  const state: ProofPresentationState = record === undefined
     ? GATE_PROOF_RECORD_PRESENTATION.unavailable
     : GATE_PROOF_RECORD_PRESENTATION[record.status];
   const stepSummary = STEP_OUTCOMES.map((outcome) => ({
@@ -956,7 +960,7 @@ export function renderGateProofReceipt(
     : ` Landing still needs conversation consent; ${uncovered} changed path${
       uncovered === 1 ? " is" : "s are"
     } uncovered.`;
-  const receipt = options.terminal.presenter.present(renderReceiptCli, {
+  const proofPanel = options.terminal.presenter.present(renderProofCli, {
     title: "Gate proof",
     ...(state.stamp === undefined ? {} : { stamp: state.stamp }),
     meta: [
@@ -987,7 +991,8 @@ export function renderGateProofReceipt(
         label: "Landing authority",
         state: GATE_LANDING_AUTHORITY_PRESENTATION[landingAuthority.kind].state,
         stateLabel: safeLine(
-          GATE_LANDING_AUTHORITY_PRESENTATION[landingAuthority.kind].stateLabel,
+          GATE_LANDING_AUTHORITY_PRESENTATION[landingAuthority.kind]
+            .stateLabel,
         ),
         value: safeLine(
           landingAuthority.kind === "authorized"
@@ -1000,21 +1005,21 @@ export function renderGateProofReceipt(
     footer: "Full proof: discern status --verbose",
     maxWidth: width,
   });
-  return `${receipt}\n\n${safeLine(proof.line)}`;
+  return `${proofPanel}\n\n${safeLine(proof.line)}`;
 }
 
 /** Render one inspected Proof currency state without re-running the Gate. */
-export function renderGateProofCheckReceipt(
+export function renderGateProofCheck(
   check: GateProofCheckData,
   options: GatePresentationOptions,
 ): string {
   const width = presentationWidth(options.width);
-  const state: ReceiptPresentationState =
+  const state: ProofPresentationState =
     GATE_PROOF_CHECK_PRESENTATION[check.status];
   const summary = check.reason === undefined
     ? state.summary
     : `${state.summary} ${safeMultiline(check.reason)}`;
-  const receipt = options.terminal.presenter.present(renderReceiptCli, {
+  const proofPanel = options.terminal.presenter.present(renderProofCli, {
     title: "Gate proof",
     ...(state.stamp === undefined ? {} : { stamp: state.stamp }),
     meta: [
@@ -1040,6 +1045,6 @@ export function renderGateProofCheckReceipt(
     maxWidth: width,
   });
   return check.proof_line === undefined
-    ? receipt
-    : `${receipt}\n\n${safeLine(check.proof_line)}`;
+    ? proofPanel
+    : `${proofPanel}\n\n${safeLine(check.proof_line)}`;
 }

@@ -1840,14 +1840,14 @@ async function startTask(
     out.terminal,
     createdViewport,
   );
-  const receipt = renderDeskCreatedTask(
+  const createdTask = renderDeskCreatedTask(
     started,
     launch,
     landingPreauthorized,
     createdViewport,
     createdTerminal,
   );
-  out.raw(`${receipt.text}\n`);
+  out.raw(`${createdTask.text}\n`);
   if (launch === undefined) {
     await runtime.pause(out);
   } else {

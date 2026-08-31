@@ -427,7 +427,7 @@ Deno.test("task detail distinguishes unavailable metadata from a legacy fallback
   assertEquals(plain.includes("older task"), false);
 });
 
-Deno.test("start preview and receipt retain every creation fact", () => {
+Deno.test("start preview and created-task report retain every creation fact", () => {
   const title = "Repair: task ingress — 修复";
   const brief = "Open the selected agent with the stored context visible.";
   const commit = "b".repeat(40);
@@ -478,14 +478,14 @@ Deno.test("start preview and receipt retain every creation fact", () => {
       viewport: size,
       terminal: context,
     });
-    const receipt = renderDeskCreatedTask(
+    const createdTask = renderDeskCreatedTask(
       started,
       AGENT,
       true,
       size,
       context,
     );
-    for (const rendered of [preview, receipt]) {
+    for (const rendered of [preview, createdTask]) {
       const compact = stripAnsi(rendered.text).replaceAll(/[\s│]+/gu, "");
       for (
         const expected of [

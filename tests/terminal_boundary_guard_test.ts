@@ -501,7 +501,7 @@ function cliffyImportFindings(rel: string, source: string): Finding[] {
 }
 
 /**
- * Text-bearing leaves in the published 0.27.0 `*CliProps` contracts and their
+ * Text-bearing leaves in the published 0.28.0 `*CliProps` contracts and their
  * exported nested row shapes. Generic future renderer names deliberately
  * inherit this vocabulary; a package upgrade must re-audit the public types.
  */
@@ -2152,7 +2152,7 @@ Deno.test("migrated supervisory source consumes terminal presentation facts with
       ["src/engine/logbook/patterns.ts", ""],
       [
         "src/engine/logbook/orbit_view.ts",
-        'import { renderReceiptCli } from "discern-design-system/cli";',
+        'import { renderVerificationReportCli } from "discern-design-system/cli";',
       ],
     ] as const
   ) {

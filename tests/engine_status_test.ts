@@ -854,7 +854,6 @@ Deno.test("status fleet (human): the wide brief is bounded and defers row eviden
     assertStringIncludes(r.output, "Worktrees");
     assert(!r.output.includes("STATE"), r.output);
     assert(!r.output.includes("ATTENTION"), r.output);
-    assert(!r.output.includes("Receipt:"), r.output);
     assertEquals(r.output.match(/Git:/gu)?.length ?? 0, 0);
     assert(!r.output.includes("Proof"), r.output);
     assertStringIncludes(r.output, "Activity");
@@ -941,14 +940,14 @@ Deno.test("status fleet (human): the brief stays bounded while verbose preserves
       env: { COLUMNS: String(width) },
     });
     assertEquals(verbose.code, 0, verbose.output);
-    const receiptText = verbose.stdout.split("\n").map((line) =>
+    const reportText = verbose.stdout.split("\n").map((line) =>
       line
         .replace(/^[|│]\s?/u, "")
         .replace(/\s?[|│]$/u, "")
         .trim()
     ).join("");
-    assertStringIncludes(receiptText, `Worktree:${id}`);
-    assertStringIncludes(receiptText, `Branch:${branch}`);
+    assertStringIncludes(reportText, `Worktree:${id}`);
+    assertStringIncludes(reportText, `Branch:${branch}`);
   });
 });
 
