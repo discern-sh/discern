@@ -26,14 +26,14 @@ The standing rules: every public page carries at least one line from the fact in
 
 The grid every message derives from: the default the reader already lives with on the left, discern's answer on the right. A line that could sit on either side of the table says nothing.
 
-| The default                                                                    | discern's answer                                                                      |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| Every agent session starts from zero and relearns the project from its prompt. | The practice lives in the project; every agent starts with it already in view.        |
-| The human shapes, relays, checks, and coordinates everything around the code.  | Work moves as a complete handoff and returns ready for a decision, evidence attached. |
-| Confidence rests on the agent's own account of what it did.                    | The declared Gate evaluates the exact committed change; Proof records what passed.    |
-| Quality drifts as sessions accumulate, and nothing catches it.                 | A Standard may tighten, and a branch cannot weaken it.                                |
-| Switching providers means re-teaching the project from scratch.                | The project keeps its way of working when the agent changes.                          |
-| Every lab is making the agent better.                                          | discern makes the project better at receiving them.                                   |
+| The default                                                                    | discern's answer                                                                                                        |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Every agent session starts from zero and relearns the project from its prompt. | The practice lives in your project, so every agent arrives already briefed.                                             |
+| The human shapes, relays, checks, and coordinates everything around the code.  | Work moves as a complete handoff and comes back finished, evidence attached.                                            |
+| Confidence rests on the agent's own account of what it did.                    | The declared Gate evaluates the exact committed change; Proof records what passed.                                      |
+| Quality drifts as sessions accumulate, and nothing catches it.                 | When quality improves, a Standard locks in the gain; no later change can undo it.                                       |
+| Switching providers means re-teaching the project from scratch.                | The agents you use all get the same instructions and checks; start a task with one provider and finish it with another. |
+| Every lab is making the agent better.                                          | discern makes your project a better place for them to work.                                                             |
 
 ## Canonical message hierarchy
 
@@ -55,13 +55,13 @@ Any developer tool could sign this line, so it seasons a page rather than carryi
 
 > **An engineering practice for agent-built software.**
 
-> **discern installs that practice into the project.**
+> **discern installs that practice into your project.**
 
-This is the lead. A competitor cannot put their logo under it: agent vendors sell the agent; discern installs the practice the project keeps. When a page can make only one point, it makes this one.
+This is the lead. A competitor cannot put their logo under it: agent vendors sell the agent; discern installs the practice your project keeps. When a page can make only one point, it makes this one.
 
 The sharpest expression of the contrast:
 
-> **The labs are making agents better. discern makes your project better at receiving them.**
+> **The labs are making agents better. discern makes your project a better place for them to work.**
 
 Alternative contextual forms:
 
@@ -85,13 +85,13 @@ Compact, active, and campaign-ready. Effective for closing CTAs, guides, video t
 
 Personal and premium. Best where pride, authorship, and reputation are already present.
 
-> **Build software you are proud to stand behind.**
+> **Build software you're proud to stand behind.**
 
 Warmer and more explicit. Useful in founder, customer, and new-builder narratives.
 
 ### Primary conversion territory
 
-> **Come back to work that is ready for a decision.**
+> **The work comes back finished. What's left is the part only you can do.**
 
 The territory's job is a changed relationship to delegated work, for both audiences:
 
@@ -104,10 +104,10 @@ Supporting expressions:
 
 - The work returns with evidence attached to the exact change.
 - Several pieces can move at once without making you their courier.
-- Give the agent the work; keep the decision to ship.
-- Your agent wrote four thousand lines last night. Which ones did you read?
+- Give the agent the work; you set direction and make the calls.
+- Your agent wrote four thousand lines last night — and you already know what passed.
 
-The last line opens the problem. Follow it with the practice in the next breath.
+The last line reads as fact only with the mechanism beside it: show the Gate's account of the change.
 
 ### Technical distinction
 
@@ -117,24 +117,10 @@ Supporting expressions:
 
 - Software designed around the way coding agents work.
 - A familiar project for every agent.
-- The project keeps its way of working when the provider changes.
+- The instructions and checks stay the same when the provider changes.
 - Context treated as a budget.
 
 This territory leads the For Agents page and technical thought leadership.
-
-### Deferred creative territory
-
-Held for later:
-
-> **A bolder way to build.**
-
-> **Build further.**
-
-> **A bigger way to build.**
-
-Each is an open line that any builder's tool could sign, and each needs a subhead to explain itself — the mark of a line spending equity the brand has not yet earned. An open line works once years of concrete campaigns have given it content; until then, the concrete territories above do the work. Revisit when launch evidence exists.
-
-Avoid defaulting to **A better way to build** for the same reason at greater strength.
 
 ## The fact inventory
 
