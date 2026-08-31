@@ -93,6 +93,35 @@ export interface Headline {
   readonly caution: string;
 }
 
+/**
+ * One row of the positioning grid: the status quo a message pushes against
+ * and discern's answer, both copy-ready. `claims` cites the ledger — typed
+ * non-empty, so a contrast without a defensible reason to believe cannot
+ * compile; the slugs are provenance metadata and never render.
+ */
+export interface PositioningContrast<Slug extends string = string> {
+  readonly id: string;
+  /** The default the reader already lives with. */
+  readonly against: string;
+  /** discern's answer, in copy-ready form. */
+  readonly instead: string;
+  readonly claims: readonly [Slug, ...Slug[]];
+}
+
+/**
+ * One copy-ready fact line: a concrete, ledger-backed sentence a page can
+ * carry verbatim. `claim` cites the ledger entry whose strongest supported
+ * form bounds the wording; the rendered line links to it.
+ */
+export interface FactLine<Slug extends string = string> {
+  readonly id: string;
+  /** The line, exactly as a page may carry it. */
+  readonly line: string;
+  readonly claim: Slug;
+  /** Optional usage note rendered after the line. */
+  readonly note?: string;
+}
+
 /** One named group of the CTA system. */
 export interface CtaBank {
   readonly id: string;
