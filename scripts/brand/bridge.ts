@@ -23,7 +23,7 @@ export const CONCEPTS = [
       "The person cannot personally repeat or supervise every expectation across growing agent work.",
     brandInterpretation:
       "A serious way of working that persists around the project.",
-    plainFirstUse: "“An engineering practice installed into the project.”",
+    plainFirstUse: "“An engineering practice installed into your project.”",
     prominence: "Yes, as category.",
     doNotImply:
       "A vague methodology, consultancy, or ritual detached from software.",
@@ -99,8 +99,7 @@ export const CONCEPTS = [
       "One authored source compiled into each configured provider's instruction surface.",
     humanSituation:
       "The project is re-explained in every session and provider.",
-    brandInterpretation:
-      "Every agent starts with the same project understanding.",
+    brandInterpretation: "Every agent arrives already briefed.",
     plainFirstUse:
       "“Shared project instructions, written once and supplied to every agent.”",
     prominence: "Yes, as a benefit.",
@@ -296,7 +295,7 @@ export const TRANSLATIONS = [
     weakLiteralTranslation: "Ratcheting numerical quality constraints.",
     betterHumanTranslations: [
       "Once the project improves, a later change cannot give the gain back.",
-      "Let quality gains accumulate across branches.",
+      "Lock in every gain.",
       "Keep a hard-won improvement as the new starting point.",
     ],
   },
@@ -332,7 +331,7 @@ export const TRANSLATIONS = [
     weakLiteralTranslation: "Cross-provider generated instruction parity.",
     betterHumanTranslations: [
       "Change agents without starting the project explanation over.",
-      "Every future session begins with the same project in view.",
+      "What you've taught the project outlives every session.",
       "Keep the project's conventions somewhere stronger than repeated prompts.",
     ],
   },
@@ -343,10 +342,10 @@ export const TRANSLATIONS = [
       "a Skill shapes one handoff, internal fan-out, parallel streams, or staged dependencies, with complete briefs, work boundaries, authority, and adversarial review.",
     weakLiteralTranslation: "Multi-agent planning and orchestration.",
     betterHumanTranslations: [
-      "Turn a backlog into organized work.",
+      "Turn a standing backlog into work in flight.",
       "Give several agents complete, non-overlapping responsibilities.",
       "Let dependencies resolve without becoming the courier between sessions.",
-      "Return to results that have already faced an independent technical pass.",
+      "What comes back has already faced an independent technical pass.",
     ],
   },
   {
