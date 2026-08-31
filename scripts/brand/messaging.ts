@@ -1,18 +1,20 @@
 /**
- * The messaging architecture as typed registry data: message territories,
- * pillars, approved descriptions, hero systems, the headline inventory, the
- * CTA system, the proof order, and the public-copy guardrails.
- * `messaging.md` compiles from this module; every pillar cites the claims
- * ledger by slug, so a message without a defensible reason to believe
- * cannot compile.
+ * The messaging architecture as typed registry data: the positioning grid,
+ * message territories, the fact inventory, pillars, approved descriptions,
+ * hero systems, the headline inventory, the CTA system, the proof order,
+ * and the public-copy guardrails. `messaging.md` compiles from this module;
+ * pillars, grid rows, and fact lines cite the claims ledger by slug, so a
+ * message without a defensible reason to believe cannot compile.
  */
 
 import type {
   CtaBank,
   Description,
+  FactLine,
   Headline,
   HeroSystem,
   Pillar,
+  PositioningContrast,
   Territory,
 } from "./model.ts";
 import type { ClaimSlug } from "./claims.ts";
@@ -126,6 +128,111 @@ Each is an open line that any builder's tool could sign, and each needs a subhea
 Avoid defaulting to **A better way to build** for the same reason at greater strength.`,
   },
 ] as const satisfies readonly Territory[];
+
+/**
+ * The positioning grid: the default on the left, discern's answer on the
+ * right. Every message derives from a row of this grid; each row cites the
+ * claims that make its right-hand cell defensible.
+ */
+export const POSITIONING_GRID = [
+  {
+    id: "session-amnesia",
+    against:
+      "Every agent session starts from zero and relearns the project from its prompt.",
+    instead:
+      "The practice lives in the project; every agent starts with it already in view.",
+    claims: ["installs-a-practice", "one-instruction-source"],
+  },
+  {
+    id: "human-courier",
+    against:
+      "The human shapes, relays, checks, and coordinates everything around the code.",
+    instead:
+      "Work moves as a complete handoff and returns ready for a decision, evidence attached.",
+    claims: ["shaped-delegation", "reduced-review-burden"],
+  },
+  {
+    id: "tone-as-evidence",
+    against: "Confidence rests on the agent's own account of what it did.",
+    instead:
+      "The declared Gate evaluates the exact committed change; Proof records what passed.",
+    claims: ["proof-exact-tree"],
+  },
+  {
+    id: "quality-drift",
+    against: "Quality drifts quietly as sessions accumulate.",
+    instead: "A Standard may tighten, and a branch cannot weaken it.",
+    claims: ["standards-cannot-loosen", "pin-measured-gains"],
+  },
+  {
+    id: "provider-reteaching",
+    against: "Switching providers means re-teaching the project from scratch.",
+    instead: "The project keeps its way of working when the agent changes.",
+    claims: ["switch-without-reteaching", "one-instruction-source"],
+  },
+  {
+    id: "agent-side-race",
+    against: "Every lab is making the agent better.",
+    instead: "discern makes the project better at receiving them.",
+    claims: ["agent-as-operator", "installs-a-practice"],
+  },
+] as const satisfies readonly PositioningContrast<ClaimSlug>[];
+
+/**
+ * The fact inventory: concrete, ledger-backed lines a page can carry
+ * verbatim. Each line links to the claim that bounds its wording.
+ */
+export const FACT_LINES = [
+  {
+    id: "one-file",
+    line: "All project-specific discern settings live in one root file, `discern.toml`.",
+    claim: "one-config-file",
+    note:
+      "The smallest demonstration of the footprint; show the file itself where the layout allows.",
+  },
+  {
+    id: "self-hosted",
+    line:
+      "discern is developed under its own Gate, worktrees, Standards, Map, and Logbook.",
+    claim: "runs-on-itself",
+    note: "The sincerity fact: the practice is trusted with its own development.",
+  },
+  {
+    id: "ratchet",
+    line: "A Standard may tighten; a branch cannot weaken its limit.",
+    claim: "standards-cannot-loosen",
+  },
+  {
+    id: "exact-tree",
+    line:
+      "Proof names the exact committed change that passed; a later commit invalidates it.",
+    claim: "proof-exact-tree",
+  },
+  {
+    id: "no-model",
+    line: "discern contains no AI model and needs no API key.",
+    claim: "no-model-inside",
+  },
+  {
+    id: "owner-decides",
+    line:
+      "Passing makes a change eligible for a decision; it does not decide what ships.",
+    claim: "gate-grants-no-authority",
+    note:
+      "Also the honest-limit line: state it plainly where trust is being earned.",
+  },
+  {
+    id: "isolated-checkouts",
+    line:
+      "Parallel agents work in separate checkouts and cannot overwrite one another's working tree.",
+    claim: "no-checkout-collisions",
+  },
+  {
+    id: "no-reteaching",
+    line: "Change coding agents without starting the project explanation over.",
+    claim: "switch-without-reteaching",
+  },
+] as const satisfies readonly FactLine<ClaimSlug>[];
 
 /** The message pillars; each cites the claims that make it defensible. */
 export const PILLARS = [
@@ -547,6 +654,17 @@ function bullets(items: readonly string[]): string {
   return items.map((item) => `- ${item}`).join("\n");
 }
 
+/** Render one positioning-grid row; the cited claims are provenance only. */
+function renderContrastRow(row: PositioningContrast<ClaimSlug>): string {
+  return `| ${row.against} | ${row.instead} |`;
+}
+
+/** Render one fact line with its ledger citation and optional note. */
+function renderFactLine(fact: FactLine<ClaimSlug>): string {
+  const note = fact.note === undefined ? "" : ` ${fact.note}`;
+  return `- **${fact.line}** — {{claim:${fact.claim}}}.${note}`;
+}
+
 /** Render one pillar's section. */
 function renderPillar(pillar: Pillar<ClaimSlug>): string {
   const parts = [
@@ -619,11 +737,27 @@ export function renderMessagingDoc(): string {
     "5. evidence and limits;",
     "6. action.",
     "",
+    "Two standing rules: every public page carries at least one line from the fact inventory, and no page leads with a line a competitor could sign unchanged.",
+    "",
+    "## The positioning grid",
+    "",
+    "The grid every message derives from: the default the reader already lives with on the left, discern's answer on the right. A line that could sit on either side of the table says nothing.",
+    "",
+    "| The default | discern's answer |",
+    "| --- | --- |",
+    ...POSITIONING_GRID.map(renderContrastRow),
+    "",
     "## Canonical message hierarchy",
     "",
     TERRITORIES.map((territory) =>
       `### ${territory.title}\n\n${territory.body}`
     ).join("\n\n"),
+    "",
+    "## The fact inventory",
+    "",
+    "Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to an adjective; each links to the claim that bounds its wording, and the wording may not outgrow the claim. When a page needs numbers, use the project's real measured values — an invented number is an opinion in costume.",
+    "",
+    FACT_LINES.map(renderFactLine).join("\n"),
     "",
     "## Message pillars",
     "",

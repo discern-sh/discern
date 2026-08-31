@@ -20,6 +20,21 @@ The order is usually:
 5. evidence and limits;
 6. action.
 
+Two standing rules: every public page carries at least one line from the fact inventory, and no page leads with a line a competitor could sign unchanged.
+
+## The positioning grid
+
+The grid every message derives from: the default the reader already lives with on the left, discern's answer on the right. A line that could sit on either side of the table says nothing.
+
+| The default                                                                    | discern's answer                                                                      |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Every agent session starts from zero and relearns the project from its prompt. | The practice lives in the project; every agent starts with it already in view.        |
+| The human shapes, relays, checks, and coordinates everything around the code.  | Work moves as a complete handoff and returns ready for a decision, evidence attached. |
+| Confidence rests on the agent's own account of what it did.                    | The declared Gate evaluates the exact committed change; Proof records what passed.    |
+| Quality drifts quietly as sessions accumulate.                                 | A Standard may tighten, and a branch cannot weaken it.                                |
+| Switching providers means re-teaching the project from scratch.                | The project keeps its way of working when the agent changes.                          |
+| Every lab is making the agent better.                                          | discern makes the project better at receiving them.                                   |
+
 ## Canonical message hierarchy
 
 ### Brand worldview
@@ -120,6 +135,19 @@ Held for later, not for launch:
 Each is an open line that any builder's tool could sign, and each needs a subhead to explain itself — the mark of a line spending equity the brand has not yet earned. An open line works once years of concrete campaigns have given it content; until then, the concrete territories above do the work. Revisit when launch evidence exists.
 
 Avoid defaulting to **A better way to build** for the same reason at greater strength.
+
+## The fact inventory
+
+Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to an adjective; each links to the claim that bounds its wording, and the wording may not outgrow the claim. When a page needs numbers, use the project's real measured values — an invented number is an opinion in costume.
+
+- **All project-specific discern settings live in one root file, `discern.toml`.** — [`one-config-file`](claims-and-evidence.md#one-config-file--one-configuration-file-governs-the-installation). The smallest demonstration of the footprint; show the file itself where the layout allows.
+- **discern is developed under its own Gate, worktrees, Standards, Map, and Logbook.** — [`runs-on-itself`](claims-and-evidence.md#runs-on-itself--discern-runs-on-itself). The sincerity fact: the practice is trusted with its own development.
+- **A Standard may tighten; a branch cannot weaken its limit.** — [`standards-cannot-loosen`](claims-and-evidence.md#standards-cannot-loosen--a-standard-cannot-be-loosened-on-a-branch).
+- **Proof names the exact committed change that passed; a later commit invalidates it.** — [`proof-exact-tree`](claims-and-evidence.md#proof-exact-tree--proof-covers-the-exact-committed-tree-that-passed).
+- **discern contains no AI model and needs no API key.** — [`no-model-inside`](claims-and-evidence.md#no-model-inside--discern-contains-no-ai-model-and-needs-no-api-key).
+- **Passing makes a change eligible for a decision; it does not decide what ships.** — [`gate-grants-no-authority`](claims-and-evidence.md#gate-grants-no-authority--a-passing-gate-does-not-grant-authority-to-land). Also the honest-limit line: state it plainly where trust is being earned.
+- **Parallel agents work in separate checkouts and cannot overwrite one another's working tree.** — [`no-checkout-collisions`](claims-and-evidence.md#no-checkout-collisions--parallel-efforts-cannot-overwrite-the-same-checkout).
+- **Change coding agents without starting the project explanation over.** — [`switch-without-reteaching`](claims-and-evidence.md#switch-without-reteaching--switching-providers-does-not-require-re-teaching-the-project).
 
 ## Message pillars
 

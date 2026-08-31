@@ -33,9 +33,11 @@ import {
 import {
   CTA_BANKS,
   DESCRIPTIONS,
+  FACT_LINES,
   HEADLINES,
   HERO_SYSTEMS,
   PILLARS,
+  POSITIONING_GRID,
   TERRITORIES,
 } from "../scripts/brand/messaging.ts";
 import {
@@ -223,6 +225,8 @@ Deno.test("registry ids, files, and slugs are unique and citable", () => {
   unique("document files", BRAND_DOCUMENTS.map((doc) => doc.file));
   unique("territory ids", TERRITORIES.map((territory) => territory.id));
   unique("pillar ids", PILLARS.map((pillar) => pillar.id));
+  unique("positioning-grid ids", POSITIONING_GRID.map((row) => row.id));
+  unique("fact-line ids", FACT_LINES.map((fact) => fact.id));
   unique(
     "description ids",
     DESCRIPTIONS.map((description) => description.id),
@@ -359,13 +363,18 @@ Deno.test("the rendered README document map equals the registry", () => {
   }
 });
 
-Deno.test("every pillar cites at least one existing claim", () => {
-  for (const pillar of PILLARS) {
-    assert(pillar.claims.length > 0, `${pillar.id} cites no claims`);
-    for (const slug of pillar.claims) {
+Deno.test("every pillar, contrast, and fact line cites existing claims", () => {
+  const citers = [
+    ...PILLARS.map((pillar) => ({ id: pillar.id, claims: pillar.claims })),
+    ...POSITIONING_GRID.map((row) => ({ id: row.id, claims: row.claims })),
+    ...FACT_LINES.map((fact) => ({ id: fact.id, claims: [fact.claim] })),
+  ];
+  for (const citer of citers) {
+    assert(citer.claims.length > 0, `${citer.id} cites no claims`);
+    for (const slug of citer.claims) {
       assert(
         Object.hasOwn(CLAIMS, slug),
-        `${pillar.id} cites unknown claim ${slug}`,
+        `${citer.id} cites unknown claim ${slug}`,
       );
     }
   }
