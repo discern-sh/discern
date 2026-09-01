@@ -85,11 +85,11 @@ If the brief, audience, destination, or evidence for a required claim is unavail
       kind: "prose",
       heading: "Use demand evidence at its class",
       body:
-        `A \`corroborated\` demand entry may appear directly as non-quantified, segment-scoped recognition language. It does not need a “hypothesis” label. Keep its recorded limits intact: do not turn several qualitative accounts into “most developers,” a frequency, a causal result, a typical outcome, an endorsement, or evidence that discern solves the pattern.
+        `A \`corroborated\` demand entry can be stated directly as a situation its segments will recognize, with no hypothesis label. Its corpus limits still hold: several public accounts are not “most developers,” a frequency, a cause, a typical outcome, an endorsement, or evidence that discern solves it.
 
-An \`observational\` entry stays attributed and dated. An \`anecdotal\` entry stays with the named person's permitted experience. A \`hypothesis\` remains internal or is labelled as a hypothesis.
+An \`observational\` entry is told as discern's own experience, attributed and dated. An \`anecdotal\` entry stays with the named person's permitted words. A \`hypothesis\` stays internal or is labelled as one.
 
-Founder stories may combine remembered experience with artifact-backed facts, but the copy must preserve that distinction. “I remember seeing…” is testimony; a dated Logbook measurement is reproducible evidence. Product claims still come from their claim slugs and do not borrow certainty from demand evidence.`,
+Founder scenes in \`launch-narrative.md\` are first-person memory and can be told that way. Give a number only when the sweep behind the scene records a measurement for it. Product claims still come from their claim slugs.`,
     }, {
       kind: "prose",
       heading: "Voice",
