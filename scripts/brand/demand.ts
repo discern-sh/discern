@@ -627,6 +627,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
       "engineering practice for a project built with agents",
       "tools like this never work on my repository",
       "not another daemon to run",
+      "will a quality gate slow my agents down",
     ],
     entries: [
       {
@@ -670,6 +671,20 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         segments: ["experienced engineers"],
         evidence: [FROM_AUDIENCES],
         answer: { benefits: ["inspect-live-example"] },
+      },
+      {
+        id: "discipline-tax-anxiety",
+        title: "Will the discipline slow the agents down",
+        situation:
+          "The person wants the quality practice but fears its price: every check, gate, and question sounds like another wait inserted into a loop whose whole appeal is speed.",
+        alternative:
+          "Run without checks and review by feel, or adopt the discipline and abandon it the first week it feels slow.",
+        cost:
+          "Either speed comes with standing dread about what is slipping through, or the practice is adopted in name and bypassed in use.",
+        forces: ["anxiety", "habit"],
+        segments: ["experienced engineers", "new consequential builders"],
+        evidence: [FROM_AUDIENCES],
+        answer: { benefits: ["useful-failures-sooner", "run-relevant-checks"] },
       },
       {
         id: "workspace-residue",

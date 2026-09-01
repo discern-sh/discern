@@ -50,7 +50,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`brand-boundaries`](#brand-boundaries--boundary-canon)                                                               | `scripts/brand/boundaries.ts#BOUNDARIES`                                          | 102     | —                | —                           |
 | [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                  | `scripts/brand/claims.ts#CLAIMS`                                                  | 20      | —                | —                           |
 | [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                        | `scripts/brand/voice.ts#BRAND_FOUNDATION_READING_STEPS`                           | 4       | —                | —                           |
-| [`demand-canon`](#demand-canon--demand-canon)                                                                         | `scripts/brand/demand.ts#DEMAND_CANON`                                            | 46      | —                | —                           |
+| [`demand-canon`](#demand-canon--demand-canon)                                                                         | `scripts/brand/demand.ts#DEMAND_CANON`                                            | 47      | —                | —                           |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
 | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 17      | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 5       | —                | —                           |
@@ -1369,7 +1369,7 @@ The shared strategic-document sequence that the brand voice Skill and the homepa
 The market-side counterpart of the Human Benefit Canon: evidence-tagged struggling moments with their current alternatives and forces, held to two-way coverage against the benefits and rendered into the demand page the brand-documents set owns.
 
 - Source: `scripts/brand/demand.ts` — `DEMAND_CANON`
-- Members: 46
+- Members: 47
   - `operating-layer-trap`
   - `workflow-attention-tax`
   - `readiness-without-evidence`
@@ -1408,6 +1408,7 @@ The market-side counterpart of the Human Benefit Canon: evidence-tagged struggli
   - `integration-engineer-by-accident`
   - `another-service-fatigue`
   - `does-anyone-run-this`
+  - `discipline-tax-anxiety`
   - `workspace-residue`
   - `provider-churn`
   - `per-stack-fragmentation`

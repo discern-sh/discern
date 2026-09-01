@@ -4,7 +4,7 @@
 
 _discern's internal account of the demand its benefits answer. It is the market-side counterpart of the [Human Benefit Canon](../feature-canon-human-benefits.md): where a benefit reasons forward from product facts to human value, a demand entry reasons backward from a struggling moment somebody is hypothesized to be in. Demand claims are empirical, so every entry carries dated evidence in the market classes of the [`claims-and-evidence.md`](claims-and-evidence.md) ledger, and nothing here is stronger than its class. The [`audiences.md`](../../_private/brand/audiences.md) document holds the by-person account of the same ground._
 
-8 territories · 38 entries · 43 of 45 benefits answered · 2 supply-push records · 1 recorded gap · evidence: hypothesis 38.
+8 territories · 39 entries · 43 of 45 benefits answered · 2 supply-push records · 1 recorded gap · evidence: hypothesis 39.
 
 ## How to use this canon
 
@@ -341,7 +341,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 
 - **Counterpart:** Put a serious practice in place (adoption benefit)
 - **Tension:** The person already believes their project needs a more serious way of working; what stalls them is the adoption itself — the configuration to learn, the services to run, and the doubt that the method survives contact with real work.
-- **Heard as:** “how to set up a serious workflow for agent coding” · “engineering practice for a project built with agents” · “tools like this never work on my repository” · “not another daemon to run”
+- **Heard as:** “how to set up a serious workflow for agent coding” · “engineering practice for a project built with agents” · “tools like this never work on my repository” · “not another daemon to run” · “will a quality gate slow my agents down”
 
 ### Adopting the tool means becoming its engineer
 
@@ -372,6 +372,16 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Segments:** experienced engineers
 - **Evidence:** hypothesis — Transposed from the audiences document's desired-progress and objections accounts; not yet tested outside this repository. (recorded 2026-08-17)
 - **Answered by:** Inspect discern working under its own practice.
+
+### Will the discipline slow the agents down
+
+- **Situation:** The person wants the quality practice but fears its price: every check, gate, and question sounds like another wait inserted into a loop whose whole appeal is speed.
+- **Today's alternative:** Run without checks and review by feel, or adopt the discipline and abandon it the first week it feels slow.
+- **Cost:** Either speed comes with standing dread about what is slipping through, or the practice is adopted in name and bypassed in use.
+- **Forces:** anxiety, habit
+- **Segments:** experienced engineers, new consequential builders
+- **Evidence:** hypothesis — Transposed from the audiences document's desired-progress and objections accounts; not yet tested outside this repository. (recorded 2026-08-17)
+- **Answered by:** Get useful failures sooner · Run the checks relevant to this change.
 
 ### The experiments leave their equipment out
 
