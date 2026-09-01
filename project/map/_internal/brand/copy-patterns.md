@@ -98,7 +98,51 @@ Do not combine several patterns because each contains a good line.
 
 ---
 
-## Pattern 3 — Earned-confidence hero
+## Pattern 3 — Ambition-led hero
+
+### Use when
+
+- the page needs launch energy and personal reach is the strongest entry point;
+- the reader's ambition already outruns what one person can carry alone;
+- the audience should feel expanded rather than replaced.
+
+### Structure
+
+```markdown
+<Audience signature or short recognition line>
+
+# <A concrete ambition: the project, taken further than one person could carry>
+
+<Literal sentence: what discern lets coding agents take on, and what stays in the reader's hands.>
+
+<Primary demonstration CTA>    <Secondary action or explanation CTA>
+
+<Optional category line>
+```
+
+### Working example
+
+> **For people who take their software seriously.**
+>
+> # Take the project further than one pair of hands.
+>
+> discern gives your coding agents a practice that can carry a bigger ambition: several workstreams moving at once, each in its own workspace, each finished to your project's bar.
+>
+> **See a backlog become a plan**\
+> Tell your agent to set it up
+>
+> _An engineering practice for agent-built software._
+
+### Requirements
+
+- Name a concrete ambition (a project, a backlog, a second workstream); abstract boldness says nothing.
+- The engineer hears leverage and the new builder hears access; keep the headline open to both readings.
+- Show the boundary that makes the expansion possible in the same viewport.
+- Celebrate what the person can now attempt; code volume is no achievement.
+
+---
+
+## Pattern 4 — Earned-confidence hero
 
 ### Use when
 
@@ -135,7 +179,7 @@ Do not combine several patterns because each contains a good line.
 
 ---
 
-## Pattern 4 — Consequence-threshold campaign
+## Pattern 5 — Consequence-threshold campaign
 
 ### Use when
 
@@ -160,6 +204,7 @@ Do not combine several patterns because each contains a good line.
 - When people start depending on it.
 - When the side project gets real.
 - When your app becomes part of someone's workday.
+- The MVP took a weekend. Now you've got real users depending on it.
 
 ### Requirements
 
@@ -168,7 +213,7 @@ Do not combine several patterns because each contains a good line.
 
 ---
 
-## Pattern 5 — Recognizable-moment section
+## Pattern 6 — Recognizable-moment section
 
 ### Use when
 
@@ -198,7 +243,7 @@ When <triggering situation>, <changed action or experience>.
 
 ---
 
-## Pattern 6 — Human outcome → mechanism → evidence
+## Pattern 7 — Human outcome → mechanism → evidence
 
 ### Use when
 
@@ -230,7 +275,7 @@ Explaining a major pillar on the homepage or a product page.
 
 ---
 
-## Pattern 7 — Artifact specimen
+## Pattern 8 — Artifact specimen
 
 ### Use when
 
@@ -270,7 +315,7 @@ The website needs to make an invisible CLI/MCP product tangible.
 
 ---
 
-## Pattern 8 — Proof block
+## Pattern 9 — Proof block
 
 ### Use when
 
@@ -306,7 +351,7 @@ A strong promise needs nearby credibility.
 
 ---
 
-## Pattern 9 — Commissioning story
+## Pattern 10 — Commissioning story
 
 ### Use when
 
@@ -335,7 +380,7 @@ Explaining setup to either audience.
 
 ---
 
-## Pattern 10 — Experienced-engineer section
+## Pattern 11 — Experienced-engineer section
 
 ### Use when
 
@@ -363,7 +408,7 @@ Do not disparage home-built engineering. Demonstrate the value of coherence, tra
 
 ---
 
-## Pattern 11 — New-builder section
+## Pattern 12 — New-builder section
 
 ### Use when
 
@@ -391,7 +436,7 @@ Do not call the reader a novice. Do not imply discern makes engineering expertis
 
 ---
 
-## Pattern 12 — Audience bridge
+## Pattern 13 — Audience bridge
 
 ### Use when
 
@@ -417,7 +462,7 @@ Use this pattern sparingly; avoid making every section branch into two audiences
 
 ---
 
-## Pattern 13 — Trust boundary
+## Pattern 14 — Trust boundary
 
 ### Use when
 
@@ -449,7 +494,7 @@ Direct boundary language belongs here because the distinction is the purpose of 
 
 ---
 
-## Pattern 14 — Founder story scene
+## Pattern 15 — Founder story scene
 
 ### Use when
 
@@ -480,7 +525,7 @@ Avoid beginning with a company mission statement. Begin with the lived discovery
 
 ---
 
-## Pattern 15 — Case study
+## Pattern 16 — Case study
 
 ### Structure
 
@@ -507,7 +552,7 @@ Use exact dates, project context, and permissions. Separate observed outcomes fr
 
 ---
 
-## Pattern 16 — Closing CTA
+## Pattern 17 — Closing CTA
 
 ### Use when
 
@@ -541,7 +586,7 @@ The page has already established desire and belief.
 
 ---
 
-## Pattern 17 — Short campaign post
+## Pattern 18 — Short campaign post
 
 ### Structure
 
@@ -567,7 +612,7 @@ Do not compress an entire product page into a social post.
 
 ---
 
-## Pattern 18 — Contrast pair
+## Pattern 19 — Contrast pair
 
 ### Use when
 

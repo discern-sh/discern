@@ -86,6 +86,43 @@ export const COPY_PATTERNS = [
     ],
   },
   {
+    id: "ambition-led-hero",
+    title: "Ambition-led hero",
+    useWhen: `- the page needs launch energy and personal reach is the strongest entry point;
+- the reader's ambition already outruns what one person can carry alone;
+- the audience should feel expanded rather than replaced.`,
+    structure: `<Audience signature or short recognition line>
+
+# <A concrete ambition: the project, taken further than one person could carry>
+
+<Literal sentence: what discern lets coding agents take on, and what stays in the reader's hands.>
+
+<Primary demonstration CTA>    <Secondary action or explanation CTA>
+
+<Optional category line>`,
+    sections: [
+      {
+        heading: "Working example",
+        body: `> **For people who take their software seriously.**
+>
+> # Take the project further than one pair of hands.
+>
+> discern gives your coding agents a practice that can carry a bigger ambition: several workstreams moving at once, each in its own workspace, each finished to your project's bar.
+>
+> **See a backlog become a plan**\\
+> Tell your agent to set it up
+>
+> _An engineering practice for agent-built software._`,
+      },
+    ],
+    requirements: [
+      "Name a concrete ambition (a project, a backlog, a second workstream); abstract boldness says nothing.",
+      "The engineer hears leverage and the new builder hears access; keep the headline open to both readings.",
+      "Show the boundary that makes the expansion possible in the same viewport.",
+      "Celebrate what the person can now attempt; code volume is no achievement.",
+    ],
+  },
+  {
     id: "earned-confidence-hero",
     title: "Earned-confidence hero",
     useWhen: `- the reader's project has users or consequences;
@@ -134,7 +171,8 @@ export const COPY_PATTERNS = [
         body: `- When the prototype becomes the product.
 - When people start depending on it.
 - When the side project gets real.
-- When your app becomes part of someone's workday.`,
+- When your app becomes part of someone's workday.
+- The MVP took a weekend. Now you've got real users depending on it.`,
       },
     ],
     requirements: [
