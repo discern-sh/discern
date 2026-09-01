@@ -434,7 +434,10 @@ Direct boundary language belongs here because the distinction is the purpose of 
 - adding a second agent and becoming the bottleneck;
 - realizing line-by-line review was no longer the most valuable contribution;
 - extracting the practice from the knowledge-graph project;
-- developing discern under discern itself.
+- developing discern under discern itself;
+- thirteen worktrees landing overnight while the founder slept;
+- a change that came back compiled, tested, and wrong in the headset;
+- switching coding agents and finding the project's memory did not come along.
 
 Avoid beginning with a company mission statement. Begin with the lived discovery.`,
       },
