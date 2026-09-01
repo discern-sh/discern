@@ -186,11 +186,6 @@ export const BOUNDARIES = [
         path: "tests/engine_checkpoints_gate_test.ts",
         summary: "holds declarations as a distinct Proof evidence row",
       },
-      {
-        kind: "guard",
-        path: "tests/third_party_notices_test.ts",
-        summary: "enumerates every embedded third-party package",
-      },
     ],
     refusals: [{
       order: 3,

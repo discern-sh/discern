@@ -213,7 +213,6 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 - Decision: `project/map/_adr/0293-checkpoint-declarations-interlock-the-gate.md` — separates machine results from agent declarations.
 - Source: `src/engine/gate/execute.ts` — computes the Gate from declared jobs and checks.
 - Guard: `tests/engine_checkpoints_gate_test.ts` — holds declarations as a distinct Proof evidence row.
-- Guard: `tests/third_party_notices_test.ts` — enumerates every embedded third-party package.
 
 ### non-authoring-system
 
