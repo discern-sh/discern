@@ -166,14 +166,6 @@ export const BRAND_DOCUMENTS = [
     mode: { kind: "authored", privateOverlay: true },
   },
   {
-    id: "for-agents-brief",
-    file: "for-agents-brief.md",
-    status: "Operational",
-    job:
-      "Defines the dedicated For Agents page, `llms.txt`, and the creative “marketing to the machines” program.",
-    mode: { kind: "authored", privateOverlay: true },
-  },
-  {
     id: "claims-residue",
     file: "claims-residue.md",
     status: "Operational",

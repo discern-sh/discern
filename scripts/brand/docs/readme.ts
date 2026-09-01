@@ -94,7 +94,7 @@ export const READING_PATHS = [
     heading: "For Agents page or `llms.txt`",
     intro: "Read:",
     steps: [
-      "`for-agents-brief.md`;",
+      "the current For Agents page and `llms.txt`;",
       "the `discern-agent-voice` skill in the appropriate mode;",
       "`positioning.md` and `messaging.md` for brand alignment;",
       "the exact product contracts needed to support the claims.",
@@ -212,8 +212,7 @@ export const OUTSTANDING_WORK = [
   {
     id: "llms-txt-rewrite",
     task: "`llms.txt` rewrite",
-    summary:
-      "Rewrite the public site's `llms.txt` (per `for-agents-brief.md`) before it goes live.",
+    summary: "Rewrite the public site's `llms.txt` before it goes live.",
   },
   {
     id: "homepage-brief",

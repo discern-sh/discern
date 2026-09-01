@@ -46,7 +46,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`provider-trust-action-kinds`](#provider-trust-action-kinds--provider-trust-action-kinds)                            | `src/shared/provider_trust.ts#TRUST_ACTION_KINDS`                                 | 5       | —                | node `providers`            |
 | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 12      | —                | —                           |
 | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
-| [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 18      | —                | —                           |
+| [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 17      | —                | —                           |
 | [`brand-boundaries`](#brand-boundaries--boundary-canon)                                                               | `scripts/brand/boundaries.ts#BOUNDARIES`                                          | 102     | —                | —                           |
 | [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                  | `scripts/brand/claims.ts#CLAIMS`                                                  | 20      | —                | —                           |
 | [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                        | `scripts/brand/voice.ts#BRAND_FOUNDATION_READING_STEPS`                           | 4       | —                | —                           |
@@ -1185,7 +1185,7 @@ The integration seams discern wires for each coding agent. The operational-inter
 The Brand Operating System's document map: every brand document as one typed row, where generated pages compile from the registry through the codegen chokepoint and authored overlay documents stay declared path-and-job rows without content.
 
 - Source: `scripts/brand_registry.ts` — `BRAND_DOCUMENTS`
-- Members: 18
+- Members: 17
   - `readme`
   - `positioning`
   - `audiences`
@@ -1201,7 +1201,6 @@ The Brand Operating System's document map: every brand document as one typed row
   - `copy-patterns`
   - `website-brief`
   - `launch-narrative`
-  - `for-agents-brief`
   - `claims-residue`
   - `decisions`
 - Guards: `tests/brand_registry_codegen_test.ts`

@@ -62,7 +62,7 @@ Operational mode:
 
 Public mode:
 
-1. `for-agents-brief.md`;
+1. the current For Agents page and `llms.txt`;
 2. `positioning.md`;
 3. `messaging.md`;
 4. relevant claims;

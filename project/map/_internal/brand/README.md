@@ -54,7 +54,6 @@ The public brand should make that seriousness feel like an earned privilege: mor
 | [`copy-patterns.md`](copy-patterns.md)                                                            | Operational     | Reusable structures for pages, sections, proof blocks, audience explanations, and CTAs.                                                                                     |                         |
 | [`website-brief.md`](../../_private/brand/website-brief.md)                                       | Operational     | Defines the public-site narrative, page responsibilities, proof, objections, and calls to action.                                                                           | private overlay (local) |
 | [`launch-narrative.md`](../../_private/brand/launch-narrative.md)                                 | Operational     | Preserves the founder story and cultural thesis for essays, interviews, demos, and launch material.                                                                         | private overlay (local) |
-| [`for-agents-brief.md`](../../_private/brand/for-agents-brief.md)                                 | Operational     | Defines the dedicated For Agents page, `llms.txt`, and the creative “marketing to the machines” program.                                                                    | private overlay (local) |
 | [`claims-residue.md`](../../_private/brand/claims-residue.md)                                     | Operational     | Receives the private residue carved out of `claims-and-evidence.md`: the dated internal evidence snapshot, the anecdote ledger, and the claims requiring future validation. | private overlay (local) |
 | [`decisions.md`](../../_private/brand/decisions.md)                                               | Governance      | Holds the effort's brand ADRs in working form until they are numbered and published into the ADR tree.                                                                      |                         |
 
@@ -112,7 +111,7 @@ Read:
 
 Read:
 
-1. `for-agents-brief.md`;
+1. the current For Agents page and `llms.txt`;
 2. the `discern-agent-voice` skill in the appropriate mode;
 3. `positioning.md` and `messaging.md` for brand alignment;
 4. the exact product contracts needed to support the claims.
@@ -219,7 +218,7 @@ The running list for the brand refresh. Rows leave the table as they complete; t
 | Root README rewrite          | Rewrite the complete root-level README.md file based on the new branding and messaging rules.                                                                                                          |
 | Public docs review           | Review the verbiage of map entries published to the public `/docs` pages and make any pre-launch edits.                                                                                                |
 | Dogfooding snapshot          | Revisit the dated internal evidence snapshot in `claims-and-evidence.md` so it is accurate and fully up to date.                                                                                       |
-| `llms.txt` rewrite           | Rewrite the public site's `llms.txt` (per `for-agents-brief.md`) before it goes live.                                                                                                                  |
+| `llms.txt` rewrite           | Rewrite the public site's `llms.txt` before it goes live.                                                                                                                                              |
 | Homepage brief               | Update or remove the old `8a` first-principles homepage-rewrite brief (owner to take a view).                                                                                                          |
 | Publish the ADR              | Number the WIP ADR in `decisions.md` and publish it permanently into `project/map/_adr/` at the end of the effort. Add a second ADR to record the brand documents' registry ownership.                 |
 | Glossary and Proof migration | Keep the canonical glossary definitions and Proof terminology aligned across the product.                                                                                                              |
