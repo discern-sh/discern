@@ -83,6 +83,15 @@ If these fields are unclear, the draft will usually become a feature summary.
 If the brief, audience, destination, or evidence for a required claim is unavailable, request that exact source or remove the unsupported claim before drafting continues.`,
     }, {
       kind: "prose",
+      heading: "Use demand evidence at its class",
+      body:
+        `A \`corroborated\` demand entry may appear directly as non-quantified, segment-scoped recognition language. It does not need a “hypothesis” label. Keep its recorded limits intact: do not turn several qualitative accounts into “most developers,” a frequency, a causal result, a typical outcome, an endorsement, or evidence that discern solves the pattern.
+
+An \`observational\` entry stays attributed and dated. An \`anecdotal\` entry stays with the named person's permitted experience. A \`hypothesis\` remains internal or is labelled as a hypothesis.
+
+Founder stories may combine remembered experience with artifact-backed facts, but the copy must preserve that distinction. “I remember seeing…” is testimony; a dated Logbook measurement is reproducible evidence. Product claims still come from their claim slugs and do not borrow certainty from demand evidence.`,
+    }, {
+      kind: "prose",
       heading: "Voice",
       body: `The brand voice is:
 

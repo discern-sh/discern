@@ -5,7 +5,8 @@
  * is hypothesized to be in: the trigger situation, what they do about it
  * today, and what it costs them. Demand claims are empirical rather than
  * deductive, so every entry carries dated evidence restricted to the claims
- * ledger's market classes (observational, anecdotal, hypothesis) — a
+ * ledger's market classes (corroborated, observational, anecdotal,
+ * hypothesis) — a
  * struggling moment can never borrow the certainty of a product fact.
  * Its language addresses the person and describes the state of the work or
  * workflow; it never casts the person as the agents' minder (ADR 0244).
@@ -32,6 +33,7 @@ import type { EvidenceClass } from "./model.ts";
  * `demonstrated` describe the product and can never describe the market.
  */
 export const DEMAND_EVIDENCE_CLASS_NAMES = [
+  "corroborated",
   "observational",
   "anecdotal",
   "hypothesis",
@@ -54,14 +56,48 @@ export type DemandForce = (typeof DEMAND_FORCES)[number];
  * do not struggle, so the coding-agent audience carries no demand entries. */
 export type DemandSegment = HumanBenefitAudience;
 
-/** One dated piece of evidence behind a demand entry. */
-export interface DemandEvidence {
-  readonly class: DemandEvidenceClass;
+/** One public item in a corroborated qualitative corpus. */
+export interface DemandPublicSource {
+  /** The publishing venue; the corpus guard rejects a one-community set. */
+  readonly venue: string;
+  /** A short descriptive label for the account. */
+  readonly title: string;
+  /** The canonical public HTTPS location. */
+  readonly url: string;
+}
+
+interface DemandEvidenceBase {
   /** Where the belief comes from, stated honestly — a complete sentence. */
   readonly source: string;
   /** The date the evidence was recorded, `YYYY-MM-DD`. */
   readonly date: string;
 }
+
+/** A corpus-backed market pattern, with its public-use boundary attached. */
+export interface CorroboratedDemandEvidence extends DemandEvidenceBase {
+  readonly class: "corroborated";
+  /** At least three distinct accounts, spanning at least two venues. */
+  readonly publicSources: readonly [
+    DemandPublicSource,
+    DemandPublicSource,
+    DemandPublicSource,
+    ...DemandPublicSource[],
+  ];
+  /** What this qualitative corpus does not establish. */
+  readonly limits: string;
+}
+
+/** Internal observation, a permitted anecdote, or an untested hypothesis. */
+export interface NonCorroboratedDemandEvidence extends DemandEvidenceBase {
+  readonly class: Exclude<DemandEvidenceClass, "corroborated">;
+  readonly publicSources?: never;
+  readonly limits?: never;
+}
+
+/** One dated piece of evidence behind a demand entry. */
+export type DemandEvidence =
+  | CorroboratedDemandEvidence
+  | NonCorroboratedDemandEvidence;
 
 /**
  * What answers the entry: the benefit ids that address the struggle
@@ -142,6 +178,105 @@ const FROM_DISCOURSE: DemandEvidence = {
   date: RECORDED,
 };
 
+const OPERATING_LAYER_CORROBORATION: DemandEvidence = {
+  class: "corroborated",
+  source:
+    "An artifact-backed founder account and independent public accounts describe planning, review, status, or coordination becoming limiting work as concurrent agent activity rises.",
+  date: "2026-09-01",
+  publicSources: [
+    {
+      venue: "Reddit",
+      title: "Experienced developers discuss multi-agent limits",
+      url:
+        "https://www.reddit.com/r/ExperiencedDevs/comments/1ten4yg/how_do_you_cope_with_multi_agent_workflows/",
+    },
+    {
+      venue: "Reddit",
+      title: "Codex users discuss handoffs between agents",
+      url:
+        "https://www.reddit.com/r/codex/comments/1v852jd/how_do_you_guys_handoff_work_between_agents/",
+    },
+    {
+      venue: "Independent blog",
+      title: "STATUS.md for multi-agent work",
+      url: "https://igortkanov.com/status-md-for-multi-agent-work/",
+    },
+    {
+      venue: "Cursor",
+      title: "Scaling long-running autonomous coding",
+      url: "https://cursor.com/blog/scaling-agents",
+    },
+  ],
+  limits:
+    "The corpus does not establish a universal concurrency ceiling; tightly scoped independent work and additional orchestration can scale further.",
+};
+
+const READINESS_CORROBORATION: DemandEvidence = {
+  class: "corroborated",
+  source:
+    "An artifact-backed founder account and independent public reports distinguish an agent's completion statement from durable evidence that the relevant checks ran.",
+  date: "2026-09-01",
+  publicSources: [
+    {
+      venue: "GitHub",
+      title: "Claude Code declared work verified without the canonical build",
+      url: "https://github.com/anthropics/claude-code/issues/63861",
+    },
+    {
+      venue: "GitHub",
+      title: "Codex weakened tests and reported validation as complete",
+      url: "https://github.com/openai/codex/issues/24922",
+    },
+    {
+      venue: "Reddit",
+      title: "Passing Playwright tests patched the application under test",
+      url:
+        "https://www.reddit.com/r/ClaudeCode/comments/1rug14a/claude_wrote_playwright_tests_that_secretly/",
+    },
+    {
+      venue: "GitHub",
+      title: "A task reported command success without observable execution",
+      url: "https://github.com/openai/codex/issues/34152",
+    },
+  ],
+  limits:
+    "The corpus does not establish a failure rate or show that every completion statement is unreliable, and a passing check cannot establish behavior outside its declared scope.",
+};
+
+const PROJECT_MEMORY_CORROBORATION: DemandEvidence = {
+  class: "corroborated",
+  source:
+    "An artifact-backed founder account and independent public accounts describe session or provider context failing to carry forward automatically and requiring project-owned memory.",
+  date: "2026-09-01",
+  publicSources: [
+    {
+      venue: "GitHub",
+      title:
+        "Claude Code memory and conversation history lost between sessions",
+      url: "https://github.com/anthropics/claude-code/issues/38459",
+    },
+    {
+      venue: "GitHub",
+      title: "Codex auto-compaction discarded conversation history",
+      url: "https://github.com/openai/codex/issues/36642",
+    },
+    {
+      venue: "Reddit",
+      title: "Handling context loss between Claude Code sessions",
+      url:
+        "https://www.reddit.com/r/ClaudeCode/comments/1qn5tfc/how_do_you_handle_context_loss_between_claude/",
+    },
+    {
+      venue: "GitHub",
+      title: "AGENTS.md proposed as a source for Claude and Codex",
+      url:
+        "https://github.com/collaborationwithothers/mcp-platform-azure/issues/46",
+    },
+  ],
+  limits:
+    "The corpus does not show that every project starts cold; repository-owned instructions can remove much of the problem, and hidden conversational state or proprietary features remain non-portable.",
+};
+
 /**
  * The demand canon. Territory order mirrors the Human Benefit Canon's commercial
  * order, so the two accounts read side by side.
@@ -162,16 +297,16 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
     entries: [
       {
         id: "backlog-outruns-attention",
-        title: "More viable tasks than one person can hand out",
+        title: "More work than one person can shape and review",
         situation:
-          "The backlog holds more agent-sized work than the person can brief, so tasks wait in line behind their own explanations and delegation stalls at the cost of writing each handoff well.",
+          "Agent execution expands faster than the person can shape tasks, resolve dependencies, and review what returns, so extra sessions queue behind those human decisions.",
         alternative:
-          "Run one session at a time, improvise the brief in chat, and keep the rest of the backlog in their head until the current task lands.",
+          "Cap work at one or two concurrent sessions, or accept shallow briefs and a growing review queue.",
         cost:
-          "Backlog items sit idle while execution capacity goes unused, and each casual brief produces rework when required context stays unresolved.",
+          "Available implementation capacity goes unused, or produces more output than the person can safely integrate.",
         forces: ["push"],
         segments: ["experienced engineers", "new consequential builders"],
-        evidence: [FROM_POSITIONING],
+        evidence: [OPERATING_LAYER_CORROBORATION],
         answer: { benefits: ["shape-substantial-work"] },
       },
       {
@@ -199,7 +334,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
           "The person cannot leave the desk while dependent work is moving, and a missed relay leaves the downstream task stalled until somebody notices.",
         forces: ["push"],
         segments: ["experienced engineers"],
-        evidence: [FROM_POSITIONING],
+        evidence: [OPERATING_LAYER_CORROBORATION],
         answer: { benefits: ["wait-without-relay", "compose-staged-work"] },
       },
       {
@@ -259,7 +394,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
           "Every delegated task carries a fixed verification toll paid by the person, which caps how many tasks a day they can accept.",
         forces: ["push"],
         segments: ["experienced engineers"],
-        evidence: [FROM_AUDIENCES],
+        evidence: [READINESS_CORROBORATION],
         answer: { benefits: ["reduce-routine-review"] },
       },
       {
@@ -273,7 +408,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
           "Returning to the desk begins with reconstructing state before any decision can be made, and a stalled session can wait hours before anyone notices.",
         forces: ["push"],
         segments: ["experienced engineers", "new consequential builders"],
-        evidence: [FROM_POSITIONING],
+        evidence: [OPERATING_LAYER_CORROBORATION],
         answer: { benefits: ["decisions-in-one-view"] },
       },
       {
@@ -344,7 +479,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
           "Reconstructing readiness consumes the time delegation was meant to return, and every task comes back with the same uncertainty.",
         forces: ["push", "anxiety"],
         segments: ["experienced engineers", "new consequential builders"],
-        evidence: [FROM_DISCOURSE],
+        evidence: [READINESS_CORROBORATION],
         answer: {
           benefits: ["project-defined-completion", "evidence-for-this-change"],
         },
@@ -541,7 +676,7 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
           "A recurring toll of explanation and correction on every task, multiplied by every provider in use.",
         forces: ["push"],
         segments: ["experienced engineers", "new consequential builders"],
-        evidence: [FROM_DISCOURSE],
+        evidence: [PROJECT_MEMORY_CORROBORATION],
         answer: { benefits: ["teach-project-once"] },
       },
       {
@@ -719,14 +854,14 @@ export const DEMAND_CANON: readonly DemandTerritory[] = [
         id: "provider-churn",
         title: "Switching agents means re-teaching everything",
         situation:
-          "A better or cheaper model ships, but the accumulated instructions, working methods, and quality rules are written in the current provider's format, so switching means rebuilding them.",
+          "A different coding agent becomes the better fit — or the current one becomes unavailable — but project knowledge and working conventions live in provider-specific surfaces the next agent does not automatically load.",
         alternative:
-          "Maintain parallel instruction files per provider by hand, or stay put and absorb the worse deal.",
+          "Maintain parallel instruction files by hand and reconstruct the private session memory whenever the provider changes.",
         cost:
-          "Provider choice is driven by sunk investment rather than current merit, and every duplicated file drifts.",
+          "Changing tools carries a continuity penalty, and every duplicated instruction file can drift.",
         forces: ["push", "habit"],
         segments: ["experienced engineers", "new consequential builders"],
-        evidence: [FROM_AUDIENCES],
+        evidence: [PROJECT_MEMORY_CORROBORATION],
         answer: { benefits: ["switch-providers"] },
       },
       {
@@ -892,7 +1027,14 @@ function clusterById(id: string): { title: string; role: string } {
 /** Render one entry's evidence rows as a single labelled line. */
 function renderEvidence(evidence: readonly DemandEvidence[]): string {
   return evidence
-    .map((row) => `${row.class} — ${row.source} (recorded ${row.date})`)
+    .map((row) => {
+      const summary = `${row.class} — ${row.source} (recorded ${row.date})`;
+      if (row.class !== "corroborated") return summary;
+      const corpus = row.publicSources.map((source) =>
+        `${source.venue}: [${source.title}](${source.url})`
+      ).join("; ");
+      return `${summary} Corpus: ${corpus}. Limits: ${row.limits}`;
+    })
     .join("; ");
 }
 
@@ -945,7 +1087,7 @@ export function renderDemandCanonDoc(): string {
     "## How to use this canon",
     "",
     "- Read a territory's tension first; its entries are the specific, recurring forms of it. An entry names the benefits that answer the struggle — the mechanism account stays in the Human Benefit Canon.",
-    "- Trust an entry no further than its evidence class. Demand evidence uses the claims ledger's market classes only — observational, anecdotal, hypothesis; structural and demonstrated describe the product and can never describe the market. An entry is promoted by attaching stronger evidence; rewording changes nothing.",
+    "- Trust an entry no further than its evidence class. Demand evidence uses the claims ledger's market classes only — corroborated, observational, anecdotal, hypothesis; structural and demonstrated describe the product and can never describe the market. An entry is promoted by attaching stronger evidence; rewording changes nothing.",
     "- Forces name what the moment does to the person: push drives them to seek help, pull attracts them to a new practice, anxiety makes them hesitate over it, and habit holds them to the current way. Anxiety and habit entries are the objections public copy must answer.",
     "- A benefit no entry answers is recorded as a supply-push bet, neither deleted nor assumed wanted. An entry no benefit answers is a recorded gap, kept visible as roadmap signal and left out of public copy.",
     "- Dates mark the moment the evidence was recorded. Treat an old hypothesis as expired until it is re-confirmed or promoted.",

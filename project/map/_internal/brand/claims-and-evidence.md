@@ -7,13 +7,14 @@
 
 ## Evidence classes
 
-| Class             | Meaning                                                                                            | Public use                                                                                       |
-| ----------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| **Structural**    | Product truth enforced by architecture, source code, tests, or canonical registry.                 | Safe to state when wording matches the exact scope.                                              |
-| **Demonstrated**  | Product behavior verified by the current implementation and dogfooding.                            | Safe with conditions; avoid universal customer outcomes.                                         |
-| **Observational** | Internal evidence: a Patterns export, internal metrics, founder use, or controlled demonstrations. | Attribute and date it. Never present as independent market validation.                           |
-| **Anecdotal**     | A named user's external experience or reaction.                                                    | Permission required. Attribute the experience and limit the wording to that named user's result. |
-| **Hypothesis**    | A plausible audience or market interpretation not yet externally tested.                           | Use internally or label as a hypothesis. Do not present as fact.                                 |
+| Class             | Meaning                                                                                                                                                  | Public use                                                                                                                                                 |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Structural**    | Product truth enforced by architecture, source code, tests, or canonical registry.                                                                       | Safe to state when wording matches the exact scope.                                                                                                        |
+| **Demonstrated**  | Product behavior verified by the current implementation and dogfooding.                                                                                  | Safe with conditions; avoid universal customer outcomes.                                                                                                   |
+| **Corroborated**  | A scoped qualitative market pattern found in several independent public accounts across more than one venue; the corpus and contrary cases are recorded. | Safe for non-quantified, segment-scoped recognition language. Do not imply prevalence, causation, typical outcomes, endorsement, or product effectiveness. |
+| **Observational** | Internal evidence: a Patterns export, internal metrics, founder use, or controlled demonstrations.                                                       | Attribute and date it. Never present as independent market validation.                                                                                     |
+| **Anecdotal**     | A named user's external experience or reaction.                                                                                                          | Permission required. Attribute the experience and limit the wording to that named user's result.                                                           |
+| **Hypothesis**    | A plausible audience or market interpretation not yet externally tested.                                                                                 | Use internally or label as a hypothesis. Do not present as fact.                                                                                           |
 
 ## Source hierarchy
 
@@ -24,7 +25,8 @@ When a claim needs verification, consult:
 3. the canonical glossary and documentation;
 4. the setup brief and bundled Skills;
 5. current `discern patterns --json` evidence;
-6. founder account and approved user anecdotes.
+6. dated public qualitative corpora and their recorded limits;
+7. founder account and approved user anecdotes.
 
 The product glossary defines each product term once and prohibits synonyms in product prose. The brand operating system may vary human language while preserving those meanings.
 

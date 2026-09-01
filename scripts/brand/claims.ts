@@ -3,9 +3,9 @@
  * in public copy, its evidence class, strongest supported wording, conditions,
  * and forbidden inferences — plus the evidence-class vocabulary and the
  * absolute do-not-claim list. `claims-and-evidence.md` compiles from this
- * module; the private residue (anecdotes, future-validation hypotheses, dated
- * evidence snapshots) stays authored in `claims-residue.md`, outside the
- * registry.
+ * module; the private residue (demand-evidence sweeps, anecdotes,
+ * future-validation hypotheses, and dated evidence snapshots) stays authored
+ * in `claims-residue.md`, outside the registry.
  */
 
 import {
@@ -29,6 +29,12 @@ export const EVIDENCE_CLASSES: Readonly<
     meaning:
       "Product behavior verified by the current implementation and dogfooding.",
     publicUse: "Safe with conditions; avoid universal customer outcomes.",
+  },
+  corroborated: {
+    meaning:
+      "A scoped qualitative market pattern found in several independent public accounts across more than one venue; the corpus and contrary cases are recorded.",
+    publicUse:
+      "Safe for non-quantified, segment-scoped recognition language. Do not imply prevalence, causation, typical outcomes, endorsement, or product effectiveness.",
   },
   observational: {
     meaning:
@@ -423,9 +429,9 @@ function renderClaim(slug: string, claim: Claim): string {
 
 /**
  * The whole public claims document, ready for the barrel to stamp and
- * resolve. The private residue (the dated internal evidence snapshot, the
- * anecdote ledger, and the claims requiring future validation) lives in the
- * authored `claims-residue.md` overlay, not here.
+ * resolve. The private residue (dated internal snapshots, demand-evidence
+ * sweeps, the anecdote ledger, and claims requiring future validation) lives
+ * in the authored `claims-residue.md` overlay, not here.
  */
 export function renderClaimsDoc(): string {
   return [
@@ -454,7 +460,8 @@ export function renderClaimsDoc(): string {
     "3. the canonical glossary and documentation;",
     "4. the setup brief and bundled Skills;",
     "5. current `discern patterns --json` evidence;",
-    "6. founder account and approved user anecdotes.",
+    "6. dated public qualitative corpora and their recorded limits;",
+    "7. founder account and approved user anecdotes.",
     "",
     "The product glossary defines each product term once and prohibits synonyms in product prose. The brand operating system may vary human language while preserving those meanings.",
     "",

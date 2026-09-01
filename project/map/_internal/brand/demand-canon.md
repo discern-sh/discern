@@ -4,12 +4,12 @@
 
 _discern's internal account of the demand its benefits answer. It is the market-side counterpart of the [Human Benefit Canon](../feature-canon-human-benefits.md): where a benefit reasons forward from product facts to human value, a demand entry reasons backward from a struggling moment somebody is hypothesized to be in. Demand claims are empirical, so every entry carries dated evidence in the market classes of the [`claims-and-evidence.md`](claims-and-evidence.md) ledger, and nothing here is stronger than its class. The [`audiences.md`](../../_private/brand/audiences.md) document holds the by-person account of the same ground._
 
-8 territories · 39 entries · 43 of 45 benefits answered · 2 supply-push records · 1 recorded gap · evidence: hypothesis 39.
+8 territories · 39 entries · 43 of 45 benefits answered · 2 supply-push records · 1 recorded gap · evidence: corroborated 7 · hypothesis 32.
 
 ## How to use this canon
 
 - Read a territory's tension first; its entries are the specific, recurring forms of it. An entry names the benefits that answer the struggle — the mechanism account stays in the Human Benefit Canon.
-- Trust an entry no further than its evidence class. Demand evidence uses the claims ledger's market classes only — observational, anecdotal, hypothesis; structural and demonstrated describe the product and can never describe the market. An entry is promoted by attaching stronger evidence; rewording changes nothing.
+- Trust an entry no further than its evidence class. Demand evidence uses the claims ledger's market classes only — corroborated, observational, anecdotal, hypothesis; structural and demonstrated describe the product and can never describe the market. An entry is promoted by attaching stronger evidence; rewording changes nothing.
 - Forces name what the moment does to the person: push drives them to seek help, pull attracts them to a new practice, anxiety makes them hesitate over it, and habit holds them to the current way. Anxiety and habit entries are the objections public copy must answer.
 - A benefit no entry answers is recorded as a supply-push bet, neither deleted nor assumed wanted. An entry no benefit answers is a recorded gap, kept visible as roadmap signal and left out of public copy.
 - Dates mark the moment the evidence was recorded. Treat an old hypothesis as expired until it is re-confirmed or promoted.
@@ -43,14 +43,14 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Tension:** Coding agents multiplied the execution available to one person, and the coordination they require has landed on that person: scheduling tasks, preparing workspaces, relaying status, and holding every thread of unfinished work.
 - **Heard as:** “run multiple coding agents at once” · “two agent sessions overwrote each other” · “git worktrees for agent sessions” · “resume an agent task from yesterday”
 
-### More viable tasks than one person can hand out
+### More work than one person can shape and review
 
-- **Situation:** The backlog holds more agent-sized work than the person can brief, so tasks wait in line behind their own explanations and delegation stalls at the cost of writing each handoff well.
-- **Today's alternative:** Run one session at a time, improvise the brief in chat, and keep the rest of the backlog in their head until the current task lands.
-- **Cost:** Backlog items sit idle while execution capacity goes unused, and each casual brief produces rework when required context stays unresolved.
+- **Situation:** Agent execution expands faster than the person can shape tasks, resolve dependencies, and review what returns, so extra sessions queue behind those human decisions.
+- **Today's alternative:** Cap work at one or two concurrent sessions, or accept shallow briefs and a growing review queue.
+- **Cost:** Available implementation capacity goes unused, or produces more output than the person can safely integrate.
 - **Forces:** push
 - **Segments:** experienced engineers, new consequential builders
-- **Evidence:** hypothesis — Transposed from the positioning document's human-tension account; not yet tested outside this repository. (recorded 2026-08-17)
+- **Evidence:** corroborated — An artifact-backed founder account and independent public accounts describe planning, review, status, or coordination becoming limiting work as concurrent agent activity rises. (recorded 2026-09-01) Corpus: Reddit: [Experienced developers discuss multi-agent limits](https://www.reddit.com/r/ExperiencedDevs/comments/1ten4yg/how_do_you_cope_with_multi_agent_workflows/); Reddit: [Codex users discuss handoffs between agents](https://www.reddit.com/r/codex/comments/1v852jd/how_do_you_guys_handoff_work_between_agents/); Independent blog: [STATUS.md for multi-agent work](https://igortkanov.com/status-md-for-multi-agent-work/); Cursor: [Scaling long-running autonomous coding](https://cursor.com/blog/scaling-agents). Limits: The corpus does not establish a universal concurrency ceiling; tightly scoped independent work and additional orchestration can scale further.
 - **Answered by:** Turn a large objective into work agents can carry.
 
 ### Two sessions, one checkout
@@ -70,7 +70,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Cost:** The person cannot leave the desk while dependent work is moving, and a missed relay leaves the downstream task stalled until somebody notices.
 - **Forces:** push
 - **Segments:** experienced engineers
-- **Evidence:** hypothesis — Transposed from the positioning document's human-tension account; not yet tested outside this repository. (recorded 2026-08-17)
+- **Evidence:** corroborated — An artifact-backed founder account and independent public accounts describe planning, review, status, or coordination becoming limiting work as concurrent agent activity rises. (recorded 2026-09-01) Corpus: Reddit: [Experienced developers discuss multi-agent limits](https://www.reddit.com/r/ExperiencedDevs/comments/1ten4yg/how_do_you_cope_with_multi_agent_workflows/); Reddit: [Codex users discuss handoffs between agents](https://www.reddit.com/r/codex/comments/1v852jd/how_do_you_guys_handoff_work_between_agents/); Independent blog: [STATUS.md for multi-agent work](https://igortkanov.com/status-md-for-multi-agent-work/); Cursor: [Scaling long-running autonomous coding](https://cursor.com/blog/scaling-agents). Limits: The corpus does not establish a universal concurrency ceiling; tightly scoped independent work and additional orchestration can scale further.
 - **Answered by:** Stop playing messenger between your agents · Start the next task before the last one lands.
 
 ### Coming back cold to a half-finished task
@@ -106,7 +106,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Cost:** Every delegated task carries a fixed verification toll paid by the person, which caps how many tasks a day they can accept.
 - **Forces:** push
 - **Segments:** experienced engineers
-- **Evidence:** hypothesis — Transposed from the audiences document's desired-progress and objections accounts; not yet tested outside this repository. (recorded 2026-08-17)
+- **Evidence:** corroborated — An artifact-backed founder account and independent public reports distinguish an agent's completion statement from durable evidence that the relevant checks ran. (recorded 2026-09-01) Corpus: GitHub: [Claude Code declared work verified without the canonical build](https://github.com/anthropics/claude-code/issues/63861); GitHub: [Codex weakened tests and reported validation as complete](https://github.com/openai/codex/issues/24922); Reddit: [Passing Playwright tests patched the application under test](https://www.reddit.com/r/ClaudeCode/comments/1rug14a/claude_wrote_playwright_tests_that_secretly/); GitHub: [A task reported command success without observable execution](https://github.com/openai/codex/issues/34152). Limits: The corpus does not establish a failure rate or show that every completion statement is unreliable, and a passing check cannot establish behavior outside its declared scope.
 - **Answered by:** Review less, knowing what already passed.
 
 ### Opening every session to reconstruct status
@@ -116,7 +116,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Cost:** Returning to the desk begins with reconstructing state before any decision can be made, and a stalled session can wait hours before anyone notices.
 - **Forces:** push
 - **Segments:** experienced engineers, new consequential builders
-- **Evidence:** hypothesis — Transposed from the positioning document's human-tension account; not yet tested outside this repository. (recorded 2026-08-17)
+- **Evidence:** corroborated — An artifact-backed founder account and independent public accounts describe planning, review, status, or coordination becoming limiting work as concurrent agent activity rises. (recorded 2026-09-01) Corpus: Reddit: [Experienced developers discuss multi-agent limits](https://www.reddit.com/r/ExperiencedDevs/comments/1ten4yg/how_do_you_cope_with_multi_agent_workflows/); Reddit: [Codex users discuss handoffs between agents](https://www.reddit.com/r/codex/comments/1v852jd/how_do_you_guys_handoff_work_between_agents/); Independent blog: [STATUS.md for multi-agent work](https://igortkanov.com/status-md-for-multi-agent-work/); Cursor: [Scaling long-running autonomous coding](https://cursor.com/blog/scaling-agents). Limits: The corpus does not establish a universal concurrency ceiling; tightly scoped independent work and additional orchestration can scale further.
 - **Answered by:** See which tasks need a decision.
 
 ### Watching a run that was doomed at the first minute
@@ -162,7 +162,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Cost:** Reconstructing readiness consumes the time delegation was meant to return, and every task comes back with the same uncertainty.
 - **Forces:** push, anxiety
 - **Segments:** experienced engineers, new consequential builders
-- **Evidence:** hypothesis — A recurring theme in public discussion of agent-assisted development; no attributed instances collected yet. (recorded 2026-08-17)
+- **Evidence:** corroborated — An artifact-backed founder account and independent public reports distinguish an agent's completion statement from durable evidence that the relevant checks ran. (recorded 2026-09-01) Corpus: GitHub: [Claude Code declared work verified without the canonical build](https://github.com/anthropics/claude-code/issues/63861); GitHub: [Codex weakened tests and reported validation as complete](https://github.com/openai/codex/issues/24922); Reddit: [Passing Playwright tests patched the application under test](https://www.reddit.com/r/ClaudeCode/comments/1rug14a/claude_wrote_playwright_tests_that_secretly/); GitHub: [A task reported command success without observable execution](https://github.com/openai/codex/issues/34152). Limits: The corpus does not establish a failure rate or show that every completion statement is unreliable, and a passing check cannot establish behavior outside its declared scope.
 - **Answered by:** Know when the project's own checks have passed · Get proof of what passed, tied to the commit it passed on.
 
 ### No record of what was verified for this commit
@@ -284,7 +284,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 - **Cost:** A recurring toll of explanation and correction on every task, multiplied by every provider in use.
 - **Forces:** push
 - **Segments:** experienced engineers, new consequential builders
-- **Evidence:** hypothesis — A recurring theme in public discussion of agent-assisted development; no attributed instances collected yet. (recorded 2026-08-17)
+- **Evidence:** corroborated — An artifact-backed founder account and independent public accounts describe session or provider context failing to carry forward automatically and requiring project-owned memory. (recorded 2026-09-01) Corpus: GitHub: [Claude Code memory and conversation history lost between sessions](https://github.com/anthropics/claude-code/issues/38459); GitHub: [Codex auto-compaction discarded conversation history](https://github.com/openai/codex/issues/36642); Reddit: [Handling context loss between Claude Code sessions](https://www.reddit.com/r/ClaudeCode/comments/1qn5tfc/how_do_you_handle_context_loss_between_claude/); GitHub: [AGENTS.md proposed as a source for Claude and Codex](https://github.com/collaborationwithothers/mcp-platform-azure/issues/46). Limits: The corpus does not show that every project starts cold; repository-owned instructions can remove much of the problem, and hidden conversational state or proprietary features remain non-portable.
 - **Answered by:** Teach the project once.
 
 ### No durable account of the project's working model
@@ -401,12 +401,12 @@ Every territory below is a recurring form of that tension. Where the tension is 
 
 ### Switching agents means re-teaching everything
 
-- **Situation:** A better or cheaper model ships, but the accumulated instructions, working methods, and quality rules are written in the current provider's format, so switching means rebuilding them.
-- **Today's alternative:** Maintain parallel instruction files per provider by hand, or stay put and absorb the worse deal.
-- **Cost:** Provider choice is driven by sunk investment rather than current merit, and every duplicated file drifts.
+- **Situation:** A different coding agent becomes the better fit — or the current one becomes unavailable — but project knowledge and working conventions live in provider-specific surfaces the next agent does not automatically load.
+- **Today's alternative:** Maintain parallel instruction files by hand and reconstruct the private session memory whenever the provider changes.
+- **Cost:** Changing tools carries a continuity penalty, and every duplicated instruction file can drift.
 - **Forces:** push, habit
 - **Segments:** experienced engineers, new consequential builders
-- **Evidence:** hypothesis — Transposed from the audiences document's desired-progress and objections accounts; not yet tested outside this repository. (recorded 2026-08-17)
+- **Evidence:** corroborated — An artifact-backed founder account and independent public accounts describe session or provider context failing to carry forward automatically and requiring project-owned memory. (recorded 2026-09-01) Corpus: GitHub: [Claude Code memory and conversation history lost between sessions](https://github.com/anthropics/claude-code/issues/38459); GitHub: [Codex auto-compaction discarded conversation history](https://github.com/openai/codex/issues/36642); Reddit: [Handling context loss between Claude Code sessions](https://www.reddit.com/r/ClaudeCode/comments/1qn5tfc/how_do_you_handle_context_loss_between_claude/); GitHub: [AGENTS.md proposed as a source for Claude and Codex](https://github.com/collaborationwithothers/mcp-platform-azure/issues/46). Limits: The corpus does not show that every project starts cold; repository-owned instructions can remove much of the problem, and hidden conversational state or proprietary features remain non-portable.
 - **Answered by:** Switch coding agents without re-teaching the project.
 
 ### A different way of working per repository

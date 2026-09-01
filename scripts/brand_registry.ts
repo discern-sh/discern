@@ -170,7 +170,7 @@ export const BRAND_DOCUMENTS = [
     file: "claims-residue.md",
     status: "Operational",
     job:
-      "Receives the private residue carved out of `claims-and-evidence.md`: the dated internal evidence snapshot, the anecdote ledger, and the claims requiring future validation.",
+      "Holds the private evidence behind the claims system: dated internal snapshots, demand-evidence sweeps, the anecdote ledger, and claims requiring future validation.",
     mode: { kind: "authored", privateOverlay: true },
   },
   {

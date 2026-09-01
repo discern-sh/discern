@@ -170,6 +170,34 @@ Deno.test("demand evidence is dated, sourced, and confined to the ledger's marke
         ISO_DATE.test(row.date) && !Number.isNaN(Date.parse(row.date)),
         `evidence date is not a valid YYYY-MM-DD date for: ${entry.id}`,
       );
+      if (row.class !== "corroborated") continue;
+      assert(
+        row.publicSources.length >= 3,
+        `corroborated evidence needs at least three public accounts: ${entry.id}`,
+      );
+      assert(
+        new Set(row.publicSources.map((source) => source.url)).size ===
+          row.publicSources.length,
+        `corroborated evidence repeats a public source: ${entry.id}`,
+      );
+      assert(
+        new Set(row.publicSources.map((source) => source.venue)).size >= 2,
+        `corroborated evidence needs at least two venues: ${entry.id}`,
+      );
+      for (const source of row.publicSources) {
+        assert(
+          source.venue.trim().length > 0 && source.title.trim().length > 0,
+          `corroborated evidence has an unlabeled public source: ${entry.id}`,
+        );
+        assert(
+          source.url.startsWith("https://"),
+          `corroborated evidence source is not HTTPS: ${entry.id}`,
+        );
+      }
+      assert(
+        SENTENCE.test(row.limits.trim()),
+        `corroborated evidence limits are not a complete sentence: ${entry.id}`,
+      );
     }
   }
 });

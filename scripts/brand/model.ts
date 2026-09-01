@@ -20,6 +20,7 @@ export type Register = (typeof REGISTERS)[number];
 export const EVIDENCE_CLASS_NAMES = [
   "structural",
   "demonstrated",
+  "corroborated",
   "observational",
   "anecdotal",
   "hypothesis",
