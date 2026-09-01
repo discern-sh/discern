@@ -136,7 +136,7 @@ Do not combine several patterns because each contains a good line.
 ### Requirements
 
 - Name a concrete ambition (a project, a backlog, a second workstream); abstract boldness says nothing.
-- The engineer hears leverage and the new builder hears access; keep the headline open to both readings.
+- The engineer hears reach and the new builder hears access; keep the headline open to both readings.
 - Show the boundary that makes the expansion possible in the same viewport.
 - Celebrate what the person can now attempt; code volume is no achievement.
 

@@ -88,7 +88,8 @@ export const COPY_PATTERNS = [
   {
     id: "ambition-led-hero",
     title: "Ambition-led hero",
-    useWhen: `- the page needs launch energy and personal reach is the strongest entry point;
+    useWhen:
+      `- the page needs launch energy and personal reach is the strongest entry point;
 - the reader's ambition already outruns what one person can carry alone;
 - the audience should feel expanded rather than replaced.`,
     structure: `<Audience signature or short recognition line>
@@ -117,7 +118,7 @@ export const COPY_PATTERNS = [
     ],
     requirements: [
       "Name a concrete ambition (a project, a backlog, a second workstream); abstract boldness says nothing.",
-      "The engineer hears leverage and the new builder hears access; keep the headline open to both readings.",
+      "The engineer hears reach and the new builder hears access; keep the headline open to both readings.",
       "Show the boundary that makes the expansion possible in the same viewport.",
       "Celebrate what the person can now attempt; code volume is no achievement.",
     ],
