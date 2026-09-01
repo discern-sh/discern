@@ -29,7 +29,7 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const DESIGN_SYSTEM_VERSION = "0.28.0";
+const DESIGN_SYSTEM_VERSION = "0.29.0";
 const DESIGN_SYSTEM_SPECIFIER =
   `jsr:@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}`;
 
