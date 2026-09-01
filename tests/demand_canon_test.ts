@@ -21,8 +21,10 @@ import {
   DEMAND_CANON,
   DEMAND_CANON_SITUATION,
   DEMAND_CANON_TENSION,
+  DEMAND_CORPORA,
   DEMAND_EVIDENCE_CLASS_NAMES,
   type DemandAnswer,
+  type DemandCorpus,
   SUPPLY_PUSH_RECORDS,
 } from "../scripts/brand/demand.ts";
 import { EVIDENCE_CLASS_NAMES } from "../scripts/brand/model.ts";
@@ -172,31 +174,75 @@ Deno.test("demand evidence is dated, sourced, and confined to the ledger's marke
       );
       if (row.class !== "corroborated") continue;
       assert(
-        row.publicSources.length >= 3,
-        `corroborated evidence needs at least three public accounts: ${entry.id}`,
+        row.corpus in DEMAND_CORPORA,
+        `corroborated evidence cites an unrecorded corpus: ${entry.id}`,
+      );
+    }
+  }
+});
+
+Deno.test("every recorded corpus is public, independent, bounded, and cited", () => {
+  const cited = new Set<string>(
+    allDemandEntries().flatMap(({ entry }) =>
+      entry.evidence.flatMap((row) =>
+        row.class === "corroborated" ? [row.corpus] : []
+      )
+    ),
+  );
+  for (const [id, corpus] of Object.entries<DemandCorpus>(DEMAND_CORPORA)) {
+    assert(KEBAB.test(id), `corpus id is not kebab-case: ${id}`);
+    assert(cited.has(id), `corpus reaches no demand entry: ${id}`);
+    assert(
+      SENTENCE.test(corpus.pattern.trim()),
+      `corpus pattern is not a complete sentence: ${id}`,
+    );
+    assert(
+      corpus.sources.length >= 3,
+      `corpus needs at least three public accounts: ${id}`,
+    );
+    assert(
+      new Set(corpus.sources.map((source) => source.url)).size ===
+        corpus.sources.length,
+      `corpus repeats a public source: ${id}`,
+    );
+    assert(
+      new Set(corpus.sources.map((source) => source.venue)).size >= 2,
+      `corpus needs at least two venues: ${id}`,
+    );
+    for (const source of corpus.sources) {
+      assert(
+        source.venue.trim().length > 0 && source.title.trim().length > 0,
+        `corpus has an unlabeled public source: ${id}`,
       );
       assert(
-        new Set(row.publicSources.map((source) => source.url)).size ===
-          row.publicSources.length,
-        `corroborated evidence repeats a public source: ${entry.id}`,
+        source.url.startsWith("https://"),
+        `corpus source is not HTTPS: ${id}`,
       );
-      assert(
-        new Set(row.publicSources.map((source) => source.venue)).size >= 2,
-        `corroborated evidence needs at least two venues: ${entry.id}`,
-      );
-      for (const source of row.publicSources) {
-        assert(
-          source.venue.trim().length > 0 && source.title.trim().length > 0,
-          `corroborated evidence has an unlabeled public source: ${entry.id}`,
-        );
-        assert(
-          source.url.startsWith("https://"),
-          `corroborated evidence source is not HTTPS: ${entry.id}`,
-        );
-      }
-      assert(
-        SENTENCE.test(row.limits.trim()),
-        `corroborated evidence limits are not a complete sentence: ${entry.id}`,
+    }
+    assert(
+      SENTENCE.test(corpus.limits.trim()),
+      `corpus limits are not a complete sentence: ${id}`,
+    );
+  }
+});
+
+Deno.test("the rendered page holds each corpus once and links every corroborated row to it", () => {
+  const doc = renderBrandDoc("demand-canon");
+  assertStringIncludes(doc, "## Corpora");
+  for (const id of Object.keys(DEMAND_CORPORA)) {
+    assertEquals(
+      doc.split(`### \`${id}\``).length - 1,
+      1,
+      `corpus rendered other than once: ${id}`,
+    );
+  }
+  for (const { entry } of allDemandEntries()) {
+    for (const row of entry.evidence) {
+      if (row.class !== "corroborated") continue;
+      assertStringIncludes(
+        doc,
+        `[\`${row.corpus}\`](#${row.corpus})`,
+        `corroborated row does not link its corpus: ${entry.id}`,
       );
     }
   }

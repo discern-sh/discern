@@ -56,7 +56,7 @@ export type DemandForce = (typeof DEMAND_FORCES)[number];
  * do not struggle, so the coding-agent audience carries no demand entries. */
 export type DemandSegment = HumanBenefitAudience;
 
-/** One public item in a corroborated qualitative corpus. */
+/** One public item in a recorded corpus. */
 export interface DemandPublicSource {
   /** The publishing venue; the corpus guard rejects a one-community set. */
   readonly venue: string;
@@ -66,6 +66,27 @@ export interface DemandPublicSource {
   readonly url: string;
 }
 
+/**
+ * A recorded public corpus: several independent accounts of one bounded
+ * pattern, and what they do not establish. A corpus is recorded once in
+ * `DEMAND_CORPORA` and cited by id from every entry it reaches, so the page
+ * renders it once and reuse across entries stays one observation rather
+ * than several (ADR 0362).
+ */
+export interface DemandCorpus {
+  /** The bounded pattern the accounts share — a complete sentence. */
+  readonly pattern: string;
+  /** At least three distinct accounts, spanning at least two venues. */
+  readonly sources: readonly [
+    DemandPublicSource,
+    DemandPublicSource,
+    DemandPublicSource,
+    ...DemandPublicSource[],
+  ];
+  /** What this qualitative corpus does not establish — a complete sentence. */
+  readonly limits: string;
+}
+
 interface DemandEvidenceBase {
   /** Where the belief comes from, stated honestly — a complete sentence. */
   readonly source: string;
@@ -73,25 +94,17 @@ interface DemandEvidenceBase {
   readonly date: string;
 }
 
-/** A corpus-backed market pattern, with its public-use boundary attached. */
+/** A market pattern reached by a recorded public corpus. */
 export interface CorroboratedDemandEvidence extends DemandEvidenceBase {
   readonly class: "corroborated";
-  /** At least three distinct accounts, spanning at least two venues. */
-  readonly publicSources: readonly [
-    DemandPublicSource,
-    DemandPublicSource,
-    DemandPublicSource,
-    ...DemandPublicSource[],
-  ];
-  /** What this qualitative corpus does not establish. */
-  readonly limits: string;
+  /** The corpus that reaches this entry, by id. */
+  readonly corpus: DemandCorpusId;
 }
 
 /** Internal observation, a permitted anecdote, or an untested hypothesis. */
 export interface NonCorroboratedDemandEvidence extends DemandEvidenceBase {
   readonly class: Exclude<DemandEvidenceClass, "corroborated">;
-  readonly publicSources?: never;
-  readonly limits?: never;
+  readonly corpus?: never;
 }
 
 /** One dated piece of evidence behind a demand entry. */
@@ -178,103 +191,132 @@ const FROM_DISCOURSE: DemandEvidence = {
   date: RECORDED,
 };
 
+/**
+ * The recorded public corpora, each named once and cited by id from the
+ * evidence rows below. The guard holds every corpus to at least three
+ * distinct accounts across at least two venues and rejects a corpus no
+ * entry cites.
+ */
+export const DEMAND_CORPORA = {
+  "operating-layer": {
+    pattern:
+      "Planning, review, status, and coordination become limiting work as concurrent agent activity rises.",
+    sources: [
+      {
+        venue: "Reddit",
+        title: "Experienced developers discuss multi-agent limits",
+        url:
+          "https://www.reddit.com/r/ExperiencedDevs/comments/1ten4yg/how_do_you_cope_with_multi_agent_workflows/",
+      },
+      {
+        venue: "Reddit",
+        title: "Codex users discuss handoffs between agents",
+        url:
+          "https://www.reddit.com/r/codex/comments/1v852jd/how_do_you_guys_handoff_work_between_agents/",
+      },
+      {
+        venue: "Independent blog",
+        title: "STATUS.md for multi-agent work",
+        url: "https://igortkanov.com/status-md-for-multi-agent-work/",
+      },
+      {
+        venue: "Cursor",
+        title: "Scaling long-running autonomous coding",
+        url: "https://cursor.com/blog/scaling-agents",
+      },
+    ],
+    limits:
+      "The corpus does not establish a universal concurrency ceiling; tightly scoped independent work and additional orchestration can scale further.",
+  },
+  readiness: {
+    pattern:
+      "An agent's completion statement is distinct from durable evidence that the relevant checks ran on the exact change.",
+    sources: [
+      {
+        venue: "GitHub",
+        title: "Claude Code declared work verified without the canonical build",
+        url: "https://github.com/anthropics/claude-code/issues/63861",
+      },
+      {
+        venue: "GitHub",
+        title: "Codex weakened tests and reported validation as complete",
+        url: "https://github.com/openai/codex/issues/24922",
+      },
+      {
+        venue: "Reddit",
+        title: "Passing Playwright tests patched the application under test",
+        url:
+          "https://www.reddit.com/r/ClaudeCode/comments/1rug14a/claude_wrote_playwright_tests_that_secretly/",
+      },
+      {
+        venue: "GitHub",
+        title: "A task reported command success without observable execution",
+        url: "https://github.com/openai/codex/issues/34152",
+      },
+    ],
+    limits:
+      "The corpus does not establish a failure rate or show that every completion statement is unreliable, and a passing check cannot establish behavior outside its declared scope.",
+  },
+  "project-memory": {
+    pattern:
+      "Session and provider context fails to carry forward automatically, so project knowledge has to live in project-owned sources.",
+    sources: [
+      {
+        venue: "GitHub",
+        title:
+          "Claude Code memory and conversation history lost between sessions",
+        url: "https://github.com/anthropics/claude-code/issues/38459",
+      },
+      {
+        venue: "GitHub",
+        title: "Codex auto-compaction discarded conversation history",
+        url: "https://github.com/openai/codex/issues/36642",
+      },
+      {
+        venue: "Reddit",
+        title: "Handling context loss between Claude Code sessions",
+        url:
+          "https://www.reddit.com/r/ClaudeCode/comments/1qn5tfc/how_do_you_handle_context_loss_between_claude/",
+      },
+      {
+        venue: "GitHub",
+        title: "AGENTS.md proposed as a source for Claude and Codex",
+        url:
+          "https://github.com/collaborationwithothers/mcp-platform-azure/issues/46",
+      },
+    ],
+    limits:
+      "The corpus does not show that every project starts cold; repository-owned instructions can remove much of the problem, and hidden conversational state or proprietary features remain non-portable.",
+  },
+} as const satisfies Record<string, DemandCorpus>;
+
+/** A recorded corpus id. */
+export type DemandCorpusId = keyof typeof DEMAND_CORPORA;
+
+const SWEPT = "2026-09-01";
+
 const OPERATING_LAYER_CORROBORATION: DemandEvidence = {
   class: "corroborated",
   source:
-    "An artifact-backed founder account and independent public accounts describe planning, review, status, or coordination becoming limiting work as concurrent agent activity rises.",
-  date: "2026-09-01",
-  publicSources: [
-    {
-      venue: "Reddit",
-      title: "Experienced developers discuss multi-agent limits",
-      url:
-        "https://www.reddit.com/r/ExperiencedDevs/comments/1ten4yg/how_do_you_cope_with_multi_agent_workflows/",
-    },
-    {
-      venue: "Reddit",
-      title: "Codex users discuss handoffs between agents",
-      url:
-        "https://www.reddit.com/r/codex/comments/1v852jd/how_do_you_guys_handoff_work_between_agents/",
-    },
-    {
-      venue: "Independent blog",
-      title: "STATUS.md for multi-agent work",
-      url: "https://igortkanov.com/status-md-for-multi-agent-work/",
-    },
-    {
-      venue: "Cursor",
-      title: "Scaling long-running autonomous coding",
-      url: "https://cursor.com/blog/scaling-agents",
-    },
-  ],
-  limits:
-    "The corpus does not establish a universal concurrency ceiling; tightly scoped independent work and additional orchestration can scale further.",
+    "This is the founder's own experience of building discern, and independent public accounts describe the same thing: planning, review, and status become the limiting work as more agents run at once.",
+  date: SWEPT,
+  corpus: "operating-layer",
 };
 
 const READINESS_CORROBORATION: DemandEvidence = {
   class: "corroborated",
   source:
-    "An artifact-backed founder account and independent public reports distinguish an agent's completion statement from durable evidence that the relevant checks ran.",
-  date: "2026-09-01",
-  publicSources: [
-    {
-      venue: "GitHub",
-      title: "Claude Code declared work verified without the canonical build",
-      url: "https://github.com/anthropics/claude-code/issues/63861",
-    },
-    {
-      venue: "GitHub",
-      title: "Codex weakened tests and reported validation as complete",
-      url: "https://github.com/openai/codex/issues/24922",
-    },
-    {
-      venue: "Reddit",
-      title: "Passing Playwright tests patched the application under test",
-      url:
-        "https://www.reddit.com/r/ClaudeCode/comments/1rug14a/claude_wrote_playwright_tests_that_secretly/",
-    },
-    {
-      venue: "GitHub",
-      title: "A task reported command success without observable execution",
-      url: "https://github.com/openai/codex/issues/34152",
-    },
-  ],
-  limits:
-    "The corpus does not establish a failure rate or show that every completion statement is unreliable, and a passing check cannot establish behavior outside its declared scope.",
+    "This is the founder's own experience of building a visionOS app with agents, and public issue reports separate an agent's completion message from evidence that the checks ran.",
+  date: SWEPT,
+  corpus: "readiness",
 };
 
 const PROJECT_MEMORY_CORROBORATION: DemandEvidence = {
   class: "corroborated",
   source:
-    "An artifact-backed founder account and independent public accounts describe session or provider context failing to carry forward automatically and requiring project-owned memory.",
-  date: "2026-09-01",
-  publicSources: [
-    {
-      venue: "GitHub",
-      title:
-        "Claude Code memory and conversation history lost between sessions",
-      url: "https://github.com/anthropics/claude-code/issues/38459",
-    },
-    {
-      venue: "GitHub",
-      title: "Codex auto-compaction discarded conversation history",
-      url: "https://github.com/openai/codex/issues/36642",
-    },
-    {
-      venue: "Reddit",
-      title: "Handling context loss between Claude Code sessions",
-      url:
-        "https://www.reddit.com/r/ClaudeCode/comments/1qn5tfc/how_do_you_handle_context_loss_between_claude/",
-    },
-    {
-      venue: "GitHub",
-      title: "AGENTS.md proposed as a source for Claude and Codex",
-      url:
-        "https://github.com/collaborationwithothers/mcp-platform-azure/issues/46",
-    },
-  ],
-  limits:
-    "The corpus does not show that every project starts cold; repository-owned instructions can remove much of the problem, and hidden conversational state or proprietary features remain non-portable.",
+    "This is the founder's own experience of moving a project between coding agents, and public reports describe session and provider context failing to carry forward.",
+  date: SWEPT,
+  corpus: "project-memory",
 };
 
 /**
@@ -1030,10 +1072,7 @@ function renderEvidence(evidence: readonly DemandEvidence[]): string {
     .map((row) => {
       const summary = `${row.class} — ${row.source} (recorded ${row.date})`;
       if (row.class !== "corroborated") return summary;
-      const corpus = row.publicSources.map((source) =>
-        `${source.venue}: [${source.title}](${source.url})`
-      ).join("; ");
-      return `${summary} Corpus: ${corpus}. Limits: ${row.limits}`;
+      return `${summary} · corpus [\`${row.corpus}\`](#${row.corpus})`;
     })
     .join("; ");
 }
@@ -1075,6 +1114,7 @@ export function renderDemandCanonDoc(): string {
     .join(" · ");
   const counted = (count: number, singular: string): string =>
     `${count} ${singular}${count === 1 ? "" : "s"}`;
+  const corpusCount = Object.keys(DEMAND_CORPORA).length;
   const lines: string[] = [
     "# Demand canon",
     "",
@@ -1082,12 +1122,14 @@ export function renderDemandCanonDoc(): string {
     "",
     `${DEMAND_CANON.length} territories · ${flattened.length} entries · ${answered.size} of ${benefitCount} benefits answered · ${
       counted(Object.keys(SUPPLY_PUSH_RECORDS).length, "supply-push record")
-    } · ${counted(gaps.length, "recorded gap")} · evidence: ${classBreakdown}.`,
+    } · ${counted(gaps.length, "recorded gap")} · ${corpusCount} ${
+      corpusCount === 1 ? "corpus" : "corpora"
+    } · evidence: ${classBreakdown}.`,
     "",
     "## How to use this canon",
     "",
     "- Read a territory's tension first; its entries are the specific, recurring forms of it. An entry names the benefits that answer the struggle — the mechanism account stays in the Human Benefit Canon.",
-    "- Trust an entry no further than its evidence class. Demand evidence uses the claims ledger's market classes only — corroborated, observational, anecdotal, hypothesis; structural and demonstrated describe the product and can never describe the market. An entry is promoted by attaching stronger evidence; rewording changes nothing.",
+    "- Trust an entry no further than its evidence class. Demand evidence uses the claims ledger's market classes only — corroborated, observational, anecdotal, hypothesis; structural and demonstrated describe the product and can never describe the market. An entry is promoted by attaching stronger evidence; rewording changes nothing. A corroborated entry cites a recorded corpus, and the Corpora section holds each corpus and its limits once.",
     "- Forces name what the moment does to the person: push drives them to seek help, pull attracts them to a new practice, anxiety makes them hesitate over it, and habit holds them to the current way. Anxiety and habit entries are the objections public copy must answer.",
     "- A benefit no entry answers is recorded as a supply-push bet, neither deleted nor assumed wanted. An entry no benefit answers is a recorded gap, kept visible as roadmap signal and left out of public copy.",
     "- Dates mark the moment the evidence was recorded. Treat an old hypothesis as expired until it is re-confirmed or promoted.",
@@ -1174,6 +1216,26 @@ export function renderDemandCanonDoc(): string {
         "",
       );
     }
+  }
+  lines.push(
+    "## Corpora",
+    "",
+    "A corpus is several independent public accounts of one bounded pattern, recorded once and cited by id from every entry it reaches. It supports recognition language for the entry's segments; its limits say what it cannot support. A corpus cited by several entries counts as one observation.",
+    "",
+  );
+  for (const [id, corpus] of Object.entries<DemandCorpus>(DEMAND_CORPORA)) {
+    lines.push(
+      `### \`${id}\``,
+      "",
+      `**Pattern:** ${corpus.pattern}`,
+      "",
+      ...corpus.sources.map((source) =>
+        `- ${source.venue}: [${source.title}](${source.url})`
+      ),
+      "",
+      `**Limits:** ${corpus.limits}`,
+      "",
+    );
   }
   lines.push(
     "## Coverage and traceability",
