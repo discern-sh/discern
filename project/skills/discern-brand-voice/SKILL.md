@@ -231,13 +231,20 @@ Read important copy aloud. Remove phrases that feel engineered for symmetry rath
 
 Use the territory that fits the surface.
 
+### The category contrast
+
+- An engineering practice for agent-built software.
+- The labs are making agents better. discern makes your project a better place for them to work.
+
+Tone: assured, category-defining, plain.
+
 ### Ambition
 
-- A bolder way to build.
-- Build further.
-- A bigger way to build. — only with nearby clarification.
+- Take the project further than one pair of hands.
+- Start the project that used to be too big for one person.
+- Turn a standing backlog into work in flight.
 
-Tone: expansive, optimistic, lightly audacious.
+Tone: expansive, optimistic, lightly audacious. Ambition names something concrete; abstract boldness says nothing.
 
 ### Earned confidence
 
@@ -252,15 +259,23 @@ Tone: assured, personal, quietly proud.
 - When the prototype becomes the product.
 - When people start depending on it.
 - When the side project gets real.
+- The MVP took a weekend. Now you've got real users depending on it.
 
 Tone: celebratory and forward-looking. Do not suggest the reader has been irresponsible until now.
 
-### Meaningful attention
+### Finished work
 
-- Spend your attention where your judgment matters most.
-- Come back to work that is ready for a decision.
+- The work comes back finished. What's left is the part only you can do.
+- Give the agent the work; you set direction and make the calls.
 
 Tone: calm, spacious, liberating.
+
+### The right limits
+
+- The right limits let more work move — and finish.
+- Ready is the Gate's question; shipping is yours.
+
+Tone: confident paradox, grounded in a literal boundary within the same viewport.
 
 ### Agent ergonomics
 
@@ -410,13 +425,13 @@ Why it fails:
 
 ### Human-first hero: stronger
 
-> **A bolder way to build.**\
-> Let coding agents take on substantial work while the project keeps the understanding, conditions, and evidence you need to take it further.
+> **Every session, your agent starts from zero.**\
+> discern is the practice your project keeps: every agent arrives already briefed, every change faces your project's own checks, and you decide what ships.
 
 Why it works:
 
-- begins with ambition;
-- describes a changed experience;
+- opens on a fact the reader already lives with;
+- answers it with the practice in the next breath;
 - leaves room for the product to prove the promise.
 
 ### Generic humanization: reject
@@ -431,7 +446,7 @@ Why it fails:
 
 ### Concrete humanization: stronger
 
-> Turn a backlog into organized work. Let several agents move at once. Return when the decisions need you.
+> Turn a standing backlog into work in flight. Let several agents move at once. The work comes back finished.
 
 ### Fear-led seriousness: reject
 
@@ -481,11 +496,12 @@ Avoid repeated generic labels such as “Explore,” “Discover,” and “Lear
 4. Add a recognizable scenario or artifact.
 5. Introduce the category.
 6. Add only the mechanisms needed to support belief.
-7. Attach claim slugs.
+7. Attach claim slugs, preferring a fact-inventory line from `messaging.md` over a newly invented claim.
 8. Read every claim hostilely and literally: weaken it until it is literally true, or mark it `[claim — verify]`.
 9. Add the honest boundary near the relevant claim.
-10. Read aloud.
-11. Run `copy-review.md`.
+10. Run the line tests in `messaging.md` on every headline candidate.
+11. Read aloud.
+12. Run `copy-review.md`.
 
 ## Mechanics
 
