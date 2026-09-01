@@ -198,7 +198,7 @@ Recommended candidates for later registry-backed generation:
 
 - **Worldview:** software earns seriousness through how it is built.
 - **Audience:** people who take their software seriously.
-- **Energy:** a bolder way to build; build further.
+- **Energy:** the project taken further than one pair of hands; the right limits let more work move.
 - **Human outcome:** ambitious software that holds up and earns confidence.
 - **Category:** an engineering practice for agent-built software, installed into the project.
 - **Relationship:** human judgment, agent capability, and project continuity.

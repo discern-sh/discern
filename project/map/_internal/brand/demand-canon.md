@@ -28,7 +28,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 
 | Territory                                       | Counterpart                        | Tension                                                                                                                                                                                                                                  |
 | ----------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Becoming the operating layer**                | Build further                      | Coding agents multiplied the execution available to one person, and the coordination they require has landed on that person: scheduling tasks, preparing workspaces, relaying status, and holding every thread of unfinished work.       |
+| **Becoming the operating layer**                | Take the project further           | Coding agents multiplied the execution available to one person, and the coordination they require has landed on that person: scheduling tasks, preparing workspaces, relaying status, and holding every thread of unfinished work.       |
 | **Routine coordination crowds out the product** | Spend more time on the product     | As more work moves, routine coordination grows with it: checking status, confirming commands ran, waiting on long runs, and re-establishing project context. The workflow takes attention the person wants to spend on the product.      |
 | **Readiness without durable evidence**          | Know what is ready                 | Finished work arrives through conversation, and the conversation alone cannot distinguish a change that passed every declared check from one that has not been evaluated against them.                                                   |
 | **Re-fixing what was already fixed**            | Keep the gains the project earns   | Improvements do not stay improved: bugs return in new clothes, metrics drift back, migrations stall halfway, and every few months the same cleanup happens again under a new name.                                                       |
@@ -39,7 +39,7 @@ Every territory below is a recurring form of that tension. Where the tension is 
 
 ## Becoming the operating layer
 
-- **Counterpart:** Build further (lead promise)
+- **Counterpart:** Take the project further (lead promise)
 - **Tension:** Coding agents multiplied the execution available to one person, and the coordination they require has landed on that person: scheduling tasks, preparing workspaces, relaying status, and holding every thread of unfinished work.
 - **Heard as:** “run multiple coding agents at once” · “two agent sessions overwrote each other” · “git worktrees for agent sessions” · “resume an agent task from yesterday”
 

@@ -40,7 +40,7 @@ Each effort forks from the trunk into a linked worktree with its own branch, por
 - **Arc:** loop
 - **Upheld:** automated via `start`, `worktree`, `[worktree]`
 - **Mechanisms:** Isolated worktrees · Start · Deterministic identity · Per-worktree resources · The fleet view.
-- **Human value:** Build further.
+- **Human value:** Take the project further.
 - **Agent outcomes:** Own one isolated effort.
 - **Maintains:** its working conditions.
 
@@ -53,7 +53,7 @@ The delegate-work skill turns discussed work into self-contained briefs (a purpo
 - **Arc:** loop
 - **Upheld:** automated via `await` · taught by `discern-delegate-work`, `discern-await-the-fleet`
 - **Mechanisms:** Delegate work · Awaiting a fleet condition · Await the fleet · Composing unlanded work.
-- **Human value:** Build further.
+- **Human value:** Take the project further.
 - **Agent outcomes:** Compose without adopting sibling work.
 - **Maintains:** its working conditions.
 

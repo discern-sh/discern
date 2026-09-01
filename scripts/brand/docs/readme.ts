@@ -157,7 +157,11 @@ export const WORKING_SUMMARY = [
     value: "software earns seriousness through how it is built.",
   },
   { label: "Audience", value: "people who take their software seriously." },
-  { label: "Energy", value: "a bolder way to build; build further." },
+  {
+    label: "Energy",
+    value:
+      "the project taken further than one pair of hands; the right limits let more work move.",
+  },
   {
     label: "Human outcome",
     value: "ambitious software that holds up and earns confidence.",

@@ -2745,7 +2745,7 @@ export const HUMAN_BENEFIT_CANON_COMMERCIAL_VALUE =
 export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
   {
     id: "build-further",
-    title: "Build further",
+    title: "Take the project further",
     role: "lead promise",
     primaryFor: ["experienced engineers", "new consequential builders"],
     promise:

@@ -26,7 +26,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 | Role               | Benefit territory                      | Audience                                          | Commercial value                                                                                                                                                    |
 | ------------------ | -------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| lead promise       | **Build further**                      | experienced engineers, new consequential builders | More of a backlog can progress at once without adding the same amount of scheduling, workspace administration, and message relaying to the human's day.             |
+| lead promise       | **Take the project further**           | experienced engineers, new consequential builders | More of a backlog can progress at once without adding the same amount of scheduling, workspace administration, and message relaying to the human's day.             |
 | conversion benefit | **Spend more time on the product**     | experienced engineers, new consequential builders | Each additional agent task demands less status chasing, check verification, and workspace administration from the person responsible for the project.               |
 | core value         | **Know what is ready**                 | experienced engineers, new consequential builders | The user can make faster, better-informed release decisions because the status of the declared checks and the scope of the evidence are already clear.              |
 | durable value      | **Keep the gains the project earns**   | experienced engineers, new consequential builders | The codebase can become easier to trust and maintain over time because later branches start from retained gains instead of renegotiating them.                      |
@@ -35,7 +35,7 @@ More of the backlog can move at once. The person spends less time running the wo
 | differentiator     | **Change tools without starting over** | experienced engineers, new consequential builders | Provider switching costs fall, subscriptions and capacity become easier to juggle, and investment in instructions and quality remains useful as the market changes. |
 | trust assurance    | **Keep control of the project**        | experienced engineers, new consequential builders | The practice can support serious work without introducing a hosted control plane, another model, or an opaque decision-maker.                                       |
 
-## Build further
+## Take the project further
 
 - **Role:** lead promise
 - **Promise:** discern helps one person direct more substantial agent work while the project carries the coordination required to keep that work separate and moving.

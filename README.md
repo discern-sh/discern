@@ -1,9 +1,9 @@
 # ◮ discern
 
-**Build further.**\
+**For people who take their software seriously.**\
 An engineering practice for agent-built software.
 
-Coding agents can take a project further than one person could build alone. discern installs a serious engineering practice into the repository: shared project understanding, isolated work for every task, deterministic checks, quality measures that retain gains, and evidence for the exact change. The agents do more of the work; you stay responsible for what gets launched.
+Coding agents can take a project further than one person could build alone. discern installs a serious engineering practice into the repository: shared project understanding, isolated work for every task, deterministic checks, Standards that lock in every gain, and evidence for the exact change. The agents do more of the work; you stay responsible for what gets launched.
 
 It is for engineers who already direct more implementation than they can personally read, and for builders whose project has begun to matter: users arriving, data worth protecting, a name on the result.
 
@@ -27,7 +27,7 @@ The agent studies the repository, proposes the checks that will define "done," a
 
 ## What the practice holds
 
-- **Every agent starts with the project already in view.** Write your project instructions once; discern compiles them for every configured provider — Claude Code, Codex, Gemini, Cursor, GitHub Copilot, and any other tool that reads `AGENTS.md`. Change agents without starting the project explanation over.
+- **Every agent arrives already briefed.** Write your project instructions once; discern compiles them for every configured provider — Claude Code, Codex, Gemini, Cursor, GitHub Copilot, and any other tool that reads `AGENTS.md`. Change agents without starting the project explanation over.
 - **Every task gets its own prepared place.** Each change happens in its own Git worktree, with its own branch, identity, environment values, and any resources the project declares. Parallel agents work in separate checkouts and cannot overwrite one another's working tree.
 - **"Done" means your project's own bar was met.** Declare format, lint, typecheck, and test once in `discern.toml`; the Gate runs them against the final tree and reports what they returned.
 - **A measurable gain becomes the new floor.** Standards hold quality numbers (coverage, bundle size, lint counts) at limits that may only improve. When a measure gets better, discern can pin the gain; a branch cannot weaken the limit.
