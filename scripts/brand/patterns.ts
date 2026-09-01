@@ -15,7 +15,7 @@ export const DRAFT_STEPS: readonly string[] = [
   "insert only the proof required for belief;",
   "attach claim slugs;",
   "apply the brand voice skill;",
-  "run the copy review.",
+  "run the line tests in the messaging canon.",
 ];
 
 /** The copy patterns, in document order. */
@@ -544,6 +544,41 @@ Do not compress an entire product page into a social post.`,
       "Both halves must be facts the reader can check; the gap between them is the argument.",
       "Keep the pair free of the “It's not X — it's Y” rhythm tic; two plain sentences carry the contrast.",
       "A demonstration strengthens the pair: the same change with and without discern.",
+    ],
+  },
+  {
+    id: "two-intelligences-handoff",
+    title: "Two kinds of intelligence",
+    useWhen:
+      `- a surface needs to reveal discern's human-agent-project relationship;
+- commissioning, agent ergonomics, delegation, or acceptance needs a human meaning;
+- the project can be shown carrying something real between person and agent.`,
+    structure: `# <The possibility created by two kinds of intelligence>
+
+<The human intent, taste, judgment, or decision entering the work.>
+
+<The coding agent's interpretation, implementation, or operation.>
+
+<The instruction, working condition, state, or evidence the shared project carries between them.>
+
+<A real exchange or artifact, followed by the next human decision.>`,
+    sections: [
+      {
+        heading: "Working example",
+        body: `> ## Two kinds of intelligence. One shared project.
+>
+> You tell the agent what the project should become. It studies what already exists, proposes the practice, and asks for the decisions it cannot infer.
+>
+> The resulting instructions, checks, work, and evidence stay with the project. Future agents inherit them; each completed change returns to you for the decision over what becomes shared.
+>
+> **Watch a project get commissioned**`,
+      },
+    ],
+    requirements: [
+      "Name what human intelligence and machine intelligence each contribute in ordinary language.",
+      "Make the project carry at least one literal thing: an instruction, condition, state, change, or piece of evidence.",
+      "Keep the direction of authority clear without turning the headline into consent language.",
+      "Show one real exchange or artifact; do not leave the relationship as abstract collaboration.",
     ],
   },
 ] as const satisfies readonly CopyPattern[];

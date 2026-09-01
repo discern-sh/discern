@@ -8,7 +8,7 @@
 
 ## One-sentence strategic position
 
-> **discern helps people build ambitious software with coding agents, while giving the project the engineering practice required to earn confidence as it grows.**
+> **discern gives two kinds of intelligence one shared project: people set direction, coding agents carry the work, and the project keeps the practice and evidence that let the software earn confidence as it grows.**
 
 This sentence guides strategy. Public copy can express the idea in words suited to its surface.
 
@@ -118,13 +118,17 @@ The platform should always feel aspirational. It must not rely on threats about 
 
 discern is named for what it does: it keeps the distinctions that matter (task from task, judgment from verification, readiness from permission, provider from practice) while the project stays connected across them. [`messaging.md`](messaging.md) holds the full account and its copy-ready forms.
 
-The strategic consequence is a paradox the category's rivals cannot follow: most agent products sell the removal of limits; discern sells the limits that let more work move — and finish. Disciplined boundaries are the mechanism of the expansion, and the reason delegation can grow without dissolving responsibility.
+The strategic consequence is a paradox the category's rivals cannot follow: most agent products sell the removal of limits; discern sells the limits that let more work move and finish. Disciplined boundaries are the mechanism of the expansion, and the reason delegation can grow without dissolving responsibility.
 
 ## The enduring relationship
 
-discern rests on an enduring relationship among human judgment, agent capability, and project continuity. The human sets intent and grants authority. The agent interprets direction and implements the work. The project carries shared understanding, conditions, memory, and evidence across agents and tasks.
+> **Two kinds of intelligence. One shared project.**
 
-A unit of work receives human intent, moves through an agent, enters the project, and returns with evidence for a human decision. The relationship persists as people, providers, tasks, and scale change. [`visual-identity.md`](visual-identity.md) records its expression in the mark and the extended visual language.
+Human intelligence brings intent, taste, judgment, and responsibility. Machine intelligence interprets direction and carries implementation at a scale one person could not carry alone. discern is designed for both kinds: the coding agent operates the practice day to day, while the person sets intent and grants authority.
+
+The project is what they share. It carries understanding, working conditions, memory, state, and evidence across agents and tasks. A unit of work receives human intent, moves through an agent, enters the project, and returns with evidence for a human decision.
+
+The relationship persists as people, providers, tasks, and scale change. [`visual-identity.md`](visual-identity.md) records its expression in the mark and the extended visual language.
 
 ## Category
 
@@ -152,7 +156,7 @@ A discern practice includes:
 
 ## Positioning statement
 
-> **For people building software with real consequences, discern is an agent-native engineering practice installed into the project itself. Every agent inherits it, every task gets its own bounded environment, and every change returns with evidence for a human decision — so one person can take on more while the software keeps earning confidence.**
+> **For people building software with real consequences, discern is an agent-native engineering practice for two kinds of intelligence working through one shared project. Every agent inherits it, every task gets its own bounded environment, and every change returns with evidence for a human decision, so one person can take on more while the software keeps earning confidence.**
 
 ## Strategic platform roles
 
@@ -160,13 +164,17 @@ A discern practice includes:
 
 This provides the worldview, audience identity, cultural breadth, and durable reason to exist.
 
+### Enduring relationship: Two kinds of intelligence
+
+This names the product's two users and the project that connects them. Human intelligence supplies intent, taste, judgment, and authority. Machine intelligence supplies interpretation and implementation at agent speed. The shared project lets each reach the other through persistent instructions, working conditions, state, and evidence.
+
 ### Creative energy: Personal reach
 
 This supplies ambition and momentum through concrete lines:
 
 - **Take the project further than one pair of hands.**
 - **Start the project that used to be too big for one person.**
-- **The right limits let more work move — and finish.**
+- **The right limits let more work move and finish.**
 
 This territory should make discern enjoyable to promote and exciting to discover. The energy comes from specificity — a named moment, a ledger fact, or the paradox made literal; [`messaging.md`](messaging.md) holds the full headline inventory.
 
@@ -198,6 +206,10 @@ Agent ergonomics should lead the For Agents page and technical thought leadershi
 ### Practical promise
 
 > More implementation can move without making coordination and review scale linearly with it.
+
+### Relationship promise
+
+> Two kinds of intelligence work through one shared project: the coding agent operates the practice day to day; the person sets direction and decides what becomes shared.
 
 ### Project promise
 
@@ -231,7 +243,7 @@ A connected system supports the brand promise:
 
 ### Against the promise of no limits
 
-The category's default pitch is the removal of limits: more autonomy, fewer checks, less friction. discern's counter-position is that the right limits are what let more work move and finish — bounded tasks, a declared bar for done, and authority that stays with the person. A rival cannot follow it without arguing against its own pitch.
+The category's default pitch is the removal of limits: more autonomy, fewer checks, less friction. discern's counter-position is that the right limits are what let more work move and finish: bounded tasks, a declared bar for done, and authority that stays with the person. A rival cannot follow it without arguing against its own pitch.
 
 ### Against manual review
 
@@ -303,4 +315,4 @@ A proposed message belongs in the core brand only when it passes these tests:
 
 ## Canonical summary
 
-> discern is for people who take their software seriously. It responds to a world in which far more people can build far more software, while the attention and discipline required to stand behind it remain scarce. discern installs an engineering practice into the project so coding agents can take on substantial work, the project can retain what matters, and the resulting software can continue to earn confidence. Underneath runs the paradox: the right limits are what let one person take on more. The brand should feel ambitious, premium, culturally alive, and exhilarating. The product earns that confidence through exact mechanisms; the brand begins with the future those mechanisms make possible.
+> discern is for people who take their software seriously. It responds to a world in which far more people can build far more software, while the attention and discipline required to stand behind it remain scarce. It brings two kinds of intelligence into one shared project: the person supplies intent and authority, the coding agent carries implementation, and the project retains the practice and evidence between them. Underneath runs the paradox: the right limits are what let one person take on more. The brand should feel ambitious, premium, culturally alive, and exhilarating. The product earns that confidence through exact mechanisms; the brand begins with the future those mechanisms make possible.

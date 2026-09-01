@@ -335,9 +335,16 @@ Tone: celebratory and forward-looking. Do not suggest the reader has been irresp
 
 Tone: calm, spacious, liberating.
 
+### Two kinds of intelligence
+
+- Two kinds of intelligence. One shared project.
+- The project carries your direction into the agent's work and brings evidence back.
+
+Tone: expansive, lucid, relational. Follow the proposition with the literal exchange among person, coding agent, and project.
+
 ### The right limits
 
-- The right limits let more work move — and finish.
+- The right limits let more work move and finish.
 - Ready is the Gate's question; shipping is yours.
 
 Tone: confident paradox, grounded in a literal boundary within the same viewport.
@@ -1429,6 +1436,8 @@ Use first-person prose appropriate for the agent to relay. Put each independent 
 - precise enough for an agent to understand;
 - novel enough for a human to enjoy reading.
 
+“Two kinds of intelligence. One shared project.” belongs on this surface when the page shows the exchange it names: human direction enters the work, machine intelligence carries the implementation, and evidence returns through the project. The capabilities are complementary; the person still directs what the project becomes and what is shared.
+
 The joke should never be that agents are stupid.
 
 Good comic targets:
@@ -1839,9 +1848,9 @@ export const BANNED_MOVES = [
   },
   {
     id: "aphoristic-antithesis",
-    name: "Aphoristic antithesis",
+    name: "Empty mirrored clauses",
     text:
-      `The epigram cadence: short mirrored clauses striking a pose ("Agents forget. The repo remembers."), including two half-clauses sharing one verb for rhythm. State the fact once, plainly.`,
+      `Short mirrored clauses fail when symmetry is doing all the work ("Agents forget. The repo remembers."). A compact contrast may stay when each half names a specific, defensible product truth ("Agents come and go. The practice stays."). Use it sparingly, then make the mechanism literal.`,
   },
   {
     id: "self-narration",

@@ -17,7 +17,7 @@ For every draft:
 4. insert only the proof required for belief;
 5. attach claim slugs;
 6. apply the brand voice skill;
-7. run the copy review.
+7. run the line tests in the messaging canon.
 
 Do not combine several patterns because each contains a good line.
 
@@ -644,6 +644,47 @@ The default's cost is invisible until discern's answer stands beside it.
 - Both halves must be facts the reader can check; the gap between them is the argument.
 - Keep the pair free of the “It's not X — it's Y” rhythm tic; two plain sentences carry the contrast.
 - A demonstration strengthens the pair: the same change with and without discern.
+
+---
+
+## Pattern 20 — Two kinds of intelligence
+
+### Use when
+
+- a surface needs to reveal discern's human-agent-project relationship;
+- commissioning, agent ergonomics, delegation, or acceptance needs a human meaning;
+- the project can be shown carrying something real between person and agent.
+
+### Structure
+
+```markdown
+# <The possibility created by two kinds of intelligence>
+
+<The human intent, taste, judgment, or decision entering the work.>
+
+<The coding agent's interpretation, implementation, or operation.>
+
+<The instruction, working condition, state, or evidence the shared project carries between them.>
+
+<A real exchange or artifact, followed by the next human decision.>
+```
+
+### Working example
+
+> ## Two kinds of intelligence. One shared project.
+>
+> You tell the agent what the project should become. It studies what already exists, proposes the practice, and asks for the decisions it cannot infer.
+>
+> The resulting instructions, checks, work, and evidence stay with the project. Future agents inherit them; each completed change returns to you for the decision over what becomes shared.
+>
+> **Watch a project get commissioned**
+
+### Requirements
+
+- Name what human intelligence and machine intelligence each contribute in ordinary language.
+- Make the project carry at least one literal thing: an instruction, condition, state, change, or piece of evidence.
+- Keep the direction of authority clear without turning the headline into consent language.
+- Show one real exchange or artifact; do not leave the relationship as abstract collaboration.
 
 ## Rewriting feature-first copy
 

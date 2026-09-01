@@ -26,15 +26,16 @@ The standing rules: every public page carries at least one line from the fact in
 
 The grid every message derives from: the default the reader already lives with on the left, discern's answer on the right. A line that could sit on either side of the table says nothing.
 
-| The default                                                                    | discern's answer                                                                                                        |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Every agent session starts from zero and relearns the project from its prompt. | The practice lives in your project, so every agent arrives already briefed.                                             |
-| The human shapes, relays, checks, and coordinates everything around the code.  | Work moves as a complete handoff and comes back finished, evidence attached.                                            |
-| Confidence rests on the agent's own account of what it did.                    | The declared Gate evaluates the exact committed change; Proof records what passed.                                      |
-| Quality drifts as sessions accumulate, and nothing catches it.                 | When quality improves, a Standard locks in the gain; no later change can undo it.                                       |
-| Switching providers means re-teaching the project from scratch.                | The agents you use all get the same instructions and checks; start a task with one provider and finish it with another. |
-| Every lab is making the agent better.                                          | discern makes your project a better place for them to work.                                                             |
-| Agent products sell the removal of limits.                                     | discern installs the limits that let more work move at once, with responsibility intact.                                |
+| The default                                                                                   | discern's answer                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every agent session starts from zero and relearns the project from its prompt.                | The practice lives in your project, so every agent arrives already briefed.                                                                                           |
+| The human shapes, relays, checks, and coordinates everything around the code.                 | Work moves as a complete handoff and comes back finished, evidence attached.                                                                                          |
+| Confidence rests on the agent's own account of what it did.                                   | The declared Gate evaluates the exact committed change; Proof records what passed.                                                                                    |
+| Quality drifts as sessions accumulate, and nothing catches it.                                | When quality improves, a Standard locks in the gain; no later change can undo it.                                                                                     |
+| Switching providers means re-teaching the project from scratch.                               | The agents you use all get the same instructions and checks; start a task with one provider and finish it with another.                                               |
+| Every lab is making the agent better.                                                         | discern makes your project a better place for them to work.                                                                                                           |
+| Most development software assumes one kind of intelligence: a human operator at the keyboard. | discern is built for two kinds of intelligence in one shared project: the coding agent operates the practice; the person sets intent and decides what becomes shared. |
+| Agent products sell the removal of limits.                                                    | discern installs the limits that let more work move at once, with responsibility intact.                                                                              |
 
 ## Canonical message hierarchy
 
@@ -59,6 +60,14 @@ discern is named for what it does: to discern is to tell one thing from another.
 Underneath sits the paradox: the right boundaries are what let more work move. Most agent products sell the removal of limits; discern installs the limits that make the bigger handoff workable, with responsibility intact.
 
 Let the reader feel the form as well as the expansion — the distinctions are the reason the expansion holds.
+
+### The enduring relationship
+
+> **Two kinds of intelligence. One shared project.**
+
+Human intelligence brings intent, taste, judgment, and responsibility. Machine intelligence interprets direction and carries implementation at a scale one person could not carry alone. discern is designed for both: the coding agent operates the practice day to day, the person sets intent and decides what becomes shared, and the project carries instructions, working conditions, state, and evidence between them.
+
+The relationship belongs in the product itself. Use it when a surface needs to explain why agent ergonomics, project continuity, and human authority belong to one system.
 
 ### Audience signature
 
@@ -148,6 +157,9 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 - **A Standard may tighten; a branch cannot weaken its limit.** — [`standards-cannot-loosen`](claims-and-evidence.md#standards-cannot-loosen--a-standard-cannot-be-loosened-on-a-branch).
 - **Proof names the exact committed change that passed; a later commit invalidates it.** — [`proof-exact-tree`](claims-and-evidence.md#proof-exact-tree--proof-covers-the-exact-committed-tree-that-passed).
 - **discern contains no AI model and needs no API key.** — [`no-model-inside`](claims-and-evidence.md#no-model-inside--discern-contains-no-ai-model-and-needs-no-api-key).
+- **discern's interaction design treats the coding agent as its principal day-to-day operator.** — [`agent-as-operator`](claims-and-evidence.md#agent-as-operator--discern-is-designed-around-the-coding-agent-as-operator). Pair with the human authority line on mixed-audience surfaces; principal operator never means final authority.
+- **Tell your coding agent to set up discern; the agent configures the project and asks for the decisions only you can make.** — [`no-manual-configuration`](claims-and-evidence.md#no-manual-configuration--the-human-does-not-manually-configure-discern). Commissioning is substantial project-specific work and may require human decisions.
+- **Setup runs the project's checks in a fresh worktree and stays incomplete when that probe fails.** — [`setup-proves-worktree`](claims-and-evidence.md#setup-proves-worktree--setup-proves-the-project-runs-in-a-worktree).
 - **Passing makes a change eligible for a decision; it does not decide what ships.** — [`gate-grants-no-authority`](claims-and-evidence.md#gate-grants-no-authority--a-passing-gate-does-not-grant-authority-to-land). Also the boundary line: state it plainly where trust is being earned.
 - **Parallel agents work in separate checkouts and cannot overwrite one another's working tree.** — [`no-checkout-collisions`](claims-and-evidence.md#no-checkout-collisions--parallel-efforts-cannot-overwrite-the-same-checkout).
 - **Change coding agents without starting the project explanation over.** — [`switch-without-reteaching`](claims-and-evidence.md#switch-without-reteaching--switching-providers-does-not-require-re-teaching-the-project).
@@ -215,6 +227,26 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 - implying autonomous learning or a model inside discern;
 - making “practice” sound like compliance overhead.
 
+### Two kinds of intelligence
+
+**Human truth:** Software is now built through human and machine intelligence, while most development systems still treat the human as the only user.
+
+**Promise:** discern gives both kinds of intelligence one shared project: the coding agent operates the practice, the person sets intent and authority, and the project carries what each needs from the other.
+
+**Good expressions:**
+
+- Two kinds of intelligence. One shared project.
+- The project carries your direction into the agent's work and brings evidence back.
+- Your agent operates the practice; you set direction and decide what ships.
+- Software designed for the machine doing the work and the person responsible for what it becomes.
+
+**Avoid:**
+
+- reducing the agent to a feature of a human interface;
+- implying that human and agent hold equal authority;
+- presenting the project as a third intelligence;
+- using abstract collaboration language without a real exchange or artifact.
+
 ### Meaningful delegation
 
 **Human truth:** Many agent workflows still leave the human responsible for shaping, coordinating, checking, and relaying nearly everything around the code.
@@ -242,7 +274,7 @@ Concrete, ledger-backed lines a page can carry verbatim. Prefer one of these to 
 
 **Good expressions:**
 
-- The right limits let more work move — and finish.
+- The right limits let more work move and finish.
 - One project, a separate environment for every task.
 - discern draws the right boundaries, and keeps the project connected across them.
 - Ready is the Gate's question; shipping is yours.
@@ -319,7 +351,7 @@ The quota message is timely and practical. It should not become the enduring mas
 
 ### One sentence
 
-> discern installs an engineering practice into your project, so you can hand more work to coding agents and stay confident in what comes back.
+> Built for two kinds of intelligence, discern installs a shared engineering practice into the project: you set direction, coding agents carry the work, and every completed change returns with evidence.
 
 ### Approximately 30 words
 
@@ -388,31 +420,43 @@ These are testable candidates for the homepage.
 
 ### Hero D — Paradox-led
 
-> # The right limits let more work move — and finish.
+> # The right limits let more work move and finish.
 >
 > discern gives every task its own environment, holds every change to your project's declared bar, and keeps the shipping decision with you. Those boundaries are why you can hand over more, and trust what comes back.
 >
 > **Primary CTA:** Follow a change from brief to acceptance\
 > **Secondary CTA:** Read how discern works
 
+### Hero E — Relationship-led
+
+> # Two kinds of intelligence. One shared project.
+>
+> discern gives you and your coding agent an engineering practice built around both: the agent operates it day to day, the project keeps what matters, and you decide what becomes shared.
+>
+> **Primary CTA:** Watch a project get commissioned\
+> **Secondary CTA:** Explore the agent experience
+>
+> _An engineering practice for agent-built software._
+
 ## Contextual headline inventory
 
-| Line                                                                                           | Best use                                         | Caution                                                                                                 |
-| ---------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| The labs are making agents better. discern makes your project a better place for them to work. | Homepage hero, category explanation, launch      | Keep both sentences together; the first alone is a compliment to the labs.                              |
-| Every session, your agent starts from zero.                                                    | Homepage hero, practice-retained section         | Only the problem; the practice the project keeps must follow immediately.                               |
-| Agents come and go. The practice stays.                                                        | Provider-continuity section, closing line        | Best where switching pain is already recognized.                                                        |
-| The MVP took a weekend. Now you've got real users depending on it.                             | Consequence-threshold campaign, new-builder page | Celebrate the threshold; never scold the weekend.                                                       |
-| Your agent wrote four thousand lines last night — and you already know what passed.            | Problem-opening ad, delegation essay             | Show the Gate's account nearby so the second half reads as fact.                                        |
-| The right limits let more work move — and finish.                                              | Manifesto, delegation essay, About page          | Name a literal boundary (worktree, Gate, authority) in the next sentence, or it reads as philosophy.    |
-| Ready is the Gate's question; shipping is yours.                                               | Trust page, acceptance section, engineer page    | Introduce the Gate in plain language first.                                                             |
-| Software that holds up.                                                                        | Outcome section, customer story, product page    | Add energy nearby; can feel defensive alone.                                                            |
-| Ship serious software.                                                                         | CTA, guide, campaign, video                      | Do not use as an accusation that current work is unserious.                                             |
-| Software worth putting your name to.                                                           | Founder, pride, responsibility, close            | Avoid overusing “name” alongside ownership language.                                                    |
-| Spend your attention where your judgment matters most.                                         | Retired from lead use                            | Every agent vendor makes this promise; where it appears, ground it in mechanism within the same breath. |
-| When the prototype becomes the product.                                                        | Acquisition campaign, new-builder page           | Situational; exclude from master-brand use.                                                             |
-| When people start depending on it.                                                             | Consequence-threshold campaign                   | Follow with a positive promise that celebrates the threshold.                                           |
-| Agent ergonomics.                                                                              | For Agents, technical essay                      | Human benefit must follow on mixed-audience surfaces.                                                   |
+| Line                                                                                           | Best use                                                | Caution                                                                                                   |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| The labs are making agents better. discern makes your project a better place for them to work. | Homepage hero, category explanation, launch             | Keep both sentences together; the first alone is a compliment to the labs.                                |
+| Every session, your agent starts from zero.                                                    | Homepage hero, practice-retained section                | Only the problem; the practice the project keeps must follow immediately.                                 |
+| Two kinds of intelligence. One shared project.                                                 | Homepage hero, About page, commissioning, founder story | Follow with the literal human-agent-project exchange; without it, the line becomes generic AI philosophy. |
+| Agents come and go. The practice stays.                                                        | Provider-continuity section, closing line               | Best where switching pain is already recognized.                                                          |
+| The MVP took a weekend. Now you've got real users depending on it.                             | Consequence-threshold campaign, new-builder page        | Celebrate the threshold; never scold the weekend.                                                         |
+| Your agent wrote four thousand lines last night — and you already know what passed.            | Problem-opening ad, delegation essay                    | Show the Gate's account nearby so the second half reads as fact.                                          |
+| The right limits let more work move and finish.                                                | Manifesto, delegation essay, About page                 | Name a literal boundary (worktree, Gate, authority) in the next sentence, or it reads as philosophy.      |
+| Ready is the Gate's question; shipping is yours.                                               | Trust page, acceptance section, engineer page           | Introduce the Gate in plain language first.                                                               |
+| Software that holds up.                                                                        | Outcome section, customer story, product page           | Add energy nearby; can feel defensive alone.                                                              |
+| Ship serious software.                                                                         | CTA, guide, campaign, video                             | Do not use as an accusation that current work is unserious.                                               |
+| Software worth putting your name to.                                                           | Founder, pride, responsibility, close                   | Avoid overusing “name” alongside ownership language.                                                      |
+| Spend your attention where your judgment matters most.                                         | Retired from lead use                                   | Every agent vendor makes this promise; where it appears, ground it in mechanism within the same breath.   |
+| When the prototype becomes the product.                                                        | Acquisition campaign, new-builder page                  | Situational; exclude from master-brand use.                                                               |
+| When people start depending on it.                                                             | Consequence-threshold campaign                          | Follow with a positive promise that celebrates the threshold.                                             |
+| Agent ergonomics.                                                                              | For Agents, technical essay                             | Human benefit must follow on mixed-audience surfaces.                                                     |
 
 ## CTA system
 

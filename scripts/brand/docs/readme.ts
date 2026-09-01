@@ -173,7 +173,7 @@ export const WORKING_SUMMARY = [
   },
   {
     label: "Relationship",
-    value: "human judgment, agent capability, and project continuity.",
+    value: "two kinds of intelligence working through one shared project.",
   },
   {
     label: "Conversion benefits",
@@ -196,33 +196,10 @@ export const WORKING_SUMMARY = [
  */
 export const OUTSTANDING_WORK = [
   {
-    id: "root-readme-rewrite",
-    task: "Root README rewrite",
-    summary:
-      "Rewrite the complete root-level README.md file based on the new branding and messaging rules.",
-  },
-  {
     id: "public-docs-review",
     task: "Public docs review",
     summary:
       "Review the verbiage of map entries published to the public `/docs` pages and make any pre-launch edits.",
-  },
-  {
-    id: "dogfooding-snapshot",
-    task: "Dogfooding snapshot",
-    summary:
-      "Revisit the dated internal evidence snapshot in `claims-and-evidence.md` so it is accurate and fully up to date.",
-  },
-  {
-    id: "llms-txt-rewrite",
-    task: "`llms.txt` rewrite",
-    summary: "Rewrite the public site's `llms.txt` before it goes live.",
-  },
-  {
-    id: "homepage-brief",
-    task: "Homepage brief",
-    summary:
-      "Update or remove the old `8a` first-principles homepage-rewrite brief (owner to take a view).",
   },
   {
     id: "publish-the-adr",
@@ -235,12 +212,6 @@ export const OUTSTANDING_WORK = [
     task: "Glossary and Proof migration",
     summary:
       "Keep the canonical glossary definitions and Proof terminology aligned across the product.",
-  },
-  {
-    id: "registry-canonicalisation",
-    task: "Brand registry conversion",
-    summary:
-      "Model the brand system as typed registry data under `scripts/brand/` and generate these documents from it. Start with a byte-faithful conversion, with each document's sign-off gating its conversion.",
   },
   {
     id: "site-prose-standards",

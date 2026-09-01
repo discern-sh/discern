@@ -306,6 +306,8 @@ Public agent-facing copy should feel:
 - precise enough for an agent to understand;
 - novel enough for a human to enjoy reading.
 
+“Two kinds of intelligence. One shared project.” belongs on this surface when the page shows the exchange it names: human direction enters the work, machine intelligence carries the implementation, and evidence returns through the project. The capabilities are complementary; the person still directs what the project becomes and what is shared.
+
 The joke should never be that agents are stupid.
 
 Good comic targets:

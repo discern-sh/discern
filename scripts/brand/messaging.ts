@@ -47,6 +47,15 @@ Underneath sits the paradox: the right boundaries are what let more work move. M
 Let the reader feel the form as well as the expansion — the distinctions are the reason the expansion holds.`,
   },
   {
+    id: "two-kinds-of-intelligence",
+    title: "The enduring relationship",
+    body: `> **Two kinds of intelligence. One shared project.**
+
+Human intelligence brings intent, taste, judgment, and responsibility. Machine intelligence interprets direction and carries implementation at a scale one person could not carry alone. discern is designed for both: the coding agent operates the practice day to day, the person sets intent and decides what becomes shared, and the project carries instructions, working conditions, state, and evidence between them.
+
+The relationship belongs in the product itself. Use it when a surface needs to explain why agent ergonomics, project continuity, and human authority belong to one system.`,
+  },
+  {
     id: "audience-signature",
     title: "Audience signature",
     body: `> **For people who take their software seriously.**
@@ -183,6 +192,18 @@ export const POSITIONING_GRID = [
     claims: ["agent-as-operator", "installs-a-practice"],
   },
   {
+    id: "human-only-operator",
+    against:
+      "Most development software assumes one kind of intelligence: a human operator at the keyboard.",
+    instead:
+      "discern is built for two kinds of intelligence in one shared project: the coding agent operates the practice; the person sets intent and decides what becomes shared.",
+    claims: [
+      "agent-as-operator",
+      "gate-grants-no-authority",
+      "installs-a-practice",
+    ],
+  },
+  {
     id: "limit-removal",
     against: "Agent products sell the removal of limits.",
     instead:
@@ -231,6 +252,28 @@ export const FACT_LINES = [
     id: "no-model",
     line: "discern contains no AI model and needs no API key.",
     claim: "no-model-inside",
+  },
+  {
+    id: "agent-operator",
+    line:
+      "discern's interaction design treats the coding agent as its principal day-to-day operator.",
+    claim: "agent-as-operator",
+    note:
+      "Pair with the human authority line on mixed-audience surfaces; principal operator never means final authority.",
+  },
+  {
+    id: "agent-led-commissioning",
+    line:
+      "Tell your coding agent to set up discern; the agent configures the project and asks for the decisions only you can make.",
+    claim: "no-manual-configuration",
+    note:
+      "Commissioning is substantial project-specific work and may require human decisions.",
+  },
+  {
+    id: "commissioning-proof",
+    line:
+      "Setup runs the project's checks in a fresh worktree and stays incomplete when that probe fails.",
+    claim: "setup-proves-worktree",
   },
   {
     id: "owner-decides",
@@ -327,6 +370,31 @@ export const PILLARS = [
     ],
   },
   {
+    id: "two-kinds-of-intelligence",
+    title: "Two kinds of intelligence",
+    humanTruth:
+      "Software is now built through human and machine intelligence, while most development systems still treat the human as the only user.",
+    promise:
+      "discern gives both kinds of intelligence one shared project: the coding agent operates the practice, the person sets intent and authority, and the project carries what each needs from the other.",
+    goodExpressions: [
+      "Two kinds of intelligence. One shared project.",
+      "The project carries your direction into the agent's work and brings evidence back.",
+      "Your agent operates the practice; you set direction and decide what ships.",
+      "Software designed for the machine doing the work and the person responsible for what it becomes.",
+    ],
+    avoid: [
+      "reducing the agent to a feature of a human interface;",
+      "implying that human and agent hold equal authority;",
+      "presenting the project as a third intelligence;",
+      "using abstract collaboration language without a real exchange or artifact.",
+    ],
+    claims: [
+      "agent-as-operator",
+      "gate-grants-no-authority",
+      "installs-a-practice",
+    ],
+  },
+  {
     id: "meaningful-delegation",
     title: "Meaningful delegation",
     humanTruth:
@@ -359,7 +427,7 @@ export const PILLARS = [
     promise:
       "discern bounds each piece of work, so more can move at once: each piece in its own environment, and nothing counted done below the project's bar.",
     goodExpressions: [
-      "The right limits let more work move — and finish.",
+      "The right limits let more work move and finish.",
       "One project, a separate environment for every task.",
       "discern draws the right boundaries, and keeps the project connected across them.",
       "Ready is the Gate's question; shipping is yours.",
@@ -457,7 +525,7 @@ export const DESCRIPTIONS = [
     group: "length",
     heading: "One sentence",
     body:
-      `> discern installs an engineering practice into your project, so you can hand more work to coding agents and stay confident in what comes back.`,
+      `> Built for two kinds of intelligence, discern installs a shared engineering practice into the project: you set direction, coding agents carry the work, and every completed change returns with evidence.`,
   },
   {
     id: "thirty-words",
@@ -544,11 +612,21 @@ export const HERO_SYSTEMS = [
   {
     id: "hero-d",
     title: "Hero D — Paradox-led",
-    headline: "The right limits let more work move — and finish.",
+    headline: "The right limits let more work move and finish.",
     sub:
       "discern gives every task its own environment, holds every change to your project's declared bar, and keeps the shipping decision with you. Those boundaries are why you can hand over more, and trust what comes back.",
     primaryCta: "Follow a change from brief to acceptance",
     secondaryCta: "Read how discern works",
+  },
+  {
+    id: "hero-e",
+    title: "Hero E — Relationship-led",
+    headline: "Two kinds of intelligence. One shared project.",
+    sub:
+      "discern gives you and your coding agent an engineering practice built around both: the agent operates it day to day, the project keeps what matters, and you decide what becomes shared.",
+    primaryCta: "Watch a project get commissioned",
+    secondaryCta: "Explore the agent experience",
+    signature: "An engineering practice for agent-built software.",
   },
 ] as const satisfies readonly HeroSystem[];
 
@@ -568,6 +646,12 @@ export const HEADLINES = [
       "Only the problem; the practice the project keeps must follow immediately.",
   },
   {
+    line: "Two kinds of intelligence. One shared project.",
+    bestUse: "Homepage hero, About page, commissioning, founder story",
+    caution:
+      "Follow with the literal human-agent-project exchange; without it, the line becomes generic AI philosophy.",
+  },
+  {
     line: "Agents come and go. The practice stays.",
     bestUse: "Provider-continuity section, closing line",
     caution: "Best where switching pain is already recognized.",
@@ -584,7 +668,7 @@ export const HEADLINES = [
     caution: "Show the Gate's account nearby so the second half reads as fact.",
   },
   {
-    line: "The right limits let more work move — and finish.",
+    line: "The right limits let more work move and finish.",
     bestUse: "Manifesto, delegation essay, About page",
     caution:
       "Name a literal boundary (worktree, Gate, authority) in the next sentence, or it reads as philosophy.",

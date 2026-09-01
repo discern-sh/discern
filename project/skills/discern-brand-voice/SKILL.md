@@ -270,9 +270,16 @@ Tone: celebratory and forward-looking. Do not suggest the reader has been irresp
 
 Tone: calm, spacious, liberating.
 
+### Two kinds of intelligence
+
+- Two kinds of intelligence. One shared project.
+- The project carries your direction into the agent's work and brings evidence back.
+
+Tone: expansive, lucid, relational. Follow the proposition with the literal exchange among person, coding agent, and project.
+
 ### The right limits
 
-- The right limits let more work move — and finish.
+- The right limits let more work move and finish.
 - Ready is the Gate's question; shipping is yours.
 
 Tone: confident paradox, grounded in a literal boundary within the same viewport.
@@ -363,7 +370,7 @@ One conspicuous verbal device in a hero or section is usually enough.
 These patterns are the fingerprints of machine-written copy; readers recognize them, and each one costs trust. Treat them as hard failures.
 
 1. **Contrast-frames:** "not X, but Y," "isn't X, it's Y," and the reversed "X, not Y." State the true half plainly.
-2. **Aphoristic antithesis:** The epigram cadence: short mirrored clauses striking a pose ("Agents forget. The repo remembers."), including two half-clauses sharing one verb for rhythm. State the fact once, plainly.
+2. **Empty mirrored clauses:** Short mirrored clauses fail when symmetry is doing all the work ("Agents forget. The repo remembers."). A compact contrast may stay when each half names a specific, defensible product truth ("Agents come and go. The practice stays."). Use it sparingly, then make the mechanism literal.
 3. **Self-narration:** Announcing importance instead of stating the point: "this is the crux," "here's the key insight," and the colon-pivot opener that pre-announces its own sentence. Say the point; the reader decides what's crucial.
 4. **Attitude fragments:** Fragments that strike a pose rather than state a spec ("Not vibes. A verdict."). Spec fragments listing facts are legal: "Any stack. Any coding agent. No API key."
 5. **Echo-intensifiers:** Repeating a word with an intensifier: "Green means done. Actually done."

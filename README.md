@@ -3,6 +3,8 @@
 **For people who take their software seriously.**\
 An engineering practice for agent-built software.
 
+**Two kinds of intelligence. One shared project.** Your coding agent operates the practice day to day; you set direction and decide what becomes shared.
+
 Coding agents can take a project further than one person could build alone. discern installs a serious engineering practice into the repository: shared project understanding, isolated work for every task, deterministic checks, Standards that lock in every gain, and evidence for the exact change. The agents do more of the work; you stay responsible for what gets launched.
 
 It is for engineers who already direct more implementation than they can personally read, and for builders whose project has begun to matter: users arriving, data worth protecting, a name on the result.

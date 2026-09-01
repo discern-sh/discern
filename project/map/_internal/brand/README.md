@@ -201,7 +201,7 @@ Recommended candidates for later registry-backed generation:
 - **Energy:** the project taken further than one pair of hands; the right limits let more work move.
 - **Human outcome:** ambitious software that holds up and earns confidence.
 - **Category:** an engineering practice for agent-built software, installed into the project.
-- **Relationship:** human judgment, agent capability, and project continuity.
+- **Relationship:** two kinds of intelligence working through one shared project.
 - **Conversion benefits:** greater personal reach, meaningful delegation, preserved standards, reduced review burden, and clearer evidence.
 - **Technical distinction:** agent ergonomics.
 - **Authority:** the human decides what becomes shared.
@@ -213,14 +213,9 @@ Recommended candidates for later registry-backed generation:
 
 The running list for the brand refresh. Rows leave the table as they complete; the refresh is done when the table is empty and this section is removed.
 
-| Task                         | Summary                                                                                                                                                                                                |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Root README rewrite          | Rewrite the complete root-level README.md file based on the new branding and messaging rules.                                                                                                          |
-| Public docs review           | Review the verbiage of map entries published to the public `/docs` pages and make any pre-launch edits.                                                                                                |
-| Dogfooding snapshot          | Revisit the dated internal evidence snapshot in `claims-and-evidence.md` so it is accurate and fully up to date.                                                                                       |
-| `llms.txt` rewrite           | Rewrite the public site's `llms.txt` before it goes live.                                                                                                                                              |
-| Homepage brief               | Update or remove the old `8a` first-principles homepage-rewrite brief (owner to take a view).                                                                                                          |
-| Publish the ADR              | Number the WIP ADR in `decisions.md` and publish it permanently into `project/map/_adr/` at the end of the effort. Add a second ADR to record the brand documents' registry ownership.                 |
-| Glossary and Proof migration | Keep the canonical glossary definitions and Proof terminology aligned across the product.                                                                                                              |
-| Brand registry conversion    | Model the brand system as typed registry data under `scripts/brand/` and generate these documents from it. Start with a byte-faithful conversion, with each document's sign-off gating its conversion. |
-| Site prose standards         | Once the launch site copy lands: add a scope for the public site's pages, bring their prose under the Vale guards, and pin new `[standards]` limits at launch-day values so the copy only improves.    |
+| Task                         | Summary                                                                                                                                                                                             |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public docs review           | Review the verbiage of map entries published to the public `/docs` pages and make any pre-launch edits.                                                                                             |
+| Publish the ADR              | Number the WIP ADR in `decisions.md` and publish it permanently into `project/map/_adr/` at the end of the effort. Add a second ADR to record the brand documents' registry ownership.              |
+| Glossary and Proof migration | Keep the canonical glossary definitions and Proof terminology aligned across the product.                                                                                                           |
+| Site prose standards         | Once the launch site copy lands: add a scope for the public site's pages, bring their prose under the Vale guards, and pin new `[standards]` limits at launch-day values so the copy only improves. |
