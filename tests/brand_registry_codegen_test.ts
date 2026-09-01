@@ -21,10 +21,7 @@ import { directoryExists, fileExists } from "../src/shared/fs_presence.ts";
 import { CONCEPTS, TRANSLATIONS } from "../scripts/brand/bridge.ts";
 import { CLAIMS, DO_NOT_CLAIM } from "../scripts/brand/claims.ts";
 import { COPY_PATTERNS } from "../scripts/brand/patterns.ts";
-import {
-  PROPOSED_MECHANICAL_CHECKS,
-  SCORECARDS,
-} from "../scripts/brand/docs/copy_review.ts";
+import { PROPOSED_MECHANICAL_CHECKS } from "../scripts/brand/mechanical_checks.ts";
 import {
   OUTSTANDING_WORK,
   PRIVATE_OVERLAY_MARKER,
@@ -240,7 +237,6 @@ Deno.test("registry ids, files, and slugs are unique and citable", () => {
     TRANSLATIONS.map((translation) => translation.id),
   );
   unique("copy-pattern ids", COPY_PATTERNS.map((pattern) => pattern.id));
-  unique("scorecard ids", SCORECARDS.map((scorecard) => scorecard.id));
   unique("reading-path ids", READING_PATHS.map((path) => path.id));
   unique("outstanding-work ids", OUTSTANDING_WORK.map((item) => item.id));
   unique("banned-word ids", BANNED_WORDS.map((word) => word.id));
@@ -265,12 +261,6 @@ Deno.test("registry ids, files, and slugs are unique and citable", () => {
         section.items.map((item) => item.id),
       );
     }
-  }
-  for (const scorecard of SCORECARDS) {
-    unique(
-      `${scorecard.id} scorecard dimensions`,
-      scorecard.rows.map((row) => row.dimension),
-    );
   }
   for (const register of REGISTERS) {
     unique(

@@ -108,7 +108,7 @@ export const READING_PATHS = [
       "`claims-and-evidence.md`;",
       "the relevant record in `boundary-canon.md`;",
       "the named source of product truth;",
-      "`copy-review.md`.",
+      "the line tests in `messaging.md`.",
     ],
   },
 ] as const satisfies readonly ReadingPath[];
@@ -399,7 +399,7 @@ Claims used: <claim slugs>
     "2. Update the canonical document that owns the choice.",
     "3. Update dependent examples only after the source is stable.",
     "4. Add or revise claims in the ledger when the product or evidence changes.",
-    "5. Run the review in `copy-review.md`.",
+    "5. Run the line tests in `messaging.md` against the changed lines.",
     "6. Regenerate or enforce mechanical rules only after the prose rule is understood.",
     "",
     "Recommended candidates for later registry-backed generation:",

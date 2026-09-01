@@ -574,8 +574,7 @@ Avoid repeated generic labels such as “Explore,” “Discover,” and “Lear
 8. Read every claim hostilely and literally: weaken it until it is literally true, or mark it \`[claim — verify]\`.
 9. Add the honest boundary near the relevant claim.
 10. Run the line tests in \`messaging.md\` on every headline candidate.
-11. Read aloud.
-12. Run \`copy-review.md\`.`,
+11. Read aloud.`,
     }, {
       kind: "mechanics",
       heading: "Mechanics",

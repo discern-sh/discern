@@ -37,7 +37,6 @@ import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
 import { renderDemandCanonDoc } from "./brand/demand.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
 import { renderCopyPatternsDoc } from "./brand/patterns.ts";
-import { renderCopyReviewDoc } from "./brand/docs/copy_review.ts";
 import { renderPositioningDoc } from "./brand/docs/positioning.ts";
 import { renderReadmeDoc } from "./brand/docs/readme.ts";
 import { renderVisualIdentityDoc } from "./brand/docs/visual_identity.ts";
@@ -181,14 +180,6 @@ export const BRAND_DOCUMENTS = [
     job:
       "Receives the private residue carved out of `claims-and-evidence.md`: the dated internal evidence snapshot, the anecdote ledger, and the claims requiring future validation.",
     mode: { kind: "authored", privateOverlay: true },
-  },
-  {
-    id: "copy-review",
-    file: "copy-review.md",
-    status: "Governance",
-    job:
-      "Reviews drafts for strategy, truth, register fit, distinctiveness, and contemporary AI-copy smells.",
-    mode: { kind: "generated", render: renderCopyReviewDoc },
   },
   {
     id: "decisions",

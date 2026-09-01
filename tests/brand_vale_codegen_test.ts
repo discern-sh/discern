@@ -23,7 +23,7 @@ import {
 import { dirname, join } from "@std/path";
 import { z } from "@zod/zod";
 import { REGISTERS } from "../scripts/brand/model.ts";
-import { PROPOSED_MECHANICAL_CHECKS } from "../scripts/brand/docs/copy_review.ts";
+import { PROPOSED_MECHANICAL_CHECKS } from "../scripts/brand/mechanical_checks.ts";
 import {
   coveragePartitionIssues,
   renderVoiceEnforcementCoverageDoc,

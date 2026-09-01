@@ -56,7 +56,6 @@ The public brand should make that seriousness feel like an earned privilege: mor
 | [`launch-narrative.md`](../../_private/brand/launch-narrative.md)                                 | Operational     | Preserves the founder story and cultural thesis for essays, interviews, demos, and launch material.                                                                         | private overlay (local) |
 | [`for-agents-brief.md`](../../_private/brand/for-agents-brief.md)                                 | Operational     | Defines the dedicated For Agents page, `llms.txt`, and the creative “marketing to the machines” program.                                                                    | private overlay (local) |
 | [`claims-residue.md`](../../_private/brand/claims-residue.md)                                     | Operational     | Receives the private residue carved out of `claims-and-evidence.md`: the dated internal evidence snapshot, the anecdote ledger, and the claims requiring future validation. | private overlay (local) |
-| [`copy-review.md`](copy-review.md)                                                                | Governance      | Reviews drafts for strategy, truth, register fit, distinctiveness, and contemporary AI-copy smells.                                                                         |                         |
 | [`decisions.md`](../../_private/brand/decisions.md)                                               | Governance      | Holds the effort's brand ADRs in working form until they are numbered and published into the ADR tree.                                                                      |                         |
 
 **Stays private?** marks a document that stays authored under `_private`, outside the brand registry, and is wiped before the repository goes public. It remains locally as a private overlay, where the document-map links resolve. Unmarked documents are registry-owned: their source of truth is in `scripts/brand/`, and their generated pages live here under `_internal/brand/`. The anecdote ledger, claims requiring future validation, and the dated internal evidence snapshot carved out of `claims-and-evidence.md` live in `claims-residue.md`.
@@ -125,7 +124,7 @@ Read:
 1. `claims-and-evidence.md`;
 2. the relevant record in `boundary-canon.md`;
 3. the named source of product truth;
-4. `copy-review.md`.
+4. the line tests in `messaging.md`.
 
 ## Precedence
 
@@ -184,7 +183,7 @@ A draft without these fields is likely to inherit the language of whichever sour
 2. Update the canonical document that owns the choice.
 3. Update dependent examples only after the source is stable.
 4. Add or revise claims in the ledger when the product or evidence changes.
-5. Run the review in `copy-review.md`.
+5. Run the line tests in `messaging.md` against the changed lines.
 6. Regenerate or enforce mechanical rules only after the prose rule is understood.
 
 Recommended candidates for later registry-backed generation:

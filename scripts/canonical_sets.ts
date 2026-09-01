@@ -1079,11 +1079,6 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         banner: true,
       },
       {
-        path: "project/map/_internal/brand/copy-review.md",
-        kind: "generated-file",
-        banner: true,
-      },
-      {
         path: "project/map/_internal/brand/demand-canon.md",
         kind: "generated-file",
         banner: true,

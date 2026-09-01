@@ -28,7 +28,7 @@ import {
   type VoiceRule,
 } from "./model.ts";
 import { BANNED_MOVES, BANNED_WORDS, VOICES } from "./voice.ts";
-import { PROPOSED_MECHANICAL_CHECKS } from "./docs/copy_review.ts";
+import { PROPOSED_MECHANICAL_CHECKS } from "./mechanical_checks.ts";
 
 /** Severity policy: `error` only for a rule with no legitimate exception;
  * `warning` and `suggestion` where judgment is real. */
