@@ -168,3 +168,130 @@ run = "deno fmt"
 `,
   );
 });
+
+// ── commented-out examples ─────────────────────────────────────────────────────
+// A `# [a.b]` header or `# key = …` entry is an example the reader uncomments,
+// so it indents as the live line would; documentation between `# ───` rules
+// never does, however much it resembles TOML.
+
+const EXAMPLE_FIXTURES: Record<string, { input: string; expected: string }> = {
+  "a commented header nests its commented entries": {
+    input: `[standards]
+
+# Coverage: keep line coverage at or above a rising floor.
+# [standards.coverage]
+# direction = "up"
+# limit     = 80
+
+[gate]
+timeout = 600
+`,
+    expected: `[standards]
+
+  # Coverage: keep line coverage at or above a rising floor.
+  # [standards.coverage]
+    # direction = "up"
+    # limit     = 80
+
+[gate]
+  timeout = 600
+`,
+  },
+  "a commented entry sits with the live entries of its table": {
+    input: `[jobs]
+format = "discern tidy"
+# build = "npm run build"
+# test  = "npm test"
+`,
+    expected: `[jobs]
+  format = "discern tidy"
+  # build = "npm run build"
+  # test  = "npm test"
+`,
+  },
+  "a live entry after a commented sub-table returns to the live body": {
+    input: `[worktree]
+root = ""
+# [worktree.resources.db]
+# create = "createdb @db@"
+port = false
+# inherit_env = []
+`,
+    expected: `[worktree]
+  root = ""
+    # [worktree.resources.db]
+      # create = "createdb @db@"
+  port = false
+  # inherit_env = []
+`,
+  },
+  "a commented multi-line value keeps its continuation lines": {
+    input: `[checkpoints]
+
+# [checkpoints.sensitive-paths]
+# paths = [
+#   "src/auth/**",
+# ]
+# question = """
+# What could break if this is wrong?
+# """
+`,
+    expected: `[checkpoints]
+
+  # [checkpoints.sensitive-paths]
+    # paths = [
+      #   "src/auth/**",
+    # ]
+    # question = """
+    # What could break if this is wrong?
+    # """
+`,
+  },
+  "documentation inside a ruled banner is never an example": {
+    input: `# ───
+# [scopes.<name>]
+# Params: paths, neutral
+#   neutral = true   changes here need no gate
+# [scopes.assets] is one such region
+# ───
+
+[scopes.map]
+neutral = true
+`,
+    expected: `  # ───
+  # [scopes.<name>]
+  # Params: paths, neutral
+  #   neutral = true   changes here need no gate
+  # [scopes.assets] is one such region
+  # ───
+
+  [scopes.map]
+    neutral = true
+`,
+  },
+  "a placeholder header and prose with an equals sign stay documentation": {
+    input: `[gate]
+# The [gate.<name>] form does not exist; read on.
+# Set fail_fast = false to see every failure at once.
+fail_fast = true
+`,
+    expected: `[gate]
+  # The [gate.<name>] form does not exist; read on.
+  # Set fail_fast = false to see every failure at once.
+  fail_fast = true
+`,
+  },
+};
+
+for (const [name, { input, expected }] of Object.entries(EXAMPLE_FIXTURES)) {
+  Deno.test(`indentToml: ${name}`, () => {
+    const output = indentToml(input);
+    assertEquals(output, expected);
+    assertEquals(
+      parseToml(output),
+      parseToml(input),
+      "indentation must never change what the document says",
+    );
+    assertEquals(indentToml(output), output, "the pass must be idempotent");
+  });
+}

@@ -19,6 +19,12 @@
  *     above the root; the entries below it sit one step deeper again.
  *   - a full-line comment takes the indent of the next structural line, so a
  *     paragraph documenting a section sits at that section's level.
+ *   - a commented-out header (`# [a.b]`) or entry (`# key = …`) is an example
+ *     the reader is meant to uncomment, so it indents as the live line would:
+ *     the header by its depth, the entries beneath it one step deeper, and a
+ *     commented multi-line value's continuation lines with their entry. The
+ *     rule stops at a `# ───` ruled banner: everything between two rules is
+ *     documentation, however much it resembles TOML.
  *   - a multi-line string's interior is string CONTENT — copied verbatim.
  *   - a multi-line value's continuation lines derive their indent from bracket
  *     depth, not from the whitespace they arrived with — which is what makes
@@ -182,6 +188,31 @@ type LineShape =
   | { kind: "structural"; indent: number } // header, entry, or continuation
   | { kind: "comment"; fallback: number };
 
+/** The opening or closing line of a `# ───` ruled documentation banner. */
+const RULE_RE = /^#\s*─/;
+
+/** One TOML key segment: bare, or quoted either way. */
+const KEY_SEGMENT = String.raw`(?:[A-Za-z0-9_-]+|"(?:[^"\\]|\\.)*"|'[^']*')`;
+
+/** A commented-out table header, `# [a.b]` or `# [[a.b]]`, with an optional
+ * trailing comment. A `<name>` placeholder is documentation, so it never
+ * matches. */
+const COMMENTED_HEADER_RE = new RegExp(
+  String
+    .raw`^#\s*(\[\[?${KEY_SEGMENT}(?:\s*\.\s*${KEY_SEGMENT})*\s*\]\]?)\s*(?:#.*)?$`,
+);
+
+/** A commented-out entry, `# key = …`, with a bare or quoted dotted key. */
+const COMMENTED_ENTRY_RE = new RegExp(
+  String.raw`^#\s*${KEY_SEGMENT}(?:\s*\.\s*${KEY_SEGMENT})*\s*=`,
+);
+
+/** The TOML a commented line would hold once uncommented: the text after the
+ * `#` and one optional space. */
+function uncommented(trimmed: string): string {
+  return trimmed.replace(/^#\s?/, "");
+}
+
 /**
  * Re-indent TOML text by table depth. `text` follows the document-wide LF
  * convention the embedded formatter emits; `indentWidth` is one depth step.
@@ -191,6 +222,14 @@ export function indentToml(text: string, indentWidth = 2): string {
   const scanner = new LineScanner();
   const shapes: LineShape[] = [];
   let bodyIndent = 0;
+  // Commented-out examples keep their own body indent: a `# [a.b]` header sets
+  // it for the `# key = …` entries beneath, and any live structural line
+  // resets it to the live body. The comment scanner tracks a commented
+  // multi-line value so its continuation lines stay with their entry.
+  let commentBodyIndent = 0;
+  let commentContinuation = false;
+  let inBanner = false;
+  const commentScanner = new LineScanner();
 
   for (const line of lines) {
     const startMode = scanner.mode;
@@ -211,19 +250,65 @@ export function indentToml(text: string, indentWidth = 2): string {
     }
     if (trimmed === "") {
       shapes.push({ kind: "blank" });
+      commentContinuation = false;
+      inBanner = false;
       continue;
     }
     if (trimmed.startsWith("#")) {
-      shapes.push({ kind: "comment", fallback: bodyIndent });
+      shapes.push(commentShape(trimmed));
       continue;
     }
+    commentContinuation = false;
+    inBanner = false;
     if (trimmed.startsWith("[")) {
       const depth = headerDepth(trimmed);
       shapes.push({ kind: "structural", indent: depth * indentWidth });
       bodyIndent = (depth + 1) * indentWidth;
+      commentBodyIndent = bodyIndent;
       continue;
     }
     shapes.push({ kind: "structural", indent: bodyIndent });
+    commentBodyIndent = bodyIndent;
+  }
+
+  /** The shape of one full-line comment, given the running comment state. */
+  function commentShape(trimmed: string): LineShape {
+    if (RULE_RE.test(trimmed)) {
+      inBanner = !inBanner;
+      commentContinuation = false;
+      return { kind: "comment", fallback: bodyIndent };
+    }
+    if (inBanner) {
+      return { kind: "comment", fallback: bodyIndent };
+    }
+    if (commentContinuation) {
+      const startDepth = commentScanner.valueDepth;
+      const content = uncommented(trimmed);
+      commentScanner.scan(content);
+      commentContinuation = commentScanner.mode !== "none" ||
+        commentScanner.valueDepth > 0;
+      const closer = content.startsWith("]") || content.startsWith("}");
+      const relative = (startDepth - (closer ? 1 : 0)) * indentWidth;
+      return {
+        kind: "structural",
+        indent: commentBodyIndent + Math.max(0, relative),
+      };
+    }
+    const header = trimmed.match(COMMENTED_HEADER_RE)?.[1];
+    if (header !== undefined) {
+      const depth = headerDepth(header);
+      commentBodyIndent = (depth + 1) * indentWidth;
+      return { kind: "structural", indent: depth * indentWidth };
+    }
+    if (COMMENTED_ENTRY_RE.test(trimmed)) {
+      commentScanner.mode = "none";
+      commentScanner.valueDepth = 0;
+      commentScanner.scan(uncommented(trimmed));
+      commentContinuation = commentScanner.mode !== "none" ||
+        commentScanner.valueDepth > 0;
+      return { kind: "structural", indent: commentBodyIndent };
+    }
+    return { kind: "comment", fallback: bodyIndent };
   }
 
   return lines
