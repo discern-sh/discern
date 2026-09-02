@@ -15,7 +15,7 @@ import {
 } from "../src/shared/config_explain.ts";
 import { configProseUnits } from "../src/shared/config_codegen.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
-import { runCli, withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 
 Deno.test("every documented unit explains itself with its what and why", () => {
@@ -110,8 +110,8 @@ Deno.test("config explain runs inside an install with the current value, and out
 
     const human = await runCli(["config", "explain", "scopes"], dir);
     assertEquals(human.code, 0, human.stderr);
-    assertStringIncludes(human.stdout, "# [scopes.<name>]");
-    assertStringIncludes(
+    assertTerminalTextIncludes(human.stdout, "# [scopes.<name>]");
+    assertTerminalTextIncludes(
       human.stdout,
       "What: Named regions of the repository.",
     );

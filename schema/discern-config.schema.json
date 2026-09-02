@@ -33,7 +33,7 @@
         },
         "logbook": {
           "default": true,
-          "description": "When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, never code or output. Files stay under .git, outside commits and any network; false stops all writes.",
+          "description": "When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, with no code or output. Files stay under .git, outside commits and any network; false stops all writes.",
           "type": "boolean"
         },
         "agents": {
@@ -619,7 +619,7 @@
       "properties": {
         "root": {
           "default": "",
-          "description": "Where per-worktree checkouts are created. Empty means a sibling of the repository, \"<repo>.worktrees\", never nested inside it. A relative path resolves against the repo root; absolute is used as-is.",
+          "description": "Where per-worktree checkouts are created. Empty means a sibling of the repository, \"<repo>.worktrees\", outside the checkout. A relative path resolves against the repo root; absolute is used as-is.",
           "type": "string"
         },
         "inherit_env": {

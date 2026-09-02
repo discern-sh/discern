@@ -46,8 +46,8 @@
   todo = "discern/TODO.md"
 
   # When true, record one line of local, metadata-only history per verb run:
-  # timings, outcomes, and names, never code or output. Files stay under .git,
-  # outside commits and any network; false stops all writes.
+  # timings, outcomes, and names, with no code or output. Files stay under
+  # .git, outside commits and any network; false stops all writes.
   # Recording on is recommended. History cannot be recorded after the fact,
   # and while recording is off this project goes without:
   #   - the practice report (`discern patterns`)
@@ -311,7 +311,7 @@
 
 [worktree]
   # Where per-worktree checkouts are created. Empty means a sibling of the
-  # repository, "<repo>.worktrees", never nested inside it. A relative path
+  # repository, "<repo>.worktrees", outside the checkout. A relative path
   # resolves against the repo root; absolute is used as-is.
   root = ""
 

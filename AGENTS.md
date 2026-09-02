@@ -113,17 +113,17 @@ The rules:
 
 **The project instruction source is yours.** Customise it by editing `project/instructions.md` (this file) — never `templates/`, which only holds the generic built-in instructions _other_ projects receive. Then run `discern refresh` to recompile the agent files (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/etc.) — committed generated files you never hand-edit (ADR 0128); `discern done` fails if one drifts from its source, so commit the refreshed copies with the source change. Keep the prose provider-agnostic: one source compiles to every agent. Nothing overwrites `project/instructions.md`.
 
-| To change…                                      | Edit…                                     | Then run                           |
-| ----------------------------------------------- | ----------------------------------------- | ---------------------------------- |
-| the gate / the engine / the dispatcher / a verb | `src/engine/**`, `src/main.ts` (in place) | `discern done`                     |
-| an installer command                            | `src/commands/**` (in place)              | `discern done`                     |
-| a bundled skill                                 | `templates/skills/…`                      | `discern refresh` (re-materialize) |
-| the built-in discern instructions               | `templates/instructions/*.md`             | `discern refresh`                  |
+| To change…                                      | Edit…                                                                                            | Then run                           |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| the gate / the engine / the dispatcher / a verb | `src/engine/**`, `src/main.ts` (in place)                                                        | `discern done`                     |
+| an installer command                            | `src/commands/**` (in place)                                                                     | `discern done`                     |
+| a bundled skill                                 | `templates/skills/…`                                                                             | `discern refresh` (re-materialize) |
+| the built-in discern instructions               | `templates/instructions/*.md`                                                                    | `discern refresh`                  |
 | the config template's prose or layout           | `src/shared/config_prose.ts`, the schema's `describe()`, `src/shared/config_template_codegen.ts` | `deno task codegen`                |
-| a seed file users receive                       | `templates/…`                             | —                                  |
-| this instructions (yours)                       | `project/instructions.md`                 | `discern refresh`                  |
-| an authored project skill                       | `project/skills/…`                        | `discern refresh`                  |
-| project config (yours)                          | `discern.toml`, `deno.json`               | —                                  |
+| a seed file users receive                       | `templates/…`                                                                                    | —                                  |
+| this instructions (yours)                       | `project/instructions.md`                                                                        | `discern refresh`                  |
+| an authored project skill                       | `project/skills/…`                                                                               | `discern refresh`                  |
+| project config (yours)                          | `discern.toml`, `deno.json`                                                                      | —                                  |
 
 ## Keep the shipped surface generic
 

@@ -558,7 +558,7 @@ const projectSection = z.strictObject({
     "The deferred-work ledger: the running TODO list agents read and maintain, relative to the project root.",
   ),
   logbook: z.boolean().default(true).describe(
-    "When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, never code or output. " +
+    "When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, with no code or output. " +
       "Files stay under .git, outside commits and any network; false stops all writes.",
   ),
   agents: z.array(z.enum(AGENT_NAMES)).optional().describe(
@@ -713,7 +713,7 @@ export const RECORD_ENTRY_SCHEMAS = {
 
 const worktreeSection = z.strictObject({
   root: z.string().default("").describe(
-    'Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", never nested inside it. A relative path resolves against the repo root; absolute is used as-is.',
+    'Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative path resolves against the repo root; absolute is used as-is.',
   ),
   inherit_env: z.array(z.string()).default([]).describe(
     "Environment values copied from the main checkout's env files into a new worktree's: secrets a fresh worktree needs that are not in version control. The worktree's env file is created when absent.",
