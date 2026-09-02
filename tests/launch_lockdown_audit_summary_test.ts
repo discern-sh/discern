@@ -4,7 +4,12 @@
  * and recommendations remain in the authority instead of being copied.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { join } from "@std/path";
 import {
   LAUNCH_LOCKDOWN_AUDIT_REL,
@@ -53,9 +58,14 @@ Deno.test("the digest indexes every source finding once and stays compact", asyn
     (match) => match[1] ?? "",
   );
   assertEquals(
-    renderedIds,
-    sourceIds,
-    "the compact index must preserve every finding exactly once in source order",
+    [...renderedIds].sort(),
+    [...sourceIds].sort(),
+    "the compact index must preserve every finding",
+  );
+  assertEquals(
+    new Set(renderedIds).size,
+    renderedIds.length,
+    "the compact index must render every finding exactly once",
   );
   assert(
     rendered.length * 5 < source.length,
@@ -72,6 +82,42 @@ Deno.test("the digest indexes every source finding once and stays compact", asyn
   );
   for (const finding of audit.findings) {
     assert(finding.batches.length > 0, `${finding.id} needs a fixer batch`);
+  }
+
+  const completedHeading = rendered.indexOf("\n## Completed (");
+  const activeProjection = completedHeading < 0
+    ? rendered
+    : rendered.slice(0, completedHeading);
+  const completedProjection = completedHeading < 0
+    ? ""
+    : rendered.slice(completedHeading);
+  const completedFindings = audit.findings.filter((finding) =>
+    finding.completion !== undefined
+  );
+  const activeFindings = audit.findings.filter((finding) =>
+    finding.completion === undefined
+  );
+  for (const finding of activeFindings) {
+    assertStringIncludes(activeProjection, `**${finding.id}**`);
+  }
+  for (const finding of completedFindings) {
+    assert(!activeProjection.includes(`**${finding.id}**`));
+    assertStringIncludes(completedProjection, `**${finding.id}**`);
+    assertStringIncludes(completedProjection, finding.completion ?? "");
+  }
+  assertStringIncludes(
+    rendered,
+    `${completedFindings.length} completed`,
+  );
+  const activeIds = new Set(activeFindings.map((finding) => finding.id));
+  for (const batch of audit.batches) {
+    const activeCount = batch.findingIds.filter((id) =>
+      activeIds.has(id)
+    ).length;
+    assertStringIncludes(
+      rendered,
+      `**${batch.id}** — ${batch.title} · ${activeCount} active / ${batch.findingIds.length} total`,
+    );
   }
 });
 
@@ -109,5 +155,65 @@ Deno.test("a future finding enrolls in parsing, rendering, and batch membership"
   assertStringIncludes(
     renderLaunchLockdownAuditSummary(future),
     `**${nextId}**`,
+  );
+
+  const metadata =
+    "Class: guard-gap · Surface: test · Confidence: high · Verdict: unverified — no skeptic pass · Irreversible after tag: no · Sources: synthetic-1";
+  const completion =
+    "Synthetic future finding proved that completed members enroll.";
+  const completedFuture = parseLaunchLockdownAudit(
+    mutated.replace(metadata, `${metadata}\n\nCompleted: ${completion}`),
+  );
+  assertEquals(completedFuture.findings.at(-1)?.completion, completion);
+  const completedRendered = renderLaunchLockdownAuditSummary(completedFuture);
+  const completedAt = completedRendered.indexOf("\n## Completed (");
+  assert(completedAt >= 0);
+  assert(
+    !completedRendered.slice(0, completedAt).includes(`**${nextId}**`),
+    "a completed future finding must leave the active projection",
+  );
+  assertStringIncludes(completedRendered.slice(completedAt), `**${nextId}**`);
+  assertStringIncludes(completedRendered.slice(completedAt), completion);
+});
+
+Deno.test("completion outcomes are non-empty, unique metadata-adjacent paragraphs", async () => {
+  const source = await sourceAudit();
+  const headingAt = source.indexOf("\n#### L-001 ");
+  assert(headingAt >= 0, "fixture needs L-001");
+  const metadataAt = source.indexOf("\nClass: ", headingAt);
+  assert(metadataAt >= 0, "fixture needs L-001 metadata");
+  const metadataEnd = source.indexOf("\n", metadataAt + 1);
+  assert(metadataEnd >= 0, "fixture needs a complete metadata line");
+  const before = source.slice(0, metadataEnd);
+  const after = source.slice(metadataEnd);
+
+  assertThrows(
+    () => parseLaunchLockdownAudit(`${before}\n\nCompleted:${after}`),
+    Error,
+    "empty Completed outcome",
+  );
+  assertThrows(
+    () =>
+      parseLaunchLockdownAudit(
+        `${before}\n\nCompleted: first\n\nCompleted: second${after}`,
+      ),
+    Error,
+    "more than one Completed line",
+  );
+  assertThrows(
+    () =>
+      parseLaunchLockdownAudit(
+        `${before}\n\nProgress: partial\n\nCompleted: misplaced${after}`,
+      ),
+    Error,
+    "must put Completed in its own first paragraph after metadata",
+  );
+  assertThrows(
+    () =>
+      parseLaunchLockdownAudit(
+        `${before} Completed: formatter-collapsed${after}`,
+      ),
+    Error,
+    "must put Completed in its own paragraph after metadata",
   );
 });

@@ -31,6 +31,7 @@ export interface LaunchAuditFindingSummary {
   readonly review: LaunchAuditReview;
   readonly freezesAtTag: boolean;
   readonly batches: readonly string[];
+  readonly completion?: string;
 }
 
 export interface LaunchAuditBatchSummary {
@@ -59,6 +60,7 @@ interface FindingWithoutBatches {
   readonly surface: string;
   readonly review: LaunchAuditReview;
   readonly freezesAtTag: boolean;
+  readonly completion?: string;
 }
 
 interface NumberedSourceLine {
@@ -157,7 +159,7 @@ function sectionLines(
   }));
 }
 
-/** Read every active finding from the audit body in source order. */
+/** Read every finding and its optional completion outcome in source order. */
 function parseFindings(lines: readonly string[]): FindingWithoutBatches[] {
   const findings: FindingWithoutBatches[] = [];
   let severity: LaunchAuditSeverity | undefined;
@@ -186,6 +188,9 @@ function parseFindings(lines: readonly string[]): FindingWithoutBatches[] {
 
     let metadataLine: string | undefined;
     let metadataLineNumber = sourceLine.number + 1;
+    let metadataIndex: number | undefined;
+    let completion: string | undefined;
+    let completionIndex: number | undefined;
     for (
       let cursor = sourceLine.index + 1;
       cursor < lines.length;
@@ -193,17 +198,55 @@ function parseFindings(lines: readonly string[]): FindingWithoutBatches[] {
     ) {
       const candidate = lines[cursor] ?? "";
       if (candidate.startsWith("Class: ")) {
+        if (candidate.includes(" Completed:")) {
+          malformed(
+            cursor + 1,
+            `${id} must put Completed in its own paragraph after metadata`,
+          );
+        }
         metadataLine = candidate;
         metadataLineNumber = cursor + 1;
-        break;
+        metadataIndex = cursor;
+      }
+      if (candidate.startsWith("Completed:")) {
+        if (completion !== undefined) {
+          malformed(cursor + 1, `${id} has more than one Completed line`);
+        }
+        if (!candidate.startsWith("Completed: ")) {
+          malformed(cursor + 1, `${id} has an empty Completed outcome`);
+        }
+        completion = candidate.slice("Completed: ".length).trim();
+        completionIndex = cursor;
+        if (completion.length === 0) {
+          malformed(cursor + 1, `${id} has an empty Completed outcome`);
+        }
       }
       if (candidate.startsWith("#### ") || candidate.startsWith("## ")) break;
     }
-    if (metadataLine === undefined) {
+    if (metadataLine === undefined || metadataIndex === undefined) {
       malformed(sourceLine.number, `${id} has no metadata line`);
     }
+    if (
+      completionIndex !== undefined &&
+      (
+        completionIndex !== metadataIndex + 2 ||
+        lines[completionIndex - 1]?.trim() !== "" ||
+        lines[completionIndex + 1]?.trim() !== ""
+      )
+    ) {
+      malformed(
+        completionIndex + 1,
+        `${id} must put Completed in its own first paragraph after metadata`,
+      );
+    }
     const metadata = parseFindingMetadata(metadataLine, metadataLineNumber);
-    findings.push({ id, title, severity, ...metadata });
+    findings.push({
+      id,
+      title,
+      severity,
+      ...metadata,
+      ...(completion === undefined ? {} : { completion }),
+    });
   }
 
   if (findings.length === 0) malformed(1, "no findings found");
@@ -325,11 +368,20 @@ function code(value: string): string {
 export function renderLaunchLockdownAuditSummary(
   audit: LaunchAuditSummary,
 ): string {
+  const activeFindings = audit.findings.filter((finding) =>
+    finding.completion === undefined
+  );
+  const completedFindings = audit.findings.filter((finding) =>
+    finding.completion !== undefined
+  );
+  const activeFindingIds = new Set(
+    activeFindings.map((finding) => finding.id),
+  );
   const severityCounts = new Map<LaunchAuditSeverity, number>();
   for (const severity of SEVERITIES) severityCounts.set(severity, 0);
   let frozen = 0;
   let reviewed = 0;
-  for (const finding of audit.findings) {
+  for (const finding of activeFindings) {
     severityCounts.set(
       finding.severity,
       (severityCounts.get(finding.severity) ?? 0) + 1,
@@ -350,7 +402,7 @@ export function renderLaunchLockdownAuditSummary(
     "authoritative for evidence, consequences, proposed fixes, owner decisions, " +
     "coverage, and method.",
     "",
-    `**${audit.findings.length} active findings:** ${
+    `**${activeFindings.length} active findings:** ${
       severityCounts.get("High")
     } high, ` +
     `${severityCounts.get("Medium")} medium, ${
@@ -358,16 +410,22 @@ export function renderLaunchLockdownAuditSummary(
     } low · ` +
     `${frozen} freeze at the first tag · ${reviewed} skeptic-reviewed · ` +
     `${
-      audit.findings.length - reviewed
-    } unverified · ${audit.batches.length} fixer batches.`,
+      activeFindings.length - reviewed
+    } unverified · ${completedFindings.length} completed · ` +
+    `${audit.batches.length} fixer batches.`,
     "",
     "Each entry gives the finding's surface, class, skeptic status, " +
     "freeze-at-tag flag when applicable, and fixer batch. “Unverified” means no " +
     "skeptic was assigned; it does not mean refuted.",
+    "",
+    "A finding stays active until its source block carries a non-empty, " +
+    "single-line `Completed:` outcome as the first paragraph after metadata. " +
+    "Completed findings remain in their original batches and appear at the " +
+    "bottom of this digest.",
   ];
 
   for (const severity of SEVERITIES) {
-    const findings = audit.findings.filter((finding) =>
+    const findings = activeFindings.filter((finding) =>
       finding.severity === severity
     );
     lines.push("", `## ${severity} (${findings.length})`, "");
@@ -386,15 +444,30 @@ export function renderLaunchLockdownAuditSummary(
     }
   }
 
-  lines.push("", "## Batch key", "");
+  lines.push("", "## Batch progress", "");
   for (const batch of audit.batches) {
-    lines.push(`- **${batch.id}** — ${batch.title}`);
+    const activeCount = batch.findingIds.filter((id) =>
+      activeFindingIds.has(id)
+    ).length;
+    lines.push(
+      `- **${batch.id}** — ${batch.title} · ${activeCount} active / ${batch.findingIds.length} total`,
+    );
   }
 
   if (audit.refuted.length > 0) {
     lines.push("", `## Refuted (${audit.refuted.length})`, "");
     for (const finding of audit.refuted) {
       lines.push(`- **${finding.id}** — ${finding.title}`);
+    }
+  }
+
+  if (completedFindings.length > 0) {
+    lines.push("", `## Completed (${completedFindings.length})`, "");
+    for (const finding of completedFindings) {
+      lines.push(
+        `- **${finding.id}** — ${finding.title}  `,
+        `  ${finding.completion ?? ""}`,
+      );
     }
   }
 
