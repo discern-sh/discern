@@ -48,7 +48,6 @@ export const DEFAULTS = {
   agents: [...DEFAULT_AGENTS] as AgentName[],
   mapDir: SOURCE_PATHS.map.defaultPath,
   gotchasDoc: "",
-  scopesPreviewable: ['"public/**"'],
 } as const;
 
 /** Render one registry path as a scope pattern. Configured sources use their
@@ -166,8 +165,6 @@ export function tokensFromConfig(
     gotchas_doc: DEFAULTS.gotchasDoc,
     scopes_neutral: defaultDocumentationScopes().join(", "),
     scopes_instructions: defaultInstructionScopes().join(", "),
-    scopes_web: renderTomlStringList(config.sourceGlobs),
-    scopes_previewable: DEFAULTS.scopesPreviewable.join(", "),
     artifact_provenance_marker: generatedArtifactMarkerBody(
       ARTIFACT_PROVENANCE_SOURCES.config,
       env,

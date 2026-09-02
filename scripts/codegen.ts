@@ -6,8 +6,9 @@
  * This includes the browser search module copied from its authored `src/lib`
  * source, alongside the registry- and schema-derived reference artifacts.
  *
- * (The `discern.toml` template is NOT regenerated — it stays hand-authored for
- * legibility per ADR 0005, bound to the schema by drift-guard tests instead.)
+ * The `discern.toml` template is one of them: it renders from the config
+ * schema and the config prose registry (ADR 0363), so its prose has one
+ * authority and its layout is uniform by construction.
  *
  * A sync test (`tests/config_codegen_test.ts`) asserts each committed file equals
  * its generator output, so forgetting to regenerate fails the gate. The
@@ -23,6 +24,7 @@ import {
   renderConfigSchemaJson,
   renderManualConfigReferenceDoc,
 } from "../src/shared/config_codegen.ts";
+import { renderConfigTemplate } from "../src/shared/config_template_codegen.ts";
 import { renderManualCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
@@ -223,6 +225,7 @@ async function write(
 }
 
 console.log("Regenerating config artifacts from src/shared/config_schema.ts:");
+await write("templates/discern.toml.tmpl", renderConfigTemplate());
 await write("schema/discern-config.schema.json", renderConfigSchemaJson());
 await write(
   "schema/discern-setup-config.schema.json",

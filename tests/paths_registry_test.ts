@@ -114,7 +114,6 @@ Deno.test("the shipped template's path values equal the registry defaults", asyn
     map_dir: SOURCE_PATHS.map.defaultPath,
     scopes_neutral: defaultDocumentationScopes().join(", "),
     scopes_instructions: defaultInstructionScopes().join(", "),
-    scopes_previewable: '"public/**"',
     artifact_provenance_marker: "discern provenance marker",
     kit_version: "0.0.0",
     project_name: "Demo",

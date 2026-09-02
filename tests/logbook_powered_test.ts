@@ -1,9 +1,8 @@
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import {
   LOGBOOK_POWERED,
   type LogbookPoweredCapability,
-  logbookPoweredPhraseList,
 } from "../src/shared/logbook_powered.ts";
 import { renderManualConfigReferenceDoc } from "../src/shared/config_codegen.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
@@ -108,11 +107,16 @@ Deno.test("the logbook reference page names every logbook-powered capability", a
   );
 });
 
-Deno.test("the generated config reference carries the rendered capability list", () => {
-  assertStringIncludes(
+Deno.test("the generated config reference names every logbook-powered capability", () => {
+  const missing = missingPhrases(
     renderManualConfigReferenceDoc(),
-    logbookPoweredPhraseList(),
-    "the logbook key's describe() must render logbookPoweredPhraseList()",
+    LOGBOOK_POWERED,
+  );
+  assertEquals(
+    missing,
+    [],
+    `the config reference's logbook row is missing the phrase for: ` +
+      `${missing.join(", ")} — the registry's logbook key detail renders there`,
   );
 });
 

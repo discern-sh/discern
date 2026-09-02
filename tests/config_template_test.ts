@@ -72,8 +72,9 @@ function agentTargetPairs(
 Deno.test("extracts a ruled-doc section (skills) with its doc block, header, and body", async () => {
   const block = sectionBlockFromTemplate(await realTemplate(), "skills");
   assertExists(block, "skills block should be found");
-  // Leads with the section's documentation paragraph...
-  assertStringIncludes(block, "# [skills] — focused, reusable task playbooks");
+  // Leads with the section's documentation banner...
+  assertStringIncludes(block, "# [skills]\n");
+  assertStringIncludes(block, "# What:    Where your authored skills live");
   // ...then the header...
   assertStringIncludes(block, "\n[skills]\n");
   // ...then the body of defaults.
@@ -108,13 +109,15 @@ Deno.test("the seed scope comments keep instructions outside the docs grant exam
   assertExists(docs);
   assertExists(instructions);
   assertExists(acceptance);
+  // Banner prose wraps at the width, so compare it with the wrapping undone.
+  const unwrapped = (block: string): string => block.replace(/\n\s*#\s+/g, " ");
   assertStringIncludes(docs, "paths   = [{{scopes_neutral}}]");
   assertStringIncludes(instructions, "paths   = [{{scopes_instructions}}]");
-  assertStringIncludes(instructions, "landing them stays owner-reviewed");
+  assertStringIncludes(unwrapped(instructions), "landing stays owner-reviewed");
   assertStringIncludes(acceptance, 'pre_authorized = [] # e.g. ["map"]');
   assertStringIncludes(
-    acceptance,
-    "agent-instruction surfaces stay owner-reviewed",
+    unwrapped(acceptance),
+    "keeps agent instructions owner-reviewed",
   );
 });
 
@@ -131,7 +134,6 @@ Deno.test("lists only active template section headers, in file order", async () 
     "assurance",
     "scopes.map",
     "scopes.instructions",
-    "generated",
     "acceptance",
     "worktree",
     "worktree.setup",
@@ -217,7 +219,7 @@ Deno.test("extracts the last section ([scripts]) up to EOF, trailing blanks trim
   assertExists(block);
   assertStringIncludes(
     block,
-    "# [scripts] — your own executable project scripts",
+    "# What:    Where your executable project scripts live.",
   );
   assertStringIncludes(block, "\n[scripts]\n");
   assertStringIncludes(block, 'dir = "discern/scripts"');
@@ -227,19 +229,21 @@ Deno.test("extracts the last section ([scripts]) up to EOF, trailing blanks trim
 Deno.test("[meta] closes the file with its own doc block; [project] never pulls the preamble in", async () => {
   const meta = sectionBlockFromTemplate(await realTemplate(), "meta");
   assertExists(meta);
-  assertStringIncludes(meta, "# [meta] — installer bookkeeping");
+  assertStringIncludes(meta, "# What:    Installer bookkeeping.");
   assertStringIncludes(meta, "# The install schema version");
   assertStringIncludes(meta, "schema_version =");
-  // [project] now sits directly under the file preamble; it must start AT its
-  // header — a comment run reaching the top of the file is never a doc block.
+  // [project] carries its own banner below the file preamble; the blank line
+  // between them keeps the preamble out, since a comment run reaching the top
+  // of the file is never a doc block.
   const project = sectionBlockFromTemplate(await realTemplate(), "project");
   assertExists(project);
   assert(
-    project.startsWith("[project]"),
-    `expected to start at header, got: ${project}`,
+    project.startsWith("# ─"),
+    `expected to start at the banner rule, got: ${project}`,
   );
+  assertStringIncludes(project, "# [project]\n");
   assert(
-    !project.includes("teach discern about your project"),
+    !project.includes("configures discern for"),
     "preamble not pulled in",
   );
 });
@@ -418,11 +422,10 @@ Deno.test("each inert checkpoint example governs once uncommented, untouched", a
   // The id set comes from the template's own headers (a new example fails
   // here until it takes a row), and the per-id mode is the double-entry.
   const template = await realTemplate();
+  // The scaffold ships one worked example; the prose registry carries the
+  // rest for the manual and `discern config explain`, each validated there.
   const expectedModes: Readonly<Record<string, "stop" | "advise">> = {
-    "new-dependency": "advise",
-    "shrinking-tests": "advise",
     "sensitive-paths": "stop",
-    "interface-review": "stop",
   };
   assertEquals(inertExampleIds(template), Object.keys(expectedModes).sort());
   for (const [id, mode] of Object.entries(expectedModes)) {

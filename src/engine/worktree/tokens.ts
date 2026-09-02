@@ -42,6 +42,21 @@ export const WORKTREE_TOKENS = [
 /** One of the recognised adapter token names. */
 export type WorktreeToken = (typeof WORKTREE_TOKENS)[number];
 
+/** What each adapter token resolves to, in the words the config prose and
+ * the manual use. Pinned to {@link WORKTREE_TOKENS} at compile time, so a new
+ * token cannot ship without its description. */
+export const WORKTREE_TOKEN_DESCRIPTIONS: Readonly<
+  Record<WorktreeToken, string>
+> = {
+  worktree: "this worktree's base handle (slug-id)",
+  resource: "this resource's handle (slug-id-name)",
+  db: "a database-name-safe identity",
+  site: "a DNS-safe dev-server site or host name",
+  port: "the deterministic dev-server port",
+  project_slug: "the project slug",
+  dir: "this worktree's root",
+};
+
 /**
  * Lazily resolves a token to its string value. Called at most once per token per
  * expansion, and only for tokens actually present in the command. A resolver may

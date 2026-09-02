@@ -130,6 +130,9 @@
   # Where your authored skills live, relative to the project root.
   dir = "project/skills"
 
+  # Skill names, bundled or authored, to leave out of materialization.
+  exclude = []
+
 # ─────────────────────────────────────────────────────────────────────────────
 # [jobs] — every command the gate runs, in one namespace. Known names derive
 # their gate stage automatically:
@@ -401,6 +404,7 @@
   # a merge conflict there still needs judgment, not regeneration.
   [generated.codegen]
     paths = [
+      "templates/discern.toml.tmpl",
       "schema/discern-config.schema.json",
       "schema/discern-setup-config.schema.json",
       "schema/discern-results.schema.json",

@@ -349,7 +349,7 @@ Deno.test("the reference's [project].agents row matches what the resolver actual
   // both readings the resolver implements (omit → default pair, explicit [] → none).
   const doc = renderManualConfigReferenceDoc();
   const row = doc.split("\n").find((l) =>
-    l.startsWith("| `agents`") && l.includes("CLAUDE.md")
+    l.startsWith("| `agents`") && l.includes("claude_code")
   );
   assert(row !== undefined, "the [project].agents row should be present");
   // The default cell is `—` (no default), never a literal empty array.
@@ -358,7 +358,7 @@ Deno.test("the reference's [project].agents row matches what the resolver actual
     `the agents row must not document a [] default: ${row}`,
   );
   // Prose documents the two distinct readings the resolver honors.
-  assert(row.includes("OMIT"), row);
+  assert(row.includes("Omit the key"), row);
   assert(row.includes("empty list"), row);
 
   // And it is faithful: the resolver really does treat unset as the default pair
@@ -372,8 +372,9 @@ Deno.test("the reference's [project].agents row matches what the resolver actual
   );
 });
 
-// ── template ↔ schema drift guards (the template stays hand-authored, ADR 0005,
-//    but cannot silently diverge from the schema) ──────────────────────────────
+// ── template ↔ schema guards (the template is generated from the schema and
+//    the prose registry, ADR 0363; these hold the committed copy and its
+//    rendering to the schema) ────────────────────────────────────────────────
 
 /** The shipped template with its tokens filled, as `discern setup` renders it. */
 async function renderedTemplate(): Promise<string> {
@@ -388,7 +389,6 @@ async function renderedTemplate(): Promise<string> {
     map_dir: SOURCE_PATHS.map.defaultPath,
     scopes_neutral: defaultDocumentationScopes().join(", "),
     scopes_instructions: defaultInstructionScopes().join(", "),
-    scopes_previewable: '"public/**"',
     artifact_provenance_marker: generatedArtifactMarkerBody(
       ARTIFACT_PROVENANCE_SOURCES.config,
     ),

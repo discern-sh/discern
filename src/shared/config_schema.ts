@@ -4,9 +4,10 @@
  * **default**, and **human description**; the engine reads a fully-typed,
  * fully-defaulted object parsed through it, and the editor JSON Schema + the docs
  * config-reference are generated from it (see `config_codegen.ts`) — the docs
- * rendering straight from its `.describe(...)` annotations. (The `discern.toml`
- * template stays hand-authored for legibility — ADR 0005 — bound to the schema by
- * drift-guard tests rather than generated.)
+ * rendering straight from its `.describe(...)` annotations. The `discern.toml`
+ * template renders from this schema plus the config prose registry
+ * (`config_prose.ts`, ADR 0363) through `config_template_codegen.ts`; each
+ * section's description here IS the registry's `what`, so the two never diverge.
  *
  * Before this, the config's shape/defaults/prose were smeared across a stringly
  * accessor, wizard defaults, a hand-written JSON Schema, the closed vocabularies,
@@ -34,7 +35,6 @@ import {
   type KnownJob,
   STAGES,
 } from "./capabilities.ts";
-import { logbookPoweredPhraseList } from "./logbook_powered.ts";
 import {
   GLOB_METACHARACTER_RE,
   isConcretePath,
@@ -50,6 +50,7 @@ import {
 } from "./project_path.ts";
 import { deadConfigPosition, retiredConfigKeySuccessor } from "./vocabulary.ts";
 import { AGENT_NAMES } from "./agent_catalogue.ts";
+import { CONFIG_PROSE } from "./config_prose.ts";
 import {
   CHECKPOINT_CHANGE_KINDS,
   CHECKPOINT_MODES,
@@ -199,7 +200,7 @@ const jobTimeout = z.number().min(
   0,
   "timeout is a per-job budget in seconds and cannot be negative.",
 ).optional().describe(
-  "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+  "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
 );
 
 /** A known-job value: the bare command-or-list, or the table form
@@ -270,13 +271,13 @@ const stageEnum = z.enum(STAGES);
 /** A custom `[jobs.<name>]` table with an explicit stage. */
 const customJobValue = z.strictObject({
   stage: stageEnum.describe(
-    "When the custom job runs in the gate (fix|build|check|test).",
+    "The Gate stage this job runs in: fix, build, check, or test.",
   ),
   run: commandOrList.describe(
     `The command(s) to run. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   provides: z.string().optional().describe(
-    "Optional free-text label, for humans / audit.",
+    "A free-text label for humans and audit.",
   ),
   timeout: jobTimeout,
 }).describe(
@@ -294,7 +295,7 @@ const scopeValue = z.strictObject({
     `The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   neutral: z.boolean().default(false).describe(
-    "true: changes here need no gate (docs, agent instructions).",
+    "true: changes here need no Gate, as for documentation and agent instructions.",
   ),
   preview: commandOrList.refine(
     (preview) => toCommandList(preview).length > 0,
@@ -303,7 +304,7 @@ const scopeValue = z.strictObject({
     `A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes it. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   gate: commandOrList.optional().describe(
-    `A command discern done runs when this scope changed (a sub-component with its own self-contained gate). ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+    `A command \`discern done\` runs when this scope changed: a sub-component's own self-contained gate. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   timeout: jobTimeout,
 });
@@ -321,7 +322,7 @@ const generatedValue = z.strictObject({
     `The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   linguist_generated: z.boolean().default(false).describe(
-    "Whether GitHub should hide this group's files in diffs by default and exclude them from repository language statistics through the `linguist-generated` Git attribute. Default false.",
+    "true marks the group's paths generated for GitHub through the `linguist-generated` attribute: hidden in diffs by default and excluded from language statistics.",
   ),
   timeout: jobTimeout,
 });
@@ -329,50 +330,43 @@ const generatedValue = z.strictObject({
 /** A `[standards.<name>]` table — one never-loosen metric floor/ceiling. */
 const standardValue = z.strictObject({
   metric: z.string().optional().describe(
-    "Metric name the run emits (default: the standard name).",
+    "The metric name the run emits. Defaults to the standard's name.",
   ),
   direction: z.enum(["up", "down"]).describe(
-    'Required. "up": limit is a floor; "down": limit is a ceiling.',
+    '"up" when the value should rise, so the limit is a floor; "down" when it should fall, so the limit is a ceiling.',
   ),
-  limit: z.number().describe("The floor (up) or ceiling (down)."),
+  limit: z.number().describe(
+    "The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall.",
+  ),
   run: commandOrList.describe(
     `The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   per: perValue.optional().describe(
-    "Divide the metric to hold a *rate*, not a raw count — so the number " +
-      "doesn't rise solely because the project grew. Either a second metric the run emits, " +
-      'or a built-in extent discern measures itself: per = { words = "${map.dir}**" } ' +
-      `(files | lines | words | bytes over a git pathspec). ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+    "Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: " +
+      "a second metric the run emits, or a built-in extent discern measures itself, " +
+      'per = { words = "${map.dir}**" } (files, lines, words, or bytes over a git pathspec). ' +
+      LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION,
   ),
   scale: z.number().default(1).describe(
-    'Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for "per 1,000 words".',
+    "Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.",
   ),
   margin: z.number().min(
     0,
     "margin is headroom and cannot be negative — a negative margin would tighten a pinned limit PAST the measured value, so that measurement would fail it.",
   ).default(0).describe(
-    "Headroom `discern standards --pin` leaves when it tightens this limit to the " +
-      "measured value: pin sets a floor to measured−margin (up) or a ceiling to " +
-      "measured+margin (down), and leaves a standard un-pinned when the improvement " +
-      "is smaller than its margin. Must be ≥ 0. Default 0 pins to the measured " +
-      "value; give a metric that drifts on unrelated changes (bundle size, coverage) " +
-      "a margin so a pinned limit isn't tripped by ordinary fluctuation.",
+    "Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. " +
+      "Give a metric that drifts on unrelated changes, such as a size or a coverage percentage, " +
+      "a margin so a pinned limit is not tripped by ordinary fluctuation.",
   ),
   measure: z.enum(["gate", "on-demand"]).default("gate").describe(
-    '"gate" (the default): the measurement runs inside every `discern done`, in ' +
-      'parallel with the tests. "on-demand": the gate skips only the measurement ' +
-      "(for a metric too slow for every gate run — a full coverage run, a release " +
-      "build); the never-loosen limit check still runs on every gate, and " +
-      "`discern standards` measures it when you ask. Before deferring, prefer the " +
-      "smaller reliefs: declare `inputs` so unchanged trees replay at no cost, or " +
-      "raise this one job's `timeout`.",
+    '"gate" measures inside every `discern done`, beside the tests. ' +
+      '"on-demand" defers only the measurement to `discern standards`, for a metric too slow for every run; ' +
+      "the never-loosen check still runs on every Gate. Prefer `inputs` or a longer `timeout` first.",
   ),
   inputs: z.array(z.string()).optional().describe(
-    "The paths this metric reads (scope-paths globs). When a gate run finds " +
-      "every change since the last recorded measurement outside these globs, it " +
-      "replays that recorded value instead of re-measuring — loudly, naming the " +
-      "source commit. Omit to measure every time (the conservative default). Risk: a " +
-      "too-narrow inputs list delays detection until the next measured run. " +
+    "The paths this metric reads, as scope globs. When nothing under them changed since the last " +
+      "recorded measurement, the Gate replays that value instead of re-measuring and names the source commit. " +
+      "Omit to measure every time. " +
       LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION,
   ),
   timeout: jobTimeout,
@@ -430,13 +424,13 @@ const checkpointValue = z.strictObject({
     `Selector globs in the scope dialect: prefix, standard glob, suffix, segment, or exact path. Use either \`scope\` or \`paths\`. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   include_generated: z.boolean().optional().describe(
-    "Include paths owned by governing [generated.<name>].paths; default false keeps authored-only evaluation.",
+    "true includes paths a [generated.<name>] group owns; the default evaluates authored change only.",
   ),
   exclude_paths: z.array(z.string()).optional().describe(
     `Globs removed after selection and before every predicate, subject, evidence, and \`when\`. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   unless_changed: z.array(z.string()).optional().describe(
-    `Veto when any filtered changed path matches a configured scope name or selector-dialect glob. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+    `Hold fire when any changed path matches one of these globs or scope names: flag this change class unless its counterpart moved too. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   kinds: checkpointKinds.optional().describe(
     'Narrow changed evidence to the named Git kinds: "added", "modified", or "deleted".',
@@ -469,7 +463,7 @@ const checkpointValue = z.strictObject({
     "Fire only when the matched change is deletion-dominant: line removals clearly outweigh additions and exceed a fixed floor, so a large cut is reviewed and an ordinary edit or balanced refactor is not.",
   ),
   similar_new_file: z.boolean().optional().describe(
-    "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory (a copy/version/suffix variant) — the signature of a parallel implementation growing beside the original.",
+    "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory, the signature of a parallel implementation growing beside the original.",
   ),
   min_commits: z.number().int().min(
     1,
@@ -498,9 +492,7 @@ const checkpointValue = z.strictObject({
 });
 
 const checkpointsSection = z.record(z.string().regex(NAME_RE), checkpointValue)
-  .default({}).describe(
-    "[checkpoints.<id>] — change-triggered review rules: a deterministic trigger chooses when a diff makes a question relevant, the agent judges the question and records a declaration, and the record travels with the gate's results. The configuration at the effort's merge-base with the trunk governs, so a branch editing these tables does not change its own gate. None configured means none fire.",
-  );
+  .default({}).describe(CONFIG_PROSE.checkpoints.what);
 
 // ── the live `discern.toml` schema ─────────────────────────────────────────────
 
@@ -539,92 +531,84 @@ function projectPathsAreUnique(values: readonly string[]): boolean {
 
 const metaSection = z.strictObject({
   schema_version: z.number().int().optional().describe(
-    "The install schema version — managed by discern (bumped by `discern upgrade`). Don't edit by hand.",
+    "The install schema version. `discern upgrade` bumps it; never edit it by hand.",
   ),
   bootstrapped: z.boolean().default(false).describe(
-    "Whether `discern setup` has completed — retires the one-time setup redirect.",
+    "true once `discern setup` has completed, which retires the one-time setup redirect.",
   ),
   setup_model: z.string().default("").describe(
-    "The model the agent self-declared at `discern setup begin --model=…`. Recorded for support triage; advisory only (discern can't verify it).",
+    "The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it.",
   ),
   setup_version: z.string().default("").describe(
-    "The discern version that ran setup (observed at `begin`). Recorded for support triage.",
+    "The discern version that ran setup, recorded for support triage.",
   ),
-}).prefault({}).describe(
-  "Installer bookkeeping. `schema_version` is the migration anchor; edit by hand only to force a re-migration.",
-);
+}).prefault({}).describe(CONFIG_PROSE.meta.what);
 
 const projectSection = z.strictObject({
   name: z.string().default("").describe(
-    "Display name (free text), used when compiled instructions address the project. Empty falls back to the slug.",
+    "Display name, free text, used when compiled instructions address the project. Empty falls back to the slug.",
   ),
   slug: z.string().default("").describe(
-    "Short, lowercase, dash-separated identity. Used for worktree/site/branch names.",
+    "Short, lowercase, dash-separated identity, used in worktree, site, and branch names.",
   ),
   gotchas_doc: z.string().default("").describe(
-    "Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer.",
+    "The doc the Gate points an agent at when a stage fails in a non-obvious way. Keep it current with your stack's traps; empty disables the pointer.",
   ),
   todo: projectFilePath.default(SOURCE_PATHS.todo.defaultPath).describe(
-    "Where the deferred-work ledger (the running TODO list agents read and maintain) lives. The path is relative to the project root. discern removes leading `./` prefixes when it loads the config.",
+    "The deferred-work ledger: the running TODO list agents read and maintain, relative to the project root.",
   ),
   logbook: z.boolean().default(true).describe(
-    "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names. The log contains no code or output. Its files stay under `.git`, outside commits and network transmission. The history feeds " +
-      logbookPoweredPhraseList() +
-      ". false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until an owner confirms `discern patterns reset` or seals them with `discern patterns archive`.",
+    "When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, never code or output. " +
+      "Files stay under .git, outside commits and any network; false stops all writes.",
   ),
   agents: z.array(z.enum(AGENT_NAMES)).optional().describe(
-    "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",
+    `Which agent integrations to enable: ${AGENT_NAMES.join(", ")}. ` +
+      `Omit the key for the default pair (${
+        DEFAULT_AGENTS.join(", ")
+      }); an explicit empty list emits for no agent.`,
   ),
-}).prefault({}).describe("Project identity and authored project paths.");
+}).prefault({}).describe(CONFIG_PROSE.project.what);
 
 const repositorySection = z.strictObject({
   trunk: z.string().default("main").describe(
-    `The shared branch the gate merges into and completed work lands on. Override per-invocation with the ${DISCERN_ENVIRONMENT_VARIABLES.trunk} env var.`,
+    `The shared branch the Gate compares against and completed work lands on. Detected at setup; ${DISCERN_ENVIRONMENT_VARIABLES.trunk} overrides it per invocation.`,
   ),
   branch_prefix: z.string().default("agent/").describe(
     'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
   ),
   proof_notes: z.enum(["local", "fetch"]).default("local").describe(
-    'How landed proof notes travel: "local" records them only in this clone; "fetch" adds a fetch-only mapping for each remote, including remotes that have not published a proof note yet. discern never configures push behavior or starts a network request.',
+    '"local" records landed proof notes in this clone only; "fetch" adds a fetch-only mapping per remote so ordinary fetches carry them. Publishing stays an explicit `git push <remote> refs/notes/discern`.',
   ),
   ensure: z.array(z.string()).default([]).describe(
-    "Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run.",
+    "Idempotent commands that make any checkout usable for its tracked tree, such as installing dependencies from a lockfile. They run in order on every worktree pass and after a landing.",
   ),
-}).prefault({}).describe(
-  "Repository-wide checkout policy: the trunk, discern-created branch names, and convergence shared by linked worktrees and the main checkout.",
-);
+}).prefault({}).describe(CONFIG_PROSE.repository.what);
 
 const instructionSection = z.strictObject({
   sources: z.array(instructionSourcePath).default([
     SOURCE_PATHS.instructions.defaultPath,
   ])
     .describe(
-      "Your instruction source files and globs. Concrete paths are relative to the project root, and discern removes leading `./` prefixes from them. Globs keep their authored spelling and may be relative or absolute. Source discovery excludes the agent files, so a glob may match them. Sources are read only when present; discern's built-in instructions are prepended.",
+      "Your instruction source files or globs, relative to the project root. Read only when present; discern's built-in instructions are always prepended, so these are additive. `discern setup` seeds a starter here.",
     ),
-}).prefault({}).describe(
-  "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in instructions plus your sources into one agent file per provider.",
-);
+}).prefault({}).describe(CONFIG_PROSE.instructions.what);
 
 const skillsSection = z.strictObject({
   dir: projectDirectoryPath.default(SOURCE_PATHS.skills.defaultPath).describe(
-    "Where your authored skills live, relative to the project root. discern removes leading `./` prefixes and one trailing slash. The directory is read only when present, so a project with no authored skills uses the built-ins.",
+    "Where your authored skills live, relative to the project root. Read only when present, so a project with no authored skills uses the built-ins.",
   ),
   exclude: z.array(z.string()).default([]).describe(
-    "Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop unused ones. An unknown name produces a warning without failing.",
+    "Skill names, bundled or authored, to leave out of materialization. Each materialized skill occupies context in every agent session, so exclude what this project never needs; an unknown name warns and never fails.",
   ),
-}).prefault({}).describe(
-  "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name, minus any names in `exclude`.",
-);
+}).prefault({}).describe(CONFIG_PROSE.skills.what);
 
 const mapSection = z.strictObject({
   dir: projectDirectoryPath.overwrite((value) => `${value}/`).default(
     SOURCE_PATHS.map.defaultPath,
   ).describe(
-    "Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. discern removes leading `./` prefixes and keeps one trailing slash. `discern setup` scaffolds it here, and `discern map` browses it by default.",
+    "Where the project map lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it.",
   ),
-}).prefault({}).describe(
-  "The project documentation tree discern scaffolds, validates, and browses.",
-);
+}).prefault({}).describe(CONFIG_PROSE.map.what);
 
 /** The single `[jobs]` object. Known names have their stage-derived flat form;
  * every other legal name is parsed through the custom table form. Shared by the
@@ -632,20 +616,20 @@ const mapSection = z.strictObject({
  * generated reference describe the same namespace. */
 const jobValuesObject = z.strictObject({
   format: knownJobCommand.optional().describe(
-    "fix stage — a formatter/codemod (mutating; runs first, serially).",
+    "A formatter or codemod. Mutating, so it runs first and serially.",
   ),
   build: knownJobCommand.optional().describe(
-    "build stage — produce artifacts later stages read (compile, bundle).",
+    "Produce the artifacts later stages read: compile, bundle.",
   ),
   lint: knownJobCommand.optional().describe(
-    "check stage — read-only static analysis.",
+    "Read-only static analysis.",
   ),
   typecheck: knownJobCommand.optional().describe(
-    "check stage — read-only type checking.",
+    "Read-only type checking.",
   ),
-  test: knownJobCommand.optional().describe("test stage — the test suite."),
+  test: knownJobCommand.optional().describe("The test suite."),
   smoke: knownJobCommand.optional().describe(
-    "test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Keep end-to-end coverage and discern's built-in write probes separate.",
+    "A fast, side-effect-light readiness check: the app boots with real config in this checkout. `discern done` and `discern test` run it in the same fail-fast test group, so a quick failure cancels slower siblings.",
   ),
 }).catchall(customJobValue);
 const jobsObject = z.intersection(
@@ -653,9 +637,7 @@ const jobsObject = z.intersection(
   jobValuesObject,
 );
 
-const jobsSection = jobsObject.prefault({}).describe(
-  "The Gate's jobs. Known names (format, build, lint, typecheck, test, smoke) accept a command, list, or { run, timeout } and derive their stage. Custom [jobs.<name>] tables require `stage` (fix|build|check|test) and `run`; `provides` and `timeout` are optional. Known names omit `stage`. Omission leaves a job unwired; [assurance] records a lifecycle that does not apply.",
-);
+const jobsSection = jobsObject.prefault({}).describe(CONFIG_PROSE.jobs.what);
 
 /** The known-job enum as schema data, derived from {@link KNOWN_JOBS}. The cast
  * records the authority's non-empty invariant so Zod can publish an enum rather
@@ -672,33 +654,25 @@ const assuranceSection = z.strictObject({
     (names) => new Set(names).size === names.length,
     { message: "each known job may be listed only once." },
   ).meta({ uniqueItems: true }).default([]).describe(
-    "Known jobs excluded from setup assurance; cannot also be configured.",
+    "Known jobs this project's lifecycle does not have. A job listed here cannot also be configured under [jobs].",
   ),
-}).prefault({}).describe(
-  "Known-job applicability for setup assurance.",
-);
+}).prefault({}).describe(CONFIG_PROSE.assurance.what);
 
 const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(
   {},
 )
-  .describe(
-    "[scopes.<name>] — named regions of the repo. `paths` globs define a scope; optional fields declare neutrality, a read-only preview action, or a changed-scope gate. Classification fails OPEN: a path matching no scope counts as a real code change.",
-  );
+  .describe(CONFIG_PROSE.scopes.what);
 
 const generatedSection = z.record(
   z.string().regex(NAME_RE),
   generatedValue,
-).default({}).describe(
-  "[generated.<name>] — committed artifacts wholly owned by one generator. `paths` names the artifacts, `run` deterministically rewrites them and prunes its own orphans, and `timeout` optionally replaces the global command budget.",
-);
+).default({}).describe(CONFIG_PROSE.generated.what);
 
 const acceptanceSection = z.strictObject({
   pre_authorized: z.array(z.string()).default([]).describe(
-    "Scope names whose changes may land without a per-landing conversation. This is an owner decision recorded on the trunk: widening a named scope widens its grant. An empty list, or an absent [acceptance] section, means every landing needs the owner's acceptance.",
+    "Scope names whose changes may land without a per-landing conversation. An owner decision recorded on the trunk: widening a named scope widens its grant. Empty means every landing needs the owner's acceptance.",
   ),
-}).prefault({}).describe(
-  "Recorded standing grants for landing. The owner edits these grants on the trunk; each entry names a [scopes.<name>] region whose changes may land without a per-landing conversation.",
-);
+}).prefault({}).describe(CONFIG_PROSE.acceptance.what);
 
 const resourceValue = z.strictObject({
   create: z.string().default("").describe(
@@ -708,16 +682,16 @@ const resourceValue = z.strictObject({
     "Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.",
   ),
   ensure: z.string().default("").describe(
-    "Optional: reconcile drift / re-readiness at session start.",
+    "Reconcile drift or re-readiness at session start.",
   ),
   required: z.boolean().default(true).describe(
-    "false: a create failure is non-fatal (does not abort setup).",
+    "false makes a create failure non-fatal, so setup continues.",
   ),
   retries: z.number().default(0).describe(
     "Retry create/destroy this many times.",
   ),
   gc: z.boolean().default(true).describe(
-    "false: exempt it from orphan pruning (teardown-only; for data-loss-sensitive ones).",
+    "false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.",
   ),
 });
 
@@ -739,92 +713,77 @@ export const RECORD_ENTRY_SCHEMAS = {
 
 const worktreeSection = z.strictObject({
   root: z.string().default("").describe(
-    'Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, "<repo>.worktrees", visible and adjacent outside the checkout. A relative path resolves against the repo root (".claude/worktrees" nests them inside the repo); an absolute path is used as-is.',
-  ),
-  port: z.boolean().default(false).describe(
-    "Record each worktree's deterministic dev-server port in its configured env files. The port remains available through `discern identity --port` when this is false; it is derived identity and provisions nothing.",
-  ),
-  ignored_file_drift: z.boolean().default(true).describe(
-    "Track ignored files at worktree setup and report top-level ignored paths that changed before the worktree is removed. Disable for projects whose ignored outputs churn too much to be useful.",
+    'Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", never nested inside it. A relative path resolves against the repo root; absolute is used as-is.',
   ),
   inherit_env: z.array(z.string()).default([]).describe(
-    "Environment values copied from the main checkout's env files into a new worktree's (secrets a fresh worktree needs but that aren't in version control). The worktree's env file is created when absent, so each declared value reaches it.",
+    "Environment values copied from the main checkout's env files into a new worktree's: secrets a fresh worktree needs that are not in version control. The worktree's env file is created when absent.",
   ),
   env_files: z.array(projectFilePath).refine(projectPathsAreUnique, {
     message:
       "each env-file path may appear only once, including aliases on a case-insensitive filesystem",
   }).meta({ uniqueItems: true }).default([".env", ".env.local"]).describe(
-    "Portable project-relative files the worktree lifecycle reads and writes, in precedence order. The list accepts any filename. discern removes leading `./` prefixes and refuses path aliases. When reading, the last listed file that defines a value wins. A newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy. The files also record the deterministic port and resource handles.",
+    "The env files the worktree lifecycle reads and writes, in precedence order: on read the last file that defines a value wins; a new value lands in the first. They also carry the port and resource handles.",
+  ),
+  port: z.boolean().default(false).describe(
+    "Record each worktree's deterministic dev-server port in its env files, for tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports it either way.",
+  ),
+  ignored_file_drift: z.boolean().default(true).describe(
+    "Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.",
   ),
   resources: z.record(z.string().regex(NAME_RE), resourceValue).default({})
-    .describe(
-      "[worktree.resources.<name>] — per-worktree external resources (a database, an emulator, a container, a queue). Created top-to-bottom and destroyed bottom-to-top.",
-    ),
+    .describe(CONFIG_PROSE["worktree.resources"].what),
   setup: z.strictObject({
     steps: z.array(z.string()).default([]).describe(
-      "Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run.",
+      "Commands run once at worktree creation, in order, after the resources exist: one-shot scaffolding such as seeding fixtures.",
     ),
     ensure: z.array(z.string()).default([]).describe(
-      "Linked-worktree-only commands run on every setup pass: at creation, on session-start re-entry, and on `discern update`. Use for idempotent convergence that depends on worktree identity, ports, or resources; checkout-generic dependencies belong in [repository].ensure. The main checkout does not run them.",
+      "Commands run on every linked-worktree pass: creation, session start, and after `discern update`. For convergence that depends on worktree identity, ports, or resources; the main checkout never runs them.",
     ),
-  }).prefault({}).describe(
-    "Linked-worktree setup commands: one-shot `steps` (creation only) and identity-aware convergent `ensure` (re-run on every linked-worktree pass and excluded from the trunk checkout).",
-  ),
-}).prefault({}).describe(
-  "The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare.",
-);
+  }).prefault({}).describe(CONFIG_PROSE["worktree.setup"].what),
+}).prefault({}).describe(CONFIG_PROSE.worktree.what);
 
 const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
   .default(
     {},
-  ).describe(
-    '[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = "on-demand" defers measurement to `discern standards`. Each limit may only improve. Sort the number before holding it: an invariant a healthy project never adds (suppressions, a banned pattern) holds the raw count. A quality that scales (coverage, alert density) holds a rate; add `per` so growth alone stays within the limit. A total that grows with the product (a size, a word count) needs `margin` and an owner willing to raise the limit as the product grows. At today\'s pinned value, it fails the next legitimate change.',
-  );
+  ).describe(CONFIG_PROSE.standards.what);
 
 const gateSection = z.strictObject({
   stream: z.boolean().default(false).describe(
-    "Controls static terminal transcripts only: false groups complete per-job output; true streams prefixed lines. Live-capable terminals always show the Gate frame's bounded tail. CI, pipes, --plain, and no-cursor terminals are static. Off by default.",
+    "false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the Gate frame's bounded tail; CI, pipes, and --plain are static.",
   ),
   fail_fast: z.boolean().default(true).describe(
-    "Cancel the in-flight sibling commands the moment one fails. ON by default — an agent-driven gate wants a fast abort. Set false to run every job and see all failures in one pass.",
+    "Cancel the in-flight sibling commands the moment one fails; an agent-driven Gate wants a fast abort. false runs every job and shows all failures in one pass.",
   ),
   timeout: z.number().default(600).describe(
-    "Per-command time budget in SECONDS, applied to every job the gate runs (each declared job, scope gate, and standard measurement). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended.",
+    "Time budget in seconds for every command the Gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the Gate. 0 removes the bound.",
   ),
   concurrent_test_runs: z.number().int().min(0).default(0).describe(
-    "Cap on how many test-stage runs may be in flight at once across every checkout of this repository — the main checkout and all its linked worktrees. Counts whole runs: `discern done`'s and `discern test`'s test group, and `discern standards`' measurement pass; a test runner's own worker parallelism is untouched. A run arriving past the cap waits for a slot before its tests start (fix and check stages never wait), says what it is waiting for, and continues the moment a slot frees. A killed run's slot is released by the operating system, so a crash never blocks the others. 0 (the default) means no cap.",
+    "Cap on test-stage runs in flight at once across every checkout of this repository; a run past it waits for a slot. 0 means no cap. Wrap the project's test task in `discern queue -- <command>` to share it.",
   ),
-}).prefault({}).describe(
-  "Ergonomics for the parallel gate stages (and scope gates). These affect how `discern done` runs its concurrent jobs.",
-);
+}).prefault({}).describe(CONFIG_PROSE.gate.what);
 
 const couplingSection = z.strictObject({
   in_gate: z.boolean().default(true).describe(
-    "Include coupling findings in `discern done` and the fast inner loop `discern prepare` as trailing hints, so they reach the author during the change. On by default; set false to keep coupling on demand.",
+    "Surface coupling findings as trailing hints in `discern done` and `discern prepare`, while the change is hot. false keeps coupling available through `discern coupling` alone.",
   ),
-}).prefault({}).describe(
-  "Coupling is a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling is less likely to be missed. It self-calibrates to your repo, so there are no thresholds to tune; the setting controls whether it also runs with the gate. Run it directly with `discern coupling`.",
-);
+}).prefault({}).describe(CONFIG_PROSE.coupling.what);
 
 const scriptsSection = z.strictObject({
   dir: projectDirectoryPath.default(SOURCE_PATHS.scripts.defaultPath).describe(
-    'Where your project scripts live, relative to the project root. discern removes leading `./` prefixes and one trailing slash. The default works with no config. Use another directory such as "tools/" if you prefer.',
+    'Where your project scripts live, relative to the project root. The default works with no config; point it elsewhere, such as "tools/", if you prefer.',
   ),
-}).prefault({}).describe(
-  "Your own executable commands. Drop a script into the directory below and run it with `discern scripts <name>`; an optional `# desc: ...` line describes it in the listing.",
-);
+}).prefault({}).describe(CONFIG_PROSE.scripts.what);
 
 /** The canonical live-`discern.toml` schema. Every section carries a default, so
  * an empty `{}` validates to a fully-defaulted object. Strict throughout: an
  * unknown section or key stops the load. Root unknowns retain their classification
  * because they can be either a typo or config from a newer running build. */
 export const configSchema = z.strictObject({
-  meta: metaSection,
   project: projectSection,
   repository: repositorySection,
+  map: mapSection,
   instructions: instructionSection,
   skills: skillsSection,
-  map: mapSection,
   jobs: jobsSection,
   assurance: assuranceSection,
   scopes: scopesSection,
@@ -836,6 +795,7 @@ export const configSchema = z.strictObject({
   gate: gateSection,
   coupling: couplingSection,
   scripts: scriptsSection,
+  meta: metaSection,
 });
 
 /** The fully-typed, fully-defaulted live config the engine reads. Internal alias

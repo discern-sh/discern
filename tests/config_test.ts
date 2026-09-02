@@ -79,8 +79,7 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
   assertEquals(map.branch_prefix, "agent/");
   assertEquals(map.agents_array, '"claude_code", "codex"');
   assertEquals(map.map_dir, "docs/discern/");
-  assertEquals(map.scopes_web, '"src/**", "lib/**"');
-  // The neutral/previewable/gotchas defaults are fixed. Pure documentation and
+  // The neutral and gotchas defaults are fixed. Pure documentation and
   // agent-instruction surfaces render through separate seed-scope tokens.
   assertEquals(
     map.scopes_neutral,
@@ -101,7 +100,6 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
     '".claude/skills/"',
     '".agents/skills/"',
   ]);
-  assertEquals(map.scopes_previewable, '"public/**"');
 });
 
 Deno.test("every gate-neutral authored path belongs to exactly one seed scope", () => {

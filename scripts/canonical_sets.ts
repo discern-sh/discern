@@ -779,6 +779,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/config_codegen_test.ts",
+      "tests/config_prose_test.ts",
+      "tests/config_template_test.ts",
       "tests/config_banner_parity_test.ts",
       "tests/config_set_schema_guard_test.ts",
       "tests/feature_canon_enrolment_test.ts",
@@ -786,6 +788,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/agent_gitattributes_test.ts",
     ],
     artifacts: [
+      {
+        path: "templates/discern.toml.tmpl",
+        kind: "generated-file",
+        banner: false,
+      },
       {
         path: "schema/discern-config.schema.json",
         kind: "generated-file",

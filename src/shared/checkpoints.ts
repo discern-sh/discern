@@ -359,6 +359,25 @@ export const BUILT_IN_CHECKPOINTS: Readonly<
   },
 };
 
+/**
+ * One short line per built-in, in the words the scaffolded config carries
+ * beside each enabled entry. Kept apart from the seeds because a seed's keys
+ * are trigger fields the resolver iterates; the registry guard holds this
+ * table's keys equal to the built-in set.
+ */
+export const BUILT_IN_CHECKPOINT_SUMMARIES: Readonly<Record<string, string>> = {
+  "map-focus": "a broad map edit must cut future reading",
+  "instruction-economy": "always-loaded prose must pay its way",
+  "skills-playbook": "a skill is an executable playbook",
+  "gotchas-playbook": "failure memory: symptom, cause, recovery",
+  "deletion-heavy-change": "a big cut: proven dead, recoverable?",
+  "parallel-implementation": "a name-similar sibling file appeared",
+  "new-binary-asset": "a new binary needs clear provenance",
+  "effort-sprawl": "one effort, or several bundled in?",
+  "docs-drift": "code moved and the map did not",
+  "commit-story": "a large change: do commits tell why?",
+};
+
 /** Whether `id` names a shipped built-in checkpoint. */
 export function isBuiltInCheckpoint(id: string): boolean {
   return Object.hasOwn(BUILT_IN_CHECKPOINTS, id);

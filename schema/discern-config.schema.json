@@ -5,68 +5,39 @@
   "title": "discern.toml configuration",
   "type": "object",
   "properties": {
-    "meta": {
-      "description": "Installer bookkeeping. `schema_version` is the migration anchor; edit by hand only to force a re-migration.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "schema_version": {
-          "description": "The install schema version — managed by discern (bumped by `discern upgrade`). Don't edit by hand.",
-          "type": "integer",
-          "minimum": -9007199254740991,
-          "maximum": 9007199254740991
-        },
-        "bootstrapped": {
-          "default": false,
-          "description": "Whether `discern setup` has completed — retires the one-time setup redirect.",
-          "type": "boolean"
-        },
-        "setup_model": {
-          "default": "",
-          "description": "The model the agent self-declared at `discern setup begin --model=…`. Recorded for support triage; advisory only (discern can't verify it).",
-          "type": "string"
-        },
-        "setup_version": {
-          "default": "",
-          "description": "The discern version that ran setup (observed at `begin`). Recorded for support triage.",
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
-    },
     "project": {
-      "description": "Project identity and authored project paths.",
+      "description": "The project's identity and the paths discern keeps for it.",
       "default": {},
       "type": "object",
       "properties": {
         "name": {
           "default": "",
-          "description": "Display name (free text), used when compiled instructions address the project. Empty falls back to the slug.",
+          "description": "Display name, free text, used when compiled instructions address the project. Empty falls back to the slug.",
           "type": "string"
         },
         "slug": {
           "default": "",
-          "description": "Short, lowercase, dash-separated identity. Used for worktree/site/branch names.",
+          "description": "Short, lowercase, dash-separated identity, used in worktree, site, and branch names.",
           "type": "string"
         },
         "gotchas_doc": {
           "default": "",
-          "description": "Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer.",
+          "description": "The doc the Gate points an agent at when a stage fails in a non-obvious way. Keep it current with your stack's traps; empty disables the pointer.",
           "type": "string"
         },
         "todo": {
           "default": "discern/TODO.md",
-          "description": "Where the deferred-work ledger (the running TODO list agents read and maintain) lives. The path is relative to the project root. discern removes leading `./` prefixes when it loads the config.",
+          "description": "The deferred-work ledger: the running TODO list agents read and maintain, relative to the project root.",
           "type": "string",
           "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
         },
         "logbook": {
           "default": true,
-          "description": "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names. The log contains no code or output. Its files stay under `.git`, outside commits and network transmission. The history feeds the practice report (`discern patterns`); each worktree's last action and work in flight; fleet activity times that include verb runs; configuration-change attribution and each Standard's limit history; advisory findings on `status`, the `done` Proof, and `improvement`; wait estimates when concurrent test runs queue; the in-flight check on the contained-worktree offer; observed checkpoint economics (`discern checkpoints`); Logbook storage checks in `discern doctor`. false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until an owner confirms `discern patterns reset` or seals them with `discern patterns archive`.",
+          "description": "When true, record one line of local, metadata-only history per verb run: timings, outcomes, and names, never code or output. Files stay under .git, outside commits and any network; false stops all writes.",
           "type": "boolean"
         },
         "agents": {
-          "description": "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",
+          "description": "Which agent integrations to enable: claude_code, codex, gemini, cursor, copilot. Omit the key for the default pair (claude_code, codex); an explicit empty list emits for no agent.",
           "type": "array",
           "items": {
             "type": "string",
@@ -83,13 +54,13 @@
       "additionalProperties": false
     },
     "repository": {
-      "description": "Repository-wide checkout policy: the trunk, discern-created branch names, and convergence shared by linked worktrees and the main checkout.",
+      "description": "Policy every checkout of this repository shares.",
       "default": {},
       "type": "object",
       "properties": {
         "trunk": {
           "default": "main",
-          "description": "The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_TRUNK env var.",
+          "description": "The shared branch the Gate compares against and completed work lands on. Detected at setup; DISCERN_TRUNK overrides it per invocation.",
           "type": "string"
         },
         "branch_prefix": {
@@ -99,7 +70,7 @@
         },
         "proof_notes": {
           "default": "local",
-          "description": "How landed proof notes travel: \"local\" records them only in this clone; \"fetch\" adds a fetch-only mapping for each remote, including remotes that have not published a proof note yet. discern never configures push behavior or starts a network request.",
+          "description": "\"local\" records landed proof notes in this clone only; \"fetch\" adds a fetch-only mapping per remote so ordinary fetches carry them. Publishing stays an explicit `git push <remote> refs/notes/discern`.",
           "type": "string",
           "enum": [
             "local",
@@ -108,7 +79,7 @@
         },
         "ensure": {
           "default": [],
-          "description": "Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run.",
+          "description": "Idempotent commands that make any checkout usable for its tracked tree, such as installing dependencies from a lockfile. They run in order on every worktree pass and after a landing.",
           "type": "array",
           "items": {
             "type": "string"
@@ -117,8 +88,22 @@
       },
       "additionalProperties": false
     },
+    "map": {
+      "description": "Where the project map lives.",
+      "default": {},
+      "type": "object",
+      "properties": {
+        "dir": {
+          "default": "discern/map/",
+          "description": "Where the project map lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it.",
+          "type": "string",
+          "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
+        }
+      },
+      "additionalProperties": false
+    },
     "instructions": {
-      "description": "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in instructions plus your sources into one agent file per provider.",
+      "description": "The instruction sources discern compiles into each agent's file.",
       "default": {},
       "type": "object",
       "properties": {
@@ -126,7 +111,7 @@
           "default": [
             "discern/instructions.md"
           ],
-          "description": "Your instruction source files and globs. Concrete paths are relative to the project root, and discern removes leading `./` prefixes from them. Globs keep their authored spelling and may be relative or absolute. Source discovery excludes the agent files, so a glob may match them. Sources are read only when present; discern's built-in instructions are prepended.",
+          "description": "Your instruction source files or globs, relative to the project root. Read only when present; discern's built-in instructions are always prepended, so these are additive. `discern setup` seeds a starter here.",
           "type": "array",
           "items": {
             "type": "string",
@@ -137,19 +122,19 @@
       "additionalProperties": false
     },
     "skills": {
-      "description": "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name, minus any names in `exclude`.",
+      "description": "Where your authored skills live, and which skills to leave out.",
       "default": {},
       "type": "object",
       "properties": {
         "dir": {
           "default": "discern/skills",
-          "description": "Where your authored skills live, relative to the project root. discern removes leading `./` prefixes and one trailing slash. The directory is read only when present, so a project with no authored skills uses the built-ins.",
+          "description": "Where your authored skills live, relative to the project root. Read only when present, so a project with no authored skills uses the built-ins.",
           "type": "string",
           "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
         },
         "exclude": {
           "default": [],
-          "description": "Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop unused ones. An unknown name produces a warning without failing.",
+          "description": "Skill names, bundled or authored, to leave out of materialization. Each materialized skill occupies context in every agent session, so exclude what this project never needs; an unknown name warns and never fails.",
           "type": "array",
           "items": {
             "type": "string"
@@ -158,22 +143,8 @@
       },
       "additionalProperties": false
     },
-    "map": {
-      "description": "The project documentation tree discern scaffolds, validates, and browses.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "dir": {
-          "default": "discern/map/",
-          "description": "Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. discern removes leading `./` prefixes and keeps one trailing slash. `discern setup` scaffolds it here, and `discern map` browses it by default.",
-          "type": "string",
-          "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
-        }
-      },
-      "additionalProperties": false
-    },
     "jobs": {
-      "description": "The Gate's jobs. Known names (format, build, lint, typecheck, test, smoke) accept a command, list, or { run, timeout } and derive their stage. Custom [jobs.<name>] tables require `stage` (fix|build|check|test) and `run`; `provides` and `timeout` are optional. Known names omit `stage`. Omission leaves a job unwired; [assurance] records a lifecycle that does not apply.",
+      "description": "The commands the Gate runs, in one namespace.",
       "default": {},
       "allOf": [
         {
@@ -188,7 +159,7 @@
           "type": "object",
           "properties": {
             "format": {
-              "description": "fix stage — a formatter/codemod (mutating; runs first, serially).",
+              "description": "A formatter or codemod. Mutating, so it runs first and serially.",
               "anyOf": [
                 {
                   "type": "string"
@@ -217,7 +188,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -230,7 +201,7 @@
               ]
             },
             "build": {
-              "description": "build stage — produce artifacts later stages read (compile, bundle).",
+              "description": "Produce the artifacts later stages read: compile, bundle.",
               "anyOf": [
                 {
                   "type": "string"
@@ -259,7 +230,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -272,7 +243,7 @@
               ]
             },
             "lint": {
-              "description": "check stage — read-only static analysis.",
+              "description": "Read-only static analysis.",
               "anyOf": [
                 {
                   "type": "string"
@@ -301,7 +272,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -314,7 +285,7 @@
               ]
             },
             "typecheck": {
-              "description": "check stage — read-only type checking.",
+              "description": "Read-only type checking.",
               "anyOf": [
                 {
                   "type": "string"
@@ -343,7 +314,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -356,7 +327,7 @@
               ]
             },
             "test": {
-              "description": "test stage — the test suite.",
+              "description": "The test suite.",
               "anyOf": [
                 {
                   "type": "string"
@@ -385,7 +356,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -398,7 +369,7 @@
               ]
             },
             "smoke": {
-              "description": "test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Keep end-to-end coverage and discern's built-in write probes separate.",
+              "description": "A fast, side-effect-light readiness check: the app boots with real config in this checkout. `discern done` and `discern test` run it in the same fail-fast test group, so a quick failure cancels slower siblings.",
               "anyOf": [
                 {
                   "type": "string"
@@ -427,7 +398,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -451,7 +422,7 @@
                   "check",
                   "test"
                 ],
-                "description": "When the custom job runs in the gate (fix|build|check|test)."
+                "description": "The Gate stage this job runs in: fix, build, check, or test."
               },
               "run": {
                 "anyOf": [
@@ -468,11 +439,11 @@
                 "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
               },
               "provides": {
-                "description": "Optional free-text label, for humans / audit.",
+                "description": "A free-text label for humans and audit.",
                 "type": "string"
               },
               "timeout": {
-                "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                 "type": "number",
                 "minimum": 0
               }
@@ -488,13 +459,13 @@
       ]
     },
     "assurance": {
-      "description": "Known-job applicability for setup assurance.",
+      "description": "Known jobs that do not apply to this project.",
       "default": {},
       "type": "object",
       "properties": {
         "not_applicable": {
           "default": [],
-          "description": "Known jobs excluded from setup assurance; cannot also be configured.",
+          "description": "Known jobs this project's lifecycle does not have. A job listed here cannot also be configured under [jobs].",
           "type": "array",
           "items": {
             "type": "string",
@@ -514,7 +485,7 @@
     },
     "scopes": {
       "default": {},
-      "description": "[scopes.<name>] — named regions of the repo. `paths` globs define a scope; optional fields declare neutrality, a read-only preview action, or a changed-scope gate. Classification fails OPEN: a path matching no scope counts as a real code change.",
+      "description": "Named regions of the repository.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -532,7 +503,7 @@
           },
           "neutral": {
             "default": false,
-            "description": "true: changes here need no gate (docs, agent instructions).",
+            "description": "true: changes here need no Gate, as for documentation and agent instructions.",
             "type": "boolean"
           },
           "preview": {
@@ -550,7 +521,7 @@
             ]
           },
           "gate": {
-            "description": "A command discern done runs when this scope changed (a sub-component with its own self-contained gate). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "anyOf": [
               {
                 "type": "string"
@@ -564,7 +535,7 @@
             ]
           },
           "timeout": {
-            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+            "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
             "type": "number",
             "minimum": 0
           }
@@ -577,7 +548,7 @@
     },
     "generated": {
       "default": {},
-      "description": "[generated.<name>] — committed artifacts wholly owned by one generator. `paths` names the artifacts, `run` deterministically rewrites them and prunes its own orphans, and `timeout` optionally replaces the global command budget.",
+      "description": "Committed artifacts that one generator owns.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -609,11 +580,11 @@
           },
           "linguist_generated": {
             "default": false,
-            "description": "Whether GitHub should hide this group's files in diffs by default and exclude them from repository language statistics through the `linguist-generated` Git attribute. Default false.",
+            "description": "true marks the group's paths generated for GitHub through the `linguist-generated` attribute: hidden in diffs by default and excluded from language statistics.",
             "type": "boolean"
           },
           "timeout": {
-            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+            "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
             "type": "number",
             "minimum": 0
           }
@@ -626,13 +597,13 @@
       }
     },
     "acceptance": {
-      "description": "Recorded standing grants for landing. The owner edits these grants on the trunk; each entry names a [scopes.<name>] region whose changes may land without a per-landing conversation.",
+      "description": "Standing grants for landing without a conversation.",
       "default": {},
       "type": "object",
       "properties": {
         "pre_authorized": {
           "default": [],
-          "description": "Scope names whose changes may land without a per-landing conversation. This is an owner decision recorded on the trunk: widening a named scope widens its grant. An empty list, or an absent [acceptance] section, means every landing needs the owner's acceptance.",
+          "description": "Scope names whose changes may land without a per-landing conversation. An owner decision recorded on the trunk: widening a named scope widens its grant. Empty means every landing needs the owner's acceptance.",
           "type": "array",
           "items": {
             "type": "string"
@@ -642,28 +613,18 @@
       "additionalProperties": false
     },
     "worktree": {
-      "description": "The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare.",
+      "description": "The isolated-worktree workflow.",
       "default": {},
       "type": "object",
       "properties": {
         "root": {
           "default": "",
-          "description": "Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, \"<repo>.worktrees\", visible and adjacent outside the checkout. A relative path resolves against the repo root (\".claude/worktrees\" nests them inside the repo); an absolute path is used as-is.",
+          "description": "Where per-worktree checkouts are created. Empty means a sibling of the repository, \"<repo>.worktrees\", never nested inside it. A relative path resolves against the repo root; absolute is used as-is.",
           "type": "string"
-        },
-        "port": {
-          "default": false,
-          "description": "Record each worktree's deterministic dev-server port in its configured env files. The port remains available through `discern identity --port` when this is false; it is derived identity and provisions nothing.",
-          "type": "boolean"
-        },
-        "ignored_file_drift": {
-          "default": true,
-          "description": "Track ignored files at worktree setup and report top-level ignored paths that changed before the worktree is removed. Disable for projects whose ignored outputs churn too much to be useful.",
-          "type": "boolean"
         },
         "inherit_env": {
           "default": [],
-          "description": "Environment values copied from the main checkout's env files into a new worktree's (secrets a fresh worktree needs but that aren't in version control). The worktree's env file is created when absent, so each declared value reaches it.",
+          "description": "Environment values copied from the main checkout's env files into a new worktree's: secrets a fresh worktree needs that are not in version control. The worktree's env file is created when absent.",
           "type": "array",
           "items": {
             "type": "string"
@@ -674,7 +635,7 @@
             ".env",
             ".env.local"
           ],
-          "description": "Portable project-relative files the worktree lifecycle reads and writes, in precedence order. The list accepts any filename. discern removes leading `./` prefixes and refuses path aliases. When reading, the last listed file that defines a value wins. A newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy. The files also record the deterministic port and resource handles.",
+          "description": "The env files the worktree lifecycle reads and writes, in precedence order: on read the last file that defines a value wins; a new value lands in the first. They also carry the port and resource handles.",
           "type": "array",
           "items": {
             "type": "string",
@@ -682,9 +643,19 @@
           },
           "uniqueItems": true
         },
+        "port": {
+          "default": false,
+          "description": "Record each worktree's deterministic dev-server port in its env files, for tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports it either way.",
+          "type": "boolean"
+        },
+        "ignored_file_drift": {
+          "default": true,
+          "description": "Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.",
+          "type": "boolean"
+        },
         "resources": {
           "default": {},
-          "description": "[worktree.resources.<name>] — per-worktree external resources (a database, an emulator, a container, a queue). Created top-to-bottom and destroyed bottom-to-top.",
+          "description": "External resources provisioned per worktree.",
           "type": "object",
           "propertyNames": {
             "type": "string",
@@ -705,12 +676,12 @@
               },
               "ensure": {
                 "default": "",
-                "description": "Optional: reconcile drift / re-readiness at session start.",
+                "description": "Reconcile drift or re-readiness at session start.",
                 "type": "string"
               },
               "required": {
                 "default": true,
-                "description": "false: a create failure is non-fatal (does not abort setup).",
+                "description": "false makes a create failure non-fatal, so setup continues.",
                 "type": "boolean"
               },
               "retries": {
@@ -720,7 +691,7 @@
               },
               "gc": {
                 "default": true,
-                "description": "false: exempt it from orphan pruning (teardown-only; for data-loss-sensitive ones).",
+                "description": "false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.",
                 "type": "boolean"
               }
             },
@@ -728,13 +699,13 @@
           }
         },
         "setup": {
-          "description": "Linked-worktree setup commands: one-shot `steps` (creation only) and identity-aware convergent `ensure` (re-run on every linked-worktree pass and excluded from the trunk checkout).",
+          "description": "Commands that ready a linked worktree.",
           "default": {},
           "type": "object",
           "properties": {
             "steps": {
               "default": [],
-              "description": "Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run.",
+              "description": "Commands run once at worktree creation, in order, after the resources exist: one-shot scaffolding such as seeding fixtures.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -742,7 +713,7 @@
             },
             "ensure": {
               "default": [],
-              "description": "Linked-worktree-only commands run on every setup pass: at creation, on session-start re-entry, and on `discern update`. Use for idempotent convergence that depends on worktree identity, ports, or resources; checkout-generic dependencies belong in [repository].ensure. The main checkout does not run them.",
+              "description": "Commands run on every linked-worktree pass: creation, session start, and after `discern update`. For convergence that depends on worktree identity, ports, or resources; the main checkout never runs them.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -756,7 +727,7 @@
     },
     "standards": {
       "default": {},
-      "description": "[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = \"on-demand\" defers measurement to `discern standards`. Each limit may only improve. Sort the number before holding it: an invariant a healthy project never adds (suppressions, a banned pattern) holds the raw count. A quality that scales (coverage, alert density) holds a rate; add `per` so growth alone stays within the limit. A total that grows with the product (a size, a word count) needs `margin` and an owner willing to raise the limit as the product grows. At today's pinned value, it fails the next legitimate change.",
+      "description": "Quality numbers that can never get worse.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -766,7 +737,7 @@
         "type": "object",
         "properties": {
           "metric": {
-            "description": "Metric name the run emits (default: the standard name).",
+            "description": "The metric name the run emits. Defaults to the standard's name.",
             "type": "string"
           },
           "direction": {
@@ -775,11 +746,11 @@
               "up",
               "down"
             ],
-            "description": "Required. \"up\": limit is a floor; \"down\": limit is a ceiling."
+            "description": "\"up\" when the value should rise, so the limit is a floor; \"down\" when it should fall, so the limit is a ceiling."
           },
           "limit": {
             "type": "number",
-            "description": "The floor (up) or ceiling (down)."
+            "description": "The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall."
           },
           "run": {
             "anyOf": [
@@ -796,7 +767,7 @@
             "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
           },
           "per": {
-            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise solely because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${map.dir}**\" } (files | lines | words | bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run emits, or a built-in extent discern measures itself, per = { words = \"${map.dir}**\" } (files, lines, words, or bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "anyOf": [
               {
                 "type": "string"
@@ -867,18 +838,18 @@
           },
           "scale": {
             "default": 1,
-            "description": "Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for \"per 1,000 words\".",
+            "description": "Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.",
             "type": "number"
           },
           "margin": {
             "default": 0,
-            "description": "Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation.",
+            "description": "Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. Give a metric that drifts on unrelated changes, such as a size or a coverage percentage, a margin so a pinned limit is not tripped by ordinary fluctuation.",
             "type": "number",
             "minimum": 0
           },
           "measure": {
             "default": "gate",
-            "description": "\"gate\" (the default): the measurement runs inside every `discern done`, in parallel with the tests. \"on-demand\": the gate skips only the measurement (for a metric too slow for every gate run — a full coverage run, a release build); the never-loosen limit check still runs on every gate, and `discern standards` measures it when you ask. Before deferring, prefer the smaller reliefs: declare `inputs` so unchanged trees replay at no cost, or raise this one job's `timeout`.",
+            "description": "\"gate\" measures inside every `discern done`, beside the tests. \"on-demand\" defers only the measurement to `discern standards`, for a metric too slow for every run; the never-loosen check still runs on every Gate. Prefer `inputs` or a longer `timeout` first.",
             "type": "string",
             "enum": [
               "gate",
@@ -886,14 +857,14 @@
             ]
           },
           "inputs": {
-            "description": "The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to measure every time (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "The paths this metric reads, as scope globs. When nothing under them changed since the last recorded measurement, the Gate replays that value instead of re-measuring and names the source commit. Omit to measure every time. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "timeout": {
-            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+            "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
             "type": "number",
             "minimum": 0
           }
@@ -908,7 +879,7 @@
     },
     "checkpoints": {
       "default": {},
-      "description": "[checkpoints.<id>] — change-triggered review rules: a deterministic trigger chooses when a diff makes a question relevant, the agent judges the question and records a declaration, and the record travels with the gate's results. The configuration at the effort's merge-base with the trunk governs, so a branch editing these tables does not change its own gate. None configured means none fire.",
+      "description": "Change-triggered review rules.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -930,7 +901,7 @@
             }
           },
           "include_generated": {
-            "description": "Include paths owned by governing [generated.<name>].paths; default false keeps authored-only evaluation.",
+            "description": "true includes paths a [generated.<name>] group owns; the default evaluates authored change only.",
             "type": "boolean"
           },
           "exclude_paths": {
@@ -941,7 +912,7 @@
             }
           },
           "unless_changed": {
-            "description": "Veto when any filtered changed path matches a configured scope name or selector-dialect glob. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Hold fire when any changed path matches one of these globs or scope names: flag this change class unless its counterpart moved too. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
@@ -1005,7 +976,7 @@
             "type": "boolean"
           },
           "similar_new_file": {
-            "description": "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory (a copy/version/suffix variant) — the signature of a parallel implementation growing beside the original.",
+            "description": "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory, the signature of a parallel implementation growing beside the original.",
             "type": "boolean"
           },
           "min_commits": {
@@ -1048,28 +1019,28 @@
       }
     },
     "gate": {
-      "description": "Ergonomics for the parallel gate stages (and scope gates). These affect how `discern done` runs its concurrent jobs.",
+      "description": "How `discern done` runs its parallel stages.",
       "default": {},
       "type": "object",
       "properties": {
         "stream": {
           "default": false,
-          "description": "Controls static terminal transcripts only: false groups complete per-job output; true streams prefixed lines. Live-capable terminals always show the Gate frame's bounded tail. CI, pipes, --plain, and no-cursor terminals are static. Off by default.",
+          "description": "false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the Gate frame's bounded tail; CI, pipes, and --plain are static.",
           "type": "boolean"
         },
         "fail_fast": {
           "default": true,
-          "description": "Cancel the in-flight sibling commands the moment one fails. ON by default — an agent-driven gate wants a fast abort. Set false to run every job and see all failures in one pass.",
+          "description": "Cancel the in-flight sibling commands the moment one fails; an agent-driven Gate wants a fast abort. false runs every job and shows all failures in one pass.",
           "type": "boolean"
         },
         "timeout": {
           "default": 600,
-          "description": "Per-command time budget in SECONDS, applied to every job the gate runs (each declared job, scope gate, and standard measurement). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended.",
+          "description": "Time budget in seconds for every command the Gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the Gate. 0 removes the bound.",
           "type": "number"
         },
         "concurrent_test_runs": {
           "default": 0,
-          "description": "Cap on how many test-stage runs may be in flight at once across every checkout of this repository — the main checkout and all its linked worktrees. Counts whole runs: `discern done`'s and `discern test`'s test group, and `discern standards`' measurement pass; a test runner's own worker parallelism is untouched. A run arriving past the cap waits for a slot before its tests start (fix and check stages never wait), says what it is waiting for, and continues the moment a slot frees. A killed run's slot is released by the operating system, so a crash never blocks the others. 0 (the default) means no cap.",
+          "description": "Cap on test-stage runs in flight at once across every checkout of this repository; a run past it waits for a slot. 0 means no cap. Wrap the project's test task in `discern queue -- <command>` to share it.",
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
@@ -1078,28 +1049,57 @@
       "additionalProperties": false
     },
     "coupling": {
-      "description": "Coupling is a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling is less likely to be missed. It self-calibrates to your repo, so there are no thresholds to tune; the setting controls whether it also runs with the gate. Run it directly with `discern coupling`.",
+      "description": "Co-change detection from git history.",
       "default": {},
       "type": "object",
       "properties": {
         "in_gate": {
           "default": true,
-          "description": "Include coupling findings in `discern done` and the fast inner loop `discern prepare` as trailing hints, so they reach the author during the change. On by default; set false to keep coupling on demand.",
+          "description": "Surface coupling findings as trailing hints in `discern done` and `discern prepare`, while the change is hot. false keeps coupling available through `discern coupling` alone.",
           "type": "boolean"
         }
       },
       "additionalProperties": false
     },
     "scripts": {
-      "description": "Your own executable commands. Drop a script into the directory below and run it with `discern scripts <name>`; an optional `# desc: ...` line describes it in the listing.",
+      "description": "Where your executable project scripts live.",
       "default": {},
       "type": "object",
       "properties": {
         "dir": {
           "default": "discern/scripts",
-          "description": "Where your project scripts live, relative to the project root. discern removes leading `./` prefixes and one trailing slash. The default works with no config. Use another directory such as \"tools/\" if you prefer.",
+          "description": "Where your project scripts live, relative to the project root. The default works with no config; point it elsewhere, such as \"tools/\", if you prefer.",
           "type": "string",
           "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "meta": {
+      "description": "Installer bookkeeping.",
+      "default": {},
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "description": "The install schema version. `discern upgrade` bumps it; never edit it by hand.",
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "bootstrapped": {
+          "default": false,
+          "description": "true once `discern setup` has completed, which retires the one-time setup redirect.",
+          "type": "boolean"
+        },
+        "setup_model": {
+          "default": "",
+          "description": "The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it.",
+          "type": "string"
+        },
+        "setup_version": {
+          "default": "",
+          "description": "The discern version that ran setup, recorded for support triage.",
+          "type": "string"
         }
       },
       "additionalProperties": false

@@ -14,6 +14,7 @@
 
 import { z } from "@zod/zod";
 import { configDocSchema, configSchema } from "./config_schema.ts";
+import { configUnitProse } from "./config_prose.ts";
 import {
   CONFIG_SCHEMA_COMPATIBILITY_POLICY,
   CONFIG_SCHEMA_ID,
@@ -35,7 +36,9 @@ function isObject(v: unknown): v is Record<string, unknown> {
 /** Flatten JSON Schema `allOf` object fragments into the view the reference and
  * path walkers need. `[jobs]` uses an intersection so it can expose fixed known
  * names while enforcing the same key pattern on custom names. */
-function objectView(schema: Record<string, unknown>): Record<string, unknown> {
+export function objectView(
+  schema: Record<string, unknown>,
+): Record<string, unknown> {
   if (!Array.isArray(schema.allOf)) return schema;
   const view: Record<string, unknown> = { ...schema };
   delete view.allOf;
@@ -169,13 +172,20 @@ function isContainer(schema: Record<string, unknown>): boolean {
     (isObject(schema.properties) || isObject(schema.additionalProperties));
 }
 
-/** A `| key | type | default | description |` table for the leaf keys of an object. */
-function keyTable(properties: Record<string, unknown>): string {
+/** A `| key | type | default | description |` table for the leaf keys of the
+ * object at `unit`. A key's registry detail lines join its description, so
+ * the reference carries what the scaffold's comment carries. */
+function keyTable(unit: string, properties: Record<string, unknown>): string {
+  const prose = configUnitProse(unit);
   const rows = Object.entries(properties)
     .filter(([, v]) => isObject(v) && !isContainer(v))
     .map(([name, v]) => {
       const s = v as Record<string, unknown>;
-      const desc = typeof s.description === "string" ? cell(s.description) : "";
+      const detail = prose?.keys?.[name]?.detail ?? [];
+      const desc = [
+        typeof s.description === "string" ? s.description : "",
+        ...detail.map((line) => line.trim()),
+      ].filter((part) => part !== "").map(cell).join(" ");
       return `| \`${name}\` | ${typeLabel(s)} | ${defaultLabel(s)} | ${desc} |`;
     });
   if (rows.length === 0) return "";
@@ -210,12 +220,12 @@ function renderSection(
   if (isRecord) {
     // A repeatable named table: document its value shape's leaf keys.
     const inner = isObject(valueShape.properties) ? valueShape.properties : {};
-    const table = keyTable(inner);
+    const table = keyTable(path, inner);
     if (table !== "") out.push("", table);
   } else if (props !== undefined) {
     // An object section: a table of its leaf keys, then a sub-section per nested
     // container (a `[worktree.setup]` object, a `[worktree.resources.<name>]` record).
-    const table = keyTable(props);
+    const table = keyTable(path, props);
     if (table !== "") out.push("", table);
     for (const [key, child] of Object.entries(props)) {
       if (isObject(child) && isContainer(objectView(child))) {
@@ -234,6 +244,7 @@ function renderSection(
         out.push("", custom.description);
       }
       const table = keyTable(
+        path,
         isObject(custom.properties) ? custom.properties : {},
       );
       if (table !== "") out.push("", table);
@@ -356,6 +367,37 @@ export function configSectionNames(): string[] {
     unknown
   >;
   return isObject(root.properties) ? Object.keys(root.properties) : [];
+}
+
+/**
+ * The dotted paths of every documented unit in the live config schema, in
+ * schema order: each top-level section, and each nested table or named-table
+ * family beneath one (`worktree.resources`, `worktree.setup`). The config
+ * prose registry is keyed by this set, and its guard holds the two equal, so a
+ * new section enrols in the scaffold, the manual, and `config explain` the
+ * moment it exists.
+ */
+export function configProseUnits(): string[] {
+  const root = z.toJSONSchema(configSchema, { io: "input" }) as Record<
+    string,
+    unknown
+  >;
+  const out: string[] = [];
+  const walk = (node: Record<string, unknown>, prefix: string): void => {
+    node = objectView(node);
+    const props = isObject(node.properties) ? node.properties : {};
+    for (const [key, child] of Object.entries(props)) {
+      if (!isObject(child)) continue;
+      const path = prefix === "" ? key : `${prefix}.${key}`;
+      const view = objectView(child);
+      if (!isContainer(view)) continue;
+      out.push(path);
+      // A named-table family's entries are user population, not units.
+      if (isObject(view.properties)) walk(view, path);
+    }
+  };
+  walk(root, "");
+  return out;
 }
 
 /**

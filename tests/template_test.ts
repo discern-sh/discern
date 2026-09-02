@@ -28,8 +28,6 @@ function tokens(): TokenMap {
     gotchas_doc: "docs/80-development/done-gate-gotchas.md",
     scopes_neutral: '"${map.dir}", ".discern/", ".claude/"',
     scopes_instructions: '"discern/instructions.md", "discern/skills/"',
-    scopes_web: '"src/**", "app/**"',
-    scopes_previewable: '"public/**"',
     artifact_provenance_marker: "discern provenance marker",
     kit_version: "0.1.0",
   };

@@ -27,8 +27,6 @@ export type ContentTokenName =
   | "gotchas_doc"
   | "scopes_neutral"
   | "scopes_instructions"
-  | "scopes_web"
-  | "scopes_previewable"
   | "artifact_provenance_marker"
   | "kit_version";
 

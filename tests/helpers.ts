@@ -168,8 +168,6 @@ export function testTokens(overrides: Partial<TokenMap> = {}): TokenMap {
     gotchas_doc: "",
     scopes_neutral: '"${map.dir}", "${project.todo}"',
     scopes_instructions: '"discern/instructions.md", "${skills.dir}/"',
-    scopes_web: '"src/**", "app/**"',
-    scopes_previewable: '"public/**"',
     artifact_provenance_marker: "discern provenance marker",
     kit_version: "0.1.0",
     ...overrides,

@@ -68,7 +68,7 @@
       "properties": {
         "dir": {
           "default": "discern/map/",
-          "description": "Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. discern removes leading `./` prefixes and keeps one trailing slash. `discern setup` scaffolds it here, and `discern map` browses it by default.",
+          "description": "Where the project map lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it.",
           "type": "string",
           "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
         }
@@ -90,7 +90,7 @@
           "type": "object",
           "properties": {
             "format": {
-              "description": "fix stage — a formatter/codemod (mutating; runs first, serially).",
+              "description": "A formatter or codemod. Mutating, so it runs first and serially.",
               "anyOf": [
                 {
                   "type": "string"
@@ -119,7 +119,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -132,7 +132,7 @@
               ]
             },
             "build": {
-              "description": "build stage — produce artifacts later stages read (compile, bundle).",
+              "description": "Produce the artifacts later stages read: compile, bundle.",
               "anyOf": [
                 {
                   "type": "string"
@@ -161,7 +161,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -174,7 +174,7 @@
               ]
             },
             "lint": {
-              "description": "check stage — read-only static analysis.",
+              "description": "Read-only static analysis.",
               "anyOf": [
                 {
                   "type": "string"
@@ -203,7 +203,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -216,7 +216,7 @@
               ]
             },
             "typecheck": {
-              "description": "check stage — read-only type checking.",
+              "description": "Read-only type checking.",
               "anyOf": [
                 {
                   "type": "string"
@@ -245,7 +245,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -258,7 +258,7 @@
               ]
             },
             "test": {
-              "description": "test stage — the test suite.",
+              "description": "The test suite.",
               "anyOf": [
                 {
                   "type": "string"
@@ -287,7 +287,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -300,7 +300,7 @@
               ]
             },
             "smoke": {
-              "description": "test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Keep end-to-end coverage and discern's built-in write probes separate.",
+              "description": "A fast, side-effect-light readiness check: the app boots with real config in this checkout. `discern done` and `discern test` run it in the same fail-fast test group, so a quick failure cancels slower siblings.",
               "anyOf": [
                 {
                   "type": "string"
@@ -329,7 +329,7 @@
                       "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
                     },
                     "timeout": {
-                      "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                      "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
                     }
@@ -353,7 +353,7 @@
                   "check",
                   "test"
                 ],
-                "description": "When the custom job runs in the gate (fix|build|check|test)."
+                "description": "The Gate stage this job runs in: fix, build, check, or test."
               },
               "run": {
                 "anyOf": [
@@ -370,11 +370,11 @@
                 "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
               },
               "provides": {
-                "description": "Optional free-text label, for humans / audit.",
+                "description": "A free-text label for humans and audit.",
                 "type": "string"
               },
               "timeout": {
-                "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+                "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                 "type": "number",
                 "minimum": 0
               }
@@ -408,7 +408,7 @@
           },
           "neutral": {
             "default": false,
-            "description": "true: changes here need no gate (docs, agent instructions).",
+            "description": "true: changes here need no Gate, as for documentation and agent instructions.",
             "type": "boolean"
           },
           "preview": {
@@ -426,7 +426,7 @@
             ]
           },
           "gate": {
-            "description": "A command discern done runs when this scope changed (a sub-component with its own self-contained gate). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "anyOf": [
               {
                 "type": "string"
@@ -440,7 +440,7 @@
             ]
           },
           "timeout": {
-            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+            "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
             "type": "number",
             "minimum": 0
           }
@@ -484,11 +484,11 @@
           },
           "linguist_generated": {
             "default": false,
-            "description": "Whether GitHub should hide this group's files in diffs by default and exclude them from repository language statistics through the `linguist-generated` Git attribute. Default false.",
+            "description": "true marks the group's paths generated for GitHub through the `linguist-generated` attribute: hidden in diffs by default and excluded from language statistics.",
             "type": "boolean"
           },
           "timeout": {
-            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+            "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
             "type": "number",
             "minimum": 0
           }
@@ -511,7 +511,7 @@
         "type": "object",
         "properties": {
           "metric": {
-            "description": "Metric name the run emits (default: the standard name).",
+            "description": "The metric name the run emits. Defaults to the standard's name.",
             "type": "string"
           },
           "direction": {
@@ -520,11 +520,11 @@
               "up",
               "down"
             ],
-            "description": "Required. \"up\": limit is a floor; \"down\": limit is a ceiling."
+            "description": "\"up\" when the value should rise, so the limit is a floor; \"down\" when it should fall, so the limit is a ceiling."
           },
           "limit": {
             "type": "number",
-            "description": "The floor (up) or ceiling (down)."
+            "description": "The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall."
           },
           "run": {
             "anyOf": [
@@ -541,7 +541,7 @@
             "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
           },
           "per": {
-            "description": "Divide the metric to hold a *rate*, not a raw count — so the number doesn't rise solely because the project grew. Either a second metric the run emits, or a built-in extent discern measures itself: per = { words = \"${map.dir}**\" } (files | lines | words | bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run emits, or a built-in extent discern measures itself, per = { words = \"${map.dir}**\" } (files, lines, words, or bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "anyOf": [
               {
                 "type": "string"
@@ -612,18 +612,18 @@
           },
           "scale": {
             "default": 1,
-            "description": "Multiply the rate by this so the limit reads in human units, e.g. scale = 1000 for \"per 1,000 words\".",
+            "description": "Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.",
             "type": "number"
           },
           "margin": {
             "default": 0,
-            "description": "Headroom `discern standards --pin` leaves when it tightens this limit to the measured value: pin sets a floor to measured−margin (up) or a ceiling to measured+margin (down), and leaves a standard un-pinned when the improvement is smaller than its margin. Must be ≥ 0. Default 0 pins to the measured value; give a metric that drifts on unrelated changes (bundle size, coverage) a margin so a pinned limit isn't tripped by ordinary fluctuation.",
+            "description": "Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. Give a metric that drifts on unrelated changes, such as a size or a coverage percentage, a margin so a pinned limit is not tripped by ordinary fluctuation.",
             "type": "number",
             "minimum": 0
           },
           "measure": {
             "default": "gate",
-            "description": "\"gate\" (the default): the measurement runs inside every `discern done`, in parallel with the tests. \"on-demand\": the gate skips only the measurement (for a metric too slow for every gate run — a full coverage run, a release build); the never-loosen limit check still runs on every gate, and `discern standards` measures it when you ask. Before deferring, prefer the smaller reliefs: declare `inputs` so unchanged trees replay at no cost, or raise this one job's `timeout`.",
+            "description": "\"gate\" measures inside every `discern done`, beside the tests. \"on-demand\" defers only the measurement to `discern standards`, for a metric too slow for every run; the never-loosen check still runs on every Gate. Prefer `inputs` or a longer `timeout` first.",
             "type": "string",
             "enum": [
               "gate",
@@ -631,14 +631,14 @@
             ]
           },
           "inputs": {
-            "description": "The paths this metric reads (scope-paths globs). When a gate run finds every change since the last recorded measurement outside these globs, it replays that recorded value instead of re-measuring — loudly, naming the source commit. Omit to measure every time (the conservative default). Risk: a too-narrow inputs list delays detection until the next measured run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "The paths this metric reads, as scope globs. When nothing under them changed since the last recorded measurement, the Gate replays that value instead of re-measuring and names the source commit. Omit to measure every time. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "timeout": {
-            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+            "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
             "type": "number",
             "minimum": 0
           }
@@ -674,7 +674,7 @@
             }
           },
           "include_generated": {
-            "description": "Include paths owned by governing [generated.<name>].paths; default false keeps authored-only evaluation.",
+            "description": "true includes paths a [generated.<name>] group owns; the default evaluates authored change only.",
             "type": "boolean"
           },
           "exclude_paths": {
@@ -685,7 +685,7 @@
             }
           },
           "unless_changed": {
-            "description": "Veto when any filtered changed path matches a configured scope name or selector-dialect glob. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "Hold fire when any changed path matches one of these globs or scope names: flag this change class unless its counterpart moved too. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
@@ -749,7 +749,7 @@
             "type": "boolean"
           },
           "similar_new_file": {
-            "description": "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory (a copy/version/suffix variant) — the signature of a parallel implementation growing beside the original.",
+            "description": "Fire only when the change adds a file whose name closely resembles an existing sibling in the same directory, the signature of a parallel implementation growing beside the original.",
             "type": "boolean"
           },
           "min_commits": {
