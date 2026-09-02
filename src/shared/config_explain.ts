@@ -99,15 +99,17 @@ function anchorFor(header: string): string {
 }
 
 /** Render a parsed TOML value back as TOML: scalars and arrays inline, a
- * table as one `key = value` line per entry. */
-export function renderConfigValue(value: unknown): string {
+ * table as one `key = value` line per entry, and a nested table under its
+ * full dotted header below `prefix`. */
+export function renderConfigValue(value: unknown, prefix = ""): string {
   if (isJsonObject(value)) {
     return Object.entries(value)
-      .map(([key, entry]) =>
-        isJsonObject(entry)
-          ? `[${key}]\n${renderConfigValue(entry)}`
-          : `${key} = ${renderTomlLiteral(entry)}`
-      )
+      .map(([key, entry]) => {
+        const path = prefix === "" ? key : `${prefix}.${key}`;
+        return isJsonObject(entry)
+          ? `[${path}]\n${renderConfigValue(entry, path)}`
+          : `${key} = ${renderTomlLiteral(entry)}`;
+      })
       .join("\n");
   }
   return renderTomlLiteral(value);
@@ -156,7 +158,7 @@ function explainUnit(
     ...(prose?.detail === undefined ? {} : { detail: [...prose.detail] }),
     ...(family ? { params: rows.map((row) => row.name) } : {}),
     ...(rows.length === 0 ? {} : { keys: rows }),
-    ...(value === undefined ? {} : { value: renderConfigValue(value) }),
+    ...(value === undefined ? {} : { value: renderConfigValue(value, path) }),
     ...(prose?.examples === undefined || prose.examples.length === 0
       ? {}
       : { examples: prose.examples.map(exampleOf) }),

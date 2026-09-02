@@ -78,6 +78,10 @@ neutral = true
   assertEquals(entry.kind, "family");
   assertStringIncludes(entry.value ?? "", 'paths = ["docs/**"]');
 
+  // The whole family renders each entry under its full dotted header.
+  const family = explainConfigPath("scopes", current);
+  assertStringIncludes(family?.value ?? "", "[scopes.map]\n");
+
   const entryKnob = explainConfigPath("scopes.map.neutral", current);
   assert(entryKnob !== undefined);
   assertEquals(entryKnob.value, "true");
