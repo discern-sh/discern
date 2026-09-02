@@ -15,8 +15,9 @@
  * document parses identically before and after (the tests hold parse-equality
  * over every fixture). The rules:
  *
- *   - a `[header]` (or `[[header]]`) is indented one step per dotted level
- *     above the root; the entries below it sit one step deeper again.
+ *   - a `[header]` (or `[[header]]`) is indented one step per ancestor table
+ *     visibly represented in the document; an implicit dotted namespace does
+ *     not invent a visual level. The entries below sit one step deeper again.
  *   - a full-line comment takes the indent of the next structural line, so a
  *     paragraph documenting a section sits at that section's level.
  *   - a commented-out header (`# [a.b]`) or entry (`# key = …`) is an example
@@ -24,7 +25,8 @@
  *     the header by its depth, the entries beneath it one step deeper, and a
  *     commented multi-line value's continuation lines with their entry. The
  *     rule stops at a `# ───` ruled banner: everything between two rules is
- *     documentation, however much it resembles TOML.
+ *     documentation, however much it resembles TOML. When a banner moves
+ *     left, its rules extend to keep their existing visual width.
  *   - a multi-line string's interior is string CONTENT — copied verbatim.
  *   - a multi-line value's continuation lines derive their indent from bracket
  *     depth, not from the whitespace they arrived with — which is what makes
@@ -153,33 +155,60 @@ function skipLiteralString(line: string, i: number): number {
   return i < line.length ? i + 1 : i;
 }
 
-/**
- * A header's depth: dotted levels above the root (`[jobs]` → 0, `[jobs.fix]` →
- * 1). Dots inside quoted key segments are key content, not levels.
- */
-function headerDepth(trimmed: string): number {
+/** Split a table header into semantic key segments, preserving quoted dots. */
+function headerPathSegments(trimmed: string): string[] | undefined {
   let i = trimmed.startsWith("[[") ? 2 : 1;
-  let dots = 0;
   let quote: '"' | "'" | null = null;
+  let segment = "";
+  const segments: string[] = [];
   for (; i < trimmed.length; i++) {
     const ch = trimmed[i];
     if (quote !== null) {
       if (quote === '"' && ch === "\\") {
+        segment += ch;
         i++;
+        segment += trimmed[i] ?? "";
       } else if (ch === quote) {
+        segment += ch;
         quote = null;
+      } else {
+        segment += ch;
       }
       continue;
     }
     if (ch === '"' || ch === "'") {
       quote = ch;
+      segment += ch;
     } else if (ch === "]") {
-      break;
+      const normalized = normalizeHeaderSegment(segment);
+      if (normalized === undefined) return undefined;
+      segments.push(normalized);
+      return segments;
     } else if (ch === ".") {
-      dots++;
+      const normalized = normalizeHeaderSegment(segment);
+      if (normalized === undefined) return undefined;
+      segments.push(normalized);
+      segment = "";
+    } else {
+      segment += ch;
     }
   }
-  return dots;
+  return undefined;
+}
+
+/** Normalize equivalent bare and simply quoted key segments for comparison. */
+function normalizeHeaderSegment(raw: string): string | undefined {
+  const segment = raw.trim();
+  if (segment === "") return undefined;
+  if (segment.startsWith("'") && segment.endsWith("'")) {
+    return segment.slice(1, -1);
+  }
+  if (segment.startsWith('"') && segment.endsWith('"')) {
+    const inner = segment.slice(1, -1);
+    if (!inner.includes("\\")) return inner;
+    // Escaped TOML basic strings remain stable by their authored spelling.
+  }
+  return segment;
 }
 
 type LineShape =
@@ -213,12 +242,51 @@ function uncommented(trimmed: string): string {
   return trimmed.replace(/^#\s?/, "");
 }
 
+/** A stable key for one semantic table path. */
+function tablePathKey(segments: readonly string[]): string {
+  return JSON.stringify(segments);
+}
+
+/** Every live or example table path visibly represented in this document. */
+function representedTablePaths(lines: readonly string[]): ReadonlySet<string> {
+  const paths = new Set<string>();
+  const scanner = new LineScanner();
+  for (const line of lines) {
+    const startMode = scanner.mode;
+    const startDepth = scanner.valueDepth;
+    scanner.scan(line);
+    if (startMode !== "none" || startDepth > 0) continue;
+    const trimmed = line.trim();
+    const commented = trimmed.match(COMMENTED_HEADER_RE)?.[1];
+    const header = trimmed.startsWith("[") ? trimmed : commented;
+    if (header === undefined) continue;
+    const segments = headerPathSegments(header);
+    if (segments !== undefined) paths.add(tablePathKey(segments));
+  }
+  return paths;
+}
+
+/** Visual depth counts only ancestor tables the reader can actually see. */
+function visualHeaderDepth(
+  header: string,
+  represented: ReadonlySet<string>,
+): number {
+  const segments = headerPathSegments(header);
+  if (segments === undefined) return 0;
+  let depth = 0;
+  for (let length = 1; length < segments.length; length++) {
+    if (represented.has(tablePathKey(segments.slice(0, length)))) depth++;
+  }
+  return depth;
+}
+
 /**
  * Re-indent TOML text by table depth. `text` follows the document-wide LF
  * convention the embedded formatter emits; `indentWidth` is one depth step.
  */
 export function indentToml(text: string, indentWidth = 2): string {
   const lines = text.split("\n");
+  const represented = representedTablePaths(lines);
   const scanner = new LineScanner();
   const shapes: LineShape[] = [];
   let bodyIndent = 0;
@@ -261,7 +329,7 @@ export function indentToml(text: string, indentWidth = 2): string {
     commentContinuation = false;
     inBanner = false;
     if (trimmed.startsWith("[")) {
-      const depth = headerDepth(trimmed);
+      const depth = visualHeaderDepth(trimmed, represented);
       shapes.push({ kind: "structural", indent: depth * indentWidth });
       bodyIndent = (depth + 1) * indentWidth;
       commentBodyIndent = bodyIndent;
@@ -296,7 +364,7 @@ export function indentToml(text: string, indentWidth = 2): string {
     }
     const header = trimmed.match(COMMENTED_HEADER_RE)?.[1];
     if (header !== undefined) {
-      const depth = headerDepth(header);
+      const depth = visualHeaderDepth(header, represented);
       commentBodyIndent = (depth + 1) * indentWidth;
       return { kind: "structural", indent: depth * indentWidth };
     }
@@ -323,7 +391,15 @@ export function indentToml(text: string, indentWidth = 2): string {
       const indent = shape.kind === "structural"
         ? shape.indent
         : nextStructuralIndent(shapes, i) ?? shape.fallback;
-      return " ".repeat(indent) + line.trimStart();
+      const trimmed = line.trimStart();
+      let rendered = " ".repeat(indent) + trimmed;
+      if (RULE_RE.test(trimmed)) {
+        const sourceIndent = line.length - trimmed.length;
+        if (sourceIndent > indent && rendered.length < line.length) {
+          rendered += "─".repeat(line.length - rendered.length);
+        }
+      }
+      return rendered;
     })
     .join("\n");
 }

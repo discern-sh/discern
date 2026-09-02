@@ -265,215 +265,215 @@
   # also be configured under [jobs].
   not_applicable = []
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # [scopes.<name>]
-  #
-  # What:    Named regions of the repository.
-  # Why:     A change inside a scope can skip the Gate, run its own gate, or
-  #          offer a preview. A path that matches no scope counts as code and
-  #          runs every stage.
-  #
-  # Params:  paths, neutral, preview, gate, timeout
-  # Help:    `discern config explain scopes`
-  # ───────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# [scopes.<name>]
+#
+# What:    Named regions of the repository.
+# Why:     A change inside a scope can skip the Gate, run its own gate, or
+#          offer a preview. A path that matches no scope counts as code and
+#          runs every stage.
+#
+# Params:  paths, neutral, preview, gate, timeout
+# Help:    `discern config explain scopes`
+# ─────────────────────────────────────────────────────────────────────────────
 
-  # Pure documentation: the map and the deferred-work ledger. Needs no gate, and
-  # [acceptance] pre-authorizes it — green changes here land without a
-  # conversation. Root-level *.md is always treated as neutral.
-  [scopes.map]
-    paths = [
-      "${map.dir}",
-      "${project.todo}",
-    ]
-    neutral = true
+# Pure documentation: the map and the deferred-work ledger. Needs no gate, and
+# [acceptance] pre-authorizes it — green changes here land without a
+# conversation. Root-level *.md is always treated as neutral.
+[scopes.map]
+  paths = [
+    "${map.dir}",
+    "${project.todo}",
+  ]
+  neutral = true
 
-  # Agent-instruction surfaces: authored instructions and skills, plus the exact
-  # materialized-skills directories compiled from them. Gate-neutral like the map scope,
-  # but deliberately outside [acceptance] — instructions steer every future
-  # session, so landing them always gets owner review. Project Scripts and
-  # provider-owned sibling files still run the gate.
-  [scopes.instructions]
-    paths = [
-      "project/instructions.md",
-      "${skills.dir}/",
-      ".claude/skills/",
-      ".agents/skills/",
-    ]
-    neutral = true
+# Agent-instruction surfaces: authored instructions and skills, plus the exact
+# materialized-skills directories compiled from them. Gate-neutral like the map scope,
+# but deliberately outside [acceptance] — instructions steer every future
+# session, so landing them always gets owner review. Project Scripts and
+# provider-owned sibling files still run the gate.
+[scopes.instructions]
+  paths = [
+    "project/instructions.md",
+    "${skills.dir}/",
+    ".claude/skills/",
+    ".agents/skills/",
+  ]
+  neutral = true
 
-  # The Big Picture: everything meaningful an external reader would want to know
-  # in order to get themselves up-to-speed with discern. These paths are kept
-  # inside the Map and are used by the maintainer with `discern map --export`.
-  # Exact CLI and config reference retired from the Map with the manual split:
-  # export them from the product manual with `discern docs --export public`.
-  [scopes.big-picture]
-    paths = [
-      "${map.dir}_internal/brand/positioning.md",
-      "${map.dir}_private/brand/audiences.md",
-      "${map.dir}_internal/brand/demand-canon.md",
-      "${map.dir}00-orientation/concepts.md",
-      "${map.dir}00-orientation/glossary.md",
-      "${map.dir}_internal/feature-canon.md",
-      "${map.dir}_internal/hint-inventory.md",
-      "${map.dir}_internal/tip-inventory.md",
-      "${map.dir}00-orientation/trust-and-data.md",
-      "${map.dir}_internal/brand/boundary-canon.md",
-      "${map.dir}_internal/brand/claims-and-evidence.md",
-      "${map.dir}_internal/brand/register-bridge.md",
-      "${map.dir}_internal/brand/visual-identity.md",
-      "${map.dir}_internal/brand/messaging.md",
-      "${map.dir}_internal/feature-canon-human-benefits.md",
-      "${map.dir}_internal/feature-canon-agent-benefits.md",
-      "${map.dir}_internal/practice-canon.md",
-    ]
-    neutral = true
+# The Big Picture: everything meaningful an external reader would want to know
+# in order to get themselves up-to-speed with discern. These paths are kept
+# inside the Map and are used by the maintainer with `discern map --export`.
+# Exact CLI and config reference retired from the Map with the manual split:
+# export them from the product manual with `discern docs --export public`.
+[scopes.big-picture]
+  paths = [
+    "${map.dir}_internal/brand/positioning.md",
+    "${map.dir}_private/brand/audiences.md",
+    "${map.dir}_internal/brand/demand-canon.md",
+    "${map.dir}00-orientation/concepts.md",
+    "${map.dir}00-orientation/glossary.md",
+    "${map.dir}_internal/feature-canon.md",
+    "${map.dir}_internal/hint-inventory.md",
+    "${map.dir}_internal/tip-inventory.md",
+    "${map.dir}00-orientation/trust-and-data.md",
+    "${map.dir}_internal/brand/boundary-canon.md",
+    "${map.dir}_internal/brand/claims-and-evidence.md",
+    "${map.dir}_internal/brand/register-bridge.md",
+    "${map.dir}_internal/brand/visual-identity.md",
+    "${map.dir}_internal/brand/messaging.md",
+    "${map.dir}_internal/feature-canon-human-benefits.md",
+    "${map.dir}_internal/feature-canon-agent-benefits.md",
+    "${map.dir}_internal/practice-canon.md",
+  ]
+  neutral = true
 
-  # The Little Picture: everything discern does, and everything it doesn't, nothing
-  # more and nothing less. Used by the maintainer with `discern map --export`.
-  [scopes.little-picture]
-    paths = [
-      "${map.dir}00-orientation/concepts.md",
-      "${map.dir}_internal/brand/boundary-canon.md",
-      "${map.dir}_internal/feature-canon.md",
-      "${map.dir}_internal/feature-canon-human-benefits.md",
-      "${map.dir}_internal/feature-canon-agent-benefits.md",
-    ]
-    neutral = true
+# The Little Picture: everything discern does, and everything it doesn't, nothing
+# more and nothing less. Used by the maintainer with `discern map --export`.
+[scopes.little-picture]
+  paths = [
+    "${map.dir}00-orientation/concepts.md",
+    "${map.dir}_internal/brand/boundary-canon.md",
+    "${map.dir}_internal/feature-canon.md",
+    "${map.dir}_internal/feature-canon-human-benefits.md",
+    "${map.dir}_internal/feature-canon-agent-benefits.md",
+  ]
+  neutral = true
 
-  # The Commercial Picture: a compact, strategy-first reading list for an
-  # external reader who needs the audience, demand, value, evidence, boundaries,
-  # and brand expression without the full product-reference inventories.
-  [scopes.commercial-picture]
-    paths = [
-      "${map.dir}_internal/brand/positioning.md",
-      "${map.dir}_private/brand/audiences.md",
-      "${map.dir}_internal/brand/demand-canon.md",
-      "${map.dir}00-orientation/concepts.md",
-      "${map.dir}_internal/feature-canon-human-benefits.md",
-      "${map.dir}_internal/practice-canon.md",
-      "${map.dir}00-orientation/trust-and-data.md",
-      "${map.dir}_internal/feature-canon.md",
-      "${map.dir}_internal/feature-canon-agent-benefits.md",
-      "${map.dir}_internal/brand/boundary-canon.md",
-      "${map.dir}_internal/brand/claims-and-evidence.md",
-      "${map.dir}_internal/brand/register-bridge.md",
-      "${map.dir}_internal/brand/visual-identity.md",
-      "${map.dir}_internal/brand/messaging.md",
-    ]
-    neutral = true
+# The Commercial Picture: a compact, strategy-first reading list for an
+# external reader who needs the audience, demand, value, evidence, boundaries,
+# and brand expression without the full product-reference inventories.
+[scopes.commercial-picture]
+  paths = [
+    "${map.dir}_internal/brand/positioning.md",
+    "${map.dir}_private/brand/audiences.md",
+    "${map.dir}_internal/brand/demand-canon.md",
+    "${map.dir}00-orientation/concepts.md",
+    "${map.dir}_internal/feature-canon-human-benefits.md",
+    "${map.dir}_internal/practice-canon.md",
+    "${map.dir}00-orientation/trust-and-data.md",
+    "${map.dir}_internal/feature-canon.md",
+    "${map.dir}_internal/feature-canon-agent-benefits.md",
+    "${map.dir}_internal/brand/boundary-canon.md",
+    "${map.dir}_internal/brand/claims-and-evidence.md",
+    "${map.dir}_internal/brand/register-bridge.md",
+    "${map.dir}_internal/brand/visual-identity.md",
+    "${map.dir}_internal/brand/messaging.md",
+  ]
+  neutral = true
 
-  # A scope may name the read-only command that previews its changes.
-  # [scopes.assets]
-    # paths       = ["assets/**", "public/**"]
-    # preview = "deno task preview"
+# A scope may name the read-only command that previews its changes.
+# [scopes.assets]
+  # paths       = ["assets/**", "public/**"]
+  # preview = "deno task preview"
 
-  # The public site (discern.sh): static editions plus the fetch handler that
-  # serves them. Run it locally with `deno task site`. The scope gate projects
-  # every registry-owned marketing route into its declared register and blocks
-  # Vale errors before the page can ship. Advisories stay under the density
-  # Standard so signed-off copy cannot accumulate new lint debt.
-  [scopes.site]
-    paths = ["site/**"]
-    preview = "deno task site"
-    gate = "deno task site:prose-check -- --sarif"
-    timeout = 120
+# The public site (discern.sh): static editions plus the fetch handler that
+# serves them. Run it locally with `deno task site`. The scope gate projects
+# every registry-owned marketing route into its declared register and blocks
+# Vale errors before the page can ship. Advisories stay under the density
+# Standard so signed-off copy cannot accumulate new lint debt.
+[scopes.site]
+  paths = ["site/**"]
+  preview = "deno task site"
+  gate = "deno task site:prose-check -- --sarif"
+  timeout = 120
 
-  # A sub-component with its own self-contained gate:
-  # [scopes.native]
-    # paths = ["native/**"]
-    # gate  = "make -C native check"
+# A sub-component with its own self-contained gate:
+# [scopes.native]
+  # paths = ["native/**"]
+  # gate  = "make -C native check"
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # [generated.<name>]
-  #
-  # What:    Committed artifacts that one generator owns.
-  # Why:     `discern prepare` and `discern done` rerun each generator and fail
-  #          when the committed bytes differ, so a generated file cannot drift
-  #          from its source and nobody edits it by hand.
-  #
-  # Params:  paths, run, linguist_generated, timeout
-  # Help:    `discern config explain generated`
-  # ───────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# [generated.<name>]
+#
+# What:    Committed artifacts that one generator owns.
+# Why:     `discern prepare` and `discern done` rerun each generator and fail
+#          when the committed bytes differ, so a generated file cannot drift
+#          from its source and nobody edits it by hand.
+#
+# Params:  paths, run, linguist_generated, timeout
+# Help:    `discern config explain generated`
+# ─────────────────────────────────────────────────────────────────────────────
 
-  # The registry-codegen family: every whole-file artifact `deno task codegen`
-  # derives from the canonical registries. The list mirrors the meta-registry's
-  # enrolled write targets (`codegenWriteTargets()` in scripts/canonical_sets.ts);
-  # tests/canonical_sets_enrolment_test.ts holds the two equal, so a new codegen
-  # target must be declared here in the same change. The three maintained-block
-  # pages codegen also edits (artifact-ownership.md, mcp-and-results.md,
-  # install-surface.md) are deliberately undeclared: they are part-authored, so
-  # a merge conflict there still needs judgment, not regeneration.
-  [generated.codegen]
-    paths = [
-      "templates/discern.toml.tmpl",
-      "schema/discern-config.schema.json",
-      "schema/discern-setup-config.schema.json",
-      "schema/discern-results.schema.json",
-      "schema/discern-proof-note.schema.json",
-      "types/discern-json.d.ts",
-      "${map.dir}00-orientation/glossary.md",
-      "${map.dir}00-orientation/the-practice.md",
-      "project/manual/30-reference/glossary.md",
-      "project/manual/30-reference/cli-reference.md",
-      "project/manual/30-reference/config-reference.md",
-      "project/manual/30-reference/environment-variables.md",
-      "${map.dir}_internal/feature-canon.md",
-      "${map.dir}_internal/feature-canon-plain.md",
-      "${map.dir}_internal/feature-canon-human-benefits.md",
-      "${map.dir}_internal/feature-canon-agent-benefits.md",
-      "${map.dir}_internal/hint-inventory.md",
-      "${map.dir}_internal/practice-canon.md",
-      "${map.dir}_internal/registry-atlas.md",
-      "${map.dir}_internal/tip-inventory.md",
-      "${map.dir}_internal/voice-enforcement-coverage.md",
-      "${map.dir}_internal/brand/README.md",
-      "${map.dir}_internal/brand/boundary-canon.md",
-      "${map.dir}_internal/brand/claims-and-evidence.md",
-      "${map.dir}_internal/brand/copy-patterns.md",
-      "${map.dir}_internal/brand/demand-canon.md",
-      "${map.dir}_internal/brand/messaging.md",
-      "${map.dir}_internal/brand/positioning.md",
-      "${map.dir}_internal/brand/register-bridge.md",
-      "${map.dir}_internal/brand/visual-identity.md",
-      "${map.dir}_internal/agent-integration-coverage.md",
-      "${map.dir}_internal/cross-agent-behaviour-reference.md",
-      "${skills.dir}/discern-brand-voice/SKILL.md",
-      "${skills.dir}/discern-product-voice/SKILL.md",
-      "${skills.dir}/discern-agent-voice/SKILL.md",
-      ".vale/DiscernBrand/ProductName.yml",
-      ".vale/DiscernBrand/GenericVerbs.yml",
-      ".vale/DiscernBrand/GenericAdjectives.yml",
-      ".vale/DiscernBrand/TemplateOpener.yml",
-      ".vale/DiscernBrand/CtaGenericLabel.yml",
-      ".vale/DiscernBrand/RepeatedContrast.yml",
-      ".vale/DiscernBrand/StackedSlogans.yml",
-      ".vale/DiscernProduct/ProductName.yml",
-      ".vale/DiscernProduct/AgentBlame.yml",
-      ".vale/DiscernAgent/BestJudgment.yml",
-      ".vale/DiscernAgent/PositionalReference.yml",
-      "site/pages/assets/search.js",
-      "templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md",
-      "templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md",
-      "templates/skills/discern-write-adr/skeleton/docs/_adr/README.md",
-      ".github/cla-assistant/metadata",
-      "THIRD_PARTY_NOTICES",
-      "src/lib/first_party_license_bundle.ts",
-      "src/lib/third_party_bundle.ts",
-      "scripts/jsr_license_cache.json",
-    ]
-    run = "deno task codegen"
-    linguist_generated = true
-    # Warm runs finish in seconds; a compile-graph change re-fetches third-party
-    # license metadata, so the group gets two minutes instead of the global ten.
-    timeout = 120
+# The registry-codegen family: every whole-file artifact `deno task codegen`
+# derives from the canonical registries. The list mirrors the meta-registry's
+# enrolled write targets (`codegenWriteTargets()` in scripts/canonical_sets.ts);
+# tests/canonical_sets_enrolment_test.ts holds the two equal, so a new codegen
+# target must be declared here in the same change. The three maintained-block
+# pages codegen also edits (artifact-ownership.md, mcp-and-results.md,
+# install-surface.md) are deliberately undeclared: they are part-authored, so
+# a merge conflict there still needs judgment, not regeneration.
+[generated.codegen]
+  paths = [
+    "templates/discern.toml.tmpl",
+    "schema/discern-config.schema.json",
+    "schema/discern-setup-config.schema.json",
+    "schema/discern-results.schema.json",
+    "schema/discern-proof-note.schema.json",
+    "types/discern-json.d.ts",
+    "${map.dir}00-orientation/glossary.md",
+    "${map.dir}00-orientation/the-practice.md",
+    "project/manual/30-reference/glossary.md",
+    "project/manual/30-reference/cli-reference.md",
+    "project/manual/30-reference/config-reference.md",
+    "project/manual/30-reference/environment-variables.md",
+    "${map.dir}_internal/feature-canon.md",
+    "${map.dir}_internal/feature-canon-plain.md",
+    "${map.dir}_internal/feature-canon-human-benefits.md",
+    "${map.dir}_internal/feature-canon-agent-benefits.md",
+    "${map.dir}_internal/hint-inventory.md",
+    "${map.dir}_internal/practice-canon.md",
+    "${map.dir}_internal/registry-atlas.md",
+    "${map.dir}_internal/tip-inventory.md",
+    "${map.dir}_internal/voice-enforcement-coverage.md",
+    "${map.dir}_internal/brand/README.md",
+    "${map.dir}_internal/brand/boundary-canon.md",
+    "${map.dir}_internal/brand/claims-and-evidence.md",
+    "${map.dir}_internal/brand/copy-patterns.md",
+    "${map.dir}_internal/brand/demand-canon.md",
+    "${map.dir}_internal/brand/messaging.md",
+    "${map.dir}_internal/brand/positioning.md",
+    "${map.dir}_internal/brand/register-bridge.md",
+    "${map.dir}_internal/brand/visual-identity.md",
+    "${map.dir}_internal/agent-integration-coverage.md",
+    "${map.dir}_internal/cross-agent-behaviour-reference.md",
+    "${skills.dir}/discern-brand-voice/SKILL.md",
+    "${skills.dir}/discern-product-voice/SKILL.md",
+    "${skills.dir}/discern-agent-voice/SKILL.md",
+    ".vale/DiscernBrand/ProductName.yml",
+    ".vale/DiscernBrand/GenericVerbs.yml",
+    ".vale/DiscernBrand/GenericAdjectives.yml",
+    ".vale/DiscernBrand/TemplateOpener.yml",
+    ".vale/DiscernBrand/CtaGenericLabel.yml",
+    ".vale/DiscernBrand/RepeatedContrast.yml",
+    ".vale/DiscernBrand/StackedSlogans.yml",
+    ".vale/DiscernProduct/ProductName.yml",
+    ".vale/DiscernProduct/AgentBlame.yml",
+    ".vale/DiscernAgent/BestJudgment.yml",
+    ".vale/DiscernAgent/PositionalReference.yml",
+    "site/pages/assets/search.js",
+    "templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md",
+    "templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md",
+    "templates/skills/discern-write-adr/skeleton/docs/_adr/README.md",
+    ".github/cla-assistant/metadata",
+    "THIRD_PARTY_NOTICES",
+    "src/lib/first_party_license_bundle.ts",
+    "src/lib/third_party_bundle.ts",
+    "scripts/jsr_license_cache.json",
+  ]
+  run = "deno task codegen"
+  linguist_generated = true
+  # Warm runs finish in seconds; a compile-graph change re-fetches third-party
+  # license metadata, so the group gets two minutes instead of the global ten.
+  timeout = 120
 
-  # The launch audit is temporary private planning material, not part of the
-  # product-wide registry codegen family. Its compact index still derives from
-  # the authored audit and regenerates before checks like every other artifact.
-  [generated.launch_audit_summary]
-    paths = ["${map.dir}_private/planning/launch-lockdown-audit-summary.md"]
-    run = "deno task launch-audit-summary"
-    linguist_generated = true
+# The launch audit is temporary private planning material, not part of the
+# product-wide registry codegen family. Its compact index still derives from
+# the authored audit and regenerates before checks like every other artifact.
+[generated.launch_audit_summary]
+  paths = ["${map.dir}_private/planning/launch-lockdown-audit-summary.md"]
+  run = "deno task launch-audit-summary"
+  linguist_generated = true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [acceptance]
@@ -530,57 +530,57 @@
   # outputs churn too much to be useful.
   ignored_file_drift = true
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # [worktree.resources.<name>]
-    #
-    # What:    External resources provisioned per worktree.
-    # Why:     A database, emulator, container, or queue that one worktree owns
-    #          never collides with another's. Resources are created top to
-    #          bottom and destroyed bottom to top, and `discern worktree prune`
-    #          reclaims what a vanished worktree left behind, so author
-    #          `create` and `destroy` to be idempotent.
-    #
-    # Runtime tokens, expanded per worktree when a command runs:
-    #   @db@            a database-name-safe identity
-    #   @site@          a DNS-safe dev-server site or host name
-    #   @port@          the deterministic dev-server port
-    #   @project_slug@  the project slug
-    #   @dir@           this worktree's root
-    #   @worktree@      this worktree's base handle (slug-id)
-    #   @resource@      this resource's handle (slug-id-name)
-    #
-    # Params:  create, destroy, ensure, required, retries, gc
-    # Help:    `discern config explain worktree.resources`
-    # ─────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
+  # [worktree.resources.<name>]
+  #
+  # What:    External resources provisioned per worktree.
+  # Why:     A database, emulator, container, or queue that one worktree owns
+  #          never collides with another's. Resources are created top to
+  #          bottom and destroyed bottom to top, and `discern worktree prune`
+  #          reclaims what a vanished worktree left behind, so author
+  #          `create` and `destroy` to be idempotent.
+  #
+  # Runtime tokens, expanded per worktree when a command runs:
+  #   @db@            a database-name-safe identity
+  #   @site@          a DNS-safe dev-server site or host name
+  #   @port@          the deterministic dev-server port
+  #   @project_slug@  the project slug
+  #   @dir@           this worktree's root
+  #   @worktree@      this worktree's base handle (slug-id)
+  #   @resource@      this resource's handle (slug-id-name)
+  #
+  # Params:  create, destroy, ensure, required, retries, gc
+  # Help:    `discern config explain worktree.resources`
+  # ───────────────────────────────────────────────────────────────────────────
 
-    # A per-worktree database, so tests never clash. Uses @db@ (db-name-safe).
-    # [worktree.resources.db]
-      # create  = "createdb -T @project_slug@_template @db@"
-      # destroy = "dropdb --if-exists @db@"
+  # A per-worktree database, so tests never clash. Uses @db@ (db-name-safe).
+  # [worktree.resources.db]
+    # create  = "createdb -T @project_slug@_template @db@"
+    # destroy = "dropdb --if-exists @db@"
 
-    # A per-worktree dev-server site (a Docker vhost, an ngrok tunnel, a reverse-proxy
-    # entry, …). Uses @site@ (DNS-safe). Declared after db so it is torn down first.
-    # [worktree.resources.dev_server]
-      # create  = "link-site @site@ @port@"
-      # destroy = "unlink-site @site@"
+  # A per-worktree dev-server site (a Docker vhost, an ngrok tunnel, a reverse-proxy
+  # entry, …). Uses @site@ (DNS-safe). Declared after db so it is torn down first.
+  # [worktree.resources.dev_server]
+    # create  = "link-site @site@ @port@"
+    # destroy = "unlink-site @site@"
 
-    # Any other isolated resource — an emulator, a queue, a bucket, a namespace.
-    # [worktree.resources.example]
-      # create   = "make-thing @resource@"
-      # destroy  = "destroy-thing @resource@"   # idempotent: may re-run via worktree prune
-      # ensure   = "ensure-thing @resource@"   # optional: reconcile drift at session start
-      # required = true                          # optional: false = create failure is non-fatal
-      # retries  = 0                             # optional: retry create/destroy N times
-      # gc       = true                          # optional: false = never orphan-prune it
-    #                                          #   (teardown-only; for data-loss-sensitive ones)
+  # Any other isolated resource — an emulator, a queue, a bucket, a namespace.
+  # [worktree.resources.example]
+    # create   = "make-thing @resource@"
+    # destroy  = "destroy-thing @resource@"   # idempotent: may re-run via worktree prune
+    # ensure   = "ensure-thing @resource@"   # optional: reconcile drift at session start
+    # required = true                          # optional: false = create failure is non-fatal
+    # retries  = 0                             # optional: retry create/destroy N times
+    # gc       = true                          # optional: false = never orphan-prune it
+  #                                          #   (teardown-only; for data-loss-sensitive ones)
 
-    # A harmless temp-dir probe so this repo dogfoods the full resource lifecycle
-    # without depending on an external service. It exercises token expansion, the
-    # resource ledger, ensure, teardown, and orphan-prune reclamation.
-    [worktree.resources.lifecycle-probe]
-      create = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
-      ensure = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
-      destroy = "rm -rf /tmp/discern-worktree-resources/@resource@"
+  # A harmless temp-dir probe so this repo dogfoods the full resource lifecycle
+  # without depending on an external service. It exercises token expansion, the
+  # resource ledger, ensure, teardown, and orphan-prune reclamation.
+  [worktree.resources.lifecycle-probe]
+    create = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
+    ensure = "mkdir -p /tmp/discern-worktree-resources/@resource@ && printf 'worktree=%s\\nresource=%s\\ndir=%s\\nport=%s\\n' '@worktree@' '@resource@' '@dir@' '@port@' > /tmp/discern-worktree-resources/@resource@/marker"
+    destroy = "rm -rf /tmp/discern-worktree-resources/@resource@"
 
   # Worktree setup commands, run after resources are provisioned:
   #   steps   one-shot scaffolding, run once at creation.
@@ -614,906 +614,906 @@
       "deno run --allow-read --allow-write --allow-run=git scripts/ensure_private_docs.ts",
     ]
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # [standards.<name>]
-  #
-  # What:    Quality numbers that can never get worse.
-  # Why:     Every `discern done` measures each standard beside the tests and
-  #          refuses a limit looser than the trunk's, so a branch can neither
-  #          regress a metric nor lower its bar. Hold a raw count for an
-  #          invariant, a rate through `per` for a quality that scales, and
-  #          give a total that grows with the product a `margin`.
-  #
-  # A run reports its number with one line: DISCERN_METRIC <name> <number>
-  # Lock in a gain with `discern standards --pin`; a hand-edited limit cannot
-  # tell a gain from a loosening.
-  #
-  # Params:  metric, direction, limit, run, per, scale, margin, measure,
-  #          inputs, timeout
-  # Help:    `discern config explain standards`
-  # ───────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# [standards.<name>]
+#
+# What:    Quality numbers that can never get worse.
+# Why:     Every `discern done` measures each standard beside the tests and
+#          refuses a limit looser than the trunk's, so a branch can neither
+#          regress a metric nor lower its bar. Hold a raw count for an
+#          invariant, a rate through `per` for a quality that scales, and
+#          give a total that grows with the product a `margin`.
+#
+# A run reports its number with one line: DISCERN_METRIC <name> <number>
+# Lock in a gain with `discern standards --pin`; a hand-edited limit cannot
+# tell a gain from a loosening.
+#
+# Params:  metric, direction, limit, run, per, scale, margin, measure,
+#          inputs, timeout
+# Help:    `discern config explain standards`
+# ─────────────────────────────────────────────────────────────────────────────
 
-  # Coverage standards — one instrumented suite run emits the aggregate rate,
-  # the count of per-module floor failures, and the reviewed exception count.
-  # Git elects the live src/ module universe; LCOV supplies observations rather
-  # than membership, so an unloaded executable module is an explicit zero.
-  # Deferred from the gate's measurement
-  # pass with the honest reason: it re-runs the ENTIRE test suite under
-  # instrumentation, roughly doubling the gate's slowest job — the pathological
-  # case the opt-out exists for. The never-loosen floor check still runs on every
-  # `discern done`; CI measures it on every PR, and `discern standards` on demand.
-  # `inputs` names everything the measurement reads, so a tree that touches none
-  # of it (docs, map, site) replays the recorded value for free; `margin` keeps a
-  # pin from setting the floor razor-tight against ordinary coverage drift.
-  [standards.coverage]
-    direction = "up"
-    limit = 91.7
-    margin = 0.5
-    run = "deno task coverage"
-    timeout = 1200
-    inputs = [
-      "src/**",
-      "tests/**",
-      "templates/**",
-      "scripts/coverage.ts",
-      "scripts/coverage_lib.ts",
-      "deno.json",
-      "deno.lock",
-    ]
-    measure = "on-demand"
+# Coverage standards — one instrumented suite run emits the aggregate rate,
+# the count of per-module floor failures, and the reviewed exception count.
+# Git elects the live src/ module universe; LCOV supplies observations rather
+# than membership, so an unloaded executable module is an explicit zero.
+# Deferred from the gate's measurement
+# pass with the honest reason: it re-runs the ENTIRE test suite under
+# instrumentation, roughly doubling the gate's slowest job — the pathological
+# case the opt-out exists for. The never-loosen floor check still runs on every
+# `discern done`; CI measures it on every PR, and `discern standards` on demand.
+# `inputs` names everything the measurement reads, so a tree that touches none
+# of it (docs, map, site) replays the recorded value for free; `margin` keeps a
+# pin from setting the floor razor-tight against ordinary coverage drift.
+[standards.coverage]
+  direction = "up"
+  limit = 91.7
+  margin = 0.5
+  run = "deno task coverage"
+  timeout = 1200
+  inputs = [
+    "src/**",
+    "tests/**",
+    "templates/**",
+    "scripts/coverage.ts",
+    "scripts/coverage_lib.ts",
+    "deno.json",
+    "deno.lock",
+  ]
+  measure = "on-demand"
 
-  # A set-valued module failure is represented honestly by its violation count;
-  # the measurement output names every member and its recovery. Zero is the
-  # permanent ceiling. The 80% line floor lives beside the reviewed registry in
-  # scripts/module_coverage_exceptions.ts, where stale and regressed debts fail.
-  [standards.module_coverage]
-    metric = "module_coverage_failures"
-    direction = "down"
-    limit = 0
-    run = "deno task coverage"
-    timeout = 1200
-    inputs = [
-      "src/**",
-      "tests/**",
-      "templates/**",
-      "scripts/coverage.ts",
-      "scripts/coverage_lib.ts",
-      "scripts/module_coverage_exceptions.ts",
-      "scripts/source_module_universe.ts",
-      "deno.json",
-      "deno.lock",
-    ]
-    measure = "on-demand"
+# A set-valued module failure is represented honestly by its violation count;
+# the measurement output names every member and its recovery. Zero is the
+# permanent ceiling. The 80% line floor lives beside the reviewed registry in
+# scripts/module_coverage_exceptions.ts, where stale and regressed debts fail.
+[standards.module_coverage]
+  metric = "module_coverage_failures"
+  direction = "down"
+  limit = 0
+  run = "deno task coverage"
+  timeout = 1200
+  inputs = [
+    "src/**",
+    "tests/**",
+    "templates/**",
+    "scripts/coverage.ts",
+    "scripts/coverage_lib.ts",
+    "scripts/module_coverage_exceptions.ts",
+    "scripts/source_module_universe.ts",
+    "deno.json",
+    "deno.lock",
+  ]
+  measure = "on-demand"
 
-  # The exception population is independent debt with a falling ceiling. New
-  # members require the Standards engine's owner-approved growth transaction;
-  # normal work can only remove them and then pin the smaller count.
-  [standards.module_coverage_exceptions]
-    metric = "module_coverage_exceptions"
-    direction = "down"
-    limit = 14
-    run = "deno task coverage"
-    timeout = 1200
-    inputs = [
-      "src/**",
-      "tests/**",
-      "templates/**",
-      "scripts/coverage.ts",
-      "scripts/coverage_lib.ts",
-      "scripts/module_coverage_exceptions.ts",
-      "scripts/source_module_universe.ts",
-      "deno.json",
-      "deno.lock",
-    ]
-    measure = "on-demand"
+# The exception population is independent debt with a falling ceiling. New
+# members require the Standards engine's owner-approved growth transaction;
+# normal work can only remove them and then pin the smaller count.
+[standards.module_coverage_exceptions]
+  metric = "module_coverage_exceptions"
+  direction = "down"
+  limit = 14
+  run = "deno task coverage"
+  timeout = 1200
+  inputs = [
+    "src/**",
+    "tests/**",
+    "templates/**",
+    "scripts/coverage.ts",
+    "scripts/coverage_lib.ts",
+    "scripts/module_coverage_exceptions.ts",
+    "scripts/source_module_universe.ts",
+    "deno.json",
+    "deno.lock",
+  ]
+  measure = "on-demand"
 
-  # Prose standard — hold the map's Vale alert *density* at or below a falling ceiling.
-  # `deno task prose` runs Vale over the map and emits DISCERN_METRIC prose <count>
-  # (every severity; error-severity findings are separately blocked by the gate via
-  # [jobs.prose]). The same staged corpus emits `prose_words`, so frontmatter and
-  # every `_private` subtree contribute to neither side of the ratio. The standard
-  # tracks alerts per 1,000 linted words — a *rate*: writing more docs never
-  # breaches it, only writing nittier-than-average prose does. Held by `discern
-  # standards`, enforced on every PR in CI. Lower the limit as the density
-  # improves — the ceiling only falls. `inputs` names what the metric reads (the
-  # map, Vale's tracked toolchain, and the wrapper scripts), so a code-only change
-  # replays the recorded density instead of re-running Vale.
-  [standards.prose]
-    direction = "down"
-    per = "prose_words"
-    scale = 1000
-    # Corrected from the mismatched whole-map denominator: 4,863 alerts across
-    # 312,085 staged words. Private prose and frontmatter stay outside the rate.
-    limit = 15.15
-    run = "deno task prose \"${map.dir}\""
-    inputs = [
-      "${map.dir}**",
-      ".vale-assets.json",
-      ".vale-version",
-      ".vale.ini",
-      ".vale/Discern/**",
-      ".vale/DiscernAgent/**",
-      ".vale/DiscernBrand/**",
-      ".vale/DiscernProduct/**",
-      "scripts/prose.ts",
-      "scripts/prose_lib.ts",
-      "scripts/vale_lib.ts",
-      "scripts/vale_toolchain.ts",
-      "src/lib/frontmatter.ts",
-    ]
+# Prose standard — hold the map's Vale alert *density* at or below a falling ceiling.
+# `deno task prose` runs Vale over the map and emits DISCERN_METRIC prose <count>
+# (every severity; error-severity findings are separately blocked by the gate via
+# [jobs.prose]). The same staged corpus emits `prose_words`, so frontmatter and
+# every `_private` subtree contribute to neither side of the ratio. The standard
+# tracks alerts per 1,000 linted words — a *rate*: writing more docs never
+# breaches it, only writing nittier-than-average prose does. Held by `discern
+# standards`, enforced on every PR in CI. Lower the limit as the density
+# improves — the ceiling only falls. `inputs` names what the metric reads (the
+# map, Vale's tracked toolchain, and the wrapper scripts), so a code-only change
+# replays the recorded density instead of re-running Vale.
+[standards.prose]
+  direction = "down"
+  per = "prose_words"
+  scale = 1000
+  # Corrected from the mismatched whole-map denominator: 4,863 alerts across
+  # 312,085 staged words. Private prose and frontmatter stay outside the rate.
+  limit = 15.15
+  run = "deno task prose \"${map.dir}\""
+  inputs = [
+    "${map.dir}**",
+    ".vale-assets.json",
+    ".vale-version",
+    ".vale.ini",
+    ".vale/Discern/**",
+    ".vale/DiscernAgent/**",
+    ".vale/DiscernBrand/**",
+    ".vale/DiscernProduct/**",
+    "scripts/prose.ts",
+    "scripts/prose_lib.ts",
+    "scripts/vale_lib.ts",
+    "scripts/vale_toolchain.ts",
+    "src/lib/frontmatter.ts",
+  ]
 
-  # Public-site prose Standards — one registry-derived, markup-free corpus feeds
-  # the blocking Vale check, alert-density numerator, word denominator, and
-  # reading-grade measure. Repeated rendered copy and code contribute to none of
-  # them. New marketing routes enroll through site/marketing_pages.ts.
-  # Temporarily disabled while the V3 public-site wording settles. Restore this
-  # table before launch; project/TODO.md carries the explicit follow-up.
-  # [standards.site_prose]
-    #   direction = "down"
-    #   per = "site_prose_words"
-    #   scale = 1000
-    #   # Guarded-corpus baseline: 2 Vale alerts across 1,025 projected words.
-    #   limit = 1.952
-    #   margin = 0.05
-    #   run = "deno task site:prose"
-    #   inputs = [
-      #     "site/**",
-      #     "src/lib/providers.ts",
-      #     "src/shared/agent_catalogue.ts",
-      #     ".vale-assets.json",
-      #     ".vale-version",
-      #     ".vale.ini",
-      #     ".vale/Discern/**",
-      #     ".vale/DiscernBrand/**",
-      #     "scripts/site_prose.ts",
-      #     "scripts/site_prose_check.ts",
-      #     "scripts/site_prose_lib.ts",
-      #     "scripts/prose_lib.ts",
-      #     "scripts/plain_reading_grade_lib.ts",
-      #     "scripts/vale_lib.ts",
-      #     "scripts/vale_toolchain.ts",
-      #     "deno.json",
-      #     "deno.lock",
-      #   ]
+# Public-site prose Standards — one registry-derived, markup-free corpus feeds
+# the blocking Vale check, alert-density numerator, word denominator, and
+# reading-grade measure. Repeated rendered copy and code contribute to none of
+# them. New marketing routes enroll through site/marketing_pages.ts.
+# Temporarily disabled while the V3 public-site wording settles. Restore this
+# table before launch; project/TODO.md carries the explicit follow-up.
+# [standards.site_prose]
+  #   direction = "down"
+  #   per = "site_prose_words"
+  #   scale = 1000
+  #   # Guarded-corpus baseline: 2 Vale alerts across 1,025 projected words.
+  #   limit = 1.952
+  #   margin = 0.05
+  #   run = "deno task site:prose"
+  #   inputs = [
+    #     "site/**",
+    #     "src/lib/providers.ts",
+    #     "src/shared/agent_catalogue.ts",
+    #     ".vale-assets.json",
+    #     ".vale-version",
+    #     ".vale.ini",
+    #     ".vale/Discern/**",
+    #     ".vale/DiscernBrand/**",
+    #     "scripts/site_prose.ts",
+    #     "scripts/site_prose_check.ts",
+    #     "scripts/site_prose_lib.ts",
+    #     "scripts/prose_lib.ts",
+    #     "scripts/plain_reading_grade_lib.ts",
+    #     "scripts/vale_lib.ts",
+    #     "scripts/vale_toolchain.ts",
+    #     "deno.json",
+    #     "deno.lock",
+    #   ]
 
-  [standards.site_reading_grade]
-    direction = "down"
-    # Guarded-corpus baseline over the same deduplicated prose blocks.
-    limit = 8.43
-    margin = 0.5
-    run = "deno task site:reading-grade"
-    inputs = [
-      "site/**",
-      "src/lib/providers.ts",
-      "src/shared/agent_catalogue.ts",
-      "scripts/site_reading_grade.ts",
-      "scripts/site_prose_lib.ts",
-      "scripts/prose_lib.ts",
-      "scripts/plain_reading_grade_lib.ts",
-      "deno.json",
-      "deno.lock",
-    ]
+[standards.site_reading_grade]
+  direction = "down"
+  # Guarded-corpus baseline over the same deduplicated prose blocks.
+  limit = 8.43
+  margin = 0.5
+  run = "deno task site:reading-grade"
+  inputs = [
+    "site/**",
+    "src/lib/providers.ts",
+    "src/shared/agent_catalogue.ts",
+    "scripts/site_reading_grade.ts",
+    "scripts/site_prose_lib.ts",
+    "scripts/prose_lib.ts",
+    "scripts/plain_reading_grade_lib.ts",
+    "deno.json",
+    "deno.lock",
+  ]
 
-  # The /agents page tells its reader that context is a budget, then caps its
-  # own prose so the claim stays true. The page prints this ceiling and tests
-  # hold the printed number equal to the limit below, so moving one moves both.
-  [standards.agents_page_words]
-    direction = "down"
-    limit = 1000
-    run = "deno task site:agents-words"
-    inputs = [
-      "site/**",
-      "src/lib/providers.ts",
-      "src/shared/agent_catalogue.ts",
-      "scripts/agents_page_words.ts",
-      "scripts/site_prose_lib.ts",
-      "scripts/prose_lib.ts",
-      "scripts/plain_reading_grade_lib.ts",
-      "deno.json",
-      "deno.lock",
-    ]
+# The /agents page tells its reader that context is a budget, then caps its
+# own prose so the claim stays true. The page prints this ceiling and tests
+# hold the printed number equal to the limit below, so moving one moves both.
+[standards.agents_page_words]
+  direction = "down"
+  limit = 1000
+  run = "deno task site:agents-words"
+  inputs = [
+    "site/**",
+    "src/lib/providers.ts",
+    "src/shared/agent_catalogue.ts",
+    "scripts/agents_page_words.ts",
+    "scripts/site_prose_lib.ts",
+    "scripts/prose_lib.ts",
+    "scripts/plain_reading_grade_lib.ts",
+    "deno.json",
+    "deno.lock",
+  ]
 
-  # Selected site-component gap standard — hold the raw number of components
-  # emitted for a route bundle but absent from that bundle's live HTML output at
-  # or below a falling ceiling. The package manifest supplies groups,
-  # dependencies, and owned classes; the site's bundle and route registries
-  # supply the consumer side. A raw deficit cannot improve by diluting a
-  # percentage with more components. Drive it to zero by rendering
-  # a selected component or narrowing an unused selection; at zero, make absence
-  # an always-on test and retire this transition Standard.
-  [standards.site_component_gaps]
-    direction = "down"
-    limit = 65
-    run = "deno task site:component-coverage"
-    inputs = [
-      "${map.dir}**",
-      "site/**",
-      "scripts/**",
-      "src/**",
-      "deno.json",
-      "deno.lock",
-    ]
+# Selected site-component gap standard — hold the raw number of components
+# emitted for a route bundle but absent from that bundle's live HTML output at
+# or below a falling ceiling. The package manifest supplies groups,
+# dependencies, and owned classes; the site's bundle and route registries
+# supply the consumer side. A raw deficit cannot improve by diluting a
+# percentage with more components. Drive it to zero by rendering
+# a selected component or narrowing an unused selection; at zero, make absence
+# an always-on test and retire this transition Standard.
+[standards.site_component_gaps]
+  direction = "down"
+  limit = 65
+  run = "deno task site:component-coverage"
+  inputs = [
+    "${map.dir}**",
+    "site/**",
+    "scripts/**",
+    "src/**",
+    "deno.json",
+    "deno.lock",
+  ]
 
-  # Vocabulary standard — hold the map's vocabulary debt at zero. `deno task vocab`
-  # reads the term registry and the live map pages, counts dead terms (a glossary
-  # entry no page names or links) and redefinitions (a page restating a term
-  # bold-faced instead of linking its glossary entry), and emits
-  # DISCERN_METRIC vocabulary_debt <count>. At zero, a term added to the registry
-  # must be used by a page in the same change, and a second definition of a term
-  # fails the gate. Bold emphasis stays legal when it carries the link:
-  # `**[term](…/glossary.md#anchor)**`. `inputs` names what the metric reads, so
-  # a code-only change replays the recorded value.
-  [standards.vocabulary]
-    metric = "vocabulary_debt"
-    direction = "down"
-    limit = 0
-    run = "deno task vocab \"${map.dir}\""
-    inputs = [
-      "${map.dir}**",
-      "scripts/vocab_signals.ts",
-      "scripts/vocab_signals_lib.ts",
-      "scripts/glossary_registry.ts",
-      "src/lib/docs_integrity.ts",
-      "src/lib/markdown.ts",
-      "src/lib/frontmatter.ts",
-    ]
+# Vocabulary standard — hold the map's vocabulary debt at zero. `deno task vocab`
+# reads the term registry and the live map pages, counts dead terms (a glossary
+# entry no page names or links) and redefinitions (a page restating a term
+# bold-faced instead of linking its glossary entry), and emits
+# DISCERN_METRIC vocabulary_debt <count>. At zero, a term added to the registry
+# must be used by a page in the same change, and a second definition of a term
+# fails the gate. Bold emphasis stays legal when it carries the link:
+# `**[term](…/glossary.md#anchor)**`. `inputs` names what the metric reads, so
+# a code-only change replays the recorded value.
+[standards.vocabulary]
+  metric = "vocabulary_debt"
+  direction = "down"
+  limit = 0
+  run = "deno task vocab \"${map.dir}\""
+  inputs = [
+    "${map.dir}**",
+    "scripts/vocab_signals.ts",
+    "scripts/vocab_signals_lib.ts",
+    "scripts/glossary_registry.ts",
+    "src/lib/docs_integrity.ts",
+    "src/lib/markdown.ts",
+    "src/lib/frontmatter.ts",
+  ]
 
-  # Plain-register reading grade — hold the feature canon's plain-language
-  # axis at or below a falling reading-grade ceiling. The measurement is a
-  # deterministic Flesch-Kincaid grade over every node's plain what/why/agent
-  # prose (scripts/plain_reading_grade_lib.ts), with code spans read as
-  # one-word names so quoting a command never charges the register. The plain
-  # canon exists for non-technical readers; this is the numeric guard that the
-  # register stays plain as agents grow it — vocabulary is policed by the
-  # register guard test, and simplicity is held here. Pure in-memory text
-  # arithmetic: milliseconds, so it measures in every gate run.
-  [standards.plain_reading_grade]
-    direction = "down"
-    limit = 13.45
-    margin = 0.2
-    run = "deno run scripts/plain_reading_grade.ts"
-    inputs = [
-      "scripts/feature_registry.ts",
-      "scripts/glossary_registry.ts",
-      "scripts/plain_reading_grade.ts",
-      "scripts/plain_reading_grade_lib.ts",
-      "src/shared/capabilities.ts",
-      "src/shared/agent_catalogue.ts",
-    ]
+# Plain-register reading grade — hold the feature canon's plain-language
+# axis at or below a falling reading-grade ceiling. The measurement is a
+# deterministic Flesch-Kincaid grade over every node's plain what/why/agent
+# prose (scripts/plain_reading_grade_lib.ts), with code spans read as
+# one-word names so quoting a command never charges the register. The plain
+# canon exists for non-technical readers; this is the numeric guard that the
+# register stays plain as agents grow it — vocabulary is policed by the
+# register guard test, and simplicity is held here. Pure in-memory text
+# arithmetic: milliseconds, so it measures in every gate run.
+[standards.plain_reading_grade]
+  direction = "down"
+  limit = 13.45
+  margin = 0.2
+  run = "deno run scripts/plain_reading_grade.ts"
+  inputs = [
+    "scripts/feature_registry.ts",
+    "scripts/glossary_registry.ts",
+    "scripts/plain_reading_grade.ts",
+    "scripts/plain_reading_grade_lib.ts",
+    "src/shared/capabilities.ts",
+    "src/shared/agent_catalogue.ts",
+  ]
 
-  # Unsafe TypeScript assertion standard — hold only deterministic escape-hatch
-  # syntax (`as any` and chains through `unknown` or `any`) under a falling
-  # ceiling. The same command emits the broad `type_assertions` inventory for
-  # advisory context; ordinary typed assertions and `as const` do not spend the
-  # blocking budget. At zero, keep the syntax detector as an always-on guard.
-  [standards.unsafe_type_assertions]
-    direction = "down"
-    limit = 103
-    run = "deno task cast-census"
-    inputs = [
-      "*.ts",
-      "*.tsx",
-      "deno.json",
-      "deno.lock",
-    ]
+# Unsafe TypeScript assertion standard — hold only deterministic escape-hatch
+# syntax (`as any` and chains through `unknown` or `any`) under a falling
+# ceiling. The same command emits the broad `type_assertions` inventory for
+# advisory context; ordinary typed assertions and `as const` do not spend the
+# blocking budget. At zero, keep the syntax detector as an always-on guard.
+[standards.unsafe_type_assertions]
+  direction = "down"
+  limit = 103
+  run = "deno task cast-census"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "deno.json",
+    "deno.lock",
+  ]
 
-  # Duplication standard — each finding is one maximal normalized clone group,
-  # and source ranges are admitted globally only when they do not overlap a
-  # larger finding. The held scalar charges formatting-independent logical
-  # lines for every occurrence after the first, so another paste grows the
-  # debt even when it joins an existing group. Imports, declared generated
-  # artifacts, type-only declarations, and syntax-declared registry tables do
-  # not spend the budget. Consolidate a named group, then pin the reduction.
-  [standards.duplicated_lines]
-    direction = "down"
-    limit = 5216
-    run = "deno task duplication-census"
-    inputs = [
-      "*.ts",
-      "*.tsx",
-      "*.mts",
-      "*.cts",
-      "*.js",
-      "*.jsx",
-      "*.mjs",
-      "*.cjs",
-      ".gitignore",
-      "deno.json",
-      "deno.lock",
-      "discern.toml",
-    ]
+# Duplication standard — each finding is one maximal normalized clone group,
+# and source ranges are admitted globally only when they do not overlap a
+# larger finding. The held scalar charges formatting-independent logical
+# lines for every occurrence after the first, so another paste grows the
+# debt even when it joins an existing group. Imports, declared generated
+# artifacts, type-only declarations, and syntax-declared registry tables do
+# not spend the budget. Consolidate a named group, then pin the reduction.
+[standards.duplicated_lines]
+  direction = "down"
+  limit = 5216
+  run = "deno task duplication-census"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "*.mts",
+    "*.cts",
+    "*.js",
+    "*.jsx",
+    "*.mjs",
+    "*.cjs",
+    ".gitignore",
+    "deno.json",
+    "deno.lock",
+    "discern.toml",
+  ]
 
-  # File-complexity tail standard — pinned FTA analyzes the exact canonical
-  # authored-Deno universe and fails if it silently omits a supported source.
-  # The report keeps production, tooling, and tests separate and ranks score,
-  # cyclomatic complexity, lines, and full-history touches independently.
-  # Generated projections remain visible but spend no budget. Each reviewed
-  # non-generated file above score 100 or cyclo 200 has its own ceiling in the
-  # hotspot registry; new, regressed, and stale rows fail. Decompose a real
-  # responsibility, remove its row once both thresholds clear, then pin this
-  # Standard so the legacy tail can only shrink.
-  [standards.complexity_hotspots]
-    direction = "down"
-    limit = 18
-    run = "deno task complexity"
-    inputs = [
-      "*.ts",
-      "*.tsx",
-      "*.mts",
-      "*.cts",
-      "*.js",
-      "*.jsx",
-      "*.mjs",
-      "*.cjs",
-      "fta.json",
-      "deno.json",
-      "deno.lock",
-      "discern.toml",
-    ]
+# File-complexity tail standard — pinned FTA analyzes the exact canonical
+# authored-Deno universe and fails if it silently omits a supported source.
+# The report keeps production, tooling, and tests separate and ranks score,
+# cyclomatic complexity, lines, and full-history touches independently.
+# Generated projections remain visible but spend no budget. Each reviewed
+# non-generated file above score 100 or cyclo 200 has its own ceiling in the
+# hotspot registry; new, regressed, and stale rows fail. Decompose a real
+# responsibility, remove its row once both thresholds clear, then pin this
+# Standard so the legacy tail can only shrink.
+[standards.complexity_hotspots]
+  direction = "down"
+  limit = 18
+  run = "deno task complexity"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "*.mts",
+    "*.cts",
+    "*.js",
+    "*.jsx",
+    "*.mjs",
+    "*.cjs",
+    "fta.json",
+    "deno.json",
+    "deno.lock",
+    "discern.toml",
+  ]
 
-  # Deno-lint suppression standard — hold the raw count of both recognized
-  # comment directives (`deno-lint-ignore` and `deno-lint-ignore-file`) at or
-  # below a falling ceiling. The structural detector scans every authored
-  # JavaScript/TypeScript source from the Git-derived universe, so examples in
-  # strings and block comments do not count and new source trees auto-enroll.
-  # Fix a named lint finding, then run
-  # `discern standards --pin lint_suppressions` to capture the lower census.
-  # At zero, move the detector into an always-on test and retire this table.
-  [standards.lint_suppressions]
-    direction = "down"
-    limit = 6
-    run = "deno task lint-suppressions"
-    inputs = [
-      "*.ts",
-      "*.tsx",
-      "*.mts",
-      "*.cts",
-      "*.js",
-      "*.jsx",
-      "*.mjs",
-      "*.cjs",
-      "deno.json",
-    ]
+# Deno-lint suppression standard — hold the raw count of both recognized
+# comment directives (`deno-lint-ignore` and `deno-lint-ignore-file`) at or
+# below a falling ceiling. The structural detector scans every authored
+# JavaScript/TypeScript source from the Git-derived universe, so examples in
+# strings and block comments do not count and new source trees auto-enroll.
+# Fix a named lint finding, then run
+# `discern standards --pin lint_suppressions` to capture the lower census.
+# At zero, move the detector into an always-on test and retire this table.
+[standards.lint_suppressions]
+  direction = "down"
+  limit = 6
+  run = "deno task lint-suppressions"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "*.mts",
+    "*.cts",
+    "*.js",
+    "*.jsx",
+    "*.mjs",
+    "*.cjs",
+    "deno.json",
+  ]
 
-  # Deno-lint source-exclusion standard — hold the configured path/pattern
-  # entries that actually remove a Git-derived authored source from lint. The
-  # metric shares the suppression command but remains a separate risk class:
-  # ignored build products and inert fixture paths do not spend this budget.
-  [standards.lint_exclusions]
-    metric = "lint_exclusions"
-    direction = "down"
-    limit = 2
-    run = "deno task lint-suppressions"
-    inputs = [
-      "*.ts",
-      "*.tsx",
-      "*.mts",
-      "*.cts",
-      "*.js",
-      "*.jsx",
-      "*.mjs",
-      "*.cjs",
-      "deno.json",
-    ]
+# Deno-lint source-exclusion standard — hold the configured path/pattern
+# entries that actually remove a Git-derived authored source from lint. The
+# metric shares the suppression command but remains a separate risk class:
+# ignored build products and inert fixture paths do not spend this budget.
+[standards.lint_exclusions]
+  metric = "lint_exclusions"
+  direction = "down"
+  limit = 2
+  run = "deno task lint-suppressions"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "*.mts",
+    "*.cts",
+    "*.js",
+    "*.jsx",
+    "*.mjs",
+    "*.cjs",
+    "deno.json",
+  ]
 
-  # Deliberate error-discard boundary standard — every synchronous catch,
-  # promise rejection handler, or side-effect-only best-effort call is a stable
-  # registry member bound one-to-one to its exact production site. The census
-  # validates both directions before emitting the complete authority population,
-  # so a shared wrapper cannot hide unlimited new discards behind one call.
-  [standards.silent_error_boundaries]
-    direction = "down"
-    limit = 186
-    run = "deno task silent-error-boundaries"
-    inputs = [
-      "*.ts",
-      "*.tsx",
-      "*.mts",
-      "*.cts",
-      "*.js",
-      "*.jsx",
-      "*.mjs",
-      "*.cjs",
-      "deno.json",
-      "deno.lock",
-    ]
+# Deliberate error-discard boundary standard — every synchronous catch,
+# promise rejection handler, or side-effect-only best-effort call is a stable
+# registry member bound one-to-one to its exact production site. The census
+# validates both directions before emitting the complete authority population,
+# so a shared wrapper cannot hide unlimited new discards behind one call.
+[standards.silent_error_boundaries]
+  direction = "down"
+  limit = 186
+  run = "deno task silent-error-boundaries"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "*.mts",
+    "*.cts",
+    "*.js",
+    "*.jsx",
+    "*.mjs",
+    "*.cjs",
+    "deno.json",
+    "deno.lock",
+  ]
 
-  # Deliberate promise-detachment standard — every ignored promise-like
-  # expression fails the type-aware check, including imported, union, generic,
-  # and custom thenable values. The remaining intentional concurrency sites
-  # consume one exact registry row naming lifecycle, rejection, and shutdown
-  # ownership before this complete population reaches the falling ceiling.
-  [standards.detached_promise_boundaries]
-    direction = "down"
-    limit = 10
-    run = "deno task promise-effects"
-    inputs = [
-      "*.ts",
-      "*.tsx",
-      "*.mts",
-      "*.cts",
-      "deno.json",
-      "deno.lock",
-    ]
+# Deliberate promise-detachment standard — every ignored promise-like
+# expression fails the type-aware check, including imported, union, generic,
+# and custom thenable values. The remaining intentional concurrency sites
+# consume one exact registry row naming lifecycle, rejection, and shutdown
+# ownership before this complete population reaches the falling ceiling.
+[standards.detached_promise_boundaries]
+  direction = "down"
+  limit = 10
+  run = "deno task promise-effects"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "*.mts",
+    "*.cts",
+    "deno.json",
+    "deno.lock",
+  ]
 
-  # Direct subprocess construction standard — every production/tooling
-  # constructor is either one of the shared subprocess capability's own sites
-  # or an exact registered boundary naming its path, enclosing function,
-  # operation, and reason. The census validates unknown and stale entries before
-  # emitting the registered-boundary population held by this falling ceiling.
-  [standards.subprocess_spawn_boundaries]
-    direction = "down"
-    limit = 28
-    run = "deno task subprocess-spawn-boundaries"
-    inputs = [
-      "*.ts",
-      "*.tsx",
-      "deno.json",
-      "deno.lock",
-    ]
+# Direct subprocess construction standard — every production/tooling
+# constructor is either one of the shared subprocess capability's own sites
+# or an exact registered boundary naming its path, enclosing function,
+# operation, and reason. The census validates unknown and stale entries before
+# emitting the registered-boundary population held by this falling ceiling.
+[standards.subprocess_spawn_boundaries]
+  direction = "down"
+  limit = 28
+  run = "deno task subprocess-spawn-boundaries"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "deno.json",
+    "deno.lock",
+  ]
 
-  # Direct process-output boundary standard — every console call and direct
-  # stdout/stderr write under src/ is one exact registry member naming its path,
-  # enclosing function, operation, channel, purpose, and reason. The structural
-  # census rejects unknown and stale sites before this population can measure.
-  [standards.process_output_boundaries]
-    direction = "down"
-    limit = 6
-    run = "deno task process-boundaries"
-    inputs = [
-      "src/**/*.ts",
-      "scripts/process_boundaries.ts",
-      "tests/structural_guard_scope.ts",
-      "deno.json",
-      "deno.lock",
-    ]
+# Direct process-output boundary standard — every console call and direct
+# stdout/stderr write under src/ is one exact registry member naming its path,
+# enclosing function, operation, channel, purpose, and reason. The structural
+# census rejects unknown and stale sites before this population can measure.
+[standards.process_output_boundaries]
+  direction = "down"
+  limit = 6
+  run = "deno task process-boundaries"
+  inputs = [
+    "src/**/*.ts",
+    "scripts/process_boundaries.ts",
+    "tests/structural_guard_scope.ts",
+    "deno.json",
+    "deno.lock",
+  ]
 
-  # Direct process-exit boundary standard — libraries return or throw typed
-  # state while only exact dispatcher, parser, crash, and signal edges may call
-  # Deno.exit. The shared census validates registry parity before measuring.
-  [standards.process_exit_boundaries]
-    direction = "down"
-    limit = 5
-    run = "deno task process-boundaries"
-    inputs = [
-      "src/**/*.ts",
-      "scripts/process_boundaries.ts",
-      "tests/structural_guard_scope.ts",
-      "deno.json",
-      "deno.lock",
-    ]
+# Direct process-exit boundary standard — libraries return or throw typed
+# state while only exact dispatcher, parser, crash, and signal edges may call
+# Deno.exit. The shared census validates registry parity before measuring.
+[standards.process_exit_boundaries]
+  direction = "down"
+  limit = 5
+  run = "deno task process-boundaries"
+  inputs = [
+    "src/**/*.ts",
+    "scripts/process_boundaries.ts",
+    "tests/structural_guard_scope.ts",
+    "deno.json",
+    "deno.lock",
+  ]
 
-  # Real test-delay boundary standard — every genuine elapsed-time dependency
-  # is a stable registry member bound one-to-one to a literal `realDelay` call.
-  # The census scans all executable test and fixture text, including child
-  # source embedded in strings, before emitting the raw registry population.
-  # Condition-oriented waits and fake-clock tests do not spend this budget.
-  [standards.test_real_delay_boundaries]
-    direction = "down"
-    limit = 26
-    run = "deno task test-real-delay-boundaries"
-    inputs = [
-      "tests/**",
-      "scripts/test_real_delay_boundaries.ts",
-      "deno.json",
-      "deno.lock",
-    ]
+# Real test-delay boundary standard — every genuine elapsed-time dependency
+# is a stable registry member bound one-to-one to a literal `realDelay` call.
+# The census scans all executable test and fixture text, including child
+# source embedded in strings, before emitting the raw registry population.
+# Condition-oriented waits and fake-clock tests do not spend this budget.
+[standards.test_real_delay_boundaries]
+  direction = "down"
+  limit = 26
+  run = "deno task test-real-delay-boundaries"
+  inputs = [
+    "tests/**",
+    "scripts/test_real_delay_boundaries.ts",
+    "deno.json",
+    "deno.lock",
+  ]
 
-  # Ambient-read module standard — counts distinct boundary modules separately
-  # so the operation registry cannot trade more modules for fewer calls.
-  [standards.ambient_read_boundaries]
-    direction = "down"
-    limit = 38
-    run = "deno task ambient-boundaries"
-    inputs = [
-      "scripts/ambient_state_lint.ts",
-      "scripts/ambient_state_boundary_counts.ts",
-      "deno.json",
-    ]
+# Ambient-read module standard — counts distinct boundary modules separately
+# so the operation registry cannot trade more modules for fewer calls.
+[standards.ambient_read_boundaries]
+  direction = "down"
+  limit = 38
+  run = "deno task ambient-boundaries"
+  inputs = [
+    "scripts/ambient_state_lint.ts",
+    "scripts/ambient_state_boundary_counts.ts",
+    "deno.json",
+  ]
 
-  # Ambient-read operation standard — every direct Deno.env/Deno.cwd read has a
-  # stable path/function/operation id. The structural guard binds rows and calls
-  # both ways; this ceiling makes every added operation an owner decision.
-  [standards.ambient_read_operations]
-    direction = "down"
-    limit = 56
-    run = "deno task ambient-boundaries"
-    inputs = [
-      "scripts/ambient_state_lint.ts",
-      "scripts/ambient_state_boundary_counts.ts",
-      "deno.json",
-    ]
+# Ambient-read operation standard — every direct Deno.env/Deno.cwd read has a
+# stable path/function/operation id. The structural guard binds rows and calls
+# both ways; this ceiling makes every added operation an owner decision.
+[standards.ambient_read_operations]
+  direction = "down"
+  limit = 56
+  run = "deno task ambient-boundaries"
+  inputs = [
+    "scripts/ambient_state_lint.ts",
+    "scripts/ambient_state_boundary_counts.ts",
+    "deno.json",
+  ]
 
-  # Process-environment mutation boundary standard — the explicit registry is
-  # empty while no unavoidable mutation exists. The zero ceiling prevents a
-  # future Deno.env.set/delete exception from being added on a feature branch;
-  # the lint rule separately rejects every unregistered call.
-  [standards.ambient_mutation_boundaries]
-    direction = "down"
-    limit = 0
-    run = "deno task ambient-boundaries"
-    inputs = [
-      "scripts/ambient_state_lint.ts",
-      "scripts/ambient_state_boundary_counts.ts",
-      "deno.json",
-    ]
+# Process-environment mutation boundary standard — the explicit registry is
+# empty while no unavoidable mutation exists. The zero ceiling prevents a
+# future Deno.env.set/delete exception from being added on a feature branch;
+# the lint rule separately rejects every unregistered call.
+[standards.ambient_mutation_boundaries]
+  direction = "down"
+  limit = 0
+  run = "deno task ambient-boundaries"
+  inputs = [
+    "scripts/ambient_state_lint.ts",
+    "scripts/ambient_state_boundary_counts.ts",
+    "deno.json",
+  ]
 
-  # Clock authority standard — direct wall and monotonic reads are confined to
-  # the system clock, and the structural guard rejects every unregistered call.
-  [standards.clock_primitive_boundaries]
-    direction = "down"
-    limit = 2
-    run = "deno task ambient-boundaries"
-    inputs = [
-      "scripts/ambient_state_lint.ts",
-      "scripts/ambient_state_boundary_counts.ts",
-      "src/shared/clock.ts",
-      "deno.json",
-    ]
+# Clock authority standard — direct wall and monotonic reads are confined to
+# the system clock, and the structural guard rejects every unregistered call.
+[standards.clock_primitive_boundaries]
+  direction = "down"
+  limit = 2
+  run = "deno task ambient-boundaries"
+  inputs = [
+    "scripts/ambient_state_lint.ts",
+    "scripts/ambient_state_boundary_counts.ts",
+    "src/shared/clock.ts",
+    "deno.json",
+  ]
 
-  # Scheduler authority standard — the Deno and browser adapters each own the
-  # host's four schedule/cancel operations; application code injects the seam.
-  [standards.scheduler_primitive_boundaries]
-    direction = "down"
-    limit = 8
-    run = "deno task ambient-boundaries"
-    inputs = [
-      "scripts/ambient_state_lint.ts",
-      "scripts/ambient_state_boundary_counts.ts",
-      "site/pages/assets/scheduler.js",
-      "src/shared/scheduler.ts",
-      "deno.json",
-    ]
+# Scheduler authority standard — the Deno and browser adapters each own the
+# host's four schedule/cancel operations; application code injects the seam.
+[standards.scheduler_primitive_boundaries]
+  direction = "down"
+  limit = 8
+  run = "deno task ambient-boundaries"
+  inputs = [
+    "scripts/ambient_state_lint.ts",
+    "scripts/ambient_state_boundary_counts.ts",
+    "site/pages/assets/scheduler.js",
+    "src/shared/scheduler.ts",
+    "deno.json",
+  ]
 
-  # Scheduling-jitter authority standard — Math.random is retained only for
-  # bounded retry variation and is never an entropy source for identities.
-  [standards.scheduling_jitter_boundaries]
-    direction = "down"
-    limit = 1
-    run = "deno task ambient-boundaries"
-    inputs = [
-      "scripts/ambient_state_lint.ts",
-      "scripts/ambient_state_boundary_counts.ts",
-      "src/shared/scheduler.ts",
-      "deno.json",
-    ]
+# Scheduling-jitter authority standard — Math.random is retained only for
+# bounded retry variation and is never an entropy source for identities.
+[standards.scheduling_jitter_boundaries]
+  direction = "down"
+  limit = 1
+  run = "deno task ambient-boundaries"
+  inputs = [
+    "scripts/ambient_state_lint.ts",
+    "scripts/ambient_state_boundary_counts.ts",
+    "src/shared/scheduler.ts",
+    "deno.json",
+  ]
 
-  # Secure-entropy authority standard — WebCrypto UUID and byte generation are
-  # retained only inside the typed system adapter; production code injects it.
-  [standards.secure_entropy_primitive_boundaries]
-    direction = "down"
-    limit = 2
-    run = "deno task ambient-boundaries"
-    inputs = [
-      "scripts/ambient_state_lint.ts",
-      "scripts/ambient_state_boundary_counts.ts",
-      "src/shared/entropy.ts",
-      "deno.json",
-    ]
+# Secure-entropy authority standard — WebCrypto UUID and byte generation are
+# retained only inside the typed system adapter; production code injects it.
+[standards.secure_entropy_primitive_boundaries]
+  direction = "down"
+  limit = 2
+  run = "deno task ambient-boundaries"
+  inputs = [
+    "scripts/ambient_state_lint.ts",
+    "scripts/ambient_state_boundary_counts.ts",
+    "src/shared/entropy.ts",
+    "deno.json",
+  ]
 
-  # Instruction-footprint standard — the bundled built-in instructions (templates/instructions/
-  # *.md) compiles into every end-user agent's context in every session, so its total
-  # word count is a context-window budget we spend on their behalf.
-  # A sentence earns static delivery only by the routing test (ADR 0192): it must be
-  # needed BEFORE the first relevant tool call, and that call must be unable to
-  # deliver it. Mechanics an envelope, refusal, or tool description already carries
-  # belong to that channel, not here. Standing exemptions — the channel-down CLI
-  # fallback, and destructive-class rules that verb-bypassing edits can violate
-  # (trunk edits, worktree adoption) — stay static and may repeat.
-  # Raise the limit only for instructions that passes the routing test. Never pay for a
-  # necessary instruction by weakening another one; if no redundant wording remains,
-  # report the intrinsic growth so the owner can move this growing-total ceiling.
-  [standards.instructions]
-    metric = "instruction_words"
-    direction = "down"
-    limit = 1530
-    run = "echo DISCERN_METRIC instruction_words $(cat templates/instructions/*.md | wc -w)"
-    inputs = ["templates/instructions/**"]
+# Instruction-footprint standard — the bundled built-in instructions (templates/instructions/
+# *.md) compiles into every end-user agent's context in every session, so its total
+# word count is a context-window budget we spend on their behalf.
+# A sentence earns static delivery only by the routing test (ADR 0192): it must be
+# needed BEFORE the first relevant tool call, and that call must be unable to
+# deliver it. Mechanics an envelope, refusal, or tool description already carries
+# belong to that channel, not here. Standing exemptions — the channel-down CLI
+# fallback, and destructive-class rules that verb-bypassing edits can violate
+# (trunk edits, worktree adoption) — stay static and may repeat.
+# Raise the limit only for instructions that passes the routing test. Never pay for a
+# necessary instruction by weakening another one; if no redundant wording remains,
+# report the intrinsic growth so the owner can move this growing-total ceiling.
+[standards.instructions]
+  metric = "instruction_words"
+  direction = "down"
+  limit = 1530
+  run = "echo DISCERN_METRIC instruction_words $(cat templates/instructions/*.md | wc -w)"
+  inputs = ["templates/instructions/**"]
 
-  # Bundled-skills surface — every skill description rides in every agent session
-  # of every project discern is installed in, so the surface is held from growing
-  # back after the seven-skill trim: the bundled count and the words across every
-  # SKILL.md frontmatter block (descriptions plus a small fixed identity overhead
-  # per skill) are both ceilings. Frontmatter is measured rather than the
-  # description line alone so a multi-line description can never slip under the
-  # count. Growing either number is an owner decision, taken on the trunk.
-  [standards.skills_count]
-    metric = "skills_count"
-    direction = "down"
-    limit = 10
-    run = "echo DISCERN_METRIC skills_count $(ls templates/skills | wc -l)"
-    inputs = ["templates/skills/**"]
+# Bundled-skills surface — every skill description rides in every agent session
+# of every project discern is installed in, so the surface is held from growing
+# back after the seven-skill trim: the bundled count and the words across every
+# SKILL.md frontmatter block (descriptions plus a small fixed identity overhead
+# per skill) are both ceilings. Frontmatter is measured rather than the
+# description line alone so a multi-line description can never slip under the
+# count. Growing either number is an owner decision, taken on the trunk.
+[standards.skills_count]
+  metric = "skills_count"
+  direction = "down"
+  limit = 10
+  run = "echo DISCERN_METRIC skills_count $(ls templates/skills | wc -l)"
+  inputs = ["templates/skills/**"]
 
-  [standards.skills_words]
-    metric = "skills_words"
-    direction = "down"
-    limit = 1040
-    run = "echo DISCERN_METRIC skills_words $(awk 'FNR==1{f=0} /^---$/{f++;next} f==1' templates/skills/*/SKILL.md | wc -w)"
-    inputs = ["templates/skills/**"]
+[standards.skills_words]
+  metric = "skills_words"
+  direction = "down"
+  limit = 1040
+  run = "echo DISCERN_METRIC skills_words $(awk 'FNR==1{f=0} /^---$/{f++;next} f==1' templates/skills/*/SKILL.md | wc -w)"
+  inputs = ["templates/skills/**"]
 
-  # Binary-size standard — hold one representative release artifact at or below a
-  # falling ceiling. The measurement builds x86_64-unknown-linux-gnu and stats the
-  # resulting dist/discern-* binary, avoiding macOS codesigning noise while still
-  # protecting the shipped single-file executable from silent growth. Re-baseline
-  # only for deliberate release-surface changes or Deno compiler/runtime shifts.
-  # Deferred from the gate's measurement pass with the honest reason: it compiles
-  # a full release binary — minutes of work no per-commit gate should pay. The
-  # never-loosen ceiling check still runs on every `discern done`; CI and
-  # `discern standards` measure it.
-  [standards.binary_size]
-    metric = "binary_size_bytes"
-    direction = "down"
-    limit = 147500000
-    measure = "on-demand"
-    # The binary's byte count drifts with every commit, so `discern standards --pin`
-    # leaves 1 MB of headroom when it re-pins this ceiling — capturing a real size
-    # win without pinning to an exact value the next commit would breach.
-    margin = 1000000
-    run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
+# Binary-size standard — hold one representative release artifact at or below a
+# falling ceiling. The measurement builds x86_64-unknown-linux-gnu and stats the
+# resulting dist/discern-* binary, avoiding macOS codesigning noise while still
+# protecting the shipped single-file executable from silent growth. Re-baseline
+# only for deliberate release-surface changes or Deno compiler/runtime shifts.
+# Deferred from the gate's measurement pass with the honest reason: it compiles
+# a full release binary — minutes of work no per-commit gate should pay. The
+# never-loosen ceiling check still runs on every `discern done`; CI and
+# `discern standards` measure it.
+[standards.binary_size]
+  metric = "binary_size_bytes"
+  direction = "down"
+  limit = 147500000
+  measure = "on-demand"
+  # The binary's byte count drifts with every commit, so `discern standards --pin`
+  # leaves 1 MB of headroom when it re-pins this ceiling — capturing a real size
+  # win without pinning to an exact value the next commit would breach.
+  margin = 1000000
+  run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/binary_size.ts x86_64-unknown-linux-gnu"
 
-  # Public-manual density standard — hold the strict published projection at or
-  # above a rising floor of navigable reading units per 10,000 prose words. A
-  # reading unit is a non-index page or a searchable level-two topic; frontmatter
-  # and code enter neither side. The 35.88 floor holds the measured baseline of
-  # 228 units across 63,544 words without treating metadata or code as prose.
-  [standards.public_doc_leaf_density]
-    metric = "public_doc_leaves"
-    direction = "up"
-    per = "public_doc_words"
-    scale = 10000
-    limit = 35.88
-    # Deepening an existing page is legitimate growth: at the current corpus size
-    # the margin keeps roughly a thousand words of room for it before a new leaf
-    # is due, and re-pins leave the same headroom.
-    margin = 0.5
-    run = "deno run --allow-read scripts/public_doc_density.ts"
-    inputs = [
-      "project/manual/**",
-      "scripts/public_doc_density.ts",
-      "scripts/public_doc_density_lib.ts",
-      "scripts/manual_prose_lib.ts",
-      "src/lib/frontmatter.ts",
-      "src/lib/docs.ts",
-      "src/lib/manual.ts",
-      "src/lib/paths.ts",
-    ]
+# Public-manual density standard — hold the strict published projection at or
+# above a rising floor of navigable reading units per 10,000 prose words. A
+# reading unit is a non-index page or a searchable level-two topic; frontmatter
+# and code enter neither side. The 35.88 floor holds the measured baseline of
+# 228 units across 63,544 words without treating metadata or code as prose.
+[standards.public_doc_leaf_density]
+  metric = "public_doc_leaves"
+  direction = "up"
+  per = "public_doc_words"
+  scale = 10000
+  limit = 35.88
+  # Deepening an existing page is legitimate growth: at the current corpus size
+  # the margin keeps roughly a thousand words of room for it before a new leaf
+  # is due, and re-pins leave the same headroom.
+  margin = 0.5
+  run = "deno run --allow-read scripts/public_doc_density.ts"
+  inputs = [
+    "project/manual/**",
+    "scripts/public_doc_density.ts",
+    "scripts/public_doc_density_lib.ts",
+    "scripts/manual_prose_lib.ts",
+    "src/lib/frontmatter.ts",
+    "src/lib/docs.ts",
+    "src/lib/manual.ts",
+    "src/lib/paths.ts",
+  ]
 
-  # Reading complexity applies to tutorials, guides, explanations, and
-  # troubleshooting through the kind registry. Reference stays in product
-  # voice, terminology, link, command, and exactness checks but not this grade.
-  # The ceiling starts at the final migration baseline measured by this corpus.
-  [standards.manual_reading_grade]
-    metric = "manual_reading_grade"
-    direction = "down"
-    limit = 10.7
-    margin = 0.2
-    run = "deno run --allow-read scripts/manual_reading_grade.ts"
-    inputs = [
-      "project/manual/**",
-      "scripts/manual_reading_grade.ts",
-      "scripts/manual_prose_lib.ts",
-      "scripts/plain_reading_grade_lib.ts",
-      "src/lib/docs.ts",
-      "src/lib/manual.ts",
-      "src/shared/manual.ts",
-    ]
+# Reading complexity applies to tutorials, guides, explanations, and
+# troubleshooting through the kind registry. Reference stays in product
+# voice, terminology, link, command, and exactness checks but not this grade.
+# The ceiling starts at the final migration baseline measured by this corpus.
+[standards.manual_reading_grade]
+  metric = "manual_reading_grade"
+  direction = "down"
+  limit = 10.7
+  margin = 0.2
+  run = "deno run --allow-read scripts/manual_reading_grade.ts"
+  inputs = [
+    "project/manual/**",
+    "scripts/manual_reading_grade.ts",
+    "scripts/manual_prose_lib.ts",
+    "scripts/plain_reading_grade_lib.ts",
+    "src/lib/docs.ts",
+    "src/lib/manual.ts",
+    "src/shared/manual.ts",
+  ]
 
-  # Promoted manual journeys are scarce. The root README is the authored
-  # authority every surface projects; this ceiling counts its marked direct
-  # links rather than a renderer's copy.
-  [standards.manual_front_doors]
-    metric = "manual_front_doors"
-    direction = "down"
-    limit = 5
-    run = "deno run --allow-read scripts/manual_front_doors.ts"
-    inputs = [
-      "project/manual/README.md",
-      "scripts/manual_front_doors.ts",
-      "src/lib/manual.ts",
-    ]
+# Promoted manual journeys are scarce. The root README is the authored
+# authority every surface projects; this ceiling counts its marked direct
+# links rather than a renderer's copy.
+[standards.manual_front_doors]
+  metric = "manual_front_doors"
+  direction = "down"
+  limit = 5
+  run = "deno run --allow-read scripts/manual_front_doors.ts"
+  inputs = [
+    "project/manual/README.md",
+    "scripts/manual_front_doors.ts",
+    "src/lib/manual.ts",
+  ]
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # [checkpoints.<name>]
-  #
-  # What:    Change-triggered review rules.
-  # Why:     A deterministic trigger decides when a change makes a question
-  #          relevant; the agent answers the question and the answer travels
-  #          with the Proof. The configuration at an effort's merge-base
-  #          governs, so editing these tables on a branch never changes that
-  #          branch's own Gate.
-  #
-  # Naming a shipped checkpoint enables it with its built-in trigger, mode,
-  # and question; a field set beneath it overrides the built-in. Delete or
-  # comment out an entry to disable it.
-  #
-  # Params:  scope, paths, include_generated, exclude_paths, unless_changed,
-  #          kinds, adds_matching, removes_matching, new_directory, binary,
-  #          min_changed_files, min_changed_lines, deletion_dominant,
-  #          similar_new_file, min_commits, when, mode, question,
-  #          question_file, teach, reference
-  # Help:    `discern config explain checkpoints`
-  # ───────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# [checkpoints.<name>]
+#
+# What:    Change-triggered review rules.
+# Why:     A deterministic trigger decides when a change makes a question
+#          relevant; the agent answers the question and the answer travels
+#          with the Proof. The configuration at an effort's merge-base
+#          governs, so editing these tables on a branch never changes that
+#          branch's own Gate.
+#
+# Naming a shipped checkpoint enables it with its built-in trigger, mode,
+# and question; a field set beneath it overrides the built-in. Delete or
+# comment out an entry to disable it.
+#
+# Params:  scope, paths, include_generated, exclude_paths, unless_changed,
+#          kinds, adds_matching, removes_matching, new_directory, binary,
+#          min_changed_files, min_changed_lines, deletion_dominant,
+#          similar_new_file, min_commits, when, mode, question,
+#          question_file, teach, reference
+# Help:    `discern config explain checkpoints`
+# ─────────────────────────────────────────────────────────────────────────────
 
-  # Four stop checkpoints guard the knowledge surfaces — the ones that steer
-  # every future agent session. `discern done` pauses before the gate until the
-  # agent declares each fired question met, or unmet with a rationale.
-  # Map checkpoint subjects exclude generated artifacts, so two
-  # authored Map files now mark a broad change. One batched declaration per
-  # effort is the intended tax; the checkpoint-noisy detector re-adjudicates
-  # from post-landing history for the owner.
-  [checkpoints.map-focus] # a broad map change must reduce future reading
-    min_changed_files = 2
-    teach = "Remove stale material, link the authority, and cut mechanically derivable prose."
-  [checkpoints.instruction-economy] # always-loaded prose pays rent in every session
-  [checkpoints.skills-playbook] # a skill is an executable playbook
-  [checkpoints.gotchas-playbook] # failure memory stays symptom → cause → recovery
-  # The five manual checkpoints share one bounded, read-only matcher. It reads
-  # current pages or deleted governing blobs, derives publication and purpose
-  # from the canonical manual model, and fires closed on unavailable facts.
-  [checkpoints.manual-tutorial-comprehension]
-    paths = ["project/manual/**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-tutorial-comprehension"
-    mode = "stop"
-    question = "Can the stated beginner follow this tutorial from its named starting point to the promised first success, recognize that success, and know what to do next without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
-    teach = "A tutorial earns its place when its intended beginner can complete and recognize the promised first result."
-  [checkpoints.manual-guide-comprehension]
-    paths = ["project/manual/**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-guide-comprehension"
-    mode = "stop"
-    question = "Can the intended reader start from the named state, take each step, recognize success or refusal, and identify who owns every decision without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
-    teach = "A guide must leave its reader able to act safely and recognize the resulting state."
-  [checkpoints.manual-explanation-comprehension]
-    paths = ["project/manual/**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-explanation-comprehension"
-    mode = "stop"
-    question = "Can the intended reader restate this concept, distinguish its adjacent states and authority boundaries, and predict the important consequence without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
-    teach = "An explanation must give the reader a usable mental model, not only a description."
-  [checkpoints.manual-reference-comprehension]
-    paths = ["project/manual/**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-reference-comprehension"
-    mode = "stop"
-    question = "Can the intended reader find an exact, complete, current answer here, including every relevant default and limit, and act on it without repository context? Where this reference names core workflow states, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
-    teach = "Reference must answer the lookup precisely and expose the boundaries that change the answer."
-  [checkpoints.manual-troubleshooting-comprehension]
-    paths = ["project/manual/**"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-troubleshooting-comprehension"
-    mode = "stop"
-    question = "Can the intended reader start from the observable symptom, distinguish the likely causes, recover safely, recognize the result, and know when to stop without repository context? Where recovery touches the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
-    teach = "Troubleshooting must route from a symptom to bounded recovery and a clear stopping point."
-  [checkpoints.manual-front-door-promotion]
-    paths = ["project/manual/README.md"]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_front_door_checkpoint.ts"
-    mode = "stop"
-    question = "Does each added or replacement promoted journey earn scarce front-door space by serving a distinct, high-priority starting need, with a destination that immediately fulfils its label?"
-    teach = "Keep promotion deliberately small; publication already gives every page complete navigation, search, raw, export, MCP, and machine reach."
+# Four stop checkpoints guard the knowledge surfaces — the ones that steer
+# every future agent session. `discern done` pauses before the gate until the
+# agent declares each fired question met, or unmet with a rationale.
+# Map checkpoint subjects exclude generated artifacts, so two
+# authored Map files now mark a broad change. One batched declaration per
+# effort is the intended tax; the checkpoint-noisy detector re-adjudicates
+# from post-landing history for the owner.
+[checkpoints.map-focus] # a broad map change must reduce future reading
+  min_changed_files = 2
+  teach = "Remove stale material, link the authority, and cut mechanically derivable prose."
+[checkpoints.instruction-economy] # always-loaded prose pays rent in every session
+[checkpoints.skills-playbook] # a skill is an executable playbook
+[checkpoints.gotchas-playbook] # failure memory stays symptom → cause → recovery
+# The five manual checkpoints share one bounded, read-only matcher. It reads
+# current pages or deleted governing blobs, derives publication and purpose
+# from the canonical manual model, and fires closed on unavailable facts.
+[checkpoints.manual-tutorial-comprehension]
+  paths = ["project/manual/**"]
+  when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-tutorial-comprehension"
+  mode = "stop"
+  question = "Can the stated beginner follow this tutorial from its named starting point to the promised first success, recognize that success, and know what to do next without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
+  teach = "A tutorial earns its place when its intended beginner can complete and recognize the promised first result."
+[checkpoints.manual-guide-comprehension]
+  paths = ["project/manual/**"]
+  when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-guide-comprehension"
+  mode = "stop"
+  question = "Can the intended reader start from the named state, take each step, recognize success or refusal, and identify who owns every decision without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
+  teach = "A guide must leave its reader able to act safely and recognize the resulting state."
+[checkpoints.manual-explanation-comprehension]
+  paths = ["project/manual/**"]
+  when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-explanation-comprehension"
+  mode = "stop"
+  question = "Can the intended reader restate this concept, distinguish its adjacent states and authority boundaries, and predict the important consequence without repository context? Where it covers the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
+  teach = "An explanation must give the reader a usable mental model, not only a description."
+[checkpoints.manual-reference-comprehension]
+  paths = ["project/manual/**"]
+  when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-reference-comprehension"
+  mode = "stop"
+  question = "Can the intended reader find an exact, complete, current answer here, including every relevant default and limit, and act on it without repository context? Where this reference names core workflow states, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
+  teach = "Reference must answer the lookup precisely and expose the boundaries that change the answer."
+[checkpoints.manual-troubleshooting-comprehension]
+  paths = ["project/manual/**"]
+  when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-troubleshooting-comprehension"
+  mode = "stop"
+  question = "Can the intended reader start from the observable symptom, distinguish the likely causes, recover safely, recognize the result, and know when to stop without repository context? Where recovery touches the core workflow, did you re-check that green is not landed, only the owner can authorize an unmet checkpoint, and any later edit makes Proof stale?"
+  teach = "Troubleshooting must route from a symptom to bounded recovery and a clear stopping point."
+[checkpoints.manual-front-door-promotion]
+  paths = ["project/manual/README.md"]
+  when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_front_door_checkpoint.ts"
+  mode = "stop"
+  question = "Does each added or replacement promoted journey earn scarce front-door space by serving a distinct, high-priority starting need, with a destination that immediately fulfils its label?"
+  teach = "Keep promotion deliberately small; publication already gives every page complete navigation, search, raw, export, MCP, and machine reach."
 
-  # Authored distribution bytes need a portability judgment; generated template
-  # output remains excluded by the checkpoint engine's default.
-  [checkpoints.templates-stay-generic]
-    paths = ["templates/**"]
-    mode = "stop"
-    question = "Does every changed authored distribution byte — including examples, placeholders, and instructions — read correctly in any project and domain, without discern-repository vocabulary or inaccessible internal citations?"
+# Authored distribution bytes need a portability judgment; generated template
+# output remains excluded by the checkpoint engine's default.
+[checkpoints.templates-stay-generic]
+  paths = ["templates/**"]
+  mode = "stop"
+  question = "Does every changed authored distribution byte — including examples, placeholders, and instructions — read correctly in any project and domain, without discern-repository vocabulary or inaccessible internal citations?"
 
-  # This deliberate overlap with templates-stay-generic is tiny and batched:
-  # portability and always-loaded context-window rent are different judgments.
-  [checkpoints.shipped-instruction-rent]
-    paths = ["templates/instructions/**"]
-    mode = "stop"
-    question = "Is every changed always-loaded sentence needed before the first relevant tool call, and unable to be delivered at its point of contact?"
+# This deliberate overlap with templates-stay-generic is tiny and batched:
+# portability and always-loaded context-window rent are different judgments.
+[checkpoints.shipped-instruction-rent]
+  paths = ["templates/instructions/**"]
+  mode = "stop"
+  question = "Is every changed always-loaded sentence needed before the first relevant tool call, and unable to be delivered at its point of contact?"
 
-  # Only authorities that define or apply Gate evidence, declarations, consent,
-  # grants, variances, and the acceptance transition belong in this list.
-  [checkpoints.authority-boundary]
-    paths = [
-      "src/engine/gate/execute.ts", # decides whether machine Gate work succeeded
-      "src/engine/gate/proof.ts", # binds machine results to the exact tree
-      "src/engine/checkpoints/evidence.ts", # binds agent declarations to evidence
-      "src/engine/checkpoints/subject.ts", # fingerprints the question and subject
-      "src/engine/checkpoints/open_questions.ts", # stores and checks declarations
-      "src/engine/checkpoints/preflight.ts", # interlocks declarations before the Gate
-      "src/shared/declarations.ts", # owns declaration-gated acts and refusals
-      "src/shared/consent.ts", # owns consent sources and consent-gated effects
-      "src/engine/worktree/effort_grant.ts", # validates the effort-scoped grant
-      "src/engine/worktree/effort_grant_writer.ts", # creates that exact grant
-      "src/engine/worktree/effort_grant_cleanup.ts", # claims, restores, and consumes it
-      "src/engine/worktree/landing_authority.ts", # resolves recorded or conversational authority
-      "src/engine/worktree/acceptance_checkpoints.ts", # requires exact owner variances
-      "src/engine/worktree/acceptance_transaction.ts", # binds consent to the exact effect
-      "src/engine/worktree/lifecycle.ts", # sequences the acceptance interlocks and effects
-    ]
-    mode = "stop"
-    question = "Does this change preserve the three evidence classes and the Boundary Canon — machine success grants no landing authority, agent declarations are not machine verification, grants never cover a variance, and each effect requires the exact applicable consent?"
+# Only authorities that define or apply Gate evidence, declarations, consent,
+# grants, variances, and the acceptance transition belong in this list.
+[checkpoints.authority-boundary]
+  paths = [
+    "src/engine/gate/execute.ts", # decides whether machine Gate work succeeded
+    "src/engine/gate/proof.ts", # binds machine results to the exact tree
+    "src/engine/checkpoints/evidence.ts", # binds agent declarations to evidence
+    "src/engine/checkpoints/subject.ts", # fingerprints the question and subject
+    "src/engine/checkpoints/open_questions.ts", # stores and checks declarations
+    "src/engine/checkpoints/preflight.ts", # interlocks declarations before the Gate
+    "src/shared/declarations.ts", # owns declaration-gated acts and refusals
+    "src/shared/consent.ts", # owns consent sources and consent-gated effects
+    "src/engine/worktree/effort_grant.ts", # validates the effort-scoped grant
+    "src/engine/worktree/effort_grant_writer.ts", # creates that exact grant
+    "src/engine/worktree/effort_grant_cleanup.ts", # claims, restores, and consumes it
+    "src/engine/worktree/landing_authority.ts", # resolves recorded or conversational authority
+    "src/engine/worktree/acceptance_checkpoints.ts", # requires exact owner variances
+    "src/engine/worktree/acceptance_transaction.ts", # binds consent to the exact effect
+    "src/engine/worktree/lifecycle.ts", # sequences the acceptance interlocks and effects
+  ]
+  mode = "stop"
+  question = "Does this change preserve the three evidence classes and the Boundary Canon — machine success grants no landing authority, agent declarations are not machine verification, grants never cover a variance, and each effect requires the exact applicable consent?"
 
-  # The timer registry is a population census, not a semantic verifier. Changes
-  # to its authority or the generic terminal synchronization paths must judge
-  # whether elapsed time remains behavior or stimulus rather than readiness.
-  [checkpoints.terminal-timing-readiness]
-    paths = [
-      "tests/waiting.ts",
-      "tests/test_waiting_guard.ts",
-      "scripts/test_real_delay_boundaries.ts",
-      "tests/fixtures/pty_process.ts",
-      "tests/fixtures/interactive_tty_harness.ts",
-      "tests/fixtures/terminal_resize_harness.ts",
-      "tests/fixtures/desk_tty_harness.ts",
-      "scripts/terminal_capture.ts",
-    ]
-    mode = "stop"
-    question = "Does each changed terminal transition use elapsed time only for behavior or controlled adversarial stimulus under test, and a positive observable condition for readiness and frame completion? If not, identify the transition that still infers state from elapsed time and why no protocol can expose that state."
-    teach = "Scheduler silence cannot establish completion of streamed output; the real-delay census measures population, not semantic validity."
+# The timer registry is a population census, not a semantic verifier. Changes
+# to its authority or the generic terminal synchronization paths must judge
+# whether elapsed time remains behavior or stimulus rather than readiness.
+[checkpoints.terminal-timing-readiness]
+  paths = [
+    "tests/waiting.ts",
+    "tests/test_waiting_guard.ts",
+    "scripts/test_real_delay_boundaries.ts",
+    "tests/fixtures/pty_process.ts",
+    "tests/fixtures/interactive_tty_harness.ts",
+    "tests/fixtures/terminal_resize_harness.ts",
+    "tests/fixtures/desk_tty_harness.ts",
+    "scripts/terminal_capture.ts",
+  ]
+  mode = "stop"
+  question = "Does each changed terminal transition use elapsed time only for behavior or controlled adversarial stimulus under test, and a positive observable condition for readiness and frame completion? If not, identify the transition that still infers state from elapsed time and why no protocol can expose that state."
+  teach = "Scheduler silence cannot establish completion of streamed output; the real-delay census measures population, not semantic validity."
 
-  # An ADR addition is the decision moment; later corrections to an existing
-  # record do not need this advisory.
-  [checkpoints.adr-quality]
-    paths = ["${map.dir}_adr/**"]
-    kinds = ["added"]
-    mode = "advise"
-    question = "Does this new ADR state the decision, real alternatives, consequences, and enduring reason, rather than narrating implementation?"
+# An ADR addition is the decision moment; later corrections to an existing
+# record do not need this advisory.
+[checkpoints.adr-quality]
+  paths = ["${map.dir}_adr/**"]
+  kinds = ["added"]
+  mode = "advise"
+  question = "Does this new ADR state the decision, real alternatives, consequences, and enduring reason, rather than narrating implementation?"
 
-  # A product behavior, result boundary, or agent hint can change without
-  # updating every registry region that explains what it buys each audience.
-  # The bounded matcher compares the three regions independently; merely
-  # touching their shared source file cannot suppress the advisory.
-  [checkpoints.feature-benefit-currency]
-    paths = [
-      "src/main.ts",
-      "src/engine/**",
-      "src/shared/hints.ts",
-      "src/shared/result*.ts",
-      "templates/**",
-      "scripts/brand/claims.ts",
-    ]
-    when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/feature_benefit_currency_checkpoint.ts"
-    mode = "advise"
-    question = "Does this change add or alter a user-visible capability, result, boundary, or agent-facing hint, and is every unchanged Feature, Human Benefit, or Agent Benefit Canon region still complete?"
-    teach = "The matcher compares all three canon regions independently; an unchanged region may be correct, but it still needs review."
+# A product behavior, result boundary, or agent hint can change without
+# updating every registry region that explains what it buys each audience.
+# The bounded matcher compares the three regions independently; merely
+# touching their shared source file cannot suppress the advisory.
+[checkpoints.feature-benefit-currency]
+  paths = [
+    "src/main.ts",
+    "src/engine/**",
+    "src/shared/hints.ts",
+    "src/shared/result*.ts",
+    "templates/**",
+    "scripts/brand/claims.ts",
+  ]
+  when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/feature_benefit_currency_checkpoint.ts"
+  mode = "advise"
+  question = "Does this change add or alter a user-visible capability, result, boundary, or agent-facing hint, and is every unchanged Feature, Human Benefit, or Agent Benefit Canon region still complete?"
+  teach = "The matcher compares all three canon regions independently; an unchanged region may be correct, but it still needs review."
 
-  # These are the narrow source authorities for published config/result,
-  # CLI/MCP, Proof-note, and Logbook contracts. Generated projections remain
-  # mechanical guards; the checkpoint asks the residual compatibility judgment.
-  [checkpoints.public-contract]
-    paths = [
-      "src/shared/config_schema.ts", # owns accepted configuration shape
-      "src/shared/public_schemas.ts", # owns published schema ids and versions
-      "src/shared/config_codegen.ts", # projects the public config contract
-      "src/shared/result.ts", # owns the shared result envelope vocabulary
-      "src/shared/result_schemas.ts", # owns runtime and Proof-note schemas
-      "src/shared/result_contracts.ts", # registers public result contracts
-      "src/shared/result_formats.ts", # owns public CLI result formats
-      "src/shared/result_serialization.ts", # projects CLI JSON and MCP content
-      "src/shared/result_codegen.ts", # projects public result artifacts
-      "src/shared/verbs.ts", # owns the published verb set
-      "src/main.ts", # declares the live CLI command tree
-      "src/engine/mcp/server.ts", # declares the live MCP tool registry
-      "src/engine/gate/proof_notes.ts", # reads and writes the durable Proof schema
-      "src/engine/logbook/schema.ts", # owns the durable Logbook event vocabulary
-      "scripts/public_schema_compatibility.ts", # enforces the declared schema policy
-    ]
-    mode = "advise"
-    question = "Is the changed public contract compatible under its declared policy, with any migration or versioning explicit and user documentation and generated artifacts following it?"
+# These are the narrow source authorities for published config/result,
+# CLI/MCP, Proof-note, and Logbook contracts. Generated projections remain
+# mechanical guards; the checkpoint asks the residual compatibility judgment.
+[checkpoints.public-contract]
+  paths = [
+    "src/shared/config_schema.ts", # owns accepted configuration shape
+    "src/shared/public_schemas.ts", # owns published schema ids and versions
+    "src/shared/config_codegen.ts", # projects the public config contract
+    "src/shared/result.ts", # owns the shared result envelope vocabulary
+    "src/shared/result_schemas.ts", # owns runtime and Proof-note schemas
+    "src/shared/result_contracts.ts", # registers public result contracts
+    "src/shared/result_formats.ts", # owns public CLI result formats
+    "src/shared/result_serialization.ts", # projects CLI JSON and MCP content
+    "src/shared/result_codegen.ts", # projects public result artifacts
+    "src/shared/verbs.ts", # owns the published verb set
+    "src/main.ts", # declares the live CLI command tree
+    "src/engine/mcp/server.ts", # declares the live MCP tool registry
+    "src/engine/gate/proof_notes.ts", # reads and writes the durable Proof schema
+    "src/engine/logbook/schema.ts", # owns the durable Logbook event vocabulary
+    "scripts/public_schema_compatibility.ts", # enforces the declared schema policy
+  ]
+  mode = "advise"
+  question = "Is the changed public contract compatible under its declared policy, with any migration or versioning explicit and user documentation and generated artifacts following it?"
 
-  # Six advisory checkpoints read the shape of the change — never blocking,
-  # delivered with the gate's advisories when their pattern appears. The two
-  # breadth thresholds stay tuned above the shipped defaults for this repo.
-  # A replay of the last 60 landed efforts (proof-note landing boundaries on
-  # the fast-forward trunk), classified with each landing's governing
-  # [generated] model, put the shipped 15/25 on 78%/57% of AUTHORED breadth —
-  # advisory wallpaper — while generated fan-out flipped only 2 of 60
-  # landings at any tuned threshold: the breadth is authored launch-phase
-  # programme waves, not codegen. At 25/40 the advisories fire on 57%/47% of
-  # that window, whose scale overstates steady state. Re-review against
-  # `discern patterns` economics once post-launch history accumulates.
-  [checkpoints.deletion-heavy-change] # a substantial cut: proven dead, recoverable?
-  [checkpoints.parallel-implementation] # a name-similar sibling file appeared
-  [checkpoints.new-binary-asset] # a newly added binary needs reviewable provenance
+# Six advisory checkpoints read the shape of the change — never blocking,
+# delivered with the gate's advisories when their pattern appears. The two
+# breadth thresholds stay tuned above the shipped defaults for this repo.
+# A replay of the last 60 landed efforts (proof-note landing boundaries on
+# the fast-forward trunk), classified with each landing's governing
+# [generated] model, put the shipped 15/25 on 78%/57% of AUTHORED breadth —
+# advisory wallpaper — while generated fan-out flipped only 2 of 60
+# landings at any tuned threshold: the breadth is authored launch-phase
+# programme waves, not codegen. At 25/40 the advisories fire on 57%/47% of
+# that window, whose scale overstates steady state. Re-review against
+# `discern patterns` economics once post-launch history accumulates.
+[checkpoints.deletion-heavy-change] # a substantial cut: proven dead, recoverable?
+[checkpoints.parallel-implementation] # a name-similar sibling file appeared
+[checkpoints.new-binary-asset] # a newly added binary needs reviewable provenance
 
-  [checkpoints.effort-sprawl] # one effort, or several riding along?
-    min_changed_files = 40
+[checkpoints.effort-sprawl] # one effort, or several riding along?
+  min_changed_files = 40
 
-  [checkpoints.docs-drift] # code moved and the map did not
+[checkpoints.docs-drift] # code moved and the map did not
 
-  [checkpoints.commit-story] # a large change: do the messages tell the why?
-    min_changed_files = 25
+[checkpoints.commit-story] # a large change: do the messages tell the why?
+  min_changed_files = 25
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [gate]

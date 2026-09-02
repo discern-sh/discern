@@ -272,11 +272,10 @@ function familyFields(family: string): readonly string[] {
   return Object.keys(schema.shape);
 }
 
-/** The indent a unit's banner and header sit at: a named-table family's
- * entries live one level below the family path. */
-function unitIndent(path: string, record: boolean): number {
+/** The indent a unit's banner sits at: one step per visible parent unit. */
+function unitIndent(path: string): number {
   const depth = path.split(".").length - 1;
-  return (record ? depth + 1 : depth) * INDENT;
+  return depth * INDENT;
 }
 
 /** The shipped built-in checkpoints, seeded live and grouped by mode. */
@@ -409,9 +408,9 @@ function fixedUnitLines(
 function unitLines(path: string, node: JsonObject): string[] {
   if (path === "jobs") return jobsUnitLines(node);
   if (isRecordFamily(node)) {
-    return recordUnitLines(path, unitIndent(path, true));
+    return recordUnitLines(path, unitIndent(path));
   }
-  return fixedUnitLines(path, node, unitIndent(path, false));
+  return fixedUnitLines(path, node, unitIndent(path));
 }
 
 /** The file preamble: the editor schema directive at byte zero, the

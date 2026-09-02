@@ -33,6 +33,7 @@ import {
 } from "../src/shared/config_schema.ts";
 import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
+import { TEMPLATE_WIDTH } from "../src/shared/config_template_codegen.ts";
 
 /** The real committed config template text. */
 async function realTemplate(): Promise<string> {
@@ -342,6 +343,15 @@ Deno.test("managedBannersFromTemplate finds a ruled banner for every record fami
     assert(
       /^\s*#\s*─/.test(lines.at(-1) ?? ""),
       `${family} banner closes with a rule`,
+    );
+    const indent = "  ".repeat(family.split(".").length - 1);
+    const expectedRule = `${indent}# ${
+      "─".repeat(TEMPLATE_WIDTH - indent.length - 2)
+    }`;
+    assertEquals(
+      lines[0],
+      expectedRule,
+      `${family} is a schema family at ${family}; its banner belongs at the family's visible parent depth`,
     );
   }
 });

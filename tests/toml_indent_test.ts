@@ -29,7 +29,7 @@ nested = true
 [project]
 name = "x"
 
-# documents the nested section below
+# documents the named-table entry below
 [jobs.fix]
 run = "deno fmt"
 # trailing note inside the body
@@ -86,10 +86,10 @@ const EXPECTED: Record<string, string> = {
 [project]
   name = "x"
 
-  # documents the nested section below
-  [jobs.fix]
-    run = "deno fmt"
-    # trailing note inside the body
+# documents the named-table entry below
+[jobs.fix]
+  run = "deno fmt"
+  # trailing note inside the body
 `,
   "multi-line arrays nest by bracket depth": `[jobs]
   format = [
@@ -117,10 +117,10 @@ name = "env"
 [section]
   key = "value"
 `,
-  "quoted key segments and inline values": `  ["a.b".c]
-    inline = { x = 1, y = [2, 3] }
-    hash = "# not a comment"
-    bracket = "] not a closer"
+  "quoted key segments and inline values": `["a.b".c]
+  inline = { x = 1, y = [2, 3] }
+  hash = "# not a comment"
+  bracket = "] not a closer"
 `,
 };
 
@@ -162,9 +162,29 @@ run = "deno fmt"
 `;
   assertEquals(
     indentToml(input),
-    `  [jobs.fix]
-    run = "deno fmt"
-    # last words
+    `[jobs.fix]
+  run = "deno fmt"
+  # last words
+`,
+  );
+});
+
+Deno.test("indentToml: a ruled banner keeps its visual width when an implicit level collapses", () => {
+  const input = `  # ─────
+  # [regions.<name>]
+  # ─────
+
+  [regions.docs]
+    paths = ["docs/**"]
+`;
+  assertEquals(
+    indentToml(input),
+    `# ───────
+# [regions.<name>]
+# ───────
+
+[regions.docs]
+  paths = ["docs/**"]
 `,
   );
 });
@@ -219,8 +239,8 @@ port = false
 `,
     expected: `[worktree]
   root = ""
-    # [worktree.resources.db]
-      # create = "createdb @db@"
+  # [worktree.resources.db]
+    # create = "createdb @db@"
   port = false
   # inherit_env = []
 `,
@@ -258,15 +278,45 @@ port = false
 [scopes.map]
 neutral = true
 `,
-    expected: `  # ───
-  # [scopes.<name>]
-  # Params: paths, neutral
-  #   neutral = true   changes here need no gate
-  # [scopes.assets] is one such region
-  # ───
+    expected: `# ───
+# [scopes.<name>]
+# Params: paths, neutral
+#   neutral = true   changes here need no gate
+# [scopes.assets] is one such region
+# ───
 
-  [scopes.map]
-    neutral = true
+[scopes.map]
+  neutral = true
+`,
+  },
+  "implicit family segments do not invent visual parents": {
+    input: `# ───
+# [regions.<name>]
+# Params: paths
+# ───
+
+[regions.docs]
+paths = ["docs/**"]
+
+[workspace]
+root = ""
+# A named output under an implicit family.
+# [workspace.outputs.bundle]
+# path = "dist/**"
+`,
+    expected: `# ───
+# [regions.<name>]
+# Params: paths
+# ───
+
+[regions.docs]
+  paths = ["docs/**"]
+
+[workspace]
+  root = ""
+  # A named output under an implicit family.
+  # [workspace.outputs.bundle]
+    # path = "dist/**"
 `,
   },
   "a placeholder header and prose with an equals sign stay documentation": {
