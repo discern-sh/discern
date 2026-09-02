@@ -54,6 +54,7 @@ templates/skills/discern-write-adr/skeleton/docs/_adr/README.md merge=discern-ge
 src/lib/first_party_license_bundle.ts merge=discern-generated linguist-generated
 src/lib/third_party_bundle.ts merge=discern-generated linguist-generated
 scripts/jsr_license_cache.json merge=discern-generated linguist-generated
+project/map/_private/planning/launch-lockdown-audit-summary.md merge=discern-generated linguist-generated
 /CLAUDE.md merge=discern-generated diff=markdown
 /AGENTS.md merge=discern-generated diff=markdown
 /GEMINI.md merge=discern-generated diff=markdown

@@ -61,6 +61,7 @@
     "vale:sync": "deno run --allow-read --allow-write --allow-env --allow-run --allow-net=github.com,release-assets.githubusercontent.com scripts/vale_toolchain.ts",
     "vocab": "deno run --allow-read --allow-env scripts/vocab_signals.ts",
     "codegen": "deno run --allow-read --allow-write --allow-run=deno,git --allow-net=jsr.io --allow-env=DISCERN_TEMPLATES_DIR scripts/codegen.ts",
+    "launch-audit-summary": "deno run --allow-read --allow-write scripts/launch_lockdown_audit_summary.ts",
     "inspect-mcp": "deno run --allow-read --allow-run scripts/inspect_mcp.ts",
     "install-dev-cli": "deno run --allow-read --allow-write --allow-env --allow-run scripts/install_dev_cli.ts",
     "use-compiled-build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/use_compiled_build.ts",
