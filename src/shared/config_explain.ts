@@ -25,7 +25,7 @@ import {
   typeLabel,
 } from "./config_codegen.ts";
 import { type ConfigExample, configUnitProse } from "./config_prose.ts";
-import type { ConfigExplainData } from "./result_schemas.ts";
+import { ConfigDataSchema, type ConfigExplainData } from "./result_schemas.ts";
 import { renderTomlLiteral } from "./config_template_codegen.ts";
 
 /** The manual page every explanation points at. */
@@ -248,6 +248,48 @@ export function explainConfigPath(
     knobNode,
     isJsonObject(entryValue) ? entryValue[knob] : undefined,
   );
+}
+
+/** A Markdown-result presentation, as the result presenters produce it. */
+interface ExplanationPresentation {
+  state: string;
+  evidence?: readonly string[] | undefined;
+  supportingMarkdown?: readonly string[] | undefined;
+}
+
+/**
+ * Wrap the `config` result presenter so an `explain` result presents as its
+ * own document. The branch lives here, beside the renderer, so the shared
+ * presenter module gains no complexity for it. `describeState` is the
+ * presenter module's default state line for a result and a success headline.
+ */
+export function withConfigExplanation(
+  inner: (
+    result: Readonly<Record<string, unknown>>,
+  ) => ExplanationPresentation,
+  describeState: (
+    result: Readonly<Record<string, unknown>>,
+    success?: string,
+  ) => string,
+): (result: Readonly<Record<string, unknown>>) => ExplanationPresentation {
+  return (result) => {
+    const parsed = ConfigDataSchema.safeParse(result.data);
+    if (!parsed.success || parsed.data.operation !== "explain") {
+      return inner(result);
+    }
+    const explanation = parsed.data;
+    const evidence = [
+      ...(explanation.what === undefined ? [] : [explanation.what]),
+      ...(explanation.value === undefined
+        ? []
+        : ["The current value is included below."]),
+    ];
+    return {
+      state: describeState(result, `Explained \`${explanation.path}\`.`),
+      evidence,
+      supportingMarkdown: [renderConfigExplanation(explanation)],
+    };
+  };
 }
 
 /** The explanation as Markdown: the terminal text and the `--markdown`
