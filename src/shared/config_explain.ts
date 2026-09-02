@@ -29,7 +29,7 @@ import {
   type ConfigExplainData,
   configExplainDataSchema,
 } from "./config_explain_schema.ts";
-import { renderTomlLiteral } from "./toml_literal.ts";
+import { renderTomlDocumentAtPath, renderTomlLiteral } from "./toml_literal.ts";
 
 /** The manual page every explanation points at. */
 export const CONFIG_REFERENCE_URL =
@@ -63,9 +63,17 @@ function nodeAt(segments: readonly string[]): JsonObject | undefined {
   return node;
 }
 
-/** Whether a schema node is a named-table family with no fixed keys. */
+/** The entry shape of a named-table arm, including the custom arm of a hybrid
+ * table such as `[jobs]`. */
+function recordEntryNode(node: JsonObject): JsonObject | undefined {
+  return isJsonObject(node.additionalProperties)
+    ? objectView(node.additionalProperties)
+    : undefined;
+}
+
+/** Whether a schema node is solely a named-table family, with no fixed keys. */
 function isFamily(node: JsonObject): boolean {
-  return isJsonObject(node.additionalProperties) &&
+  return recordEntryNode(node) !== undefined &&
     !isJsonObject(node.properties);
 }
 
@@ -102,15 +110,8 @@ function anchorFor(header: string): string {
  * table as one `key = value` line per entry, and a nested table under its
  * full dotted header below `prefix`. */
 export function renderConfigValue(value: unknown, prefix = ""): string {
-  if (isJsonObject(value)) {
-    return Object.entries(value)
-      .map(([key, entry]) => {
-        const path = prefix === "" ? key : `${prefix}.${key}`;
-        return isJsonObject(entry)
-          ? `[${path}]\n${renderConfigValue(entry, path)}`
-          : `${key} = ${renderTomlLiteral(entry)}`;
-      })
-      .join("\n");
+  if (isJsonObject(value) && prefix !== "") {
+    return renderTomlDocumentAtPath(prefix, value);
   }
   return renderTomlLiteral(value);
 }
@@ -142,23 +143,26 @@ function explainUnit(
   path: string,
   node: JsonObject,
   value: unknown,
+  options: { recordOnly?: boolean; valuePath?: string } = {},
 ): ConfigExplainData {
-  const family = isFamily(node);
+  const recordEntry = recordEntryNode(node);
+  const family = options.recordOnly === true || isFamily(node);
   const prose = configUnitProse(path);
   const header = family ? `[${path}.<name>]` : `[${path}]`;
-  const entry = family && isJsonObject(node.additionalProperties)
-    ? objectView(node.additionalProperties)
-    : node;
+  const entry = family && recordEntry !== undefined ? recordEntry : node;
   const rows = keyRows(entry);
+  const params = recordEntry === undefined ? [] : keyRows(recordEntry);
   return {
     operation: "explain",
     path,
     kind: family ? "family" : "section",
     ...(prose === undefined ? {} : { what: prose.what, why: prose.why }),
     ...(prose?.detail === undefined ? {} : { detail: [...prose.detail] }),
-    ...(family ? { params: rows.map((row) => row.name) } : {}),
+    ...(params.length === 0 ? {} : { params: params.map((row) => row.name) }),
     ...(rows.length === 0 ? {} : { keys: rows }),
-    ...(value === undefined ? {} : { value: renderConfigValue(value, path) }),
+    ...(value === undefined
+      ? {}
+      : { value: renderConfigValue(value, options.valuePath ?? path) }),
     ...(prose?.examples === undefined || prose.examples.length === 0
       ? {}
       : { examples: prose.examples.map(exampleOf) }),
@@ -177,16 +181,16 @@ function explainKey(
   key: string,
   node: JsonObject,
   value: unknown,
+  options: { recordKnob?: boolean } = {},
 ): ConfigExplainData {
   const prose = configUnitProse(unitPath);
-  const unitNode = nodeAt(unitPath.split("."));
-  const family = unitNode !== undefined && isFamily(unitNode);
-  const header = family ? `[${unitPath}.<name>]` : `[${unitPath}]`;
+  const recordKnob = options.recordKnob === true;
+  const header = recordKnob ? `[${unitPath}.<name>]` : `[${unitPath}]`;
   const fallback = defaultLabel(node);
   const detail = prose?.keys?.[key]?.detail;
   return {
     operation: "explain",
-    path: family ? `${unitPath}.<name>.${key}` : `${unitPath}.${key}`,
+    path: recordKnob ? `${unitPath}.<name>.${key}` : `${unitPath}.${key}`,
     kind: "key",
     ...(prose === undefined ? {} : { what: prose.what }),
     ...(detail === undefined ? {} : { detail: [...detail] }),
@@ -225,12 +229,12 @@ export function explainConfigPath(
   const unitNode = nodeAt(raw.slice(0, unitLength));
   if (unitNode === undefined) return undefined;
   const rest = raw.slice(unitLength);
-  const family = isFamily(unitNode);
+  const recordEntry = recordEntryNode(unitNode);
 
   if (rest.length === 0) {
     return explainUnit(unitPath, unitNode, valueAt(current, raw));
   }
-  if (!family) {
+  if (recordEntry === undefined) {
     const [key, ...extra] = rest;
     if (key === undefined || extra.length > 0) return undefined;
     const keyNode = nodeAt([...raw.slice(0, unitLength), key]);
@@ -239,11 +243,27 @@ export function explainConfigPath(
   }
   const [entry, knob, ...extra] = rest;
   if (entry === undefined || extra.length > 0) return undefined;
+  const fixedProps = isJsonObject(unitNode.properties)
+    ? unitNode.properties
+    : {};
+  const fixedNode = entry === "<name>" ? undefined : fixedProps[entry];
+  if (isJsonObject(fixedNode)) {
+    if (knob !== undefined) return undefined;
+    return explainKey(
+      unitPath,
+      entry,
+      objectView(fixedNode),
+      valueAt(current, [...raw.slice(0, unitLength), entry]),
+    );
+  }
   const entryValue = entry === "<name>"
     ? undefined
     : valueAt(current, [...raw.slice(0, unitLength), entry]);
   if (knob === undefined) {
-    return explainUnit(unitPath, unitNode, entryValue);
+    return explainUnit(unitPath, unitNode, entryValue, {
+      recordOnly: true,
+      valuePath: entry === "<name>" ? unitPath : `${unitPath}.${entry}`,
+    });
   }
   const knobNode = nodeAt([...raw.slice(0, unitLength), "<name>", knob]);
   if (knobNode === undefined) return undefined;
@@ -252,6 +272,7 @@ export function explainConfigPath(
     knob,
     knobNode,
     isJsonObject(entryValue) ? entryValue[knob] : undefined,
+    { recordKnob: true },
   );
 }
 
@@ -335,6 +356,17 @@ export function renderConfigExplanation(data: ConfigExplainData): string {
             row.default === undefined ? "—" : `\`${row.default}\``
           } | ${row.description.replace(/\|/g, "\\|")} |`
         ),
+      );
+    }
+    if (
+      data.kind === "section" && data.params !== undefined &&
+      data.params.length > 0
+    ) {
+      out.push(
+        "",
+        `Custom entry params: ${
+          data.params.map((param) => `\`${param}\``).join(", ")
+        }.`,
       );
     }
   }

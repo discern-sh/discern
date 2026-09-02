@@ -15,6 +15,8 @@ import {
 } from "../src/shared/config_explain.ts";
 import { configProseUnits } from "../src/shared/config_codegen.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
+import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
+import { renderTomlLiteral } from "../src/shared/toml_literal.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 
@@ -35,13 +37,35 @@ Deno.test("every documented unit explains itself with its what and why", () => {
   }
 });
 
-Deno.test("a named-table family lists its params and every worked example", () => {
-  const family = explainConfigPath("[standards.<name>]");
-  assert(family !== undefined);
-  assertEquals(family.kind, "family");
-  assertEquals(family.params?.[0], "metric");
-  assert((family.examples?.length ?? 0) >= 2, "the manual's examples travel");
+Deno.test("every named-table family explains its entry shape and every knob", () => {
+  for (const [family, entrySchema] of Object.entries(RECORD_ENTRY_SCHEMAS)) {
+    const explanation = explainConfigPath(`[${family}.<name>]`);
+    assert(explanation !== undefined, `${family} should explain its entry`);
+    assertEquals(explanation.kind, "family", family);
+    assertEquals(
+      explanation.params,
+      Object.keys(entrySchema.shape),
+      `${family} should list every entry knob`,
+    );
+    for (const knob of Object.keys(entrySchema.shape)) {
+      const key = explainConfigPath(`${family}.<name>.${knob}`);
+      assert(key !== undefined, `${family}.<name>.${knob} should explain`);
+      assertEquals(key.kind, "key", `${family}.<name>.${knob}`);
+    }
+  }
+
+  const standards = explainConfigPath("[standards.<name>]");
+  assert(standards !== undefined);
+  assert(
+    (standards.examples?.length ?? 0) >= 2,
+    "the manual's examples travel",
+  );
   assertEquals(explainConfigPath("standards")?.path, "standards");
+  assertEquals(
+    explainConfigPath("jobs")?.params,
+    Object.keys(RECORD_ENTRY_SCHEMAS.jobs.shape),
+    "the hybrid [jobs] section includes its custom-job params",
+  );
 });
 
 Deno.test("a section key explains its type, default, and section", () => {
@@ -60,6 +84,7 @@ Deno.test("a known job explains as a key of [jobs]", () => {
     const key = explainConfigPath(`jobs.${name}`);
     assert(key !== undefined, `jobs.${name} should explain`);
     assertEquals(key.kind, "key");
+    assertEquals(key.path, `jobs.${name}`);
   }
 });
 
@@ -85,6 +110,64 @@ neutral = true
   const entryKnob = explainConfigPath("scopes.map.neutral", current);
   assert(entryKnob !== undefined);
   assertEquals(entryKnob.value, "true");
+});
+
+Deno.test("every supported TOML literal shape round-trips through the live parser", () => {
+  const values: unknown[] = [
+    "plain",
+    "line one\nline two\n",
+    "tab\there and a carriage\rreturn",
+    'quotes " and slash \\',
+    true,
+    -0.5,
+    42,
+    [],
+    ["one", "line one\nline two"],
+    {},
+    { lines: "src/**" },
+    { "quoted.key": "value", nested: { enabled: true } },
+  ];
+  for (const value of values) {
+    const literal = renderTomlLiteral(value);
+    const parsed = parseToml(`value = ${literal}`) as { value?: unknown };
+    assertEquals(parsed.value, value, JSON.stringify(value));
+  }
+});
+
+Deno.test("current config documents round-trip with their full named-entry paths", () => {
+  const cases = [
+    {
+      path: "standards.demo",
+      current: parseToml(`[standards.demo]
+metric = "coverage"
+direction = "up"
+limit = 80
+per = { lines = "src/**" }
+scale = 1000
+run = "echo"
+`) as Record<string, unknown>,
+    },
+    {
+      path: "checkpoints.custom",
+      current: parseToml(`[checkpoints.custom]
+paths = ["src/**"]
+question = """
+What could break?
+What protects it?
+"""
+`) as Record<string, unknown>,
+    },
+  ];
+
+  for (const { path, current } of cases) {
+    const explanation = explainConfigPath(path, current);
+    assert(explanation?.value !== undefined, `${path} should carry its value`);
+    assertEquals(
+      parseToml(explanation.value),
+      current,
+      `${path} should render the same config tree it read`,
+    );
+  }
 });
 
 Deno.test("an unknown path explains nothing", () => {
