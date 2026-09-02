@@ -4,10 +4,10 @@
  * closed-set registries (`verbs.ts`, `capabilities.ts`).
  *
  * The wording surfaces speak from this list rather than hand-copying it: the
- * config schema's `logbook` description renders it directly (so the generated
- * editor schema and config reference carry it by construction), while the
- * hand-authored surfaces — the config template's `[project]` comment block and
- * the logbook reference page — are held to every member's `phrase` verbatim by
+ * config prose registry's `logbook` key detail renders it directly (so the
+ * generated config template and config reference carry it by construction),
+ * while this repo's own `discern.toml` and the logbook reference page are
+ * held to every member's `phrase` verbatim by
  * `tests/logbook_powered_test.ts`. The same guard runs a reader census: every
  * authored module that calls a logbook read entry point must be claimed by a
  * member's `readers`, and every member must name a real reading module — so a

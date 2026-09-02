@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0137](0137-project-scripts-live-under-the-script-command.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `standards` (formerly `ratchets`), `map` where `docs` names the command, config, or tree, Project Script for the former project Recipe surface, and `[jobs]` / `[jobs.<name>]`, known/custom `job` (formerly `[capabilities]` / `[checks.<name>]`, gate `capability` / custom `check`); the decisions below are unchanged.
+> - **[ADR 0363](0363-the-config-template-is-generated-from-the-schema-and-a-prose-registry.md) — the template boundary:** the template is now generated from this schema plus a config prose registry; the "template-generation boundary" section below records the earlier position.
 
 **Status**: accepted
 

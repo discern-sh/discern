@@ -112,7 +112,7 @@ Deno.test("config reconciliation restores a missing fixed section with comments"
   assertEquals(result.operations, [{ kind: "section", path: "scripts" }]);
   assertStringIncludes(
     result.text,
-    "# [scripts] — your own executable project scripts",
+    "# What:    Where your executable project scripts live.",
   );
   assertStringIncludes(result.text, "\n[scripts]\n");
   assertStringIncludes(result.text, 'dir = "discern/scripts"');
@@ -159,11 +159,11 @@ Deno.test("config reconciliation preserves existing customized values", async ()
 
 Deno.test("config reconciliation treats named record tables as project-owned", async () => {
   const template = await renderedTemplate();
-  const instructionMark = template.indexOf("# Agent-instruction surfaces:");
-  const instructionStart = template.lastIndexOf("\n", instructionMark) + 1;
-  const acceptanceHeading = template.indexOf(
-    "# [acceptance] — standing grants",
+  const instructionMark = template.indexOf(
+    "# Instruction sources and skills.",
   );
+  const instructionStart = template.lastIndexOf("\n", instructionMark) + 1;
+  const acceptanceHeading = template.indexOf("# [acceptance]\n");
   const acceptanceStart = template.lastIndexOf("# ─", acceptanceHeading);
   assert(instructionStart >= 0 && acceptanceStart > instructionStart);
   const drifted = template.slice(0, instructionStart) +

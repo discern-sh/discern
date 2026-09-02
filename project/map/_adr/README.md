@@ -348,6 +348,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0360 — The Project Script namespace holds only commands](0360-the-project-script-namespace-holds-only-commands.md)
 - [0361 — The Proof line is canonical CommonMark](0361-the-proof-line-is-canonical-commonmark.md)
 - [0362 — Founder testimony and recorded corpora promote demand claims](0362-founder-testimony-and-recorded-corpora-promote-demand-claims.md)
+- [0363 — The config template is generated from the schema and a prose registry](0363-the-config-template-is-generated-from-the-schema-and-a-prose-registry.md)
 
 <!-- END GENERATED: current ADR records -->
 

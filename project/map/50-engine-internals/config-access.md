@@ -14,6 +14,12 @@ _How one schema, one paths registry, and one comment-preserving writer read, res
 
 The binary parses `discern.toml` with strict `@std/toml` and validates it against the Zod schema in [`config_schema.ts`](../../../src/shared/config_schema.ts) ([ADR 0026](../_adr/0026-typed-config-schema.md)). Everything that describes the config derives from that schema: the generated [config reference](https://discern.sh/docs/reference/config-reference), the editor JSON Schema, and the rules the Engine enforces. `deno task codegen` rewrites the satellites. The project's final quality check (the Gate) rejects drift.
 
+## The config template and its prose
+
+The shipped `templates/discern.toml.tmpl` is a generated file ([ADR 0363](../_adr/0363-the-config-template-is-generated-from-the-schema-and-a-prose-registry.md)). [`config_template_codegen.ts`](../../../src/shared/config_template_codegen.ts) renders it from two sources: the schema's per-key `describe()` prose, and the [config prose registry](../../../src/shared/config_prose.ts), which owns each documented unit's what and why, an optional detail table, worked examples, seeded entries, and the per-key hints the scaffold shows. A section's schema description is the registry's `what`. `deno task codegen` writes the template; the codegen sync test and the repository's `[generated.codegen]` group hold the committed copy equal to the renderer.
+
+Every unit renders in one shape: a ruled banner with What, Why, Params for a named-table family, and a Help line naming `discern config explain <unit>`, then the keys under their descriptions or the family's seeds and one commented example. [`config_prose_test.ts`](../../../tests/config_prose_test.ts) holds the registry's key set equal to the schema's documented units, validates every example and seed against the live schema, and holds each rendered description to three wrapped lines. The manual's config reference renders the same registry prose, and [`config_explain.ts`](../../../src/shared/config_explain.ts) serves it with the schema's reference facts and the project's current value.
+
 ## Setup config documents
 
 The JSON document consumed by `setup --config` and a preset manifest named `preset.json` derives from the same schema building blocks. Its strict `configDocSchema` generates the published authoring schema; its `configDocRuntimeSchema` removes only fields the strict schema identifies as unknown, then validates every known field. An older same-major runtime can therefore ignore a newer optional field without accepting a wrong type for a field it understands. [`decodeConfigDoc`](../../../src/lib/config_doc.ts) is the shared setup and preset path, and one version check refuses an unsupported major.
@@ -30,7 +36,7 @@ The fresh config renderer uses the same registry-derived references in its neutr
 
 ## The read surface
 
-Project scripts and project tooling read config through the dispatcher: `discern config get|array|has|subsections|keys <dotted.key>`. The same values reach a project script's process as exported `DISCERN_*` variables. This keeps the config format an implementation detail of the binary. A script stays a plain executable with no TOML parser or shell library to source.
+Project scripts and project tooling read config through the dispatcher: `discern config get|array|has|subsections|keys <dotted.key>`. The same values reach a project script's process as exported `DISCERN_*` variables. `discern config explain <path>` reads for a person or an agent instead: a section, a named-table family, a key, a knob, or a named entry, with its teaching, its reference facts, and the current value. This keeps the config format an implementation detail of the binary. A script stays a plain executable with no TOML parser or shell library to source.
 
 ## The write surface
 

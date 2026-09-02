@@ -1,6 +1,6 @@
 /**
- * `discern config explain <path>` — the depth the scaffolded config no longer
- * carries, one command away (ADR 0363). For a section, a named-table family,
+ * `discern config explain <path>` — the depth the scaffolded config keeps
+ * short, one command away (ADR 0363). For a section, a named-table family,
  * or one key, it joins the prose registry's teaching (what, why, detail,
  * examples) with the schema's reference facts (keys, types, defaults) and,
  * inside a project, the current value. The same explanation renders as JSON,

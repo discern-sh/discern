@@ -1,5 +1,6 @@
 # --- discern ---
 # Generated automatically by discern via discern.toml, the source-path registry, and the provider registry | https://discern.sh
+templates/discern.toml.tmpl merge=discern-generated linguist-generated
 schema/discern-config.schema.json merge=discern-generated linguist-generated
 schema/discern-setup-config.schema.json merge=discern-generated linguist-generated
 schema/discern-results.schema.json merge=discern-generated linguist-generated
