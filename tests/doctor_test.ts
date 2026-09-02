@@ -439,7 +439,7 @@ async function addCapability(
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
-    text.replace(/\[jobs\]\n/, `[jobs]\n${key} = "${value}"\n`),
+    text.replace(/^\[jobs\]\n/m, `[jobs]\n${key} = "${value}"\n`),
   );
 }
 
@@ -455,7 +455,7 @@ async function addCapabilityLiteral(
   await Deno.writeTextFile(
     p,
     text.replace(
-      /\[jobs\]\n/,
+      /^\[jobs\]\n/m,
       `[jobs]\n${key} = '${literal}'\n`,
     ),
   );
@@ -475,7 +475,7 @@ async function setCapabilityRaw(
   await Deno.writeTextFile(
     p,
     text.replace(
-      /\[jobs\]\n/,
+      /^\[jobs\]\n/m,
       `[jobs]\n${key} = ${rawValue}\n`,
     ),
   );
@@ -490,7 +490,7 @@ async function removeTidyFormatJob(
   let text = await Deno.readTextFile(p);
   text = text.replace(/^\s*format\s*=\s*"discern tidy"\s*\n/m, "");
   if (bootstrapped) {
-    text = text.replace("[meta]\n", "[meta]\nbootstrapped = true\n");
+    text = text.replace(/^\[meta\]\n/m, "[meta]\nbootstrapped = true\n");
   }
   await Deno.writeTextFile(p, text);
 }
@@ -1074,7 +1074,7 @@ Deno.test("doctor: missing tidy fails during setup but is informational after bo
     const text = await Deno.readTextFile(p);
     await Deno.writeTextFile(
       p,
-      text.replace("[meta]\n", "[meta]\nbootstrapped = true\n"),
+      text.replace(/^\[meta\]\n/m, "[meta]\nbootstrapped = true\n"),
     );
 
     const afterSetup = await runDoctorJson(dir);

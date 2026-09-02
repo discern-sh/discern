@@ -316,6 +316,20 @@ const OUTPUT_IDIOM_EXCEPTIONS: readonly OutputIdiomException[] = [
     count: 1,
     reason: "Generated Markdown table cells in a committed document.",
   },
+  {
+    file: "src/shared/config_prose.ts",
+    rule: "padEnd-alignment",
+    count: 1,
+    reason:
+      "The generated config template's runtime-token table over ASCII token names.",
+  },
+  {
+    file: "src/shared/config_template_codegen.ts",
+    rule: "padEnd-alignment",
+    count: 3,
+    reason:
+      "Generated config template columns over ASCII labels, key names, and table headers.",
+  },
 ];
 
 /** Locate outlawed output idioms in comment-stripped source. */

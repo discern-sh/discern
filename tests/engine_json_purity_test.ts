@@ -329,6 +329,11 @@ const PROJECT_CASES: readonly PurityCase[] = [
     args: ["config", "keys", "project"],
   },
   {
+    commandPath: "config explain",
+    envelopeVerb: "config",
+    args: ["config", "explain", "project"],
+  },
+  {
     commandPath: "identity",
     envelopeVerb: "identity",
     args: ["identity"],

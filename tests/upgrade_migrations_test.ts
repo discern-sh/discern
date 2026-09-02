@@ -157,7 +157,7 @@ Deno.test("upgrade check detects and upgrade restores a missing fixed banner wit
     await setup(dir);
     const configPath = join(dir, "discern.toml");
     const current = await Deno.readTextFile(configPath);
-    const identity = current.indexOf("# [scripts] —");
+    const identity = current.indexOf("# [scripts]\n");
     const start = current.lastIndexOf("# ─", identity);
     const close = current.indexOf("# ─", identity + 1);
     const end = current.indexOf("\n", close);
@@ -184,7 +184,7 @@ Deno.test("upgrade check detects and upgrade restores a missing fixed banner wit
 
     assertEquals(await upgradeIn(dir), 0);
     const upgraded = await Deno.readTextFile(configPath);
-    assertStringIncludes(upgraded, "# [scripts] —");
+    assertStringIncludes(upgraded, "# [scripts]\n");
     assertStringIncludes(upgraded, projectComment);
 
     assertEquals(await upgradeIn(dir), 0);

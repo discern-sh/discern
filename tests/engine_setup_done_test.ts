@@ -1849,8 +1849,9 @@ Deno.test("the brief keeps jobs, reporters, and worktree resources honest", asyn
     join(REAL_TEMPLATES, "discern.toml.tmpl"),
   );
   assertStringIncludes(tmpl, '# smoke     = "your-app --version"');
+  // The description wraps at the template's width; compare it unwrapped.
   assertStringIncludes(
-    tmpl,
+    tmpl.replace(/\n\s*#\s+/g, " "),
     "`discern done` and `discern test` run it in the same fail-fast test group",
   );
   assert(

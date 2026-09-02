@@ -391,9 +391,6 @@ revisit.
   },
 } satisfies Readonly<Record<string, ConfigUnitProse>>;
 
-/** The documented-unit paths the registry knows. */
-export type ConfigProseUnit = keyof typeof CONFIG_PROSE;
-
 /** The prose for one documented unit, or undefined for an unknown path. */
 export function configUnitProse(path: string): ConfigUnitProse | undefined {
   const table: Readonly<Record<string, ConfigUnitProse>> = CONFIG_PROSE;

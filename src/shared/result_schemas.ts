@@ -66,6 +66,7 @@ import {
   CONTINUATION_HANDLE_PATTERN,
 } from "./continuation_handle.ts";
 import { CONFIG_ISSUE_KINDS } from "./config_issues.ts";
+import { configExplainDataSchema } from "./config_explain_schema.ts";
 import { CONFIG_RECONCILE_OPERATION_KINDS } from "./config_reconcile.ts";
 import { TRUST_ACTION_KINDS, TRUST_FACT_KINDS } from "./provider_trust.ts";
 import {
@@ -2908,48 +2909,10 @@ const configHasDataSchema = z.strictObject({
   present: z.boolean(),
 });
 
-const configExplainKeySchema = z.strictObject({
-  name: z.string(),
-  type: z.string(),
-  default: z.string().optional(),
-  description: z.string(),
-});
-
-const configExplainExampleSchema = z.strictObject({
-  lead: z.string(),
-  toml: z.string(),
-});
-
-/** `config explain` — one documented unit or key of the config, with the
- * prose registry's teaching, the schema's reference facts, the current value
- * when a project is present, and every worked example. */
-const configExplainDataSchema = z.strictObject({
-  operation: z.literal("explain"),
-  /** The resolved dotted path: a section, a named-table family, or a key. */
-  path: z.string(),
-  kind: z.enum(["section", "family", "key"]),
-  what: z.string().optional(),
-  why: z.string().optional(),
-  detail: z.array(z.string()).optional(),
-  /** The knobs a named-table family's entries accept. */
-  params: z.array(z.string()).optional(),
-  /** A section's keys, or a family's knobs, as reference rows. */
-  keys: z.array(configExplainKeySchema).optional(),
-  /** A key's own reference facts. */
-  type: z.string().optional(),
-  default: z.string().optional(),
-  description: z.string().optional(),
-  /** The current value in this project's config, rendered as TOML. */
-  value: z.string().optional(),
-  examples: z.array(configExplainExampleSchema).optional(),
-  /** The manual's config reference for this unit. */
-  reference: z.string(),
-});
-
 /**
- * `config` — a discriminated union over edits and all shell-friendly reads.
- * Human reads keep their bare output; `--json` projects the same fact into one
- * typed envelope.
+ * `config` — a discriminated union over edits, all shell-friendly reads, and
+ * the explanation. Human reads keep their bare output; `--json` projects the
+ * same fact into one typed envelope.
  */
 export const ConfigDataSchema = z.discriminatedUnion("operation", [
   configEditDataSchema,
@@ -2958,7 +2921,6 @@ export const ConfigDataSchema = z.discriminatedUnion("operation", [
   configHasDataSchema,
   configExplainDataSchema,
 ]);
-export type ConfigExplainData = z.infer<typeof configExplainDataSchema>;
 export type ConfigData = z.infer<typeof ConfigDataSchema>;
 
 const thirdPartyComponentSchema = z.strictObject({

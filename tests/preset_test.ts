@@ -171,7 +171,7 @@ async function setUserJob(
   const text = await Deno.readTextFile(p);
   await Deno.writeTextFile(
     p,
-    text.replace(/\[jobs\]\n/, `[jobs]\n${key} = "${value}"\n`),
+    text.replace(/^\[jobs\]\n/m, `[jobs]\n${key} = "${value}"\n`),
   );
 }
 

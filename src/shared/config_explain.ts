@@ -25,8 +25,11 @@ import {
   typeLabel,
 } from "./config_codegen.ts";
 import { type ConfigExample, configUnitProse } from "./config_prose.ts";
-import { ConfigDataSchema, type ConfigExplainData } from "./result_schemas.ts";
-import { renderTomlLiteral } from "./config_template_codegen.ts";
+import {
+  type ConfigExplainData,
+  configExplainDataSchema,
+} from "./config_explain_schema.ts";
+import { renderTomlLiteral } from "./toml_literal.ts";
 
 /** The manual page every explanation points at. */
 export const CONFIG_REFERENCE_URL =
@@ -273,8 +276,8 @@ export function withConfigExplanation(
   ) => string,
 ): (result: Readonly<Record<string, unknown>>) => ExplanationPresentation {
   return (result) => {
-    const parsed = ConfigDataSchema.safeParse(result.data);
-    if (!parsed.success || parsed.data.operation !== "explain") {
+    const parsed = configExplainDataSchema.safeParse(result.data);
+    if (!parsed.success) {
       return inner(result);
     }
     const explanation = parsed.data;
