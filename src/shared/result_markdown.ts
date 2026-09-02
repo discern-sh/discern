@@ -14,6 +14,8 @@ import { checkpointDropMarkdown } from "./checkpoint_drops.ts";
 import { productSentence } from "./product_sentence.ts";
 import { notApplicableCountLabel } from "./setup_assurance.ts";
 import * as view from "./docs_presentation.ts";
+import { ConfigDataSchema } from "./result_schemas.ts";
+import { renderConfigExplanation } from "./config_explain.ts";
 
 export interface ResultMarkdownPresentation {
   /** One authored statement of the current result state. */
@@ -1147,6 +1149,29 @@ const presentConfig: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const operation = text(data.operation);
   const values = strings(data.values);
+  if (operation === "explain") {
+    const parsed = ConfigDataSchema.safeParse(data);
+    const explanation = parsed.success && parsed.data.operation === "explain"
+      ? parsed.data
+      : undefined;
+    return {
+      state: defaultState(
+        result,
+        explanation === undefined
+          ? undefined
+          : `Explained ${code(explanation.path)}.`,
+      ),
+      evidence: unique([
+        explanation?.what === undefined ? undefined : explanation.what,
+        explanation?.value === undefined
+          ? undefined
+          : "The current value is included below.",
+      ]),
+      supportingMarkdown: explanation === undefined
+        ? []
+        : [renderConfigExplanation(explanation)],
+    };
+  }
   return {
     state: defaultState(
       result,

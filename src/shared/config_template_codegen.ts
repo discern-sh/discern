@@ -159,19 +159,24 @@ function banner(
   return out;
 }
 
-/** A schema default as a TOML value literal. */
-function tomlValue(value: unknown): string {
+/** A scalar or array as a TOML value literal; an inline table renders its
+ * entries in braces. Shared with `config explain`, which renders live values. */
+export function renderTomlLiteral(value: unknown): string {
   if (typeof value === "string") return renderTomlString(value);
   if (typeof value === "boolean" || typeof value === "number") {
     return String(value);
   }
   if (Array.isArray(value)) {
-    return `[${value.map(tomlValue).join(", ")}]`;
+    return `[${value.map(renderTomlLiteral).join(", ")}]`;
+  }
+  if (isJsonObject(value)) {
+    return `{ ${
+      Object.entries(value).map(([k, v]) => `${k} = ${renderTomlLiteral(v)}`)
+        .join(", ")
+    } }`;
   }
   throw new Error(
-    `the scaffold cannot render a default of this shape: ${
-      JSON.stringify(value)
-    }`,
+    `cannot render a value of this shape as TOML: ${JSON.stringify(value)}`,
   );
 }
 
@@ -225,7 +230,9 @@ function keyLines(
   }
   const scaffold = SCAFFOLD_VALUES[path];
   const value = scaffold ??
-    (Object.hasOwn(node, "default") ? tomlValue(node.default) : undefined);
+    (Object.hasOwn(node, "default")
+      ? renderTomlLiteral(node.default)
+      : undefined);
   const hint = keyProse?.hint === undefined ? "" : ` # e.g. ${keyProse.hint}`;
   const name = options.padTo === undefined ? key : key.padEnd(options.padTo);
   if (value !== undefined) {

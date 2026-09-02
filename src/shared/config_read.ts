@@ -57,6 +57,11 @@ export class RawConfig {
     return new RawConfig(await readConfigFile(join(root, rel)));
   }
 
+  /** The parsed document as written: no schema, no defaults. */
+  raw(): Record<string, unknown> {
+    return this.data;
+  }
+
   /** Resolve a dotted key to its raw parsed value, or undefined. */
   private resolve(key: string): unknown {
     let cur: unknown = this.data;

@@ -146,6 +146,7 @@ export const OPERATION_EFFECTS = {
   checkpoints: OBSERVATION,
   config: OBSERVATION,
   "config array": OBSERVATION,
+  "config explain": OBSERVATION,
   "config get": OBSERVATION,
   "config has": OBSERVATION,
   "config keys": OBSERVATION,

@@ -95,6 +95,7 @@ export const LOGBOOK_EFFECTFUL_VERBS: ReadonlySet<string> = new Set(
 const LOGBOOK_READ_INVOCATIONS: ReadonlySet<string> = new Set([
   "config",
   "config array",
+  "config explain",
   "config get",
   "config has",
   "config keys",

@@ -134,7 +134,7 @@ Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger. `[scopes
 
 ## `[project]`
 
-The project's identity and the paths discern keeps for it.
+The project's identity and the paths discern keeps for it. The name and slug appear in worktree, branch, and site names and in every compiled instruction file, so agents and humans see one identity everywhere.
 
 | Key           | Type                                                              | Default             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------- | ----------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -147,7 +147,7 @@ The project's identity and the paths discern keeps for it.
 
 ## `[repository]`
 
-Policy every checkout of this repository shares.
+Policy every checkout of this repository shares. The trunk is where accepted work lands and where the Gate compares from. Branch naming and convergence commands keep the main checkout and every linked worktree usable after their tracked tree changes.
 
 | Key             | Type               | Default    | Description                                                                                                                                                                                              |
 | --------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -158,7 +158,7 @@ Policy every checkout of this repository shares.
 
 ## `[map]`
 
-Where the project map lives.
+Where the project map lives. The map is the documentation tree agents maintain and `discern map` browses. Its location also feeds the `${map.dir}` reference other sections use.
 
 | Key   | Type   | Default          | Description                                                                                                                |
 | ----- | ------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -166,7 +166,7 @@ Where the project map lives.
 
 ## `[instructions]`
 
-The instruction sources discern compiles into each agent's file.
+The instruction sources discern compiles into each agent's file. You write instructions once. `discern refresh` compiles discern's built-in instructions plus your sources into one generated file per agent, committed so every agent reads the same page and no generated file is edited by hand.
 
 | Key       | Type     | Default                       | Description                                                                                                                                                                                                      |
 | --------- | -------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -174,7 +174,12 @@ The instruction sources discern compiles into each agent's file.
 
 ## `[skills]`
 
-Where your authored skills live, and which skills to leave out.
+Where your authored skills live, and which skills to leave out. A skill is a focused, reusable playbook. discern materializes its bundled skills plus yours into each agent's skills directory; a skill of yours with the same name as a built-in replaces it.
+
+```text
+  discern skills list          the effective set, and your overrides
+  discern skills eject <name>  copy a built-in here to customize it
+```
 
 | Key       | Type     | Default            | Description                                                                                                                                                                                                          |
 | --------- | -------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -183,7 +188,14 @@ Where your authored skills live, and which skills to leave out.
 
 ## `[jobs]`
 
-The commands the Gate runs, in one namespace.
+The commands the Gate runs, in one namespace. A known name derives its stage; a custom `[jobs.<name>]` table declares one. `discern done` runs the fix stage, then build, then check and test in parallel, and reports what each command returned, so done means the project's own bar was met.
+
+```text
+A value is one command, a list run in order, or a table giving the job
+its own time budget: test = { run = "npm test", timeout = 1200 }.
+Leave a known job unwired until its command exists; `discern setup` has
+your coding agent fill these from repository evidence.
+```
 
 | Key         | Type                         | Default | Description                                                                                                                                                                                                                                               |
 | ----------- | ---------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -205,9 +217,23 @@ A custom job. Its name is open, but its stage and command are explicit.
 | `provides` | string                                | —       | A free-text label for humans and audit.                                                                                                                                                                                                 |
 | `timeout`  | number                                | —       | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                            |
 
+A custom job: any name, an explicit stage, and its command:
+
+```toml
+[jobs.licenses]
+stage    = "check"
+run      = "./scripts/check-licenses.sh"
+provides = "license-audit"
+```
+
 ## `[assurance]`
 
-Known jobs that do not apply to this project.
+Known jobs that do not apply to this project. Setup measures how many applicable known jobs are wired. A lifecycle the project does not have is declared here, so the measure counts what exists; the Gate's schedule still comes from [jobs].
+
+```text
+  discern config set-job build --not-applicable   declare one
+  discern config set-job build --applicable       restore it
+```
 
 | Key              | Type                                                                  | Default | Description                                                                                                  |
 | ---------------- | --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
@@ -215,7 +241,7 @@ Known jobs that do not apply to this project.
 
 ## `[scopes.<name>]`
 
-Named regions of the repository.
+Named regions of the repository. A change inside a scope can skip the Gate, run its own gate, or offer a preview. A path that matches no scope counts as code and runs every stage.
 
 | Key       | Type               | Default | Description                                                                                                                                                                                                                                                                                                                                                                           |
 | --------- | ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -225,9 +251,18 @@ Named regions of the repository.
 | `gate`    | string \| string[] | —       | A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.                                                                    |
 | `timeout` | number             | —       | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                                                                                                                                                                          |
 
+A sub-component with its own self-contained gate and a read-only preview:
+
+```toml
+[scopes.native]
+paths   = ["native/**"]
+gate    = "make -C native check"
+preview = "make -C native preview"
+```
+
 ## `[generated.<name>]`
 
-Committed artifacts that one generator owns.
+Committed artifacts that one generator owns. `discern prepare` and `discern done` rerun each generator and fail when the committed bytes differ, so a generated file cannot drift from its source and nobody edits it by hand.
 
 | Key                  | Type               | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | -------------------- | ------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -236,9 +271,17 @@ Committed artifacts that one generator owns.
 | `linguist_generated` | boolean            | `false` | true marks the group's paths generated for GitHub through the `linguist-generated` attribute: hidden in diffs by default and excluded from language statistics.                                                                                                                                                                                                                                                                                                  |
 | `timeout`            | number             | —       | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                                                                                                                                                                                                                                                     |
 
+A reference written from source; the same tree yields the same bytes:
+
+```toml
+[generated.reference]
+paths = ["reference/**"]
+run   = "tool write-reference --source source/ --output reference/"
+```
+
 ## `[acceptance]`
 
-Standing grants for landing without a conversation.
+Standing grants for landing without a conversation. Landing needs the owner's acceptance in the conversation unless a scope is named here. Widening a named scope widens its grant; the example grants documentation alone and keeps agent instructions owner-reviewed.
 
 | Key              | Type     | Default | Description                                                                                                                                                                                                      |
 | ---------------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -246,7 +289,7 @@ Standing grants for landing without a conversation.
 
 ## `[worktree]`
 
-The isolated-worktree workflow.
+The isolated-worktree workflow. Each effort runs in its own checkout, so parallel agents never collide. The git mechanics are generic; the resources and setup commands below are what make a fresh worktree ready for this project.
 
 | Key                  | Type     | Default                 | Description                                                                                                                                                                                                 |
 | -------------------- | -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -258,7 +301,18 @@ The isolated-worktree workflow.
 
 ### `[worktree.resources.<name>]`
 
-External resources provisioned per worktree.
+External resources provisioned per worktree. A database, emulator, container, or queue that one worktree owns never collides with another's. Resources are created top to bottom and destroyed bottom to top, and `discern worktree prune` reclaims what a vanished worktree left behind, so author `create` and `destroy` to be idempotent.
+
+```text
+Runtime tokens, expanded per worktree when a command runs:
+  @db@            a database-name-safe identity
+  @site@          a DNS-safe dev-server site or host name
+  @port@          the deterministic dev-server port
+  @project_slug@  the project slug
+  @dir@           this worktree's root
+  @worktree@      this worktree's base handle (slug-id)
+  @resource@      this resource's handle (slug-id-name)
+```
 
 | Key        | Type    | Default | Description                                                                                                                                                         |
 | ---------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -269,9 +323,25 @@ External resources provisioned per worktree.
 | `retries`  | number  | `0`     | Retry create/destroy this many times.                                                                                                                               |
 | `gc`       | boolean | `true`  | false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.                                                    |
 
+A per-worktree database, so test runs never clash:
+
+```toml
+[worktree.resources.db]
+create  = "createdb -T @project_slug@_template @db@"
+destroy = "dropdb --if-exists @db@"
+```
+
+A per-worktree dev-server site: a container vhost, a tunnel, a proxy entry:
+
+```toml
+[worktree.resources.dev_server]
+create  = "link-site @site@ @port@"
+destroy = "unlink-site @site@"
+```
+
 ### `[worktree.setup]`
 
-Commands that ready a linked worktree.
+Commands that ready a linked worktree. `steps` run once at creation. `ensure` runs on every pass, including session start and `discern update`, so each command must be idempotent. Checkout-generic installs belong in [repository].ensure so acceptance converges the trunk too.
 
 | Key      | Type     | Default | Description                                                                                                                                                                                                 |
 | -------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -280,7 +350,13 @@ Commands that ready a linked worktree.
 
 ## `[standards.<name>]`
 
-Quality numbers that can never get worse.
+Quality numbers that can never get worse. Every `discern done` measures each standard beside the tests and refuses a limit looser than the trunk's, so a branch can neither regress a metric nor lower its bar. Hold a raw count for an invariant, a rate through `per` for a quality that scales, and give a total that grows with the product a `margin`.
+
+```text
+A run reports its number with one line: DISCERN_METRIC <name> <number>
+Lock in a gain with `discern standards --pin`; a hand-edited limit cannot
+tell a gain from a loosening.
+```
 
 | Key         | Type                  | Default  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ----------- | --------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -295,9 +371,46 @@ Quality numbers that can never get worse.
 | `inputs`    | string[]              | —        | The paths this metric reads, as scope globs. When nothing under them changed since the last recorded measurement, the Gate replays that value instead of re-measuring and names the source commit. Omit to measure every time. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.                                                     |
 | `timeout`   | number                | —        | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                                                                                                                                                                                                                                                                                        |
 
+Line coverage at or above a rising floor:
+
+```toml
+[standards.coverage]
+direction = "up"
+limit     = 80
+run       = "your-coverage-tool"  # DISCERN_METRIC coverage <percent>
+```
+
+A bundle-size budget: shipped bytes are a true budget, so a raw count is right:
+
+```toml
+[standards.bundle]
+metric    = "bundle_bytes"
+direction = "down"
+limit     = 500000
+run       = "printf 'DISCERN_METRIC bundle_bytes %s\\n' \"$(wc -c < dist/app.js)\""
+```
+
+Lint density: a rate, so clean code can be added without breaching it:
+
+```toml
+[standards.lint_density]
+metric    = "warnings"
+direction = "down"
+per       = { lines = "src/**" }   # discern counts the lines itself
+scale     = 1000                   # warnings per 1,000 lines
+limit     = 5
+run       = "your-linter --count"  # DISCERN_METRIC warnings <count>
+```
+
 ## `[checkpoints.<name>]`
 
-Change-triggered review rules.
+Change-triggered review rules. A deterministic trigger decides when a change makes a question relevant; the agent answers the question and the answer travels with the Proof. The configuration at an effort's merge-base governs, so editing these tables on a branch never changes that branch's own Gate.
+
+```text
+Naming a shipped checkpoint enables it with its built-in trigger, mode,
+and question; a field set beneath it overrides the built-in. Delete or
+comment out an entry to disable it.
+```
 
 | Key                 | Type                                   | Default | Description                                                                                                                                                                                                                                                                                                                                          |
 | ------------------- | -------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -323,9 +436,61 @@ Change-triggered review rules.
 | `teach`             | string                                 | —       | Optional lesson prose carried into renderings: why the question matters and what good looks like.                                                                                                                                                                                                                                                    |
 | `reference`         | string                                 | —       | Optional displayed pointer. discern performs no content loading or execution. Review surfaces may show it. Do not include secrets.                                                                                                                                                                                                                   |
 
+Regions the owner watches; `stop` holds `discern done` for a stated risk:
+
+```toml
+[checkpoints.sensitive-paths]
+paths = ["src/auth/**", "migrations/**"]
+question = """
+This change touches a region the owner marked sensitive. What could break
+or leak if this is wrong, what protects against that, and what should a
+reviewer look at first?
+"""
+```
+
+A new dependency is a liability the owner carries; point paths at the manifest:
+
+```toml
+[checkpoints.new-dependency]
+paths = ["package.json"]
+mode  = "advise"
+question = """
+This change edits a dependency manifest. For each dependency added or
+upgraded: is it worth the liability it adds, against writing the small part
+you need? State what it buys.
+"""
+```
+
+A deleted or skipped test is a lowered guard:
+
+```toml
+[checkpoints.shrinking-tests]
+paths             = ["tests/**"]
+deletion_dominant = true
+mode              = "advise"
+question = """
+This change removes clearly more test than it adds. Is every removed or
+skipped case re-covered elsewhere, or is the narrowed protection intended?
+Say which in the commit body.
+"""
+```
+
+An interface changed; its contract docs moved too, or were judged unaffected:
+
+```toml
+[checkpoints.interface-review]
+paths          = ["src/api/**"]
+unless_changed = ["docs/api/**"]
+question = """
+A changed interface is described in its docs before it lands: new entry
+points state their failure modes; changed contracts note what callers must
+revisit.
+"""
+```
+
 ## `[gate]`
 
-How `discern done` runs its parallel stages.
+How `discern done` runs its parallel stages. Fail-fast, a per-command time budget, and a cap on concurrent test runs keep the Gate fast for one agent and fair across a fleet of worktrees sharing one machine.
 
 | Key                    | Type    | Default | Description                                                                                                                                                                                                     |
 | ---------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -336,7 +501,7 @@ How `discern done` runs its parallel stages.
 
 ## `[coupling]`
 
-Co-change detection from git history.
+Co-change detection from git history. Files that habitually change together point at a sibling the current change may be missing. Coupling is read-only advice that calibrates itself to the repository, with no thresholds to tune; `discern coupling` reads it on demand.
 
 | Key       | Type    | Default | Description                                                                                                                                                                    |
 | --------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -344,7 +509,7 @@ Co-change detection from git history.
 
 ## `[scripts]`
 
-Where your executable project scripts live.
+Where your executable project scripts live. `discern scripts <name>` runs any executable in this directory with the `DISCERN_*` values exported and every argument forwarded, so project tooling reads config through the binary and needs no TOML parser of its own.
 
 | Key   | Type   | Default             | Description                                                                                                                                           |
 | ----- | ------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -352,7 +517,7 @@ Where your executable project scripts live.
 
 ## `[meta]`
 
-Installer bookkeeping.
+Installer bookkeeping. `discern upgrade` reads the schema version to migrate this file. Nothing here needs your attention.
 
 | Key              | Type    | Default | Description                                                                                                                           |
 | ---------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |

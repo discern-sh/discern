@@ -9800,6 +9800,108 @@
                     "key",
                     "present"
                   ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "operation": {
+                      "type": "string",
+                      "const": "explain"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "section",
+                        "family",
+                        "key"
+                      ]
+                    },
+                    "what": {
+                      "type": "string"
+                    },
+                    "why": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "params": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "default": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "type",
+                          "description"
+                        ]
+                      }
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "default": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "examples": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "lead": {
+                            "type": "string"
+                          },
+                          "toml": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "lead",
+                          "toml"
+                        ]
+                      }
+                    },
+                    "reference": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "operation",
+                    "path",
+                    "kind",
+                    "reference"
+                  ]
                 }
               ]
             },
@@ -31650,7 +31752,8 @@
         "config array",
         "config has",
         "config subsections",
-        "config keys"
+        "config keys",
+        "config explain"
       ],
       "completionPolicy": {
         "requiredPostconditions": [

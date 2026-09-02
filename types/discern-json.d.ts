@@ -3428,6 +3428,29 @@ export type DiscernConfigResult = DiscernResultState & {
     key: string;
     present: boolean;
   } | {
+    operation: "explain";
+    path: string;
+    kind: "section" | "family" | "key";
+    what?: string;
+    why?: string;
+    detail?: Array<string>;
+    params?: Array<string>;
+    keys?: Array<{
+      name: string;
+      type: string;
+      default?: string;
+      description: string;
+    }>;
+    type?: string;
+    default?: string;
+    description?: string;
+    value?: string;
+    examples?: Array<{
+      lead: string;
+      toml: string;
+    }>;
+    reference: string;
+  } | {
     issues: Array<{
       kind?: "unknown_root_section";
       path: string;
@@ -9799,6 +9822,7 @@ export interface DiscernResultByCommand {
   "config has": DiscernConfigResult;
   "config subsections": DiscernConfigResult;
   "config keys": DiscernConfigResult;
+  "config explain": DiscernConfigResult;
   done: DiscernDoneResult;
   prepare: DiscernPrepareResult;
   test: DiscernTestResult;

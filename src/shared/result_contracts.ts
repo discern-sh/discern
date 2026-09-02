@@ -247,6 +247,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
       "config has",
       "config subsections",
       "config keys",
+      "config explain",
     ],
     verb: "config",
     schema: ConfigOutputSchema,

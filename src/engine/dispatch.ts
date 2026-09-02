@@ -13,6 +13,10 @@ import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { RawConfig } from "../shared/config_read.ts";
 import { emitResult } from "../shared/emit.ts";
 import {
+  explainConfigPath,
+  renderConfigExplanation,
+} from "../shared/config_explain.ts";
+import {
   fire,
   HINTS,
   hintTexts,
@@ -2153,6 +2157,47 @@ export async function runConfigRead(
     case "has":
       return data.present ? 0 : 1;
   }
+}
+
+/**
+ * `discern config explain <path>` — a section, a named-table family, or one
+ * key, explained from the prose registry and the schema. Inside a project the
+ * explanation carries the current value; outside one it still explains, since
+ * the registry needs no config.
+ */
+export async function runConfigExplain(
+  path: string,
+  opts: { json?: boolean } = {},
+): Promise<number> {
+  const root = await findRoot();
+  const current = root === undefined
+    ? undefined
+    : (await RawConfig.load(root)).raw();
+  const explanation = explainConfigPath(path, current);
+  const json = opts.json ?? false;
+  if (explanation === undefined) {
+    const message =
+      `"${path}" is not a discern.toml section, named-table family, or key. ` +
+      "Name one such as `scopes`, `gate.timeout`, or `standards.<name>.limit`; " +
+      "`discern docs config-reference` lists them all.";
+    if (json) {
+      emitResult({
+        ok: false,
+        verb: "config",
+        error: "unknown_key",
+        message,
+      });
+    } else {
+      new Logger({ json: false, noColor: false }).error(message);
+    }
+    return 1;
+  }
+  if (json) {
+    emitResult({ ok: true, verb: "config", data: explanation });
+    return 0;
+  }
+  writeStdout(renderConfigExplanation(explanation));
+  return 0;
 }
 
 /** The configured project scripts directory and its absolute path. */

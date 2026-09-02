@@ -30,6 +30,7 @@ aliases:
   - "discern config has"
   - "discern config subsections"
   - "discern config keys"
+  - "discern config explain"
   - "discern done"
   - "discern prepare"
   - "discern test"
@@ -523,7 +524,7 @@ Usage: `discern doctor [options]`
 
 ### `discern config <subcommand>`
 
-Edit (set-*) or read (get/array/has/subsections/keys) discern.toml.
+Edit (set-*), read (get/array/has/subsections/keys), or explain discern.toml.
 
 Usage: `discern config <subcommand>`
 
@@ -627,6 +628,16 @@ Usage: `discern config subsections <key> [options]`
 Print the flat key names declared in a section.
 
 Usage: `discern config keys <key> [options]`
+
+| Option   | Description                                                      |
+| -------- | ---------------------------------------------------------------- |
+| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
+
+#### `discern config explain`
+
+Explain a config section, named-table family, or key: what it governs, why it matters, its keys and defaults, the current value, and worked examples. Works outside a project too.
+
+Usage: `discern config explain <path> [options]`
 
 | Option   | Description                                                      |
 | -------- | ---------------------------------------------------------------- |

@@ -44,6 +44,7 @@ import {
   KNOWN_VERBS,
   reportUnknownCommand,
   reportUnknownOrSuggest,
+  runConfigExplain,
   runConfigRead,
 } from "./engine/dispatch.ts";
 import {
@@ -1117,10 +1118,23 @@ export function buildCli(
           await runConfigRead("keys", key, { json: o.json ?? false }),
       ),
     );
+  const configExplain = new Command()
+    .description(
+      "Explain a config section, named-table family, or key: what it governs, why it matters, its keys and defaults, the current value, and worked examples. Works outside a project too.",
+    )
+    .arguments("<path:string>")
+    .option("--json", readJsonHelp)
+    .action(
+      recordedExit(
+        "config explain",
+        async (o, path: string) =>
+          await runConfigExplain(path, { json: o.json ?? false }),
+      ),
+    );
 
   const config = new Command()
     .description(
-      "Edit (set-*) or read (get/array/has/subsections/keys) discern.toml.",
+      "Edit (set-*), read (get/array/has/subsections/keys), or explain discern.toml.",
     )
     .action(recordedExit("config", function (
       this: Command,
@@ -1136,7 +1150,8 @@ export function buildCli(
     .command("array", configArray)
     .command("has", configHas)
     .command("subsections", configSubsections)
-    .command("keys", configKeys);
+    .command("keys", configKeys)
+    .command("explain", configExplain);
 
   root.command("config", config);
 

@@ -140,7 +140,7 @@ function cell(text: string): string {
 
 /** A human type label for a JSON-schema node: `string`, `boolean`, `number`,
  * `string[]`, a `\|`-joined enum, or a `\|`-joined union (command-or-list). */
-function typeLabel(schema: Record<string, unknown>): string {
+export function typeLabel(schema: Record<string, unknown>): string {
   schema = objectView(schema);
   if (Array.isArray(schema.enum)) {
     return schema.enum.map((v) => `\`${String(v)}\``).join(" \\| ");
@@ -158,7 +158,7 @@ function typeLabel(schema: Record<string, unknown>): string {
 }
 
 /** The default-value label for a key: a code-fenced literal, or `—` when none. */
-function defaultLabel(schema: Record<string, unknown>): string {
+export function defaultLabel(schema: Record<string, unknown>): string {
   return Object.hasOwn(schema, "default")
     ? `\`${JSON.stringify(schema.default)}\``
     : "—";
@@ -213,7 +213,15 @@ function renderSection(
 
   const header = isRecord ? `[${path}.<name>]` : `[${path}]`;
   const out: string[] = [`${"#".repeat(level)} \`${header}\``];
-  if (typeof schema.description === "string") {
+  // The registry's what and why lead the section; its detail table follows as
+  // preformatted text, the way the scaffold's banner carries it.
+  const prose = configUnitProse(path);
+  if (prose !== undefined) {
+    out.push("", `${prose.what} ${prose.why}`);
+    if (prose.detail !== undefined) {
+      out.push("", "```text", ...prose.detail, "```");
+    }
+  } else if (typeof schema.description === "string") {
     out.push("", schema.description);
   }
 
@@ -249,6 +257,10 @@ function renderSection(
       );
       if (table !== "") out.push("", table);
     }
+  }
+  // Every worked example the registry holds; the scaffold shows the first.
+  for (const example of prose?.examples ?? []) {
+    out.push("", `${example.lead}:`, "", "```toml", example.toml, "```");
   }
   return out.join("\n");
 }

@@ -14,7 +14,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 35      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 3       | —                | —                           |
-| [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 65      | —                | —                           |
+| [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 66      | —                | —                           |
 | [`side-restricted-operations`](#side-restricted-operations--side-restricted-operations)                               | `src/engine/worktree/side_restrictions.ts#SIDE_RESTRICTED_OPS`                    | 10      | —                | node `worktrees`            |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 27      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 19      | —                | node `mcp-surface`          |
@@ -440,12 +440,13 @@ Every top-level verb kept out of the operator help listing carries a reason and 
 Every live CLI command path's effect classes, exclusion boundary, and preview obligation; the live-tree guard makes new nested and top-level commands enroll before they can run.
 
 - Source: `src/shared/operation_effects.ts` — `OPERATION_EFFECTS`
-- Members: 65
+- Members: 66
   - `accept`
   - `await`
   - `checkpoints`
   - `config`
   - `config array`
+  - `config explain`
   - `config get`
   - `config has`
   - `config keys`
