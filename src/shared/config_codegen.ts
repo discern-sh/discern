@@ -218,7 +218,19 @@ function renderSection(
   if (prose !== undefined) {
     out.push("", `${prose.what} ${prose.why}`);
     if (prose.detail !== undefined) {
-      out.push("", "```text", ...prose.detail, "```");
+      // The scaffold indents a detail table under its banner; a fenced block
+      // carries it flush left, the way the Markdown formatter would leave it.
+      const indent = Math.min(
+        ...prose.detail.filter((line) => line.trim() !== "").map((line) =>
+          line.length - line.trimStart().length
+        ),
+      );
+      out.push(
+        "",
+        "```text",
+        ...prose.detail.map((line) => line.slice(indent)),
+        "```",
+      );
     }
   } else if (typeof schema.description === "string") {
     out.push("", schema.description);

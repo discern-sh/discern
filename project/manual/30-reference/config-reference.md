@@ -177,8 +177,8 @@ The instruction sources discern compiles into each agent's file. You write instr
 Where your authored skills live, and which skills to leave out. A skill is a focused, reusable playbook. discern materializes its bundled skills plus yours into each agent's skills directory; a skill of yours with the same name as a built-in replaces it.
 
 ```text
-  discern skills list          the effective set, and your overrides
-  discern skills eject <name>  copy a built-in here to customize it
+discern skills list          the effective set, and your overrides
+discern skills eject <name>  copy a built-in here to customize it
 ```
 
 | Key       | Type     | Default            | Description                                                                                                                                                                                                          |
@@ -231,8 +231,8 @@ provides = "license-audit"
 Known jobs that do not apply to this project. Setup measures how many applicable known jobs are wired. A lifecycle the project does not have is declared here, so the measure counts what exists; the Gate's schedule still comes from [jobs].
 
 ```text
-  discern config set-job build --not-applicable   declare one
-  discern config set-job build --applicable       restore it
+discern config set-job build --not-applicable   declare one
+discern config set-job build --applicable       restore it
 ```
 
 | Key              | Type                                                                  | Default | Description                                                                                                  |
