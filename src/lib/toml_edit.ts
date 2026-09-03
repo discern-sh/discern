@@ -282,6 +282,33 @@ export class TomlEditor {
     this.lines = splitTomlLines(body);
   }
 
+  /** Ensure a section header exists without inventing a placeholder key.
+   * Named-record entries use the same sibling/banner placement as setLiteral;
+   * this matters for a bare built-in checkpoint whose empty table is itself the
+   * complete declaration. */
+  ensureSection(section: string): this {
+    if (this.findSection(section) !== null) return this;
+    const sibling = this.lastSiblingSection(section);
+    if (sibling !== null) {
+      this.lines.splice(
+        this.bodyInsertionPoint(sibling),
+        0,
+        "",
+        `[${section}]`,
+      );
+      return this;
+    }
+    const recordLayout = recordLayoutForSection(section);
+    const recordAt = recordLayout === undefined
+      ? null
+      : this.firstRecordMemberInsertionPoint(recordLayout.family);
+    if (recordAt !== null) {
+      this.lines.splice(recordAt, 0, "", `[${section}]`);
+      return this;
+    }
+    return this.appendSectionBlock([`[${section}]`]);
+  }
+
   /**
    * Set a dotted key (`section[.sub].key`) to a pre-rendered TOML value literal.
    * Replaces the value of an existing key (preserving its `=` alignment and

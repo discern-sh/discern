@@ -293,7 +293,6 @@ export async function scaffoldEngine(
       projectName: "Engine Test",
       slug: "engine-test",
       branchPrefix: "agent/",
-      sourceGlobs: ["src/**"],
       brief: "",
       // Per-agent seeds are config-driven, so a test that exercises a specific
       // agent's wiring scaffolds with that agent in the set (default: Claude only).

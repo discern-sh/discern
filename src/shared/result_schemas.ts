@@ -2797,6 +2797,10 @@ export const SetupBeginDataSchema = z.strictObject({
   already_set_up: z.boolean().optional(),
   message: z.string().optional(),
   project: setupProjectSchema.optional(),
+  config_fills: z.strictObject({
+    filled: z.array(z.string()),
+    skipped: z.array(z.string()),
+  }).optional(),
   plan: z.array(
     z.strictObject({
       path: z.string(),

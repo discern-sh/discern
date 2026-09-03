@@ -32,13 +32,6 @@
       "description": "Branch prefix for worktrees, e.g. \"agent/\".",
       "type": "string"
     },
-    "source_globs": {
-      "description": "Primary source globs, e.g. [\"src/**\"].",
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
     "brief": {
       "description": "Free-text description of what the project is.",
       "type": "string"
@@ -788,8 +781,148 @@
         },
         "additionalProperties": false
       }
+    },
+    "setup": {
+      "description": "Bounded [setup] configuration for setup coverage accounting.",
+      "default": {},
+      "type": "object",
+      "properties": {
+        "not_applicable": {
+          "default": [],
+          "description": "Known jobs this project's lifecycle does not have. A job listed here cannot also be configured under [jobs].",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "format",
+              "build",
+              "lint",
+              "typecheck",
+              "test",
+              "smoke"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "worktree": {
+      "description": "Bounded [worktree] configuration for isolated-checkout behavior and resources.",
+      "default": {},
+      "type": "object",
+      "properties": {
+        "root": {
+          "default": "",
+          "description": "Where per-worktree checkouts are created. Empty means a sibling of the repository, \"<repo>.worktrees\", outside the checkout. A relative path resolves against the repo root; absolute is used as-is.",
+          "type": "string"
+        },
+        "inherit_env": {
+          "default": [],
+          "description": "Environment values copied from the main checkout's env files into a new worktree's: secrets a fresh worktree needs that are not in version control. The worktree's env file is created when absent.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "env_files": {
+          "default": [
+            ".env",
+            ".env.local"
+          ],
+          "description": "The env files the worktree lifecycle reads and writes, in precedence order: on read the last file that defines a value wins; a new value lands in the first. They also carry the port and resource handles.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+          },
+          "uniqueItems": true
+        },
+        "port": {
+          "default": false,
+          "description": "Record each worktree's deterministic dev-server port in its env files, for tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports it either way.",
+          "type": "boolean"
+        },
+        "ignored_file_drift": {
+          "default": true,
+          "description": "Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.",
+          "type": "boolean"
+        },
+        "resources": {
+          "default": {},
+          "description": "External resources provisioned per worktree.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "create": {
+                "default": "",
+                "description": "Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op.",
+                "type": "string"
+              },
+              "destroy": {
+                "default": "",
+                "description": "Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.",
+                "type": "string"
+              },
+              "ensure": {
+                "default": "",
+                "description": "Reconcile drift or re-readiness at session start.",
+                "type": "string"
+              },
+              "required": {
+                "default": true,
+                "description": "false makes a create failure non-fatal, so setup continues.",
+                "type": "boolean"
+              },
+              "retries": {
+                "default": 0,
+                "description": "Retry create/destroy this many times.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5
+              },
+              "gc": {
+                "default": true,
+                "description": "false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.",
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "setup": {
+          "description": "Commands that ready a linked worktree.",
+          "default": {},
+          "type": "object",
+          "properties": {
+            "steps": {
+              "default": [],
+              "description": "Commands run once at worktree creation, in order, after the resources exist: one-shot scaffolding such as seeding fixtures.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "ensure": {
+              "default": [],
+              "description": "Commands run on every linked-worktree pass: creation, session start, and after `discern update`. For convergence that depends on worktree identity, ports, or resources; the main checkout never runs them.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,
-  "description": "The declarative config shape consumed by `discern setup begin --config <file>`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
+  "description": "A bounded version-2 setup recipe consumed only by `discern setup begin --config <file>`. Project identity and setup inputs stay flat; its map, jobs, scopes, generated groups, standards, checkpoints, setup policy, and worktree settings fill discern.toml. Standing acceptance grants remain outside this document. Every field is optional."
 }

@@ -778,6 +778,14 @@ const worktreeSection = z.strictObject({
   }).prefault({}).describe(CONFIG_PROSE["worktree.setup"].what),
 }).prefault({}).describe(CONFIG_PROSE.worktree.what);
 
+/** The two live-config sections a version-2 setup recipe may fill wholesale.
+ * Reusing these exact schemas keeps the bounded document projection aligned
+ * with every nested worktree and setup field the runtime accepts. */
+export const CONFIG_DOC_BOUNDED_SECTION_SCHEMAS = {
+  setup: setupSection,
+  worktree: worktreeSection,
+} as const;
+
 const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
   .default(
     {},
@@ -899,92 +907,15 @@ export type ResourceConfig = z.infer<typeof resourceValue>;
  */
 export const CONFIG_DOC_VERSION = "2";
 
-interface UnrecognizedConfigDocKeys {
-  readonly path: readonly PropertyKey[];
-  readonly keys: readonly string[];
-}
-
-/** Clone JSON-like input so tolerant projection never mutates caller data. */
-function cloneRuntimeValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(cloneRuntimeValue);
-  if (!isRecord(value)) return value;
-  return Object.fromEntries(
-    Object.entries(value).map((
-      [key, child],
-    ) => [key, cloneRuntimeValue(child)]),
-  );
-}
-
-/** Collect strict-object unknown-key issues, including matching union arms. */
-function unrecognizedConfigDocKeys(
-  issues: readonly z.core.$ZodIssue[],
-): UnrecognizedConfigDocKeys[] {
-  const found: UnrecognizedConfigDocKeys[] = [];
-  for (const issue of issues) {
-    if (issue.code === "unrecognized_keys") {
-      found.push({ path: issue.path, keys: issue.keys });
-    } else if (issue.code === "invalid_union") {
-      for (const branch of issue.errors) {
-        found.push(...unrecognizedConfigDocKeys(branch));
-      }
-    }
-  }
-  return found;
-}
-
-/** Resolve the object at a Zod issue path within one JSON-like value. */
-function objectAtIssuePath(
-  value: unknown,
-  path: readonly PropertyKey[],
-): Record<string, unknown> | undefined {
-  let current = value;
-  for (const segment of path) {
-    if (Array.isArray(current) && typeof segment === "number") {
-      current = current[segment];
-    } else if (isRecord(current)) {
-      current = current[String(segment)];
-    } else {
-      return undefined;
-    }
-  }
-  return isRecord(current) ? current : undefined;
-}
-
-/**
- * Remove only keys the canonical strict schema identifies as unknown. Re-run
- * until no such issue remains, so nested strict objects and matching union arms
- * stay forward-tolerant without copying their known-field lists.
- */
-function projectKnownConfigDocFields(value: unknown): unknown {
-  const projected = cloneRuntimeValue(value);
-  while (true) {
-    const result = configDocSchema.safeParse(projected);
-    if (result.success) return result.data;
-    let removed = false;
-    for (const issue of unrecognizedConfigDocKeys(result.error.issues)) {
-      const owner = objectAtIssuePath(projected, issue.path);
-      if (owner === undefined) continue;
-      for (const key of issue.keys) {
-        if (Object.hasOwn(owner, key)) {
-          delete owner[key];
-          removed = true;
-        }
-      }
-    }
-    if (!removed) return projected;
-  }
-}
-
 /** The document's gate-config tables reuse the *same* building blocks as the live
  * config, so the document shape can never diverge from what the engine reads. The
- * base fields (name/slug/brief/source_globs/agents) are install inputs the
- * document layer maps onto the live sections.
+ * base fields (name/slug/branch_prefix/brief/agents) remain flat version-2
+ * install inputs; the bounded setup and worktree sections project their live
+ * config shapes without admitting unrelated standing policy.
  *
- * Strict here drives a STRICT generated editor JSON Schema (so a typo'd key is
- * flagged while authoring a config document). The runtime schema below
- * projects away only keys this schema identifies as unknown, so a newer field
- * within the same major never breaks an older reader while every known field is
- * still validated (ADR 0005). */
+ * Strictness is shared by the generated editor schema and runtime validation:
+ * misspelled, retired, and newer keys fail at the boundary instead of being
+ * silently discarded. The explicit major remains the compatibility gate. */
 export const configDocSchema = z.strictObject({
   $schema: z.string().optional().describe(
     "Editor-only pointer to this schema; ignored by discern.",
@@ -1001,9 +932,6 @@ export const configDocSchema = z.strictObject({
     ),
   branch_prefix: z.string().optional().describe(
     'Branch prefix for worktrees, e.g. "agent/".',
-  ),
-  source_globs: z.array(z.string()).optional().describe(
-    'Primary source globs, e.g. ["src/**"].',
   ),
   brief: z.string().optional().describe(
     "Free-text description of what the project is.",
@@ -1032,15 +960,18 @@ export const configDocSchema = z.strictObject({
     .describe(
       "[checkpoints.<name>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.",
     ),
+  setup: CONFIG_DOC_BOUNDED_SECTION_SCHEMAS.setup.optional().describe(
+    "Bounded [setup] configuration for setup coverage accounting.",
+  ),
+  worktree: CONFIG_DOC_BOUNDED_SECTION_SCHEMAS.worktree.optional().describe(
+    "Bounded [worktree] configuration for isolated-checkout behavior and resources.",
+  ),
 }).describe(
-  "The declarative config shape consumed by `discern setup begin --config <file>`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
+  "A bounded version-2 setup recipe consumed only by `discern setup begin --config <file>`. Project identity and setup inputs stay flat; its map, jobs, scopes, generated groups, standards, checkpoints, setup policy, and worktree settings fill discern.toml. Standing acceptance grants remain outside this document. Every field is optional.",
 );
 
-/** Runtime config-document validation: canonical known fields, tolerant extras. */
-export const configDocRuntimeSchema = z.preprocess(
-  projectKnownConfigDocFields,
-  configDocSchema,
-);
+/** Runtime validation is the same closed contract the authoring schema exposes. */
+export const configDocRuntimeSchema = configDocSchema;
 
 /** The config-document shape — the *input* view (what an author writes, before
  * defaults), so optional attributes such as a scope's `neutral` stay optional.

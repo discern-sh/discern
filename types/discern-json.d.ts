@@ -909,6 +909,10 @@ export type DiscernSetupBeginResult = DiscernResultState & {
       slug: string;
       agents: Array<string>;
     };
+    config_fills?: {
+      filled: Array<string>;
+      skipped: Array<string>;
+    };
     plan?: Array<{
       path: string;
       action: "create" | "skip" | "merge" | "append" | "remove";

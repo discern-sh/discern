@@ -22,9 +22,9 @@ Every unit renders in one shape: a ruled banner with What, Why, Params for a nam
 
 ## Setup config documents
 
-The JSON answers document consumed by `setup begin --config` derives from the config schema building blocks. Its strict `configDocSchema` generates the published authoring schema; its `configDocRuntimeSchema` removes only fields the strict schema identifies as unknown, then validates every known field. An older same-major runtime can therefore ignore a newer optional field without accepting a wrong type for a field it understands. [`decodeConfigDoc`](../../../src/lib/config_doc.ts) is the setup path, and one version check refuses an unsupported major.
+The bounded JSON recipe consumed only by `setup begin --config` derives from the config schema building blocks. Its strict `configDocSchema` generates the published authoring schema and is the runtime validator exported as `configDocRuntimeSchema`; unknown root or nested keys fail instead of being discarded. [`decodeConfigDoc`](../../../src/lib/config_doc.ts) is the setup path, and one version check refuses an unsupported major.
 
-This tolerant runtime view does not carry a second field list and does not weaken the live `discern.toml` schema. [Runtime data boundaries](../80-development/runtime-data-boundaries.md) records the decoder, error, caller-policy, and structural-enforcement contract ([ADR 0329](../_adr/0329-runtime-data-earns-types-at-validation-boundaries.md)).
+The recipe retains version 2's flat identity and setup inputs, plus bounded `setup` and `worktree` sections that reuse those live schemas. Standing acceptance policy stays outside it. `applyConfigDoc` derives each named-record write from `RECORD_ENTRY_SCHEMAS`, and its result reports every actual config leaf it filled or preserved. Tests bind every family fixture to its schema keys, every top-level recipe key to a consumer, and the runtime loader to its sole production caller. [Runtime data boundaries](../80-development/runtime-data-boundaries.md) records the decoder, error, caller-policy, and structural-enforcement contract ([ADR 0329](../_adr/0329-runtime-data-earns-types-at-validation-boundaries.md)).
 
 ## The paths registry and its resolvers
 

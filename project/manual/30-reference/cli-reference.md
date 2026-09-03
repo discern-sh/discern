@@ -430,7 +430,6 @@ Usage: `discern setup begin [options]`
 | `--name <name>`            | Project name (free text).                                                                                                                                   |
 | `--slug <slug>`            | Project slug (^[a-z0-9][a-z0-9-]*$).                                                                                                                        |
 | `--branch-prefix <prefix>` | Branch prefix for worktrees.                                                                                                                                |
-| `--source-globs <globs>`   | Comma-separated primary source globs (e.g. 'src/**,app/**').                                                                                                |
 | `--brief <brief>`          | Free-text project description, or @path to read it from a file.                                                                                             |
 | `--agents <agents>`        | Comma-separated agent files to emit: claude_code, codex, gemini, cursor, copilot.                                                                           |
 | `--map <path>`             | Project-relative directory for the project map — discern's agent-maintained documentation tree.                                                             |

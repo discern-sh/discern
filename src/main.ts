@@ -481,10 +481,6 @@ export function buildCli(
       default: undefined,
     })
     .option(
-      "--source-globs <globs:string>",
-      "Comma-separated primary source globs (e.g. 'src/**,app/**').",
-    )
-    .option(
       "--brief <brief:string>",
       "Free-text project description, or @path to read it from a file.",
     )

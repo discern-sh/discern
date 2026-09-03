@@ -100,7 +100,8 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     major: SETUP_CONFIG_SCHEMA_MAJOR,
     compatibility: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     label: "Setup config document",
-    contract: "The install document consumed by `setup begin --config`.",
+    contract:
+      "The bounded setup recipe consumed only by `setup begin --config`.",
   },
   {
     id: RESULT_SCHEMA_ID,

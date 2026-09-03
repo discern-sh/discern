@@ -40,7 +40,6 @@ import {
   isValidSlug,
   KNOWN_AGENTS,
   parseAgents,
-  parseSourceGlobs,
   type SetupConfig,
   SLUG_RULE,
   slugify,
@@ -90,7 +89,6 @@ export interface InitFlags {
   name?: string | undefined;
   slug?: string | undefined;
   branchPrefix?: string | undefined;
-  sourceGlobs?: string | undefined;
   brief?: string | undefined;
   agents?: string | undefined;
   map?: string | undefined;
@@ -1414,11 +1412,6 @@ function trimRequestedText(value: string): string {
   return value.trim();
 }
 
-/** Canonical comma-and-space spelling for the setup source-glob answer. */
-function canonicalSourceGlobs(value: string): string {
-  return parseSourceGlobs(value).join(", ");
-}
-
 /** Ask Git itself whether the prefix can begin every discern worktree branch. */
 async function validateBranchPrefix(
   value: string,
@@ -1495,26 +1488,7 @@ export async function resolveSetupConfig(
     branchPrefix = DEFAULTS.branchPrefix;
   }
 
-  // 4. Primary source globs.
-  let sourceGlobs: string[];
-  if (flags.sourceGlobs !== undefined) {
-    sourceGlobs = parseSourceGlobs(flags.sourceGlobs);
-  } else if (interactive) {
-    const answer = await requestText({
-      message: "Primary source globs (comma-separated)",
-      default: DEFAULTS.sourceGlobs.join(", "),
-      required: "Enter at least one source glob.",
-      transform: canonicalSourceGlobs,
-    });
-    sourceGlobs = parseSourceGlobs(answer);
-  } else {
-    sourceGlobs = [...DEFAULTS.sourceGlobs];
-  }
-  if (sourceGlobs.length === 0) {
-    sourceGlobs = [...DEFAULTS.sourceGlobs];
-  }
-
-  // 5. Free-text brief.
+  // 4. Free-text brief.
   let brief: string;
   if (flags.brief !== undefined) {
     brief = await resolveBrief(flags.brief);
@@ -1528,7 +1502,7 @@ export async function resolveSetupConfig(
     brief = "";
   }
 
-  // 6. Which agent files to emit. A deliberately EMPTY agents flag ("" — e.g. an
+  // 5. Which agent files to emit. A deliberately EMPTY agents flag ("" — e.g. an
   // explicit `[instructions] agents = []` round-tripping through a re-scaffold, ADR 0125)
   // means no agents and is honored verbatim; only input that named agents and matched
   // NONE of them (all unknown) falls back to the default pair as the repair path.
@@ -1561,7 +1535,6 @@ export async function resolveSetupConfig(
     projectName,
     slug,
     branchPrefix,
-    sourceGlobs,
     brief,
     agents,
     mapDir,

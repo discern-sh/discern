@@ -44,6 +44,8 @@ import { terminalLine } from "../lib/terminal.ts";
 import { alignedLabelWidth, padDisplayEnd } from "../lib/text.ts";
 import {
   applyConfigDoc,
+  configDocFillPaths,
+  type ConfigFillReport,
   type DiscernConfigDoc,
   loadConfigDoc,
   mergeDocIntoFlags,
@@ -286,7 +288,6 @@ export interface RawScaffoldCliOptions {
   name?: string | undefined;
   slug?: string | undefined;
   branchPrefix?: string | undefined;
-  sourceGlobs?: string | undefined;
   brief?: string | undefined;
   agents?: string | undefined;
   map?: string | undefined;
@@ -318,7 +319,6 @@ export function beginOptsFrom(
     name: o.name,
     slug: o.slug,
     branchPrefix: o.branchPrefix,
-    sourceGlobs: o.sourceGlobs,
     brief: o.brief,
     agents: o.agents,
     map: o.map,
@@ -342,18 +342,40 @@ const SETUP_COMPLETION_KEY = "meta.setup_completion";
  * skips the seeds already present (they are the user's) and re-materializes the
  * bundled skills.
  */
-export async function assembleInitPlan(params: {
+export interface AssembleInitPlanParams {
   templatesDir: string;
   destDir: string;
   config: SetupConfig;
-  /** Declarative slots/scopes/side_gates/standards fills from `setup begin --config`. */
+  /** Declarative configuration fills from `setup begin --config`. */
   fills?: DiscernConfigDoc | undefined;
   /** The repo's detected integration branch, stamped into the fresh config's
    * `[repository].trunk` (before the fills, so an explicit fill still wins). */
   mainBranch?: string | undefined;
   /** Process environment for generated-file attribution rendering. */
   env?: EnvReader | undefined;
-}): Promise<Plan> {
+}
+
+interface AssembleInitPlanOutcome {
+  readonly plan: Plan;
+  readonly configFills: ConfigFillReport;
+}
+
+/** Assemble the complete setup plan for ordinary callers. */
+export function assembleInitPlan(
+  params: AssembleInitPlanParams,
+): Promise<Plan>;
+
+/** Assemble the plan and its exact declarative fill report for setup results. */
+export function assembleInitPlan(
+  params: AssembleInitPlanParams,
+  includeConfigFillReport: true,
+): Promise<AssembleInitPlanOutcome>;
+
+/** One planner implementation backs the plan-only and reported projections. */
+export async function assembleInitPlan(
+  params: AssembleInitPlanParams,
+  includeConfigFillReport = false,
+): Promise<Plan | AssembleInitPlanOutcome> {
   const { templatesDir, destDir, config } = params;
   const env = params.env ?? Deno.env;
   const tokens = tokensFromConfig(config, env);
@@ -390,9 +412,9 @@ export async function assembleInitPlan(params: {
   if (params.mainBranch !== undefined) {
     stampMainBranchIntoPlan(plan, params.mainBranch);
   }
-  if (params.fills) {
-    applyFillsToPlan(plan, params.fills);
-  }
+  const configFills = params.fills === undefined
+    ? { filled: [], skipped: [] }
+    : applyFillsToPlan(plan, params.fills);
 
   const configOp = freshConfigOp(plan);
   const finalConfig = configOp === undefined
@@ -422,7 +444,7 @@ export async function assembleInitPlan(params: {
     plan.ops.push(gitattributes);
     plan.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
   }
-  return plan;
+  return includeConfigFillReport ? { plan, configFills } : plan;
 }
 
 /** Find the `discern.toml` op that is about to be created, or undefined. */
@@ -571,23 +593,29 @@ async function forkParentBranch(destDir: string): Promise<string | undefined> {
 }
 
 /**
- * Apply the answers file's slots/scopes/side_gates/standards to the generated
+ * Apply the answers file's configuration sections to the generated
  * `discern.toml` op via the comment-preserving editor. A no-op when the
  * config is a `skip` (an existing seed left as the user's — fills never clobber it).
  */
-function applyFillsToPlan(plan: Plan, fills: DiscernConfigDoc): void {
+function applyFillsToPlan(
+  plan: Plan,
+  fills: DiscernConfigDoc,
+): ConfigFillReport {
   const op = freshConfigOp(plan);
   if (!op) {
-    return;
+    return { filled: [], skipped: configDocFillPaths(fills) };
   }
   const editor = new TomlEditor(TEXT_DECODER.decode(op.bytes));
-  applyConfigDoc(editor, fills);
+  const report = applyConfigDoc(editor, fills);
   op.bytes = TEXT_ENCODER.encode(editor.toString());
+  return report;
 }
 
 /** What a scaffold pass produced (for the human summary and the JSON envelope). */
 interface ScaffoldOutcome {
   config: SetupConfig;
+  /** Every declarative config target filled or retained as project-owned. */
+  configFills: ConfigFillReport;
   /** Where the starter instructions were (or would be) seeded — the resolved
    * `[instructions].sources` seed location. */
   instructionRel: string;
@@ -672,14 +700,20 @@ async function scaffoldHarness(
   const { config, fileAnswers } = input;
 
   let plan: Plan;
+  let configFills: ConfigFillReport;
   try {
-    plan = await assembleInitPlan({
-      templatesDir,
-      destDir,
-      config,
-      fills: fileAnswers,
-      mainBranch: detectedMainBranch,
-    });
+    const assembled = await assembleInitPlan(
+      {
+        templatesDir,
+        destDir,
+        config,
+        fills: fileAnswers,
+        mainBranch: detectedMainBranch,
+      },
+      true,
+    );
+    plan = assembled.plan;
+    configFills = assembled.configFills;
   } catch (error) {
     if (error instanceof SettingsMergePlanError) {
       emitSetupError(log, opts, "invalid_settings_file", errMsg(error));
@@ -711,6 +745,7 @@ async function scaffoldHarness(
         data: {
           project: { slug: config.slug, agents: config.agents },
           plan: planToJson(plan),
+          config_fills: configFills,
         },
       });
     } else {
@@ -837,6 +872,7 @@ async function scaffoldHarness(
   return {
     outcome: {
       config,
+      configFills,
       instructionRel,
       written,
       compiled,
@@ -1148,7 +1184,6 @@ function setupBeginRetryCommand(opts: SetupOptions): string {
     ["--name", opts.name],
     ["--slug", opts.slug],
     ["--branch-prefix", opts.branchPrefix],
-    ["--source-globs", opts.sourceGlobs],
     ["--brief", opts.brief],
     ["--agents", opts.agents],
     ["--map", opts.map],
@@ -1784,6 +1819,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
         agents: cfg?.project.agents ?? [],
       },
+      ...(scaffold === undefined ? {} : { config_fills: scaffold.configFills }),
       discern_version: DISCERN_VERSION,
       written: scaffold?.written ?? [],
       instruction_refresh: instructionRefresh,

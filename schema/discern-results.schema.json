@@ -1593,6 +1593,27 @@
                     "agents"
                   ]
                 },
+                "config_fills": {
+                  "type": "object",
+                  "properties": {
+                    "filled": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "skipped": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "filled",
+                    "skipped"
+                  ]
+                },
                 "plan": {
                   "type": "array",
                   "items": {

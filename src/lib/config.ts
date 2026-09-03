@@ -43,7 +43,6 @@ export type { KnownJob, Stage } from "../shared/capabilities.ts";
 /** Default values for every wizard answer. */
 export const DEFAULTS = {
   branchPrefix: "agent/",
-  sourceGlobs: ["src/**", "app/**"],
   // Default to the two built-in providers; gemini is opt-in.
   agents: [...DEFAULT_AGENTS] as AgentName[],
   mapDir: SOURCE_PATHS.map.defaultPath,
@@ -101,8 +100,6 @@ export interface SetupConfig {
   projectName: string;
   slug: string;
   branchPrefix: string;
-  /** Source globs as the user gave them (unquoted), e.g. ["src/**", "app/**"]. */
-  sourceGlobs: string[];
   /** The verbatim "what are you building?" answer, written to brief.md. */
   brief: string;
   agents: AgentName[];
@@ -144,11 +141,6 @@ export function parseAgents(
     }
   }
   return { agents, unknown };
-}
-
-/** Split a comma-separated source-globs flag into trimmed, non-empty entries. */
-export function parseSourceGlobs(input: string): string[] {
-  return input.split(",").map((g) => g.trim()).filter(Boolean);
 }
 
 /** Build the full content-token map from a resolved config. */

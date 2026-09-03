@@ -1,10 +1,10 @@
 /**
  * The **discern config document** — the one JSON shape that declaratively
- * describes a project's gate config (ADR 0005, ADR 0017/0018). It is consumed in
- * `discern setup begin --config <file>` drives a fresh, non-interactive install.
+ * describes a project's gate config (ADR 0005, ADR 0017/0018). It is consumed by
+ * `discern setup begin --config <file>` to drive a fresh, non-interactive install.
  * It applies the document's `jobs` / `scopes` / `generated` / `standards` /
- * `checkpoints` to
- * a project's `discern.toml` through the comment-preserving `TomlEditor`.
+ * `checkpoints` to a project's `discern.toml` through the comment-preserving
+ * `TomlEditor`.
  * Because this shape is a published contract (a JSON Schema ships at
  * `schema/discern-setup-config.schema.json`), it carries an optional `version`
  * so it can evolve without silently misreading an older or newer document, and
@@ -14,9 +14,12 @@
 import { isKnownJob, KNOWN_JOBS, STAGES } from "./config.ts";
 import {
   type CommandValue,
+  CONFIG_DOC_BOUNDED_SECTION_SCHEMAS,
   CONFIG_DOC_VERSION,
   configDocRuntimeSchema,
+  configDocSchema,
   type DiscernConfigDoc,
+  RECORD_ENTRY_SCHEMAS,
   toCommandList,
 } from "../shared/config_schema.ts";
 import { decodeJson } from "../shared/runtime_decode.ts";
@@ -31,11 +34,41 @@ import type { TomlEditor } from "./toml_edit.ts";
 // The document's shape, its major version, and its editor JSON Schema all derive
 // from the one canonical schema (`config_schema.ts`, ADR 0026) — re-exported here
 // so the installer keeps importing them from this module. `applyConfigDoc` below
-// is the runtime translator that writes a validated, forward-tolerant document
+// is the runtime translator that writes a validated, closed document
 // into a project's discern.toml, with author-friendly per-section messages; the
 // schema is the published contract setup validates against.
 export { CONFIG_DOC_VERSION };
 export type { DiscernConfigDoc };
+
+/** How every accepted top-level document key produces an effect or validation. */
+export const CONFIG_DOC_FIELD_CONSUMERS = {
+  $schema: "editor_schema",
+  version: "version_gate",
+  name: "setup_input",
+  slug: "setup_input",
+  branch_prefix: "setup_input",
+  brief: "setup_input",
+  agents: "setup_input",
+  map: "setup_input_and_config_fill",
+  jobs: "config_fill",
+  scopes: "config_fill",
+  generated: "config_fill",
+  standards: "config_fill",
+  checkpoints: "config_fill",
+  setup: "config_fill",
+  worktree: "config_fill",
+} as const;
+
+const configDocSchemaKeys = Object.keys(configDocSchema.shape).toSorted();
+const configDocConsumerKeys = Object.keys(CONFIG_DOC_FIELD_CONSUMERS)
+  .toSorted();
+if (
+  JSON.stringify(configDocSchemaKeys) !== JSON.stringify(configDocConsumerKeys)
+) {
+  throw new Error(
+    "every setup-config document key must declare its runtime consumer",
+  );
+}
 
 /** A job/gate value: one command, or a list run in order. */
 type CommandOrList = string | string[];
@@ -51,8 +84,8 @@ function majorOf(version: string | number): string {
 /**
  * Load and validate a config document. `source` is a path, or `-` for
  * stdin. Throws a clear error on a missing/invalid file or an unsupported
- * `version` major (the caller reports it). Unknown keys are ignored, so a newer
- * field within the same major never breaks an older reader.
+ * `version` major (the caller reports it). Unknown keys are refused so a typo or
+ * retired field cannot silently produce an incomplete install.
  */
 export async function loadConfigDoc(
   source: string,
@@ -118,7 +151,6 @@ export function mergeDocIntoFlags(
     name: flags.name ?? doc.name,
     slug: flags.slug ?? doc.slug,
     branchPrefix: flags.branchPrefix ?? doc.branch_prefix,
-    sourceGlobs: flags.sourceGlobs ?? doc.source_globs?.join(","),
     brief: flags.brief ?? doc.brief,
     agents: flags.agents ?? doc.agents?.join(","),
     map: flags.map ?? doc.map?.dir,
@@ -133,6 +165,158 @@ export interface ConfigFillReport {
   filled: string[];
   /** Paths kept as the project's own (only with `skipExisting`). */
   skipped: string[];
+}
+
+/** Every discern.toml target one setup document asks the writer to fill. */
+export function configDocFillPaths(doc: DiscernConfigDoc): string[] {
+  const paths: string[] = [];
+  if (doc.map?.dir !== undefined) paths.push("map.dir");
+  for (const [name, spec] of Object.entries(doc.jobs ?? {})) {
+    if (isKnownJob(name) || !isRecord(spec)) {
+      paths.push(`jobs.${name}`);
+    } else {
+      paths.push(
+        ...recordFillPaths(
+          `jobs.${name}`,
+          spec,
+          RECORD_ENTRY_SCHEMAS.jobs,
+        ),
+      );
+    }
+  }
+  for (const section of ["scopes", "generated", "checkpoints"] as const) {
+    for (const [name, spec] of Object.entries(doc[section] ?? {})) {
+      paths.push(
+        ...recordFillPaths(
+          `${section}.${name}`,
+          spec,
+          RECORD_ENTRY_SCHEMAS[section],
+        ),
+      );
+    }
+  }
+  for (const [name, spec] of Object.entries(doc.standards ?? {})) {
+    paths.push(
+      ...recordFillPaths(
+        `standards.${name}`,
+        { ...spec, metric: spec.metric ?? name },
+        RECORD_ENTRY_SCHEMAS.standards,
+      ),
+    );
+  }
+  for (
+    const field of presentSchemaFields(
+      doc.setup ?? {},
+      CONFIG_DOC_BOUNDED_SECTION_SCHEMAS.setup.unwrap(),
+    )
+  ) {
+    paths.push(`setup.${field}`);
+  }
+  const worktree = doc.worktree;
+  if (worktree !== undefined) {
+    for (
+      const field of presentSchemaFields(
+        worktree,
+        CONFIG_DOC_BOUNDED_SECTION_SCHEMAS.worktree.unwrap(),
+      )
+    ) {
+      if (field === "resources") {
+        for (
+          const [name, resource] of Object.entries(worktree.resources ?? {})
+        ) {
+          paths.push(
+            ...recordFillPaths(
+              `worktree.resources.${name}`,
+              resource,
+              RECORD_ENTRY_SCHEMAS["worktree.resources"],
+            ),
+          );
+        }
+      } else if (field === "setup") {
+        for (const setupField of Object.keys(worktree.setup ?? {})) {
+          paths.push(`worktree.setup.${setupField}`);
+        }
+      } else {
+        paths.push(`worktree.${field}`);
+      }
+    }
+  }
+  return paths;
+}
+
+interface SchemaWithShape {
+  readonly shape: Readonly<Record<string, unknown>>;
+}
+
+/** Fields present in one validated record, derived from its live schema. */
+function presentSchemaFields(
+  spec: Readonly<Record<string, unknown>>,
+  schema: SchemaWithShape,
+): string[] {
+  return Object.keys(schema.shape).filter((field) => spec[field] !== undefined);
+}
+
+/** Exact config leaves written for one schema-backed named record. */
+function recordFillPaths(
+  path: string,
+  spec: Readonly<Record<string, unknown>>,
+  schema: SchemaWithShape,
+): string[] {
+  const fields = presentSchemaFields(spec, schema);
+  return fields.length === 0
+    ? [path]
+    : fields.map((field) => `${path}.${field}`);
+}
+
+/** Render the standard `per` extent as one canonical inline TOML table. */
+function inlineStringTable(value: Readonly<Record<string, unknown>>): string {
+  const entries = Object.entries(value);
+  if (
+    entries.length !== 1 ||
+    entries.some(([key, child]) =>
+      !NAME_RE.test(key) ||
+      (typeof child !== "string" &&
+        !(Array.isArray(child) &&
+          child.every((item) => typeof item === "string")))
+    )
+  ) {
+    throw new Error(
+      "inline config tables require one named string or string-array value",
+    );
+  }
+  const [entry] = entries;
+  if (entry === undefined) {
+    throw new Error(
+      "inline config tables require one named string or string-array value",
+    );
+  }
+  const rendered = Array.isArray(entry[1])
+    ? `[${entry[1].map((item) => JSON.stringify(item)).join(", ")}]`
+    : JSON.stringify(entry[1]);
+  return `{ ${entry[0]} = ${rendered} }`;
+}
+
+/** Write one schema-backed config leaf through its matching TOML primitive. */
+function setConfigField(
+  editor: TomlEditor,
+  path: string,
+  value: unknown,
+): void {
+  if (typeof value === "string") {
+    editor.setString(path, value);
+  } else if (typeof value === "number") {
+    editor.setNumber(path, value);
+  } else if (typeof value === "boolean") {
+    editor.setBool(path, value);
+  } else if (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  ) {
+    editor.setStringArray(path, value);
+  } else if (isRecord(value)) {
+    editor.setLiteral(path, inlineStringTable(value));
+  } else {
+    throw new Error(`unsupported setup-config value at ${path}`);
+  }
 }
 
 /**
@@ -165,6 +349,27 @@ export function applyConfigDoc(
     }
     apply();
     report.filled.push(path);
+  };
+  /** Write every present member of one open record from its canonical shape. */
+  const writeRecord = (
+    path: string,
+    spec: Readonly<Record<string, unknown>>,
+    schema: SchemaWithShape,
+  ): void => {
+    const targets = recordFillPaths(path, spec, schema);
+    if (skipExisting && editor.hasSection(path)) {
+      report.skipped.push(...targets);
+      return;
+    }
+    const fields = presentSchemaFields(spec, schema);
+    if (fields.length === 0) {
+      editor.ensureSection(path);
+    } else {
+      for (const field of fields) {
+        setConfigField(editor, `${path}.${field}`, spec[field]);
+      }
+    }
+    report.filled.push(...targets);
   };
 
   {
@@ -220,40 +425,19 @@ export function applyConfigDoc(
     if (run === undefined) {
       throw new Error(`custom job "${name}": a run command is required`);
     }
-    write(`jobs.${name}`, editor.hasSection(`jobs.${name}`), () => {
-      editor.setString(`jobs.${name}.stage`, stage);
-      setCommand(editor, `jobs.${name}.run`, run);
-      if ("provides" in value && typeof value.provides === "string") {
-        editor.setString(`jobs.${name}.provides`, value.provides);
-      }
-      if (typeof value.timeout === "number") {
-        editor.setNumber(`jobs.${name}.timeout`, value.timeout);
-      }
-    });
+    writeRecord(`jobs.${name}`, value, RECORD_ENTRY_SCHEMAS.jobs);
   }
 
-  // Scopes: a named region (paths) with optional neutral/preview/gate.
+  // Every scope field comes from the same entry schema the document publishes.
   for (const [name, spec] of Object.entries(doc.scopes ?? {})) {
     assertName("scope", name);
     if (!Array.isArray(spec.paths)) {
       throw new Error(`scope "${name}": paths must be an array of globs`);
     }
-    write(`scopes.${name}`, editor.hasSection(`scopes.${name}`), () => {
-      editor.setStringArray(`scopes.${name}.paths`, spec.paths);
-      if (spec.neutral !== undefined) {
-        editor.setBool(`scopes.${name}.neutral`, spec.neutral);
-      }
-      if (spec.preview !== undefined) {
-        setCommand(editor, `scopes.${name}.preview`, spec.preview);
-      }
-      if (spec.gate !== undefined) {
-        setCommand(editor, `scopes.${name}.gate`, spec.gate);
-      }
-    });
+    writeRecord(`scopes.${name}`, spec, RECORD_ENTRY_SCHEMAS.scopes);
   }
 
-  // Generated artifacts: ownership globs, a deterministic regeneration command,
-  // and an optional time budget.
+  // Every generated-group field comes from the document's live entry schema.
   for (const [name, spec] of Object.entries(doc.generated ?? {})) {
     assertName("generated group", name);
     if (!Array.isArray(spec.paths)) {
@@ -275,13 +459,11 @@ export function applyConfigDoc(
         `generated group "${name}": timeout must be zero or a positive number`,
       );
     }
-    write(`generated.${name}`, editor.hasSection(`generated.${name}`), () => {
-      editor.setStringArray(`generated.${name}.paths`, spec.paths);
-      setCommand(editor, `generated.${name}.run`, run);
-      if (spec.timeout !== undefined) {
-        editor.setNumber(`generated.${name}.timeout`, spec.timeout);
-      }
-    });
+    writeRecord(
+      `generated.${name}`,
+      spec,
+      RECORD_ENTRY_SCHEMAS.generated,
+    );
   }
 
   // Checkpoints: one canonical question-source selector, one path selector at
@@ -334,80 +516,10 @@ export function applyConfigDoc(
         })`,
       );
     }
-    write(
+    writeRecord(
       `checkpoints.${name}`,
-      editor.hasSection(`checkpoints.${name}`),
-      () => {
-        const key = `checkpoints.${name}`;
-        if (spec.scope !== undefined) {
-          editor.setString(`${key}.scope`, spec.scope);
-        }
-        if (spec.paths !== undefined) {
-          editor.setStringArray(`${key}.paths`, spec.paths);
-        }
-        if (spec.include_generated !== undefined) {
-          editor.setBool(
-            `${key}.include_generated`,
-            spec.include_generated,
-          );
-        }
-        if (spec.exclude_paths !== undefined) {
-          editor.setStringArray(`${key}.exclude_paths`, spec.exclude_paths);
-        }
-        if (spec.unless_changed !== undefined) {
-          editor.setStringArray(`${key}.unless_changed`, spec.unless_changed);
-        }
-        if (spec.kinds !== undefined) {
-          editor.setStringArray(`${key}.kinds`, spec.kinds);
-        }
-        if (spec.adds_matching !== undefined) {
-          editor.setStringArray(`${key}.adds_matching`, spec.adds_matching);
-        }
-        if (spec.removes_matching !== undefined) {
-          editor.setStringArray(
-            `${key}.removes_matching`,
-            spec.removes_matching,
-          );
-        }
-        if (spec.new_directory !== undefined) {
-          editor.setBool(`${key}.new_directory`, spec.new_directory);
-        }
-        if (spec.binary !== undefined) {
-          editor.setBool(`${key}.binary`, spec.binary);
-        }
-        if (spec.min_changed_files !== undefined) {
-          editor.setNumber(`${key}.min_changed_files`, spec.min_changed_files);
-        }
-        if (spec.min_changed_lines !== undefined) {
-          editor.setNumber(`${key}.min_changed_lines`, spec.min_changed_lines);
-        }
-        if (spec.deletion_dominant !== undefined) {
-          editor.setBool(`${key}.deletion_dominant`, spec.deletion_dominant);
-        }
-        if (spec.similar_new_file !== undefined) {
-          editor.setBool(`${key}.similar_new_file`, spec.similar_new_file);
-        }
-        if (spec.min_commits !== undefined) {
-          editor.setNumber(`${key}.min_commits`, spec.min_commits);
-        }
-        if (spec.when !== undefined) {
-          editor.setString(`${key}.when`, spec.when);
-        }
-        if (mode !== undefined) {
-          editor.setString(`${key}.mode`, mode);
-        }
-        if (questionSource.kind === "inline") {
-          editor.setString(`${key}.question`, questionSource.question);
-        } else if (questionSource.kind === "file") {
-          editor.setString(`${key}.question_file`, questionSource.path);
-        }
-        if (spec.teach !== undefined) {
-          editor.setString(`${key}.teach`, spec.teach);
-        }
-        if (spec.reference !== undefined) {
-          editor.setString(`${key}.reference`, spec.reference);
-        }
-      },
+      spec,
+      RECORD_ENTRY_SCHEMAS.checkpoints,
     );
   }
 
@@ -435,12 +547,69 @@ export function applyConfigDoc(
     if (typeof limit !== "number" && typeof limit !== "string") {
       throw new Error(`standard "${name}": limit must be a number`);
     }
-    write(`standards.${name}`, editor.hasSection(`standards.${name}`), () => {
-      editor.setString(`standards.${name}.metric`, spec.metric ?? name);
-      editor.setString(`standards.${name}.direction`, direction);
-      editor.setNumber(`standards.${name}.limit`, limit);
-      setCommand(editor, `standards.${name}.run`, run);
+    writeRecord(
+      `standards.${name}`,
+      { ...spec, metric: spec.metric ?? name },
+      RECORD_ENTRY_SCHEMAS.standards,
+    );
+  }
+
+  // The two bounded fixed sections are the live schemas themselves. Primitive
+  // worktree fields write directly; its two nested groups preserve their
+  // conventional table shape.
+  for (
+    const field of presentSchemaFields(
+      doc.setup ?? {},
+      CONFIG_DOC_BOUNDED_SECTION_SCHEMAS.setup.unwrap(),
+    )
+  ) {
+    const path = `setup.${field}`;
+    write(path, editor.hasKey(path), () => {
+      setConfigField(
+        editor,
+        path,
+        (doc.setup as Readonly<Record<string, unknown>>)[field],
+      );
     });
+  }
+
+  const worktree = doc.worktree;
+  if (worktree !== undefined) {
+    for (
+      const field of presentSchemaFields(
+        worktree,
+        CONFIG_DOC_BOUNDED_SECTION_SCHEMAS.worktree.unwrap(),
+      )
+    ) {
+      if (field === "resources") {
+        for (
+          const [name, resource] of Object.entries(worktree.resources ?? {})
+        ) {
+          assertName("worktree resource", name);
+          writeRecord(
+            `worktree.resources.${name}`,
+            resource,
+            RECORD_ENTRY_SCHEMAS["worktree.resources"],
+          );
+        }
+        continue;
+      }
+      if (field === "setup") {
+        for (
+          const [setupField, value] of Object.entries(worktree.setup ?? {})
+        ) {
+          const path = `worktree.setup.${setupField}`;
+          write(path, editor.hasKey(path), () => {
+            setConfigField(editor, path, value);
+          });
+        }
+        continue;
+      }
+      const path = `worktree.${field}`;
+      write(path, editor.hasKey(path), () => {
+        setConfigField(editor, path, worktree[field as keyof typeof worktree]);
+      });
+    }
   }
 
   return report;

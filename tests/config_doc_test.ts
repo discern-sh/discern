@@ -16,14 +16,25 @@ import { join } from "@std/path";
 import {
   applyConfigDoc,
   assertSupportedVersion,
+  CONFIG_DOC_FIELD_CONSUMERS,
   CONFIG_DOC_VERSION,
+  configDocFillPaths,
   type DiscernConfigDoc,
   loadConfigDoc,
+  mergeDocIntoFlags,
 } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
-import { configDocSchema, parseConfig } from "../src/shared/config_schema.ts";
+import {
+  CONFIG_DOC_BOUNDED_SECTION_SCHEMAS,
+  configDocSchema,
+  parseConfig,
+  parseConfigOrThrow,
+  RECORD_ENTRY_SCHEMAS,
+} from "../src/shared/config_schema.ts";
 import { recordConfigPaths } from "../src/shared/config_codegen.ts";
 import { withTempDir } from "./helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** A fresh editor over a minimal `[project]` config for apply-side tests. */
 function editor(): TomlEditor {
@@ -158,25 +169,29 @@ Deno.test("loadConfigDoc validates known fields at the source boundary", async (
   });
 });
 
-Deno.test("loadConfigDoc ignores unknown same-major fields at every depth", async () => {
+Deno.test("loadConfigDoc rejects unknown same-major fields at every depth", async () => {
   await withTempDir(async (dir) => {
-    const path = await writeDoc(dir, {
-      version: `${CONFIG_DOC_VERSION}.8`,
-      future_root: { enabled: true },
-      map: { dir: "project/guide/", future_layout: "wide" },
-      scopes: {
-        docs: { paths: ["docs/**"], future_selector: "changed" },
-      },
-    });
-    const loaded = await loadConfigDoc(path);
-    assertEquals(loaded.map?.dir, "project/guide/");
-    assertEquals(loaded.scopes?.docs?.paths, ["docs/**"]);
-    assertEquals(Object.hasOwn(loaded, "future_root"), false);
-    assertEquals(Object.hasOwn(loaded.map ?? {}, "future_layout"), false);
-    assertEquals(
-      Object.hasOwn(loaded.scopes?.docs ?? {}, "future_selector"),
-      false,
-    );
+    for (
+      const unknown of [
+        { future_root: { enabled: true } },
+        { map: { dir: "project/guide/", future_layout: "wide" } },
+        {
+          scopes: {
+            docs: { paths: ["docs/**"], future_selector: "changed" },
+          },
+        },
+        { source_globs: ["src/**"] },
+      ]
+    ) {
+      const path = await writeDoc(dir, {
+        version: `${CONFIG_DOC_VERSION}.8`,
+        ...unknown,
+      });
+      await assertRejectsErr(
+        () => loadConfigDoc(path),
+        `--config file \"${path}\" is invalid`,
+      );
+    }
   });
 });
 
@@ -301,6 +316,307 @@ Deno.test("applyConfigDoc writes TOML that re-parses to the intended config valu
   assertEquals(config.standards.coverage?.run, "deno coverage --filter=\\d+");
 });
 
+const COMPLETE_RECORD_DOC = {
+  jobs: {
+    report: {
+      stage: "check",
+      run: ["tool report", "tool verify-report"],
+      provides: "report integrity",
+      timeout: 17,
+    },
+  },
+  scopes: {
+    application: {
+      paths: ["src/**"],
+      neutral: true,
+      preview: ["tool preview", "tool preview-summary"],
+      gate: "tool gate",
+      timeout: 18,
+    },
+  },
+  generated: {
+    api: {
+      paths: ["generated/**"],
+      run: ["tool generate", "tool verify-generated"],
+      linguist_generated: true,
+      timeout: 19,
+    },
+  },
+  standards: {
+    density: {
+      metric: "words",
+      direction: "down",
+      limit: 2.5,
+      run: ["tool measure", "tool verify-measure"],
+      per: { lines: ["src/**", "lib/**"] },
+      scale: 1000,
+      margin: 0.1,
+      measure: "on-demand",
+      inputs: ["src/**"],
+      timeout: 20,
+    },
+  },
+  checkpoints: {
+    inline: {
+      scope: "application",
+      include_generated: true,
+      exclude_paths: ["src/vendor/**"],
+      unless_changed: ["docs/**"],
+      kinds: ["added", "modified"],
+      adds_matching: ["TODO"],
+      removes_matching: ["FIXME"],
+      new_directory: true,
+      binary: false,
+      min_changed_files: 2,
+      min_changed_lines: 3,
+      deletion_dominant: true,
+      similar_new_file: true,
+      min_commits: 2,
+      when: "tool changed",
+      mode: "advise",
+      question: "Is this change coherent?",
+      teach: "Keep one authority per fact.",
+      reference: "project/map/README.md",
+    },
+    file: {
+      paths: ["docs/**"],
+      question_file: "docs/review.md",
+    },
+  },
+  worktree: {
+    resources: {
+      database: {
+        create: "tool database create",
+        destroy: "tool database destroy",
+        ensure: "tool database ensure",
+        required: false,
+        retries: 5,
+        gc: false,
+      },
+    },
+  },
+} satisfies DiscernConfigDoc;
+
+const RECORD_FAMILY_FIXTURES = {
+  jobs: [COMPLETE_RECORD_DOC.jobs.report],
+  scopes: [COMPLETE_RECORD_DOC.scopes.application],
+  generated: [COMPLETE_RECORD_DOC.generated.api],
+  standards: [COMPLETE_RECORD_DOC.standards.density],
+  checkpoints: [
+    COMPLETE_RECORD_DOC.checkpoints.inline,
+    COMPLETE_RECORD_DOC.checkpoints.file,
+  ],
+  "worktree.resources": [COMPLETE_RECORD_DOC.worktree.resources.database],
+} satisfies Record<
+  keyof typeof RECORD_ENTRY_SCHEMAS,
+  readonly Readonly<Record<string, unknown>>[]
+>;
+
+Deno.test("every named-record field round-trips through the setup document writer", () => {
+  for (
+    const family of Object.keys(RECORD_ENTRY_SCHEMAS) as Array<
+      keyof typeof RECORD_ENTRY_SCHEMAS
+    >
+  ) {
+    const exercised = new Set(
+      RECORD_FAMILY_FIXTURES[family].flatMap((entry) => Object.keys(entry)),
+    );
+    assertEquals(
+      [...exercised].toSorted(),
+      Object.keys(RECORD_ENTRY_SCHEMAS[family].shape).toSorted(),
+      `${family}: the fixture must exercise every schema field`,
+    );
+  }
+
+  const ed = editor();
+  const report = applyConfigDoc(ed, COMPLETE_RECORD_DOC);
+  assertEquals(report.skipped, []);
+  assertEquals(
+    report.filled.toSorted(),
+    configDocFillPaths(COMPLETE_RECORD_DOC).toSorted(),
+  );
+  const config = parseConfigOrThrow(ed.toString());
+  assertEquals(config.jobs.report, COMPLETE_RECORD_DOC.jobs.report);
+  assertEquals(
+    config.scopes.application,
+    COMPLETE_RECORD_DOC.scopes.application,
+  );
+  assertEquals(config.generated.api, COMPLETE_RECORD_DOC.generated.api);
+  assertEquals(config.standards.density, COMPLETE_RECORD_DOC.standards.density);
+  assertEquals(
+    config.checkpoints.inline,
+    COMPLETE_RECORD_DOC.checkpoints.inline,
+  );
+  assertEquals(config.checkpoints.file, COMPLETE_RECORD_DOC.checkpoints.file);
+  assertEquals(
+    config.worktree.resources.database,
+    COMPLETE_RECORD_DOC.worktree.resources.database,
+  );
+});
+
+Deno.test("applyConfigDoc materializes a bare built-in checkpoint table", () => {
+  const ed = editor();
+  const report = applyConfigDoc(ed, { checkpoints: { "map-focus": {} } });
+  assertEquals(report, {
+    filled: ["checkpoints.map-focus"],
+    skipped: [],
+  });
+  assert(ed.toString().includes("[checkpoints.map-focus]"));
+  assertEquals(parseConfigOrThrow(ed.toString()).checkpoints["map-focus"], {});
+});
+
+Deno.test("version 2 projects the exact bounded setup and worktree schemas", () => {
+  assertEquals(CONFIG_DOC_VERSION, "2");
+  assert(
+    configDocSchema.shape.setup.unwrap() ===
+      CONFIG_DOC_BOUNDED_SECTION_SCHEMAS.setup,
+  );
+  assert(
+    configDocSchema.shape.worktree.unwrap() ===
+      CONFIG_DOC_BOUNDED_SECTION_SCHEMAS.worktree,
+  );
+  for (const forbidden of ["project", "acceptance", "source_globs"]) {
+    assert(!(forbidden in configDocSchema.shape), forbidden);
+  }
+  for (
+    const flat of [
+      "name",
+      "slug",
+      "branch_prefix",
+      "brief",
+      "agents",
+    ]
+  ) {
+    assert(flat in configDocSchema.shape, flat);
+  }
+
+  const doc = {
+    setup: { not_applicable: ["build"] },
+    worktree: {
+      root: "../worktrees",
+      inherit_env: ["APP_KEY"],
+      env_files: [".env.test"],
+      port: true,
+      ignored_file_drift: false,
+      resources: {
+        cache: {
+          create: "tool cache create",
+          destroy: "tool cache destroy",
+          ensure: "tool cache ensure",
+          required: false,
+          retries: 3,
+          gc: false,
+        },
+      },
+      setup: {
+        steps: ["tool seed"],
+        ensure: ["tool converge"],
+      },
+    },
+  } satisfies DiscernConfigDoc;
+  const ed = editor();
+  const report = applyConfigDoc(ed, doc);
+  assertEquals(report.filled.toSorted(), configDocFillPaths(doc).toSorted());
+  assertEquals(report.skipped, []);
+  const config = parseConfigOrThrow(ed.toString());
+  assertEquals(config.setup, doc.setup);
+  assertEquals(config.worktree, doc.worktree);
+});
+
+Deno.test("every setup-document key declares its concrete consumer", () => {
+  assertEquals(
+    Object.keys(CONFIG_DOC_FIELD_CONSUMERS).toSorted(),
+    Object.keys(configDocSchema.shape).toSorted(),
+  );
+  assertEquals(CONFIG_DOC_FIELD_CONSUMERS.$schema, "editor_schema");
+  assertEquals(CONFIG_DOC_FIELD_CONSUMERS.version, "version_gate");
+  const merged = mergeDocIntoFlags({}, {
+    name: "Demo",
+    slug: "demo",
+    branch_prefix: "agent/",
+    brief: "A demo.",
+    agents: ["claude_code", "codex"],
+    map: { dir: "docs/map/" },
+  });
+  assertEquals(merged, {
+    name: "Demo",
+    slug: "demo",
+    branchPrefix: "agent/",
+    brief: "A demo.",
+    agents: "claude_code,codex",
+    map: "docs/map/",
+  });
+  assertEquals(CONFIG_DOC_FIELD_CONSUMERS.map, "setup_input_and_config_fill");
+  for (
+    const section of [
+      "jobs",
+      "scopes",
+      "generated",
+      "standards",
+      "checkpoints",
+      "setup",
+      "worktree",
+    ] as const
+  ) {
+    assertEquals(CONFIG_DOC_FIELD_CONSUMERS[section], "config_fill");
+  }
+  assert(
+    (configDocSchema.description ?? "").includes(
+      "consumed only by `discern setup begin --config <file>`",
+    ),
+  );
+  assert(!/\bpreset\b/i.test(configDocSchema.description ?? ""));
+});
+
+Deno.test("setup begin is the sole production config-document consumer", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/config_doc_test.ts#setup-document-consumer",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Only production TypeScript can consume the setup document at runtime.",
+      include: (rel) => rel.startsWith("src/"),
+    },
+  });
+  const callers: string[] = [];
+  for (const rel of files) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+    for (const match of text.matchAll(/\bloadConfigDoc\s*\(/g)) {
+      const before = text.slice(Math.max(0, match.index - 32), match.index);
+      if (!/function\s*$/.test(before)) callers.push(rel);
+    }
+  }
+  assertEquals(callers, ["src/commands/setup.ts"]);
+});
+
+Deno.test("current product surfaces contain no source-glob setup input", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/config_doc_test.ts#removed-source-globs",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Executable, generated, and current documentation surfaces define the live setup input contract; audit history does not.",
+      include: (rel) =>
+        rel.startsWith("src/") ||
+        rel.startsWith("templates/") ||
+        rel.startsWith("schema/") ||
+        rel.startsWith("types/") ||
+        rel.startsWith("project/manual/") ||
+        (rel.startsWith("project/map/") && !rel.startsWith("project/map/_")),
+    },
+  });
+  const forbidden =
+    /sourceGlobs|source_globs|source-globs|scopes_web|Primary source globs/;
+  const found: string[] = [];
+  for (const rel of files) {
+    if (forbidden.test(await Deno.readTextFile(join(REPO_ROOT, rel)))) {
+      found.push(rel);
+    }
+  }
+  assert(files.length > 100, "the current-surface scan must stay broad");
+  assertEquals(found, []);
+});
+
 Deno.test("applyConfigDoc requires a standard's direction and defaults its metric", () => {
   assertThrows(
     () =>
@@ -357,6 +673,17 @@ const FULL_FILL_DOC: DiscernConfigDoc = {
   checkpoints: {
     k1: { paths: ["s1/**"], question: "The change is judged." },
   },
+  setup: { not_applicable: ["build"] },
+  worktree: {
+    root: "../worktrees",
+    resources: {
+      r2: {
+        create: "tool resource create",
+        destroy: "tool resource destroy",
+      },
+    },
+    setup: { steps: ["tool seed"] },
+  },
 };
 
 /** The config-doc keys that are NOT discern.toml fills: install inputs and
@@ -369,10 +696,8 @@ const NON_FILL_DOC_KEYS = new Set([
   "name",
   "slug",
   "branch_prefix",
-  "source_globs",
   "brief",
   "agents",
-  "description",
 ]);
 
 Deno.test("every fill section the config-doc schema declares is covered by the skip-existing guard", () => {
@@ -592,29 +917,21 @@ Deno.test("applyConfigDoc rejects a non-bare-key name in EVERY named-record sect
   // throws regardless of the rest of the spec. Derive the sections from the live
   // schema (recordConfigPaths) so a new open <name> table auto-enrols here.
   //
-  // worktree.resources is a record table too, but applyConfigDoc doesn't own it (its
-  // name is validated on the `config set-resource` path); an explicit, self-checking
-  // exception rather than a silent omission.
-  const APPLY_DOC_EXEMPT = new Set(["worktree.resources"]);
-  const all = recordConfigPaths();
-  for (const p of APPLY_DOC_EXEMPT) {
-    assert(
-      all.includes(p),
-      `APPLY_DOC_EXEMPT lists "${p}", which is no longer a record section`,
-    );
-  }
-  const sections = all.filter((p) => !APPLY_DOC_EXEMPT.has(p));
+  const sections = recordConfigPaths();
   assert(
     sections.length >= 3,
     `expected at least checks/scopes/standards, got: ${sections.join(", ")}`,
   );
 
   for (const section of sections) {
+    const doc = section === "worktree.resources"
+      ? { worktree: { resources: { "bad name": {} } } }
+      : { [section]: { "bad name": {} } };
     assertThrows(
       () =>
         applyConfigDoc(
           editor(),
-          { [section]: { "bad name": {} } } as unknown as DiscernConfigDoc,
+          doc as unknown as DiscernConfigDoc,
         ),
       Error,
       "name must be letters, digits", // the shared NAME_RE message, kind-agnostic

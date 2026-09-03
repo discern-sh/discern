@@ -1546,15 +1546,6 @@ Deno.test("resolveSetupConfig keeps a valid agents flag without warning", async 
   });
 });
 
-Deno.test("resolveSetupConfig falls back to default source globs when the flag parses to empty", async () => {
-  const config = await resolveSetupConfig(
-    { yes: true, sourceGlobs: " , ,, " },
-    logger(),
-  );
-  // A flag that splits to nothing → defaults, not an empty array.
-  assertEquals(config.sourceGlobs, [...DEFAULTS.sourceGlobs]);
-});
-
 Deno.test("resolveSetupConfig honours explicit base flags non-interactively", async () => {
   const config = await resolveSetupConfig(
     {
@@ -1562,14 +1553,12 @@ Deno.test("resolveSetupConfig honours explicit base flags non-interactively", as
       name: "My Project",
       slug: "my-proj",
       branchPrefix: "wt/",
-      sourceGlobs: "lib/**, pkg/**",
       brief: "a literal brief",
     },
     logger(),
   );
   assertEquals(config.slug, "my-proj");
   assertEquals(config.branchPrefix, "wt/");
-  assertEquals(config.sourceGlobs, ["lib/**", "pkg/**"]);
   assertEquals(config.brief, "a literal brief");
   // No agents flag → the default set, with interaction suppressed.
   assertEquals(config.agents, [...DEFAULTS.agents]);

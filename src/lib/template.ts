@@ -18,17 +18,20 @@ import { basename } from "@std/path";
  * `engine/worktree/tokens.ts`) — so they never collide with these and need no special
  * pass-through here.
  */
-export type ContentTokenName =
-  | "project_name"
-  | "project_slug"
-  | "branch_prefix"
-  | "agents_array"
-  | "map_dir"
-  | "gotchas_doc"
-  | "scopes_neutral"
-  | "scopes_instructions"
-  | "artifact_provenance_marker"
-  | "discern_version";
+export const CONTENT_TOKEN_NAMES = [
+  "project_name",
+  "project_slug",
+  "branch_prefix",
+  "agents_array",
+  "map_dir",
+  "gotchas_doc",
+  "scopes_neutral",
+  "scopes_instructions",
+  "artifact_provenance_marker",
+  "discern_version",
+] as const;
+
+export type ContentTokenName = (typeof CONTENT_TOKEN_NAMES)[number];
 
 /** The concrete token values resolved for one `setup` run. */
 export type TokenMap = Record<ContentTokenName, string>;

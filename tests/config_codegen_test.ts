@@ -41,6 +41,7 @@ import {
   CONFIG_SCHEMA_COMPATIBILITY_POLICY,
   CONFIG_SCHEMA_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  PUBLIC_SCHEMA_EXTENSION_KEYWORDS,
   PUBLIC_SCHEMA_PUBLICATIONS,
   SETUP_CONFIG_SCHEMA_ID,
 } from "../src/shared/public_schemas.ts";
@@ -138,6 +139,19 @@ Deno.test("schema/discern-setup-config.schema.json matches the generator (run `d
     renderConfigDocSchemaJson(),
     "schema/discern-setup-config.schema.json is stale — run `deno task codegen`",
   );
+});
+
+Deno.test("generated configuration schemas compile in strict mode", () => {
+  const ajv = new Ajv2020({
+    allErrors: true,
+    strict: true,
+    validateSchema: true,
+  });
+  for (const keyword of PUBLIC_SCHEMA_EXTENSION_KEYWORDS) {
+    ajv.addKeyword(keyword);
+  }
+  ajv.compile(decodeWith(JsonObjectSchema, renderConfigSchemaJson()));
+  ajv.compile(decodeWith(JsonObjectSchema, renderConfigDocSchemaJson()));
 });
 
 Deno.test("the generated config schemas fix the two historical staleness bugs", () => {

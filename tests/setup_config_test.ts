@@ -15,18 +15,81 @@ const ANSWERS = JSON.stringify({
   version: "2",
   name: "My App",
   slug: "my-app",
-  source_globs: ["src/**", "lib/**"],
+  branch_prefix: "agent/",
   brief: "A declaratively-configured app.",
   agents: ["claude_code"],
+  map: { dir: "docs/map/" },
   jobs: {
     test: "vitest run",
     format: "prettier --write .",
-    licenses: { stage: "check", run: "license-scan" },
+    licenses: {
+      stage: "check",
+      run: ["license-scan", "license-verify"],
+      provides: "license report",
+      timeout: 41,
+    },
   },
-  scopes: { native: { paths: ["native/**"], gate: "make -C native check" } },
+  scopes: {
+    native: {
+      paths: ["native/**"],
+      neutral: false,
+      preview: ["tool preview", "tool preview-summary"],
+      gate: "make -C native check",
+      timeout: 42,
+    },
+  },
+  generated: {
+    reference: {
+      paths: ["reference/**"],
+      run: ["tool generate-reference", "tool verify-reference"],
+      linguist_generated: true,
+      timeout: 43,
+    },
+  },
   standards: {
-    coverage: { direction: "up", limit: 80, run: "measure-cov" },
+    coverage: {
+      metric: "coverage",
+      direction: "up",
+      limit: 80,
+      run: "measure-cov",
+      per: { lines: ["src/**", "lib/**"] },
+      scale: 100,
+      margin: 0.5,
+      measure: "on-demand",
+      inputs: ["src/**"],
+      timeout: 44,
+    },
     bundle: { direction: "down", limit: 500000, run: "measure-bundle" },
+  },
+  checkpoints: {
+    review_native: {
+      scope: "native",
+      include_generated: true,
+      mode: "advise",
+      question: "Is the native change coherent?",
+    },
+  },
+  setup: { not_applicable: ["smoke"] },
+  worktree: {
+    root: "../worktrees",
+    inherit_env: ["APP_KEY"],
+    env_files: [".env.test"],
+    port: true,
+    ignored_file_drift: false,
+    resources: {
+      database: {
+        create: "tool database create",
+        destroy: "tool database destroy",
+        ensure: "tool database ensure",
+        required: false,
+        retries: 3,
+        gc: false,
+      },
+    },
+    setup: {
+      steps: ["tool seed"],
+      ensure: ["tool converge"],
+    },
   },
 });
 
@@ -44,15 +107,41 @@ Deno.test("setup begin --config scaffolds from a JSON answers file", async () =>
     assertEquals(result.ok, true);
     assertEquals(result.verb, "setup begin");
     assertEquals(result.data.project.slug, "my-app");
+    assertResultDataKey(result, "config_fills");
+    const configFills = result.data.config_fills;
+    assert(configFills !== undefined);
+    for (
+      const path of [
+        "scopes.native.timeout",
+        "generated.reference.linguist_generated",
+        "standards.coverage.per",
+        "checkpoints.review_native.question",
+        "setup.not_applicable",
+        "worktree.resources.database.retries",
+        "worktree.setup.ensure",
+      ]
+    ) {
+      assert(configFills.filled.includes(path), path);
+    }
+    assertEquals(configFills.skipped, []);
 
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assertStringIncludes(toml, 'test = "vitest run"'); // capability fill
     assertStringIncludes(toml, "[jobs.licenses]"); // check table
     assertStringIncludes(toml, 'paths = ["native/**"]'); // scope fill
     assertStringIncludes(toml, 'gate = "make -C native check"'); // folded-in gate
+    assertStringIncludes(toml, "timeout = 42");
+    assertStringIncludes(toml, "[generated.reference]");
+    assertStringIncludes(toml, "linguist_generated = true");
     assertStringIncludes(toml, "[standards.coverage]"); // coverage standard table
     assertStringIncludes(toml, "[standards.bundle]"); // named standard
     assertStringIncludes(toml, "limit = 500000");
+    assertStringIncludes(toml, "[checkpoints.review_native]");
+    assertStringIncludes(toml, 'not_applicable = ["smoke"]');
+    assertStringIncludes(toml, "[worktree.resources.database]");
+    assertStringIncludes(toml, "retries = 3");
+    assertStringIncludes(toml, "[worktree.setup]");
+    assertStringIncludes(toml, 'ensure = ["tool converge"]');
     // Template comments survive the fills.
     assert(toml.split("\n").filter((l) => l.startsWith("#")).length > 10);
 
@@ -115,7 +204,16 @@ Deno.test("setup begin --config --dry-run writes nothing", async () => {
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(decodeCliResult(r.stdout, "setup begin").dry_run, true);
+    const result = decodeCliResult(r.stdout, "setup begin");
+    assertEquals(result.dry_run, true);
+    assertResultDataKey(result, "config_fills");
+    const configFills = result.data.config_fills;
+    assert(configFills !== undefined);
+    assert(
+      configFills.filled.includes(
+        "worktree.resources.database.retries",
+      ),
+    );
     // Only the answers file exists; nothing was scaffolded.
     let entries = 0;
     for await (const _ of Deno.readDir(dir)) {
@@ -154,6 +252,30 @@ Deno.test("setup begin --config rejects an unsupported document version", async 
     assertEquals(result.error, "invalid_config_file");
     assert(result.message !== undefined);
     assertStringIncludes(result.message, "version");
+  });
+});
+
+Deno.test("setup begin rejects the removed source-glob input surfaces", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(
+      join(dir, "answers.json"),
+      JSON.stringify({ version: "2", slug: "x", source_globs: ["src/**"] }),
+    );
+    const document = await runCli(
+      ["setup", "begin", "--config", "answers.json", "--json"],
+      dir,
+    );
+    assertEquals(document.code, 1);
+    const result = decodeCliResult(document.stdout, "setup begin");
+    assertEquals(result.error, "invalid_config_file");
+    assertStringIncludes(result.message ?? "", "source_globs");
+
+    const option = await runCli(
+      ["setup", "begin", "--source-globs", "src/**", "--json"],
+      dir,
+    );
+    assertEquals(option.code, 2);
+    assertStringIncludes(`${option.stdout}\n${option.stderr}`, "source-globs");
   });
 });
 

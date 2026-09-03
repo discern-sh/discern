@@ -58,7 +58,6 @@ function integrationConfig(): SetupConfig {
     projectName: "Integration Demo",
     slug: "integration-demo",
     branchPrefix: "agent/",
-    sourceGlobs: ["src/**", "app/**"],
     brief: "An end-to-end integration brief.",
     agents: ["claude_code", "codex"] as ("claude_code" | "codex")[],
   };

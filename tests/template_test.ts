@@ -8,14 +8,18 @@
  * regression in any of these silently corrupts every scaffold.
  */
 
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
+import { join } from "@std/path";
 import {
+  CONTENT_TOKEN_NAMES,
   isGitignoreFragment,
   isTemplateFile,
   resolveTargetPath,
   substituteTokens,
   type TokenMap,
 } from "../src/lib/template.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** A complete token map for tests, with recognisable values. */
 function tokens(): TokenMap {
@@ -104,4 +108,41 @@ Deno.test("file-kind predicates classify the special paths", () => {
   // Settings-template routing is no longer a hardcoded predicate here — it is
   // registry-driven in fs_plan (a template whose TARGET is a hooks provider's
   // settings file). See fs_plan_test.ts / the synthetic hooks-provider test.
+});
+
+Deno.test("every scaffold content token and seed-template placeholder enroll each other", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/template_test.ts#scaffold-token-parity",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "The scaffold token contract applies only to seed templates; bundled skills, instructions, and setup pages have separate renderers.",
+      include: (rel) =>
+        rel.startsWith("templates/") &&
+        ![
+          "templates/skills/",
+          "templates/instructions/",
+          "templates/setup/",
+        ].some((prefix) => rel.startsWith(prefix)),
+    },
+  });
+  const seen = new Set<string>();
+  const unknown: string[] = [];
+  const declared = new Set<string>(CONTENT_TOKEN_NAMES);
+  for (const rel of files) {
+    const text = `${rel}\n${await Deno.readTextFile(join(REPO_ROOT, rel))}`;
+    for (const match of text.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/g)) {
+      const name = match[1];
+      assert(name !== undefined);
+      seen.add(name);
+      if (!declared.has(name)) unknown.push(`${rel}: ${name}`);
+    }
+  }
+  assert(files.length >= 5, "the seed-template scan must stay broad");
+  assertEquals(unknown, []);
+  assertEquals(
+    CONTENT_TOKEN_NAMES.filter((name) => !seen.has(name)),
+    [],
+    "every declared content token must occur in a seed template",
+  );
 });

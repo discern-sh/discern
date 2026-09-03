@@ -102,6 +102,7 @@ import {
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { Logger } from "../src/lib/log.ts";
 import { removeWorktreeSafely } from "../src/engine/worktree/git.ts";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 
 const RETIRED_STATUS_REFRESH_FIELDS = [
   "stale_generated",
@@ -1842,7 +1843,7 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      '[meta]\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n',
+      `[meta]\nschema_version = ${SCHEMA_VERSION}\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n`,
     );
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad");
@@ -1862,7 +1863,7 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      '[meta]\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n',
+      `[meta]\nschema_version = ${SCHEMA_VERSION}\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n`,
     );
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad-rerun");
@@ -1893,7 +1894,7 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      '[meta]\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n',
+      `[meta]\nschema_version = ${SCHEMA_VERSION}\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n`,
     );
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad-proof");

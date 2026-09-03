@@ -1,6 +1,6 @@
 /**
- * Config helpers: slug validation/derivation, agent and glob parsing, and the
- * TOML-array fragment renderer that feeds `{{agents_array}}` etc. These shape
+ * Config helpers: slug validation/derivation, agent parsing, and the TOML-array
+ * fragment renderer that feeds `{{agents_array}}` etc. These shape
  * every wizard answer into the exact strings the templates expect.
  */
 
@@ -12,7 +12,6 @@ import {
   defaultInstructionScopes,
   isValidSlug,
   parseAgents,
-  parseSourceGlobs,
   slugify,
   tokensFromConfig,
 } from "../src/lib/config.ts";
@@ -51,10 +50,6 @@ Deno.test("parseAgents dedups and ignores empty entries", () => {
   assertEquals(agents, ["codex"]);
 });
 
-Deno.test("parseSourceGlobs splits, trims, and drops empties", () => {
-  assertEquals(parseSourceGlobs("src/** , app/** ,"), ["src/**", "app/**"]);
-});
-
 Deno.test("renderTomlStringList quotes and comma-joins", () => {
   assertEquals(
     renderTomlStringList(["claude_code", "codex"]),
@@ -69,7 +64,6 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
     projectName: "Demo App",
     slug: "demo-app",
     branchPrefix: "agent/",
-    sourceGlobs: ["src/**", "lib/**"],
     brief: "anything",
     agents: ["claude_code", "codex"],
     mapDir: "docs/discern/",

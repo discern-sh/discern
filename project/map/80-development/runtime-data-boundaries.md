@@ -28,11 +28,11 @@ The main starting points are:
 | Canon Editor snapshot subprocess output                                          | [`snapshot.ts`](../../../scripts/canon_editor/snapshot.ts) and [`pipeline.ts`](../../../scripts/canon_editor/pipeline.ts) |
 | Embedded first- and third-party legal bundles                                    | [`license_bundle_schemas.ts`](../../../src/shared/license_bundle_schemas.ts)                                              |
 
-## Config-document tolerance
+## Setup-document boundary
 
-The setup config document has two views. `configDocSchema` is the strict authoring snapshot used to generate the published editor schema. `configDocRuntimeSchema` derives from it, removes only fields the strict schema identifies as unknown, and then validates the remaining known shape. The projection applies at nested objects as well as the root, so an optional field added within the same major is accepted and ignored by an older runtime without duplicating the list of fields it knows.
+The setup config document has one closed shape. `configDocSchema` generates the published editor schema, supplies its inferred TypeScript input, and is also exported as `configDocRuntimeSchema`. Root and nested unknown keys therefore fail before setup plans any effects. This keeps misspelled or retired inputs from looking successful while leaving part of the requested install unwritten.
 
-[`loadConfigDoc`](../../../src/lib/config_doc.ts) uses `decodeConfigDoc`. After schema validation, its single version check refuses a declared major this build does not understand. Unknown same-major fields are forward compatibility; a known field with the wrong type is malformed input and fails with its source.
+[`loadConfigDoc`](../../../src/lib/config_doc.ts) uses `decodeConfigDoc`. After schema validation, its single version check refuses a declared major this build does not understand. The explicit document major, not silent field dropping, is the compatibility boundary. An unknown key or a known field with the wrong type is malformed input and fails with its source.
 
 ## Caller policy stays outside validation
 

@@ -545,7 +545,6 @@ Deno.test("setup seeds per-agent hook files ONLY for configured agents (no inert
         projectName: "Seed Filter",
         slug: "seed-filter",
         branchPrefix: "agent/",
-        sourceGlobs: ["src/**"],
         brief: "",
         agents: configured,
       },
