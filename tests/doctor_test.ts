@@ -672,9 +672,31 @@ Deno.test("doctor: the git check fails with a fix when git is unreachable", asyn
     assertEquals(code, 1);
     const git = check(payload, "git");
     assertEquals(git.ok, false);
-    assertStringIncludes(git.fix ?? "", "install git");
+    assertStringIncludes(git.fix ?? "", "install Git");
     // The environment block records git as absent (omitted) rather than crashing.
     assertEquals(payload.data.environment.git, undefined);
+  });
+});
+
+Deno.test("doctor: Git below the declared minimum fails before repository probes", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const fakeGit = join(dir, "old-git");
+    await Deno.writeTextFile(
+      fakeGit,
+      '#!/bin/sh\necho "git version 2.29.9"\n',
+    );
+    await Deno.chmod(fakeGit, 0o755);
+
+    const { code, stdout } = await runCli(["doctor", "--json"], dir, {
+      GIT_BIN: fakeGit,
+    });
+    const payload = decodeDoctor(stdout);
+    assertEquals(code, 1);
+    const git = check(payload, "git");
+    assertEquals(git.status, "fail");
+    assertStringIncludes(git.detail, "requires Git 2.30.0 or later");
+    assertStringIncludes(git.fix ?? "", "upgrade Git");
   });
 });
 
@@ -1473,22 +1495,24 @@ Deno.test("doctor: spaces and newly tracked outputs auto-enroll in effective att
   });
 });
 
-Deno.test("doctor: linked worktrees require the correct worktree-local generated merge driver", async () => {
+Deno.test("doctor: main and linked checkouts require one shared generated merge driver", async () => {
   await withTempDir(async (dir) => {
     await generatedDoctorProject(dir);
-    await git(dir, "config", DRIVER_KEY, "wrong-common-driver");
     const worktree = await addWorktree(dir, "driver-health");
-    const setup = await runCli(["worktree", "setup", "--json"], worktree);
-    assertEquals(setup.code, 0, setup.stderr);
 
-    const healthy = await runDoctorJson(worktree);
-    assertEquals(healthy.code, 0, JSON.stringify(healthy.payload.data.checks));
-    const configured = check(healthy.payload, "generated merge driver");
-    assertEquals(configured.status, "ok");
-    assertStringIncludes(configured.detail, 'scope "worktree"');
-    assertStringIncludes(configured.detail, "config.worktree");
+    for (const checkout of [dir, worktree]) {
+      const healthy = await runDoctorJson(checkout);
+      assertEquals(
+        healthy.code,
+        0,
+        JSON.stringify(healthy.payload.data.checks),
+      );
+      const configured = check(healthy.payload, "generated merge driver");
+      assertEquals(configured.status, "ok");
+      assertStringIncludes(configured.detail, 'scope "local"');
+      assertStringIncludes(configured.detail, ".git/config");
+    }
 
-    await git(worktree, "config", "--worktree", "--unset-all", DRIVER_KEY);
     await git(dir, "config", "--unset-all", DRIVER_KEY);
     const missing = await runDoctorJson(worktree);
     assertEquals(missing.code, 1);
@@ -1497,17 +1521,21 @@ Deno.test("doctor: linked worktrees require the correct worktree-local generated
     assertStringIncludes(absent.detail, "has no");
     assertStringIncludes(
       absent.fix ?? "",
-      `git config --worktree ${DRIVER_KEY} true`,
+      `${DRIVER_KEY} true`,
     );
 
     await git(dir, "config", DRIVER_KEY, "wrong-common-driver");
-    const wrongScope = await runDoctorJson(worktree);
-    assertEquals(wrongScope.code, 1);
-    const common = check(wrongScope.payload, "generated merge driver");
+    const wrongValue = await runDoctorJson(worktree);
+    assertEquals(wrongValue.code, 1);
+    const common = check(wrongValue.payload, "generated merge driver");
     assertEquals(common.status, "fail");
     assertStringIncludes(common.detail, "wrong-common-driver");
     assertStringIncludes(common.detail, 'scope "local"');
 
+    // A private-era checkout-local definition wins effective precedence until
+    // refresh migrates it to the one common clone-local definition.
+    await git(dir, "config", DRIVER_KEY, "true");
+    await git(dir, "config", "extensions.worktreeConfig", "true");
     await git(worktree, "config", "--worktree", DRIVER_KEY, "false");
     const wrong = await runDoctorJson(worktree);
     assertEquals(wrong.code, 1);
@@ -1515,6 +1543,18 @@ Deno.test("doctor: linked worktrees require the correct worktree-local generated
     assertEquals(incorrect.status, "fail");
     assertStringIncludes(incorrect.detail, 'resolves to "false"');
     assertStringIncludes(incorrect.detail, 'scope "worktree"');
+
+    const refresh = await runCli(["refresh", "--json"], worktree);
+    assertEquals(refresh.code, 0, refresh.stderr);
+    const migrated = await runDoctorJson(worktree);
+    assertEquals(
+      migrated.code,
+      0,
+      JSON.stringify(migrated.payload.data.checks),
+    );
+    const shared = check(migrated.payload, "generated merge driver");
+    assertEquals(shared.status, "ok");
+    assertStringIncludes(shared.detail, 'scope "local"');
   });
 });
 

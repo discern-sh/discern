@@ -5,16 +5,20 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
 import {
   canonicalDiscernGitattributesBlock,
   DISCERN_GITATTRIBUTES_BEGIN,
   DISCERN_GITATTRIBUTES_END,
   discernMarkdownAttributePaths,
+  planDiscernGitattributesFile,
   reconcileDiscernGitattributes,
   translateScopeGlobToGitattributes,
 } from "../src/lib/agent_gitattributes.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import type { ResolvedGeneratedGroup } from "../src/shared/generated_artifacts.ts";
+import { gitInit } from "./engine_helpers.ts";
+import { withTempDir } from "./helpers.ts";
 
 /** Build resolved generated groups for concise test cases. */
 function groups(
@@ -41,7 +45,7 @@ Deno.test("scope globs translate to equivalent root .gitattributes patterns", ()
     ["src/**/*.ts", "src/**/*.ts"],
     ["?at.ts", "/?at.ts"],
     ["README.generated.md", "/README.generated.md"],
-    ["schema/output.json", "schema/output.json"],
+    ["schema/output.json", "/schema/output.json"],
   ] as const;
 
   for (const [scope, expected] of cases) {
@@ -109,7 +113,7 @@ Deno.test("one block composes generated, Linguist, and scoped Markdown attribute
     "/CLAUDE.md merge=discern-generated diff=markdown",
   );
   assertStringIncludes(result.text, "discern/map/**/*.md diff=markdown");
-  assertStringIncludes(result.text, "discern/TODO.md diff=markdown");
+  assertStringIncludes(result.text, "/discern/TODO.md diff=markdown");
   assertEquals(result.text.includes("\n*.md diff=markdown"), false);
   assertEquals(result.patterns.includes("discern/map/**/*.md"), false);
   assertStringIncludes(result.text, DISCERN_GITATTRIBUTES_END);
@@ -138,6 +142,26 @@ dir = "tools/discern"
     { surface: "todo", path: "notes/discern-work.md" },
     { surface: "brief", path: "discern/brief.md" },
   ]);
+});
+
+Deno.test("on-disk attributes omit absent registered surfaces and anchor active literals", async () => {
+  await withTempDir(async (root) => {
+    const config = parseConfigOrThrow(`
+[project]
+todo = "notes/discern-work.md"
+
+[map]
+dir = "knowledge/"
+`);
+    await Deno.mkdir(join(root, "notes"), { recursive: true });
+    await Deno.writeTextFile(join(root, "notes/discern-work.md"), "# Work\n");
+    await gitInit(root);
+
+    const plan = await planDiscernGitattributesFile(root, config);
+    assertStringIncludes(plan.text, "/notes/discern-work.md diff=markdown");
+    assertEquals(plan.text.includes("discern/brief.md"), false);
+    assertEquals(plan.text.includes("knowledge/**/*.md"), false);
+  });
 });
 
 Deno.test("reconcile replaces only the marked bytes and is idempotent", () => {

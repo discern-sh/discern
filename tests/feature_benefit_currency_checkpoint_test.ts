@@ -20,6 +20,7 @@ import {
 import { CHECKPOINT_WHEN_INPUT_VERSION } from "../src/shared/checkpoints.ts";
 import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
+import { GIT_REPOSITORY_LOCATION_ENVIRONMENT } from "../src/shared/subprocess.ts";
 import { gitInit, gitOut } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -82,7 +83,7 @@ function matcherInput(policyCommit: string): CheckpointWhenInput {
   };
 }
 
-/** Run the matcher with the same least-privilege grants as project policy. */
+/** Run the narrow matcher with every ambient Git route poisoned. */
 async function runMatcher(
   cwd: string,
   inputPath: string,
@@ -101,6 +102,9 @@ async function runMatcher(
     ],
     cwd,
     env: {
+      ...Object.fromEntries(
+        GIT_REPOSITORY_LOCATION_ENVIRONMENT.map((name) => [name, "poison"]),
+      ),
       [DISCERN_ENVIRONMENT_VARIABLES.checkpointInput]: inputPath,
     },
     stdout: "piped",
@@ -173,7 +177,7 @@ Deno.test("currency command emits exact matches until all three regions move", a
 
     await Deno.writeTextFile(registry, registrySource("feature-v2"));
     const partial = await runMatcher(dir, inputPath);
-    assertEquals(partial.code, 0);
+    assertEquals(partial.code, 0, partial.stderr);
     assertEquals(
       partial.stdout,
       "DISCERN_MATCH src/main.ts\n" +

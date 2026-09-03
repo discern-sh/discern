@@ -22,12 +22,14 @@ import type {
 } from "../src/engine/checkpoints/types.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { AMBIENT_READ_BOUNDARIES } from "../scripts/ambient_state_lint.ts";
 import {
   MANUAL_FRONT_DOOR_CHECKPOINT_ID,
   MANUAL_KIND_REGISTRY,
 } from "../src/shared/manual.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const PROJECT_CHECKPOINT_IDS = [
   ...MANUAL_KIND_REGISTRY.map((entry) => entry.checkpointId),
@@ -90,6 +92,10 @@ const TERMINAL_TIMING_READINESS_PATHS = [
 
 const CONFIG = await loadConfig(REPO_ROOT);
 const RESOLUTION = resolveCheckpoints(CONFIG);
+const CHECKPOINT_GIT_MATCHER_PREFIX =
+  "deno run --quiet --no-prompt --allow-read " +
+  `--allow-env=${DISCERN_ENVIRONMENT_VARIABLES.checkpointInput} ` +
+  "--allow-run=git ";
 
 /** Return one required resolved policy entry. */
 function checkpoint(id: string): ResolvedCheckpoint {
@@ -111,8 +117,7 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
     assertEquals(definition.selector?.globs, ["project/manual/**"]);
     assertEquals(
       definition.when,
-      "deno run --quiet --no-prompt --allow-read " +
-        "--allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git " +
+      CHECKPOINT_GIT_MATCHER_PREFIX +
         `scripts/manual_doc_checkpoint.ts ${registration.checkpointId}`,
     );
   }
@@ -131,8 +136,7 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
   );
   assertEquals(
     checkpoint(MANUAL_FRONT_DOOR_CHECKPOINT_ID).when,
-    "deno run --quiet --no-prompt --allow-read " +
-      "--allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git " +
+    CHECKPOINT_GIT_MATCHER_PREFIX +
       "scripts/manual_front_door_checkpoint.ts",
   );
 
@@ -206,8 +210,7 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
   );
   assertEquals(
     checkpoint("feature-benefit-currency").when,
-    "deno run --quiet --no-prompt --allow-read " +
-      "--allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git " +
+    CHECKPOINT_GIT_MATCHER_PREFIX +
       "scripts/feature_benefit_currency_checkpoint.ts",
   );
   assertEquals(
@@ -223,6 +226,48 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
     "Remove stale material, link the authority, and cut mechanically derivable prose.",
   );
   assertFalse(Object.hasOwn(CONFIG.checkpoints, "map-conventions"));
+});
+
+Deno.test("every Git-backed checkpoint matcher exposes only its input environment", () => {
+  const gitMatchers = RESOLUTION.checkpoints.filter((definition) =>
+    definition.when?.split(/\s+/).includes("--allow-run=git") ?? false
+  );
+  assert(gitMatchers.length > 0, "the project has no Git-backed matchers");
+  for (const definition of gitMatchers) {
+    const words = definition.when?.split(/\s+/) ?? [];
+    assertEquals(
+      words.filter((word) => word.startsWith("--allow-env")),
+      [`--allow-env=${DISCERN_ENVIRONMENT_VARIABLES.checkpointInput}`],
+      definition.id,
+    );
+  }
+});
+
+Deno.test("checkpoint Git reads use the one isolated read-only adapter", async () => {
+  const adapter = await Deno.readTextFile(
+    new URL("../scripts/checkpoint_when_input.ts", import.meta.url),
+  );
+  assert(
+    adapter.includes('environmentPermissionFallback: "isolated-read-only"'),
+  );
+
+  const matchers = await structuralGuardScope({
+    guard: "tests/discern_checkpoint_policy_test.ts#checkpoint-git-adapter",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Only project checkpoint matcher modules may be tempted to bypass the shared checkpoint Git adapter.",
+      include: (path) =>
+        path.startsWith("scripts/") && path.endsWith("_checkpoint.ts"),
+    },
+  });
+  for (const path of matchers) {
+    const source = await Deno.readTextFile(`${REPO_ROOT}/${path}`);
+    assertFalse(
+      /\brunGit\s*\(/u.test(source),
+      `${path} bypasses runCheckpointGit`,
+    );
+  }
 });
 
 Deno.test("terminal timing checkpoint catches a fresh registered sibling and generic synchronization changes", () => {

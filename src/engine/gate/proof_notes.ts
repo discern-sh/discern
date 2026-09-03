@@ -31,7 +31,7 @@ export const PROOF_NOTES_REF = "refs/notes/discern";
 export const PROOF_NOTES_SHORT_REF = "discern";
 export const PROOF_NOTES_TRACKING_PREFIX = "refs/discern/remotes";
 
-const MANAGED_REMOTE_KEY = "discern.proofNotesFetchRemote";
+export const PROOF_NOTES_FETCH_MARKER_KEY = "discern.proofNotesFetchRemote";
 const UTF8_ENCODER = new TextEncoder();
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
@@ -41,7 +41,7 @@ function fetchRef(remote: string): string {
 }
 
 /** Render the wildcard refspec that fetches proof notes without requiring their existence. */
-function fetchMapping(remote: string): string {
+export function proofNotesFetchMapping(remote: string): string {
   return `+${PROOF_NOTES_REF}*:${fetchRef(remote)}*`;
 }
 
@@ -176,7 +176,7 @@ async function planManagedRemoteRemoval(
     };
   }
   const operations: ProofNotesFetchOperation[] = [];
-  const mapping = fetchMapping(remote);
+  const mapping = proofNotesFetchMapping(remote);
   if (current.values.includes(mapping)) {
     operations.push(proofNotesOperation({
       kind: "remove",
@@ -189,7 +189,7 @@ async function planManagedRemoteRemoval(
   }
   operations.push(proofNotesOperation({
     kind: "remove",
-    key: MANAGED_REMOTE_KEY,
+    key: PROOF_NOTES_FETCH_MARKER_KEY,
     value: remote,
     remote,
     failurePrefix: `could not clear discern's proof-note marker for ${remote}`,
@@ -210,7 +210,7 @@ export async function planProofNotesFetch(
     return { mode, remotes: [], boundaries: [], errors: [] };
   }
 
-  const managedRead = await configValues(root, MANAGED_REMOTE_KEY);
+  const managedRead = await configValues(root, PROOF_NOTES_FETCH_MARKER_KEY);
   if (managedRead.error !== undefined) {
     return {
       mode,
@@ -257,7 +257,7 @@ export async function planProofNotesFetch(
 
   for (const remote of remotes) {
     const key = `remote.${remote}.fetch`;
-    const mapping = fetchMapping(remote);
+    const mapping = proofNotesFetchMapping(remote);
     const current = await configValues(root, key);
     if (current.error !== undefined) {
       errors.push(`could not read ${key}: ${current.error}`);
@@ -291,7 +291,7 @@ export async function planProofNotesFetch(
     if (!managed.has(remote)) {
       const marker = proofNotesOperation({
         kind: "add",
-        key: MANAGED_REMOTE_KEY,
+        key: PROOF_NOTES_FETCH_MARKER_KEY,
         value: remote,
         remote,
         failurePrefix: `could not mark ${key} as discern-managed`,
@@ -299,7 +299,7 @@ export async function planProofNotesFetch(
       operations.push(marker);
       rollback = proofNotesOperation({
         kind: "remove",
-        key: MANAGED_REMOTE_KEY,
+        key: PROOF_NOTES_FETCH_MARKER_KEY,
         value: remote,
         remote,
         failurePrefix: `could not roll back discern's marker for ${remote}`,
@@ -900,7 +900,7 @@ async function notePathsFromRef(
   ref: string,
 ): Promise<Map<string, string>> {
   const tree = await runGit(
-    ["ls-tree", "-r", "-z", "--format=%(path)", ref],
+    ["ls-tree", "-r", "-z", "--name-only", ref],
     { cwd: root },
   );
   if (!tree.success) {

@@ -59,6 +59,7 @@ import {
   PlanApplyError,
   planBrief,
   planGitattributesReconcile,
+  planGitignoreReconcile,
   SettingsMergePlanError,
 } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan } from "../lib/plan_view.ts";
@@ -381,7 +382,8 @@ export async function assembleInitPlan(params: {
   env?: EnvReader | undefined;
 }): Promise<Plan> {
   const { templatesDir, destDir, config } = params;
-  const tokens = tokensFromConfig(config, params.env ?? Deno.env);
+  const env = params.env ?? Deno.env;
+  const tokens = tokensFromConfig(config, env);
 
   // `excludeNonSeed`: this scaffolds from the binary's own templates tree, whose
   // skills/ + instructions/ are materialized/read from the binary, never seeded.
@@ -393,7 +395,7 @@ export async function assembleInitPlan(params: {
     // Only the configured agents get their per-agent seed files (hooks/settings);
     // an unconfigured agent leaves no inert dotfiles behind.
     configuredAgents: config.agents,
-    env: params.env,
+    env,
   });
 
   // The brief is the user's authored intent, captured at setup for the agent.
@@ -423,11 +425,25 @@ export async function assembleInitPlan(params: {
   const finalConfig = configOp === undefined
     ? await loadConfig(destDir)
     : parseConfigOrThrow(TEXT_DECODER.decode(configOp.bytes));
+  const gitignoreIndex = plan.ops.findIndex((op) =>
+    op.targetRel === ".gitignore"
+  );
+  if (gitignoreIndex !== -1) {
+    plan.ops[gitignoreIndex] = await planGitignoreReconcile(
+      join(templatesDir, ".gitignore.fragment"),
+      destDir,
+      finalConfig,
+      env,
+    );
+  }
   const gitattributes = await planGitattributesReconcile(
     destDir,
     finalConfig,
     agentFilePaths(finalConfig),
-    params.env ?? Deno.env,
+    env,
+    plan.ops.filter((op) => op.disposition !== "remove").map((op) =>
+      op.targetRel
+    ),
   );
   if (gitattributes !== undefined) {
     plan.ops.push(gitattributes);

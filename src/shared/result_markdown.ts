@@ -999,13 +999,13 @@ const presentUninstall: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const worktrees = strings(data.worktrees);
   const resources = strings(data.resources);
+  const removed = result.dry_run === true ? "Would remove" : "Removed";
+  const removedGitConfig = strings(data.removed_git_config);
+  const keptGitConfig = strings(data.kept_git_config);
   return {
     state: defaultState(result),
     evidence: unique([
-      listFact(
-        result.dry_run === true ? "Would remove" : "Removed",
-        strings(data.removed),
-      ),
+      listFact(removed, strings(data.removed)),
       listFact(
         result.dry_run === true
           ? "Would strip from shared files"
@@ -1018,11 +1018,16 @@ const presentUninstall: ResultMarkdownPresenter = (result) => {
           : "Kept user content",
         strings(data.kept),
       ),
+      listFact(`${removed} local Git configuration`, removedGitConfig),
+      listFact("Retained local Git configuration", keptGitConfig),
+      listFact("Retained local Git refs", strings(data.retained_refs)),
+      listFact("Optional ref cleanup", strings(data.optional_cleanup)),
       text(data.binary_hint),
     ]),
     boundary: unique([
       listFact("Active worktrees block uninstall", worktrees),
       listFact("Provisioned resources block uninstall", resources),
+      listFact("Git cleanup planning failed", strings(data.git_config_errors)),
     ]),
   };
 };

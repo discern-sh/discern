@@ -3055,6 +3055,16 @@ export const UninstallDataSchema = z.strictObject({
     rel: z.string(),
     reason: z.string(),
   })).optional(),
+  /** Positively-owned clone-local Git-config entries removed by this plan. */
+  removed_git_config: z.array(z.string()).optional(),
+  /** Git-config entries retained because project-owned state still needs them. */
+  kept_git_config: z.array(z.string()).optional(),
+  /** Private local refs uninstall deliberately leaves byte-for-byte untouched. */
+  retained_refs: z.array(z.string()).optional(),
+  /** Exact opt-in commands for deleting each retained private ref. */
+  optional_cleanup: z.array(z.string()).optional(),
+  /** Git-config/ref discovery failures that block an uninstall. */
+  git_config_errors: z.array(z.string()).optional(),
 });
 export type UninstallData = z.infer<typeof UninstallDataSchema>;
 

@@ -63,7 +63,7 @@ import {
   generateThirdPartyArtifacts,
   sameThirdPartyBundlePayload,
   THIRD_PARTY_ARTIFACT_PATHS,
-} from "../src/shared/third_party_codegen.ts";
+} from "./third_party_codegen.ts";
 import {
   FIRST_PARTY_LICENSE_ARTIFACT_PATHS,
   generateFirstPartyLicenseBundle,

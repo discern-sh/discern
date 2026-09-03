@@ -69,7 +69,6 @@ function named(payload: DoctorPayload, name: string): DoctorCheck {
 Deno.test("doctor: Git safety defaults are reported as healthy", async () => {
   await withTempDir(async (dir) => {
     await setupRepository(dir);
-    await git(dir, "config", "extensions.worktreeConfig", "true");
     await addWorktree(dir, "healthy-checkout");
     const result = await doctor(dir, GIT_ISOLATION);
     assertEquals(result.code, 0);
@@ -180,7 +179,7 @@ Deno.test("doctor: hidden index flags fail and name the affected paths", async (
   });
 });
 
-Deno.test("doctor: linked worktrees require worktree-scoped Git config", async () => {
+Deno.test("doctor: linked worktrees reject checkout-specific keys in common config", async () => {
   await withTempDir(async (dir) => {
     await setupRepository(dir);
     await addWorktree(dir, "config-health");
@@ -190,7 +189,6 @@ Deno.test("doctor: linked worktrees require worktree-scoped Git config", async (
     const result = await doctor(dir, GIT_ISOLATION);
     const config = named(result.payload, "worktree Git config");
     assertEquals(config.status, "fail");
-    assertStringIncludes(config.detail, "extensions.worktreeConfig");
     assertStringIncludes(config.detail, "core.worktree");
     assertStringIncludes(config.detail, "core.sparseCheckout");
     assertStringIncludes(config.fix ?? "", "extensions.worktreeConfig true");

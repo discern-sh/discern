@@ -394,11 +394,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
         fetches.includes(unrecognizedProofFetchMapping(remoteName)),
         false,
       );
-      const emptyFetch = await runGit(["fetch", remoteName], { cwd: dir });
-      assert(
-        emptyFetch.success,
-        `ordinary fetch from ${remoteName} must succeed before the first proof-note publication: ${emptyFetch.stderr}`,
-      );
+      await git(dir, "fetch", remoteName);
     }
 
     const mirror = join(dir, "mirror.git");
@@ -413,11 +409,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
       ).length,
       1,
     );
-    const mirrorFetch = await runGit(["fetch", "mirror"], { cwd: dir });
-    assert(
-      mirrorFetch.success,
-      `ordinary fetch from a newly enrolled remote must succeed before the first proof-note publication: ${mirrorFetch.stderr}`,
-    );
+    await git(dir, "fetch", "mirror");
     for (const remoteName of ["backup", "mirror", "origin"]) {
       assertEquals(
         await localConfigValues(dir, `remote.${remoteName}.push`),
@@ -530,13 +522,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
     await git(dir, "fetch", "origin");
 
     await git(remote, "update-ref", "-d", PROOF_NOTES_REF);
-    const fetchAfterDeletion = await runGit(["fetch", "origin"], {
-      cwd: dir,
-    });
-    assert(
-      fetchAfterDeletion.success,
-      `ordinary fetch must succeed after the remote proof ref is deleted: ${fetchAfterDeletion.stderr}`,
-    );
+    await git(dir, "fetch", "origin");
     await git(dir, "fetch", "--prune", "origin");
     const prunedTracking = await runGit(
       ["rev-parse", "--verify", "-q", trackingRef],
@@ -1349,7 +1335,6 @@ Deno.test("a post-landing note identity failure is carried without failing accep
     });
     assertEquals(refreshed.code, 0, refreshed.output);
     await git(worktree, "add", "feature.txt");
-    await git(worktree, "add", ".gitattributes");
     await git(
       worktree,
       "commit",

@@ -170,7 +170,7 @@ Deno.test("update regenerates a declared artifact instead of merging its conflic
     assertResultDataKey(parsed, "behind");
     const { data } = parsed;
 
-    assertEquals(data.auto_resolved, [GENERATED_PATH]);
+    assertEquals(data.auto_resolved ?? [], []);
     assertConfiguredGroupsRan(data, configured);
     assert(data.regenerated?.includes(BUILTIN_REFRESH_GROUP));
     assertEquals(
@@ -183,7 +183,7 @@ Deno.test("update regenerates a declared artifact instead of merging its conflic
       result.stdout,
     );
     assert(data.range.after !== undefined, JSON.stringify(data.range));
-    assert(data.overlap.includes(GENERATED_PATH));
+    assert(!data.overlap.includes(GENERATED_PATH));
   });
 });
 
@@ -395,7 +395,7 @@ Deno.test("update never treats project-owned attributes lines as generated confl
   });
 });
 
-Deno.test("update refuses a mixed generated and authored conflict and separates both path lists", async () => {
+Deno.test("update refuses an authored conflict without presenting driver-owned generated paths", async () => {
   await withTempDir(async (dir) => {
     await scaffoldGeneratedProject(dir);
     const wt = await addWorktree(dir, "generated-mixed");
@@ -415,11 +415,11 @@ Deno.test("update refuses a mixed generated and authored conflict and separates 
     assert(parsed.message !== undefined, result.stdout);
     assertStringIncludes(
       parsed.message,
-      "These paths need your judgment: source/left.txt.",
+      "conflicts in: source/left.txt.",
     );
-    assertStringIncludes(
-      parsed.message,
-      `These generated paths would have self-resolved: ${GENERATED_PATH}.`,
+    assert(
+      !parsed.message.includes(GENERATED_PATH),
+      "the shared generated-file driver must keep derived paths out of the owner's conflict list",
     );
     assertEquals(
       await gitOut(wt, "status", "--porcelain"),
@@ -491,7 +491,7 @@ Deno.test("update resolves a refresh-owned agent-file conflict without generated
     const parsed = parse(result.stdout);
     assertResultDataKey(parsed, "behind");
     const { data } = parsed;
-    assertEquals(data.auto_resolved, [agentPath]);
+    assertEquals(data.auto_resolved ?? [], []);
     assert(data.regenerated?.includes(BUILTIN_REFRESH_GROUP));
     assertEquals(
       await Deno.readTextFile(join(wt, agentPath)),

@@ -21,7 +21,7 @@ Everything here serves your first hours with discern: deciding whether it belong
 - [Install and set up discern](first-success.md): you're ready to try it. One repository from install through setup to a first real change, proved by the Gate, reviewed by you, and landed with your authority.
 - [After setup](after-setup.md): setup handed you a branch. What each file in that diff is for, who maintains it, and how to change it later.
 
-You'll need a Git repository, a supported coding agent, and macOS, Linux, or Windows through WSL 2; [Platforms and providers](../30-reference/platforms-and-providers.md) has the specifics. discern itself is one self-contained binary, so the project needs no extra runtime for it.
+You'll need Git 2.30.0 or later, a supported coding agent, and macOS, Linux, or Windows through WSL 2; [Platforms and providers](../30-reference/platforms-and-providers.md) has the specifics. discern itself is one self-contained binary, so the project needs no extra runtime for it.
 
 ## After setup
 

@@ -2,7 +2,7 @@
  * The shape of one third-party component bundled into the compiled binary.
  *
  * The component list itself is generated: `deno task codegen` derives it from
- * the compile graph of `src/main.ts` (see `src/shared/third_party_codegen.ts`)
+ * the compile graph of `src/main.ts` (see `scripts/third_party_codegen.ts`)
  * and writes `src/lib/third_party_components.json`. This module carries only
  * the type, so the binary's module graph stays free of the generator's I/O.
  */

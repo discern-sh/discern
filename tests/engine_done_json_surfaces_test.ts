@@ -337,6 +337,7 @@ Deno.test("done --json: two ADR records claiming one number fail the adr_numbers
       join(adrDir, "0007-second.md"),
       join(adrDir, "0008-second.md"),
     );
+    assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
     assertEquals(
       (await runAgent(dir, ["done", "--json"])).code,
       0,

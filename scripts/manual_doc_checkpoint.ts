@@ -11,7 +11,7 @@
 import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { resolveContainedProjectReadPath } from "../src/shared/project_path.ts";
-import { type GitResult, runGit } from "../src/shared/subprocess.ts";
+import type { GitResult } from "../src/shared/subprocess.ts";
 import {
   parseFrontmatter,
   readFrontmatterBlock,
@@ -32,6 +32,7 @@ import {
   checkpointProjectRoot,
   checkpointWhenInputFromEnvironment,
   parseCheckpointWhenInput,
+  runCheckpointGit,
 } from "./checkpoint_when_input.ts";
 
 /** Maximum size of the engine-authored v1 input file. */
@@ -125,11 +126,10 @@ async function deletedPage(
   policyCommit: string,
   path: string,
 ): Promise<BoundedText> {
-  const listed = await runGit(
+  const listed = await runCheckpointGit(
     ["--literal-pathspecs", "ls-tree", "-z", policyCommit, "--", path],
     {
       cwd: root,
-      bin: "git",
       timeoutMs: GIT_TIMEOUT_MS,
       maxOutputBytes: 16 * 1024,
     },
@@ -151,9 +151,8 @@ async function deletedPage(
   ) {
     return fail(`${path} is not one regular blob in the governing tree`);
   }
-  const shown = await runGit(["cat-file", "blob", oid], {
+  const shown = await runCheckpointGit(["cat-file", "blob", oid], {
     cwd: root,
-    bin: "git",
     timeoutMs: GIT_TIMEOUT_MS,
     maxOutputBytes: MANUAL_PAGE_MAX_BYTES + 4_096,
   });

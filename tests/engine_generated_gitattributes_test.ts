@@ -1,7 +1,8 @@
 /**
  * Engine coverage for generated-artifact merge attributes: refresh follows the
- * declarations, first worktree setup installs a local keep-current driver, raw
- * Git merges use it, and an ordinary clone retains Git's normal conflict path.
+ * declarations, reconciliation installs one clone-local keep-current driver,
+ * raw Git merges use it, and an unreconciled clone retains Git's normal
+ * conflict path.
  */
 
 import {
@@ -147,7 +148,7 @@ async function scaffoldGeneratedProject(dir: string): Promise<void> {
       "README.md",
     ),
     [
-      "discern/map/README.md: diff: markdown",
+      "discern/map/README.md: diff: unspecified",
       "README.md: diff: unspecified",
     ].join("\n"),
   );
@@ -250,40 +251,45 @@ Deno.test("a provisioned worktree raw-merges generated conflicts and the gate re
   await withTempDir(async (dir) => {
     await scaffoldGeneratedProject(dir);
     const worktree = await addWorktree(dir, "raw-generated-merge");
+    // Model the private-era footprint: the driver lived in config.worktree and
+    // the common definition was absent. Any normal reconciliation must migrate
+    // it without waiting for a special setup-only path.
+    await git(dir, "config", "--unset-all", DRIVER_KEY);
+    await git(dir, "config", "extensions.worktreeConfig", "true");
+    await git(worktree, "config", "--worktree", DRIVER_KEY, "true");
     const setup = await runAgent(worktree, ["worktree", "setup", "--json"]);
     assertEquals(setup.code, 0, setup.output);
 
-    const driver = await rawGit(
+    for (const checkout of [dir, worktree]) {
+      const driver = await rawGit(checkout, "config", "--get", DRIVER_KEY);
+      assertEquals(driver.success, true, driver.stderr);
+      assertEquals(driver.stdout.trim(), "true");
+    }
+    const commonDriver = await rawGit(
+      dir,
+      "config",
+      "--file",
+      join(dir, ".git", "config"),
+      "--get",
+      DRIVER_KEY,
+    );
+    assertEquals(commonDriver.success, true, commonDriver.stderr);
+    assertEquals(commonDriver.stdout.trim(), "true");
+    const staleDriver = await rawGit(
       worktree,
       "config",
       "--worktree",
       "--get",
       DRIVER_KEY,
     );
-    assertEquals(driver.success, true, driver.stderr);
-    assertEquals(driver.stdout.trim(), "true");
-    const mainDriver = await rawGit(
+    assertEquals(staleDriver.success, false, staleDriver.stdout);
+    const extension = await rawGit(
       dir,
       "config",
-      "--worktree",
       "--get",
-      DRIVER_KEY,
+      "extensions.worktreeConfig",
     );
-    assertEquals(mainDriver.success, false, mainDriver.stdout);
-    const replay = await runAgent(worktree, [
-      "worktree",
-      "setup",
-      "--dry-run",
-      "--json",
-    ]);
-    assertEquals(replay.code, 0, replay.output);
-    assertEquals(
-      decodeCliResult(replay.stdout, "worktree setup").plan?.steps.some((
-        step,
-      ) => step.label === "configure-generated-merge-driver"),
-      false,
-      "the ready sentinel keeps driver installation in first setup",
-    );
+    assertEquals(extension.success, false, extension.stdout);
 
     await write(worktree, "source/left.txt", "worktree-left\n");
     await regenerate(worktree);
@@ -365,6 +371,24 @@ Deno.test("a plain clone without the driver falls back to a normal conflict", as
   });
 });
 
+Deno.test("a fresh clone gains the shared driver only after reconciliation", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldGeneratedProject(dir);
+    const clone = join(dir, "reconciled-clone");
+    const cloned = await rawGit(dir, "clone", "--quiet", dir, clone);
+    assert(cloned.success, cloned.stderr);
+
+    const before = await rawGit(clone, "config", "--get", DRIVER_KEY);
+    assertEquals(before.success, false, before.stdout);
+
+    const refresh = await runAgent(clone, ["refresh", "--json"]);
+    assertEquals(refresh.code, 0, refresh.output);
+    const after = await rawGit(clone, "config", "--get", DRIVER_KEY);
+    assertEquals(after.success, true, after.stderr);
+    assertEquals(after.stdout.trim(), "true");
+  });
+});
+
 Deno.test("first setup installs no driver when no generated candidate exists", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { agents: [] });
@@ -372,13 +396,7 @@ Deno.test("first setup installs no driver when no generated candidate exists", a
     const worktree = await addWorktree(dir, "no-generated-paths");
     const setup = await runAgent(worktree, ["worktree", "setup", "--json"]);
     assertEquals(setup.code, 0, setup.output);
-    const driver = await rawGit(
-      worktree,
-      "config",
-      "--worktree",
-      "--get",
-      DRIVER_KEY,
-    );
+    const driver = await rawGit(worktree, "config", "--get", DRIVER_KEY);
     assertEquals(driver.success, false, driver.stdout);
     const attributes = await rawGit(
       worktree,

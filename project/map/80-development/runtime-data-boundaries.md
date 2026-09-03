@@ -23,7 +23,7 @@ The main starting points are:
 | Data entering runtime code                                                       | Shape and decoding authority                                                                                              |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Setup config documents and preset manifests                                      | [`configDocRuntimeSchema`](../../../src/shared/config_schema.ts) and [`decodeConfigDoc`](../../../src/lib/config_doc.ts)  |
-| Deno module graphs, storage reports, package metadata, and the JSR licence cache | [`third_party_codegen.ts`](../../../src/shared/third_party_codegen.ts)                                                    |
+| Deno module graphs, storage reports, package metadata, and the JSR licence cache | [`third_party_codegen.ts`](../../../scripts/third_party_codegen.ts)                                                       |
 | Vale JSON reports                                                                | [`prose_lib.ts`](../../../scripts/prose_lib.ts)                                                                           |
 | Canon Editor snapshot subprocess output                                          | [`snapshot.ts`](../../../scripts/canon_editor/snapshot.ts) and [`pipeline.ts`](../../../scripts/canon_editor/pipeline.ts) |
 | Embedded first- and third-party legal bundles                                    | [`license_bundle_schemas.ts`](../../../src/shared/license_bundle_schemas.ts)                                              |

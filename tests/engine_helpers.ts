@@ -30,7 +30,10 @@ import {
 } from "../src/lib/tidy_format.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
-import { ensureDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
+import {
+  DISCERN_GENERATED_MERGE_DRIVER,
+  ensureDiscernGitattributesBlock,
+} from "../src/lib/agent_gitattributes.ts";
 import { agentFilePaths } from "../src/engine/instruction_render.ts";
 import {
   SOURCE_PATH_NAMES,
@@ -766,6 +769,14 @@ export async function gitInit(dir: string): Promise<void> {
     { append: true },
   );
   await convergeFixtureGitattributes(dir);
+  const attributes = await readTextIfExists(join(dir, ".gitattributes"));
+  if (attributes?.includes(`merge=${DISCERN_GENERATED_MERGE_DRIVER}`)) {
+    await git(
+      "config",
+      `merge.${DISCERN_GENERATED_MERGE_DRIVER}.driver`,
+      "true",
+    );
+  }
   await git("add", "-A");
   await git("commit", "-q", "-m", "scaffold", "--no-gpg-sign");
 }

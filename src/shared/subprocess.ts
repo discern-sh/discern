@@ -59,6 +59,82 @@ export function gitBin(
 }
 
 /**
+ * Git variables that can retarget a command away from its requested `cwd`.
+ *
+ * Git exports several of these to hooks. Discern may legitimately run inside
+ * an owner hook, but every Git operation still belongs to the repository named
+ * by its caller. Identity, configuration, and tracing variables remain intact;
+ * only repository-location state is removed at the child boundary.
+ */
+export const GIT_REPOSITORY_LOCATION_ENVIRONMENT = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_NAMESPACE",
+  "GIT_PREFIX",
+] as const;
+
+/** Build a complete child environment without ambient Git repository routing. */
+export function gitChildEnvironment(
+  overrides: Readonly<Record<string, string>> = {},
+  parent: Pick<typeof Deno.env, "toObject"> = Deno.env,
+): Record<string, string> {
+  const environment = { ...parent.toObject(), ...overrides };
+  for (const variable of GIT_REPOSITORY_LOCATION_ENVIRONMENT) {
+    delete environment[variable];
+  }
+  return environment;
+}
+
+export interface GitChildEnvironmentPlan {
+  /** Clear and replace the complete environment when the host can enumerate it. */
+  readonly clearEnv: boolean;
+  /** Safe overrides, or the complete sanitized environment when clearEnv is true. */
+  readonly env: Record<string, string>;
+}
+
+export type GitEnvironmentPermissionFallback =
+  | "refuse"
+  | "isolated-read-only";
+
+/**
+ * Plan a Git child's environment in both full and narrowly permissioned Deno
+ * hosts. Ordinary callers refuse when the host cannot enumerate inherited
+ * values. An explicitly isolated read-only caller may instead clear the whole
+ * environment; that mode cannot redirect Git and cannot suppress a hook
+ * because its enrolled commands never run one.
+ */
+export function gitChildEnvironmentPlan(
+  overrides: Readonly<Record<string, string>> = {},
+  permissionFallback: GitEnvironmentPermissionFallback = "refuse",
+  parent: Pick<typeof Deno.env, "get" | "toObject"> = Deno.env,
+): GitChildEnvironmentPlan {
+  try {
+    return {
+      clearEnv: true,
+      env: gitChildEnvironment(overrides, parent),
+    };
+  } catch (error) {
+    if (
+      !(error instanceof Deno.errors.NotCapable) &&
+      !(error instanceof Deno.errors.PermissionDenied)
+    ) {
+      throw error;
+    }
+    if (permissionFallback === "refuse") throw error;
+  }
+
+  const safeOverrides = { ...overrides };
+  for (const variable of GIT_REPOSITORY_LOCATION_ENVIRONMENT) {
+    delete safeOverrides[variable];
+  }
+  return { clearEnv: true, env: safeOverrides };
+}
+
+/**
  * The exit code reported when a command could not be spawned at all — the POSIX
  * "command not found" code. A caller treats it as an ordinary failed run.
  */
@@ -116,6 +192,37 @@ export const GIT_ALIAS_BOUNDARY_ERROR =
   "Git alias configuration cannot run through the generic Git runner. " +
   "Call the Git subcommand directly.";
 
+/** Git subcommands that can choose or initiate transport outside the clone. */
+export const DISCERN_FORBIDDEN_GIT_TRANSPORT_SUBCOMMANDS = [
+  "clone",
+  "fetch",
+  "fetch-pack",
+  "ls-remote",
+  "maintenance",
+  "pull",
+  "push",
+  "receive-pack",
+  "send-pack",
+  "submodule",
+  "upload-pack",
+] as const;
+
+/** Diagnostic returned when discern code reaches for Git transport. */
+export const GIT_TRANSPORT_BOUNDARY_ERROR =
+  "Discern's Git boundary is local-only; remote transport remains an explicit owner command.";
+
+/** Git reads that neither mutate repository state nor invoke owner hooks. */
+export const ISOLATED_GIT_READ_SUBCOMMANDS = [
+  "cat-file",
+  "ls-tree",
+  "rev-parse",
+  "show",
+] as const;
+
+/** Diagnostic returned when an isolated narrow host reaches beyond safe reads. */
+export const GIT_ISOLATED_READ_BOUNDARY_ERROR =
+  "An isolated Git host may run only its registered read-only subcommands.";
+
 /** Exit code used when a caller-owned output ceiling terminates Git. */
 export const GIT_OUTPUT_LIMIT_EXCEEDED = 125;
 
@@ -158,6 +265,30 @@ interface GitInvocation {
   readonly subcommand: string;
   readonly subcommandIndex: number;
   readonly inlineConfigKeys: readonly string[];
+}
+
+/** Whether one parsed Git invocation can initiate remote transport. */
+function isTransportInvocation(
+  invocation: GitInvocation,
+  args: readonly string[],
+): boolean {
+  if (
+    (DISCERN_FORBIDDEN_GIT_TRANSPORT_SUBCOMMANDS as readonly string[])
+      .includes(invocation.subcommand)
+  ) {
+    return true;
+  }
+  const subcommandArgs = args.slice(invocation.subcommandIndex + 1);
+  if (
+    invocation.subcommand === "remote" &&
+    subcommandArgs.some((arg) => arg === "update")
+  ) {
+    return true;
+  }
+  return invocation.subcommand === "archive" &&
+    subcommandArgs.some((arg) =>
+      arg === "--remote" || arg.startsWith("--remote=")
+    );
 }
 
 /** Whether one status argv already selects how untracked paths are shown. */
@@ -492,9 +623,10 @@ export function discernMergeArgs(
 /**
  * Run a git subcommand, capturing stdout+stderr. `cwd` is the required directory
  * git runs in (the equivalent of `-C`), so the checkout a git call targets is part
- * of the contract, never inherited from ambient process state; `env` is forwarded
- * to the spawn (merged over the parent environment) so a caller can pin git's config
- * resolution hermetically without mutating the process. A missing or unrunnable git
+ * of the contract, never inherited from ambient process state. `env` augments the
+ * inherited environment after repository-location variables are removed, so a
+ * caller can pin Git's configuration resolution without retargeting the command.
+ * A missing or unrunnable git
  * resolves to a failed run (code {@link SPAWN_FAILED}) whose stderr names the REAL
  * spawn failure ({@link describeSpawnError} — a missing cwd, a permissions error, or
  * an absent binary, each with its own message) rather than throwing, so every caller
@@ -521,6 +653,8 @@ export async function runGit(
     quiesceDescendants?: boolean;
     /** Timer lifecycle for explicit process bounds and descendant grace. */
     scheduler?: Scheduler;
+    /** Clear all inherited state only for an enrolled read-only narrow host. */
+    environmentPermissionFallback?: GitEnvironmentPermissionFallback;
   },
 ): Promise<GitResult> {
   const invocation = gitInvocation(args);
@@ -530,6 +664,28 @@ export async function runGit(
       code: 2,
       stdout: "",
       stderr: GIT_COMMIT_BOUNDARY_ERROR,
+    };
+  }
+  if (invocation !== undefined && isTransportInvocation(invocation, args)) {
+    return {
+      success: false,
+      code: 2,
+      stdout: "",
+      stderr: GIT_TRANSPORT_BOUNDARY_ERROR,
+    };
+  }
+  if (
+    opts.environmentPermissionFallback === "isolated-read-only" &&
+    (invocation === undefined ||
+      !(ISOLATED_GIT_READ_SUBCOMMANDS as readonly string[]).includes(
+        invocation.subcommand,
+      ))
+  ) {
+    return {
+      success: false,
+      code: 2,
+      stdout: "",
+      stderr: GIT_ISOLATED_READ_BOUNDARY_ERROR,
     };
   }
   if (
@@ -552,10 +708,15 @@ export async function runGit(
   let timedOut = false;
   let outputLimitExceeded = false;
   try {
+    const environment = gitChildEnvironmentPlan(
+      opts.env,
+      opts.environmentPermissionFallback,
+    );
     const command = new Deno.Command(binary, {
       args: safeArgs,
       cwd: opts.cwd,
-      ...(opts.env !== undefined ? { env: opts.env } : {}),
+      clearEnv: environment.clearEnv,
+      env: environment.env,
       stdin: opts.stdin === undefined ? "null" : "piped",
       stdout: "piped",
       stderr: "piped",

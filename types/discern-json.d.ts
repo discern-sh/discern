@@ -2185,6 +2185,11 @@ export type DiscernUninstallResult = DiscernResultState & {
       rel: string;
       reason: string;
     }>;
+    removed_git_config?: Array<string>;
+    kept_git_config?: Array<string>;
+    retained_refs?: Array<string>;
+    optional_cleanup?: Array<string>;
+    git_config_errors?: Array<string>;
   } | {
     issues: Array<{
       kind?: "unknown_root_section";

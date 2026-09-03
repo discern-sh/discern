@@ -18,7 +18,11 @@ import {
 } from "../shared/generated_artifacts.ts";
 import { generatedArtifactMarker } from "../shared/brand.ts";
 import type { EnvReader } from "../shared/env.ts";
-import { fileExists, readTextIfExists } from "../shared/fs_presence.ts";
+import {
+  fileExists,
+  pathExists,
+  readTextIfExists,
+} from "../shared/fs_presence.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import { splitNulRecords } from "../shared/git_paths.ts";
 import { runGit } from "../shared/subprocess.ts";
@@ -57,7 +61,7 @@ export interface GitattributesReconcileOperation {
 
 export interface GitattributesBlockResult {
   readonly text: string;
-  /** Patterns that need the worktree-local generated merge driver. */
+  /** Patterns that need the clone-local shared generated merge driver. */
   readonly patterns: string[];
   readonly refused: RefusedGitattributesPattern[];
 }
@@ -168,7 +172,7 @@ export function translateScopeGlobToGitattributes(
       return {
         ok: true,
         source,
-        pattern: source.includes("/") ? source : `/${source}`,
+        pattern: `/${source}`,
       };
     }
     default:
@@ -337,20 +341,6 @@ export function canonicalDiscernGitattributesBlock(
   };
 }
 
-/** Build the complete block from the config and active compiled Agent files. */
-export function canonicalDiscernGitattributesBlockForConfig(
-  config: DiscernConfig,
-  builtInPaths: readonly string[] = [],
-  env: EnvReader = Deno.env,
-): GitattributesBlockResult {
-  return canonicalDiscernGitattributesBlock(
-    resolveGeneratedGroups(config),
-    builtInPaths,
-    discernMarkdownAttributePaths(config),
-    env,
-  );
-}
-
 interface TextLine {
   readonly start: number;
   readonly end: number;
@@ -508,6 +498,45 @@ async function activeBuiltInPaths(
   return active;
 }
 
+/** Path whose presence makes one registered Markdown surface active. */
+function markdownSurfaceRoot(path: string): string {
+  return path.endsWith("/**/*.md") ? path.slice(0, -"/**/*.md".length) : path;
+}
+
+/** Return only registered Markdown surfaces that exist or are tracked. */
+async function activeMarkdownPaths(
+  root: string,
+  candidates: readonly DiscernMarkdownAttributePath[],
+  materializedCandidates: readonly string[] = [],
+): Promise<DiscernMarkdownAttributePath[]> {
+  const roots = candidates.map((candidate) =>
+    markdownSurfaceRoot(candidate.path)
+  );
+  const listed = roots.length === 0
+    ? undefined
+    : await runGit(["ls-files", "-z", "--", ...roots], { cwd: root });
+  const tracked = new Set(
+    listed?.success === true ? splitNulRecords(listed.stdout) : [],
+  );
+  const materialized = new Set(materializedCandidates);
+  const active: DiscernMarkdownAttributePath[] = [];
+  for (const [index, candidate] of candidates.entries()) {
+    const surfaceRoot = roots[index];
+    if (surfaceRoot === undefined) continue;
+    if (
+      [...materialized].some((path) =>
+        path === surfaceRoot || path.startsWith(`${surfaceRoot}/`)
+      ) ||
+      [...tracked].some((path) =>
+        path === surfaceRoot || path.startsWith(`${surfaceRoot}/`)
+      ) || await pathExists(join(root, surfaceRoot))
+    ) {
+      active.push(candidate);
+    }
+  }
+  return active;
+}
+
 /** Compute the complete on-disk reconciliation without touching the file. */
 export async function planDiscernGitattributesFile(
   root: string,
@@ -522,11 +551,16 @@ export async function planDiscernGitattributesFile(
     builtInCandidates,
     materializedCandidates,
   );
+  const markdown = await activeMarkdownPaths(
+    root,
+    discernMarkdownAttributePaths(config),
+    materializedCandidates,
+  );
   const result = reconcileDiscernGitattributes(
     existing ?? "",
     resolveGeneratedGroups(config),
     builtIns,
-    discernMarkdownAttributePaths(config),
+    markdown,
     env,
   );
   return {

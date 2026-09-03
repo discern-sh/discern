@@ -85,7 +85,6 @@ export const BUILT_IN_STEP_LABELS = {
   checkTrunkCheckout: "check-trunk-checkout",
   commitRegeneratedArtifacts: "commit-regenerated-artifacts",
   completeRefresh: "complete-refresh",
-  configureGeneratedMergeDriver: "configure-generated-merge-driver",
   configuredMarkdown: "configured-markdown",
   deleteBranch: "delete-branch",
   ensureBranch: "ensure-branch",

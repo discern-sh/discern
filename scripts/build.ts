@@ -45,7 +45,7 @@ const DISTRIBUTION_SOURCE_ROOTS = [
 ] as const;
 
 /** The least-privilege permissions the compiled binary carries. */
-const PERMISSIONS = [
+export const BINARY_PERMISSIONS = [
   "--allow-read",
   "--allow-write",
   "--allow-env",
@@ -228,7 +228,7 @@ export function compileArguments<T extends Pick<BuildTarget, "triple">>(
 ): string[] {
   return [
     "compile",
-    ...PERMISSIONS,
+    ...BINARY_PERMISSIONS,
     "--bundle",
     "--node-modules-dir=none",
     "--exclude-unused-npm",

@@ -354,6 +354,11 @@ Deno.test("the gitignore keeps machine-local provider settings ignored", async (
 
 Deno.test("gitattributes reconciliation plans registered Markdown and generated paths", async () => {
   await withTempDir(async (dir) => {
+    await Deno.mkdir(join(dir, "discern", "map"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "discern", "map", "orientation.md"),
+      "# Orientation\n",
+    );
     const defaultConfig = parseConfigOrThrow("");
     const create = await planGitattributesReconcile(dir, defaultConfig);
     assert(create !== undefined);

@@ -21,7 +21,8 @@ import { targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { agentFilePaths } from "../src/engine/instruction_render.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
-import { canonicalDiscernGitattributesBlockForConfig } from "../src/lib/agent_gitattributes.ts";
+import { canonicalDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
+import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
@@ -169,9 +170,10 @@ Deno.test("engine refresh: one pass enrolls every compiled Agent file before Git
     const config = await loadConfig(dir);
     assertEquals(
       await Deno.readTextFile(join(dir, ".gitattributes")),
-      canonicalDiscernGitattributesBlockForConfig(
-        config,
+      canonicalDiscernGitattributesBlock(
+        resolveGeneratedGroups(config),
         agentFilePaths(config),
+        [],
         fakeEnv(),
       ).text,
       "a new provider output must join the managed block in the same refresh that compiles it",

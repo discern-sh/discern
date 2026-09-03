@@ -11,7 +11,7 @@
  * declares as its own.
  */
 
-import { join } from "@std/path";
+import { isAbsolute, join, relative } from "@std/path";
 import {
   type AgentArtifactPosture,
   agentArtifactPosture,
@@ -24,6 +24,8 @@ import { fire, type FiredHint, HINTS } from "../shared/hints.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { generatedArtifactMarker } from "../shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
+import type { DiscernConfig } from "../shared/config_schema.ts";
+import { resolveWorktreeRoot } from "./worktree_root.ts";
 
 export const DISCERN_GITIGNORE_BEGIN = "# --- discern ---";
 export const DISCERN_GITIGNORE_END = "# --- /discern ---";
@@ -72,6 +74,21 @@ export function ignoreCovers(
   return variants.some((v) => lines.includes(v));
 }
 
+/** Resolve the configured worktree root when it lives inside the repository. */
+export function nestedWorktreeIgnorePath(
+  repoRoot: string,
+  config: DiscernConfig,
+): string | undefined {
+  const path = relative(repoRoot, resolveWorktreeRoot(repoRoot, config))
+    .replaceAll("\\", "/")
+    .replace(/^\.\//u, "")
+    .replace(/\/+$/u, "");
+  return path === "" || path === ".." || path.startsWith("../") ||
+      isAbsolute(path)
+    ? undefined
+    : path;
+}
+
 /**
  * Return the block setup and upgrade should write, ensuring the static fragment
  * has delimiters and every registry-declared IGNORED artifact — a materialized
@@ -82,6 +99,7 @@ export function canonicalDiscernGitignoreBlock(
   fragment: string,
   artifacts: AgentArtifactPosture = agentArtifactPosture(),
   env: EnvReader = Deno.env,
+  nestedWorktreeRoot?: string,
 ): string {
   const normalized = normalizeLineEndings(fragment).replace(/\n+$/, "");
   const lines = normalized === "" ? [] : normalized.split("\n");
@@ -115,6 +133,14 @@ export function canonicalDiscernGitignoreBlock(
       coverageLines.push(rule);
     }
   }
+  if (
+    nestedWorktreeRoot !== undefined &&
+    !ignoreCovers(coverageLines, nestedWorktreeRoot, true)
+  ) {
+    const rule = `/${nestedWorktreeRoot}/`;
+    additions.push(rule);
+    coverageLines.push(rule);
+  }
   if (additions.length > 0) {
     withoutEnd.push(
       "# Agent artifacts discovered from the provider registry.",
@@ -130,10 +156,16 @@ export function reconcileDiscernGitignore(
   fragment: string,
   artifacts: AgentArtifactPosture = agentArtifactPosture(),
   env: EnvReader = Deno.env,
+  nestedWorktreeRoot?: string,
 ): GitignoreReconcileResult {
   const eol = existing.includes("\r\n") ? "\r\n" : "\n";
   const normalized = normalizeLineEndings(existing);
-  const canonical = canonicalDiscernGitignoreBlock(fragment, artifacts, env);
+  const canonical = canonicalDiscernGitignoreBlock(
+    fragment,
+    artifacts,
+    env,
+    nestedWorktreeRoot,
+  );
   const canonicalLines = trimFinalSplit(canonical);
   const stripped = stripDiscernOwnedLines(
     trimFinalSplit(normalized),
@@ -183,6 +215,7 @@ export async function readGitignoreFragment(
 /** Plan `.gitignore` reconciliation without touching disk. */
 export async function planDiscernGitignoreBlock(
   destDir: string,
+  config?: DiscernConfig,
   env: EnvReader = Deno.env,
 ): Promise<GitignoreFileReconcileResult> {
   const fragment = await readGitignoreFragment(env);
@@ -195,6 +228,9 @@ export async function planDiscernGitignoreBlock(
     fragment,
     agentArtifactPosture(),
     env,
+    config === undefined
+      ? undefined
+      : nestedWorktreeIgnorePath(destDir, config),
   );
   return {
     operations: result.operations,
@@ -205,6 +241,7 @@ export async function planDiscernGitignoreBlock(
 /** Reconcile `<destDir>/.gitignore` on disk. */
 export async function ensureDiscernGitignoreBlock(
   destDir: string,
+  config?: DiscernConfig,
   env: EnvReader = Deno.env,
 ): Promise<GitignoreFileReconcileResult> {
   const fragment = await readGitignoreFragment(env);
@@ -218,6 +255,9 @@ export async function ensureDiscernGitignoreBlock(
     fragment,
     agentArtifactPosture(),
     env,
+    config === undefined
+      ? undefined
+      : nestedWorktreeIgnorePath(destDir, config),
   );
   if (result.operations.length > 0) {
     await Deno.writeTextFile(path, result.text);
@@ -565,12 +605,11 @@ function isLegacyBlockOwnedLine(
 function isStandaloneDiscernOwnedLine(
   line: string,
   canonicalOwned: Set<string>,
-  artifacts: AgentArtifactPosture,
+  _artifacts: AgentArtifactPosture,
 ): boolean {
   const trimmed = line.trim();
-  return trimmed !== "" &&
-    (canonicalOwned.has(trimmed) ||
-      isDiscernOwnedRule(trimmed, artifacts));
+  return trimmed !== "" && !trimmed.startsWith("#") &&
+    canonicalOwned.has(trimmed);
 }
 
 /** Recognize another delimited section so legacy cleanup stops at its boundary. */
@@ -596,27 +635,25 @@ function isDiscernOwnedRule(
     return parsed.path === ".claude/settings.json" ||
       parsed.path === ".claude/settings.local.json";
   }
-  // Everything discern ever wrote as an ignore rule, so reconcile absorbs it:
-  // the current ignored kinds, plus legacy rules earlier versions shipped —
-  // including the instruction-file ignores the tracked-by-default posture retired,
-  // so an upgraded install's compiled files become trackable again.
-  const ownedPaths = new Set<string>([
-    ...artifacts.instructionFiles,
-    ...artifacts.materializedDirs,
-    ...artifacts.localStateFiles,
-    ".claude",
-    ".claude/*",
-    ".claude/settings.json",
-    ".claude/settings.local.json",
-    ".discern",
-    ".discern/*",
-    ".discern/skills",
-    ".discern/evidence",
-    ".discern/worktrees",
-    ".discern-rescue",
-    ".ai/skills",
-  ]);
+  // A marked legacy block may carry the current registry's tracked or
+  // materialized artifacts. Retired private paths are deliberately absent.
+  const ownedPaths = new Set<string>(
+    discernOwnedArtifactIgnorePaths(artifacts),
+  );
   return ownedPaths.has(parsed.path);
+}
+
+/** Registry-derived paths a marked legacy block may identify as discern-owned. */
+export function discernOwnedArtifactIgnorePaths(
+  artifacts: AgentArtifactPosture = agentArtifactPosture(),
+): string[] {
+  return [
+    ...new Set([
+      ...artifacts.instructionFiles,
+      ...artifacts.materializedDirs,
+      ...artifacts.localStateFiles,
+    ]),
+  ];
 }
 
 /** Strip comments and boundary syntax into the path form used for ownership checks. */

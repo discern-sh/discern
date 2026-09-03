@@ -43,7 +43,7 @@ import {
   THIRD_PARTY_ARTIFACT_PATHS,
   thirdPartyBundlePayload,
   VENDORED_WASM_COMPONENTS,
-} from "../src/shared/third_party_codegen.ts";
+} from "../scripts/third_party_codegen.ts";
 import { licensesResult } from "../src/commands/licenses.ts";
 import type { ThirdPartyComponent } from "../src/lib/third_party_types.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";

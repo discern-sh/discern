@@ -6108,6 +6108,36 @@
                       "reason"
                     ]
                   }
+                },
+                "removed_git_config": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "kept_git_config": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "retained_refs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "optional_cleanup": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "git_config_errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
             },

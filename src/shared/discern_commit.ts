@@ -15,6 +15,7 @@ import { splitNulRecords } from "./git_paths.ts";
 import {
   describeSpawnError,
   gitBin,
+  gitChildEnvironment,
   type GitResult,
   runGit,
   SPAWN_FAILED,
@@ -600,7 +601,8 @@ export async function commitDiscernChanges(
     const child = new Deno.Command(bin, {
       args,
       cwd: options.cwd,
-      env: { GIT_REFLOG_ACTION: reflogAction },
+      clearEnv: true,
+      env: gitChildEnvironment({ GIT_REFLOG_ACTION: reflogAction }),
       stdout: "piped",
       stderr: "piped",
       detached: Deno.build.os !== "windows",

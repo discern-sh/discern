@@ -3,7 +3,6 @@
 import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { resolveContainedProjectReadPath } from "../src/shared/project_path.ts";
-import { runGit } from "../src/shared/subprocess.ts";
 import {
   MANUAL_FRONT_DOORS_END,
   MANUAL_FRONT_DOORS_START,
@@ -20,6 +19,7 @@ import {
   checkpointInvocationRoot,
   checkpointProjectRoot,
   checkpointWhenInputFromEnvironment,
+  runCheckpointGit,
 } from "./checkpoint_when_input.ts";
 
 export { MANUAL_FRONT_DOOR_CHECKPOINT_ID };
@@ -55,12 +55,14 @@ async function governingRoot(
   root: string,
   commit: string,
 ): Promise<string> {
-  const result = await runGit(["show", `${commit}:${MANUAL_FRONT_DOOR_PATH}`], {
-    cwd: root,
-    bin: "git",
-    timeoutMs: 2_000,
-    maxOutputBytes: MANUAL_PAGE_MAX_BYTES + 4_096,
-  });
+  const result = await runCheckpointGit(
+    ["show", `${commit}:${MANUAL_FRONT_DOOR_PATH}`],
+    {
+      cwd: root,
+      timeoutMs: 2_000,
+      maxOutputBytes: MANUAL_PAGE_MAX_BYTES + 4_096,
+    },
+  );
   if (!result.success || result.outputLimitExceeded === true) {
     return fail("the governing manual front door could not be read");
   }

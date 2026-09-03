@@ -28,7 +28,10 @@ import {
   substituteTokens,
   type TokenMap,
 } from "./template.ts";
-import { reconcileDiscernGitignore } from "./agent_gitignore.ts";
+import {
+  nestedWorktreeIgnorePath,
+  reconcileDiscernGitignore,
+} from "./agent_gitignore.ts";
 import { planDiscernGitattributesFile } from "./agent_gitattributes.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import type { DiscernConfig } from "../shared/config_schema.ts";
@@ -219,9 +222,10 @@ export async function buildPlan(params: {
     }
 
     if (isGitignoreFragment(templateRel)) {
-      const op = await planGitignoreAppend(
+      const op = await planGitignoreReconcile(
         entry.path,
         destDir,
+        undefined,
         env,
       );
       ops.push(op);
@@ -362,9 +366,10 @@ async function planSettingsMerge(
 }
 
 /** Plan reconciliation of the discern-owned .gitignore block. */
-async function planGitignoreAppend(
+export async function planGitignoreReconcile(
   sourceAbs: string,
   destDir: string,
+  config?: DiscernConfig,
   env: EnvReader = Deno.env,
 ): Promise<PlanOp> {
   const fragment = TEXT_DECODER.decode(await Deno.readFile(sourceAbs));
@@ -379,6 +384,9 @@ async function planGitignoreAppend(
     fragment,
     undefined,
     env,
+    config === undefined
+      ? undefined
+      : nestedWorktreeIgnorePath(destDir, config),
   );
   const changed = reconciled.operations.length > 0;
 
@@ -405,12 +413,14 @@ export async function planGitattributesReconcile(
   config: DiscernConfig,
   builtInCandidates: readonly string[] = [],
   env: EnvReader = Deno.env,
+  materializedCandidates: readonly string[] = [],
 ): Promise<PlanOp | undefined> {
   const reconciled = await planDiscernGitattributesFile(
     destDir,
     config,
     builtInCandidates,
     env,
+    materializedCandidates,
   );
   const changed = reconciled.operations.length > 0;
   if (!changed && reconciled.existing === undefined) {

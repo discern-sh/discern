@@ -89,6 +89,11 @@ import {
   resolveCommonGitDir,
 } from "../engine/worktree/git.ts";
 import {
+  formatGitVersion,
+  MIN_GIT_VERSION,
+  supportedGitVersion,
+} from "../shared/git_floor.ts";
+import {
   type GitHealthReport,
   inspectGitHealth,
 } from "../engine/doctor/git_health.ts";
@@ -908,18 +913,30 @@ export async function runChecks(
   let gitHealth: GitHealthReport | undefined;
   {
     const version = await gitVersion();
+    const minimum = formatGitVersion(MIN_GIT_VERSION);
+    const supported = version !== undefined && supportedGitVersion(version);
     checks.push(
-      version !== undefined
-        ? { name: "git", ok: true, detail: gitDisplayVersion(version) }
-        : {
+      version === undefined
+        ? {
           name: "git",
           ok: false,
           detail: "`git` is not on PATH (or is not runnable)",
           fix:
-            "install git — discern's worktrees, standards, acceptance, and status all shell out to it",
+            `install Git ${minimum} or later — discern's worktrees, standards, acceptance, and status all shell out to it`,
+        }
+        : supported
+        ? { name: "git", ok: true, detail: gitDisplayVersion(version) }
+        : {
+          name: "git",
+          ok: false,
+          detail: `${
+            gitDisplayVersion(version)
+          } is unsupported; discern requires Git ${minimum} or later`,
+          fix:
+            `upgrade Git to ${minimum} or later, then re-run \`discern doctor\``,
         },
     );
-    if (version !== undefined) {
+    if (supported) {
       gitHealth = await inspectGitHealth(destDir);
       checks.push(...gitHealth.checks);
     }

@@ -79,7 +79,7 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
 
     assertStringIncludes(
       await Deno.readTextFile(join(dir, ".gitattributes")),
-      "discern/map/**/*.md diff=markdown",
+      "/discern/brief.md diff=markdown",
     );
 
     // 1. discern.toml exists and parses, with our identity substituted.

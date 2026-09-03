@@ -20,6 +20,7 @@ import {
   type CheckpointWhenInput,
 } from "../src/shared/checkpoints.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
+import { GIT_REPOSITORY_LOCATION_ENVIRONMENT } from "../src/shared/subprocess.ts";
 import {
   isManualMarkdownPath,
   MANUAL_KIND_REGISTRY,
@@ -88,7 +89,7 @@ function matcherInput(
   };
 }
 
-/** Execute the real matcher process with its bounded input environment. */
+/** Execute the narrow matcher with every ambient Git route poisoned. */
 async function runMatcher(
   cwd: string,
   checkpointId: string,
@@ -111,6 +112,9 @@ async function runMatcher(
     ],
     cwd,
     env: {
+      ...Object.fromEntries(
+        GIT_REPOSITORY_LOCATION_ENVIRONMENT.map((name) => [name, "poison"]),
+      ),
       [DISCERN_ENVIRONMENT_VARIABLES.checkpointInput]: inputPath,
     },
     stdout: "piped",
@@ -268,6 +272,7 @@ Deno.test("manual matcher emits exact added, modified, and deleted kind matches"
       [addedRel, deletedRel, modifiedRel].sort().map((path) =>
         `DISCERN_MATCH ${path}`
       ),
+      JSON.stringify(result),
     );
   });
 });

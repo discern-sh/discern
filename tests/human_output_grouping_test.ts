@@ -298,12 +298,6 @@ const OUTPUT_IDIOM_EXCEPTIONS: readonly OutputIdiomException[] = [
     reason: "The Logger authority's exact console-backed line writers.",
   },
   {
-    file: "src/shared/third_party_codegen.ts",
-    rule: "padEnd-alignment",
-    count: 2,
-    reason: "Generated NOTICE document columns over ASCII names and versions.",
-  },
-  {
     file: "src/shared/result.ts",
     rule: "padEnd-alignment",
     count: 2,

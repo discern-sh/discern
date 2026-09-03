@@ -18,7 +18,7 @@ Each `[generated.<name>]` table has a boolean `linguist_generated`, defaulting t
 
 The managed block sets `diff=markdown` by default only for Markdown inside discern's registered source surfaces and for active compiled Agent files. Source membership derives from the source-path registry, including configured overrides: the Map, guidance seed, authored skills and scripts trees, deferred-work ledger, and setup brief. It emits exact file patterns or scoped `**/*.md` patterns, never a repository-wide `*.md` rule. A project's Markdown outside those registered paths remains under the project's own attributes policy.
 
-Generated merge attributes, optional Linguist metadata, and Markdown diff attributes compose per pattern in one canonical block. The worktree-local merge driver is needed only when at least one pattern carries `merge=discern-generated`; Markdown-only attributes never trigger its installation.
+Generated merge attributes, optional Linguist metadata, and Markdown diff attributes compose per pattern in one canonical block. The clone-local shared merge driver is needed only when at least one pattern carries `merge=discern-generated`; Markdown-only attributes never trigger its installation.
 
 `setup`, `refresh`, `upgrade`, and `doctor` all derive the block from the same config, source-path registry, and active Agent registry. Project lines outside the delimiters remain untouched. `uninstall` removes the whole discern block.
 

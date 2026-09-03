@@ -301,16 +301,12 @@ import {
   type InstructionsResult,
   materializeLocalRefreshArtifacts,
 } from "../instructions.ts";
-import { agentFilePaths, renderAgentFiles } from "../instruction_render.ts";
+import { renderAgentFiles } from "../instruction_render.ts";
 import {
   planTrackedRefresh,
   type TrackedRefreshPlan,
 } from "../tracked_refresh.ts";
 import { resolveTemplatesDir } from "../../lib/paths.ts";
-import {
-  DISCERN_GENERATED_MERGE_DRIVER,
-  planDiscernGitattributesBlock,
-} from "../../lib/agent_gitattributes.ts";
 // accept validates the exact tree it lands by running the full gate at the landing
 // boundary (ADR 0067) — fast-pathed by a gate proof when nothing changed since
 // the agent's own `done`, so a clean-merging but gate-breaking `update` (or any
@@ -568,16 +564,6 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   const steps: SetupStepDesc[] = [
     { kind: "git", label: BUILT_IN_STEP_LABELS.ensureBranch, note: branch },
   ];
-  if (
-    !(await worktreeSetupComplete(ctx.cwd)) &&
-    await generatedMergeDriverNeeded(ctx)
-  ) {
-    steps.push({
-      kind: "git",
-      label: BUILT_IN_STEP_LABELS.configureGeneratedMergeDriver,
-      note: `merge.${DISCERN_GENERATED_MERGE_DRIVER}.driver=true (worktree)`,
-    });
-  }
   if (ctx.config.worktree.inherit_env.length > 0) {
     steps.push({
       kind: "env",
@@ -623,46 +609,6 @@ export async function worktreeSetupPlan(
 ): Promise<EnginePlan> {
   await assertOpSide("worktree-setup", ctx.cwd);
   return setupPlanToEngine(await buildSetupPlan(ctx));
-}
-
-/** Report whether this worktree needs the generated-artifact merge driver. */
-async function generatedMergeDriverNeeded(
-  ctx: LifecycleContext,
-): Promise<boolean> {
-  const attributes = await planDiscernGitattributesBlock(
-    ctx.root,
-    ctx.config,
-    agentFilePaths(ctx.config),
-  );
-  return attributes.patterns.length > 0;
-}
-
-/** Install the worktree-local driver that keeps current generated artifacts. */
-async function installGeneratedMergeDriver(
-  ctx: LifecycleContext,
-): Promise<void> {
-  const run = makeGitRunner(ctx);
-  const commands: readonly string[][] = [
-    ["config", "--local", "extensions.worktreeConfig", "true"],
-    [
-      "config",
-      "--worktree",
-      `merge.${DISCERN_GENERATED_MERGE_DRIVER}.driver`,
-      "true",
-    ],
-  ];
-  for (const args of commands) {
-    const result = await run(args);
-    if (result.success) {
-      continue;
-    }
-    const detail = result.stderr.trim() || result.stdout.trim();
-    throw new WorktreeGitError(
-      `Discern could not configure the generated-artifact merge driver in this worktree${
-        detail === "" ? "." : `: ${detail}`
-      } Re-run \`discern worktree setup\` after correcting the Git configuration.`,
-    );
-  }
 }
 
 /**
@@ -1102,10 +1048,6 @@ export async function worktreeSetup(
   // `discern worktree setup` — reach here on an already-configured worktree, where the
   // non-idempotent phases (resource `create`, `[worktree.setup].steps`) must not
   // re-run. (`worktreeEnsure` gates the session-start path the same way.)
-  if (!configured && await generatedMergeDriverNeeded(ctx)) {
-    await installGeneratedMergeDriver(ctx);
-  }
-
   // 3. inherit env vars from main — FIRST among the env writers, because it is
   // the one allowed to CREATE the worktree's env file (a declared value must
   // arrive in a fresh worktree); the resource and port recorders below only ever

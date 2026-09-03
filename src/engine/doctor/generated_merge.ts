@@ -1,9 +1,13 @@
 /** Git-authoritative generated-merge diagnostics for `discern doctor`. */
 
-import { isAbsolute, resolve } from "@std/path";
+import { isAbsolute, join, resolve } from "@std/path";
 import {
   DISCERN_GENERATED_MERGE_DRIVER,
 } from "../../lib/agent_gitattributes.ts";
+import {
+  GENERATED_MERGE_DRIVER_KEY,
+  GENERATED_MERGE_DRIVER_VALUE,
+} from "../generated_merge_driver.ts";
 import {
   type ResolvedGeneratedGroup,
   trackedGeneratedArtifactPaths,
@@ -13,6 +17,7 @@ import {
   parseScopedGitConfigValueZ,
 } from "../../shared/git_paths.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import { resolveCommonGitDir } from "../worktree/git.ts";
 
 /** One doctor-compatible finding; doctor normalizes the compatibility fields. */
 export interface GeneratedMergeCheck {
@@ -23,8 +28,6 @@ export interface GeneratedMergeCheck {
   readonly fix?: string;
 }
 
-const DRIVER_KEY = `merge.${DISCERN_GENERATED_MERGE_DRIVER}.driver`;
-
 /** Quote one path for the POSIX recovery command without losing newlines. */
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
@@ -33,23 +36,6 @@ function shellQuote(value: string): string {
 /** Resolve a path emitted relative to Git's command working directory. */
 function gitPath(root: string, value: string): string {
   return resolve(isAbsolute(value) ? value : resolve(root, value));
-}
-
-/** Whether `root` is a linked worktree rather than the repository's main checkout. */
-async function isLinkedWorktree(root: string): Promise<boolean | undefined> {
-  const [gitDir, commonDir] = await Promise.all([
-    runGit(["rev-parse", "--absolute-git-dir"], { cwd: root }),
-    runGit(["rev-parse", "--git-common-dir"], { cwd: root }),
-  ]);
-  const gitDirValue = gitDir.stdout.trim();
-  const commonDirValue = commonDir.stdout.trim();
-  if (
-    !gitDir.success || !commonDir.success || gitDirValue === "" ||
-    commonDirValue === ""
-  ) {
-    return undefined;
-  }
-  return gitPath(root, gitDirValue) !== gitPath(root, commonDirValue);
 }
 
 /** Explain Git's four attribute states without conflating them with values. */
@@ -75,16 +61,30 @@ function attributeRecovery(path: string): string {
 
 /** Verify the effective driver command and retain Git's scope/origin evidence. */
 async function driverCheck(root: string): Promise<GeneratedMergeCheck> {
+  const commonDir = await resolveCommonGitDir(root);
+  if (commonDir === undefined) {
+    return {
+      name: "generated merge driver",
+      status: "fail",
+      ok: false,
+      detail:
+        "Git could not resolve the clone-local configuration, so the generated merge driver could not be verified",
+      fix:
+        "run `git rev-parse --git-common-dir`, correct the error it reports, then re-run `discern doctor`",
+    };
+  }
+  const commonConfig = join(commonDir, "config");
   const result = await runGit([
     "config",
     "--null",
     "--show-origin",
     "--show-scope",
     "--get",
-    DRIVER_KEY,
+    GENERATED_MERGE_DRIVER_KEY,
   ], { cwd: root });
-  const recovery =
-    `run \`git config --local extensions.worktreeConfig true\`, then \`git config --worktree ${DRIVER_KEY} true\`, and re-run \`discern doctor\``;
+  const recovery = `run \`git config --file ${
+    shellQuote(commonConfig)
+  } ${GENERATED_MERGE_DRIVER_KEY} ${GENERATED_MERGE_DRIVER_VALUE}\`, then re-run \`discern doctor\``;
   if (!result.success) {
     if (result.code === 1 && result.stdout === "") {
       return {
@@ -92,7 +92,7 @@ async function driverCheck(root: string): Promise<GeneratedMergeCheck> {
         status: "fail",
         ok: false,
         detail:
-          `this linked worktree selects ${DISCERN_GENERATED_MERGE_DRIVER}, but its effective Git configuration has no ${DRIVER_KEY}; generated merges are unsafe`,
+          `this checkout selects ${DISCERN_GENERATED_MERGE_DRIVER}, but its effective Git configuration has no ${GENERATED_MERGE_DRIVER_KEY}; generated merges are unsafe`,
         fix: recovery,
       };
     }
@@ -103,7 +103,7 @@ async function driverCheck(root: string): Promise<GeneratedMergeCheck> {
       status: "fail",
       ok: false,
       detail:
-        `Git could not resolve ${DRIVER_KEY} in this linked worktree: ${reason}`,
+        `Git could not resolve ${GENERATED_MERGE_DRIVER_KEY} in this checkout: ${reason}`,
       fix: recovery,
     };
   }
@@ -114,21 +114,29 @@ async function driverCheck(root: string): Promise<GeneratedMergeCheck> {
       status: "fail",
       ok: false,
       detail:
-        `Git returned malformed machine output while resolving ${DRIVER_KEY} in this linked worktree`,
+        `Git returned malformed machine output while resolving ${GENERATED_MERGE_DRIVER_KEY} in this checkout`,
       fix: recovery,
     };
   }
   const evidence = `scope ${JSON.stringify(entry.scope)}, origin ${
     JSON.stringify(entry.origin)
   }`;
-  if (entry.value !== "true" || entry.scope !== "worktree") {
+  const originPath = entry.origin.startsWith("file:")
+    ? gitPath(root, entry.origin.slice("file:".length))
+    : undefined;
+  if (
+    entry.value !== GENERATED_MERGE_DRIVER_VALUE || entry.scope !== "local" ||
+    originPath !== commonConfig
+  ) {
     return {
       name: "generated merge driver",
       status: "fail",
       ok: false,
-      detail: `${DRIVER_KEY} resolves to ${
+      detail: `${GENERATED_MERGE_DRIVER_KEY} resolves to ${
         JSON.stringify(entry.value)
-      } from ${evidence}; expected worktree-local \"true\", so generated merges are unsafe`,
+      } from ${evidence}; expected clone-local ${
+        JSON.stringify(GENERATED_MERGE_DRIVER_VALUE)
+      } from ${JSON.stringify(commonConfig)}, so generated merges are unsafe`,
       fix: recovery,
     };
   }
@@ -137,7 +145,7 @@ async function driverCheck(root: string): Promise<GeneratedMergeCheck> {
     status: "ok",
     ok: true,
     detail:
-      `${DRIVER_KEY}=true is effective in this linked worktree (${evidence})`,
+      `${GENERATED_MERGE_DRIVER_KEY}=${GENERATED_MERGE_DRIVER_VALUE} is effective from the clone-local shared configuration (${evidence})`,
   };
 }
 
@@ -220,18 +228,6 @@ export async function generatedMergeChecks(
     });
   }
 
-  const linked = await isLinkedWorktree(root);
-  if (linked === true) findings.push(await driverCheck(root));
-  if (linked === undefined) {
-    findings.push({
-      name: "generated merge driver",
-      status: "fail",
-      ok: false,
-      detail:
-        "Git could not determine whether this checkout is a linked worktree, so the generated merge driver configuration could not be verified",
-      fix:
-        "run `git rev-parse --absolute-git-dir --git-common-dir`, correct the error it reports, then re-run `discern doctor`",
-    });
-  }
+  findings.push(await driverCheck(root));
   return findings;
 }

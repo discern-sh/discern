@@ -13,10 +13,22 @@
  */
 
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import {
   commandExists,
   describeSpawnError,
+  DISCERN_FORBIDDEN_GIT_TRANSPORT_SUBCOMMANDS,
+  GIT_ISOLATED_READ_BOUNDARY_ERROR,
+  GIT_REPOSITORY_LOCATION_ENVIRONMENT,
+  GIT_TRANSPORT_BOUNDARY_ERROR,
+  gitChildEnvironment,
+  gitChildEnvironmentPlan,
+  ISOLATED_GIT_READ_SUBCOMMANDS,
   leadingCommandWord,
   runGit,
   runShell,
@@ -170,6 +182,145 @@ Deno.test("runGit supplies protocol input on stdin", async () => {
     first.stdout,
   );
   assert(first.stdout !== second.stdout, "runGit dropped or reused stdin");
+});
+
+Deno.test("runGit refuses every discern-chosen Git transport spelling", async () => {
+  const cases = [
+    ...DISCERN_FORBIDDEN_GIT_TRANSPORT_SUBCOMMANDS.map((verb) => [verb]),
+    ["remote", "update"],
+    ["archive", "--remote=origin", "HEAD"],
+  ];
+  for (const args of cases) {
+    const result = await runGit(args, { cwd: Deno.cwd() });
+    assertEquals(result.success, false, args.join(" "));
+    assertEquals(result.code, 2, args.join(" "));
+    assertEquals(result.stderr, GIT_TRANSPORT_BOUNDARY_ERROR, args.join(" "));
+  }
+});
+
+Deno.test("runGit cannot be redirected away from cwd by repository-location environment", async () => {
+  await withTempDir(async (root) => {
+    const requested = join(root, "requested");
+    const ambient = join(root, "ambient");
+    await Deno.mkdir(requested);
+    await Deno.mkdir(ambient);
+    const requestedInit = await runGit(["init", "-q"], { cwd: requested });
+    const ambientInit = await runGit(["init", "-q"], { cwd: ambient });
+    assertEquals(requestedInit.success, true, requestedInit.stderr);
+    assertEquals(ambientInit.success, true, ambientInit.stderr);
+
+    const result = await runGit(["rev-parse", "--show-toplevel"], {
+      cwd: requested,
+      env: {
+        GIT_DIR: join(ambient, ".git"),
+        GIT_WORK_TREE: ambient,
+      },
+    });
+
+    assertEquals(result.success, true, result.stderr);
+    assertEquals(result.stdout.trim(), await Deno.realPath(requested));
+  });
+});
+
+Deno.test("the Git child environment removes every repository-location variable and retains other state", () => {
+  for (const variable of GIT_REPOSITORY_LOCATION_ENVIRONMENT) {
+    const environment = gitChildEnvironment(
+      { [variable]: "caller-value", CALLER_CONFIG: "kept" },
+      {
+        toObject: () => ({
+          [variable]: "ambient-value",
+          GIT_AUTHOR_NAME: "kept identity",
+        }),
+      },
+    );
+    assertEquals(environment[variable], undefined, variable);
+    assertEquals(environment.GIT_AUTHOR_NAME, "kept identity", variable);
+    assertEquals(environment.CALLER_CONFIG, "kept", variable);
+  }
+});
+
+Deno.test("only an explicit read-only narrow Git host may clear inherited state", () => {
+  const deniedEnumeration = (): Record<string, string> => {
+    throw new Deno.errors.NotCapable("full environment denied");
+  };
+  const narrowHost = {
+    toObject: deniedEnumeration,
+    get: () => "unreadable ambient state",
+  };
+  assertThrows(
+    () => gitChildEnvironmentPlan({}, "refuse", narrowHost),
+    Deno.errors.NotCapable,
+    "full environment denied",
+  );
+  const safe = gitChildEnvironmentPlan(
+    { CALLER_CONFIG: "kept", GIT_DIR: "override-blocked" },
+    "isolated-read-only",
+    narrowHost,
+  );
+  assertEquals(safe, {
+    clearEnv: true,
+    env: { CALLER_CONFIG: "kept" },
+  });
+
+  for (const variable of GIT_REPOSITORY_LOCATION_ENVIRONMENT) {
+    assertEquals(
+      gitChildEnvironmentPlan(
+        { [variable]: "caller-route" },
+        "isolated-read-only",
+        narrowHost,
+      ).env[variable],
+      undefined,
+      variable,
+    );
+  }
+});
+
+Deno.test("isolated Git hosts admit only the no-hook read registry", async () => {
+  await withTempDir(async (dir) => {
+    const fakeGit = join(dir, "git");
+    await Deno.writeTextFile(fakeGit, "#!/bin/sh\nexit 0\n");
+    await Deno.chmod(fakeGit, 0o755);
+    for (const subcommand of ISOLATED_GIT_READ_SUBCOMMANDS) {
+      const result = await runGit([subcommand], {
+        cwd: dir,
+        bin: fakeGit,
+        environmentPermissionFallback: "isolated-read-only",
+      });
+      assert(result.success, subcommand);
+    }
+
+    const refused = await runGit(["status"], {
+      cwd: dir,
+      bin: fakeGit,
+      environmentPermissionFallback: "isolated-read-only",
+    });
+    assertEquals(refused.code, 2);
+    assertEquals(refused.stderr, GIT_ISOLATED_READ_BOUNDARY_ERROR);
+  });
+});
+
+Deno.test("both production Git spawners consume the one repository-location sanitizer", async () => {
+  const consumers = [
+    {
+      path: new URL("../src/shared/subprocess.ts", import.meta.url),
+      calls: [
+        "const environment = gitChildEnvironmentPlan(",
+        "clearEnv: environment.clearEnv",
+        "env: environment.env",
+      ],
+    },
+    {
+      path: new URL("../src/shared/discern_commit.ts", import.meta.url),
+      calls: [
+        "clearEnv: true",
+        "env: gitChildEnvironment({ GIT_REFLOG_ACTION: reflogAction })",
+      ],
+    },
+  ] as const;
+  for (const consumer of consumers) {
+    const source = await Deno.readTextFile(consumer.path);
+    for (const call of consumer.calls) assertStringIncludes(source, call);
+  }
 });
 
 Deno.test("runGit enforces an explicit caller-owned timeout", async () => {

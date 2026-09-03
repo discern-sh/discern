@@ -7,7 +7,11 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { defaultMapPath, runAgent } from "./engine_helpers.ts";
+import {
+  convergeFixtureGitattributes,
+  defaultMapPath,
+  runAgent,
+} from "./engine_helpers.ts";
 import {
   assertResultDataKey,
   type CliResultForCommand,
@@ -41,6 +45,7 @@ export async function writeMapPage(
   const path = defaultMapPath(dir, rel);
   await Deno.mkdir(join(path, ".."), { recursive: true });
   await Deno.writeTextFile(path, content);
+  await convergeFixtureGitattributes(dir);
   return path;
 }
 

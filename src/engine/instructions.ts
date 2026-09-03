@@ -41,6 +41,7 @@ import {
   type RefreshPlan,
   refreshPlanToEngine,
 } from "./tracked_refresh.ts";
+import { applyGeneratedMergeDriverOperation } from "./generated_merge_driver.ts";
 
 /** What one complete refresh apply accomplished. */
 export interface InstructionsResult {
@@ -230,6 +231,11 @@ async function applyRefreshEffect(
   }
   if (effect.type === "skill") {
     await applySkillMaterializationOperation(effect.operation, plan.config);
+    return;
+  }
+  if (effect.type === "git-config") {
+    const error = await applyGeneratedMergeDriverOperation(effect.operation);
+    if (error !== undefined) throw new Error(error);
     return;
   }
   const error = await applyProofNotesFetchOperation(

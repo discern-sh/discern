@@ -823,6 +823,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "git-footprint",
+    title: "Clone-local Git footprint",
+    what:
+      "Every Git configuration key and ref namespace discern may create, including its writer, lifetime, uninstall treatment, and optional cleanup.",
+    source: {
+      kind: "module",
+      module: "src/engine/git_footprint.ts",
+      exportName: "DISCERN_GIT_FOOTPRINT",
+    },
+    guards: ["tests/git_footprint_inventory_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the files-and-ownership reference documents these internal Git coordinates in context",
+      },
+      featureCanon: {
+        absent:
+          "the footprint supports setup, refresh, Proof transport, recovery, and uninstall rather than one feature",
+      },
+    },
+    members: async () => [
+      ...(await import("../src/engine/git_footprint.ts"))
+        .DISCERN_GIT_FOOTPRINT,
+    ],
+  },
+  {
     id: "jobs",
     title: "Gate jobs",
     what: "The known Gate jobs: the command table's fixed vocabulary.",
@@ -3223,7 +3250,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     what: "The generated third-party notice artifacts and their license cache.",
     source: {
       kind: "module",
-      module: "src/shared/third_party_codegen.ts",
+      module: "scripts/third_party_codegen.ts",
       exportName: "THIRD_PARTY_ARTIFACT_PATHS",
     },
     guards: ["tests/third_party_notices_test.ts"],
@@ -3253,7 +3280,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members: async () =>
       Object.keys(
-        (await import("../src/shared/third_party_codegen.ts"))
+        (await import("./third_party_codegen.ts"))
           .THIRD_PARTY_ARTIFACT_PATHS,
       ),
   },

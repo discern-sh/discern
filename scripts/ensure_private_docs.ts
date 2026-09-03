@@ -27,7 +27,11 @@ const OVERLAY_REL = "project/map/_private";
 async function gitQuery(args: string[]): Promise<string | undefined> {
   try {
     // The setup hook deliberately grants only --allow-run=git, not env access.
-    const output = await runGit(args, { cwd: Deno.cwd(), bin: "git" });
+    const output = await runGit(args, {
+      cwd: Deno.cwd(),
+      bin: "git",
+      environmentPermissionFallback: "isolated-read-only",
+    });
     if (!output.success) return undefined;
     return output.stdout.trim();
   } catch {

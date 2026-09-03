@@ -234,11 +234,26 @@ export function checkpointGitBytes(result: GitResult): Uint8Array {
   return result.stdoutBytes ?? UTF8_ENCODER.encode(result.stdout);
 }
 
+/** Run one bounded, read-only checkpoint Git query in an isolated narrow host. */
+export async function runCheckpointGit(
+  args: string[],
+  opts: {
+    readonly cwd: string;
+    readonly timeoutMs: number;
+    readonly maxOutputBytes: number;
+  },
+): Promise<GitResult> {
+  return await runGit(args, {
+    ...opts,
+    bin: "git",
+    environmentPermissionFallback: "isolated-read-only",
+  });
+}
+
 /** Resolve the canonical Git root shared by repository checkpoint matchers. */
 export async function checkpointProjectRoot(cwd: string): Promise<string> {
-  const result = await runGit(["rev-parse", "--show-toplevel"], {
+  const result = await runCheckpointGit(["rev-parse", "--show-toplevel"], {
     cwd,
-    bin: "git",
     timeoutMs: 2_000,
     maxOutputBytes: 16 * 1024,
   });
@@ -248,7 +263,10 @@ export async function checkpointProjectRoot(cwd: string): Promise<string> {
       : result.outputLimitExceeded === true
       ? "exceeded its output limit"
       : `exited ${result.code}`;
-    return fail(`Git root discovery ${reason}`);
+    const detail = result.stderr.replace(/\s+/g, " ").trim().slice(0, 160);
+    return fail(
+      `Git root discovery ${reason}${detail === "" ? "" : `: ${detail}`}`,
+    );
   }
   const root = checkpointExactUtf8(
     checkpointGitBytes(result),

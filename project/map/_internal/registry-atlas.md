@@ -38,11 +38,12 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 16      | —                | node `desk`                 |
 | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 31      | —                | —                           |
+| [`git-footprint`](#git-footprint--clone-local-git-footprint)                                                          | `src/engine/git_footprint.ts#DISCERN_GIT_FOOTPRINT`                               | 10      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
 | [`step-kinds`](#step-kinds--step-kinds)                                                                               | `src/shared/result.ts#STEP_KINDS`                                                 | 20      | —                | node `doctor`               |
-| [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 35      | —                | node `plan-apply`           |
+| [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 34      | —                | node `plan-apply`           |
 | [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 17      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 10      | "Skill"          | surface `skill`             |
@@ -114,7 +115,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored)    | —       | —                | node `gotchas-pointer`      |
 | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)     | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
-| [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                    | 3       | —                | node `licenses`             |
+| [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `scripts/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                       | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                      | `tests/spawn_surfaces.ts#SUBPROCESS_SPAWN_BOUNDARIES`                             | 31      | —                | node `interruption-safety`  |
 | [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries)                                  | `src/shared/process_boundaries.ts#PROCESS_OUTPUT_BOUNDARIES`                      | 6       | —                | —                           |
 | [`process-exit-boundaries`](#process-exit-boundaries--process-exit-boundaries)                                        | `src/shared/process_boundaries.ts#PROCESS_EXIT_BOUNDARIES`                        | 5       | —                | —                           |
@@ -134,9 +135,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 11      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 123     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 124     | —                | node `canonical-sets`       |
 
-123 sets · 174 guard tests · 65 committed artifacts.
+124 sets · 175 guard tests · 65 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -247,6 +248,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/gate_plan_test.ts`                          | [`hints`](#hints--hints), [`step-outcomes`](#step-outcomes--step-outcomes)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `tests/generated_artifacts_test.ts`                | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/git_admin_state_test.ts`                    | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `tests/git_footprint_inventory_test.ts`            | [`git-footprint`](#git-footprint--clone-local-git-footprint)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/glossary_codegen_test.ts`                   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/glossary_enrolment_test.ts`                 | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/gotcha_matchers_drift_test.ts`              | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -1042,6 +1044,26 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
 - Glossary: not enrolled — the Git-admin state reference owns this internal vocabulary for Proof, measurements, Logbook data, and Worktree lifecycle state
 - Feature canon: not enrolled — the registry supports several product features, each documented by its own node
 
+## `git-footprint` — Clone-local Git footprint
+
+Every Git configuration key and ref namespace discern may create, including its writer, lifetime, uninstall treatment, and optional cleanup.
+
+- Source: `src/engine/git_footprint.ts` — `DISCERN_GIT_FOOTPRINT`
+- Members: 10
+  - `config:merge.discern-generated.driver`
+  - `config:extensions.worktreeConfig`
+  - `config:discern.proofNotesFetchRemote`
+  - `config:remote.<name>.fetch with one exact discern proof-note mapping`
+  - `ref:refs/heads/discern-setup`
+  - `ref:refs/heads/<repository.branch_prefix><worktree-id>`
+  - `ref:refs/notes/discern`
+  - `ref:refs/discern/remotes/<remote>/notes`
+  - `ref:refs/discern/recovery/<timestamp>-<worktree-id>-<nonce>`
+  - `ref:refs/worktree/discern/acceptance-transactions/<transaction-id>`
+- Guards: `tests/git_footprint_inventory_test.ts`
+- Glossary: not enrolled — the files-and-ownership reference documents these internal Git coordinates in context
+- Feature canon: not enrolled — the footprint supports setup, refresh, Proof transport, recovery, and uninstall rather than one feature
+
 ## `jobs` — Gate jobs
 
 The known Gate jobs: the command table's fixed vocabulary.
@@ -1119,13 +1141,12 @@ The result-step operation vocabulary: what a step does. The doctor's `STEP_KIND_
 The stable kebab-case operation labels discern authors in plans and applied results. Configured identifiers use the separate verbatim-label boundary.
 
 - Source: `src/shared/result.ts` — `BUILT_IN_STEP_LABELS`
-- Members: 35
+- Members: 34
   - `add-worktree`
   - `auto-resolve-generated-conflicts`
   - `check-trunk-checkout`
   - `commit-regenerated-artifacts`
   - `complete-refresh`
-  - `configure-generated-merge-driver`
   - `configured-markdown`
   - `delete-branch`
   - `ensure-branch`
@@ -3771,7 +3792,7 @@ The ordered legal package embedded in every binary: discern's software license, 
 
 The generated third-party notice artifacts and their license cache.
 
-- Source: `src/shared/third_party_codegen.ts` — `THIRD_PARTY_ARTIFACT_PATHS`
+- Source: `scripts/third_party_codegen.ts` — `THIRD_PARTY_ARTIFACT_PATHS`
 - Members: 3
   - `notices`
   - `bundle`
@@ -4358,7 +4379,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 123
+- Members: 124
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -4385,6 +4406,7 @@ This meta-registry: the closed set of closed sets.
   - `worktree-lifecycle-repo-root-verbs`
   - `desk-actions`
   - `git-admin-state`
+  - `git-footprint`
   - `jobs`
   - `stages`
   - `diagnostic-formats`

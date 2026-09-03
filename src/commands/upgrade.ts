@@ -191,12 +191,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const pendingReconciliationJson = currentReconciliation.operations.map(
     operationToJson,
   );
+  const initialConfig = parseConfig(tomlText).config;
   const currentGitignoreReconciliation = await planDiscernGitignoreBlock(
     destDir,
+    initialConfig,
   );
   const pendingGitignoreReconciliationJson = currentGitignoreReconciliation
     .operations.map(gitignoreOperationToJson);
-  const initialConfig = parseConfig(tomlText).config;
   const currentGitattributesReconciliation = initialConfig === undefined
     ? { operations: [], patterns: [], refused: [] }
     : await planDiscernGitattributesBlock(
@@ -516,7 +517,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   // scaffold reconciliation so a missing templates dir still reports the
   // config-template failure first, but before the schema stamp so an install is
   // not marked current until this co-managed block is current too.
-  const gitignoreReconciliation = await ensureDiscernGitignoreBlock(destDir);
+  const reconciledConfig = parseConfigOrThrow(
+    await Deno.readTextFile(newConfigPath),
+  );
+  const gitignoreReconciliation = await ensureDiscernGitignoreBlock(
+    destDir,
+    reconciledConfig,
+  );
   if (!gitignoreReconciliation.templateAvailable) {
     const message =
       "could not resolve the .gitignore fragment; schema was not stamped because .gitignore reconciliation could not run.";
@@ -541,9 +548,6 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   // 1d. Reconcile the generated-path merge attributes from the validated,
   // migrated config. The refresh below repeats the same convergence as a no-op;
   // keeping this step explicit makes upgrade's result account for the file.
-  const reconciledConfig = parseConfigOrThrow(
-    await Deno.readTextFile(newConfigPath),
-  );
   const gitattributesReconciliation = await ensureDiscernGitattributesBlock(
     destDir,
     reconciledConfig,

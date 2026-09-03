@@ -17,6 +17,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
+  convergeFixtureGitattributes,
   gitInit,
   runAgent,
   scaffoldEngine,
@@ -131,6 +132,7 @@ Deno.test("done --json: a stale fenced example fails; a Project Script verb is a
       join(dir, SOURCE_PATHS.scripts.defaultPath, "frobnicate"),
       "#!/bin/sh\n# desc: engine-test script\n",
     );
+    await convergeFixtureGitattributes(dir);
     assertEquals(
       (await runAgent(dir, ["done", "--json"])).code,
       0,

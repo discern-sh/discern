@@ -23,17 +23,10 @@
 
 import { assert, assertEquals, assertMatch } from "@std/assert";
 import { dirname, fromFileUrl, join, relative, resolve } from "@std/path";
+import { NETWORK_TOKEN } from "./network_boundary.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
-
-/**
- * A reach into the network, spelled any way Deno source can spell it. Scanned
- * over raw source (comments included — a commented-out `fetch(` should raise an
- * eyebrow here too, and a false positive costs one honest look).
- */
-const NETWORK_TOKEN =
-  /\bfetch\s*\(|\bDeno\.(connect|connectTls|connectQuic|listen|listenTls|listenDatagram|resolveDns|createHttpClient|serve|serveHttp|upgradeWebSocket|startTls)\b|\bnew\s+WebSocket\b|\bWebSocketStream\b|\bXMLHttpRequest\b|\bEventSource\b|\bsendBeacon\b|\bnode:(http|https|net|tls|dgram|dns)\b/;
 
 /**
  * The vetted external dependencies of the logbook graph. Each entry is a

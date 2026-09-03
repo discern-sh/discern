@@ -55,6 +55,9 @@ Deno.test("every name-listing git diff passes --no-renames (evidence reads must 
       const open = text.lastIndexOf("[", match.index);
       const close = text.indexOf("]", match.index);
       const args = open >= 0 && close > open ? text.slice(open, close) : "";
+      if (!args.includes('"diff"') && !args.includes('"log"')) {
+        continue;
+      }
       if (!args.includes('"--no-renames"')) {
         offenders.push(`${rel} (…${match[0]}…)`);
       }

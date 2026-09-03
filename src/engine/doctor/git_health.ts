@@ -728,11 +728,6 @@ async function worktreeConfigCheck(
   ].filter((key) => effectiveEntry(common, key) !== undefined);
   const failures: string[] = [];
   const warnings: string[] = [];
-  if (linked > 0 && !extensionEnabled) {
-    failures.push(
-      `${linked} linked worktree(s), but extensions.worktreeConfig is not true`,
-    );
-  }
   if (linked > 0 && misplacedKeys.includes("core.worktree")) {
     failures.push("core.worktree is stored in the common repository config");
   }
@@ -763,7 +758,9 @@ async function worktreeConfigCheck(
     "ok",
     linked === 0
       ? "no linked worktrees need checkout-local Git config yet"
-      : `extensions.worktreeConfig is enabled for ${linked} linked worktree(s), with no checkout-specific settings in the common config`,
+      : extensionEnabled
+      ? `extensions.worktreeConfig is enabled for ${linked} linked worktree(s), with no checkout-specific settings in the common config`
+      : `${linked} linked worktree(s) use only the shared clone-local Git configuration; extensions.worktreeConfig is not needed`,
   );
 }
 

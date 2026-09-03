@@ -84,6 +84,22 @@ import {
   canInteract,
   confirmDestructiveAction,
 } from "../lib/terminal_interaction.ts";
+import {
+  applyGeneratedMergeDriverOperation,
+  GENERATED_MERGE_DRIVER_KEY,
+  type GeneratedMergeDriverPlan,
+  planGeneratedMergeDriver,
+  WORKTREE_CONFIG_EXTENSION_KEY,
+} from "../engine/generated_merge_driver.ts";
+import {
+  applyProofNotesFetchOperation,
+  planProofNotesFetch,
+  type ProofNotesFetchPlan,
+} from "../engine/gate/proof_notes.ts";
+import {
+  optionalRefCleanupCommand,
+  retainedDiscernRefs,
+} from "../engine/git_footprint.ts";
 
 /** Options accepted by the `uninstall` command. */
 export interface UninstallOptions {
@@ -138,6 +154,14 @@ interface UninstallPlan {
   /** Co-owned files stripped without their seed template, so template-seeded
    * entries may remain. Never silent: surfaced in the result and the human view. */
   incompleteStrips: IncompleteStrip[];
+  /** Exact clone-local Git configuration cleanup, planned without mutation. */
+  generatedMergeDriver: GeneratedMergeDriverPlan;
+  proofNotesFetch: ProofNotesFetchPlan;
+  /** Private refs deliberately retained, with copyable optional cleanup. */
+  retainedRefs: string[];
+  optionalCleanup: string[];
+  /** Planning failures block all file removal rather than leave silent residue. */
+  gitConfigErrors: string[];
 }
 
 /** The one line that removes the binary itself (install-method agnostic). */
@@ -229,6 +253,20 @@ async function computeUninstallPlan(
     emptyDirCandidates: new Set<string>(),
     templatesAvailable: true,
     incompleteStrips: [],
+    generatedMergeDriver: {
+      operations: [],
+      errors: [],
+      worktreeConfigExtension: "absent",
+    },
+    proofNotesFetch: {
+      mode: "local",
+      remotes: [],
+      boundaries: [],
+      errors: [],
+    },
+    retainedRefs: [],
+    optionalCleanup: [],
+    gitConfigErrors: [],
   };
   for (const dir of await gitAdminNamespaceDirs(root)) {
     if (await pathExists(dir)) {
@@ -412,6 +450,23 @@ async function computeUninstallPlan(
   await keepIfExists(resolveTodoPath(root, config).rel, "the work ledger");
   await keepIfExists(resolveBriefPath(root).rel, "the project brief");
 
+  // 7. Clone-local Git state. These planners carry the same positive ownership
+  // used by refresh: a same-looking unmarked fetch refspec remains untouched.
+  plan.generatedMergeDriver = await planGeneratedMergeDriver(root, false);
+  plan.proofNotesFetch = await planProofNotesFetch(root, "local");
+  plan.gitConfigErrors.push(
+    ...plan.generatedMergeDriver.errors,
+    ...plan.proofNotesFetch.errors,
+  );
+  try {
+    plan.retainedRefs = await retainedDiscernRefs(root);
+    plan.optionalCleanup = plan.retainedRefs.map(optionalRefCleanupCommand);
+  } catch (error) {
+    plan.gitConfigErrors.push(
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+
   return plan;
 }
 
@@ -443,11 +498,71 @@ async function pruneEmptyDirs(
   return removed;
 }
 
+/** Exact Git-config entries the plan removes, in execution order. */
+function removedGitConfig(plan: UninstallPlan): string[] {
+  const removed: string[] = [];
+  for (const operation of plan.generatedMergeDriver.operations) {
+    const key = operation.kind === "unset-worktree-extension"
+      ? WORKTREE_CONFIG_EXTENSION_KEY
+      : GENERATED_MERGE_DRIVER_KEY;
+    if (operation.kind !== "set-common-driver") {
+      removed.push(`${key} (${operation.configFile})`);
+    }
+  }
+  for (const boundary of plan.proofNotesFetch.boundaries) {
+    for (const operation of boundary.operations) {
+      if (operation.kind === "remove") {
+        removed.push(`${operation.key}=${operation.value}`);
+      }
+    }
+  }
+  return removed;
+}
+
+/** Clone-local config retained while another checkout-specific key depends on it. */
+function keptGitConfig(plan: UninstallPlan): string[] {
+  return plan.generatedMergeDriver.worktreeConfigExtension === "keep"
+    ? [
+      `${WORKTREE_CONFIG_EXTENSION_KEY} — retained because another checkout-specific setting depends on it`,
+    ]
+    : [];
+}
+
+/** Apply only the positively-owned clone-local Git-config cleanup. */
+async function applyGitConfigCleanup(
+  root: string,
+  plan: UninstallPlan,
+): Promise<string[]> {
+  const errors: string[] = [];
+  for (const operation of plan.generatedMergeDriver.operations) {
+    const error = await applyGeneratedMergeDriverOperation(operation);
+    if (error !== undefined) {
+      errors.push(`could not remove generated-merge configuration: ${error}`);
+      return errors;
+    }
+  }
+  for (const boundary of plan.proofNotesFetch.boundaries) {
+    for (const operation of boundary.operations) {
+      const error = await applyProofNotesFetchOperation(
+        root,
+        operation,
+      );
+      if (error !== undefined) {
+        errors.push(`${operation.failurePrefix}: ${error}`);
+        return errors;
+      }
+    }
+  }
+  return errors;
+}
+
 /** Apply the plan's removals and rewrites, then prune emptied directories. */
 async function applyUninstallPlan(
   root: string,
   plan: UninstallPlan,
-): Promise<void> {
+): Promise<string[]> {
+  const gitConfigErrors = await applyGitConfigCleanup(root, plan);
+  if (gitConfigErrors.length > 0) return gitConfigErrors;
   for (const op of plan.ops) {
     const target = join(root, op.rel);
     if (op.action === "delete") {
@@ -463,6 +578,7 @@ async function applyUninstallPlan(
   // just removed.
   suppressLogbookWrites();
   await pruneEmptyDirs(root, plan.emptyDirCandidates);
+  return [];
 }
 
 /** The `--json` / result payload for an uninstall plan. Surfaces every plan
@@ -480,6 +596,11 @@ function planData(plan: UninstallPlan): UninstallData {
       rel: s.rel,
       reason: s.reason,
     })),
+    removed_git_config: removedGitConfig(plan),
+    kept_git_config: keptGitConfig(plan),
+    retained_refs: plan.retainedRefs,
+    optional_cleanup: plan.optionalCleanup,
+    git_config_errors: plan.gitConfigErrors,
     binary_hint: BINARY_HINT,
   };
 }
@@ -522,6 +643,18 @@ function renderPlan(log: Logger, plan: UninstallPlan, applied: boolean): void {
       log.detail(`${op.rel} — ${op.reason}`);
     }
   }
+  const gitConfig = removedGitConfig(plan);
+  if (gitConfig.length > 0) {
+    log.ok(
+      applied
+        ? "removed discern-owned clone-local Git configuration"
+        : "would remove discern-owned clone-local Git configuration",
+    );
+    for (const entry of gitConfig) log.detail(entry);
+  }
+  for (const entry of keptGitConfig(plan)) {
+    log.info(entry);
+  }
 
   // Loud, not silent: name any co-owned file discern could not fully strip and
   // why, so the user can finish the job by hand rather than be left with orphans.
@@ -540,6 +673,14 @@ function renderPlan(log: Logger, plan: UninstallPlan, applied: boolean): void {
   log.heading("Kept — your content");
   for (const item of plan.kept) {
     log.detail(`${item.rel} — ${item.why}`);
+  }
+  for (const ref of plan.retainedRefs) {
+    log.detail(`${ref} — retained local Git evidence`);
+  }
+
+  if (plan.optionalCleanup.length > 0) {
+    log.heading("Optional local evidence cleanup");
+    for (const command of plan.optionalCleanup) log.detail(command);
   }
 
   log.group("next-step");
@@ -654,6 +795,24 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
 
   const plan = await computeUninstallPlan(root, config);
 
+  if (plan.gitConfigErrors.length > 0) {
+    const message =
+      "uninstall could not prove the clone-local Git cleanup, so it left the project unchanged.";
+    if (options.json) {
+      log.result({
+        ok: false,
+        verb: "uninstall",
+        error: "precondition_failed",
+        message,
+        data: planData(plan),
+      });
+    } else {
+      log.error(message);
+      for (const error of plan.gitConfigErrors) log.detail(error);
+    }
+    return 1;
+  }
+
   if (options.dryRun) {
     if (options.json) {
       log.result({
@@ -671,7 +830,11 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
   // Confirm before removing anything discern created that git may not recover
   // (an uncommitted generated file, the runtime records under .git).
   // Non-interactive callers must say --yes.
-  if (!options.json && (plan.ops.length > 0 || plan.gitAdminDirs.length > 0)) {
+  if (
+    !options.json &&
+    (plan.ops.length > 0 || plan.gitAdminDirs.length > 0 ||
+      removedGitConfig(plan).length > 0)
+  ) {
     if (!options.yes && !canInteract(false)) {
       renderPlan(log, plan, false);
       log.error(
@@ -682,6 +845,7 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
     const deleteCount = plan.ops.filter((op) => op.action === "delete").length;
     const rewriteCount = plan.ops.length - deleteCount;
     const runtimeCount = plan.gitAdminDirs.length;
+    const gitConfigCount = removedGitConfig(plan).length;
     const effects = [
       ...(deleteCount === 0 ? [] : [
         `remove ${deleteCount} discern-owned target${
@@ -697,6 +861,11 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
         `remove ${runtimeCount} runtime-state director${
           runtimeCount === 1 ? "y" : "ies"
         } under Git`,
+      ]),
+      ...(gitConfigCount === 0 ? [] : [
+        `remove ${gitConfigCount} discern-owned Git-config entr${
+          gitConfigCount === 1 ? "y" : "ies"
+        }`,
       ]),
     ];
     const proceed = await confirmDestructiveAction(
@@ -723,7 +892,28 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
     }
   }
 
-  await applyUninstallPlan(root, plan);
+  const applyErrors = await applyUninstallPlan(root, plan);
+  if (applyErrors.length > 0) {
+    const failedPlan: UninstallPlan = {
+      ...plan,
+      gitConfigErrors: applyErrors,
+    };
+    const message =
+      "uninstall could not finish the clone-local Git cleanup, so it did not remove project files.";
+    if (options.json) {
+      log.result({
+        ok: false,
+        verb: "uninstall",
+        error: "apply_failed",
+        message,
+        data: planData(failedPlan),
+      });
+    } else {
+      log.error(message);
+      for (const error of applyErrors) log.detail(error);
+    }
+    return 1;
+  }
 
   if (options.json) {
     log.result({ ok: true, verb: "uninstall", data: planData(plan) });

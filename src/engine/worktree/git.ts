@@ -417,7 +417,7 @@ export type AcceptanceTransactionMarkerRead =
   | { readonly kind: "missing" }
   | { readonly kind: "unavailable"; readonly detail: string };
 
-const ACCEPTANCE_TRANSACTION_MARKER_PREFIX =
+export const ACCEPTANCE_TRANSACTION_MARKER_PREFIX =
   "refs/worktree/discern/acceptance-transactions";
 
 /** Derive the per-worktree proof ref coupled to one acceptance transaction. */

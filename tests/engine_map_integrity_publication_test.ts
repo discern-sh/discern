@@ -9,7 +9,12 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
-import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  convergeFixtureGitattributes,
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+} from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import {
   expectMapIntegrityFailure,
@@ -96,6 +101,7 @@ Deno.test("done --json: a instruction source citing an unknown skill fails with 
       instructions,
       "# Project instructions\n\nUse the `discern-polish-the-lamp` skill for finishing passes.\n",
     );
+    await convergeFixtureGitattributes(dir);
     const output = await expectMapIntegrityFailure(dir);
     assertStringIncludes(output, SOURCE_PATHS.instructions.defaultPath);
     assertStringIncludes(output, "skill-citation");

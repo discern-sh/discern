@@ -14,10 +14,10 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { ensureDir } from "@std/fs";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { pathExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
-import { git, gitInit, runAgent } from "./engine_helpers.ts";
+import { engineEnv, git, gitInit, gitOut, runAgent } from "./engine_helpers.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
@@ -27,6 +27,18 @@ import {
   wiredMcp,
 } from "../src/lib/providers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import {
+  GENERATED_MERGE_DRIVER_KEY,
+  WORKTREE_CONFIG_EXTENSION_KEY,
+} from "../src/engine/generated_merge_driver.ts";
+import {
+  PROOF_NOTES_FETCH_MARKER_KEY,
+  PROOF_NOTES_REF,
+  PROOF_NOTES_TRACKING_PREFIX,
+  proofNotesFetchMapping,
+} from "../src/engine/gate/proof_notes.ts";
+import { DROP_RECOVERY_REF_PREFIX } from "../src/engine/worktree/recovery_refs.ts";
+import { ACCEPTANCE_TRANSACTION_MARKER_PREFIX } from "../src/engine/worktree/git.ts";
 
 /** Canonical 2-space JSON with a trailing newline (what discern's merge writes),
  * so a clean strip round-trips byte-for-byte. */
@@ -38,6 +50,26 @@ const USER_GITATTRIBUTES = "*.jpg binary\n";
 /** The two co-owned files seeded with user content BEFORE discern wires them —
  * so the round-trip asserts they return to these exact bytes. */
 const PRE_SEEDED = new Set([".claude/settings.json", ".mcp.json"]);
+
+/** Run Git without asserting success, for absence checks after uninstall. */
+async function gitResult(
+  dir: string,
+  ...args: string[]
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  const output = await new Deno.Command("git", {
+    args,
+    cwd: dir,
+    env: await engineEnv(),
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  const decoder = new TextDecoder();
+  return {
+    code: output.code,
+    stdout: decoder.decode(output.stdout),
+    stderr: decoder.decode(output.stderr),
+  };
+}
 
 /**
  * Every project-relative path discern CREATES from nothing (so uninstall must
@@ -279,6 +311,170 @@ Deno.test("uninstall --dry-run reports the plan and changes nothing", async () =
       "the dry run must not strip anything",
     );
   });
+});
+
+Deno.test("uninstall removes only owned Git config and retains every ref", async () => {
+  for (const preserveOtherWorktreeSetting of [false, true]) {
+    await withTempDir(async (dir) => {
+      await wireFullHarness(dir);
+      await git(dir, "config", WORKTREE_CONFIG_EXTENSION_KEY, "true");
+      await git(
+        dir,
+        "config",
+        "--worktree",
+        GENERATED_MERGE_DRIVER_KEY,
+        "true",
+      );
+      if (preserveOtherWorktreeSetting) {
+        await git(dir, "config", "--worktree", "project.checkoutMode", "keep");
+      }
+
+      // A stale worktree admin directory is no longer registered, but its exact
+      // private-era driver copy is still positively identifiable and removable.
+      const staleConfig = join(
+        dir,
+        ".git",
+        "worktrees",
+        "stale-discern-test",
+        "config.worktree",
+      );
+      await ensureDir(dirname(staleConfig));
+      await Deno.writeTextFile(
+        staleConfig,
+        '[merge "discern-generated"]\n\tdriver = true\n',
+      );
+
+      const markedRemote = "marked";
+      const unmarkedRemote = "unmarked";
+      const markedMapping = proofNotesFetchMapping(markedRemote);
+      const unmarkedMapping = proofNotesFetchMapping(unmarkedRemote);
+      await git(
+        dir,
+        "config",
+        "--add",
+        PROOF_NOTES_FETCH_MARKER_KEY,
+        markedRemote,
+      );
+      await git(
+        dir,
+        "config",
+        "--add",
+        `remote.${markedRemote}.fetch`,
+        markedMapping,
+      );
+      await git(
+        dir,
+        "config",
+        "--add",
+        `remote.${unmarkedRemote}.fetch`,
+        unmarkedMapping,
+      );
+
+      const privateRefs = [
+        PROOF_NOTES_REF,
+        `${PROOF_NOTES_TRACKING_PREFIX}/origin/notes`,
+        `${DROP_RECOVERY_REF_PREFIX}/fixture`,
+        `${ACCEPTANCE_TRANSACTION_MARKER_PREFIX}/fixture`,
+      ];
+      for (const ref of privateRefs) {
+        await git(dir, "update-ref", ref, "HEAD");
+      }
+      const refsBefore = await gitOut(
+        dir,
+        "for-each-ref",
+        "--format=%(refname) %(objectname)",
+      );
+
+      const result = await runAgent(dir, ["uninstall", "--json"]);
+      assertEquals(result.code, 0, result.output);
+      const envelope = decodeCliResult(result.stdout, "uninstall");
+      assertResultDataKey(envelope, "retained_refs");
+      assertEquals(envelope.data.retained_refs, privateRefs.sort());
+      assertEquals(
+        envelope.data.optional_cleanup,
+        privateRefs.sort().map((ref) => `git update-ref -d '${ref}'`),
+      );
+      assert(
+        envelope.data.removed_git_config?.some((entry) =>
+          entry.includes(GENERATED_MERGE_DRIVER_KEY)
+        ) === true,
+      );
+
+      const refsAfter = await gitOut(
+        dir,
+        "for-each-ref",
+        "--format=%(refname) %(objectname)",
+      );
+      assertEquals(refsAfter, refsBefore, "uninstall must not mutate any ref");
+
+      assertEquals(
+        (await gitResult(dir, "config", "--get", GENERATED_MERGE_DRIVER_KEY))
+          .code,
+        1,
+      );
+      assertEquals(
+        (await gitResult(
+          dir,
+          "config",
+          "--get-all",
+          PROOF_NOTES_FETCH_MARKER_KEY,
+        )).code,
+        1,
+      );
+      assertEquals(
+        (await gitResult(
+          dir,
+          "config",
+          "--get-all",
+          `remote.${markedRemote}.fetch`,
+        )).code,
+        1,
+      );
+      assertEquals(
+        (await gitResult(
+          dir,
+          "config",
+          "--get-all",
+          `remote.${unmarkedRemote}.fetch`,
+        )).stdout.trim(),
+        unmarkedMapping,
+        "an identical unmarked mapping is project-owned and must survive",
+      );
+      assertEquals(
+        (await gitResult(
+          dir,
+          "config",
+          "--file",
+          staleConfig,
+          "--get",
+          GENERATED_MERGE_DRIVER_KEY,
+        )).code,
+        1,
+      );
+      assertEquals(
+        (await gitResult(dir, "config", "--get", WORKTREE_CONFIG_EXTENSION_KEY))
+          .code === 0,
+        preserveOtherWorktreeSetting,
+      );
+      if (preserveOtherWorktreeSetting) {
+        assertEquals(
+          (await gitResult(
+            dir,
+            "config",
+            "--worktree",
+            "--get",
+            "project.checkoutMode",
+          )).stdout.trim(),
+          "keep",
+        );
+        assert(
+          envelope.data.kept_git_config?.some((entry) =>
+            entry.includes(WORKTREE_CONFIG_EXTENSION_KEY)
+          ) === true,
+        );
+      }
+    });
+  }
 });
 
 Deno.test("uninstall refuses while the resource ledger records provisioned resources", async () => {

@@ -558,7 +558,7 @@ export async function collectEffortDiff(
   }
 
   const baseTree = await runGit(
-    ["ls-tree", "-r", "-z", "--format=%(path)", mergeBase],
+    ["ls-tree", "-r", "-z", "--name-only", mergeBase],
     { cwd: root },
   );
   if (!baseTree.success) {

@@ -345,21 +345,13 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     reason:
       "The setup command resolves its destination at the CLI composition boundary.",
   },
-  "setup-gitattributes-environment": {
-    path: "src/commands/setup.ts",
-    enclosingFunction: "assembleInitPlan",
-    primitive: "env",
-    operation: "supply process values to generated-attribute reconciliation",
-    reason:
-      "The setup plan composes process inputs before passing an explicit environment reader into reconciliation.",
-  },
   "setup-page-tokens-environment": {
     path: "src/commands/setup.ts",
     enclosingFunction: "assembleInitPlan",
     primitive: "env",
-    operation: "supply process values to generated setup tokens",
+    operation: "supply process values to setup artifact planning",
     reason:
-      "The setup plan composes process inputs before rendering generated-file attribution tokens.",
+      "The setup plan captures one environment reader before rendering attribution and reconciling its managed Git files.",
   },
   "setup-verify-cwd": {
     path: "src/commands/setup_verify.ts",
@@ -441,6 +433,14 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     reason:
       "The subprocess integration test exercises real cwd inheritance for the distinct protocol-input command.",
   },
+  "subprocess-transport-boundary-cwd": {
+    path: "tests/subprocess_test.ts",
+    enclosingFunction: "<module>",
+    primitive: "cwd",
+    operation: "anchor forbidden Git transport probes",
+    reason:
+      "The subprocess integration test exercises each rejected transport spelling at the invoking checkout boundary.",
+  },
   "terminal-capture-cwd": {
     path: "scripts/terminal_capture.ts",
     enclosingFunction: "parseOptions",
@@ -472,14 +472,6 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     operation: "resolve an omitted command target",
     reason:
       "The dispatcher is the CLI process boundary that resolves command targets from the host cwd.",
-  },
-  "worktree-remove-helper-cwd": {
-    path: "src/engine/dispatch.ts",
-    enclosingFunction: "helperRemoveWorktree",
-    primitive: "cwd",
-    operation: "protect the invoking checkout during helper removal",
-    reason:
-      "The dispatcher passes the live process cwd into the bounded worktree-removal safety check.",
   },
 });
 

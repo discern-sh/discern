@@ -105,6 +105,21 @@ Markdown inside discern's registered surfaces uses Git's built-in `markdown` dif
 
 Materialized Skills and provider-local state are ignored by exact registry path, leaving neighboring files unchanged. Add agent-file ignores outside the managed block if preferred. The currency check accepts a missing copy.
 
+The ignore reconciler owns only its marked block and exact standalone rules that the current provider-artifact registry declares. Similar broad or retired rules outside the block remain project-owned. When `[worktree].root` resolves inside the repository, the managed block also ignores that exact nested directory; the default sibling worktree root needs no repository rule.
+
+## Clone-local Git configuration
+
+These are the only Git configuration entries discern writes. discern stores all of them in clone-local configuration.
+
+| Key or keyed pattern                                            | Scope        | Writer                           | Uninstall behavior                                                               |
+| --------------------------------------------------------------- | ------------ | -------------------------------- | -------------------------------------------------------------------------------- |
+| `merge.discern-generated.driver`                                | Clone-local  | Setup and refresh reconciliation | Removes the common value and obsolete worktree-local copies.                     |
+| `extensions.worktreeConfig`                                     | Clone-local  | Pre-v1 generated-merge setup     | Removes it only when no surviving checkout-specific configuration depends on it. |
+| `discern.proofNotesFetchRemote`                                 | Clone-local  | Proof-note fetch reconciliation  | Removes each recorded ownership marker.                                          |
+| `remote.<name>.fetch with one exact discern proof-note mapping` | Remote entry | Proof-note fetch reconciliation  | Removes only the exact mappings paired with discern's ownership marker.          |
+
+The generated merge driver has one definition in the common clone config and is effective from the main checkout and every linked worktree. Reconciliation migrates redundant `config.worktree` copies. A fresh clone has the tracked attributes but not clone-local configuration; its first setup or `discern refresh` installs the shared driver. An identical unmarked remote fetch mapping is project-owned and remains unchanged.
+
 ## Runtime state inside `.git`
 
 Git-admin runtime records live under `discern/`; do not commit or edit them.
@@ -152,6 +167,19 @@ Git stores drop recovery through ordinary refs under `refs/discern/recovery/`. G
 
 Acceptance atomically moves the trunk and `refs/worktree/discern/acceptance-transactions/<id>` under an advisory lock. Rollback reverses both; Git reaps the ref with the worktree. The marker keeps landed authority spent after a trunk reset or reflog expiry.
 
+## Git refs
+
+| Ref or namespace                                                 | Writer                                              | Lifecycle                                                | Uninstall |
+| ---------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------- | --------- |
+| `refs/heads/discern-setup`                                       | `setup begin`                                       | Landed or retained as an ordinary local branch.          | Retained  |
+| `refs/heads/<repository.branch_prefix><worktree-id>`             | `start`                                             | Deleted only with positive lifecycle ownership evidence. | Retained  |
+| `refs/notes/discern`                                             | `accept`                                            | Durable local landing evidence.                          | Retained  |
+| `refs/discern/remotes/<remote>/notes`                            | An ordinary user-owned fetch after discern wires it | Durable fetched landing evidence.                        | Retained  |
+| `refs/discern/recovery/<timestamp>-<worktree-id>-<nonce>`        | `worktree drop`                                     | Bounded recovery evidence.                               | Retained  |
+| `refs/worktree/discern/acceptance-transactions/<transaction-id>` | `accept`                                            | Temporary compare-and-swap recovery evidence.            | Retained  |
+
+Uninstall never deletes a ref. Its result lists each concrete private discern ref that remains and gives one exact `git update-ref -d '<ref>'` command per ref as optional cleanup. Ordinary local branches remain visible as branches and receive no automatic cleanup suggestion.
+
 ## Temporary files and crash records
 
 Temporary artifacts use the operating system's temporary directory. They remain local evidence outside the project and its commits.
@@ -173,9 +201,9 @@ For symptom-led preservation and cleanup, see [Crashes and local state](../40-tr
 
 ## Removing it all
 
-`discern uninstall` removes Generated files, discern-owned Shared entries, the managed `.gitignore` and `.gitattributes` blocks, and the whole `discern/` runtime-state namespace under Git's administrative directories ([ADR 0104](https://discern.sh/docs/decisions/0104-uninstall-is-the-exit-honesty-verb)). Preview with `discern uninstall --dry-run`.
+`discern uninstall` removes Generated files, discern-owned Shared entries, the managed `.gitignore` and `.gitattributes` blocks, the whole `discern/` runtime-state namespace under Git's administrative directories, the common generated-merge driver and its obsolete checkout-local copies, and only marked proof-note fetch mappings ([ADR 0104](https://discern.sh/docs/decisions/0104-uninstall-is-the-exit-honesty-verb)). Preview with `discern uninstall --dry-run`.
 
-It keeps Project-owned files and `discern.toml`, and it names Shared settings that it cannot clean without bundled templates. It refuses while a worktree is in flight or while the resource ledger records provisioned resources. Those entries hold their only destroy commands, so reclaim them with `discern worktree prune` first. Uninstall is CLI-only. Delete the binary reported by `which discern`.
+It keeps Project-owned files, `discern.toml`, unmarked Git configuration, checkout-specific configuration the project still needs, and every ref. It reports retained private refs and optional exact cleanup commands without running them. It names Shared settings that it cannot clean without bundled templates. It refuses while a worktree is in flight or while the resource ledger records provisioned resources. Those entries hold their only destroy commands, so reclaim them with `discern worktree prune` first. Uninstall is CLI-only, performs no remote operation, and leaves normal Git hooks to run with Git's usual exit semantics. Delete the binary reported by `which discern`.
 
 ## Where it lives in code
 
@@ -193,6 +221,7 @@ It keeps Project-owned files and `discern.toml`, and it names Shared settings th
 | Write-surface guard                | [`tests/paths_write_surface_test.ts`](https://github.com/jackwh/discern/blob/main/tests/paths_write_surface_test.ts)       |
 | The managed `.gitignore` block     | [`src/lib/agent_gitignore.ts`](https://github.com/jackwh/discern/blob/main/src/lib/agent_gitignore.ts)                     |
 | The managed `.gitattributes` block | [`src/lib/agent_gitattributes.ts`](https://github.com/jackwh/discern/blob/main/src/lib/agent_gitattributes.ts)             |
+| Git config and ref inventory       | [`src/engine/git_footprint.ts`](https://github.com/jackwh/discern/blob/main/src/engine/git_footprint.ts)                   |
 | Uninstall                          | [`src/commands/uninstall.ts`](https://github.com/jackwh/discern/blob/main/src/commands/uninstall.ts)                       |
 
 ## See also

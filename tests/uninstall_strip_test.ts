@@ -295,6 +295,9 @@ Deno.test("every UninstallPlan field is read by a plan-consuming function (no or
     blockAfter(source, "function planData"),
     blockAfter(source, "function renderPlan"),
     blockAfter(source, "function applyUninstallPlan"),
+    blockAfter(source, "function removedGitConfig"),
+    blockAfter(source, "function keptGitConfig"),
+    blockAfter(source, "function applyGitConfigCleanup"),
   ].join("\n");
 
   const orphans = fields.filter((f) => !consumers.includes(`.${f}`));

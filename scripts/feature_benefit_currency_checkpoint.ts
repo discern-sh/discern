@@ -13,13 +13,14 @@
 import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
 import { resolveContainedProjectReadPath } from "../src/shared/project_path.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
-import { type GitResult, runGit } from "../src/shared/subprocess.ts";
+import type { GitResult } from "../src/shared/subprocess.ts";
 import {
   checkpointExactUtf8,
   checkpointGitBytes,
   checkpointInvocationRoot,
   checkpointProjectRoot,
   checkpointWhenInputFromEnvironment,
+  runCheckpointGit,
 } from "./checkpoint_when_input.ts";
 
 /** The one checkpoint this command is safe to serve. */
@@ -152,11 +153,10 @@ async function governingRegistry(
   root: string,
   policyCommit: string,
 ): Promise<string> {
-  const result = await runGit(
+  const result = await runCheckpointGit(
     ["show", `${policyCommit}:${FEATURE_BENEFIT_REGISTRY_PATH}`],
     {
       cwd: root,
-      bin: "git",
       timeoutMs: GIT_TIMEOUT_MS,
       maxOutputBytes: FEATURE_BENEFIT_REGISTRY_MAX_BYTES + 4_096,
     },

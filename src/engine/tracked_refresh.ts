@@ -40,6 +40,10 @@ import {
 } from "./instruction_render.ts";
 import { repoPathPrefix, stripRepoPathPrefix } from "./scopes/scopes.ts";
 import { reconcileTrackedProviderArtifacts } from "./tracked_refresh_providers.ts";
+import {
+  type GeneratedMergeDriverOperation,
+  planGeneratedMergeDriver,
+} from "./generated_merge_driver.ts";
 
 /** Which tracked refresh transformation owns a proposed file effect. */
 export type TrackedRefreshArtifactKind =
@@ -56,7 +60,8 @@ export type RefreshArtifactKind =
   | TrackedRefreshArtifactKind
   | "skill"
   | "skill_manifest"
-  | "proof_notes_fetch";
+  | "proof_notes_fetch"
+  | "generated_merge_driver";
 
 /** One exact file effect retained by the refresh plan. */
 export interface RefreshFileOperation {
@@ -97,6 +102,10 @@ export type RefreshEffect =
   | (RefreshEffectFields & {
     readonly type: "proof-notes-fetch";
     readonly operation: ProofNotesFetchOperation;
+  })
+  | (RefreshEffectFields & {
+    readonly type: "git-config";
+    readonly operation: GeneratedMergeDriverOperation;
   });
 
 /** A planning failure blocks only the named artifact boundary. */
@@ -307,6 +316,29 @@ function addProofNotesEffects(
   }
 }
 
+/** Flatten clone-local generated-merge reconciliation into refresh effects. */
+function addGeneratedMergeDriverEffects(
+  effects: RefreshEffect[],
+  operations: readonly GeneratedMergeDriverOperation[],
+): void {
+  for (const operation of operations) {
+    effects.push({
+      type: "git-config",
+      target: operation.kind === "set-common-driver"
+        ? "git config merge.discern-generated.driver"
+        : operation.kind === "unset-worktree-extension"
+        ? "git config extensions.worktreeConfig"
+        : `git config merge.discern-generated.driver (${operation.configFile})`,
+      disposition: operation.kind === "set-common-driver" ? "update" : "remove",
+      artifacts: ["generated_merge_driver"],
+      trackedKinds: [],
+      boundary: "generated-merge-driver",
+      tree: false,
+      operation,
+    });
+  }
+}
+
 /**
  * Compute every Discern-owned refresh effect without writing. Each writer's
  * existing path/content authority supplies its portion of this one plan.
@@ -323,6 +355,7 @@ export async function planRefresh(
   const agents = instructionAgents(config);
   const repoPrefix = await repoPathPrefix(root);
 
+  let generatedMergeDriverRequired = false;
   try {
     const skills = await planMaterializeSkills(
       root,
@@ -524,6 +557,7 @@ export async function planRefresh(
       env,
       renderedAgentPaths,
     );
+    generatedMergeDriverRequired = attributes.patterns.length > 0;
     for (const refused of attributes.refused) {
       warnings.push(
         `${GITATTRIBUTES_REL} omitted pattern ${
@@ -565,6 +599,24 @@ export async function planRefresh(
     });
   }
 
+  if (generatedMergeDriverRequired) {
+    try {
+      const driver = await planGeneratedMergeDriver(root, true);
+      addGeneratedMergeDriverEffects(effects, driver.operations);
+      errors.push(...driver.errors.map((message) => ({
+        message,
+        boundary: "generated-merge-driver",
+        tracked: false,
+      })));
+    } catch (error) {
+      errors.push({
+        message: `could not plan the generated merge driver: ${errText(error)}`,
+        boundary: "generated-merge-driver",
+        tracked: false,
+      });
+    }
+  }
+
   let sourceCount = 0;
   try {
     sourceCount = (await resolveInstructionSources(root, config)).length;
@@ -592,6 +644,9 @@ function artifactGroup(effect: RefreshEffect): string {
   ) return "Materialized skills";
   if (effect.artifacts.includes("proof_notes_fetch")) {
     return "Checkout-local integrations";
+  }
+  if (effect.artifacts.includes("generated_merge_driver")) {
+    return "Clone-local Git configuration";
   }
   if (effect.artifacts.includes("adr_index")) return "Maintained ADR index";
   if (effect.artifacts.includes("gitattributes")) return "Generated metadata";

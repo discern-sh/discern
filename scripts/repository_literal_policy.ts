@@ -68,7 +68,7 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
   },
   {
     path: "project/manual/30-reference/files-and-ownership.md",
-    counts: { "current-repository": 13 },
+    counts: { "current-repository": 14 },
     reason: "the reference links each implementation authority to its source",
   },
   {

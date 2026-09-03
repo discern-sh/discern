@@ -1878,7 +1878,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "Slot coordination is an optional concurrency cap and an unavailable Git-admin directory must not suppress or alter the requested test run itself.",
   },
   "third-party-package-license-decode-fallback": {
-    path: "src/shared/third_party_codegen.ts",
+    path: "scripts/third_party_codegen.ts",
     enclosingFunction: "declaredNpmLicense",
     operation:
       "fall back from malformed package metadata to a bundled license file",
@@ -1889,7 +1889,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "The generator still requires authoritative license text and fails if no package file supplies it; malformed metadata alone proves no license.",
   },
   "third-party-payload-compare-fallback": {
-    path: "src/shared/third_party_codegen.ts",
+    path: "scripts/third_party_codegen.ts",
     enclosingFunction: "sameThirdPartyBundlePayload",
     operation: "report malformed generated third-party modules as unequal",
     kind: "direct",
