@@ -1775,7 +1775,7 @@ Deno.test("help <verb> matches <verb> --help for every registered verb", async (
   });
 });
 
-Deno.test("help <target> teaches for retired spellings and synonyms", async () => {
+Deno.test("help <target> points retired spellings and synonyms to canonical commands", async () => {
   await withTempDir(async (dir) => {
     const docs = await makeDocsFixture(dir);
     const env = { DISCERN_DOCS_DIR: docs };
@@ -1785,7 +1785,7 @@ Deno.test("help <target> teaches for retired spellings and synonyms", async () =
     ) {
       const r = await runCli(["help", retired], dir, env);
       assertEquals(r.code, 1, r.stdout + r.stderr);
-      assertTerminalTextIncludes(r.stderr, "was renamed");
+      assertTerminalTextIncludes(r.stderr, "is not a discern command");
       assertStringIncludes(r.stderr, successor);
     }
     for (

@@ -34,6 +34,7 @@ import {
   nextActionSchema,
   ruleResultSchema,
 } from "../src/shared/result_schemas.ts";
+import { completedConfigFixture } from "./helpers.ts";
 
 /** Build a full {@link ImprovementContext} from config TOML plus fact overrides. */
 function ctx(
@@ -42,7 +43,7 @@ function ctx(
 ): ImprovementContext {
   return {
     root: "/tmp/demo",
-    config: parseConfigOrThrow(toml),
+    config: parseConfigOrThrow(completedConfigFixture(toml)),
     instructionPresent: false,
     instructionText: "",
     instructionChars: 0,

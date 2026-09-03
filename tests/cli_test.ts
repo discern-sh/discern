@@ -12,7 +12,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { DISCERN_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
@@ -176,7 +176,7 @@ Deno.test("setup begin --force re-scaffolds an existing install without erroring
   });
 });
 
-Deno.test("setup begin --force leaves a pre-existing seed file untouched (no overwrite, no .new)", async () => {
+Deno.test("setup begin --force preserves a pre-existing seed while stamping its schema version", async () => {
   await withTempDir(async (dir) => {
     // A repo already carrying the config seed the kit would scaffold; the present
     // seed is left as the user's (skipped), not overwritten.
@@ -188,11 +188,11 @@ Deno.test("setup begin --force leaves a pre-existing seed file untouched (no ove
       dir,
     );
     assertEquals(code, 0);
-    // The user's file is byte-for-byte intact; no `.new` sibling is produced.
-    assertEquals(
-      await Deno.readTextFile(join(dir, "discern.toml")),
-      userBody,
-    );
+    // The user's bytes survive; completing the incomplete install adds only
+    // discern-owned schema metadata and never creates a `.new` sibling.
+    const config = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(config.startsWith(userBody));
+    assertStringIncludes(config, `schema_version = ${SCHEMA_VERSION}`);
     await assertNotExists(join(dir, "discern.toml.new"));
   });
 });

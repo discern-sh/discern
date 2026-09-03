@@ -5,7 +5,10 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 import { assertStringIncludes } from "@std/assert";
+import { parse as parseToml } from "@std/toml";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
+import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import type { TokenMap } from "../src/lib/template.ts";
 import type { EnvReader } from "../src/shared/env.ts";
 import {
@@ -196,7 +199,40 @@ export function unexpectedTerminalControls(text: string): string[] {
  * install without running the installer.
  */
 export async function seedConfig(dir: string, content: string): Promise<void> {
-  await Deno.writeTextFile(join(dir, "discern.toml"), content);
+  await Deno.writeTextFile(
+    join(dir, "discern.toml"),
+    completedConfigFixture(content),
+  );
+}
+
+/**
+ * Keep a synthetic completed-install fixture faithful to production metadata.
+ * Explicit metadata is preserved so recovery tests can still model an invalid
+ * or older version deliberately; only omitted completion fields are supplied.
+ */
+export function completedConfigFixture(content: string): string {
+  let parsed: unknown;
+  try {
+    parsed = parseToml(content);
+  } catch {
+    return content;
+  }
+  if (typeof parsed !== "object" || parsed === null) return content;
+  const meta = Reflect.get(parsed, "meta");
+  if (
+    typeof meta !== "object" || meta === null ||
+    Reflect.get(meta, "bootstrapped") !== true
+  ) {
+    return content;
+  }
+  const editor = new TomlEditor(content);
+  if (!Reflect.has(meta, "schema_version")) {
+    editor.setNumber("meta.schema_version", SCHEMA_VERSION);
+  }
+  if (!Reflect.has(meta, "setup_completion")) {
+    editor.setString("meta.setup_completion", "proven");
+  }
+  return editor.toString();
 }
 
 /** Read a target file relative to a destination dir as text. */

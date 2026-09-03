@@ -14,7 +14,7 @@ import {
   VERB_FORM_VARIANTS,
 } from "../src/shared/vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
@@ -39,9 +39,9 @@ Deno.test("retired command spellings hard-error with their canonical successor",
       const retiredTokens = retired.split(" ");
       const result = await runAgent(dir, retiredTokens);
       assertEquals(result.code, 1, result.output);
-      assertEquals(
+      assertTerminalTextIncludes(
         result.stderr,
-        `✕ ${retiredCommandMessage(retired, successor)}\n`,
+        `✕ ${retiredCommandMessage(retired, successor)}`,
       );
 
       const json = await runAgent(dir, [...retiredTokens, "--json"]);

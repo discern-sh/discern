@@ -54,7 +54,12 @@ import {
   type LogbookEvent,
   parseLogbookLine,
 } from "../src/engine/logbook/schema.ts";
-import { fakeEnv, quietDenoRunArgs, REAL_TEMPLATES } from "./helpers.ts";
+import {
+  completedConfigFixture,
+  fakeEnv,
+  quietDenoRunArgs,
+  REAL_TEMPLATES,
+} from "./helpers.ts";
 import { suiteTempDir } from "./temp_dir.ts";
 import {
   type PtyInputPhase,
@@ -716,7 +721,7 @@ export async function runAgentMerged(
  */
 export async function writeConfig(dir: string, toml: string): Promise<void> {
   const path = join(dir, "discern.toml");
-  await writeConfigText(path, toml);
+  await writeConfigText(path, completedConfigFixture(toml));
   if (!toml.includes("bootstrapped")) {
     await markBootstrapped(path);
   }

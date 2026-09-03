@@ -674,7 +674,7 @@ Deno.test("the known-jobs completion check accepts an explicitly all-inapplicabl
   );
   assert(check !== undefined);
   const config = baseConfig({
-    assurance: { not_applicable: Object.keys(KNOWN_JOBS) },
+    setup: { not_applicable: Object.keys(KNOWN_JOBS) },
   });
   assertEquals(await check.evaluate({ root: Deno.cwd(), config }), true);
 });

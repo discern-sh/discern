@@ -18,7 +18,7 @@ import {
   parseConfig,
   RECORD_ENTRY_SCHEMAS,
 } from "../src/shared/config_schema.ts";
-import { applyConfigDoc } from "../src/lib/config_doc.ts";
+import { applyConfigDoc, configDocFillPaths } from "../src/lib/config_doc.ts";
 import type { DiscernConfigDoc } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { CHECKPOINT_PATTERN_LIMITS } from "../src/shared/checkpoints.ts";
@@ -342,8 +342,13 @@ Deno.test("the config document writes every checkpoint field the live schema dec
     scopes: { docs: { paths: ["docs/**"] } },
     checkpoints,
   });
-  assert(report.filled.includes("checkpoints.docs-review"));
-  assert(report.filled.includes("checkpoints.path-review"));
+  assertEquals(
+    report.filled.toSorted(),
+    configDocFillPaths({
+      scopes: { docs: { paths: ["docs/**"] } },
+      checkpoints,
+    }).toSorted(),
+  );
   const { config, issues } = parseConfig(editor.toString());
   assertEquals(issues, []);
   assert(config !== undefined);

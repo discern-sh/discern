@@ -17,7 +17,7 @@ import {
 } from "../src/lib/tidy_format.ts";
 import { planTidy, tidyResult } from "../src/engine/tidy/tidy.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
-import { withTempDir } from "./helpers.ts";
+import { completedConfigFixture, withTempDir } from "./helpers.ts";
 import { scanRuledBanners } from "../src/lib/config_banners.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -84,23 +84,25 @@ async function write(path: string, text: string): Promise<void> {
 async function seedTidyProject(root: string): Promise<void> {
   await write(
     join(root, "discern.toml"),
-    [
-      "[meta]",
-      "bootstrapped=true",
-      "",
-      "[project]",
-      'todo="notes/TODO.md"',
-      "",
-      "[instructions]",
-      'sources=["instructions/*.md"]',
-      "",
-      "[skills]",
-      'dir="docs/skills"',
-      "",
-      "[map]",
-      'dir="docs/"',
-      "",
-    ].join("\n"),
+    completedConfigFixture(
+      [
+        "[meta]",
+        "bootstrapped=true",
+        "",
+        "[project]",
+        'todo="notes/TODO.md"',
+        "",
+        "[instructions]",
+        'sources=["instructions/*.md"]',
+        "",
+        "[skills]",
+        'dir="docs/skills"',
+        "",
+        "[map]",
+        'dir="docs/"',
+        "",
+      ].join("\n"),
+    ),
   );
   await write(join(root, "docs", "README.md"), "# Map\n\n-   item\n");
   await write(join(root, "notes", "TODO.md"), "# Todo\n\n-   item\n");
