@@ -1606,6 +1606,17 @@ Rendered example:
 
 > Run `discern standards --pin` to capture pinnable slack: coverage (floor 90, measured 92.4, pinning to 92.4). On this commit, the pin reuses this check's measurements.
 
+## `start-base-behind-trunk`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `start-result`
+- Emitting context: `start --from` selects a commit that is behind the local trunk.
+
+Rendered example:
+
+> The selected base is 2 commits behind main. The worktree was created from the exact requested commit; run `discern update` there before `discern done`.
+
 ## `start-landing-authority`
 
 - Category: `notice`

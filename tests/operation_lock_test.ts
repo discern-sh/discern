@@ -11,6 +11,8 @@ import {
   OperationLockError,
   withOperationLock,
 } from "../src/engine/operation_lock.ts";
+import { withAcceptanceTransactionLock } from "../src/engine/worktree/acceptance_transaction.ts";
+import { WorktreeResultError } from "../src/engine/worktree/git.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { OPERATION_EFFECTS } from "../src/shared/operation_effects.ts";
 import { currentOperationLocks } from "../src/shared/operation_lock_context.ts";
@@ -200,6 +202,65 @@ Deno.test("acceptance from two worktrees shares one common-repository exclusion"
 
     release.resolve();
     await first;
+  });
+});
+
+Deno.test("accept holds every competing common-repository mutation outside its body", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    const accepting = await addWorktree(dir, "accept-lock-owner");
+    const contender = await addWorktree(dir, "common-lock-contender");
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const held = withOperationLock(
+      accepting,
+      { command: "accept" },
+      heldOperation(entered.resolve, release.promise),
+    );
+    await entered.promise;
+
+    try {
+      const commonMutations = Object.entries(OPERATION_EFFECTS).filter(
+        ([, policy]) =>
+          policy.lock === "common" || policy.lock === "common-and-checkout",
+      );
+      for (const [command] of commonMutations) {
+        let ran = false;
+        const refusal = await assertRejects(
+          () =>
+            withOperationLock(contender, { command }, () => {
+              ran = true;
+              return Promise.resolve();
+            }),
+          OperationLockError,
+        );
+        assertEquals(ran, false, command);
+        assertStringIncludes(refusal.message, "common repository boundary");
+        assertStringIncludes(refusal.message, "This call made no change");
+      }
+    } finally {
+      release.resolve();
+      await held;
+    }
+  });
+});
+
+Deno.test("acceptance lock preserves structured write-access evidence", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    const worktree = await addWorktree(dir, "accept-write-access");
+    await withUnwritableDirectory(join(dir, ".git"), async () => {
+      const refusal = await assertRejects(
+        () => withAcceptanceTransactionLock(worktree, () => Promise.resolve()),
+        WorktreeResultError,
+      );
+      assertEquals(refusal.result.error, "write_access");
+      assertEquals(refusal.result.diagnostics?.[0]?.tool, "write-access");
+      assertEquals(
+        refusal.result.diagnostics?.[0]?.reproduce_cmd,
+        "discern accept",
+      );
+    });
   });
 });
 

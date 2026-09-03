@@ -25,6 +25,7 @@ import {
   resolve,
 } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
+import type { DiscernResult } from "../../shared/result.ts";
 import { padDisplayEnd } from "../../lib/text.ts";
 import { adrNumberOf } from "../../lib/adr_numbers.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
@@ -102,6 +103,21 @@ export class WorktreeGitError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = "WorktreeGitError";
+  }
+}
+
+/** A worktree refusal that already carries its exact public result envelope. */
+export class WorktreeResultError extends WorktreeGitError {
+  readonly result: DiscernResult;
+
+  constructor(
+    message: string,
+    result: DiscernResult,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "WorktreeResultError";
+    this.result = result;
   }
 }
 
@@ -342,6 +358,23 @@ export async function assertMainMerged(
   cwd: string = Deno.cwd(),
   mainBranchFallback?: string,
 ): Promise<MainMergedResult> {
+  return await assertResolvedTrunkMerged(
+    cwd,
+    integrationBranch(mainBranchFallback),
+  );
+}
+
+/**
+ * Read the merge state against an already-resolved local trunk name.
+ *
+ * Acceptance uses this form so one environment/config resolution is carried
+ * through its whole transaction instead of consulting mutable process state at
+ * each evidence boundary.
+ */
+export async function assertResolvedTrunkMerged(
+  cwd: string,
+  mainBranch: string,
+): Promise<MainMergedResult> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   // Outside a repo, or in the main checkout → clean no-op (this sits at the end
   // of `discern done`, which also runs in the main checkout).
@@ -351,7 +384,6 @@ export async function assertMainMerged(
   if (absoluteGitDir === commonGitDir) {
     return { kind: "skipped" };
   }
-  const mainBranch = integrationBranch(mainBranchFallback);
   const hasMain = await git(
     ["show-ref", "--verify", "--quiet", `refs/heads/${mainBranch}`],
     cwd,
@@ -385,6 +417,52 @@ export async function assertMainMerged(
     ? branchRun.stdout.trim()
     : "HEAD";
   return { kind: "behind", behind, branch };
+}
+
+/** Git operation in progress in one checkout, or an unreadable probe. */
+export type GitOperationState =
+  | { readonly kind: "none" }
+  | {
+    readonly kind: "active";
+    readonly operation: "rebase" | "merge" | "cherry-pick";
+    readonly marker: string;
+  }
+  | { readonly kind: "unavailable"; readonly detail: string };
+
+const GIT_OPERATION_MARKERS = [
+  { marker: "rebase-merge", operation: "rebase" },
+  { marker: "rebase-apply", operation: "rebase" },
+  { marker: "MERGE_HEAD", operation: "merge" },
+  { marker: "CHERRY_PICK_HEAD", operation: "cherry-pick" },
+] as const;
+
+/** Inspect checkout-local sequencer state without treating read failure as idle. */
+export async function inspectGitOperation(
+  cwd: string,
+): Promise<GitOperationState> {
+  for (const candidate of GIT_OPERATION_MARKERS) {
+    const resolved = await git(
+      ["rev-parse", "--git-path", candidate.marker],
+      cwd,
+    );
+    if (!resolved.success || resolved.stdout.trim() === "") {
+      return {
+        kind: "unavailable",
+        detail: resolved.stderr.trim() ||
+          `Git could not resolve ${candidate.marker}`,
+      };
+    }
+    const raw = resolved.stdout.trim();
+    const path = isAbsolute(raw) ? raw : resolve(cwd, raw);
+    if (await pathExists(path)) {
+      return {
+        kind: "active",
+        operation: candidate.operation,
+        marker: path,
+      };
+    }
+  }
+  return { kind: "none" };
 }
 
 /** Result of atomically moving a checked-out branch from one exact commit to
@@ -887,6 +965,8 @@ export interface IntegrationAnchors {
 /** Caller-owned policy for the otherwise pure Git update mechanics. */
 export interface UpdateMainOptions {
   from?: string;
+  /** Default integration source already resolved by the lifecycle plan. */
+  resolvedDefault?: string;
   /** True only for paths whose committed bytes are wholly generator-owned. */
   autoResolvable?: (path: string) => boolean;
 }
@@ -946,7 +1026,7 @@ export async function updateMain(
   if (opts.from !== undefined && opts.from !== "") {
     source = opts.from;
   } else {
-    source = integrationBranch(mainBranchFallback);
+    source = opts.resolvedDefault ?? integrationBranch(mainBranchFallback);
     const hasMain = await git(
       ["show-ref", "--verify", "--quiet", `refs/heads/${source}`],
       cwd,

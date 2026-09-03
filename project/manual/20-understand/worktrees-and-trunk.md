@@ -25,6 +25,8 @@ discern separates where work happens from where agreed work lives. Each task run
 
 One worktree lasts for its whole effort, through review feedback and resumed sessions. Meanwhile the main checkout stays yours. Agents work in their worktrees; reading and investigation are all that most sessions need from the main copy.
 
+An explicit `start --from <ref>` preserves the exact resolved commit as the task's base. That base may be behind, equal to, or ahead of the trunk. A positive behind count recommends an update before the Gate and acceptance while preserving the requested composition base.
+
 ## The trunk is what the project agrees on
 
 The trunk holds the project's accepted state while any number of branches remain in flight. Every worktree forks from it, and the project's final quality check (the Gate) requires a branch to contain the current trunk before `discern done` can pass, because evidence is meaningful only against the state the work would join.
@@ -35,8 +37,8 @@ An edit made directly on the trunk skips the worktree, the Gate, Proof, and revi
 
 Movement between worktrees and the trunk is always explicit:
 
-- **Update brings the trunk into a branch.** When a landing elsewhere moves the trunk under a task in flight, `discern update` brings the latest trunk in and reports which of the task's own files the incoming work also touched. The agent re-reads that overlap, because a merge can apply cleanly and still combine incompatible assumptions.
-- **Accept lands a branch on the trunk.** With your authority, `discern accept` fast-forwards the trunk to the exact validated commit, reusing current [Proof](proof.md) rather than running the Gate twice, then removes the worktree and its branch. The trunk's history stays a sequence of accepted changes, and the evidence stays with the landed commit as a durable note.
+- **Update brings the trunk into a branch.** When a landing elsewhere moves the trunk under a task in flight, `discern update` brings the latest trunk in and reports which of the task's own files the incoming work also touched. A divergent update keeps Git integration as a merge commit. If regeneration changes tracked artifacts, discern records that convergence in a second commit rather than folding it into the merge. The resulting non-linear history separates integrated authored work from generated effects. The agent re-reads the overlap, because a merge can apply cleanly and still combine incompatible assumptions.
+- **Accept lands a branch on the trunk.** With your authority, `discern accept` fast-forwards the trunk to the exact commit honored by current [Proof](proof.md)—or the exact commit a fresh in-transaction Gate validates—without a squash, history rewrite, extra merge, or substitute commit. It then removes the worktree and its branch. The evidence stays with that landed commit as a durable note.
 - **Composition builds one branch on another.** `discern start` and `discern update` accept a `from` reference, so a dependent task can build on a sibling's unlanded work. Related tasks can stack below the trunk while review is pending; only acceptance moves the trunk itself.
 
 When one task needs another's result, the agent waits on the repository condition rather than polling or asking you to relay status; [Wait for another task](../10-guides/wait-for-another-task.md) covers choosing between a proven sibling, a landed sibling, and trunk movement.
@@ -46,5 +48,7 @@ When one task needs another's result, the agent waits on the repository conditio
 Isolation covers the checkout and the declared resources: parallel agents can't overwrite one another's working tree. It doesn't make changes semantically independent. Tasks can still edit the same source file in their separate copies, and each can be green on its own. `discern status` shows the tasks in flight (the fleet) with one row per worktree, and names the files two tasks have both changed before either lands. The later landing brings the trunk in and re-reads the shared paths. Separate checkouts remove the mechanical collisions; where two changes touch the same meaning, integration still gets reviewed.
 
 Interruption is planned for. Worktree setup records its intent before acting, so a crash leaves either a working copy or one that can be reclaimed, and a mistakenly removed task keeps a route back to its recent commits. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) covers those paths.
+
+Landing is one common-repository transaction. Acceptance resolves the configured trunk once and holds the repository lock from evidence validation through cleanup and reporting. Other common-repository mutations refuse immediately while it runs. If cleanup fails after the trunk moves, recovery uses the worktree-local journal while the checkout survives. After removal, the landed SHA supplies the recovery authority without replaying consent.
 
 [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md) is the working procedure for starting, inspecting, resourcing, and composing several efforts. [Finish and land a change](../10-guides/finish-and-land-a-change.md) follows a single change end to end, and [Worktrees and status](../30-reference/worktrees-and-status.md) lists the exact identity, environment, and status fields.

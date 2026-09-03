@@ -4,12 +4,13 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   addWorktree,
   gitInit,
   runAgent,
   scaffoldEngine,
+  writeConfig,
 } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import {
@@ -20,6 +21,10 @@ import {
 Deno.test("identity preserves bare output and publishes structured JSON values", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      '[project]\nslug = "engine-test"\n\n[worktree.resources.cache]\ncreate = "true"\ndestroy = "true"\n',
+    );
     await gitInit(dir);
     const worktree = await addWorktree(dir, "identity-json");
 
@@ -92,7 +97,43 @@ Deno.test("identity preserves bare output and publishes structured JSON values",
     const resourcesEnvelope = decodeCliResult(resources.stdout, "identity");
     assertResultDataKey(resourcesEnvelope, "kind");
     assert(resourcesEnvelope.data.kind === "resources");
-    assertEquals(resourcesEnvelope.data.resources, {});
+    assertEquals(resourcesEnvelope.data.resources, {
+      cache: "engine-test-identity-json-cache",
+    });
+  });
+});
+
+Deno.test("identity refuses undeclared resource names on bare and JSON surfaces", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      '[project]\nslug = "engine-test"\n\n[worktree.resources.cache]\ncreate = "true"\ndestroy = "true"\n',
+    );
+    await gitInit(dir);
+
+    const human = await runAgent(dir, ["identity", "--resource", "typo"]);
+    assertEquals(human.code, 1, human.output);
+    assertEquals(human.stdout, "");
+    assert(human.stderr.startsWith("✕ "), human.output);
+    assertTerminalTextIncludes(
+      human.stderr,
+      "Declared resources: cache",
+      human.output,
+    );
+
+    const json = await runAgent(dir, [
+      "identity",
+      "--resource",
+      "typo",
+      "--json",
+    ]);
+    assertEquals(json.code, 1, json.output);
+    assertEquals(json.stderr, "");
+    const envelope = decodeCliResult(json.stdout, "identity");
+    assertEquals(envelope.ok, false);
+    assertEquals(envelope.error, "identity_error");
+    assertEquals(envelope.message?.includes("Declared resources: cache"), true);
   });
 });
 

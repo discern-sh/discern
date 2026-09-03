@@ -437,6 +437,7 @@ Deno.test("start preview and created-task report retain every creation fact", ()
     worktreePath: "/tmp/worktrees/repair-task-ingress-a1b2c3",
     from: "agent/earlier-task",
     fromCommit: commit,
+    trunk: "main",
     title,
     brief,
     resources: [{ name: "database", identity: "demo_repair_task_ingress" }],

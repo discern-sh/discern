@@ -1,5 +1,7 @@
 # ADR 0271: Destructive drops retain bounded recovery refs
 
+> **Amendment ([ADR 0366](0366-landing-is-one-exact-repository-transaction.md)).** A forced drop also preserves an unlanded detached HEAD. Recovery protects the committed object at risk, not only a branch that will be deleted.
+
 **Status**: accepted. Extends the destructive worktree boundary in [ADR 0027](0027-plan-apply-engine-execution.md), the Git-admin lifetime registry in [ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md), and the local Git-ref ownership established by [ADR 0215](0215-landing-receipts-travel-as-git-notes.md).
 
 ## Context
@@ -18,7 +20,7 @@ The repository retains the newest 32 refs. A common-scope advisory lock serializ
 
 Preservation fails closed. If the branch tip cannot be resolved, the lock cannot be acquired, existing refs cannot be listed, or the ref transaction fails, drop stops before any destructive effect and names the Git error. A later failure in resource or worktree removal may leave an additional recovery ref, which is harmless and remains subject to the same cap.
 
-The preservation step runs for every drop that will delete an attached non-trunk branch, not only a forced or not-yet-merged one. This avoids a decision race between classifying the branch and preserving it. After worktree removal, branch deletion uses another compare-and-swap against the preserved commit. If another process moved the branch in between, deletion refuses and the newer branch remains. Dry-run reports the intended step without creating a ref. Detached worktrees have no branch tip to name. A worktree holding the trunk keeps its branch. Acceptance creates no recovery ref because its reviewed commit becomes reachable from the trunk before cleanup.
+The preservation step runs for every drop that will delete an attached non-trunk branch, not only a forced or not-yet-merged one. It also runs for a detached worktree whose HEAD is not reachable from the trunk and would be discarded by a forced drop. This protects the committed object at risk independently of whether a branch names it. After worktree removal, attached branch deletion uses another compare-and-swap against the preserved commit. If another process moved the branch in between, deletion refuses and the newer branch remains. Dry-run reports the intended step without creating a ref. A worktree holding the trunk keeps its branch. Acceptance creates no recovery ref because its reviewed commit becomes reachable from the trunk before cleanup.
 
 Recovery refs are clone-local and receive no automatic fetch or push configuration. `discern uninstall` leaves them in place: once a branch is gone, a recovery ref may be the only remaining name for user-authored commits. The owner may inspect and delete refs explicitly after deciding the recovery window is no longer needed.
 
@@ -30,6 +32,7 @@ Recovery refs are clone-local and receive no automatic fetch or push configurati
 - A retained ref keeps its commit graph reachable independently of reflog expiry and unreachable-object pruning. Eviction returns that graph to Git's ordinary reachability and retention rules.
 - One repository keeps at most 32 drop refs plus one content-free common advisory-lock file.
 - A forced drop can still destroy every uncommitted byte permanently. The refusal and documentation continue to say so.
+- An unlanded detached commit receives the same bounded reachability guarantee as an attached branch tip.
 - Recovery history stays on the machine unless a person deliberately configures ref transport.
 - The namespace is discern-owned, while the commits it names remain user-authored work. Uninstall therefore preserves the refs rather than converting tool removal into a second destructive action.
 

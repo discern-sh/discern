@@ -42,6 +42,15 @@ export interface WithTempDirOptions {
   readonly renamedPath?: (createdDir: string) => string | Promise<string>;
 }
 
+/** Filesystem path forms every lifecycle must support end to end. */
+export const PATH_SHAPES = [
+  { id: "space", label: "repository with spaces" },
+  { id: "non-ascii", label: "répertoire-東京" },
+  { id: "symlink-parent", label: "symlinked parent" },
+] as const;
+
+export type PathShape = (typeof PATH_SHAPES)[number];
+
 type TempTreeRemover = (dir: string) => Promise<void>;
 
 const DEFAULT_PREFIX = "discern-test-";
@@ -113,6 +122,27 @@ export async function withTempDir<T>(
       await removeOwnedTempDir(created).catch(() => {});
     }
   }
+}
+
+/** Run one callback in a repository directory with the selected path shape. */
+export async function withPathShapeTempDir<T>(
+  shape: PathShape,
+  fn: (dir: string) => T | Promise<T>,
+): Promise<T> {
+  if (shape.id === "symlink-parent") {
+    return await withTempDir(async (outer) => {
+      const realParent = `${outer}/real-parent`;
+      const linkedParent = `${outer}/linked-parent`;
+      await Deno.mkdir(realParent);
+      await Deno.symlink(realParent, linkedParent);
+      const repository = `${linkedParent}/repository`;
+      await Deno.mkdir(repository);
+      return await fn(repository);
+    });
+  }
+  return await withTempDir(fn, {
+    renamedPath: (created) => `${created}-${shape.label}`,
+  });
 }
 
 let suiteTempPromise: Promise<string> | undefined;

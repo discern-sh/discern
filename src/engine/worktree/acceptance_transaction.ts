@@ -38,6 +38,7 @@ import {
   readAcceptanceTransactionMarker,
   recoverCheckedOutFastForward,
   WorktreeGitError,
+  WorktreeResultError,
 } from "./git.ts";
 import { OperationLockError, withOperationLock } from "../operation_lock.ts";
 import {
@@ -55,6 +56,11 @@ export const ACCEPTANCE_TRANSACTION_BOUNDARIES = [
     id: "trunk-ref",
     evidence:
       "the expected/target refs plus the atomically coupled per-worktree marker ref",
+  },
+  {
+    id: "proof-note",
+    evidence:
+      "the honored worktree Proof and journal-bound acceptance evidence on the landed commit",
   },
 ] as const;
 
@@ -150,7 +156,9 @@ export async function withAcceptanceTransactionLock<T>(
     return await withOperationLock(cwd, { command: "accept" }, operation);
   } catch (error) {
     if (error instanceof OperationLockError) {
-      throw new WorktreeGitError(error.message, { cause: error });
+      throw new WorktreeResultError(error.message, error.result, {
+        cause: error,
+      });
     }
     throw error;
   }

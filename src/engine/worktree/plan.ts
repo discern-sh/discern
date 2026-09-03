@@ -334,6 +334,11 @@ export interface StartPlan {
   from: string;
   /** The immutable commit `from` resolved to while planning. */
   fromCommit: string;
+  /** The local trunk name resolved while planning. */
+  trunk: string;
+  /** Positive count of trunk commits absent from the selected base. Omitted
+   * when the base is equal to or ahead of trunk. */
+  behindTrunk?: number;
   /** Human display title preserved in worktree task metadata. */
   title: string;
   /** Optional one-line task brief preserved in worktree task metadata. */
@@ -354,8 +359,12 @@ export function startPlanToEngine(plan: StartPlan): EnginePlan {
     `Title:        ${plan.title}`,
     `From:         ${plan.from}`,
     `Base commit:  ${plan.fromCommit}`,
+    `Trunk:        ${plan.trunk}`,
     `Path:         ${plan.worktreePath}`,
   ];
+  if (plan.behindTrunk !== undefined) {
+    details.push(`Behind trunk: ${plan.behindTrunk}`);
+  }
   if (plan.brief !== undefined) {
     details.push(`Brief:        ${plan.brief}`);
   }
@@ -482,6 +491,8 @@ export interface DropPlan {
    * work, and the trunk is never a line of work to discard. A branch without
    * exact worktree-identity ownership is also retained. */
   deleteBranch: boolean;
+  /** Preserve the recorded HEAD before any destructive effect. */
+  preserveHead: boolean;
   /** Why a named branch is retained when {@link deleteBranch} is false. */
   branchKeepReason?: string | undefined;
   /** What a drop would discard — empty when the worktree is clean and merged.
@@ -554,11 +565,11 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
   steps.push({
     kind: "git",
     label: BUILT_IN_STEP_LABELS.preserveBranchTip,
-    disposition: plan.deleteBranch ? "run" : "skip",
-    note: plan.deleteBranch
+    disposition: plan.preserveHead ? "run" : "skip",
+    note: plan.preserveHead
       ? `retain the commit under refs/discern/recovery/ (newest ${DROP_RECOVERY_REF_LIMIT})`
       : plan.branch === ""
-      ? "detached — no branch tip to preserve"
+      ? "detached HEAD is already reachable from the trunk"
       : plan.branchKeepReason ?? `${plan.branch} is kept`,
   });
   steps.push({

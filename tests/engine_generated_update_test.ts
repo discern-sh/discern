@@ -195,11 +195,13 @@ Deno.test("update regenerates a declared artifact after a clean merge and previe
     await write(join(wt, "source/left.txt"), "worktree-left\n");
     await regenerate(wt);
     await commitAll(wt, "change left source");
+    const branchTip = await gitOut(wt, "rev-parse", "HEAD");
 
     // Main changes another source without rebuilding the artifact. Git can merge
     // this cleanly, but neither committed artifact represents the merged sources.
     await write(join(dir, "source/right.txt"), "main-right\n");
     await commitAll(dir, "change right source without regenerating");
+    const trunkTip = await gitOut(dir, "rev-parse", "HEAD");
 
     const configured = await configuredGroupNames(wt);
     const beforePreview = await Deno.readTextFile(join(wt, GENERATED_PATH));
@@ -248,6 +250,27 @@ Deno.test("update regenerates a declared artifact after a clean merge and previe
       await gitOut(wt, "status", "--porcelain"),
       "",
       result.stdout,
+    );
+    const regeneratedCommit = await gitOut(wt, "rev-parse", "HEAD");
+    const mergeCommit = await gitOut(wt, "rev-parse", "HEAD^");
+    assertEquals(
+      (await gitOut(wt, "show", "-s", "--format=%P", regeneratedCommit))
+        .split(" ").length,
+      1,
+      "generated convergence must remain a separate ordinary commit",
+    );
+    assertEquals(
+      new Set(
+        (await gitOut(wt, "show", "-s", "--format=%P", mergeCommit)).split(
+          " ",
+        ),
+      ),
+      new Set([branchTip, trunkTip]),
+      "update must first preserve Git integration as its own merge commit",
+    );
+    assertEquals(
+      await gitOut(wt, "show", "-s", "--format=%s", regeneratedCommit),
+      "Regenerate artifacts after update",
     );
   });
 });

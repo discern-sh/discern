@@ -3432,6 +3432,23 @@ export const HINTS = {
       `(or cd there) to continue. Do not keep working in the main checkout.`,
   }),
 
+  /** A deliberate start base is valid but does not yet contain the trunk. */
+  "start-base-behind-trunk": defineHint<{
+    behind: number;
+    trunk: string;
+  }>({
+    id: "start-base-behind-trunk",
+    category: "next-step",
+    audience: "all",
+    when: "`start --from` selects a commit that is behind the local trunk.",
+    family: "start-result",
+    example: { behind: 2, trunk: "main" },
+    template: ({ behind, trunk }): string =>
+      `The selected base is ${behind} commit${behind === 1 ? "" : "s"} ` +
+      `behind ${trunk}. The worktree was created from the exact requested ` +
+      `commit; run ${CMD.update} there before ${CMD.done}.`,
+  }),
+
   /** Uncommitted main-checkout work stays behind when start forks a commit. */
   "start-main-changes-stay": defineHint<{
     changes: number;

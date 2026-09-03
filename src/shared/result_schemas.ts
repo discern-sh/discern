@@ -1441,6 +1441,8 @@ export const StartDataSchema = z.strictObject({
   branch: z.string(),
   path: z.string(),
   from: z.string(),
+  /** Emitted only when the selected base lacks one or more trunk commits. */
+  behind_trunk: z.number().int().positive().optional(),
   task: TaskMetadataDataSchema,
   name_note: z.string().optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),

@@ -148,6 +148,53 @@ export async function preserveDropRecoveryRef(
     );
   }
 
+  return await preserveResolvedDropCommit(
+    root,
+    commit,
+    worktreeId,
+    branchRef,
+    clock,
+    entropy,
+  );
+}
+
+/** Retain an exact detached commit before its worktree is discarded. */
+export async function preserveDropRecoveryCommit(
+  root: string,
+  commit: string,
+  worktreeId: string,
+  clock: Clock = SYSTEM_CLOCK,
+  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
+): Promise<DropRecoveryRef> {
+  const resolved = await runGit([
+    "rev-parse",
+    "--verify",
+    `${commit}^{commit}`,
+  ], { cwd: root });
+  if (!resolved.success || resolved.stdout.trim() !== commit) {
+    throw new Error(
+      `Git could not resolve detached commit ${commit}: ${gitReason(resolved)}`,
+    );
+  }
+  return await preserveResolvedDropCommit(
+    root,
+    commit,
+    worktreeId,
+    undefined,
+    clock,
+    entropy,
+  );
+}
+
+/** Write one bounded recovery ref, optionally verifying its source branch. */
+async function preserveResolvedDropCommit(
+  root: string,
+  commit: string,
+  worktreeId: string,
+  sourceRef: string | undefined,
+  clock: Clock,
+  entropy: SecureEntropy,
+): Promise<DropRecoveryRef> {
   return await withRecoveryRefLock(root, async () => {
     const existing = await existingRecoveryRefs(root);
     const ref = `${DROP_RECOVERY_REF_PREFIX}/${
@@ -155,7 +202,7 @@ export async function preserveDropRecoveryRef(
     }-${recoverySlug(worktreeId)}-${entropy.uuid().slice(0, 8)}`;
     const evicted = existing.slice(DROP_RECOVERY_REF_LIMIT - 1);
     const commands = [
-      `verify ${branchRef} ${commit}`,
+      ...(sourceRef === undefined ? [] : [`verify ${sourceRef} ${commit}`]),
       `create ${ref} ${commit}`,
       ...evicted.map((entry) => `delete ${entry.ref} ${entry.commit}`),
     ];

@@ -58,6 +58,7 @@ const AcceptanceTransactionFixtureSchema = z.object({
 const INTERRUPTION_FIXTURES = {
   "effort-claim": "pre-CAS claim and post-CAS consumption",
   "trunk-ref": "post-CAS checkout convergence, local edits, and ABA movement",
+  "proof-note": "post-CAS recovery records or discloses durable Proof evidence",
 } as const satisfies Record<AcceptanceTransactionBoundary, string>;
 
 interface SuccessfulLandingCase {
@@ -88,7 +89,7 @@ const SUCCESSFUL_LANDING_CASES = [
   {
     source: "standing-grant",
     consent: { source: "standing-grant", scopes: ["map"] },
-    proofPhrase: "landed under standing grant: map",
+    proofPhrase: "landed under standing grant: `map`",
   },
 ] as const satisfies readonly SuccessfulLandingCase[];
 
@@ -440,6 +441,8 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
       { "feature.txt": "landed before checkout convergence\n" },
       "cas-interruption",
     );
+    const done = await runAgent(worktree, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
     const expected = await gitOut(dir, "rev-parse", "main");
     const target = await gitOut(worktree, "rev-parse", "HEAD");
     const interrupted = await injectInterruptedAcceptance(
@@ -471,6 +474,7 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
     ]);
     assertEquals(retried.code, 1, retried.output);
     const retriedResult = decodeCliResult(retried.stdout, "accept");
+    assertResultDataKey(retriedResult, "proof_note");
     assert(retriedResult.message !== undefined);
     const message = retriedResult.message;
     assertStringIncludes(message, "reconciled the interrupted landing");
@@ -485,6 +489,79 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
       "landed before checkout convergence\n",
     );
     assertEquals(await targetExists(interrupted.journal), false);
+    assert(await targetExists(worktree));
+    const recoveredProofNote = retriedResult.data.proof_note;
+    assert(recoveredProofNote !== undefined);
+    assert(
+      recoveredProofNote.write.status === "recorded" ||
+        recoveredProofNote.write.status === "already_present",
+      retried.output,
+    );
+    assert(
+      (await gitOut(
+        dir,
+        "notes",
+        "--ref",
+        "refs/notes/discern",
+        "show",
+        target,
+      )).length > 0,
+      "post-CAS recovery must leave durable Proof evidence",
+    );
+  });
+});
+
+Deno.test("post-CAS recovery discloses a missing worktree Proof marker", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "landed before Proof recording\n" },
+      "cas-missing-proof",
+    );
+    const done = await runAgent(worktree, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+    );
+    await git(
+      dir,
+      "update-ref",
+      "-m",
+      `discern accept transaction ${interrupted.id}`,
+      "refs/heads/main",
+      target,
+      expected,
+    );
+    await injectCommittedAcceptanceMarker(worktree, interrupted, target);
+    const proofPath = await gitAdminStatePath(worktree, "gateProof");
+    assert(proofPath !== undefined);
+    await Deno.remove(proofPath);
+
+    const recovered = await runAgent(worktree, [
+      "accept",
+      "--confirmed",
+      "--json",
+    ]);
+    assertEquals(recovered.code, 1, recovered.output);
+    const envelope = decodeCliResult(recovered.stdout, "accept");
+    assertResultDataKey(envelope, "proof_note");
+    const recoveredProofNote = envelope.data.proof_note;
+    assert(recoveredProofNote !== undefined);
+    assertEquals(recoveredProofNote.write.status, "missing_proof");
+    assert(
+      envelope.steps?.some((step) =>
+        step.advisory?.kind === "proof-recording-unavailable" &&
+        step.outcome === "failed"
+      ) ?? false,
+      recovered.output,
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), target);
     assert(await targetExists(worktree));
   });
 });

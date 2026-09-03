@@ -87,6 +87,44 @@ Deno.test("worktree drop <id>: removes a clean, merged worktree and deletes its 
   });
 });
 
+Deno.test("worktree drop --force preserves an unlanded detached HEAD", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "detached-unlanded");
+    await git(wt, "switch", "-q", "--detach");
+    await Deno.writeTextFile(join(wt, "detached-work.txt"), "keep me\n");
+    await git(wt, "add", "-A");
+    await git(
+      wt,
+      "commit",
+      "-q",
+      "-m",
+      "detached work",
+      "--no-gpg-sign",
+    );
+    const head = await gitOut(wt, "rev-parse", "HEAD");
+
+    const run = await runAgent(dir, [
+      "worktree",
+      "drop",
+      "detached-unlanded",
+      "--force",
+      "--json",
+    ]);
+    assertEquals(run.code, 0, run.output);
+    assertEquals(await targetExists(wt), false, run.output);
+    const refs = await recoveryRefs(dir);
+    assertEquals(refs[0]?.commit, head, run.output);
+    const result = decodeCliResult(run.stdout, "worktree drop");
+    assert(
+      result.steps?.some((step) =>
+        step.label === "preserve-branch-tip" &&
+        step.note === refs[0]?.ref && step.outcome === "ok"
+      ) ?? false,
+      run.output,
+    );
+  });
+});
+
 Deno.test("worktree drop removes an explicitly selected foreign checkout but retains its branch", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

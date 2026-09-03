@@ -2942,6 +2942,7 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
     const worktree = await addWorktree(dir, "partial-branch-delete");
     await commitWorktreeForAcceptance(worktree);
     const branch = await gitOut(worktree, "branch", "--show-current");
+    const landedSha = await gitOut(worktree, "rev-parse", "HEAD");
 
     // Let landing and worktree removal complete, then fail only the final branch
     // deletion. A loose-ref lock is Git's deterministic refusal at that seam.
@@ -2973,6 +2974,15 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
     );
     assertEquals(partial.isError, true);
     assertEquals(partial.structuredContent.error, "partial_acceptance");
+    assertStringIncludes(
+      String(partial.structuredContent.message),
+      `refs/heads/${branch}^{commit}`,
+    );
+    assertStringIncludes(
+      String(partial.structuredContent.message),
+      "branch -d",
+    );
+    assertStringIncludes(String(partial.structuredContent.message), landedSha);
     const partialData = partial.structuredContent.data as {
       root?: unknown;
       consent?: unknown;
@@ -3022,6 +3032,9 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
     );
 
     await Deno.remove(branchLock);
+    assertEquals(await gitOut(dir, "rev-parse", branch), landedSha);
+    await git(dir, "branch", "-d", branch);
+    assertEquals(await gitOut(dir, "branch", "--list", branch), "");
   });
 });
 

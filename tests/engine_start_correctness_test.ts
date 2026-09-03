@@ -292,6 +292,80 @@ Deno.test("start --from <branch> forks the worktree from that ref", async () => 
   });
 });
 
+const START_BASE_RELATIONS = [
+  { relation: "equal", expectedBehind: undefined },
+  { relation: "ahead", expectedBehind: undefined },
+  { relation: "behind", expectedBehind: 1 },
+] as const;
+
+Deno.test("start --from preserves every resolved base and reports only positive trunk lag", async () => {
+  for (const testCase of START_BASE_RELATIONS) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      await git(dir, "branch", "selected-base");
+      if (testCase.relation === "ahead") {
+        await git(dir, "switch", "-q", "selected-base");
+        await Deno.writeTextFile(join(dir, "source-only.txt"), "ahead\n");
+        await git(dir, "add", "-A");
+        await git(
+          dir,
+          "commit",
+          "-q",
+          "-m",
+          "advance selected base",
+          "--no-gpg-sign",
+        );
+        await git(dir, "switch", "-q", "main");
+      }
+      if (testCase.relation === "behind") {
+        await Deno.writeTextFile(join(dir, "trunk-only.txt"), "behind\n");
+        await git(dir, "add", "-A");
+        await git(
+          dir,
+          "commit",
+          "-q",
+          "-m",
+          "advance trunk",
+          "--no-gpg-sign",
+        );
+      }
+      const selected = await gitOut(dir, "rev-parse", "selected-base");
+
+      const run = await runAgent(dir, [
+        "start",
+        "--json",
+        "--from",
+        "selected-base",
+      ]);
+      assertEquals(run.code, 0, run.output);
+      const result = decodeStarted(run.stdout);
+      assertEquals(
+        result.data.behind_trunk,
+        testCase.expectedBehind,
+        testCase.relation,
+      );
+      assertEquals(
+        await gitOut(result.data.path, "rev-parse", "HEAD"),
+        selected,
+        "start must keep the exact requested base even when it is behind",
+      );
+      if (testCase.expectedBehind !== undefined) {
+        assertHasHint(result, HINTS["start-base-behind-trunk"], {
+          behind: testCase.expectedBehind,
+          trunk: "main",
+        });
+      } else {
+        assertEquals(
+          result.hints?.some((hint) => hint.includes("behind main")) ?? false,
+          false,
+          run.output,
+        );
+      }
+    });
+  }
+});
+
 Deno.test("start --from refuses an unknown ref in plain language", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

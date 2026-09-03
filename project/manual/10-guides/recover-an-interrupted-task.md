@@ -61,15 +61,30 @@ Acceptance can move the trunk before later checkout convergence or cleanup fails
 
 Do not assume the original worktree still exists. When cleanup removed it, continue from the main checkout path returned in `data.root`.
 
-### 2. Retry the same acceptance route
+### 2. Choose recovery from the recorded landing state
 
-**Coding agent:** Follow the result's recovery and rerun `discern_accept` from the surviving checkout.
+When `worktree_removed` is false, return to the original worktree and follow the result's recovery. If it calls for a retry, rerun acceptance there:
 
 ```sh
 discern accept
 ```
 
-discern reads the journal, marker, current refs, authority, and checkout state before acting. It reuses consent bound to the interrupted transaction when available. A Standard proposal or an authority record that cannot be verified still requires the person to supply the served approval.
+discern reads that worktree's journal, marker, current refs, authority, and checkout state before acting. It reuses consent only when it is bound to the interrupted transaction. A Standard proposal or an authority record that cannot be verified still requires the person to supply the served approval.
+
+When `worktree_removed` is true, do not rerun acceptance: `data.root` is the main checkout, the worktree-local journal is gone, and the trunk has already landed. From `data.root`, verify that the trunk still names the exact landed SHA reported by the Proof:
+
+```sh
+git rev-parse --verify '<trunk>^{commit}'
+```
+
+If Git still registers the removed checkout, run `discern worktree prune`. If `branch_deleted` is false, first verify that the retained branch still names the landed SHA, then delete it with Git's merged-only form:
+
+```sh
+git rev-parse --verify 'refs/heads/<branch>^{commit}'
+git branch -d '<branch>'
+```
+
+Run the deletion only when the first command prints the exact landed SHA. This post-removal cleanup neither needs nor replays landing consent.
 
 If another acceptance owns the repository lock, the refusal says that this call changed nothing. Wait for that operation to finish, then retry.
 
@@ -83,7 +98,7 @@ Recovery is complete when status shows the trunk at the accepted commit and the 
 
 ## Recover a dropped branch
 
-`discern worktree drop` stores the branch's committed tip under `refs/discern/recovery/` before removing it and prints the full ref. The newest 32 refs remain local to this clone.
+`discern worktree drop` stores any branch tip it deletes (and any unlanded detached HEAD it discards) under `refs/discern/recovery/` before removing the checkout and prints the full ref. The newest 32 refs remain local to this clone.
 
 ### 1. Select the retained commit
 

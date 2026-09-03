@@ -7655,6 +7655,7 @@ export type DiscernStartResult = DiscernResultState & {
     branch: string;
     path: string;
     from: string;
+    behind_trunk?: number;
     task: {
       id: string;
       branch: string;

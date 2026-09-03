@@ -110,6 +110,12 @@ discern update
 
 The update result names incoming overlap. Re-read those files, resolve combined assumptions, then run the stream's Gate again. Each branch needs its own current Proof and landing authority.
 
+## Respect the common repository boundary
+
+A non-dry-run acceptance holds one common-repository lock from its first Gate and authority reads through the trunk compare-and-swap, cleanup, and final result. While that transaction is active, another `accept`, `start`, `setup begin`, `setup accept`, `setup done`, `patterns seal`, `patterns reset`, `uninstall`, `worktree drop`, `worktree park`, or `worktree prune` in the same repository refuses immediately without running its body or changing state. Checkout-only work in another worktree and read-only inspection can continue.
+
+Follow the refusal instead of polling: let the named operation finish, inspect its result or `discern status`, then retry the refused command. The common lock is an operating-system lease. A stopped process releases it.
+
 ## Compose dependent work below the trunk
 
 Use this path when a later stage should include an earlier stage before either reaches the trunk.

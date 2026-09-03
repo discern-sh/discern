@@ -7,6 +7,7 @@ import { loadIdentitySettings } from "./identity.ts";
 import {
   assertOpSide,
   branchIsMerged,
+  commitIsMerged,
   integrationBranch,
   listWorktreeFleet,
   localBranchExists,
@@ -134,6 +135,9 @@ export async function buildRemovalPlan(
       source: "registered",
     });
   const deletableLineOfWork = match.branch !== "" && match.branch !== trunk;
+  const detachedHeadNeedsRecovery = match.branch === "" &&
+    (!trunkExists || !(await commitIsMerged(ctx.root, match.head, trunk)));
+  const deleteBranch = deletableLineOfWork && branchOwnership.owned;
 
   return {
     targetPath: match.path,
@@ -141,7 +145,8 @@ export async function buildRemovalPlan(
     branch: match.branch,
     head: match.head,
     ...(match.snapshot === undefined ? {} : { clean: match.snapshot.clean }),
-    deleteBranch: deletableLineOfWork && branchOwnership.owned,
+    deleteBranch,
+    preserveHead: deleteBranch || detachedHeadNeedsRecovery,
     ...(match.branch !== "" && !(deletableLineOfWork && branchOwnership.owned)
       ? {
         branchKeepReason: match.branch === trunk

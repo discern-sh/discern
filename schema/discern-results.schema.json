@@ -23568,6 +23568,11 @@
                 "from": {
                   "type": "string"
                 },
+                "behind_trunk": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
                 "task": {
                   "type": "object",
                   "properties": {

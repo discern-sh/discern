@@ -172,6 +172,7 @@ function preparedStart(
     worktreePath: "/worktrees/new-task",
     from: "main",
     fromCommit: START_COMMIT,
+    trunk: "main",
     title,
     resources: [],
     ...patch,

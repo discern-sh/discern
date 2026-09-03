@@ -27,6 +27,7 @@ import {
   writeDiscernToml,
 } from "../src/lib/tidy_format.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
 import {
   configuredSetupSteps,
@@ -42,7 +43,10 @@ import {
   type assertOpSide,
   readySentinelPath,
 } from "../src/engine/worktree/git.ts";
-import { cliRefusalCases } from "../src/engine/worktree/side_restrictions.ts";
+import {
+  cliRefusalCases,
+  SIDE_RESTRICTED_OPS,
+} from "../src/engine/worktree/side_restrictions.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
@@ -337,6 +341,34 @@ Deno.test("accept: fast-forwards the trunk, removes the worktree, deletes the me
       `the merged branch should be deleted\n${r.output}`,
     );
     assertTerminalTextIncludes(r.output, "Acceptance complete");
+  });
+});
+
+Deno.test("accept resolves DISCERN_TRUNK once through done, journal, and exact landing", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const mainBefore = await gitOut(dir, "rev-parse", "main");
+    await git(dir, "switch", "-q", "-c", "release");
+    const wt = await addWorktree(dir, "release-landing");
+    await Deno.writeTextFile(join(wt, "release-feature.txt"), "landed\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "release feature", "--no-gpg-sign");
+    const target = await gitOut(wt, "rev-parse", "HEAD");
+    const env = { [DISCERN_ENVIRONMENT_VARIABLES.trunk]: "release" };
+
+    const done = await runAgent(wt, ["done", "--json"], { env });
+    assertEquals(done.code, 0, done.output);
+    const accepted = await runAgent(
+      wt,
+      ["accept", "--confirmed", "--json"],
+      { env },
+    );
+    assertEquals(accepted.code, 0, accepted.output);
+    assertEquals(await gitOut(dir, "rev-parse", "release"), target);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), mainBefore);
+    assertEquals(await gitOut(dir, "branch", "--show-current"), "release");
+    assert(await targetExists(join(dir, "release-feature.txt")));
   });
 });
 
@@ -682,6 +714,47 @@ Deno.test("accept: refuses a detached-HEAD main checkout the same way", async ()
   });
 });
 
+Deno.test("accept names an in-progress main-checkout rebase before suggesting a branch switch", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const conflict = join(dir, "rebase-conflict.txt");
+    await Deno.writeTextFile(conflict, "base\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "rebase base", "--no-gpg-sign");
+    await git(dir, "switch", "-q", "-c", "rebase-source");
+    await Deno.writeTextFile(conflict, "source\n");
+    await git(dir, "commit", "-q", "-am", "source side", "--no-gpg-sign");
+    await git(dir, "switch", "-q", "main");
+    const wt = await addWorktree(dir, "main-rebase-active");
+    await Deno.writeTextFile(conflict, "main\n");
+    await git(dir, "commit", "-q", "-am", "main side", "--no-gpg-sign");
+    await git(wt, "merge", "--ff-only", "main");
+    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+
+    const rebase = await new Deno.Command("git", {
+      args: ["rebase", "rebase-source"],
+      cwd: dir,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert(rebase.code !== 0, "fixture must stop during a rebase conflict");
+
+    const accepted = await runAgent(wt, ["accept", "--confirmed"]);
+    assertEquals(accepted.code, 1, accepted.output);
+    assertTerminalTextIncludes(accepted.output, "in-progress rebase");
+    assertTerminalTextIncludes(accepted.output, "rebase --continue");
+    assertEquals(
+      accepted.output.includes("switch main"),
+      false,
+      accepted.output,
+    );
+    await git(dir, "rebase", "--abort");
+  });
+});
+
 Deno.test("accept: refuses when the main checkout is parked off the trunk, naming the way back", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "parked-main");
@@ -731,6 +804,52 @@ Deno.test("accept refuses (non-destructively) when the main checkout is dirty", 
       true,
       "worktree must be left intact on refusal",
     );
+  });
+});
+
+Deno.test("accept fails closed when main-checkout status is unreadable", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "unreadable-main-status");
+    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
+    const wrapper = join(dir, "fail-main-status-git");
+    const canonicalMain = await Deno.realPath(dir);
+    await Deno.writeTextFile(
+      wrapper,
+      [
+        "#!/bin/sh",
+        "top=$(git rev-parse --show-toplevel 2>/dev/null || true)",
+        "is_status=false",
+        'for arg in "$@"; do',
+        '  if [ "$arg" = status ]; then is_status=true; break; fi',
+        "done",
+        `if [ "$top" = '${canonicalMain}' ] && [ "$is_status" = true ]; then`,
+        "  echo 'deliberate main status failure' >&2",
+        "  exit 41",
+        "fi",
+        'exec git "$@"',
+        "",
+      ].join("\n"),
+    );
+    await Deno.chmod(wrapper, 0o755);
+
+    const accepted = await runAgent(wt, ["accept", "--confirmed"], {
+      env: { GIT_BIN: wrapper },
+    });
+    assertEquals(accepted.code, 1, accepted.output);
+    assertTerminalTextIncludes(
+      accepted.output,
+      "could not read tracked status",
+    );
+    assertTerminalTextIncludes(
+      accepted.output,
+      "deliberate main status failure",
+    );
+    assertEquals(accepted.output.includes("discern update"), false);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+    assert(await targetExists(wt));
   });
 });
 
@@ -962,6 +1081,33 @@ Deno.test("every CLI-reachable side-restricted op maps a wrong-side refusal to e
       );
     }
   });
+});
+
+Deno.test("the interrupted-acceptance guide keeps recovery commands on their registered side", async () => {
+  const guide = await Deno.readTextFile(
+    join(
+      REPO_ROOT,
+      "project/manual/10-guides/recover-an-interrupted-task.md",
+    ),
+  );
+  const beforeRemoval = guide.indexOf("When `worktree_removed` is false");
+  const afterRemoval = guide.indexOf("When `worktree_removed` is true");
+  const nextStep = guide.indexOf("### 3. Distinguish landed from cleaned up");
+  assert(
+    beforeRemoval >= 0 && afterRemoval > beforeRemoval &&
+      nextStep > afterRemoval,
+    "recovery guide must retain the two landing-state branches",
+  );
+  assertStringIncludes(
+    guide.slice(beforeRemoval, afterRemoval),
+    "discern accept",
+  );
+  assertEquals(SIDE_RESTRICTED_OPS.accept.side, "worktree");
+  assertStringIncludes(
+    guide.slice(afterRemoval, nextStep),
+    "discern worktree prune",
+  );
+  assertEquals(SIDE_RESTRICTED_OPS["worktree-prune"].side, "main-checkout");
 });
 
 Deno.test("a fresh-named side-restricted op auto-enrols in the derived refusal cases", () => {

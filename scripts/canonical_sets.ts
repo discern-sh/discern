@@ -3901,6 +3901,8 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
     "applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set",
   "tests/logger_ambient_guard_test.ts":
     "applies a determinism rule across test sources: human-mode Loggers and terminal contexts must be injected, never resolved from the ambient environment",
+  "tests/lifecycle_trunk_resolution_guard_test.ts":
+    "applies one-shot trunk resolution across lifecycle call sites rather than guarding a closed member set",
   "tests/narration_wrap_guard_test.ts":
     "applies a layout-independence rule across test sources: multi-word phrases asserted on rendered output must compare wrap-insensitively, because narration wraps by content width and platform path lengths shift the break points",
   "tests/result_capture_drain_parity_test.ts":
