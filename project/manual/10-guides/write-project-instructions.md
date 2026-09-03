@@ -16,9 +16,6 @@ aliases:
   - "refresh instructions"
   - "agent files"
   - "generated instructions"
-redirect_from:
-  - "/docs/agent-instructions/write-project-instructions"
-  - "/docs/agent-instructions/compile-and-check-instructions"
 ---
 
 # Write project instructions

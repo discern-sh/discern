@@ -14,14 +14,14 @@ export const INDIVIDUAL_CONTRIBUTOR_AGREEMENT = {
   kind: "individual",
   repoPath: "CLA.md",
   version: "1.0",
-  sha256: "cb7dac75b7af2224d1949567406f56df7c43ff8167fb250950c4d391db7a6040",
+  sha256: "581901e14868a092d09ac27ca56141ef9d67dddb81e27b2782cd8c24336e1b54",
 } as const;
 
 export const CORPORATE_CONTRIBUTOR_AGREEMENT = {
   kind: "corporate",
   repoPath: "CCLA.md",
   version: "1.0",
-  sha256: "4a755a1c98eeab1d62021c07d2696c598d331bc39de4d9933c1acd35904650ec",
+  sha256: "41b9a22eabc0fde4545b68727634ee52b1f896e993cc4a935d4c8a8219046f2f",
 } as const;
 
 /** Every agreement whose versioned bytes form part of the legal record. */

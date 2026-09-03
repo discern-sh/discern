@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Troubleshooting
-    url: https://github.com/jackwh/discern/blob/main/project/manual/40-troubleshooting/README.md
+    url: https://discern.sh/docs/troubleshooting
     about: Start here — most "something is off" moments are answered by `discern doctor` and the troubleshooting section.
   - name: Report a security vulnerability
-    url: https://github.com/jackwh/discern/security/advisories/new
-    about: Please report vulnerabilities privately, not as a public issue (see SECURITY.md).
+    url: https://discern.sh/.well-known/security.txt
+    about: Report vulnerabilities privately through the contacts in the security policy.

@@ -33,6 +33,12 @@ import {
   MANUAL_SECTION_REGISTRY,
 } from "../src/shared/manual.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
+import {
+  DISCERN_INSTALL_ROUTE,
+  DISCERN_REPOSITORY_URL,
+  DISCERN_URL,
+  repositoryBlobUrl,
+} from "../src/shared/brand.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { docsResult } from "../src/commands/docs.ts";
 // @ts-types="@types/jsdom"
@@ -1193,14 +1199,17 @@ function crossCorpusLinkFailures(
 ): string[] {
   const failures: string[] = [];
   for (
-    const match of body.matchAll(
-      /https:\/\/(?:discern\.sh|github\.com\/jackwh\/discern)[^)\s>]*/g,
-    )
+    const match of body.matchAll(/https:\/\/[^)\s>]*/g)
   ) {
     const url = new URL(match[0]);
-    if (url.hostname === "github.com") {
-      const repoPath = url.pathname.replace(
-        /^\/jackwh\/discern\/(?:blob|tree)\/[^/]+\//,
+    const repository = new URL(DISCERN_REPOSITORY_URL);
+    if (
+      url.origin === repository.origin &&
+      url.pathname.startsWith(`${repository.pathname}/`)
+    ) {
+      const repositoryPath = repository.pathname;
+      const repoPath = url.pathname.slice(repositoryPath.length).replace(
+        /^\/(?:blob|tree)\/[^/]+\//,
         "",
       );
       if (repoPath === "project/map" || repoPath.startsWith("project/map/")) {
@@ -1211,6 +1220,7 @@ function crossCorpusLinkFailures(
       }
       continue;
     }
+    if (url.origin !== DISCERN_URL) continue;
     if (url.pathname.startsWith("/schema/")) {
       if (!schemaIds.has(`https://discern.sh${url.pathname}`)) {
         failures.push(`${path}: undeclared schema publication ${match[0]}`);
@@ -1226,7 +1236,7 @@ function crossCorpusLinkFailures(
 
 Deno.test("cross-corpus links stay inside the public projection on every surface", async () => {
   const site = await loadDocsSite();
-  const live = new Set(liveHtmlRoutes(site));
+  const live = new Set([...liveHtmlRoutes(site), DISCERN_INSTALL_ROUTE]);
   const schemaIds = new Set(
     PUBLIC_SCHEMA_PUBLICATIONS.map((publication) => publication.id as string),
   );
@@ -1234,7 +1244,9 @@ Deno.test("cross-corpus links stay inside the public projection on every surface
   // The guard bites: each escape class is a named failure.
   const bad = crossCorpusLinkFailures(
     "fixture.md",
-    "[repo Map](https://github.com/jackwh/discern/blob/main/project/map/00-orientation/system-map.md) " +
+    `[repo Map](${
+      repositoryBlobUrl("project/map/00-orientation/system-map.md")
+    }) ` +
       "[gone](https://discern.sh/docs/retired-nowhere) " +
       "[unadmitted](https://discern.sh/map/internal/secret) " +
       "[unknown schema](https://discern.sh/schema/v9/discern-imaginary.schema.json)",

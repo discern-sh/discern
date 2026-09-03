@@ -17,11 +17,10 @@ export const GLOSSARY_MAP_REL = "00-orientation/glossary.md";
 /** The Manual-relative destination of the public glossary projection. */
 export const MANUAL_GLOSSARY_REL = "30-reference/glossary.md";
 
-/** The Manual navigation and redirect policy for the generated glossary. */
+/** The Manual navigation policy for the generated glossary. */
 export const MANUAL_GLOSSARY_METADATA = {
   id: "reference-glossary",
   order: 120,
-  redirects: ["/docs/orientation/glossary"],
 } as const satisfies GeneratedManualMetadata;
 
 /**

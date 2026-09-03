@@ -26,22 +26,26 @@ jobs:
     name: validate release
     runs-on: ubuntu-24.04
     outputs:
+      make_latest: ${{ steps.plan.outputs.make_latest }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
       version: ${{ steps.plan.outputs.version }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
-          deno-version: v2.x
+          deno-version-file: .dvmrc
           cache: true
 
       - name: Validate tag and derive native build matrix
         id: plan
         env:
           RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
         run: >-
-          deno run --allow-read --allow-write scripts/release_plan.ts
+          deno run --allow-read --allow-write --allow-env=REPOSITORY_PRIVATE
+          scripts/release_plan.ts
           "${RELEASE_TAG}" "${GITHUB_OUTPUT}"
 
   build:
@@ -60,7 +64,7 @@ jobs:
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
-          deno-version: v2.x
+          deno-version-file: .dvmrc
           # Cache the Deno install and module cache (keyed off deno.lock).
           cache: true
 
@@ -167,8 +171,8 @@ jobs:
         working-directory: dist
         run: shasum -a 256 "${{ matrix.output }}" > "${{ matrix.output }}.sha256"
 
-      # Free/Pro/Team repositories gain attestations when public. Keep private
-      # pre-launch tags usable, but require this step in the public runbook.
+      # Keep this visibility condition until launch lock-down 8A removes it.
+      # The release plan already refuses every private v* tag.
       - name: Attest build provenance
         if: ${{ github.event.repository.private == false }}
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
@@ -195,13 +199,13 @@ jobs:
           rm -f "$RUNNER_TEMP/${{ matrix.output }}.zip"
 
   # Windows ships no native binary — WSL users run the Linux build — so the
-  # WSL gate has no build row to ride the way the macOS gate does. It runs as
+  # WSL 2 gate has no build row to ride the way the macOS gate does. It runs as
   # its own job, in parallel with the builds, and publication requires it.
   wsl-gate:
-    name: WSL gate
+    name: WSL 2 gate
     needs: plan
     runs-on: windows-2025
-    # WSL provisioning can hang when the runner image misbehaves; a bound keeps
+    # WSL 2 provisioning can hang when the runner image misbehaves; a bound keeps
     # a stuck lane from burning six hours of 2x Windows minutes.
     timeout-minutes: 45
     steps:
@@ -221,8 +225,8 @@ jobs:
 
   release:
     name: publish release
-    needs: [build, wsl-gate]
-    runs-on: ubuntu-latest
+    needs: [plan, build, wsl-gate]
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
@@ -240,11 +244,13 @@ jobs:
         with:
           files: dist/discern-*
           fail_on_unmatched_files: true
+          prerelease: ${{ needs.plan.outputs.prerelease }}
+          make_latest: ${{ needs.plan.outputs.make_latest }}
 
   deploy-site:
     name: deploy discern.sh from release tag
     needs: [plan, release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: production
     permissions:
       contents: read
@@ -260,7 +266,7 @@ jobs:
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
-          deno-version: v2.x
+          deno-version-file: .dvmrc
           cache: true
 
       - name: Build the exact site revision

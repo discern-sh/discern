@@ -1,7 +1,7 @@
-name: WSL gate
+name: WSL 2 gate
 description: Run the repository gate inside WSL 2 Ubuntu and verify a clean tree.
 
-# Windows support is WSL-only: users run the Linux binary inside WSL 2, so
+# Windows support is WSL 2 only: users run the Linux binary inside WSL 2, so
 # this lane provisions WSL 2 on a hosted Windows runner and proves the gate
 # there. WSL 2 rides nested virtualization, which GitHub's Windows runners
 # have carried since 2024 but still label experimental — if this lane breaks
@@ -11,7 +11,7 @@ description: Run the repository gate inside WSL 2 Ubuntu and verify a clean tree
 # The wsl-bash steps run as the distribution default user, which is root.
 # The gate itself runs as the unprivileged `gate` user instead: root ignores
 # file-permission bits, which silently defuses the suite's permission-sabotage
-# tests — and a real WSL user is unprivileged anyway.
+# tests — and a real WSL 2 user is unprivileged anyway.
 
 runs:
   using: composite
@@ -28,10 +28,10 @@ runs:
       run: useradd --create-home gate
 
     # The Windows-side checkout sits behind the slow 9P bridge with Windows
-    # line endings and file modes. Copy only .git onto the WSL ext4 file
+    # line endings and file modes. Copy only .git onto the WSL 2 ext4 file
     # system and let git materialize the working tree there — LF, native
-    # modes, fast I/O — which is also the tree a real WSL user's clone gets.
-    - name: Materialize the checkout on the WSL file system
+    # modes, fast I/O — which is also the tree a real WSL 2 user's clone gets.
+    - name: Materialize the checkout on the WSL 2 file system
       shell: wsl-bash {0}
       run: |
         mkdir /home/gate/discern
@@ -40,13 +40,15 @@ runs:
         runuser -u gate -- env HOME=/home/gate \
           git -C /home/gate/discern reset --hard
 
-    # Deno installs the way a WSL user installs it (the official script). The
+    # Deno installs the way a WSL 2 user installs it (the official script). The
     # unprivileged gate user then provisions the same checksum-pinned Vale
     # cache as every other lane.
-    - name: Install Deno and provision Vale inside WSL
+    - name: Install Deno and provision Vale inside WSL 2
       shell: wsl-bash {0}
       run: |
-        curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
+        deno_version="$(cat /home/gate/discern/.dvmrc)"
+        curl -fsSL https://deno.land/install.sh | \
+          DENO_INSTALL=/usr/local sh -s -- "v${deno_version#v}"
         runuser -u gate -- env HOME=/home/gate \
           bash -c 'cd /home/gate/discern && deno install --frozen && deno task vale:sync'
 
@@ -54,7 +56,7 @@ runs:
       shell: wsl-bash {0}
       env:
         DISCERN_GATE_TEST_REPORTER: pretty
-        # Windows-side env crosses into WSL only when WSLENV names it.
+        # Windows-side env crosses into WSL 2 only when WSLENV names it.
         WSLENV: DISCERN_GATE_TEST_REPORTER
       run: |
         runuser -u gate -- env HOME=/home/gate \

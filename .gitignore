@@ -2,6 +2,7 @@
 *.log
 /node_modules/
 /.idea/gbrowsers.xml
+/.idea/gbrowser_project.xml
 
 # Compiled CLI binaries produced by `deno task build` / `deno compile`.
 /dist/

@@ -1,6 +1,9 @@
 <!--
-Read CONTRIBUTING.md before opening this pull request.
+Contributor intake is inactive. Do not open an external pull request yet.
+Issues remain open; read CONTRIBUTING.md for the current status.
 -->
+
+> **Contributor intake is inactive.** This template records the eventual review contract; it is not an invitation to submit an external pull request.
 
 ## Accepted issue
 

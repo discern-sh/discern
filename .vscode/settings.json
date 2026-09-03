@@ -1,13 +1,10 @@
 {
   "files.exclude": {
     ".agents/skills": true,
-    ".claude/worktrees": true,
     ".claude/skills": true,
     "dist": true,
     "coverage": true,
     ".scratch": true,
-    "site/design-system/dist": true,
-    "site/design-system/styleguide/generated": true,
     "site/pages/assets/design-system": true,
     "site/pages/index.html": true
   },
@@ -17,8 +14,6 @@
     "AGENTS.md": true,
     "CLAUDE.md": true,
     "GEMINI.md": true,
-    "site/design-system/dist": true,
-    "site/design-system/styleguide/generated": true,
     "site/pages/assets/design-system": true,
     "site/pages/index.html": true
   }

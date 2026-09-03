@@ -1,6 +1,8 @@
 import { createFromBuffer, type Formatter } from "@dprint/formatter";
 import { frontmatterParseIssue, readFrontmatterBlock } from "./frontmatter.ts";
 import { indentToml } from "./toml_indent.ts";
+import { fileExists } from "../shared/fs_presence.ts";
+import { fromFileUrl } from "@std/path";
 
 /** Pinned embedded plugin versions. An upgrade changes discern's convention. */
 export const MARKDOWN_PLUGIN_VERSION = "0.22.1";
@@ -50,14 +52,36 @@ export class TomlFormatError extends Error {
 let markdownFormatter: Promise<Formatter> | undefined;
 let tomlFormatter: Promise<Formatter> | undefined;
 
+/** Source-module and bundle-root locations for one embedded tidy plugin. */
+export function tidyPluginAssetCandidates(
+  asset: string,
+  moduleUrl: string = import.meta.url,
+): readonly [URL, URL] {
+  return [
+    new URL(`./tidy_plugins/${asset}`, moduleUrl),
+    new URL(`./src/lib/tidy_plugins/${asset}`, moduleUrl),
+  ];
+}
+
+/** Locate one tidy plugin in either the source graph or Deno's bundled layout. */
+async function resolveTidyPluginAsset(asset: string): Promise<URL> {
+  const candidates = tidyPluginAssetCandidates(asset);
+  for (const candidate of candidates) {
+    if (await fileExists(fromFileUrl(candidate))) return candidate;
+  }
+  throw new Error(
+    `could not locate embedded formatter ${asset}; checked ${
+      candidates.map((candidate) => candidate.href).join(", ")
+    }`,
+  );
+}
+
 /** Instantiate an embedded Wasm formatter and reject invalid bundled options. */
 async function loadFormatter(
   asset: string,
   pluginConfig: Readonly<Record<string, unknown>>,
 ): Promise<Formatter> {
-  const bytes = await Deno.readFile(
-    new URL(`./tidy_plugins/${asset}`, import.meta.url),
-  );
+  const bytes = await Deno.readFile(await resolveTidyPluginAsset(asset));
   const formatter = createFromBuffer(bytes);
   formatter.setConfig(GLOBAL_CONFIG, pluginConfig);
   const diagnostics = formatter.getConfigDiagnostics();

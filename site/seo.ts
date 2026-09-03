@@ -14,6 +14,7 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../src/shared/entropy.ts";
+import { DISCERN_RELEASES_URL } from "../src/shared/brand.ts";
 
 export const SITE_ORIGIN = "https://discern.sh";
 export const OG_IMAGE_PATH = "/assets/og-card.png";
@@ -151,7 +152,7 @@ function structuredData(
       applicationCategory: "DeveloperApplication",
       operatingSystem: "macOS, Linux",
       url: SITE_ORIGIN,
-      downloadUrl: "https://github.com/jackwh/discern/releases/latest",
+      downloadUrl: `${DISCERN_RELEASES_URL}/latest`,
       description,
     };
   }

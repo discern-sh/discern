@@ -8,9 +8,11 @@ discern's root Deno configuration uses a managed `node_modules` directory becaus
 
 The third-party notice generator already derives the product's npm dependency closure from the entrypoint graph. The release build must use that same boundary. Naming Canon Editor or ts-morph in an exclusion would remove today's instance while allowing the next internal npm tool to recreate it under a fresh name.
 
+Deno 2.9.6's raw npm embedding also carries parser diagnostics for package metadata and licence files. Those diagnostics contain absolute file URLs from the builder's global npm cache. Filtering unused packages narrowed the payload but still disclosed the build host's home and package-cache paths.
+
 ## Decision
 
-Production compilation resolves npm packages with `--node-modules-dir=none` and passes `--exclude-unused-npm`. The release artifact therefore embeds only npm packages reachable from the product module graph, independently of the root workspace dependency tree and the packages its development surfaces use.
+Production compilation passes `--bundle`, resolves npm packages with `--node-modules-dir=none`, and passes `--exclude-unused-npm`. Bundle mode embeds the statically reached product graph instead of the raw npm package tree. The release artifact therefore excludes build-cache file URLs and packages outside the product module graph, independently of the root workspace dependency tree and the packages its development surfaces use.
 
 Development keeps the root `nodeModulesDir: "auto"` setting. Canon Editor consumes ts-morph from its official JSR package, but registry choice is not the production boundary: any future development-only npm package remains valid in the workspace and absent from the binary. A product dependency reached only through a non-statically-analyzable npm import must declare an explicit compile include rather than widening the build back to the workspace directory.
 
@@ -18,8 +20,8 @@ Development keeps the root `nodeModulesDir: "auto"` setting. Canon Editor consum
 
 - Canon Editor, tests, and site tooling can choose dependencies for their own work without silently changing the release payload.
 - The compiled npm set and third-party notices share the product graph as their authority.
-- The representative Linux binary falls from roughly 183 MB to roughly 142 MB with the current source.
-- Release builds require a Deno compiler that supports `--exclude-unused-npm`; an older compiler fails visibly rather than producing an over-broad artifact.
+- Release smoke rejects any checkout, home, workspace, runner-temporary, or package-cache path that survives compilation.
+- Release builds require a Deno compiler that supports `--bundle` and `--exclude-unused-npm`; an older compiler fails visibly rather than producing an over-broad artifact.
 - A future dynamic npm load needs an explicit `--include npm:<package>` and a focused runtime test.
 
 ## Alternatives considered

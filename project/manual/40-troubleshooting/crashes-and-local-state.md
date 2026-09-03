@@ -21,9 +21,6 @@ aliases:
   - "self-shim"
   - "report a bug"
   - ".git/discern"
-redirect_from:
-  - "/docs/reference/crash-reports"
-  - "/docs/reference/temp-files-and-retention"
 ---
 
 # Crashes and local state

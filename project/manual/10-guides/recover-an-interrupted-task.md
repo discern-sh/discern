@@ -16,9 +16,6 @@ aliases:
   - "recover dropped branch"
   - "recovery refs"
   - "refs discern recovery"
-redirect_from:
-  - "/docs/worktrees/acceptance-recovery"
-  - "/docs/worktrees/drop-recovery"
 ---
 
 # Recover an interrupted task

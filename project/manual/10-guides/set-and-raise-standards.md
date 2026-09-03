@@ -10,8 +10,6 @@ aliases:
   - "quality metrics"
   - "metric floors"
   - "metric ceilings"
-redirect_from:
-  - "/docs/quality-gate/standards"
 ---
 
 # Set and raise Standards

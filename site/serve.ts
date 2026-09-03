@@ -40,6 +40,7 @@ import { SECURITY_DISCLOSURE, securityTxt } from "./security.ts";
 import { MARKETING_PAGES } from "./marketing_pages.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
+import { DISCERN_INSTALL_ROUTE } from "../src/shared/brand.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
@@ -324,10 +325,9 @@ async function routeResponse(
     return await serveFile(`../${publicSchema}`);
   }
 
-  // The one-line install moment: `curl -fsSL https://discern.sh/install | sh`
-  // serves the repository's own installer, so the command on the landing
-  // page is true from the first deploy.
-  if (path === "/install") return await serveFile("../install.sh");
+  // The canonical install command serves the repository's own installer, so
+  // the command on every public surface is true from the first deploy.
+  if (path === DISCERN_INSTALL_ROUTE) return await serveFile("../install.sh");
   if (path === SECURITY_DISCLOSURE.route) {
     return new Response(securityTxt(), {
       status: 200,

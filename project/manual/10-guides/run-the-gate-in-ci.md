@@ -12,8 +12,6 @@ aliases:
   - "GitHub Actions"
   - "branch protection"
   - "continuous integration"
-redirect_from:
-  - "/docs/quality-gate/ci"
 ---
 
 # Run the Gate in CI

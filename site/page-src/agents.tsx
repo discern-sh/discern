@@ -10,7 +10,11 @@ import {
   SiteHeader,
   SkipLink,
 } from "discern-design-system/react";
-import { providerBrandSilhouette, PROVIDERS } from "../../src/lib/providers.ts";
+import {
+  PROVIDER_TRADEMARK_NOTICE,
+  providerBrandSilhouette,
+  PROVIDERS,
+} from "../../src/lib/providers.ts";
 import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
 import { AGENTS_DESCRIPTION, AGENTS_TITLE, DISCERN_MARK } from "../brand.ts";
 import {
@@ -21,9 +25,13 @@ import {
   EVALUATION_INSTRUCTION,
 } from "./agents-content.ts";
 import { pageDocument } from "./document.ts";
+import {
+  DISCERN_REPOSITORY_URL,
+  repositoryBlobUrl,
+} from "../../src/shared/brand.ts";
 
-const GITHUB = "https://github.com/jackwh/discern";
-const LICENSE = GITHUB + "/blob/main/LICENSE";
+const GITHUB = DISCERN_REPOSITORY_URL;
+const LICENSE = repositoryBlobUrl("LICENSE");
 
 /** Provider files and marks, derived from the live native-provider registry. */
 const PROVIDER_OUTPUTS = AGENT_NAMES.map((name) => {
@@ -591,7 +599,8 @@ function AgentsPage() {
             Machine-readable orientation lives at{" "}
             <a href={AGENTS_ROUTES.machineGuide}>
               <code>/llms.txt</code>
-            </a>.
+            </a>.<br />
+            {PROVIDER_TRADEMARK_NOTICE}
           </span>
         }
         meta={

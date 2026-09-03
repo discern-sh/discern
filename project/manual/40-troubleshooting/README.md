@@ -13,8 +13,6 @@ aliases:
   - "doctor"
   - "something went wrong"
   - "error recovery"
-redirect_from:
-  - "/docs/getting-started/faq"
 ---
 
 # Troubleshooting

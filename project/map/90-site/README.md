@@ -43,7 +43,7 @@ There is no copied site route list. [`liveHtmlRoutes(site)`](../../../site/serve
 
 The stable non-HTML endpoints are `/docs/index.json`, `/map/index.json`, `/install`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/robots.txt`, and `/.well-known/security.txt`. Manual search uses `/docs/index.json`; Map search uses `/map/index.json`. The llms editions project only the manual.
 
-Production's canonical origin is `https://discern.sh`, and page URLs have no trailing slash. Hypertext Transfer Protocol (HTTP), `www`, `.html`, trailing-slash, and `index.html` variants resolve with a 308 before routing. Destination documents own `redirect_from`; section-level moves live in [`STATIC_REDIRECTS`](../../../site/seo.ts). Both automatically cover `.md`. The combined registry rejects dead targets, collisions, chains, and loops ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)). A known route retired without a successor requires an explicit 410 tombstone.
+Production's canonical origin is `https://discern.sh`, and page URLs have no trailing slash. Hypertext Transfer Protocol (HTTP), `www`, `.html`, trailing-slash, and `index.html` variants resolve with a 308 before routing. No pre-public manual address is claimed as history: every authored `redirect_from` list and [`STATIC_REDIRECTS`](../../../site/seo.ts) starts empty. After publication, a moved destination owns its `redirect_from`; section-level moves live in `STATIC_REDIRECTS`. Both automatically cover `.md`. The combined registry rejects dead targets, collisions, chains, and loops ([ADR 0144](../_adr/0144-canonical-site-urls-and-one-hop-redirects.md)). A known route retired without a successor requires an explicit 410 tombstone.
 
 ## Reader negotiation
 

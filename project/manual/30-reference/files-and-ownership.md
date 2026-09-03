@@ -14,9 +14,6 @@ aliases:
   - "gitattributes"
   - "gitignore"
   - "uninstall"
-redirect_from:
-  - "/docs/reference/artifact-ownership"
-  - "/docs/installer/what-discern-writes"
 ---
 
 # Files and ownership

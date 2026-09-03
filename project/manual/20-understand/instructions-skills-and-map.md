@@ -12,8 +12,6 @@ aliases:
   - "playbook"
   - "skill discovery"
   - "map"
-redirect_from:
-  - "/docs/skills/what-a-skill-is"
 ---
 
 # Instructions, Skills, and the Map

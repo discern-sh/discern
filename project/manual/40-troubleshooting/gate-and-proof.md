@@ -17,8 +17,6 @@ aliases:
   - "unchanged_tree_rerun"
   - "stale proof"
   - "proof skipped"
-redirect_from:
-  - "/docs/quality-gate/strand-detection"
 ---
 
 # Gate and Proof

@@ -10,8 +10,6 @@ aliases:
   - "Checkpoint recipes"
   - "checkpoint recipe gallery"
   - "checkpoint examples"
-redirect_from:
-  - "/docs/quality-gate/checkpoint-recipes"
 ---
 
 # Place and answer Checkpoints

@@ -47,6 +47,7 @@ project/skills/discern-agent-voice/SKILL.md merge=discern-generated linguist-gen
 .vale/DiscernAgent/BestJudgment.yml merge=discern-generated linguist-generated
 .vale/DiscernAgent/PositionalReference.yml merge=discern-generated linguist-generated
 site/pages/assets/search.js merge=discern-generated linguist-generated
+site/pages/assets/integrations/README.md merge=discern-generated linguist-generated
 templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md merge=discern-generated linguist-generated
 templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md merge=discern-generated linguist-generated
 templates/skills/discern-write-adr/skeleton/docs/_adr/README.md merge=discern-generated linguist-generated

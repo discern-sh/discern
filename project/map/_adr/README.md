@@ -349,6 +349,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0361 — The Proof line is canonical CommonMark](0361-the-proof-line-is-canonical-commonmark.md)
 - [0362 — Founder testimony and recorded corpora promote demand claims](0362-founder-testimony-and-recorded-corpora-promote-demand-claims.md)
 - [0363 — The config template is generated from the schema and a prose registry](0363-the-config-template-is-generated-from-the-schema-and-a-prose-registry.md)
+- [0364 — Public release follows a staged repository transition](0364-public-release-follows-a-staged-repository-transition.md)
 
 <!-- END GENERATED: current ADR records -->
 

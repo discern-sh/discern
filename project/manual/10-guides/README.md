@@ -22,12 +22,6 @@ aliases:
   - "agent skills"
   - "playbooks"
   - "SKILL.md"
-redirect_from:
-  - "/docs/getting-started/tasks"
-  - "/docs/quality-gate"
-  - "/docs/worktrees"
-  - "/docs/agent-instructions"
-  - "/docs/skills"
 ---
 
 # Guides

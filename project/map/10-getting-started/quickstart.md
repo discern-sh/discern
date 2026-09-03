@@ -19,7 +19,7 @@ discern sets no hard minimum model. For setup, it recommends the strongest suita
 ## 1. Install the binary
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
+curl -fsSL https://discern.sh/install | sh
 ```
 
 When the installer prints `Next:`, continue to step 2. If it prints a `PATH` instruction instead, follow it and open a new shell. Run `discern --version`, then continue. There is nothing else to configure by hand.

@@ -20,10 +20,6 @@ aliases:
   - "logbook archive"
   - "logbook reset"
   - "historical logbook"
-redirect_from:
-  - "/docs/quality-gate/practice-stats"
-  - "/docs/reference/the-logbook"
-  - "/docs/reference/logbook-lifecycle"
 ---
 
 # Logbook

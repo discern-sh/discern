@@ -8,7 +8,11 @@ import {
   assertThrows,
 } from "@std/assert";
 import { dirname, join } from "@std/path";
-import { BUILD_TARGETS, type BuildTarget } from "../scripts/build_targets.ts";
+import {
+  BUILD_TARGETS,
+  type BuildTarget,
+  releaseArtifactPaths,
+} from "../scripts/build_targets.ts";
 import { releasePlan } from "../scripts/release_plan.ts";
 import { smokeReleaseBinary } from "../scripts/release_smoke.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
@@ -21,6 +25,7 @@ import { canonicalDocTarget, discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
 import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { createWorkflowChecksum } from "./release_workflow_fixture.ts";
 
 const RELEASE = new URL("../.github/workflows/release.yml", import.meta.url);
 const releaseSource = await Deno.readTextFile(RELEASE);
@@ -34,10 +39,17 @@ Deno.test("release validation completes before any build or publication", () => 
   assert(plan < publish, "the plan job precedes the publication job");
   assertStringIncludes(releaseSource, "needs: plan");
   assertStringIncludes(releaseSource, "RELEASE_TAG: ${{ github.ref_name }}");
+  assertStringIncludes(
+    releaseSource,
+    "REPOSITORY_PRIVATE: ${{ github.event.repository.private }}",
+  );
 });
 
 Deno.test("every build target auto-enrols in the native release matrix", () => {
-  const plan = releasePlan("v1.2.3", "1.2.3");
+  const plan = releasePlan("v1.2.3", {
+    repositoryPrivate: false,
+    version: "1.2.3",
+  });
   assertEquals(plan.matrix.include.length, BUILD_TARGETS.length);
   for (const target of BUILD_TARGETS) {
     assert(
@@ -54,9 +66,18 @@ Deno.test("every build target auto-enrols in the native release matrix", () => {
     triple: "riscv64-example-os",
     output: "discern-riscv64-example-os",
     runner: "example-native-runner",
+    installer: {
+      os: "Linux",
+      operatingSystem: "GNU/Linux",
+      architectures: ["riscv64"],
+    },
   };
   assertEquals(
-    releasePlan("v1.2.3", "1.2.3", [future]).matrix.include,
+    releasePlan("v1.2.3", {
+      repositoryPrivate: false,
+      version: "1.2.3",
+      targets: [future],
+    }).matrix.include,
     [{
       gateBeforeBuild: false,
       target: future.triple,
@@ -66,12 +87,111 @@ Deno.test("every build target auto-enrols in the native release matrix", () => {
   );
 });
 
+Deno.test("release targets ship no native Windows executable or build path", () => {
+  for (const target of BUILD_TARGETS) {
+    assertEquals(target.triple.includes("windows"), false, target.triple);
+    assertEquals(target.output.endsWith(".exe"), false, target.output);
+    assertEquals(
+      target.installer.os === "Darwin" || target.installer.os === "Linux",
+      true,
+    );
+  }
+  assertStringIncludes(releaseSource, "deno task build ${{ matrix.target }}");
+  assertEquals(releaseSource.match(/deno task build /gu)?.length, 1);
+});
+
 Deno.test("a tag/package mismatch is refused before the matrix exists", () => {
   assertThrows(
-    () => releasePlan("v1.2.4", "1.2.3"),
+    () =>
+      releasePlan("v1.2.4", {
+        repositoryPrivate: false,
+        version: "1.2.3",
+      }),
     Error,
     "release tag v1.2.4 does not match package version v1.2.3",
   );
+});
+
+Deno.test("every private v* tag is refused with no release-plan override", () => {
+  for (const tag of ["v1.2.3", "v1.2.3-beta.1", "vnext"]) {
+    assertThrows(
+      () =>
+        releasePlan(tag, {
+          repositoryPrivate: true,
+          version: tag.slice(1),
+        }),
+      Error,
+      "cannot run while the repository is private",
+    );
+  }
+  assertEquals(releaseSource.includes("workflow_dispatch"), false);
+});
+
+Deno.test("release stability derives prerelease and latest behavior from the package version", () => {
+  const stable = releasePlan("v1.2.3", {
+    repositoryPrivate: false,
+    version: "1.2.3",
+  });
+  assertEquals(stable.prerelease, false);
+  assertEquals(stable.makeLatest, true);
+  const prerelease = releasePlan("v1.2.3-rc.1", {
+    repositoryPrivate: false,
+    version: "1.2.3-rc.1",
+  });
+  assertEquals(prerelease.prerelease, true);
+  assertEquals(prerelease.makeLatest, false);
+  assertStringIncludes(
+    releaseSource,
+    "prerelease: ${{ needs.plan.outputs.prerelease }}",
+  );
+  assertStringIncludes(
+    releaseSource,
+    "make_latest: ${{ needs.plan.outputs.make_latest }}",
+  );
+});
+
+Deno.test("release artifacts and provenance subjects keep binary-sidecar parity", () => {
+  const expected = BUILD_TARGETS.flatMap(releaseArtifactPaths);
+  assertEquals(expected.length, BUILD_TARGETS.length * 2);
+  assertEquals(new Set(expected).size, expected.length);
+  const checksum = releaseSource.indexOf("- name: Checksum");
+  const attest = releaseSource.indexOf("- name: Attest build provenance");
+  const upload = releaseSource.indexOf("- name: Upload build artifacts");
+  const cleanup = releaseSource.indexOf("- name: Remove Apple");
+  assert(attest > checksum, "provenance follows checksum creation");
+  assert(upload > attest, "upload follows provenance");
+  for (
+    const block of [
+      releaseSource.slice(attest, upload),
+      releaseSource.slice(upload, cleanup),
+    ]
+  ) {
+    assertStringIncludes(block, "dist/${{ matrix.output }}");
+    assertStringIncludes(block, "dist/${{ matrix.output }}.sha256");
+  }
+  assertStringIncludes(
+    releaseSource.slice(attest, upload),
+    "github.event.repository.private == false",
+  );
+});
+
+Deno.test("the workflow checksum command produces the installer sidecar fixture", async () => {
+  await withTempDir(async (root) => {
+    await Deno.mkdir(join(root, "dist"));
+    const output = BUILD_TARGETS[0]?.output;
+    assert(output !== undefined);
+    await Deno.writeTextFile(join(root, "dist", output), "release fixture\n");
+    const sidecar = await createWorkflowChecksum(root, output);
+    const text = await Deno.readTextFile(sidecar);
+    assertStringIncludes(text, `  ${output}\n`);
+    const checked = await new Deno.Command("shasum", {
+      args: ["-a", "256", "-c", `${output}.sha256`],
+      cwd: join(root, "dist"),
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert(checked.success, new TextDecoder().decode(checked.stderr));
+  }, { prefix: "release-checksum-test-" });
 });
 
 Deno.test("the compiled release smoke gates artifact upload", () => {
@@ -98,6 +218,7 @@ Deno.test("the compiled release smoke gates artifact upload", () => {
 interface FakeOptions {
   docsRoot?: boolean;
   docsRootOnly?: boolean;
+  embeddedLeak?: string;
   materializedLegalPath?: string;
   missingLicenseKey?: string;
   scaffoldMap?: boolean;
@@ -216,6 +337,7 @@ case "$1" in
     exit 64
     ;;
 esac
+${options.embeddedLeak === undefined ? "" : `# ${options.embeddedLeak}`}
 `,
   );
   await Deno.chmod(binary, 0o755);
@@ -237,6 +359,48 @@ Deno.test("release smoke rejects an unrelated future binary with the wrong versi
       "does not match discern 1.2.3",
     );
   }, { prefix: "release-smoke-test-" });
+});
+
+Deno.test("release smoke rejects checkout, home, workspace, runner-temp, and package-cache paths", async () => {
+  await withTempDir(async (dir) => {
+    const cases = [
+      { label: "checkout", path: REPO_ROOT, environment: {} },
+      {
+        label: "home",
+        path: "/sensitive/home",
+        environment: { HOME: "/sensitive/home" },
+      },
+      {
+        label: "workspace",
+        path: "/sensitive/workspace",
+        environment: { GITHUB_WORKSPACE: "/sensitive/workspace" },
+      },
+      {
+        label: "runner temp",
+        path: "/sensitive/runner-temp",
+        environment: { RUNNER_TEMP: "/sensitive/runner-temp" },
+      },
+      {
+        label: "package cache",
+        path: "/sensitive/package-cache",
+        environment: { DENO_DIR: "/sensitive/package-cache" },
+      },
+    ] as const;
+    for (const testCase of cases) {
+      const binary = await writeFakeDiscern(dir, {
+        embeddedLeak: testCase.path,
+      });
+      await assertRejects(
+        () =>
+          smokeReleaseBinary(binary, "1.2.3", {
+            environment: testCase.environment,
+          }),
+        Error,
+        `contains local ${testCase.label} path`,
+        `${testCase.label} path must block release smoke`,
+      );
+    }
+  }, { prefix: "release-path-leak-test-" });
 });
 
 Deno.test("release smoke rejects a binary missing licenses, docs, or templates", async () => {

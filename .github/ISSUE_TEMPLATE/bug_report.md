@@ -9,6 +9,7 @@ labels: bug
 Thanks for reporting. The single most useful thing you can include is the
 `discern doctor --json` output below — it captures your install, config, and
 the tools the gate expects, which resolves most reports without a back-and-forth.
+Issues are open. Contributor intake is inactive, and external pull requests are not accepted.
 -->
 
 ## What happened
@@ -35,7 +36,7 @@ What you expected to happen instead.
 ## Environment
 
 - discern version (`discern --version`):
-- OS / architecture (and Windows Subsystem for Linux version, if used):
+- OS / architecture (and WSL 2 version, if used):
 - Coding agent(s) in use (Claude Code, Codex, Gemini, Cursor, Copilot):
 
 ## Anything else

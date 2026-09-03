@@ -16,9 +16,6 @@ aliases:
   - "standing grant"
   - "effort grant"
   - "pre-authorized landing"
-redirect_from:
-  - "/docs/quality-gate/the-proof"
-  - "/docs/worktrees/landing-authority"
 ---
 
 # Proof

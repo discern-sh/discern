@@ -20,6 +20,12 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 19      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
 | [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 42      | —                | —                           |
+| [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
+| [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 23      | —                | —                           |
+| [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
+| [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 23      | —                | —                           |
+| [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules)                         | `src/lib/paths.ts#MAP_TIER_PUBLICATION_POSTURES`                                  | 4       | —                | —                           |
+| [`contributor-intake-surfaces`](#contributor-intake-surfaces--contributor-intake-surfaces)                            | `scripts/repository_files.ts#CONTRIBUTOR_INTAKE_SURFACES`                         | 8       | —                | —                           |
 | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                        | `src/shared/checkpoints.ts#CHECKPOINT_FIELD_ROLES`                                | 21      | —                | node `checkpoints`          |
 | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)       | `src/shared/experimental.ts#EXPERIMENTAL_ENVIRONMENT_VARIABLES`                   | 2       | —                | —                           |
 | [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 11      | —                | —                           |
@@ -99,7 +105,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 353     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 354     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -128,9 +134,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 11      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 117     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 123     | —                | node `canonical-sets`       |
 
-117 sets · 168 guard tests · 62 committed artifacts.
+123 sets · 174 guard tests · 65 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -251,6 +257,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/hint_inventory_codegen_test.ts`             | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/improve_catalog_test.ts`                    | [`improve-categories`](#improve-categories--improvement-categories)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/improve_count_adrs_test.ts`                 | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `tests/install_script_test.ts`                     | [`build-targets`](#build-targets--release-build-targets)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/instruction_corpus_guard_test.ts`           | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools), [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/logbook_no_network_test.ts`                 | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/logbook_powered_test.ts`                    | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -270,13 +277,17 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/practice_canon_enrolment_test.ts`           | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon), [`practice-tenets`](#practice-tenets--practice-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/process_boundaries_test.ts`                 | [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries), [`process-exit-boundaries`](#process-exit-boundaries--process-exit-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/promise_effects_test.ts`                    | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `tests/provider_brand_provenance_codegen_test.ts`  | [`agent-providers`](#agent-providers--agent-providers)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/providers_test.ts`                          | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables), [`provider-trust-fact-kinds`](#provider-trust-fact-kinds--provider-trust-fact-kinds), [`provider-trust-action-kinds`](#provider-trust-action-kinds--provider-trust-action-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/public_doc_parity_test.ts`                  | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/public_schema_compatibility_guard_test.ts`  | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/raw_json_parse_guard_test.ts`               | [`result-contracts`](#result-contracts--result-contracts)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/real_pty_guard_test.ts`                     | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/reference_docs_test.ts`                     | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `tests/release_artifacts_test.ts`                  | [`build-targets`](#build-targets--release-build-targets)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/repo_authored_paths_test.ts`                | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tests/repository_hygiene_test.ts`                 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies), [`repository-community-files`](#repository-community-files--repository-community-files), [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules), [`contributor-intake-surfaces`](#contributor-intake-surfaces--contributor-intake-surfaces)                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/repository_identity_guard_test.ts`          | [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/result_codegen_test.ts`                     | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts), [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`result-completion-policies`](#result-completion-policies--result-completion-policies), [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts), [`public-schema-publications`](#public-schema-publications--public-schema-publications), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes), [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                                             |
 | `tests/result_completion_policy_test.ts`           | [`result-completion-policies`](#result-completion-policies--result-completion-policies), [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/result_schemas_test.ts`                     | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields), [`step-kinds`](#step-kinds--step-kinds), [`provider-trust-fact-kinds`](#provider-trust-fact-kinds--provider-trust-fact-kinds), [`provider-trust-action-kinds`](#provider-trust-action-kinds--provider-trust-action-kinds), [`hints`](#hints--hints), [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence), [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes), [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds) |
@@ -304,6 +315,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/validator_enrolment_test.ts`                | [`artifact-validators`](#artifact-validators--artifact-validators)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/vocab_drift_test.ts`                        | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/voice_vale_parity_test.ts`                  | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `tests/workflow_platform_test.ts`                  | [`build-targets`](#build-targets--release-build-targets)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/worktree_tokens_test.ts`                    | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/writer_boundary_enrolment_test.ts`          | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites), [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
@@ -332,8 +344,10 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `project/manual/30-reference/files-and-ownership.md`       | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      | —                                             |
 | `project/manual/30-reference/glossary.md`                  | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                               | —                                             |
 | `project/manual/30-reference/mcp-and-results.md`           | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                           | —                                             |
+| `project/manual/30-reference/platforms-and-providers.md`   | maintained block | [`build-targets`](#build-targets--release-build-targets)                                                          | —                                             |
 | `project/map/00-orientation/glossary.md`                   | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                               | —                                             |
 | `project/map/00-orientation/the-practice.md`               | generated file   | [`practice-tenets`](#practice-tenets--practice-canon)                                                             | —                                             |
+| `project/map/70-reference/platforms-and-prereqs.md`        | maintained block | [`build-targets`](#build-targets--release-build-targets)                                                          | —                                             |
 | `project/map/80-development/install-surface.md`            | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      | —                                             |
 | `project/map/_internal/agent-integration-coverage.md`      | generated file   | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                    | —                                             |
 | `project/map/_internal/brand/README.md`                    | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                             |
@@ -368,6 +382,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `schema/discern-results.schema.json`                       | generated file   | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                          | —                                             |
 | `schema/discern-setup-config.schema.json`                  | generated file   | [`config-tables`](#config-tables--config-tables)                                                                  | —                                             |
 | `scripts/jsr_license_cache.json`                           | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          | —                                             |
+| `site/pages/assets/integrations/README.md`                 | generated file   | [`agent-providers`](#agent-providers--agent-providers)                                                            | —                                             |
 | `src/lib/first_party_license_bundle.ts`                    | generated file   | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                        | —                                             |
 | `src/lib/third_party_bundle.ts`                            | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          | —                                             |
 | `templates/discern.toml.tmpl`                              | generated file   | [`config-tables`](#config-tables--config-tables)                                                                  | —                                             |
@@ -666,6 +681,144 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
 - Artifacts: `project/manual/30-reference/environment-variables.md`
 - Glossary: not enrolled — the environment-variable reference owns these process-channel spellings
 - Feature canon: not enrolled — the registry spans installer, runtime, Worktree, development, and test infrastructure across several documented capabilities
+
+## `build-targets` — Release build targets
+
+Every native binary the release builds, executes, documents, checksums, attests, and publishes, including its installer selectors and pinned hosted runner.
+
+- Source: `scripts/build_targets.ts` — `BUILD_TARGETS`
+- Members: 4
+  - `x86_64-apple-darwin`
+  - `aarch64-apple-darwin`
+  - `x86_64-unknown-linux-gnu`
+  - `aarch64-unknown-linux-gnu`
+- Guards: `tests/install_script_test.ts`, `tests/release_artifacts_test.ts`, `tests/workflow_platform_test.ts`
+- Artifacts: `project/map/70-reference/platforms-and-prereqs.md`, `project/manual/30-reference/platforms-and-providers.md`
+- Glossary: not enrolled — the platform reference names concrete release assets rather than adding product vocabulary
+- Feature canon: not enrolled — the distribution mechanism supports the existing self-contained binary capability
+
+## `repository-literal-policies` — Repository and installer literal projections
+
+Every declared repository identity, canonical install command, or raw-installer command that cannot import the TypeScript authority, with an exact occurrence count and reason.
+
+- Source: `scripts/repository_literal_policy.ts` — `REPOSITORY_LITERAL_POLICIES`
+- Members: 23
+  - `CLA.md`
+  - `README.md`
+  - `SECURITY.md`
+  - `install.sh`
+  - `project/manual/00-start/first-success.md`
+  - `project/manual/30-reference/cli-reference.md`
+  - `project/manual/30-reference/environment-variables.md`
+  - `project/manual/30-reference/files-and-ownership.md`
+  - `project/manual/30-reference/licenses.md`
+  - `project/manual/30-reference/logbook.md`
+  - `project/manual/30-reference/mcp-and-results.md`
+  - `project/manual/30-reference/platforms-and-providers.md`
+  - `project/manual/30-reference/proof-and-checkpoint-formats.md`
+  - `project/manual/30-reference/worktrees-and-status.md`
+  - `project/manual/40-troubleshooting/crashes-and-local-state.md`
+  - `project/map/10-getting-started/quickstart.md`
+  - `project/map/10-getting-started/upgrade-discern.md`
+  - `project/map/20-quality-gate/ci.md`
+  - `project/map/70-reference/crash-reports.md`
+  - `project/map/70-reference/platforms-and-prereqs.md`
+  - `project/map/_internal/registry-atlas.md`
+  - `site/text/discern.txt`
+  - `src/shared/product_identity.ts`
+- Guards: `tests/repository_identity_guard_test.ts`
+- Glossary: not enrolled — these are repository-development projections of existing product and installer identities
+- Feature canon: not enrolled — the installer capability already owns the public behavior; this set prevents repository drift
+
+## `editor-path-policies` — Shared editor path policies
+
+Every absent generated output shared editor configuration may exclude, plus private browser-plugin state that must remain absent and ignored.
+
+- Source: `scripts/repository_files.ts` — `EDITOR_PATH_POLICIES`
+- Members: 15
+  - `generated-output: .agents/skills`
+  - `generated-output: .claude/skills`
+  - `generated-output: .discern-bundled-docs`
+  - `generated-output: .scratch`
+  - `generated-output: .vale/Microsoft`
+  - `generated-output: .vale/proselint`
+  - `generated-output: AGENTS.md`
+  - `generated-output: CLAUDE.md`
+  - `generated-output: GEMINI.md`
+  - `generated-output: coverage`
+  - `generated-output: dist`
+  - `generated-output: node_modules`
+  - `generated-output: site/pages/assets/design-system`
+  - `generated-output: site/pages/index.html`
+  - `private-browser-state: .idea/gbrowser_project.xml`
+- Guards: `tests/repository_hygiene_test.ts`
+- Glossary: not enrolled — these are repository-maintenance paths rather than product vocabulary
+- Feature canon: not enrolled — editor presentation and local state do not change product behavior
+
+## `repository-community-files` — Repository community files
+
+Every root community contract and every GitHub configuration file, including recorded omissions, so a new intake or automation surface must declare its role.
+
+- Source: `scripts/repository_files.ts` — `REPOSITORY_COMMUNITY_FILE_POLICIES`
+- Members: 23
+  - `tracked: CCLA.md`
+  - `tracked: CLA.md`
+  - `tracked: CODE_OF_CONDUCT.md`
+  - `tracked: CONTRIBUTING.md`
+  - `tracked: LICENSE`
+  - `tracked: NOTICE`
+  - `tracked: SECURITY.md`
+  - `tracked: .github/ISSUE_TEMPLATE/bug_report.md`
+  - `tracked: .github/ISSUE_TEMPLATE/change_proposal.md`
+  - `tracked: .github/ISSUE_TEMPLATE/config.yml`
+  - `tracked: .github/ISSUE_TEMPLATE/setup_failure.md`
+  - `tracked: .github/PULL_REQUEST_TEMPLATE.md`
+  - `tracked: .github/actions/macos-gate/action.yml`
+  - `tracked: .github/actions/wsl-gate/action.yml`
+  - `tracked: .github/cla-assistant/README.md`
+  - `tracked: .github/cla-assistant/metadata`
+  - `tracked: .github/dependabot.yml`
+  - `tracked: .github/hooks/discern.json`
+  - `tracked: .github/workflows/gate.yml`
+  - `tracked: .github/workflows/release.yml`
+  - `intentionally-absent: .github/CODEOWNERS`
+  - `intentionally-absent: .github/FUNDING.yml`
+  - `intentionally-absent: SUPPORT.md`
+- Guards: `tests/repository_hygiene_test.ts`
+- Glossary: not enrolled — the contributor guide and repository routes explain these files in context
+- Feature canon: not enrolled — repository governance files surround rather than constitute the product
+
+## `map-tier-publication-postures` — Map tier publication rules
+
+Every top-level Map tier declares whether it publishes to the site, only with the repository, or remains private through the owner transition.
+
+- Source: `src/lib/paths.ts` — `MAP_TIER_PUBLICATION_POSTURES`
+- Members: 4
+  - `numbered: public`
+  - `_adr: public`
+  - `_internal: repository-only`
+  - `_private: private`
+- Guards: `tests/repository_hygiene_test.ts`
+- Glossary: not enrolled — the Map and public-manual documentation explain these repository audience boundaries
+- Feature canon: not enrolled — publication rules are repository governance rather than a product capability
+
+## `contributor-intake-surfaces` — Contributor-intake surfaces
+
+Every public repository file that must project whether contributor agreements and external pull requests can be accepted.
+
+- Source: `scripts/repository_files.ts` — `CONTRIBUTOR_INTAKE_SURFACES`
+- Members: 8
+  - `CONTRIBUTING.md`
+  - `CLA.md`
+  - `CCLA.md`
+  - `.github/PULL_REQUEST_TEMPLATE.md`
+  - `.github/ISSUE_TEMPLATE/bug_report.md`
+  - `.github/ISSUE_TEMPLATE/change_proposal.md`
+  - `.github/ISSUE_TEMPLATE/setup_failure.md`
+  - `.github/cla-assistant/README.md`
+- Guards: `tests/repository_hygiene_test.ts`
+- Glossary: not enrolled — the contributor guide states this repository lifecycle status directly
+- Feature canon: not enrolled — contributor intake is repository governance rather than product behavior
 
 ## `checkpoint-entry-fields` — Checkpoint entry fields
 
@@ -1105,7 +1258,8 @@ The agent providers discern writes files for, each with a compact mark and horiz
   - `gemini`
   - `cursor`
   - `copilot`
-- Guards: `tests/agent_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`
+- Guards: `tests/agent_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/provider_brand_provenance_codegen_test.ts`
+- Artifacts: `site/pages/assets/integrations/README.md`
 - Glossary: not enrolled — the agent-integration reference names providers, while the Glossary defines the shared Agent file concept
 - Feature canon: claimed as the `agent` surface set
 
@@ -2660,9 +2814,9 @@ The public reporting channels, policy location, language, and bounded security.t
 - Members: 9
   - `route=/.well-known/security.txt`
   - `contactEmail=security@discern.sh`
-  - `repositoryUrl=https://github.com/discern-sh/discern`
-  - `advisoryUrl=https://github.com/discern-sh/discern/security/advisories/new`
-  - `policyUrl=https://github.com/discern-sh/discern/blob/main/SECURITY.md`
+  - `repositoryUrl=https://github.com/jackwh/discern`
+  - `advisoryUrl=https://github.com/jackwh/discern/security/advisories/new`
+  - `policyUrl=https://github.com/jackwh/discern/blob/main/SECURITY.md`
   - `preferredLanguages=en`
   - `expiresAt=2027-07-31T23:59:59Z`
   - `expiryReviewLeadDays=30`
@@ -3054,7 +3208,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 353
+- Members: 354
   - `0003`
   - `0005`
   - `0006`
@@ -3386,6 +3540,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0361`
   - `0362`
   - `0363`
+  - `0364`
   - `0001`
   - `0002`
   - `0004`
@@ -4204,7 +4359,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 117
+- Members: 123
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -4213,6 +4368,12 @@ This meta-registry: the closed set of closed sets.
   - `mcp-tools`
   - `mcp-core-lifecycle`
   - `environment-variables`
+  - `build-targets`
+  - `repository-literal-policies`
+  - `editor-path-policies`
+  - `repository-community-files`
+  - `map-tier-publication-postures`
+  - `contributor-intake-surfaces`
   - `checkpoint-entry-fields`
   - `experimental-environment-variables`
   - `operating-policies`
@@ -4362,7 +4523,6 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 
 - `site/design_system.ts#DESIGN_SYSTEM_BUNDLES` — site build infrastructure: the route-bundle table drives this repository's site build; project installations omit it
 - `src/engine/gate/proof_render.ts` — the claim defines a derive-once invariant: Proof reads and reuses the result envelope
-- `src/lib/paths.ts#BUNDLED_MANUAL_STAGE_DIR` — one staging-directory value shared by the build writer and bundled-manual reader
 - `src/lib/providers.ts` — the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member
 - `src/lib/version.ts` — the kit version constant is one value with no member axis or satellites
 - `src/shared/result_schemas.ts` — wire vocabulary already published through the result-contracts schema artifacts; tests/result_codegen_test.ts and tests/result_schemas_test.ts hold the Zod spine to the contracts

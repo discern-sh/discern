@@ -26,10 +26,6 @@ aliases:
   - "partial_acceptance"
   - "provisioned_resources"
   - "worktree disk usage"
-redirect_from:
-  - "/docs/worktrees/reclaiming-contained-worktrees"
-  - "/docs/worktrees/cleanup-ownership"
-  - "/docs/worktrees/reappeared-worktree-paths"
 ---
 
 # Worktrees and resources

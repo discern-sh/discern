@@ -13,8 +13,6 @@ aliases:
   - "telemetry"
   - "network"
   - "security"
-redirect_from:
-  - "/docs/orientation/trust-and-data"
 ---
 
 # Local control

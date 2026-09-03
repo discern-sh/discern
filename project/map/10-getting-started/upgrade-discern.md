@@ -22,7 +22,7 @@ Before starting, commit or stash uncommitted tracked changes in the project. The
 Run the same installer used for the first install:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
+curl -fsSL https://discern.sh/install | sh
 ```
 
 It downloads the latest released binary and checksum for your operating system and architecture. The installer replaces the existing `discern` file only after the checksum passes. If it prints a shell-profile instruction instead of the setup handoff, apply it and open a new shell.

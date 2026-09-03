@@ -26,6 +26,7 @@ import {
   renderPublicSchemaReference,
   replacePublicSchemaReference,
 } from "../src/shared/public_schemas.ts";
+import { repositoryBlobUrl } from "../src/shared/brand.ts";
 import {
   DIAGNOSTIC_SEVERITIES,
   ERROR_SLUGS,
@@ -129,9 +130,7 @@ Deno.test("a future public schema publication auto-enrols in the generated regio
 Deno.test("the public schema reference matches the registry generator (run `deno task codegen`)", async () => {
   const generated = replacePublicSchemaReference(
     mcpReference,
-    renderPublicSchemaReference((path) =>
-      `https://github.com/jackwh/discern/blob/main/${path}`
-    ),
+    renderPublicSchemaReference(repositoryBlobUrl),
   );
   assertEquals(
     mcpReference,

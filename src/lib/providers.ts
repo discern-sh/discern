@@ -563,10 +563,16 @@ export interface ProviderBrandAsset {
 
 /** The logo forms the site can use for one integrated agent provider. */
 export interface ProviderBrand {
+  /** The legal or trading name that owns the represented marks. */
+  readonly owner: string;
   /** The vendor's human-readable brand or press page. */
   readonly sourceUrl: `https://${string}`;
   /** The vendor-provided archive or page from which these exact vectors came. */
   readonly assetSourceUrl: `https://${string}`;
+  /** The first-party page governing third-party use of the represented marks. */
+  readonly brandRulesUrl: `https://${string}`;
+  /** The date these checked-in vectors were retrieved, as YYYY-MM-DD. */
+  readonly retrievedOn: `${number}-${number}-${number}`;
   /** A compact, approximately square product or vendor mark. */
   readonly mark: ProviderBrandAsset;
   /**
@@ -587,6 +593,10 @@ export function providerBrandSilhouette(
 ): ProviderBrandAsset {
   return brand.silhouette === "mark" ? brand.mark : brand.silhouette;
 }
+
+/** The one trademark and non-affiliation statement used with provider logos. */
+export const PROVIDER_TRADEMARK_NOTICE =
+  "All third-party names, logos, and trademarks are the property of their respective owners. Their use identifies supported integrations and does not imply affiliation or endorsement.";
 
 /** Everything provider-specific for one agent, in one typed record. The single
  * place to extend when teaching discern a new agent. */
@@ -1415,8 +1425,11 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     name: "claude_code",
     label: agentLabelForNative("claude_code"),
     brand: {
+      owner: "Anthropic PBC",
       sourceUrl: "https://www.anthropic.com/news",
       assetSourceUrl: "https://www.anthropic.com/press-kit",
+      brandRulesUrl: "https://www.anthropic.com/press-kit",
+      retrievedOn: "2026-07-23",
       mark: {
         path: "/assets/integrations/claude-code-mark.svg",
         upstream:
@@ -1510,8 +1523,11 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     name: "codex",
     label: agentLabelForNative("codex"),
     brand: {
+      owner: "OpenAI",
       sourceUrl: "https://openai.com/brand/",
       assetSourceUrl: "https://cdn.openai.com/brand/openai-logos.zip",
+      brandRulesUrl: "https://openai.com/brand/",
+      retrievedOn: "2026-07-23",
       mark: {
         path: "/assets/integrations/codex-mark.svg",
         upstream: "OpenAI-logos/SVGs/OAI_OpenAI-Blossom_Black.svg",
@@ -1627,8 +1643,11 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     name: "gemini",
     label: agentLabelForNative("gemini"),
     brand: {
+      owner: "Google LLC",
       sourceUrl: "https://gemini.google/about/",
       assetSourceUrl: "https://gemini.google/about/",
+      brandRulesUrl: "https://about.google/brand-resource-center/",
+      retrievedOn: "2026-07-23",
       mark: {
         path: "/assets/integrations/gemini-mark.svg",
         upstream: "inline header SVG (mark layer)",
@@ -1732,9 +1751,12 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     name: "cursor",
     label: agentLabelForNative("cursor"),
     brand: {
+      owner: "Anysphere, Inc.",
       sourceUrl: "https://cursor.com/brand",
       assetSourceUrl:
         "https://ptht05hbb1ssoooe.public.blob.vercel-storage.com/assets/brand/cursor-brand-assets.zip",
+      brandRulesUrl: "https://cursor.com/brand",
+      retrievedOn: "2026-07-23",
       mark: {
         path: "/assets/integrations/cursor-mark.svg",
         upstream: "General Logos/Cube/SVG/CUBE_2D_LIGHT.svg",
@@ -1875,8 +1897,11 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     name: "copilot",
     label: agentLabelForNative("copilot"),
     brand: {
+      owner: "GitHub, Inc.",
       sourceUrl: "https://brand.github.com/brand-identity/copilot",
       assetSourceUrl: "https://brand.github.com/GitHub_Logos.zip",
+      brandRulesUrl: "https://brand.github.com/brand-identity/copilot",
+      retrievedOn: "2026-07-23",
       mark: {
         path: "/assets/integrations/github-copilot-mark.svg",
         upstream: "GitHub Logos/SVG/Copilot_Icon_Black.svg",

@@ -16,8 +16,6 @@ aliases:
   - "exit 124"
   - "pager failed"
   - "docs target not found"
-redirect_from:
-  - "/docs/reference/mcp-call-duration"
 ---
 
 # MCP, terminal, and docs

@@ -19,10 +19,6 @@ aliases:
   - "walkthrough"
   - "setup walkthrough"
   - "first session"
-redirect_from:
-  - "/docs/getting-started/quickstart"
-  - "/docs/getting-started/setup-decisions"
-  - "/docs/getting-started/walkthrough"
 ---
 
 # Install and set up discern
@@ -48,7 +44,7 @@ This step is yours. Run the installer in a shell:
 <!-- discern-workflow:command -->
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
+curl -fsSL https://discern.sh/install | sh
 ```
 
 **Expected result:** The installer prints `Next:` and tells you to hand the rest to your coding agent.
@@ -56,6 +52,12 @@ curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 **If this fails:** A `PATH` instruction instead of `Next:` means the binary landed somewhere your shell doesn't search. Follow the printed line, open a new shell, and confirm with `discern --version`. For anything else, see [Setup and integrations](../40-troubleshooting/setup-and-integrations.md).
 
 <!-- /discern-workflow -->
+
+If the canonical endpoint is unavailable, use the raw GitHub installer as the documented fallback:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
+```
 
 The install adds one self-contained executable. Your repository doesn't need Deno, Node, or any other runtime for discern itself, and nothing touches the repository until setup does, with your consent.
 

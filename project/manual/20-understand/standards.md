@@ -10,8 +10,6 @@ aliases:
   - "explanation-standards"
   - "the practice"
   - "tenets"
-redirect_from:
-  - "/docs/orientation/the-practice"
 ---
 
 # Standards

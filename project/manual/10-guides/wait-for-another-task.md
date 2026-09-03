@@ -11,8 +11,6 @@ aliases:
   - "await a sibling"
   - "wait for a branch"
   - "fleet coordination"
-redirect_from:
-  - "/docs/worktrees/awaiting-the-fleet"
 ---
 
 # Wait for another task

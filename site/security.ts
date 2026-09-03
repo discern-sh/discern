@@ -4,15 +4,18 @@
  */
 
 import { canonicalUrl } from "./seo.ts";
-
-const SECURITY_REPOSITORY_URL = "https://github.com/discern-sh/discern";
+import {
+  DISCERN_ADVISORY_URL,
+  DISCERN_REPOSITORY_URL,
+  repositoryBlobUrl,
+} from "../src/shared/brand.ts";
 
 export const SECURITY_DISCLOSURE = {
   route: "/.well-known/security.txt",
   contactEmail: "security@discern.sh",
-  repositoryUrl: SECURITY_REPOSITORY_URL,
-  advisoryUrl: `${SECURITY_REPOSITORY_URL}/security/advisories/new`,
-  policyUrl: `${SECURITY_REPOSITORY_URL}/blob/main/SECURITY.md`,
+  repositoryUrl: DISCERN_REPOSITORY_URL,
+  advisoryUrl: DISCERN_ADVISORY_URL,
+  policyUrl: repositoryBlobUrl("SECURITY.md"),
   preferredLanguages: ["en"],
   expiresAt: "2027-07-31T23:59:59Z",
   expiryReviewLeadDays: 30,

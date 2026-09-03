@@ -19,7 +19,7 @@ It is for engineers who already direct more implementation than they can persona
 curl -fsSL https://discern.sh/install | sh
 ```
 
-One self-contained binary for macOS and Linux (Windows via WSL2). Your project needs nothing beyond `git` — no runtime, no account, no API key.
+One self-contained binary for macOS and Linux (Windows via WSL 2). Your project needs nothing beyond `git` — no runtime, no account, no API key.
 
 **2. Hand the project to your coding agent.** Open the agent you already use and tell it:
 

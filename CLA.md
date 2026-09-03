@@ -1,12 +1,14 @@
 # discern Individual Contributor License Agreement, version 1.0
 
+**Contributor intake is inactive.** This agreement is not currently offered for acceptance. Do not use CLA Assistant or submit an acceptance until `CONTRIBUTING.md` says contributor intake is active.
+
 ## Why this agreement exists
 
 discern is Fair Source software. Each version is distributed under the Functional Source License in the repository's `LICENSE` file and receives an irrevocable Apache-2.0 license on the second anniversary of the date that version was first made available. Internal use is free for everyone, businesses included.
 
 Keeping that model working requires one steward to be able to license the complete work: under the Functional Source License, under the promised future license, and under commercial terms. This agreement gives the steward those rights without taking ownership of your work. You retain any copyright you hold in your Contributions, and the grant is non-exclusive.
 
-You agree once for this version of the agreement. The hosted CLA Assistant asks you to agree on your first pull request and asks again if the agreement changes. If an employer or another legal entity owns your work, that entity must complete the separate Corporate Contributor License Agreement in the repository's `CCLA.md` file before the work can be accepted.
+After intake opens, you will agree once for this version of the agreement. The hosted CLA Assistant will ask you to agree on your first pull request and again if the agreement changes. If an employer or another legal entity owns your work, that entity must complete the separate Corporate Contributor License Agreement in the repository's `CCLA.md` file before the work can be accepted.
 
 This agreement is adapted from The Apache Software Foundation's Individual Contributor License Agreement, version 2.2. Before agreeing, read discern's [contributor agreement privacy notice](https://github.com/discern-sh/discern/blob/main/CONTRIBUTING.md#contributor-agreement-privacy) and [SAP's privacy statement for CLA Assistant](https://gist.github.com/CLAassistant/3a73e4cd729c9d0a6e30#file-privacy-md).
 
@@ -32,7 +34,7 @@ By agreeing, you accept these terms for your past, present, and future Contribut
 
 ## How to agree
 
-Use your authenticated GitHub account to complete the CLA Assistant form linked from your pull request and affirm:
+This path is inactive. After `CONTRIBUTING.md` says contributor intake is active, use your authenticated GitHub account to complete the CLA Assistant form linked from your pull request and affirm:
 
 > I have read and agreed to the discern Contributor License Agreement, version 1.0
 

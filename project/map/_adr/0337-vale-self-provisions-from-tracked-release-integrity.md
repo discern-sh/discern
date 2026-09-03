@@ -6,7 +6,7 @@
 
 The prose standard pins Vale 3.15.2 because its alert count is a comparative measurement. The wrapper checked that pin but launched `vale` from `PATH`. A Homebrew upgrade replaced the local executable with 3.18.0, so the wrapper correctly refused and exposed the missing installer. Hosted lanes instead repeated versioned downloads without verifying their content.
 
-Using the newer binary is not harmless: Vale 3.17 changed which scoped and inline rules fire, altering this repository's alert count without a prose change. The binary's version and bytes therefore need tracked authorities across macOS, Linux, and Linux inside Windows Subsystem for Linux.
+Using the newer binary is not harmless: Vale 3.17 changed which scoped and inline rules fire, altering this repository's alert count without a prose change. The binary's version and bytes therefore need tracked authorities across macOS, Linux, and Linux inside Windows Subsystem for Linux 2 (WSL 2).
 
 Per-worktree caches duplicate immutable bytes; a user cache crosses repository ownership. Git's common administration directory already provides the required shared repository lifetime.
 

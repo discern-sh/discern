@@ -20,6 +20,7 @@
  */
 
 import { COMMAND_GROUPS } from "../cli_help.ts";
+import { repositoryBlobUrl } from "./brand.ts";
 
 /** One positional argument a command declares. */
 export interface CliArg {
@@ -351,7 +352,11 @@ export function renderCliReferenceModel(
       "",
       "A direct `discern docs <target>` renders and exits without waiting. Bare `discern docs` off a terminal prints the table of contents and never requests input. `--list`, `--json`, and `--raw` never enter the reader; `--search` prints matches. Export writes or returns one Markdown stream, except `--export select` can request a selection on an interactive terminal.",
       "",
-      "The implementation and real-terminal contract are public in [`src/commands/docs.ts`](https://github.com/jackwh/discern/blob/main/src/commands/docs.ts) and [`tests/docs_test.ts`](https://github.com/jackwh/discern/blob/main/tests/docs_test.ts).",
+      `The implementation and real-terminal contract are public in [\`src/commands/docs.ts\`](${
+        repositoryBlobUrl("src/commands/docs.ts")
+      }) and [\`tests/docs_test.ts\`](${
+        repositoryBlobUrl("tests/docs_test.ts")
+      }).`,
       "",
       "## Exit behavior",
       "",

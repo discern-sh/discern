@@ -17,9 +17,6 @@ aliases:
   - "markdown formatter"
   - "toml formatter"
   - "format discern files"
-redirect_from:
-  - "/docs/getting-started/upgrade-discern"
-  - "/docs/quality-gate/tidy"
 ---
 
 # Maintain or remove discern

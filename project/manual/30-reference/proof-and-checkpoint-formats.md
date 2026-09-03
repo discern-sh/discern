@@ -32,11 +32,6 @@ aliases:
   - "Checkpoint `when` protocol"
   - "checkpoint when input"
   - "checkpoint when command"
-redirect_from:
-  - "/docs/quality-gate/proof-notes"
-  - "/docs/reference/proof-note-format"
-  - "/docs/reference/checkpoint-state"
-  - "/docs/reference/checkpoint-when-protocol"
 ---
 
 # Proof and checkpoint formats

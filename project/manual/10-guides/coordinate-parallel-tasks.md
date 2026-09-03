@@ -29,12 +29,6 @@ aliases:
   - "Open another worktree"
   - "switch worktrees"
   - "worktree shell picker"
-redirect_from:
-  - "/docs/quality-gate/concurrent-test-runs"
-  - "/docs/worktrees/the-resources"
-  - "/docs/worktrees/team-workflow"
-  - "/docs/worktrees/multi-repo-workspaces"
-  - "/docs/worktrees/opening-worktrees"
 ---
 
 # Coordinate parallel tasks

@@ -124,7 +124,7 @@ import {
   type MapRegion,
 } from "../lib/map_overview.ts";
 import { SYSTEM_CLOCK } from "../shared/clock.ts";
-import { DISCERN_DOCS_URL } from "../shared/brand.ts";
+import { DISCERN_DOCS_URL, repositoryTreeUrl } from "../shared/brand.ts";
 import { writeStdout } from "../engine/output.ts";
 import * as view from "../shared/docs_presentation.ts";
 
@@ -458,7 +458,7 @@ const DOCS_VERB: DocsVerb = {
 const EXTERNAL_DECISIONS_MESSAGE =
   "discern's decision records are not bundled with installed binaries. " +
   "Read them at https://discern.sh/docs/decisions or in the source repository " +
-  "at https://github.com/jackwh/discern/tree/main/project/map/_adr.";
+  `at ${repositoryTreeUrl("project/map/_adr")}.`;
 
 /** Render the installed-binary decision redirect as a TTY Callout or pipe-safe line. */
 export function renderExternalDecisionsNotice(

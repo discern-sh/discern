@@ -33,6 +33,8 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { fileExists, targetExists } from "../src/shared/fs_presence.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { handler } from "../site/serve.ts";
+import { DISCERN_URL } from "../src/shared/brand.ts";
 
 const ClaAssistantMetadataSchema = z.object({
   agreement: z.object({
@@ -145,15 +147,16 @@ Deno.test("the contribution guide carries the complete governance contract", asy
   const guide = await Deno.readTextFile(CONTRIBUTING);
   for (
     const statement of [
+      "Contributor intake is inactive",
       "The project is founder-led",
-      "Every pull request starts with an issue that a maintainer has accepted",
+      "After contributor intake opens, every pull request will start with an issue that a maintainer has accepted",
       "AI-assisted contributions are welcome",
       "`discern done` is the contribution contract",
       "[Individual Contributor License Agreement](CLA.md)",
-      "You retain any copyright you hold in your Contributions",
+      "Contributors retain any copyright they hold in their Contributions",
       "[Corporate Contributor License Agreement](CCLA.md) privately",
       "[contributor agreement privacy notice](#contributor-agreement-privacy)",
-      "Contributor agreement intake status: inactive",
+      "No contributor agreement is currently offered for acceptance",
       "Each version receives an irrevocable Apache-2.0 license",
       "second anniversary of the date that version was first made available",
     ]
@@ -195,7 +198,7 @@ Deno.test("the pull-request template requires every contribution attestation", a
   }
 });
 
-Deno.test("the hosted assistant accepts the individual agreement without a repository workflow", async () => {
+Deno.test("the inactive hosted-assistant payload is prepared without a repository workflow", async () => {
   const individual = await Deno.readTextFile(INDIVIDUAL_CLA);
   const corporate = await Deno.readTextFile(CORPORATE_CLA);
   assertEquals(
@@ -363,7 +366,7 @@ Deno.test("change proposals arrive before implementation and use the smallest-ch
   assertStringIncludes(template, "Open this issue before implementation");
   assertStringIncludes(
     template,
-    "- [ ] I am proposing this change before I intend to implement it.",
+    "- [ ] I understand contributor intake is inactive and am not submitting an implementation.",
   );
   for (
     const approach of [
@@ -424,7 +427,7 @@ Deno.test("issue intake stays structured and every template has valid metadata",
   );
 });
 
-Deno.test("repository-file links in contributor intake resolve", async () => {
+Deno.test("repository-file and public-route links in contributor intake resolve", async () => {
   const governed = new Set([
     "CONTRIBUTING.md",
     "CLA.md",
@@ -453,15 +456,14 @@ Deno.test("repository-file links in contributor intake resolve", async () => {
   }
 
   const config = await Deno.readTextFile(ISSUE_CONFIG);
-  const blobLinks = config.matchAll(
-    /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/blob\/main\/([^\s]+)/g,
-  );
-  let found = false;
-  for (const match of blobLinks) {
-    const path = match[1];
-    assert(path !== undefined);
-    found = true;
-    await assertFile(join(REPO_ROOT, path), ISSUE_CONFIG, 1);
+  const contactUrls = [...config.matchAll(/^\s+url:\s+(https:\/\/\S+)$/gmu)]
+    .map((match) => match[1])
+    .filter((url): url is string => url !== undefined);
+  assert(contactUrls.length > 0, "issue config needs public contact routes");
+  for (const raw of contactUrls) {
+    const url = new URL(raw);
+    assertEquals(url.origin, DISCERN_URL);
+    const response = await handler(new Request(url));
+    assertEquals(response.status, 200, `${raw} must be a live public route`);
   }
-  assert(found, "issue config must keep its repository-file contact link");
 });

@@ -39,8 +39,6 @@ aliases:
   - "discern_doctor"
   - "discern_improvement"
   - "discern_checkpoints"
-redirect_from:
-  - "/docs/reference/result-surfaces"
 ---
 
 # MCP and results

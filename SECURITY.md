@@ -2,7 +2,7 @@
 
 ## Report a vulnerability
 
-Report suspected vulnerabilities privately. Email [security@discern.sh](mailto:security@discern.sh) or use [GitHub's private vulnerability reporting](https://github.com/discern-sh/discern/security/advisories/new). Do not open a public issue.
+Report suspected vulnerabilities privately. Email [security@discern.sh](mailto:security@discern.sh) or use [GitHub's private vulnerability reporting](https://github.com/jackwh/discern/security/advisories/new). Do not open a public issue.
 
 Include:
 

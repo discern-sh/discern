@@ -12,8 +12,6 @@ aliases:
   - "red gate"
   - "check failed"
   - "diagnostics"
-redirect_from:
-  - "/docs/quality-gate/when-the-gate-fails"
 ---
 
 # Fix a red Gate

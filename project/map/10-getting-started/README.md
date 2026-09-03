@@ -12,7 +12,7 @@ aliases:
 
 _Install discern, set up your repository, and take one real change through the project's final quality check (the Gate)._
 
-You need a Git repository, a supported coding agent, and macOS, Linux, or WSL2. discern is a self-contained binary. The project does not need Deno or Node to run discern.
+You need a Git repository, a supported coding agent, and macOS, Linux, or WSL 2. discern is a self-contained binary. The project does not need Deno or Node to run discern.
 
 Start with the [quickstart](quickstart.md). It is the shortest path from installation to a reviewed change on your trunk. [Setup decisions](setup-decisions.md) explains why the model choice matters and which later choices remain yours. The [walkthrough](walkthrough.md) then explains the branch, Gate, Proof, and review boundaries you encounter while an agent works.
 

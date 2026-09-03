@@ -142,7 +142,7 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
     redirectFrom: page.entry.redirectFrom,
   })));
   assertEquals(redirects.issues, []);
-  assertEquals(redirects.redirects.size, 83);
+  assertEquals(redirects.redirects.size, 0);
   const liveRoutes = new Set(expectedRoutes);
   for (const [source, target] of redirects.redirects) {
     assert(!liveRoutes.has(source), `${source} must not also be a live route`);
@@ -152,9 +152,9 @@ Deno.test("all delivery projections agree on canonical manual page identities", 
     );
   }
 
-  // The served site table must carry the whole manual registry twice over:
-  // every declared source redirects, and its raw Markdown mirror follows the
-  // same hop — 2 × the registry (166 today), derived rather than hand-listed.
+  // The served site table must carry the whole manual registry twice over when
+  // redirects are introduced after publication: every declared source and its
+  // raw Markdown mirror follow the same hop, derived rather than hand-listed.
   const table = buildSiteRedirectTable(liveHtmlRoutes(site), [
     site.landing,
     ...site.pages,

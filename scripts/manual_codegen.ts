@@ -8,6 +8,7 @@ import {
   parseFrontmatter,
   readFrontmatterBlock,
 } from "../src/lib/frontmatter.ts";
+import { repositoryBlobUrl, repositoryTreeUrl } from "../src/shared/brand.ts";
 
 export interface GeneratedManualMetadata {
   readonly id: string;
@@ -72,8 +73,9 @@ function manualDestination(
       return `https://discern.sh${exhibitRoute}${fragment}`;
     }
   }
-  const kind = /\.[A-Za-z0-9]+$/u.test(resolved) ? "blob" : "tree";
-  return `https://github.com/jackwh/discern/${kind}/main/${resolved}${fragment}`;
+  return /\.[A-Za-z0-9]+$/u.test(resolved)
+    ? repositoryBlobUrl(resolved, fragment)
+    : repositoryTreeUrl(resolved, fragment);
 }
 
 /** Rewrite links outside code fences without changing any other body byte. */

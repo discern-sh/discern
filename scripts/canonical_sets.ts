@@ -329,6 +329,180 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "build-targets",
+    title: "Release build targets",
+    what:
+      "Every native binary the release builds, executes, documents, checksums, attests, and publishes, including its installer selectors and pinned hosted runner.",
+    source: {
+      kind: "module",
+      module: "scripts/build_targets.ts",
+      exportName: "BUILD_TARGETS",
+    },
+    guards: [
+      "tests/install_script_test.ts",
+      "tests/release_artifacts_test.ts",
+      "tests/workflow_platform_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "project/map/70-reference/platforms-and-prereqs.md",
+        kind: "maintained-block",
+      },
+      {
+        path: "project/manual/30-reference/platforms-and-providers.md",
+        kind: "maintained-block",
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the platform reference names concrete release assets rather than adding product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the distribution mechanism supports the existing self-contained binary capability",
+      },
+    },
+    members: async () =>
+      (await import("./build_targets.ts")).BUILD_TARGETS.map((target) =>
+        target.triple
+      ),
+  },
+  {
+    id: "repository-literal-policies",
+    title: "Repository and installer literal projections",
+    what:
+      "Every declared repository identity, canonical install command, or raw-installer command that cannot import the TypeScript authority, with an exact occurrence count and reason.",
+    source: {
+      kind: "module",
+      module: "scripts/repository_literal_policy.ts",
+      exportName: "REPOSITORY_LITERAL_POLICIES",
+    },
+    guards: ["tests/repository_identity_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "these are repository-development projections of existing product and installer identities",
+      },
+      featureCanon: {
+        absent:
+          "the installer capability already owns the public behavior; this set prevents repository drift",
+      },
+    },
+    members: async () =>
+      (await import("./repository_literal_policy.ts"))
+        .REPOSITORY_LITERAL_POLICIES.map((policy) => policy.path),
+  },
+  {
+    id: "editor-path-policies",
+    title: "Shared editor path policies",
+    what:
+      "Every absent generated output shared editor configuration may exclude, plus private browser-plugin state that must remain absent and ignored.",
+    source: {
+      kind: "module",
+      module: "scripts/repository_files.ts",
+      exportName: "EDITOR_PATH_POLICIES",
+    },
+    guards: ["tests/repository_hygiene_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "these are repository-maintenance paths rather than product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "editor presentation and local state do not change product behavior",
+      },
+    },
+    members: async () =>
+      (await import("./repository_files.ts")).EDITOR_PATH_POLICIES.map(
+        (policy) => `${policy.kind}: ${policy.path}`,
+      ),
+  },
+  {
+    id: "repository-community-files",
+    title: "Repository community files",
+    what:
+      "Every root community contract and every GitHub configuration file, including recorded omissions, so a new intake or automation surface must declare its role.",
+    source: {
+      kind: "module",
+      module: "scripts/repository_files.ts",
+      exportName: "REPOSITORY_COMMUNITY_FILE_POLICIES",
+    },
+    guards: ["tests/repository_hygiene_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the contributor guide and repository routes explain these files in context",
+      },
+      featureCanon: {
+        absent:
+          "repository governance files surround rather than constitute the product",
+      },
+    },
+    members: async () =>
+      (await import("./repository_files.ts"))
+        .REPOSITORY_COMMUNITY_FILE_POLICIES.map(
+          (policy) => `${policy.state}: ${policy.path}`,
+        ),
+  },
+  {
+    id: "map-tier-publication-postures",
+    title: "Map tier publication rules",
+    what:
+      "Every top-level Map tier declares whether it publishes to the site, only with the repository, or remains private through the owner transition.",
+    source: {
+      kind: "module",
+      module: "src/lib/paths.ts",
+      exportName: "MAP_TIER_PUBLICATION_POSTURES",
+    },
+    guards: ["tests/repository_hygiene_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the Map and public-manual documentation explain these repository audience boundaries",
+      },
+      featureCanon: {
+        absent:
+          "publication rules are repository governance rather than a product capability",
+      },
+    },
+    members: async () =>
+      (await import("../src/lib/paths.ts")).MAP_TIER_PUBLICATION_POSTURES.map(
+        (entry) => `${entry.tier}: ${entry.posture}`,
+      ),
+  },
+  {
+    id: "contributor-intake-surfaces",
+    title: "Contributor-intake surfaces",
+    what:
+      "Every public repository file that must project whether contributor agreements and external pull requests can be accepted.",
+    source: {
+      kind: "module",
+      module: "scripts/repository_files.ts",
+      exportName: "CONTRIBUTOR_INTAKE_SURFACES",
+    },
+    guards: ["tests/repository_hygiene_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the contributor guide states this repository lifecycle status directly",
+      },
+      featureCanon: {
+        absent:
+          "contributor intake is repository governance rather than product behavior",
+      },
+    },
+    members: async () => [
+      ...(await import("./repository_files.ts")).CONTRIBUTOR_INTAKE_SURFACES,
+    ],
+  },
+  {
     id: "checkpoint-entry-fields",
     title: "Checkpoint entry fields",
     what:
@@ -922,8 +1096,15 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/agent_parity_test.ts",
       "tests/feature_canon_enrolment_test.ts",
+      "tests/provider_brand_provenance_codegen_test.ts",
     ],
-    artifacts: [],
+    artifacts: [
+      {
+        path: "site/pages/assets/integrations/README.md",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
     enrolledIn: {
       glossary: {
         absent:
@@ -3709,8 +3890,6 @@ export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {
     "site build infrastructure: the route-bundle table drives this repository's site build; project installations omit it",
   "src/engine/gate/proof_render.ts":
     "the claim defines a derive-once invariant: Proof reads and reuses the result envelope",
-  "src/lib/paths.ts#BUNDLED_MANUAL_STAGE_DIR":
-    "one staging-directory value shared by the build writer and bundled-manual reader",
   "src/lib/providers.ts":
     "the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member",
   "src/lib/version.ts":

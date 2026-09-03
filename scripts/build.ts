@@ -219,8 +219,8 @@ async function prepareBundledManual(): Promise<string> {
  * workspace's physical `node_modules`: repo-internal tools may have large npm
  * dependencies that are not part of discern's product graph.
  */
-export function compileArguments(
-  target: BuildTarget,
+export function compileArguments<T extends Pick<BuildTarget, "triple">>(
+  target: T,
   outPath: string,
   docsStageDir: string,
   distributionRoots: readonly string[],
@@ -229,6 +229,7 @@ export function compileArguments(
   return [
     "compile",
     ...PERMISSIONS,
+    "--bundle",
     "--node-modules-dir=none",
     "--exclude-unused-npm",
     ...distributionRoots.flatMap((path) => ["--include", path]),

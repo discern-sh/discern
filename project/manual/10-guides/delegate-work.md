@@ -17,10 +17,6 @@ aliases:
   - "built-in skills"
   - "bundled playbooks"
   - "skill catalog"
-redirect_from:
-  - "/docs/worktrees/the-desk"
-  - "/docs/worktrees/desk-tips"
-  - "/docs/skills/bundled-skills"
 ---
 
 # Delegate substantial work

@@ -7,7 +7,8 @@ labels: proposal
 
 <!--
 Open this issue before implementation. A maintainer will confirm whether the
-problem belongs in discern and agree on the direction before a pull request.
+problem belongs in discern. Contributor intake is inactive, and external pull
+requests are not accepted, so discussion is not permission to implement or submit a change.
 -->
 
 ## Problem
@@ -41,5 +42,5 @@ Include examples, measurements, prior discussion, or approaches you considered.
 
 - [ ] I searched for an existing issue that covers this problem.
 - [ ] I read `CONTRIBUTING.md`.
-- [ ] I am proposing this change before I intend to implement it.
+- [ ] I understand contributor intake is inactive and am not submitting an implementation.
 - [ ] I explained why the problem applies beyond one stack, domain, or workflow.

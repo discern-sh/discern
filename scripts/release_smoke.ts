@@ -13,9 +13,86 @@ import { resolveRepositoryManualDir } from "../src/lib/paths.ts";
 const DECODER = new TextDecoder();
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
+export interface ReleasePathLeak {
+  readonly label:
+    | "checkout"
+    | "home"
+    | "workspace"
+    | "runner temp"
+    | "package cache";
+  readonly path: string;
+}
+
+export interface ReleaseSmokeOptions {
+  /** Test seam for the hosted environment whose paths must not reach bytes. */
+  readonly environment?: Readonly<Record<string, string | undefined>>;
+}
+
 interface CommandOutput {
   stderr: string;
   stdout: string;
+}
+
+/** Collect every local build path whose bytes would disclose the build host. */
+export function releasePathLeaks(
+  environment: Readonly<Record<string, string | undefined>> = Deno.env
+    .toObject(),
+): readonly ReleasePathLeak[] {
+  const candidates: ReleasePathLeak[] = [
+    { label: "checkout", path: REPO_ROOT.replace(/\/$/u, "") },
+  ];
+  const add = (label: ReleasePathLeak["label"], path: string | undefined) => {
+    if (path === undefined || path.trim() === "" || path === "/") return;
+    candidates.push({ label, path: path.replace(/\/$/u, "") });
+  };
+  add("workspace", environment.GITHUB_WORKSPACE);
+  add("home", environment.HOME);
+  add("runner temp", environment.RUNNER_TEMP);
+  add("package cache", environment.DENO_DIR);
+  add("package cache", environment.XDG_CACHE_HOME);
+  add("package cache", environment.NPM_CONFIG_CACHE);
+  add("package cache", environment.npm_config_cache);
+  if (environment.HOME !== undefined) {
+    add("package cache", join(environment.HOME, ".cache", "deno"));
+    add("package cache", join(environment.HOME, ".npm"));
+  }
+  const seen = new Set<string>();
+  return candidates.filter(({ path }) => {
+    if (seen.has(path)) return false;
+    seen.add(path);
+    return true;
+  });
+}
+
+/** Return whether `haystack` contains one exact byte sequence. */
+function containsBytes(haystack: Uint8Array, needle: Uint8Array): boolean {
+  if (needle.length === 0 || needle.length > haystack.length) return false;
+  outer:
+  for (let offset = 0; offset <= haystack.length - needle.length; offset++) {
+    for (let index = 0; index < needle.length; index++) {
+      if (haystack[offset + index] !== needle[index]) continue outer;
+    }
+    return true;
+  }
+  return false;
+}
+
+/** Refuse a release binary containing any host-specific build path. */
+export async function assertNoReleasePathLeaks(
+  binary: string,
+  candidates: readonly ReleasePathLeak[],
+): Promise<void> {
+  const bytes = await Deno.readFile(binary);
+  const encoder = new TextEncoder();
+  const leaks = candidates.filter(({ path }) =>
+    containsBytes(bytes, encoder.encode(path))
+  );
+  if (leaks.length > 0) {
+    throw new Error(
+      `release binary contains local ${leaks[0]?.label ?? "build"} path ` +
+        `${JSON.stringify(leaks[0]?.path)}`,
+    );
+  }
 }
 
 /** Narrow decoded JSON to a non-null, non-array record. */
@@ -186,11 +263,18 @@ async function assertBundledThirdPartyNotices(output: string): Promise<void> {
 export async function smokeReleaseBinary(
   binaryPath: string,
   expectedVersion: string,
+  options: ReleaseSmokeOptions = {},
+  processEnvironment: Readonly<Record<string, string | undefined>> = Deno.env
+    .toObject(),
 ): Promise<void> {
   const binary = isAbsolute(binaryPath) ? binaryPath : resolve(binaryPath);
   if (!(await fileExists(binary))) {
     throw new Error(`release binary does not exist: ${binary}`);
   }
+  await assertNoReleasePathLeaks(
+    binary,
+    releasePathLeaks(options.environment ?? processEnvironment),
+  );
 
   await withToolTempDir("release-smoke", async (temp) => {
     const gitEnv = {

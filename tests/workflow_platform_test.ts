@@ -9,6 +9,11 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 const DISCERN_TOML = new URL("../discern.toml", import.meta.url);
 const GATE = new URL("../.github/workflows/gate.yml", import.meta.url);
 const RELEASE = new URL("../.github/workflows/release.yml", import.meta.url);
+const DVMRC = new URL("../.dvmrc", import.meta.url);
+const WSL_GATE_ACTION = new URL(
+  "../.github/actions/wsl-gate/action.yml",
+  import.meta.url,
+);
 const MACOS_GATE_ACTION = new URL(
   "../.github/actions/macos-gate/action.yml",
   import.meta.url,
@@ -19,6 +24,8 @@ const ENTITLEMENTS = new URL(
 );
 const gateSource = await Deno.readTextFile(GATE);
 const releaseSource = await Deno.readTextFile(RELEASE);
+const dvmrcSource = await Deno.readTextFile(DVMRC);
+const wslGateActionSource = await Deno.readTextFile(WSL_GATE_ACTION);
 const macosGateActionSource = await Deno.readTextFile(MACOS_GATE_ACTION);
 const entitlementsSource = await Deno.readTextFile(ENTITLEMENTS);
 
@@ -134,6 +141,78 @@ Deno.test("new commits cancel superseded gate runs on the same ref", () => {
     "group: ${{ github.workflow }}-${{ github.ref }}",
   );
   assertStringIncludes(gateSource, "cancel-in-progress: true");
+});
+
+Deno.test("every hosted Deno setup consumes the one exact .dvmrc version", async () => {
+  assert(
+    /^\d+\.\d+\.\d+\n$/u.test(dvmrcSource),
+    ".dvmrc contains one exact stable Deno version and a final newline",
+  );
+  const files = await structuralGuardScope({
+    guard: "tests/workflow_platform_test.ts#hosted-deno-version",
+    universe: "authored-text",
+    narrow: {
+      reason: "This toolchain rule governs GitHub workflow and action YAML.",
+      include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
+    },
+  });
+  const documents = await githubYaml(files);
+  const setupSteps = documents.flatMap((document) =>
+    document.mappings.filter(({ value }) =>
+      typeof value.uses === "string" &&
+      value.uses.startsWith("denoland/setup-deno@")
+    ).map(({ path, value }) => ({ document: document.path, path, value }))
+  );
+  assert(setupSteps.length > 0, "hosted automation installs Deno");
+  const offenders: string[] = [];
+  for (const step of setupSteps) {
+    const withValues = step.value.with;
+    if (
+      withValues === null || typeof withValues !== "object" ||
+      Array.isArray(withValues) ||
+      (withValues as Record<string, unknown>)["deno-version-file"] !==
+        ".dvmrc" ||
+      Object.hasOwn(withValues as Record<string, unknown>, "deno-version")
+    ) {
+      offenders.push(`${step.document}:${step.path}`);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `setup-deno steps must use deno-version-file: .dvmrc:\n${
+      offenders.join("\n")
+    }`,
+  );
+  assertStringIncludes(wslGateActionSource, "cat /home/gate/discern/.dvmrc");
+  assertStringIncludes(wslGateActionSource, '"v${deno_version#v}"');
+});
+
+Deno.test("hosted runner labels are pinned rather than floating on latest", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/workflow_platform_test.ts#hosted-runner-labels",
+    universe: "authored-text",
+    narrow: {
+      reason: "This runner-image rule governs GitHub workflow YAML.",
+      include: (rel) =>
+        rel.startsWith(".github/workflows/") &&
+        /\.ya?ml$/.test(rel),
+    },
+  });
+  const offenders: string[] = [];
+  for (const document of await githubYaml(files)) {
+    for (const { path, value } of document.mappings) {
+      const runner = value["runs-on"];
+      if (typeof runner === "string" && /-latest$/u.test(runner)) {
+        offenders.push(`${document.path}:${path}.runs-on=${runner}`);
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `hosted runner labels must name an audited image:\n${offenders.join("\n")}`,
+  );
 });
 
 Deno.test("hosted automation never exports a trunk override into project tests", async () => {

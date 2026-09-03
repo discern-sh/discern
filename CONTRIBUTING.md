@@ -1,12 +1,14 @@
 # Contributing to discern
 
+**Contributor intake is inactive.** Issues remain open for bug reports, setup failures, and problem proposals. Do not open an external pull request or send an Individual or Corporate Contributor License Agreement: the project cannot accept either yet. The workflow below describes what will apply after intake opens.
+
 Thanks for wanting to improve discern. The project is founder-led: the maintainer sets its direction and reviews changes under a narrow promise. discern must work for projects in any stack without accumulating exceptions for one toolchain, domain, or workflow.
 
-Bug fixes, performance improvements, and stack-neutral improvements are welcome. We usually decline behavior that serves one stack or use case. Bring the problem to an issue first. Existing documentation or project configuration may already solve it, and the discussion can establish whether the problem exposes a general design flaw.
+Bug reports, setup failures, and stack-neutral problem proposals are welcome as issues. The project usually declines behavior that serves one stack or use case. Existing documentation or project configuration may already solve the problem, and discussion can establish whether it exposes a general design flaw.
 
 ## Start with an accepted issue
 
-Every pull request starts with an issue that a maintainer has accepted. Open the issue before implementation, describe the problem and its impact, and wait for agreement on the direction. This puts design review before the expensive part and protects your time.
+After contributor intake opens, every pull request will start with an issue that a maintainer has accepted. Open an issue now to describe the problem and its impact, but do not start an external contribution or treat discussion as permission to submit one while intake is inactive.
 
 Use the change-proposal template for new behavior or interfaces. Bugs and setup failures have their own templates. A maintainer accepting the problem does not prescribe an implementation. It confirms that the project should solve it.
 
@@ -37,13 +39,11 @@ The command owns the build, check, test, scope, and quality-standard details, so
 
 Keep each commit to one logical change. Use an imperative subject and explain the reason for non-trivial work in the commit body.
 
-## Agree to the contributor license agreement
+## Contributor agreements after activation
 
-Every contributor accepts the [Individual Contributor License Agreement](CLA.md). On your first pull request, the hosted CLA Assistant links to the agreement and records your acceptance through your authenticated GitHub account. You agree once for each CLA version; if the agreement changes, the assistant asks you to agree again. You retain any copyright you hold in your Contributions. The non-exclusive grant lets the project continue its Fair Source distribution, promised future license, and commercial licensing.
+No contributor agreement is currently offered for acceptance. After the hosted service and private records path pass their post-launch checks, every contributor will accept the [Individual Contributor License Agreement](CLA.md). On a first pull request after activation, the hosted CLA Assistant will link to the agreement and record acceptance through the contributor's authenticated GitHub account. A contributor will agree once for each CLA version and again if the agreement changes. Contributors retain any copyright they hold in their Contributions. The non-exclusive grant lets the project continue its Fair Source distribution, promised future license, and commercial licensing.
 
-**Contributor agreement intake status: inactive.** The hosted service and private records path must pass their launch checks before this status changes. Until then, do not submit an external pull request expecting acceptance or send a corporate agreement.
-
-If an employer or another legal entity owns your work, an authorized representative must also complete the [Corporate Contributor License Agreement](CCLA.md) privately. Once intake is active, `cla@discern.sh` is the private route. Do not put corporate addresses, contact details, or signatures in an issue or pull request.
+If an employer or another legal entity owns the work, an authorized representative will also need to complete the [Corporate Contributor License Agreement](CCLA.md) privately. After intake is active, `cla@discern.sh` will be the private route. Do not send an agreement before activation, and never put corporate addresses, contact details, or signatures in an issue or pull request.
 
 Read the [contributor agreement privacy notice](#contributor-agreement-privacy) before using either path. CLA Assistant is operated by SAP, whose [privacy statement](https://gist.github.com/CLAassistant/3a73e4cd729c9d0a6e30#file-privacy-md) also applies to the hosted individual path.
 

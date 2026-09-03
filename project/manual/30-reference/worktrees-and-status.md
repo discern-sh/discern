@@ -15,9 +15,6 @@ aliases:
   - "worktree status"
   - "fleet status"
   - "session findings"
-redirect_from:
-  - "/docs/worktrees/identity-and-env"
-  - "/docs/worktrees/status"
 ---
 
 # Worktrees and status

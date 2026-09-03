@@ -73,6 +73,7 @@ import {
 import { loadConfig, parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { resolveMapDir, resolveRepositoryManualDir } from "../src/lib/paths.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
+import { repositoryBlobUrl } from "../src/shared/brand.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
 import {
   projectArtifactPaths,
@@ -103,6 +104,11 @@ import {
   VOICE_ENFORCEMENT_COVERAGE_PAGE_REL,
 } from "./brand/vale.ts";
 import { renderGeneratedManualDocument } from "./manual_codegen.ts";
+import { replaceSupportedTargetsTable } from "./build_targets.ts";
+import {
+  PROVIDER_BRAND_PROVENANCE_REL,
+  renderProviderBrandProvenance,
+} from "./provider_brand_provenance.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -175,6 +181,14 @@ const practicePublic = relative(
 const installSurface = relative(
   repoRoot,
   join(mapDir, "80-development", "install-surface.md"),
+);
+const mapPlatforms = relative(
+  repoRoot,
+  join(mapDir, "70-reference", "platforms-and-prereqs.md"),
+);
+const manualPlatforms = relative(
+  repoRoot,
+  join(manualDir, "30-reference", "platforms-and-providers.md"),
 );
 const registryAtlas = relative(
   repoRoot,
@@ -265,6 +279,19 @@ await write(
     manualProjection,
   ),
 );
+console.log("Regenerating supported targets from BUILD_TARGETS:");
+await write(
+  mapPlatforms,
+  replaceSupportedTargetsTable(
+    await Deno.readTextFile(join(repoRoot, mapPlatforms)),
+  ),
+);
+await write(
+  manualPlatforms,
+  replaceSupportedTargetsTable(
+    await Deno.readTextFile(join(repoRoot, manualPlatforms)),
+  ),
+);
 console.log(
   "Regenerating the browser docs-search module from its shared source:",
 );
@@ -344,6 +371,10 @@ console.log(
 );
 await write(agentIntegrationCoverage, renderAgentIntegrationCoverageDoc());
 console.log(
+  "Regenerating provider-logo provenance from the provider registry:",
+);
+await write(PROVIDER_BRAND_PROVENANCE_REL, renderProviderBrandProvenance());
+console.log(
   "Regenerating the brand documents from scripts/brand_registry.ts:",
 );
 for (const doc of generatedBrandDocuments()) {
@@ -399,9 +430,7 @@ await write(
   manualMcpReference,
   replacePublicSchemaReference(
     manualMcpReferenceDoc,
-    renderPublicSchemaReference((path) =>
-      `https://github.com/jackwh/discern/blob/main/${path}`
-    ),
+    renderPublicSchemaReference(repositoryBlobUrl),
   ),
 );
 console.log("Regenerating the hosted CLA Assistant metadata:");

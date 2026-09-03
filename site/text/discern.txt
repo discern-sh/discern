@@ -10,7 +10,7 @@ Experienced engineers, and newer builders whose software has begun to carry cons
 
 ## Setup
 
-One sentence from your human: "Set this project up with discern." Setup is consent-gated from there — the agent studies the stack, proposes the Gate, asks for the decisions only the human can make, and writes nothing until they agree. It may record itself complete only once the project's checks run green in a throwaway worktree. Install: `curl -fsSL https://discern.sh/install | sh` (macOS and Linux; Windows via WSL2).
+One sentence from your human: "Set this project up with discern." Setup is consent-gated from there — the agent studies the stack, proposes the Gate, asks for the decisions only the human can make, and writes nothing until they agree. It may record itself complete only once the project's checks run green in a throwaway worktree. Install: `curl -fsSL https://discern.sh/install | sh` (macOS and Linux; Windows via WSL 2).
 
 ## Core practice
 

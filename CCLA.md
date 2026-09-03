@@ -1,5 +1,7 @@
 # discern Corporate Contributor License Agreement, version 1.0
 
+**Contributor intake is inactive.** Do not complete or send this agreement until `CONTRIBUTING.md` says contributor intake is active.
+
 This agreement covers Contributions owned or controlled by the corporation or other legal entity named below. It covers only that named entity, excluding any parent, subsidiary, affiliate, or other member of its group. It supplements each contributor's acceptance of the Individual Contributor License Agreement in `CLA.md`. The hosted CLA Assistant accepts individual agreements only; it does not bind an employer or accept this agreement.
 
 This agreement is adapted from The Apache Software Foundation's Corporate Contributor License Agreement, revision r190612. Complete it only through a representative authorized to enter into contracts for the entity. The private submission address is `cla@discern.sh`, but it is usable only while `CONTRIBUTING.md` identifies contributor agreement intake as active. Until then, discern does not accept corporate agreements. Do not put a completed agreement, address, or signature in a public issue or pull request. The [contributor agreement privacy notice](CONTRIBUTING.md#contributor-agreement-privacy) explains how discern handles these records.

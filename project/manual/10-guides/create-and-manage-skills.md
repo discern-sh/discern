@@ -20,10 +20,6 @@ aliases:
   - "remember this"
   - "capture a lesson"
   - "project memory"
-redirect_from:
-  - "/docs/skills/author-a-skill"
-  - "/docs/skills/customize-or-exclude"
-  - "/docs/skills/teach-the-project"
 ---
 
 # Create and manage Skills

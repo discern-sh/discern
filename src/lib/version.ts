@@ -7,6 +7,7 @@
  */
 
 import denoJson from "../../deno.json" with { type: "json" };
+import { DISCERN_ISSUES_URL, INSTALL_COMMAND } from "../shared/brand.ts";
 
 /** The current kit version, e.g. "1.0.0". */
 export const KIT_VERSION: string = denoJson.version;
@@ -21,12 +22,12 @@ export const KIT_VERSION: string = denoJson.version;
  * auto-updater) this constant doesn't name.
  */
 export const UPDATE_CHANNEL =
-  "re-run the install script from the README at https://github.com/jackwh/discern";
+  `install a current discern binary by running \`${INSTALL_COMMAND}\``;
 
 /** Where a crash report belongs: the repository's public issue tracker, cited
  * verbatim by every crash surface (the stderr frame, the `--json` envelope,
  * the saved report file). */
-export const ISSUES_URL = "https://github.com/jackwh/discern/issues";
+export const ISSUES_URL = DISCERN_ISSUES_URL;
 
 /**
  * The install schema version — the monotonic migration anchor recorded in

@@ -1,3 +1,5 @@
+import { DISCERN_REPOSITORY_SLUG } from "./product_identity.ts";
+
 /**
  * Every `DISCERN_*` environment-variable contract used by this repository.
  *
@@ -117,7 +119,7 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
     documentation: {
       public: true,
       description:
-        "GitHub release repository the installer downloads from. Defaults to `jackwh/discern`.",
+        `GitHub release repository the installer downloads from. Defaults to \`${DISCERN_REPOSITORY_SLUG}\`.`,
     },
   },
   version: {
@@ -126,7 +128,8 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
     lifecycle: "live",
     documentation: {
       public: true,
-      description: "Release tag the installer downloads. Defaults to `latest`.",
+      description:
+        "Release version the installer downloads, with or without a leading `v`. Defaults to `latest`.",
     },
   },
   binaryDirectory: {

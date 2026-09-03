@@ -120,6 +120,11 @@ Deno.test("compile arguments embed only npm packages in the product graph", () =
   );
 
   assertEquals(
+    args.includes("--bundle"),
+    true,
+    "production compilation must not embed raw npm files with build-host cache paths",
+  );
+  assertEquals(
     args.includes("--node-modules-dir=none"),
     true,
     "production compilation must not project the workspace's physical node_modules tree",

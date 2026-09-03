@@ -18,7 +18,7 @@ Filename conventions could identify the existing `*_tty_test.ts` population but 
 
 Semantic matrices run at the deterministic production seam that owns their decision. A mixed journey keeps one representative PTY route for its host-owned property and moves its content, fleet-size, focus, layout, viewport, mode-policy, or dispatch variants below the boundary. A real PTY is not retained merely because a test already uses one.
 
-The canary flag selects from the same declarations the class guard validates. Canary tests remain ordinary discovered Deno tests; there is no separate workflow or manually duplicated canary file list. The canonical `deno task test` therefore carries them through the complete Ubuntu Gate and the configured macOS and Windows Subsystem for Linux Gate lanes.
+The canary flag selects from the same declarations the class guard validates. Canary tests remain ordinary discovered Deno tests; there is no separate workflow or manually duplicated canary file list. The canonical `deno task test` therefore carries them through the complete Ubuntu Gate and the configured macOS and Windows Subsystem for Linux 2 (WSL 2) Gate lanes.
 
 ## Consequences
 
@@ -34,4 +34,4 @@ The canary flag selects from the same declarations the class guard validates. Ca
 - **Keep real pseudo-terminals for all terminal assertions.** Rejected because semantic matrices would continue to infer product correctness through process scheduling and make coverage runs pay for unrelated kernel work.
 - **Replace every PTY with a fake terminal.** Rejected because fakes cannot create line discipline, signals, end-of-input, resize notification, restoration, process lifecycle, hardware wrapping, or platform transport differences.
 - **Maintain a registry of PTY test files.** Rejected because a new fixture container or ordinary test module could bypass a copied file list. Git-derived primitive detection and driver rejection make enrollment unavoidable.
-- **Add a dedicated PTY workflow.** Rejected because the complete Gate already runs the canonical suite on Ubuntu and through its configured macOS and Windows Subsystem for Linux lanes. A second full run would duplicate cost without shortening diagnosis.
+- **Add a dedicated PTY workflow.** Rejected because the complete Gate already runs the canonical suite on Ubuntu and through its configured macOS and Windows Subsystem for Linux 2 (WSL 2) lanes. A second full run would duplicate cost without shortening diagnosis.

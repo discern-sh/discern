@@ -9,8 +9,6 @@ aliases:
   - "start-index"
   - "Getting started"
   - "setup"
-redirect_from:
-  - "/docs/getting-started"
 ---
 
 # Start

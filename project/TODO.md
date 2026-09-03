@@ -2,6 +2,8 @@
 
 The single source of truth for **outstanding work**: verified defects, deferred fixes, known dead code, and at-risk or unmerged work. The [`project/map/`](map/README.md) describes what _currently exists_; this file tracks what's _still owed_.
 
+This tracked backlog publishes with the repository by design, including its marketing and positioning work. An entry records inspectable outstanding work, not a promised roadmap; private research and private launch material stay in the `_private` overlay.
+
 ## For agents (any agent — and the maintainer)
 
 - **When you defer something, descope, or find a real issue you won't fix, record it here.** Don't bury it in private memory, a chat reply, or a lone code comment—the next agent and the maintainer cannot see those.
@@ -68,10 +70,6 @@ _Product positioning, messaging, and launch/content tasks._
 
 - [ ] **Lower the public-site reading-grade ceiling before publication.** Tighten the reading-grade limit after the landing copy settles, review its pinning margin, and retain only defensible headroom. Evidence: `discern.toml`; `scripts/site_reading_grade.ts`.
 
-- [ ] **Restore the public-site prose-density Standard.** Measure the final public corpus and re-enable its prose-density baseline after launch wording stops moving. Evidence: `discern.toml`; `scripts/site_prose.ts`.
-
-- [ ] **Make the advertised Homebrew installation real.** Stand up the tap before publication or change the plaintext edition to the installation path that will actually exist. Evidence: `site/text/discern.txt`.
-
 - [ ] **Create the Deno Deploy application and point DNS.** Carry out the maintainer-owned account and DNS steps on the current Deno Deploy service before the public site launches. Evidence: `project/map/90-site/publishing.md`.
 
 - [ ] **Make author-once agent wiring a first-class message.** Elevate discern's one-source compilation into vendor-specific instructions, skills, MCP, and hooks from a buried capability to a headline external principle. Evidence: `project/instructions.md`; `src/engine/instructions.ts`; `site`.
@@ -84,8 +82,8 @@ _Product positioning, messaging, and launch/content tasks._
 
 - [ ] **Explore grows-your-discernment as a marketing angle.** Test whether teaching reusable categories of judgment can frame discern as a mentor that compounds for an enthusiastic audience still building its own quality instincts. Evidence: `templates/skills/discern-write-it-once/SKILL.md`; `site`.
 
-## 👨‍💻 Jack's Odds and Ends
+## Maintainer follow-ups
 
-_Small things Jack finds while reviewing code and documentation; cleaned up periodically in maintenance batches._
+_Small review findings that remain worth carrying outside an active effort._
 
 - [ ] **Complete the public-manual programme before launch.** Replace the filtered-Map manual with a dedicated kind-aware human corpus, retain the Map as trust evidence, deliver every surface, and pass the voice and comprehension stops. Evidence: `project/map/_private/planning/public-manual-workstreams/README.md`; `project/map/_adr/0314-separate-public-manual-and-project-map.md`.

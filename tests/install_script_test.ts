@@ -4,6 +4,10 @@ import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
+import { BUILD_TARGETS } from "../scripts/build_targets.ts";
+import { DISCERN_REPOSITORY_SLUG } from "../src/shared/brand.ts";
+import { DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS } from "../src/shared/environment_variables.ts";
+import { createWorkflowChecksum } from "./release_workflow_fixture.ts";
 
 const INSTALL = fromFileUrl(new URL("../install.sh", import.meta.url));
 const GATE = new URL("../.github/workflows/gate.yml", import.meta.url);
@@ -38,20 +42,18 @@ async function commandPath(command: string): Promise<string> {
   return DECODER.decode(result.stdout).trim();
 }
 
-/** Derive the binary asset name for the test host's supported architecture and OS. */
+/** Select the host artifact from the same target registry the release uses. */
 function releaseAsset(): string {
-  const arch = Deno.build.arch === "x86_64" ? "x86_64" : "aarch64";
-  const os = Deno.build.os === "darwin" ? "apple-darwin" : "unknown-linux-gnu";
-  return `discern-${arch}-${os}`;
-}
-
-/** Hash the local release fixture exactly as the installer checksum manifest does. */
-async function sha256(path: string): Promise<string> {
-  const digest = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", await Deno.readFile(path)),
+  const os = Deno.build.os === "darwin" ? "Darwin" : "Linux";
+  const target = BUILD_TARGETS.find((candidate) =>
+    candidate.installer.os === os &&
+    candidate.installer.architectures.includes(Deno.build.arch)
   );
-  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  assert(
+    target !== undefined,
+    `no release target for ${os}/${Deno.build.arch}`,
+  );
+  return target.output;
 }
 
 /** Read the installer's canonical downloader list from its shell registry. */
@@ -70,7 +72,13 @@ async function linkTool(dir: string, command: string): Promise<void> {
 async function withInstallerRun<T>(
   downloader: string,
   fn: (run: InstallRun) => T | Promise<T>,
-  options: { badChecksum?: boolean; binOnPath?: boolean } = {},
+  options: {
+    badChecksum?: boolean;
+    binOnPath?: boolean;
+    destinationDirectory?: boolean;
+    repository?: string | undefined;
+    version?: string;
+  } = {},
 ): Promise<T> {
   return await withTempDir(async (root) => {
     const tools = join(root, "tools");
@@ -91,11 +99,16 @@ async function withInstallerRun<T>(
     );
     await Deno.chmod(fixtureBinary, 0o755);
     const asset = releaseAsset();
-    const fixtureChecksum = join(root, "fixture.sha256");
-    const hash = options.badChecksum
-      ? "0".repeat(64)
-      : await sha256(fixtureBinary);
-    await Deno.writeTextFile(fixtureChecksum, `${hash}  ${asset}\n`);
+    const dist = join(root, "dist");
+    await Deno.mkdir(dist);
+    await Deno.copyFile(fixtureBinary, join(dist, asset));
+    const fixtureChecksum = await createWorkflowChecksum(root, asset);
+    if (options.badChecksum) {
+      await Deno.writeTextFile(
+        fixtureChecksum,
+        `${"0".repeat(64)}  ${asset}\n`,
+      );
+    }
 
     const downloaderLog = join(root, "downloads.log");
     const copy = await commandPath("cp");
@@ -123,23 +136,28 @@ esac
     await Deno.chmod(fakeDownloader, 0o755);
 
     const target = join(binDir, "discern");
-    if (options.badChecksum) {
+    if (options.destinationDirectory) {
+      await Deno.mkdir(target);
+    } else if (options.badChecksum) {
       await Deno.writeTextFile(target, "existing installation\n");
       await Deno.chmod(target, 0o755);
     }
 
     const path = options.binOnPath ? `${binDir}:${tools}` : tools;
+    const env: Record<string, string> = {
+      DISCERN_BIN_DIR: binDir,
+      DISCERN_VERSION: options.version ?? "v1.2.3",
+      HOME: root,
+      NO_COLOR: "1",
+      PATH: path,
+    };
+    if (options.repository !== undefined) {
+      env.DISCERN_REPO = options.repository;
+    }
     const result = await new Deno.Command("/bin/sh", {
       args: [INSTALL],
       clearEnv: true,
-      env: {
-        DISCERN_BIN_DIR: binDir,
-        DISCERN_REPO: "example/discern",
-        DISCERN_VERSION: "v1.2.3",
-        HOME: root,
-        NO_COLOR: "1",
-        PATH: path,
-      },
+      env,
       stdout: "piped",
       stderr: "piped",
     }).output();
@@ -182,6 +200,46 @@ Deno.test("every registered downloader gets both files with retry semantics", as
   assertStringIncludes(installSource, "--tries=3");
 });
 
+Deno.test("installer cases cover the BUILD_TARGETS operating-system and architecture product", () => {
+  const osCase = installSource.match(
+    /case "\$os" in([\s\S]*?)\nesac/,
+  )?.[1] ?? "";
+  const archCase = installSource.match(
+    /case "\$arch" in([\s\S]*?)\nesac/,
+  )?.[1] ?? "";
+  const osParts = new Map(
+    [...osCase.matchAll(/^\s*([^*)]+)\)\s+os_part="([^"]+)"/gm)].map(
+      (match) => [match[1]?.trim() ?? "", match[2] ?? ""],
+    ),
+  );
+  const archParts = new Map<string, string>();
+  for (
+    const match of archCase.matchAll(
+      /^\s*([^*)]+)\)\s+arch_part="([^"]+)"/gm,
+    )
+  ) {
+    for (const alias of (match[1] ?? "").split("|")) {
+      archParts.set(alias.trim(), match[2] ?? "");
+    }
+  }
+
+  const observed = [...osParts].flatMap(([os, osPart]) =>
+    [...archParts].map(([arch, archPart]) => ({
+      os,
+      arch,
+      output: `discern-${archPart}-${osPart}`,
+    }))
+  ).sort((a, b) => `${a.os}/${a.arch}`.localeCompare(`${b.os}/${b.arch}`));
+  const expected = BUILD_TARGETS.flatMap((target) =>
+    target.installer.architectures.map((arch) => ({
+      os: target.installer.os,
+      arch,
+      output: target.output,
+    }))
+  ).sort((a, b) => `${a.os}/${a.arch}`.localeCompare(`${b.os}/${b.arch}`));
+  assertEquals(observed, expected);
+});
+
 Deno.test("a bad checksum preserves the existing installation", async () => {
   const downloader = registeredDownloaders()[0];
   assert(downloader !== undefined);
@@ -193,6 +251,45 @@ Deno.test("a bad checksum preserves the existing installation", async () => {
       "existing installation\n",
     );
   }, { badChecksum: true });
+});
+
+Deno.test("bare and v-prefixed DISCERN_VERSION values resolve to the same release tag", async () => {
+  const downloader = registeredDownloaders()[0];
+  assert(downloader !== undefined);
+  for (const version of ["1.2.3", "v1.2.3"]) {
+    await withInstallerRun(downloader, (run) => {
+      assert(run.success, run.stderr);
+      assertStringIncludes(
+        run.downloaderLog,
+        "/releases/download/v1.2.3/",
+      );
+    }, { repository: "example/discern", version });
+  }
+});
+
+Deno.test("the installer default repository follows the repository authority", async () => {
+  const downloader = registeredDownloaders()[0];
+  assert(downloader !== undefined);
+  await withInstallerRun(downloader, (run) => {
+    assert(run.success, run.stderr);
+    assertStringIncludes(
+      run.downloaderLog,
+      `https://github.com/${DISCERN_REPOSITORY_SLUG}/releases/`,
+    );
+  });
+});
+
+Deno.test("an install destination that is a directory is refused before download", async () => {
+  const downloader = registeredDownloaders()[0];
+  assert(downloader !== undefined);
+  await withInstallerRun(downloader, (run) => {
+    assert(!run.success);
+    assertTerminalTextIncludes(
+      run.stderr,
+      "install destination is a directory",
+    );
+    assertEquals(run.downloaderLog, "");
+  }, { destinationDirectory: true });
 });
 
 Deno.test("next-step output appears only when discern resolves on PATH", async () => {
@@ -209,18 +306,44 @@ Deno.test("next-step output appears only when discern resolves on PATH", async (
   });
 });
 
-Deno.test("Darwin prefers a writable conventional PATH directory", () => {
+Deno.test("Darwin preserves the exact install destination order", () => {
   const selection = installSource.slice(
     installSource.indexOf("# --- choose an install dir"),
     installSource.indexOf("# --- download"),
   );
+  const override = selection.indexOf(
+    'if [ -n "${DISCERN_BIN_DIR:-}" ]; then',
+  );
   const conventional = selection.indexOf('bin_dir="/usr/local/bin"');
   const local = selection.indexOf('bin_dir="$HOME/.local/bin"');
+  assert(override >= 0, "DISCERN_BIN_DIR is the first candidate");
   assert(conventional >= 0, "the Darwin path selects /usr/local/bin");
   assert(
-    local > conventional,
-    "/usr/local/bin is considered before ~/.local/bin",
+    override < conventional && conventional < local,
+    "DISCERN_BIN_DIR, /usr/local/bin, then ~/.local/bin keep their order",
   );
+  assertStringIncludes(
+    selection,
+    '[ "$os" = "Darwin" ] && [ -d /usr/local/bin ] && [ -w /usr/local/bin ]',
+  );
+  assertEquals(
+    selection.includes("/opt/homebrew/bin"),
+    false,
+    "the raw installer never writes an unmanaged Homebrew-prefix binary",
+  );
+});
+
+Deno.test("installer DISCERN_* inputs exactly match the installation registry group", () => {
+  const observed = [
+    ...new Set(
+      installSource.match(/\bDISCERN_[A-Z][A-Z0-9_]*\b/g) ?? [],
+    ),
+  ].sort();
+  const expected = Object.values(DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS)
+    .filter((definition) => definition.group === "installation")
+    .map((definition) => definition.name)
+    .sort();
+  assertEquals(observed, expected);
 });
 
 Deno.test("CI shellchecks the standalone installer", () => {

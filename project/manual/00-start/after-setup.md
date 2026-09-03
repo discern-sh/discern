@@ -11,8 +11,6 @@ aliases:
   - "what discern writes"
   - "setup diff"
   - "installed files"
-redirect_from:
-  - "/docs/getting-started/after-setup"
 ---
 
 # After setup

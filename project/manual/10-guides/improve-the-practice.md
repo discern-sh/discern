@@ -14,9 +14,6 @@ aliases:
   - "Coupling"
   - "cochange"
   - "change partners"
-redirect_from:
-  - "/docs/quality-gate/improvement"
-  - "/docs/quality-gate/coupling"
 ---
 
 # Improve the practice

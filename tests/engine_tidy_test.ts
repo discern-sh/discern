@@ -13,6 +13,7 @@ import {
   assertFrontmatterPreserved,
   formatMarkdownText,
   formatTomlText,
+  tidyPluginAssetCandidates,
 } from "../src/lib/tidy_format.ts";
 import { planTidy, tidyResult } from "../src/engine/tidy/tidy.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
@@ -23,6 +24,26 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
+
+Deno.test("tidy plugins resolve in source and bundled module layouts", () => {
+  const source = tidyPluginAssetCandidates(
+    "format.wasm",
+    "file:///checkout/src/lib/tidy_format.ts",
+  );
+  assertEquals(
+    source[0].href,
+    "file:///checkout/src/lib/tidy_plugins/format.wasm",
+  );
+
+  const bundled = tidyPluginAssetCandidates(
+    "format.wasm",
+    "file:///extract/.deno_compile_bundle.mjs",
+  );
+  assertEquals(
+    bundled[1].href,
+    "file:///extract/src/lib/tidy_plugins/format.wasm",
+  );
+});
 
 /** Extract complete backtick or tilde fences while respecting each opener's character and width. */
 function fencedBlocks(text: string): string[] {

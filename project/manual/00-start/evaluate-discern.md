@@ -11,8 +11,6 @@ aliases:
   - "introduction"
   - "start here"
   - "is discern right for me"
-redirect_from:
-  - "/docs/orientation"
 ---
 
 # Evaluate discern

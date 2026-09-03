@@ -2,6 +2,8 @@
 
 # discern brand operating system
 
+The `_internal` name identifies maintainer material. This generated tier is tracked and publishes with the repository, keeping product claims, voice boundaries, and their authorities inspectable. The public product manual and the discern.sh documentation site exclude it. It makes no additional product promise.
+
 > Repository-ready instructions for positioning, messaging, public copy, product copy, and agent-facing communication.
 
 **Status:** Canonical working system

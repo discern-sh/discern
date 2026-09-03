@@ -39,11 +39,11 @@ Prerequisite: the variable name or integration boundary. Values apply to the cur
 
 Inputs read by the POSIX installer.
 
-| Variable          | What it does                                                                          |
-| ----------------- | ------------------------------------------------------------------------------------- |
-| `DISCERN_REPO`    | GitHub release repository the installer downloads from. Defaults to `jackwh/discern`. |
-| `DISCERN_VERSION` | Release tag the installer downloads. Defaults to `latest`.                            |
-| `DISCERN_BIN_DIR` | Install directory. Overrides the installer's automatic destination selection.         |
+| Variable          | What it does                                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| `DISCERN_REPO`    | GitHub release repository the installer downloads from. Defaults to `jackwh/discern`.         |
+| `DISCERN_VERSION` | Release version the installer downloads, with or without a leading `v`. Defaults to `latest`. |
+| `DISCERN_BIN_DIR` | Install directory. Overrides the installer's automatic destination selection.                 |
 
 ## Runtime overrides
 
@@ -79,9 +79,9 @@ Values discern exports before running a Project Script.
 
 Structured inputs exported to checkpoint `when` commands.
 
-| Variable                   | What it does                                                                                                                                                                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DISCERN_CHECKPOINT_INPUT` | Absolute path to the versioned JSON facts without raw file content for the current checkpoint `when` command. See the [checkpoint `when` protocol](proof-and-checkpoint-formats.md). The file exists only while that command runs. |
+| Variable                   | What it does                                                                                                                                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DISCERN_CHECKPOINT_INPUT` | Absolute path to the versioned JSON facts without raw file content for the current checkpoint `when` command. See the [checkpoint `when` protocol](https://discern.sh/map/reference/checkpoint-when-protocol). The file exists only while that command runs. |
 
 ## Worktree environment
 

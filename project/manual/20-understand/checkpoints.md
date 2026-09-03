@@ -19,8 +19,6 @@ aliases:
   - "checkpoints"
   - "variance"
   - "open question"
-redirect_from:
-  - "/docs/quality-gate/checkpoints"
 ---
 
 # Checkpoints

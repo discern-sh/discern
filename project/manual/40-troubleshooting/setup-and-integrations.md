@@ -21,9 +21,6 @@ aliases:
   - "schema_version_too_new"
   - "partial_refresh"
   - "unsupported platform"
-redirect_from:
-  - "/docs/reference/setup-command-boundaries"
-  - "/docs/reference/worktree-setup-step-recovery"
 ---
 
 # Setup and integrations
@@ -41,7 +38,7 @@ The binary isn't on the shell's `PATH`. Open a new shell and run `which discern`
 Each of these stops before any effect, and the message says which you have:
 
 - **No project found.** discern reports that this directory and its parents have no `discern.toml`, and offers the two exits: run `discern setup` to create one here, or move into the project that has one.
-- **Unsupported platform.** discern runs on macOS and Linux (x86-64 and ARM64); on Windows, run it under WSL2. [Platforms and providers](../30-reference/platforms-and-providers.md) has the exact support matrix.
+- **Unsupported platform.** discern runs on macOS and Linux (x86-64 and ARM64); on Windows, run it under WSL 2. [Platforms and providers](../30-reference/platforms-and-providers.md) has the exact support matrix.
 - **The project's config is newer than the binary.** A newer discern already upgraded this repository, so an older binary refuses to touch it rather than downgrade the schema. Update the binary first — [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md) covers upgrading — then rerun what you were doing.
 - **A required write was denied.** Effectful setup commands probe the exact paths their plan needs before touching anything. A denial names the path and preserves the phase; grant the current invocation access to that path and rerun. A successful probe confirms access at that moment only — discern doesn't change your system's permissions, and can't.
 

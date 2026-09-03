@@ -9,6 +9,7 @@ labels: setup
 Setup is a staged handshake (welcome → verify → begin → done). Telling us where
 it stopped, plus the `discern doctor --json` output, is usually enough to see
 what went wrong.
+Issues are open. Contributor intake is inactive, and external pull requests are not accepted.
 -->
 
 ## Where setup stopped
@@ -39,6 +40,6 @@ The error or message that stopped setup (paste the command's output).
 ## Environment
 
 - discern version (`discern --version`):
-- OS / architecture (and Windows Subsystem for Linux version, if used):
+- OS / architecture (and WSL 2 version, if used):
 - Coding agent and model, if known:
 - Is the project a git repository? Which branch did you have checked out?

@@ -2,6 +2,9 @@
 #
 # discern installer — download the right prebuilt binary and put it on PATH.
 #
+#   curl -fsSL https://discern.sh/install | sh
+#
+# Raw GitHub fallback:
 #   curl -fsSL https://raw.githubusercontent.com/jackwh/discern/main/install.sh | sh
 #
 # Detects your OS/arch, fetches the matching binary from the latest GitHub
@@ -17,7 +20,7 @@
 set -eu
 
 REPO="${DISCERN_REPO:-jackwh/discern}"
-VERSION="${DISCERN_VERSION:-latest}"
+VERSION_INPUT="${DISCERN_VERSION:-latest}"
 
 # --- pretty output (only on a TTY) ---------------------------------------
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -27,6 +30,13 @@ else
 fi
 info() { printf '%s→%s %s\n' "$GREEN" "$RESET" "$1"; }
 die() { printf '%s✗%s %s\n' "$RED" "$RESET" "$1" >&2; exit 1; }
+
+if [ "$VERSION_INPUT" = "latest" ]; then
+    VERSION="latest"
+else
+    VERSION="v${VERSION_INPUT#v}"
+    [ "$VERSION" != "v" ] || die "DISCERN_VERSION must name a release version."
+fi
 
 # --- detect download and checksum tools ----------------------------------
 DOWNLOADERS="curl wget"
@@ -76,7 +86,7 @@ arch=$(uname -m)
 case "$os" in
     Darwin) os_part="apple-darwin" ;;
     Linux)  os_part="unknown-linux-gnu" ;;
-    *) die "unsupported OS \"$os\". discern ships macOS and Linux binaries (Windows: use WSL)." ;;
+    *) die "unsupported OS \"$os\". discern ships macOS and Linux binaries; on Windows, use WSL 2." ;;
 esac
 
 case "$arch" in
@@ -109,6 +119,9 @@ fi
 mkdir -p "$bin_dir" || die "could not create install dir: $bin_dir"
 
 dest="$bin_dir/discern"
+if [ -d "$dest" ]; then
+    die "install destination is a directory: $dest"
+fi
 stage_dir=$(mktemp -d "$bin_dir/.discern-install.XXXXXX") || \
     die "could not create a staging directory in $bin_dir"
 cleanup() { rm -rf "$stage_dir"; }

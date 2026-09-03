@@ -11,8 +11,6 @@ aliases:
   - "generated output license"
   - "emitted payload license"
   - "Apache-2.0"
-redirect_from:
-  - "/docs/reference/project-payload-license"
 ---
 
 # Licenses

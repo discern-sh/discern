@@ -4,7 +4,7 @@
 
 ## Context
 
-discern ships macOS and Linux binaries only. The platforms reference tells Windows users to run the Linux binary inside Windows Subsystem for Linux, and the engine leans on POSIX facilities (`sh -c` jobs, `cksum`, git worktrees) that a native Windows port would have to re-prove one by one. Before launch, nothing exercised that documented Windows path: development happens on macOS, routine CI runs on Ubuntu, and the macOS gate repeats at release — so the one platform story resting purely on a claim was the Windows one.
+discern ships macOS and Linux binaries only. The platforms reference tells Windows users to run the Linux binary inside Windows Subsystem for Linux 2 (WSL 2), and the engine leans on POSIX facilities (`sh -c` jobs, `cksum`, git worktrees) that a native Windows port would have to re-prove one by one. Before launch, nothing exercised that documented Windows path: development happens on macOS, routine CI runs on Ubuntu, and the macOS gate repeats at release — so the one platform story resting purely on a claim was the Windows one.
 
 GitHub's hosted Windows runners have carried nested virtualization since their 2024 hardware refresh, which lets a hosted job provision WSL 2, but GitHub labels nested virtualization experimental and offers no support commitment. A WSL 2 environment also differs from the Windows-side checkout in exactly the ways that can hide or invent failures: the runner checks out onto NTFS with Windows line endings and file modes, reachable from WSL only through the slow 9P bridge, while a real WSL user clones straight onto the Linux file system.
 

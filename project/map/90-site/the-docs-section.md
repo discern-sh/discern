@@ -31,7 +31,7 @@ Every document route has a pristine `.md` edition and text-client negotiation. T
 
 The manual root contains the central front-door authority. `DocsSite.frontDoors` adapts those marked links to the browser landing; the site never copies the promotion set. The compact root rail shows section landings. The browser projection keeps the authored introduction and durable reader orientation, removes the authored maintenance lists and section table, then renders the promoted journeys and complete published tree directly from the model. Raw Markdown remains unchanged. Leaf pages use the complete rooted manual navigation.
 
-Old Map-as-manual routes are supplied by the manual's redirect authority. Redirect validation resolves each historical address directly to its live successor and rejects chains and generic root fallbacks.
+The manual claims no pre-public address as historical. After publication, a moved destination can own an explicit redirect; validation resolves each historical address directly to its live successor and rejects chains and generic root fallbacks.
 
 ## Reader-visible search
 

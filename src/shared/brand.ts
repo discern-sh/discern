@@ -1,13 +1,20 @@
 import { discernAttributionEnabled, type EnvReader } from "./env.ts";
-
-/** The product name used in protocol and generated-file identity. */
-export const DISCERN_NAME = "discern";
-
-/** The canonical product URL used in generated-file identity. */
-export const DISCERN_URL = "https://discern.sh";
-
-/** The canonical online manual landing page. */
-export const DISCERN_DOCS_URL = `${DISCERN_URL}/docs`;
+import { DISCERN_NAME, DISCERN_URL } from "./product_identity.ts";
+export {
+  DISCERN_ADVISORY_URL,
+  DISCERN_DOCS_URL,
+  DISCERN_INSTALL_ROUTE,
+  DISCERN_ISSUES_URL,
+  DISCERN_NAME,
+  DISCERN_RAW_INSTALL_URL,
+  DISCERN_RELEASES_URL,
+  DISCERN_REPOSITORY_SLUG,
+  DISCERN_REPOSITORY_URL,
+  DISCERN_URL,
+  INSTALL_COMMAND,
+  repositoryBlobUrl,
+  repositoryTreeUrl,
+} from "./product_identity.ts";
 
 /** The canonical project mark: U+25EE, UP-POINTING TRIANGLE WITH RIGHT HALF BLACK. */
 export const DISCERN_MARK = "◮";

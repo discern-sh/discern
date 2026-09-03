@@ -19,9 +19,6 @@ aliases:
   - "give this back"
   - "ready for review"
   - "accept work"
-redirect_from:
-  - "/docs/worktrees/lifecycle"
-  - "/docs/worktrees/hand-work-back"
 ---
 
 # Finish and land a change

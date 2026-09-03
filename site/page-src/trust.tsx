@@ -11,8 +11,9 @@ import {
 import type { ClaimSlug } from "../../scripts/brand/claims.ts";
 import { DISCERN_MARK, TRUST_DESCRIPTION, TRUST_TITLE } from "../brand.ts";
 import { pageDocument } from "./document.ts";
+import { DISCERN_REPOSITORY_URL } from "../../src/shared/brand.ts";
 
-const GITHUB = "https://github.com/jackwh/discern";
+const GITHUB = DISCERN_REPOSITORY_URL;
 
 /** One public claim group and the exact reader destinations that carry scope. */
 export interface TrustEvidenceGroup {

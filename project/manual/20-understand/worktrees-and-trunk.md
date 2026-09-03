@@ -11,8 +11,6 @@ aliases:
   - "trunk branch"
   - "landing branch"
   - "worktree"
-redirect_from:
-  - "/docs/worktrees/the-trunk"
 ---
 
 # Worktrees and trunk

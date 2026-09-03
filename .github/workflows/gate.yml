@@ -14,7 +14,7 @@ on:
     branches: [main]
   pull_request:
   # Ad-hoc runs while the repository is private: dispatch runs the Ubuntu gate
-  # and forces the WSL lane (see its job condition below).
+  # and forces the WSL 2 lane (see its job condition below).
   workflow_dispatch:
 
 # The gate only ever reads the repo; grant nothing more (least privilege).
@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
@@ -43,7 +43,7 @@ jobs:
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
-          deno-version: v2.x
+          deno-version-file: .dvmrc
           # Cache the Deno install and module cache (keyed off deno.lock) so the
           # gate stops re-downloading every dependency on each run.
           cache: true
@@ -86,21 +86,21 @@ jobs:
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
-          deno-version: v2.x
+          deno-version-file: .dvmrc
           cache: true
 
       - name: Run the native macOS gate
         uses: ./.github/actions/macos-gate
 
   wsl:
-    name: WSL gate
-    # Windows support is WSL-only (the Linux binary inside WSL 2), so this lane
+    name: WSL 2 gate
+    # Windows support is WSL 2 only (the Linux binary inside WSL 2), so this lane
     # provisions WSL 2 on a hosted Windows runner and runs the gate inside it.
     # Routine on public CI like macOS; workflow_dispatch keeps it runnable
     # ad hoc while the repository is private.
     if: github.event.repository.private == false || github.event_name == 'workflow_dispatch'
     runs-on: windows-2025
-    # WSL provisioning can hang when the runner image misbehaves; a bound keeps
+    # WSL 2 provisioning can hang when the runner image misbehaves; a bound keeps
     # a stuck lane from burning six hours of 2x Windows minutes.
     timeout-minutes: 45
     steps:
@@ -124,13 +124,13 @@ jobs:
     # Enforce them on PULL REQUESTS only: every PR must hold the floor, while
     # direct pushes to main stay fast (whatever landed already passed on its PR).
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
-          deno-version: v2.x
+          deno-version-file: .dvmrc
           cache: true
 
       # Standards and agreement-version checks compare against the real base

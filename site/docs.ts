@@ -50,6 +50,7 @@ import {
   glossarySummary,
 } from "../scripts/glossary_registry.ts";
 import { DISCERN_FAVICON_PATH } from "./brand.ts";
+import { repositoryBlobUrl, repositoryTreeUrl } from "../src/shared/brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
 import { decorateDocumentHtml } from "./document_html.ts";
 import {
@@ -68,7 +69,6 @@ import { renderWorkflowMarkdown } from "./workflow.ts";
 export { decorateDocumentHtml } from "./document_html.ts";
 export type { TocItem } from "./document_toc.ts";
 
-const GITHUB = "https://github.com/jackwh/discern";
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const MANUAL_DIR = resolveRepositoryManualDir(REPO_ROOT).abs;
 const MAP_DIR = resolveMapDir(REPO_ROOT, await loadConfig(REPO_ROOT)).abs;
@@ -679,7 +679,9 @@ function rewriteDest(
   const repoRel = normalizeRel(`${sourceRoot}/${fromDir}/${pathPart}`);
   if (repoRel === null) return dest;
   const isDir = !/\.[A-Za-z0-9]+$/.test(repoRel);
-  return `${GITHUB}/${isDir ? "tree" : "blob"}/main/${repoRel}${frag}`;
+  return isDir
+    ? repositoryTreeUrl(repoRel, frag)
+    : repositoryBlobUrl(repoRel, frag);
 }
 
 /** Rewrite Markdown link destinations outside fenced code blocks. */
@@ -1062,7 +1064,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
   const navFoot = map
     ? `<a href="/docs">Product manual</a>
       <a href="${DECISIONS_ROUTE}">Project decisions</a>
-      <a href="${GITHUB}/tree/main/${MAP_REPO_REL}">Repository Map&nbsp;↗</a>`
+      <a href="${repositoryTreeUrl(MAP_REPO_REL)}">Repository Map&nbsp;↗</a>`
     : `<a href="/docs/reference/glossary">Glossary</a>
       <a href="/docs/reference/cli-reference">Commands</a>
       <a href="/docs/reference/config-reference">Configuration</a>`;
@@ -1188,11 +1190,11 @@ function colophonHtml(
     : MAP_REPO_REL;
   const source = page === null
     ? index === "decisions"
-      ? `${GITHUB}/tree/main/${MAP_REPO_REL}/_adr`
+      ? repositoryTreeUrl(`${MAP_REPO_REL}/_adr`)
       : index === "map"
-      ? `${GITHUB}/tree/main/${MAP_REPO_REL}`
-      : `${GITHUB}/tree/main/${MANUAL_REPO_REL}`
-    : `${GITHUB}/blob/main/${pageSourceRoot}/${esc(page.sourcePath)}`;
+      ? repositoryTreeUrl(MAP_REPO_REL)
+      : repositoryTreeUrl(MANUAL_REPO_REL)
+    : repositoryBlobUrl(`${pageSourceRoot}/${esc(page.sourcePath)}`);
   const related = reader === "map"
     ? `<a href="/docs">Product manual</a>
         <a href="${DECISIONS_ROUTE}">Project decisions</a>`

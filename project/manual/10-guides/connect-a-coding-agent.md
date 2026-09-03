@@ -10,8 +10,6 @@ aliases:
   - "agent integrations"
   - "coding agents"
   - "providers"
-redirect_from:
-  - "/docs/agent-integrations"
 ---
 
 # Connect a coding agent

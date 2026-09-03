@@ -227,6 +227,34 @@ export const MAP_SECTION_REGISTRY: readonly MapSectionRegistration[] = [
   { dir: "90-site", audience: "contributor" },
 ];
 
+/** How each top-level Map tier crosses the repository and site boundary. */
+export const MAP_TIER_PUBLICATION_POSTURES = [
+  {
+    tier: "numbered",
+    posture: "public",
+    boundary:
+      "numbered Map sources are tracked and selected pages may publish as public documentation or exhibits",
+  },
+  {
+    tier: "_adr",
+    posture: "public",
+    boundary:
+      "accepted decisions are tracked and publish through the public decisions route",
+  },
+  {
+    tier: "_internal",
+    posture: "repository-only",
+    boundary:
+      "maintainer authorities are deliberately tracked but excluded from public documentation routes",
+  },
+  {
+    tier: "_private",
+    posture: "private",
+    boundary:
+      "the private-stage overlay is excluded from publishing and removed during the owner-operated history scrub before repository publication",
+  },
+] as const;
+
 /**
  * Route shape shared by the numbered documentation trees: the root README maps
  * to the root route, a section README collapses to its numeric-prefix-stripped

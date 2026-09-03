@@ -26,11 +26,6 @@ aliases:
   - "investigation paths"
   - "validation instability"
   - "Standard variance"
-redirect_from:
-  - "/docs/quality-gate/patterns"
-  - "/docs/quality-gate/validation-findings"
-  - "/docs/quality-gate/patterns-decision-evidence"
-  - "/docs/quality-gate/pattern-investigations"
 ---
 
 # Evidence and improvement

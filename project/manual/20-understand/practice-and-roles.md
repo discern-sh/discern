@@ -18,10 +18,6 @@ aliases:
   - "design"
   - "why"
   - "practice"
-redirect_from:
-  - "/docs/orientation/concepts"
-  - "/docs/orientation/design-principles"
-  - "/docs/orientation/system-map"
 ---
 
 # Practice and roles

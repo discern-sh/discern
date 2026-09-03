@@ -8,7 +8,11 @@ import {
   LogoCloud,
   Window,
 } from "discern-design-system/react";
-import { providerBrandSilhouette, PROVIDERS } from "../../src/lib/providers.ts";
+import {
+  PROVIDER_TRADEMARK_NOTICE,
+  providerBrandSilhouette,
+  PROVIDERS,
+} from "../../src/lib/providers.ts";
 import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
 import {
   DISCERN_MARK,
@@ -23,9 +27,13 @@ import {
   CopyPrompt,
   DiscernName,
 } from "./campaign.tsx";
+import {
+  DISCERN_REPOSITORY_URL,
+  repositoryBlobUrl,
+} from "../../src/shared/brand.ts";
 
-const GITHUB = "https://github.com/jackwh/discern";
-const LICENSE = GITHUB + "/blob/main/LICENSE";
+const GITHUB = DISCERN_REPOSITORY_URL;
+const LICENSE = repositoryBlobUrl("LICENSE");
 
 /** The supported provider set, in the catalogue's canonical display order. */
 const PROVIDER_LOGOS = AGENT_NAMES.map((name) => {
@@ -1147,6 +1155,8 @@ function LandingShell({ children }: LandingShellProps) {
               <a href={LICENSE}>FSL-1.1-ALv2</a>
               {" · "}
               <a href="/llms.txt">llms.txt</a>
+              <br />
+              {PROVIDER_TRADEMARK_NOTICE}
             </>
           }
           meta="© 2026 Jack Webb-Heller"
