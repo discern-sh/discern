@@ -8,7 +8,10 @@
  * checkpoint over its complete structural match.
  */
 
-import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
+import {
+  CHECKPOINT_WHEN_PASS_EXIT_CODE,
+  type CheckpointWhenInput,
+} from "../src/shared/checkpoints.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { resolveContainedProjectReadPath } from "../src/shared/project_path.ts";
 import type { GitResult } from "../src/shared/subprocess.ts";
@@ -259,7 +262,7 @@ async function main(checkpointId: string): Promise<number> {
     input,
   );
   for (const path of matches) console.log(`DISCERN_MATCH ${path}`);
-  return matches.length > 0 ? 0 : 1;
+  return matches.length > 0 ? 0 : CHECKPOINT_WHEN_PASS_EXIT_CODE;
 }
 
 if (import.meta.main) {

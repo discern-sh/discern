@@ -31,7 +31,7 @@ The measurement command reports its value on stdout:
 DISCERN_METRIC coverage 91.4
 ```
 
-`metric` overrides the emitted metric name. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
+`metric` overrides the emitted metric name. The marker and name must be whole whitespace-delimited tokens; the last matching marker wins. A finite non-negative decimal is the verdict input. The command's own exit status does not decide a Standard: a usable marker may hold after a nonzero exit, while a clean exit without the marker fails. A `per.metric` denominator uses the same last-marker rule. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
 
 ## Keep its meaning stable
 
@@ -67,7 +67,7 @@ The `detached_promise_boundaries` Standard follows the same validate-then-measur
 
 ## What the Gate does
 
-The Gate checks normalized definitions and limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Definition and limit checks never defer. A Standard with a live proposed limit measures fresh even when ordinary policy would replay or defer it. The reading must equal the proposal. `discern prepare` skips measurement.
+The Gate checks normalized definitions and limits, then measures with checks and tests. Reusable evidence binds the measured value to the complete normalized Standard definition and to the original measured commit. It replays only when declared `inputs` and that definition fingerprint are unchanged. Replay preserves that original provenance and writes no fresh measurement record at the current `HEAD`. `measure = "on-demand"` stays with `discern standards`; definition and limit checks never defer. A Standard with a live proposed limit measures fresh even when ordinary policy would replay or defer it. The reading must equal the proposal. `discern prepare` skips measurement.
 
 Package StandardMeter views retain each reading, limit, headroom, trajectory, measurement source, margin, and pin eligibility. Deferred and skipped facts invent no value. [`presentation.ts`](../../../src/engine/gate/presentation.ts) only maps `GateStandard` facts; the Gate still decides comparisons and pin eligibility.
 
@@ -75,7 +75,7 @@ One pure Gate function decides mechanical pin eligibility from direction, measur
 
 ## Run standards directly
 
-`discern standards` freshly measures every Standard, including `measure = "on-demand"`. First it checks branch definitions, limits, and trunk-only entries from one trunk snapshot. A redefined or loosened Standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid measurements.
+`discern standards` freshly measures every Standard, including `measure = "on-demand"`. Positional names narrow an ordinary run and a pin to the validated named set; no names selects every Standard, and an unknown name refuses before measurement. `data.standards` contains the selected set. A partial run never creates the reusable full-project measurement cache. First the command still checks branch definitions, limits, and trunk-only entries from one trunk snapshot. A redefined or loosened Standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid selected measurements.
 
 Runnable measurements share one parallel group without fail-fast. Standards with the same command, checkout root, and timeout use one process, then select their metrics and receive independent verdicts and evidence. Replayed and deferred Standards stay outside the group. A missing metric fails only its consumer; a process failure fails every consumer.
 

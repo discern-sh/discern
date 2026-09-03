@@ -248,7 +248,7 @@ Deno.test("Gate output policy separates live presentation from static transcript
       terminal: live,
     });
     assertEquals(livePolicy.output.kind, "live-frame");
-    assertEquals(livePolicy.capture, "buffered-full");
+    assertEquals(livePolicy.capture, "buffered-capped");
     assertEquals(
       livePolicy.output.kind === "live-frame"
         ? livePolicy.output.ttyWidth
@@ -269,7 +269,7 @@ Deno.test("Gate output policy separates live presentation from static transcript
       assertEquals(policy.output.kind, expectedStatic);
       assertEquals(
         policy.capture,
-        staticStream ? "streamed-capped" : "buffered-full",
+        staticStream ? "streamed-capped" : "buffered-capped",
       );
     }
   }
@@ -279,7 +279,7 @@ Deno.test("Gate output policy separates live presentation from static transcript
     terminal: live,
   });
   assertEquals(quiet.output.kind, "quiet-result");
-  assertEquals(quiet.capture, "buffered-full");
+  assertEquals(quiet.capture, "buffered-capped");
 });
 
 Deno.test("Gate Proof makes landing readiness explicit without claiming consent", () => {

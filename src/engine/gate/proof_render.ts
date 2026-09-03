@@ -89,10 +89,12 @@ function stepRow(r: StepResult): string {
 function standardLine(o: GateStandard): string {
   const bound = o.direction === "up" ? "floor" : "ceiling";
   if (o.measurement === "deferred") {
-    return `- ${o.name} — deferred (measure = "on-demand"; ${bound} ${o.limit} still verified) — run \`discern standards\``;
+    return `- ${
+      code(o.name)
+    } — deferred (measure = "on-demand"; ${bound} ${o.limit} still verified) — run \`discern standards\``;
   }
   if (o.measurement === "skipped") {
-    return `- ${o.name} — not measured (the gate stopped before it ran)`;
+    return `- ${code(o.name)} — not measured (the gate stopped before it ran)`;
   }
   const value = o.value !== undefined ? `${fmtRate(o.value)} ` : "";
   const standing = o.verdict ?? "unmeasured";
@@ -103,7 +105,7 @@ function standardLine(o: GateStandard): string {
     : o.duration_s !== undefined
     ? ` · ${fmtDuration(o.duration_s)}`
     : "";
-  return `- ${o.name} ${value}(${bound} ${o.limit}, ${standing})${how}`;
+  return `- ${code(o.name)} ${value}(${bound} ${o.limit}, ${standing})${how}`;
 }
 
 /** The page's standards section: the Tier-1 verification line — "limits
@@ -486,7 +488,7 @@ export function renderLandingProofLine(
       return `${line}${PROOF_LINE_SEPARATOR}landed under effort grant`;
     case "standing-grant":
       return `${line}${PROOF_LINE_SEPARATOR}landed under standing grant: ${
-        consent.scopes?.join(", ") ?? "(none)"
+        consent.scopes?.map(code).join(", ") ?? "(none)"
       }`;
   }
 }

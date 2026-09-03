@@ -3804,7 +3804,8 @@
                                       "governing_config_invalid",
                                       "open_question_store_unreadable",
                                       "open_question_store_corrupt",
-                                      "declaration_evidence_unavailable"
+                                      "declaration_evidence_unavailable",
+                                      "strand_check_unavailable"
                                     ]
                                   },
                                   "account": {
@@ -4897,7 +4898,8 @@
                                       "governing_config_invalid",
                                       "open_question_store_unreadable",
                                       "open_question_store_corrupt",
-                                      "declaration_evidence_unavailable"
+                                      "declaration_evidence_unavailable",
+                                      "strand_check_unavailable"
                                     ]
                                   },
                                   "account": {
@@ -11197,7 +11199,8 @@
                                   "governing_config_invalid",
                                   "open_question_store_unreadable",
                                   "open_question_store_corrupt",
-                                  "declaration_evidence_unavailable"
+                                  "declaration_evidence_unavailable",
+                                  "strand_check_unavailable"
                                 ]
                               },
                               "account": {
@@ -13845,7 +13848,8 @@
                               "governing_config_invalid",
                               "open_question_store_unreadable",
                               "open_question_store_corrupt",
-                              "declaration_evidence_unavailable"
+                              "declaration_evidence_unavailable",
+                              "strand_check_unavailable"
                             ]
                           },
                           "account": {
@@ -22270,7 +22274,8 @@
                                   "governing_config_invalid",
                                   "open_question_store_unreadable",
                                   "open_question_store_corrupt",
-                                  "declaration_evidence_unavailable"
+                                  "declaration_evidence_unavailable",
+                                  "strand_check_unavailable"
                                 ]
                               },
                               "account": {
@@ -22878,7 +22883,8 @@
                                         "governing_config_invalid",
                                         "open_question_store_unreadable",
                                         "open_question_store_corrupt",
-                                        "declaration_evidence_unavailable"
+                                        "declaration_evidence_unavailable",
+                                        "strand_check_unavailable"
                                       ]
                                     },
                                     "account": {
@@ -24932,7 +24938,8 @@
                               "governing_config_invalid",
                               "open_question_store_unreadable",
                               "open_question_store_corrupt",
-                              "declaration_evidence_unavailable"
+                              "declaration_evidence_unavailable",
+                              "strand_check_unavailable"
                             ]
                           },
                           "account": {
@@ -25419,7 +25426,8 @@
                                       "governing_config_invalid",
                                       "open_question_store_unreadable",
                                       "open_question_store_corrupt",
-                                      "declaration_evidence_unavailable"
+                                      "declaration_evidence_unavailable",
+                                      "strand_check_unavailable"
                                     ]
                                   },
                                   "account": {
@@ -30361,7 +30369,8 @@
                       "governing_config_invalid",
                       "open_question_store_unreadable",
                       "open_question_store_corrupt",
-                      "declaration_evidence_unavailable"
+                      "declaration_evidence_unavailable",
+                      "strand_check_unavailable"
                     ]
                   },
                   "account": {
@@ -30783,7 +30792,8 @@
                       "governing_config_invalid",
                       "open_question_store_unreadable",
                       "open_question_store_corrupt",
-                      "declaration_evidence_unavailable"
+                      "declaration_evidence_unavailable",
+                      "strand_check_unavailable"
                     ]
                   },
                   "account": {
@@ -31029,7 +31039,8 @@
                       "governing_config_invalid",
                       "open_question_store_unreadable",
                       "open_question_store_corrupt",
-                      "declaration_evidence_unavailable"
+                      "declaration_evidence_unavailable",
+                      "strand_check_unavailable"
                     ]
                   },
                   "account": {
@@ -33282,6 +33293,7 @@
     "below_min_score",
     "brief_unparseable",
     "checkout_failed",
+    "checkpoint_evidence_unavailable",
     "config_template_unavailable",
     "confirmation_required",
     "conflict",

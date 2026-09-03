@@ -303,9 +303,12 @@ export async function classifyScopeImpact(
   // its contract is "a previewable-flagged scope changed", and a previewable
   // scope may also be neutral, so filtering neutrals out first would hide it.
   const normPaths = paths.filter((path) => path !== "");
-  // The real (non-neutral) changed paths: any one is a gated `code` change, and
-  // the fire-scopes they fall in (via the shared matcher) are what the gate runs.
-  const realPaths = normPaths.filter((path) => !isNeutralPath(config, path));
+  // A fire scope outranks a coincident neutral match: neutral is an exemption
+  // only for a path no gated scope claims. This keeps one broad neutral scope
+  // from masking a narrower safety boundary.
+  const realPaths = normPaths.filter((path) =>
+    !isNeutralPath(config, path) || scopesForPaths([path], config).length > 0
+  );
   const fired = scopesForPaths(realPaths, config);
 
   const out: string[] = [];

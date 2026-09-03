@@ -23,13 +23,13 @@ Use this guide to make the project's declared Gate a required continuous-integra
 ## Starting state
 
 - `discern.toml` already declares the project's Gate jobs and Standards.
-- The CI runner checks out the candidate commit with enough Git history to resolve the configured trunk and merge base.
+- The CI runner checks out the candidate commit with enough Git history and a local branch at the configured trunk name. A remote-tracking ref alone is not enough.
 - The workflow installs a pinned discern binary and every runtime named by `[jobs]`.
 - Branch protection can require the workflow's result before merging.
 
 ## 1. Recreate the project's declared environment
 
-**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk and enough history for change classification. Restore dependencies from the project's lock files as their own workflow step, before the Gate runs: discern runs the commands in `[jobs]` but does not install their toolchain or dependencies, and the Gate may start several jobs in parallel, so dependency downloads that race inside the first Gate run belong in a serial step ahead of it.
+**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk into its local branch name (for example, `git fetch origin main:main` when the configured trunk is `main`) and fetch enough history for change classification. Strict and CI Gate runs fail closed if that local trunk or its Standard limits cannot be read. Restore dependencies from the project's lock files as their own workflow step, before the Gate runs: discern runs the commands in `[jobs]` but does not install their toolchain or dependencies, and the Gate may start several jobs in parallel, so dependency downloads that race inside the first Gate run belong in a serial step ahead of it.
 
 Do not restate each project check in workflow YAML. `[jobs]`, scope gates, and Standards remain the authority, so local agents and CI run the same declaration.
 

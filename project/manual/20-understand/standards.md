@@ -27,7 +27,7 @@ A project holding the line on lint suppressions might keep:
   run = "./tools/count-suppressions"
 ```
 
-The `run` command can be anything that prints `DISCERN_METRIC lint_suppressions <number>`: a measuring tool in any language can feed a Standard, with no plugin to build.
+The `run` command can be anything that prints `DISCERN_METRIC lint_suppressions <number>`: a measuring tool in any language can feed a Standard, with no plugin to build. The last matching metric line supplies the value. That metric protocol, not the command's exit code, decides the Standard verdict; a missing or non-numeric value fails.
 
 ## What a limit records
 
@@ -52,7 +52,7 @@ With your agreement, the agent proposes the new limit from the committed change,
 Several parts of the design keep a Standard sustainable rather than a tax on every change:
 
 - **Rates.** `per` divides the measurement by a size, so a healthy, growing project isn't punished for growth. A ceiling on suppressions per thousand lines stays meaningful as the codebase doubles.
-- **Replay.** `inputs` names the files a measurement reads. When nothing under them changed, the Gate reuses the recorded value instead of measuring again, and the no-loosening check still runs.
+- **Replay.** `inputs` names the files a measurement reads. When those files and the complete Standard definition are unchanged, the Gate reuses the recorded value and its original measured commit instead of measuring again. Replay does not record a new measurement at the current commit, and the no-loosening check still runs.
 - **On-demand measurement.** A measurement too slow for every run moves to `discern standards`, which measures on request. The check that no limit was loosened has no off switch.
 
 Over time, the project's own record shows each Standard's trajectory, and [Patterns](evidence-and-improvement.md#standard-trajectory-decisions) can recommend a pin when the headroom looks durable rather than momentary.

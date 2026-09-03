@@ -990,7 +990,7 @@
             "maximum": 9007199254740991
           },
           "when": {
-            "description": "Final executable condition: exit 0 fires, exit 1 passes; errors and timeout fail open. `DISCERN_MATCH <path>` narrows the structural matches.",
+            "description": "Final executable condition: exit 0 fires, exit 10 passes; every other outcome is indeterminate. `DISCERN_MATCH <path>` narrows the structural matches.",
             "type": "string"
           },
           "mode": {
@@ -1045,8 +1045,8 @@
           "maximum": 9007199254740991
         },
         "concurrent_test_runs": {
-          "default": 0,
-          "description": "Cap on test-stage runs in flight at once across every checkout of this repository; a run past it waits for a slot. 0 means no cap. Wrap the project's test task in `discern queue -- <command>` to share it.",
+          "default": 1,
+          "description": "Cap on test-stage runs in flight at once across every checkout of this repository; a run past it waits for a slot. Fresh projects default to 1; explicit 0 means no cap. Wrap the project's test task in `discern queue -- <command>` to share it.",
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991

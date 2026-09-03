@@ -10,7 +10,8 @@ import type { GateStandard } from "../../shared/result_schemas.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { pathMatchesPattern } from "../scopes/glob.ts";
 import { collectPaths } from "../scopes/scopes.ts";
-import { measurementBaselines } from "./proof.ts";
+import { measurementBaselines, type StandardMeasurements } from "./proof.ts";
+import { standardDefinitionFingerprint } from "./standard_limits.ts";
 import type { PlannedJob } from "./plan.ts";
 import type { PlannedStandard } from "./standard_plan.ts";
 import {
@@ -99,16 +100,24 @@ export async function resolveStandardActions(
       continue;
     }
     let action: StandardAction = { kind: "measure" };
+    const definition = await standardDefinitionFingerprint(
+      standard.name,
+      standard.spec,
+    );
     for (const baseline of baselines) {
       const value = baseline.values[standard.name];
-      if (value === undefined) {
+      const provenance = baseline.provenance[standard.name];
+      if (
+        value === undefined || provenance === undefined ||
+        baseline.definitions[standard.name] !== definition
+      ) {
         continue;
       }
-      const paths = await changedPaths(baseline.head);
+      const paths = await changedPaths(provenance);
       if (paths === null || paths.some((path) => inputsMatch(inputs, path))) {
         continue;
       }
-      action = { kind: "replay", value, from: baseline.head };
+      action = { kind: "replay", value, from: provenance };
       break;
     }
     resolved.push({ standard, action });
@@ -119,8 +128,8 @@ export async function resolveStandardActions(
 /** Recorded baselines usable from this tree, nearest first. */
 async function usableBaselines(
   root: string,
-): Promise<{ head: string; values: Record<string, number> }[]> {
-  const baselines: { head: string; values: Record<string, number> }[] = [];
+): Promise<StandardMeasurements[]> {
+  const baselines: StandardMeasurements[] = [];
   for (const baseline of await measurementBaselines(root)) {
     if (await isAncestorOfHead(root, baseline.head)) {
       baselines.push(baseline);

@@ -391,6 +391,15 @@ export async function recordGateOutcome(
         }`,
       });
     }
+    if (mode === "report") {
+      const prior = await inspectGateProof(cwd);
+      if (
+        prior.status === "honored" && prior.recorded === pin.head &&
+        prior.proof_data?.mode !== "report"
+      ) {
+        return proofRecord("recorded", { path });
+      }
+    }
     try {
       // Marker format: the sha, then (when the run rendered a proof) its
       // compatibility `line: ` component, structured form, declaration
@@ -933,7 +942,12 @@ export async function carryProofForwardAcrossPin(
 /** The measurement proof's verdict: `honored` carries the per-standard values a pin
  * may reuse; every other status means "measure fresh" (a cache miss, never an error). */
 export type StandardMeasurementsCheck =
-  | { status: "honored"; values: Record<string, number> }
+  | {
+    status: "honored";
+    values: Record<string, number>;
+    definitions: Record<string, string>;
+    provenance: Record<string, string>;
+  }
   | { status: "missing" | "stale" | "dirty" | "malformed" | "unavailable" };
 
 /**
@@ -956,6 +970,7 @@ export async function recordStandardMeasurements(
   cwd: string,
   authority: AdminStateWriteAuthority,
   values: Record<string, number>,
+  definitions: Record<string, string>,
   pin: ValidatedTreePin,
   durations: Record<string, number> = {},
 ): Promise<boolean> {
@@ -977,8 +992,22 @@ export async function recordStandardMeasurements(
       ? {
         values: { ...existing.values, ...values },
         durations: { ...existing.durations, ...durations },
+        definitions: { ...existing.definitions, ...definitions },
+        provenance: {
+          ...existing.provenance,
+          ...Object.fromEntries(
+            Object.keys(values).map((name) => [name, pin.head]),
+          ),
+        },
       }
-      : { values, durations };
+      : {
+        values,
+        durations,
+        definitions,
+        provenance: Object.fromEntries(
+          Object.keys(values).map((name) => [name, pin.head]),
+        ),
+      };
     await Deno.writeTextFile(
       path,
       `${JSON.stringify({ head: pin.head, ...merged })}\n`,
@@ -1189,7 +1218,12 @@ export async function inspectStandardMeasurements(
   if (!(await isWorktreeFullyClean(cwd))) {
     return { status: "dirty" };
   }
-  return { status: "honored", values: parsed.values };
+  return {
+    status: "honored",
+    values: parsed.values,
+    definitions: parsed.definitions,
+    provenance: parsed.provenance,
+  };
 }
 
 /** A parsed measurement proof: the commit its values describe, the values,
@@ -1199,6 +1233,10 @@ export interface StandardMeasurements {
   head: string;
   values: Record<string, number>;
   durations: Record<string, number>;
+  /** Fingerprint of the definition that gave each value meaning. */
+  definitions: Record<string, string>;
+  /** Original commit whose process run measured each value. */
+  provenance: Record<string, string>;
 }
 
 /** A map of finite numbers, or undefined when `raw` is anything else. */
@@ -1209,6 +1247,22 @@ function finiteNumberMap(raw: unknown): Record<string, number> | undefined {
   const out: Record<string, number> = {};
   for (const [name, value] of Object.entries(raw)) {
     if (typeof value !== "number" || !Number.isFinite(value)) {
+      return undefined;
+    }
+    out[name] = value;
+  }
+  return out;
+}
+
+/** A map of non-empty strings, or undefined when persisted evidence is not
+ * wholly shaped as declared. */
+function stringMap(raw: unknown): Record<string, string> | undefined {
+  if (typeof raw !== "object" || raw === null) {
+    return undefined;
+  }
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(raw)) {
+    if (typeof value !== "string" || value === "") {
       return undefined;
     }
     out[name] = value;
@@ -1233,10 +1287,12 @@ function parseMeasurements(
   if (typeof data !== "object" || data === null) {
     return undefined;
   }
-  const { head, values, durations } = data as {
+  const { head, values, durations, definitions, provenance } = data as {
     head?: unknown;
     values?: unknown;
     durations?: unknown;
+    definitions?: unknown;
+    provenance?: unknown;
   };
   if (typeof head !== "string" || head === "") {
     return undefined;
@@ -1251,7 +1307,22 @@ function parseMeasurements(
   if (parsedDurations === undefined) {
     return undefined;
   }
-  return { head, values: parsedValues, durations: parsedDurations };
+  const parsedDefinitions = definitions === undefined
+    ? {}
+    : stringMap(definitions);
+  const parsedProvenance = provenance === undefined
+    ? {}
+    : stringMap(provenance);
+  if (parsedDefinitions === undefined || parsedProvenance === undefined) {
+    return undefined;
+  }
+  return {
+    head,
+    values: parsedValues,
+    durations: parsedDurations,
+    definitions: parsedDefinitions,
+    provenance: parsedProvenance,
+  };
 }
 
 /**

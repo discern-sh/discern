@@ -80,15 +80,13 @@ const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
 
 /**
- * Hard cap (bytes) on the buffer retained for the capture in STREAM mode, where
- * output isn't otherwise held in memory (the full stream is written to a temp
- * artifact). Split into a head and a tail window so a failed streamed job carries
- * both its first errors and its trailing summary; bounds worst-case memory on a
- * pathological stream.
+ * Hard cap (bytes) on every in-memory job capture. The full stream is written
+ * to a temp artifact; the bounded head and tail retain the first errors and
+ * trailing summary without letting static or machine output grow without bound.
  */
-const STREAM_CAP_BYTES = 1_000_000;
-const HEAD_CAP = STREAM_CAP_BYTES / 2;
-const TAIL_CAP = STREAM_CAP_BYTES - HEAD_CAP;
+export const JOB_CAPTURE_CAP_BYTES = 1_000_000;
+const HEAD_CAP = JOB_CAPTURE_CAP_BYTES / 2;
+const TAIL_CAP = JOB_CAPTURE_CAP_BYTES - HEAD_CAP;
 /**
  * The environment every gate command inherits. `NO_COLOR`/`TERM=dumb` tell tools
  * they aren't on a terminal (so they emit plain, parseable output); `CI=1` is the
@@ -96,7 +94,7 @@ const TAIL_CAP = STREAM_CAP_BYTES - HEAD_CAP;
  * ubiquitous watch-vs-single-run test runners into their single-run form, so a bare
  * `test = "<runner>"` doesn't enter watch mode and hang the gate waiting for edits.
  */
-const CAPTURE_ENV: Record<string, string> = {
+export const GATE_JOB_ENVIRONMENT: Readonly<Record<string, string>> = {
   NO_COLOR: "1",
   TERM: "dumb",
   CI: "1",
@@ -261,7 +259,7 @@ export async function spawnJob(
     // `discern` in a job command resolves to the engine running this gate,
     // whatever the ambient PATH holds (self_shim.ts).
     env: {
-      ...CAPTURE_ENV,
+      ...GATE_JOB_ENVIRONMENT,
       ...spawnedByEnv(),
       ...(opts.env ?? {}),
       ...operationLockChildEnv(),
@@ -333,11 +331,8 @@ export async function spawnJob(
     }, budget.seconds * 1000);
   }
 
-  // `chunks` holds the full output for the buffered human write + diagnostic
-  // (buffered mode). In STREAM mode `chunks` stays empty and a byte-capped head +
-  // tail window is retained instead, so a failed streamed job still carries a
-  // diagnostic with both its first errors and its trailing summary.
-  const chunks: Uint8Array[] = [];
+  // Every ordinary capture is a byte-capped head + tail window; the durable
+  // artifact remains complete. Protocol consumers use their own tighter cap.
   const protocolChunks: Uint8Array[] = [];
   let protocolBytes = 0;
   let protocolOverflow = false;
@@ -360,26 +355,44 @@ export async function spawnJob(
   let tailBytes = 0;
   let elidedBytes = 0;
   const retainCapped = (c: Uint8Array): void => {
+    let remainder = c;
     if (headBytes < HEAD_CAP) {
-      headBuf.push(c);
-      headBytes += c.length;
+      const kept = remainder.slice(0, HEAD_CAP - headBytes);
+      if (kept.length > 0) {
+        headBuf.push(kept);
+        headBytes += kept.length;
+      }
+      remainder = remainder.slice(kept.length);
+    }
+    if (remainder.length === 0) {
       return;
     }
-    tailBuf.push(c);
-    tailBytes += c.length;
-    while (
-      tailBytes - (tailBuf[0]?.length ?? 0) >= TAIL_CAP && tailBuf.length > 1
-    ) {
-      const dropped = tailBuf.shift();
-      if (dropped !== undefined) {
-        tailBytes -= dropped.length;
-        elidedBytes += dropped.length;
+    if (remainder.length >= TAIL_CAP) {
+      elidedBytes += tailBytes + remainder.length - TAIL_CAP;
+      tailBuf.splice(0, tailBuf.length, remainder.slice(-TAIL_CAP));
+      tailBytes = TAIL_CAP;
+      return;
+    }
+    tailBuf.push(remainder);
+    tailBytes += remainder.length;
+    while (tailBytes > TAIL_CAP) {
+      const first = tailBuf[0];
+      if (first === undefined) break;
+      const overflow = tailBytes - TAIL_CAP;
+      if (first.length <= overflow) {
+        tailBuf.shift();
+        tailBytes -= first.length;
+        elidedBytes += first.length;
+      } else {
+        tailBuf[0] = first.slice(overflow);
+        tailBytes -= overflow;
+        elidedBytes += overflow;
       }
     }
   };
-  // Assemble the stream-mode capture: contiguous when it fit the head window (so
+  // Assemble the bounded capture: contiguous when it fit the head window (so
   // SARIF normalization still parses), head + tail with a marker once it overflowed.
-  const streamCapture = (): string => {
+  const boundedCapture = (): string => {
     const head = DECODER.decode(concat(headBuf));
     if (tailBuf.length === 0) {
       return head;
@@ -405,7 +418,7 @@ export async function spawnJob(
       } else {
         for await (const c of source) {
           outputFeed.write(c);
-          chunks.push(c);
+          retainCapped(c);
           await outputRecorder?.write(c);
         }
       }
@@ -483,17 +496,14 @@ export async function spawnJob(
   if (timedOut !== undefined) {
     result.timedOut = timedOut;
   }
-  // Attach the FULL captured output on a GENUINE failure (not a cancelled sibling)
-  // — or unconditionally for a keepOutput job, whose verdict is judged from the
-  // output after it settles. Capping is deferred to the diagnostic layer so
-  // structured normalization (SARIF) sees the whole output; only the Tier-0
-  // fallback is capped.
+  // Attach the bounded head/tail capture on a GENUINE failure (not a cancelled
+  // sibling) — or unconditionally for a keepOutput job, whose verdict is
+  // judged from output after it settles. The complete byte stream remains in
+  // the artifact named by `outputPath`; no result surface retains it in memory.
   if ((code !== 0 && !cancelled) || opts.keepOutput === true) {
     const raw = protocolLimit !== undefined
       ? DECODER.decode(concat(protocolChunks))
-      : opts.stream
-      ? streamCapture()
-      : DECODER.decode(concat(chunks));
+      : boundedCapture();
     if (raw.length > 0) {
       result.output = raw;
     }
@@ -504,7 +514,7 @@ export async function spawnJob(
       ? concat(protocolChunks)
       : opts.stream
       ? new Uint8Array()
-      : concat(chunks),
+      : ENCODER.encode(boundedCapture()),
     ...(protocolOverflow ? { outputLimitExceeded: true } : {}),
   };
 }

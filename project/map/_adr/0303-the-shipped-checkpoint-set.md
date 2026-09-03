@@ -20,7 +20,7 @@ Built-in checkpoints are the reason a new project feels the checkpoint contract 
 | `parallel-implementation` | advise | name-similar new file                   | `change.parallel-implementation` (new) |
 | `new-binary-asset`        | advise | added binary file                       | `change.binary-asset` (new)            |
 | `effort-sprawl`           | advise | ≥25 changed files                       | `change.effort-scope` (new)            |
-| `docs-drift`              | advise | ≥5 files, unless `${map.dir}**` changed | `map.current` (shared, reclassified)   |
+| `map-drift`               | advise | ≥5 files, unless `${map.dir}**` changed | `map.current` (shared, reclassified)   |
 | `commit-story`            | advise | ≥15 changed files                       | `change.commit-story` (new)            |
 
 **Selector policy.** Seeds resolve from the configured path authority rather than copying paths. `instruction-economy` takes its complete default selector from the governing `[instructions].sources` list, so a broader scope that also owns skills or generated provider files cannot widen the stop; a project-authored checkpoint `scope` or `paths` still replaces that default. `gotchas-playbook` tracks the configured doc through the scalar reference and stays structurally quiet until the owner names one.
@@ -36,12 +36,14 @@ Built-in checkpoints are the reason a new project feels the checkpoint contract 
 
 **Active for fresh installs.** The config template ships the ten entries as bare references, ready to govern. Referencing an id is what enables a built-in; deleting or commenting out the entry disables it, and any field set on the entry overrides the seed. Existing projects are untouched — `discern.toml` is owner-authored and no upgrade rewrites it. The scarcity bar holds structurally: a fresh project's first substantial map, instructions, or skills change meets one batched stop moment, code changes meet at most advisories, and `gotchas-playbook` sleeps until a doc is named.
 
+**The ten id-to-question pairs are the pre-v1 convention.** Their exact mapping is guarded as one public identity. The map-current advisory is named `map-drift`; the retired provisional spelling `docs-drift` has no alias, so a bare table under that name is an authored checkpoint missing its required question rather than a second route to the built-in.
+
 **One graduation route ships.** `giant-commit-landing → change.commit-story`: the detector's findings are recurring instances of exactly that class. The route recommends only where the question is not already boundary-guarded, so it speaks to projects that disabled or never enabled the shipped default. This supersedes the empty-registry consequence of [ADR 0301](0301-the-coach-closes-the-checkpoint-loop.md) — the honest target question arrived with this set.
 
 ## Consequences
 
 - Day one delivers the contract's feel: knowledge-surface changes meet a judgment at `discern done`; code changes are advised, never stopped, by shipped defaults.
-- The composition and public guide inventory are pinned by registry-driven tests; changing an id, mode, threshold, or documented count fails a named guard first.
+- The composition and public guide inventory are pinned by registry-driven tests; changing an id, its canonical question id, mode, threshold, or documented count fails a named guard first.
 - Thresholds (3 map files, 25 sprawl, 15 story, 5 drift) are shipped defaults, tunable per project by field override; this repo's own tuning is a separate, deliberate adoption step.
 - The engine test scaffolds inherit the active set, so the suite permanently exercises the fresh-install experience.
 

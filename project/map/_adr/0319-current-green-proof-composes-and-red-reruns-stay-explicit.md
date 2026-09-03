@@ -20,11 +20,11 @@ The preferred escape spelling also carried the wrong concept. `--confirmed` alre
 
 **An ordinary identical-state `done` returns canonical current green Proof without running the Gate. Every other identical-state rerun still refuses until it is requested explicitly.**
 
-- The unchanged-state branch calls the canonical Proof inspector. Reuse requires complete, current-format, strict, clean Proof for the exact `HEAD`, working-state identity, and checkpoint declaration evidence. The result returns that same structured Proof and relay line with `data.gate_ran = false`.
+- The unchanged-state branch calls the canonical Proof inspector. Reuse requires complete, current-format, strict, clean Proof for the exact `HEAD`, working-state identity, checkpoint declaration evidence, and Standard definitions. Evidence with an indeterminate stop or unavailable Gate strand is not reusable. The configured local trunk must be readable and the branch must not be behind it; Proof does not bind a trunk SHA. The result returns the same structured Proof and relay line with `data.gate_ran = false`.
 - Proof reuse runs before fixers, tracked refresh, jobs, Standards, and checkpoint mutation. It performs none of them and creates no replacement evidence. Human, Markdown, JSON, and Model Context Protocol (MCP) projections derive from the same success result and state mechanically that no Gate job ran.
 - An unchanged red verdict refuses read-only. A green last-run marker whose canonical Proof is missing, unreadable, stale, dirty, report-only, or declaration-stale also refuses. The marker never substitutes for Proof.
 - `discern done --rerun` is the Gate-specific option for an explicit same-state measurement or environment-only retry. It bypasses reuse and refusal, executes one ordinary Gate run, and records `rerun` in the Logbook flags so same-state divergence remains attributable.
-- `discern done --confirmed` remains a compatibility alias for Gate execution. It retains its historical `confirmed` Logbook flag and emits the compatibility notice on the command surfaces that teach preferred syntax. Detectors recognize both spellings. Setup and acceptance retain `--confirmed` where the flag expresses consent.
+- `discern done --confirmed` is not a compatibility alias. Gate reruns accept only `--rerun`; `--confirmed` remains reserved for consent-bearing setup and acceptance operations. Historical Logbook events with a `confirmed` flag remain readable evidence.
 - A changed tree or changed checkpoint evidence follows the normal Gate path. `--dry-run` remains read-only plan rendering: it neither reuses nor creates Proof and does not update the last-run marker.
 
 ## Consequences
@@ -32,7 +32,7 @@ The preferred escape spelling also carried the wrong concept. `--confirmed` alre
 - An aggregate command and a later setup or lifecycle wrapper can compose cheaply with the same exact green answer. The second call is successful but truthfully reports that it did no Gate work.
 - Retry resistance remains asymmetric by design: green exact evidence is reusable; red, ambiguous, stale, or incomplete evidence is not. Repetition never heals a failure.
 - `gate_ran` becomes a typed public and Logbook fact. Callers no longer infer execution from duration, steps, or prose.
-- Existing automation using `done --confirmed` keeps working. New help, hints, diagnostics, and Map pages use `--rerun`, separating repeat Gate measurement from owner and setup consent.
+- Gate automation has one explicit retry spelling, `done --rerun`, separating repeat measurement from owner and setup consent.
 - Same-state flake analysis keeps its evidence because explicit reruns are recorded distinctly under either spelling.
 - Canonical Proof validation is now both the landing fast path and the composition fast path. Any future Proof identity field automatically constrains reuse through that one validator rather than a parallel cache predicate.
 
@@ -42,4 +42,4 @@ The preferred escape spelling also carried the wrong concept. `--confirmed` alre
 - **Trust the green last-run verdict without inspecting Proof.** Rejected because the last-run marker does not carry the complete evidence required for review or setup landing.
 - **Rerun an unchanged green tree automatically.** Rejected because it spends project time without adding evidence and recreates the original composition loop.
 - **Make unchanged red idempotently successful.** Rejected because it destroys the anti-flake boundary: a caller could turn failure into success by repetition.
-- **Remove `--confirmed` immediately.** Rejected because silent script breakage is a larger compatibility cost than retaining one documented alias while preferred vocabulary moves.
+- **Retain `done --confirmed` as an alias.** Rejected before v1 because it conflates repeat measurement with current-conversation consent; historical Logbook data remains readable without preserving the CLI ambiguity.

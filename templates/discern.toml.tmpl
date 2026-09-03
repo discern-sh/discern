@@ -450,7 +450,7 @@
 [checkpoints.parallel-implementation] # a name-similar sibling file appeared
 [checkpoints.new-binary-asset]        # a new binary needs clear provenance
 [checkpoints.effort-sprawl]           # one effort, or several bundled in?
-[checkpoints.docs-drift]              # code moved and the map did not
+[checkpoints.map-drift]               # code moved and the map did not
 [checkpoints.commit-story]            # a large change: do commits tell why?
 
 # Regions the owner watches; `stop` holds `discern done` for a stated risk.
@@ -491,9 +491,10 @@
   timeout = 600
 
   # Cap on test-stage runs in flight at once across every checkout of this
-  # repository; a run past it waits for a slot. 0 means no cap. Wrap the
-  # project's test task in `discern queue -- <command>` to share it.
-  concurrent_test_runs = 0
+  # repository; a run past it waits for a slot. Fresh projects default to 1;
+  # explicit 0 means no cap. Wrap the project's test task in `discern queue --
+  # <command>` to share it.
+  concurrent_test_runs = 1
 
 
 # ─────────────────────────────────────────────────────────────────────────────

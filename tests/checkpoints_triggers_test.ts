@@ -7,6 +7,11 @@
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import {
+  CHECKPOINT_DROP_REASON_REGISTRY,
+  entryCheckpointDrop,
+  isIndeterminateStopDrop,
+} from "../src/shared/checkpoint_drops.ts";
+import {
   DELETION_DOMINANT_MIN_DELETED_LINES,
   DELETION_DOMINANT_RATIO,
   evaluateStructuralTrigger,
@@ -18,6 +23,7 @@ import type {
   EffortDiff,
   EffortFileChange,
   ResolvedCheckpoint,
+  WhenOutcome,
 } from "../src/engine/checkpoints/types.ts";
 
 /** A file change with quiet defaults. */
@@ -392,15 +398,61 @@ Deno.test("resolveTriggerOutcome: `when` decides a pending trigger", () => {
     resolveTriggerOutcome(pending, { kind: "pass" }),
     { fired: false },
   );
-  // Error: FAIL OPEN with the advisory attached.
+  // Indeterminate: fire over the full structural evidence and retain the account.
   assertEquals(
     resolveTriggerOutcome(pending, {
       kind: "error",
       reason: "when_timeout",
       advisory: "timed out",
     }),
-    { fired: false, advisory: "timed out" },
+    {
+      fired: true,
+      matched: ["a.ts", "b.ts"],
+      related: [],
+      advisory: "timed out",
+    },
   );
+});
+
+Deno.test("every registered indeterminate when outcome keeps full evidence and only stop requires attestation", () => {
+  const pending = {
+    holds: true,
+    matched: ["a.ts", "b.ts"],
+    whenPending: true,
+    related: [],
+    changed: [change("a.ts"), change("b.ts")],
+  } as const;
+  const reasons = CHECKPOINT_DROP_REASON_REGISTRY
+    .map((entry) => entry.reason)
+    .filter((
+      reason,
+    ): reason is Extract<WhenOutcome, { kind: "error" }>["reason"] =>
+      reason.startsWith("when_")
+    );
+
+  for (const reason of reasons) {
+    const outcome = resolveTriggerOutcome(pending, {
+      kind: "error",
+      reason,
+      advisory: reason,
+    });
+    assertEquals(outcome, {
+      fired: true,
+      matched: ["a.ts", "b.ts"],
+      related: [],
+      advisory: reason,
+    });
+    for (const mode of ["stop", "advise"] as const) {
+      const drop = entryCheckpointDrop(
+        "probe",
+        mode,
+        "policy",
+        reason,
+        reason,
+      );
+      assertEquals(isIndeterminateStopDrop(drop), mode === "stop", reason);
+    }
+  }
 });
 
 Deno.test("resolveTriggerOutcome refuses a pending `when` with no outcome", () => {

@@ -12,7 +12,7 @@
  * here so it happens as a conscious decision, never as drift.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertThrows } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { BUILT_IN_CHECKPOINTS } from "../src/shared/checkpoints.ts";
 import { questionById } from "../src/shared/questions.ts";
@@ -104,8 +104,8 @@ Deno.test("the shipped set is four stop members on the knowledge surfaces and si
   assertEquals(advise, [
     "commit-story",
     "deletion-heavy-change",
-    "docs-drift",
     "effort-sprawl",
+    "map-drift",
     "new-binary-asset",
     "parallel-implementation",
   ]);
@@ -120,6 +120,37 @@ Deno.test("every built-in resolves by bare reference and serves its canonical qu
     assertEquals(def.question, canonical.question, id);
     assertEquals(def.teach, canonical.teach, id);
   }
+});
+
+Deno.test("the v1 built-in ids and canonical question ids are frozen together", () => {
+  assertEquals(
+    Object.fromEntries(
+      Object.entries(BUILT_IN_CHECKPOINTS).map(([id, seed]) => [
+        id,
+        seed.question,
+      ]),
+    ),
+    {
+      "map-focus": "map.focus",
+      "instruction-economy": "instructions.economy",
+      "skills-playbook": "skills.executable",
+      "gotchas-playbook": "setup.failure-memory",
+      "deletion-heavy-change": "change.deletion-safety",
+      "parallel-implementation": "change.parallel-implementation",
+      "new-binary-asset": "change.binary-asset",
+      "effort-sprawl": "change.effort-scope",
+      "map-drift": "map.current",
+      "commit-story": "change.commit-story",
+    },
+  );
+});
+
+Deno.test("the retired docs-drift spelling is not a built-in alias", () => {
+  assertThrows(
+    () => parseConfigOrThrow("[checkpoints.docs-drift]\n"),
+    Error,
+    "names no shipped checkpoint",
+  );
 });
 
 Deno.test("the public guide inventory follows the built-in registry", async () => {
@@ -392,30 +423,30 @@ Deno.test("effort-sprawl advises at 25 changed files and not at 24", () => {
   assertEquals(narrower, { holds: false, vetoedBy: "min_changed_files" });
 });
 
-// ── docs-drift ──────────────────────────────────────────────────────────────
+// ── map-drift ───────────────────────────────────────────────────────────────
 
-Deno.test("docs-drift advises when a substantial change moved nothing in the map", () => {
+Deno.test("map-drift advises when a substantial change moved nothing in the map", () => {
   const outcome = evaluateStructuralTrigger(
-    resolved("docs-drift"),
+    resolved("map-drift"),
     diff(sourceFiles(5)),
   );
   assert(outcome.holds);
 });
 
-Deno.test("any map edit vetoes docs-drift: the counterpart moved too", () => {
+Deno.test("any map edit vetoes map-drift: the counterpart moved too", () => {
   const outcome = evaluateStructuralTrigger(
-    resolved("docs-drift"),
+    resolved("map-drift"),
     diff([...sourceFiles(5), file("guide/page.md")]),
   );
   assertEquals(outcome, { holds: false, vetoedBy: "unless_changed" });
 });
 
-Deno.test("regenerated agent files alone stay under the docs-drift threshold", () => {
+Deno.test("regenerated agent files alone stay under the map-drift threshold", () => {
   // The closed menu cannot name 'generated files'; the threshold is the
   // guard — a compile of every agent file plus a small touch never reaches
   // five changed files on its own.
   const outcome = evaluateStructuralTrigger(
-    resolved("docs-drift"),
+    resolved("map-drift"),
     diff([
       file("CLAUDE.md"),
       file("AGENTS.md"),
@@ -487,7 +518,7 @@ const TRIGGER_FIXTURES: Readonly<
     firing: diff(sourceFiles(25)),
     quiet: diff(sourceFiles(24)),
   },
-  "docs-drift": {
+  "map-drift": {
     firing: diff(sourceFiles(5)),
     quiet: diff([...sourceFiles(5), file("guide/a.md")]),
   },

@@ -45,6 +45,7 @@ export const CHECKPOINT_DROP_REASON_REGISTRY = [
   { reason: "subject_unavailable", scopes: ["checkpoint"] },
   { reason: "open_question_store_write_failed", scopes: ["checkpoint"] },
   { reason: "declaration_evidence_unavailable", scopes: ["policy"] },
+  { reason: "strand_check_unavailable", scopes: ["policy"] },
 ] as const;
 
 export type CheckpointDropReason =
@@ -204,4 +205,12 @@ export function checkpointDropAccounts(
   drops: readonly CheckpointDrop[],
 ): string[] {
   return drops.map((drop) => drop.account);
+}
+
+/** Whether uncertainty in a stop checkpoint's executable predicate requires
+ * current-conversation attestation before landing. Derived from the registered
+ * when-reason family so a future member enrolls without another allow-list. */
+export function isIndeterminateStopDrop(drop: CheckpointDrop): boolean {
+  return drop.scope === "checkpoint" && drop.mode === "stop" &&
+    drop.reason.startsWith("when_");
 }

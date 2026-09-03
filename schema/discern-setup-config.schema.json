@@ -750,7 +750,7 @@
             "maximum": 9007199254740991
           },
           "when": {
-            "description": "Final executable condition: exit 0 fires, exit 1 passes; errors and timeout fail open. `DISCERN_MATCH <path>` narrows the structural matches.",
+            "description": "Final executable condition: exit 0 fires, exit 10 passes; every other outcome is indeterminate. `DISCERN_MATCH <path>` narrows the structural matches.",
             "type": "string"
           },
           "mode": {

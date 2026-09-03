@@ -1,6 +1,9 @@
 /** Fire when the manual root adds or replaces a promoted journey. */
 
-import type { CheckpointWhenInput } from "../src/shared/checkpoints.ts";
+import {
+  CHECKPOINT_WHEN_PASS_EXIT_CODE,
+  type CheckpointWhenInput,
+} from "../src/shared/checkpoints.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { resolveContainedProjectReadPath } from "../src/shared/project_path.ts";
 import {
@@ -124,7 +127,9 @@ async function main(): Promise<number> {
     id: MANUAL_FRONT_DOOR_CHECKPOINT_ID,
     mode: "stop",
   });
-  if (!(await promotionChanged(checkpointInvocationRoot(), input))) return 1;
+  if (!(await promotionChanged(checkpointInvocationRoot(), input))) {
+    return CHECKPOINT_WHEN_PASS_EXIT_CODE;
+  }
   console.log(`DISCERN_MATCH ${MANUAL_FRONT_DOOR_PATH}`);
   return 0;
 }

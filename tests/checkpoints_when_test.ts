@@ -1,6 +1,6 @@
 /**
- * The `when` executor (`src/engine/checkpoints/when.ts`): all four protocol
- * outcomes — fire, pass, error exit, timeout — plus the match-line parsing and
+ * The `when` executor (`src/engine/checkpoints/when.ts`): both decisive
+ * outcomes and every indeterminate lifecycle family, plus match-line parsing and
  * the v1 execution boundary (the command text may come from the governing
  * config, but everything it references resolves from the candidate worktree).
  */
@@ -132,24 +132,24 @@ Deno.test("when: receives one versioned structured input and always removes it",
   });
 });
 
-Deno.test("when: bounded protocol output accepts the exact cap and fails open one byte over", async () => {
+Deno.test("when: bounded protocol output accepts the exact cap and is indeterminate one byte over", async () => {
   await withTempDir(async (dir) => {
     const exact =
-      `yes x | tr -d '\\n' | head -c ${CHECKPOINT_WHEN_OUTPUT_BYTES}; exit 1`;
+      `yes x | tr -d '\\n' | head -c ${CHECKPOINT_WHEN_OUTPUT_BYTES}; exit 10`;
     assertEquals(await runWhenCommand(dir, "probe", exact), { kind: "pass" });
     const over = await runWhenCommand(
       dir,
       "probe",
       `yes x | tr -d '\\n' | head -c ${
         CHECKPOINT_WHEN_OUTPUT_BYTES + 1
-      }; exit 1`,
+      }; exit 10`,
     );
     assert(over.kind === "error");
     assertEquals(over.reason, "when_output_limit");
   });
 });
 
-Deno.test("when: a pre-aborted external signal fails open as cancelled", async () => {
+Deno.test("when: a pre-aborted external signal is indeterminate as cancelled", async () => {
   await withTempDir(async (dir) => {
     const controller = new AbortController();
     controller.abort();
@@ -181,7 +181,7 @@ Deno.test("when: removes structured input after pass, failure, timeout, and canc
   await withTempDir(async (dir) => {
     for (
       const [name, command, options] of [
-        ["pass", "exit 1", {}],
+        ["pass", "exit 10", {}],
         ["failure", "exit 7", {}],
         ["timeout", "sleep 30", { timeoutS: 0.05 }],
       ] as const
@@ -213,37 +213,56 @@ Deno.test("when: removes structured input after pass, failure, timeout, and canc
   });
 });
 
-Deno.test("when: exit 1 passes", async () => {
+Deno.test("when: exit 10 passes", async () => {
   await withTempDir(async (dir) => {
-    assertEquals(await runWhenCommand(dir, "probe", "false"), {
+    assertEquals(await runWhenCommand(dir, "probe", "exit 10"), {
       kind: "pass",
     });
   });
 });
 
-Deno.test("when: any other exit fails open with an advisory naming the protocol", async () => {
+Deno.test("when: exits 1, 127, and every other non-protocol status are indeterminate", async () => {
   await withTempDir(async (dir) => {
-    const out = await runWhenCommand(
-      dir,
-      "probe",
-      "echo boom-detail; exit 3",
-    );
-    assert(out.kind === "error");
-    assertStringIncludes(out.advisory, "exited 3");
-    assertStringIncludes(out.advisory, "exit 0 fires, exit 1 passes");
-    assertStringIncludes(out.advisory, "did not fire");
-    assertStringIncludes(out.advisory, "boom-detail");
+    for (const exit of [1, 3, 127]) {
+      const out = await runWhenCommand(
+        dir,
+        "probe",
+        `echo boom-detail; exit ${exit}`,
+      );
+      assert(out.kind === "error");
+      assertEquals(out.reason, "when_invalid_exit");
+      assertStringIncludes(out.advisory, `exited ${exit}`);
+      assertStringIncludes(out.advisory, "exit 0 fires, exit 10 passes");
+      assertStringIncludes(out.advisory, "indeterminate");
+      assertStringIncludes(out.advisory, "boom-detail");
+    }
   });
 });
 
-Deno.test("when: a timeout fails open with an advisory naming the budget", async () => {
+Deno.test("when: an input-cleanup failure overrides a decisive command result", async () => {
+  await withTempDir(async (dir) => {
+    const record = join(dir, "cleanup-input-path.txt");
+    const out = await runWhenCommand(
+      dir,
+      "probe",
+      `input="$DISCERN_CHECKPOINT_INPUT"; printf %s "$input" > "${record}"; rm "$input"; mkdir "$input"; touch "$input/child"; exit 0`,
+      { input: INPUT },
+    );
+    assert(out.kind === "error");
+    assertEquals(out.reason, "when_input_cleanup_failed");
+    assertStringIncludes(out.advisory, "indeterminate");
+    await Deno.remove(await Deno.readTextFile(record), { recursive: true });
+  });
+});
+
+Deno.test("when: a timeout is indeterminate with an account naming the budget", async () => {
   await withTempDir(async (dir) => {
     const out = await runWhenCommand(dir, "probe", "sleep 30", {
       timeoutS: 1,
     });
     assert(out.kind === "error");
     assertStringIncludes(out.advisory, "did not finish within 1s");
-    assertStringIncludes(out.advisory, "did not fire");
+    assertStringIncludes(out.advisory, "indeterminate");
   });
 });
 
@@ -280,7 +299,7 @@ Deno.test("when: the command runs in the worktree and its referenced scripts com
     // Edit the script in the worktree: the same command text now passes.
     await writeExecutable(
       join(dir, "scripts", "probe.sh"),
-      "#!/bin/sh\nexit 1\n",
+      "#!/bin/sh\nexit 10\n",
     );
     assertEquals(await runWhenCommand(dir, "probe", "scripts/probe.sh"), {
       kind: "pass",

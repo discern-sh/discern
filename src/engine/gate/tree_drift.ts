@@ -38,8 +38,9 @@ import { runGit } from "../../shared/subprocess.ts";
  * The set of TRACKED paths with uncommitted changes (staged or unstaged) — the dirt
  * `git diff --exit-code` would see. Untracked and .gitignored files are excluded, so a
  * fixer-created new file and generated artifacts never count. Returns `null` when git
- * can't answer — in which case the caller SKIPS the strand check (fail-open: a missing
- * snapshot must never fabricate a failure). Paths are ROOT-relative (porcelain speaks
+ * can't answer — in which case the caller records that this evidence strand is
+ * unavailable. A missing snapshot must never fabricate a tree-drift failure or a
+ * reusable Proof. Paths are ROOT-relative (porcelain speaks
  * toplevel-relative) so the strand diagnostic names files the way the project knows
  * them and its `git diff -- <paths>` pathspecs resolve from the root.
  */

@@ -688,7 +688,7 @@ Deno.test("done --ci: declaration flags refuse before every checkpoint and Gate 
   });
 });
 
-Deno.test("done: checkpoint fail-opens enroll in structured durable drop evidence", async () => {
+Deno.test("done: an indeterminate stop records its drop and serves full evidence", async () => {
   await withTempDir(async (dir) => {
     const config = `${CONFIG_ONE_CHECKPOINT}\nwhen = "sh probe.sh"\n`;
     const wt = await worktreeWithApiChange(dir, config);
@@ -700,11 +700,15 @@ Deno.test("done: checkpoint fail-opens enroll in structured durable drop evidenc
     await git(wt, "commit", "-q", "-m", "add probe", "--no-gpg-sign");
 
     const r = await runAgent(wt, ["done", "--json"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
     const env = parseCheckpointGateJson(r.stdout);
+    assertEquals(env.error, AWAITING_DECLARATION_SLUG);
     assertEquals(env.data.checkpoints.drops?.[0]?.reason, "when_invalid_exit");
     assertEquals(env.data.checkpoints.drops?.[0]?.checkpoint, "api-review");
-    assertStringIncludes(await proofMarker(wt), '"reason":"when_invalid_exit"');
+    assertEquals(env.data.checkpoints.outstanding?.[0]?.matched, [
+      "api/surface.txt",
+    ]);
+    assertStringIncludes(r.output, "probe-invalid");
   });
 });
 
@@ -737,6 +741,13 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
       "ordinary done keeps the pre-report marker and Proof shape",
     );
     assertEquals(env.data.gate_proof?.status, "recorded");
+    const reported = await runAgent(wt, ["done", "--ci", "--json"]);
+    assertEquals(reported.code, 0, reported.output);
+    assertEquals(
+      await proofMarker(wt),
+      strictMarker,
+      "report mode must preserve honored strict evidence for the same HEAD",
+    );
     const marker = await proofMarker(wt);
     assertStringIncludes(marker, "Checkpoint conclusions");
     assertStringIncludes(marker, "declared met");
@@ -994,6 +1005,37 @@ Deno.test("done: advise mode serves the question through the advisory channel an
     // No declaration exists or is required; the recorded Proof carries no
     // conclusion block for an advise-only run.
     assert(!(await proofMarker(wt)).includes("Checkpoint conclusions"));
+  });
+});
+
+Deno.test("done: an indeterminate advise predicate stays non-blocking over full evidence", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(
+      dir,
+      `${CONFIG_ADVISE}\nwhen = "sh probe.sh"\n`,
+    );
+    await writeExecutable(
+      join(wt, "probe.sh"),
+      "#!/usr/bin/env sh\necho advise-indeterminate\nexit 7\n",
+    );
+    await git(wt, "add", "probe.sh");
+    await git(wt, "commit", "-q", "-m", "add advise probe", "--no-gpg-sign");
+
+    const result = await runAgent(wt, ["done", "--json"]);
+    assertEquals(result.code, 0, result.output);
+    const envelope = parseCheckpointGateJson(result.stdout);
+    assertEquals(envelope.data.checkpoints.outstanding, undefined);
+    assertEquals(envelope.data.checkpoints.advise?.[0]?.matched, [
+      "api/surface.txt",
+    ]);
+    assertEquals(
+      envelope.data.checkpoints.drops?.some((entry) =>
+        entry.reason === "when_invalid_exit" &&
+        entry.checkpoint === "api-review"
+      ),
+      true,
+    );
+    assertStringIncludes(result.stdout, "advise-indeterminate");
   });
 });
 
@@ -1339,13 +1381,16 @@ question = "${QUESTION_NOTES}"
       "--no-gpg-sign",
     );
 
-    // Before `update`: exact current Proof remains reusable, never a demand
-    // from the not-yet-governing checkpoint — and the policy identity still
-    // names the old merge-base.
+    // Before `update`, the branch is behind. Exact current Proof is no longer
+    // reusable because missing integration evidence cannot become green by
+    // omission. The not-yet-governing checkpoint is still absent.
     const before = await runAgent(wt, ["done", "--json"]);
-    assertEquals(before.code, 0, before.output);
-    assertEquals(parseGateJson(before.stdout).data.gate_ran, false);
+    assertEquals(before.code, 1, before.output);
+    assertEquals(parseJson(before.stdout).error, UNCHANGED_TREE_RERUN_SLUG);
     assert(!before.output.includes("risk-notes"), before.output);
+    const forced = await runAgent(wt, ["done", "--rerun", "--json"]);
+    assertEquals(forced.code, 1, forced.output);
+    assertEquals(parseGateJson(forced.stdout).data.failed_stage, "merge");
     const preUpdate = await runAgent(wt, ["checkpoints", "--json"]);
     assertStringIncludes(preUpdate.stdout, `"policy":"${governed}"`);
     assert(!preUpdate.stdout.includes("risk-notes"), preUpdate.stdout);
@@ -1409,7 +1454,7 @@ question = "${QUESTION_API}"
     // by pointing its own config at a command that would fire.
     await writeExecutable(
       join(wt, "probe.sh"),
-      "#!/usr/bin/env sh\necho wt-probe >> probe-ran.log\nexit 1\n",
+      "#!/usr/bin/env sh\necho wt-probe >> probe-ran.log\nexit 10\n",
     );
     await writeExecutable(
       join(wt, "hijack.sh"),
@@ -1474,7 +1519,7 @@ question = "${QUESTION_API}"
     // worktree probe later passes. Trigger state controls opening, not erasure.
     await writeExecutable(
       join(wt, "probe.sh"),
-      "#!/usr/bin/env sh\necho wt-probe >> probe-ran.log\nexit 1\n",
+      "#!/usr/bin/env sh\necho wt-probe >> probe-ran.log\nexit 10\n",
     );
     await git(wt, "add", "probe.sh");
     await git(wt, "commit", "-q", "-m", "probe passes", "--no-gpg-sign");
@@ -1608,7 +1653,7 @@ question = "Does the \u2028 changed surface preserve \u2029 its contract?"
 teach = "State the failure modes; note what callers must revisit."
 `;
 
-Deno.test("done: an unpreparable when input fails open as its own typed drop and runs nothing", async () => {
+Deno.test("done: an unpreparable when input serves full evidence and runs nothing", async () => {
   // With the engine subprocess's temp home pointed at an absent directory,
   // the registered when input file cannot be created: the input phase fails,
   // the command never runs, and the run carries the typed input drop instead
@@ -1660,10 +1705,13 @@ question = "${QUESTION_API}"
       "an unpreparable input must never run the command",
     );
     assertEquals(
-      envelope.error ?? null,
-      null,
-      "the dropped checkpoint must not interlock the run",
+      envelope.error,
+      AWAITING_DECLARATION_SLUG,
+      "an indeterminate stop must interlock over structural evidence",
     );
+    assertEquals(envelope.data.checkpoints.outstanding?.[0]?.matched, [
+      "api/surface.txt",
+    ]);
   });
 });
 

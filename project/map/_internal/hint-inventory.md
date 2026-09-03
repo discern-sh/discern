@@ -931,6 +931,17 @@ Rendered example:
 
 > Standards limits are UNVERIFIED. Fetch the trunk where the gate runs so the limits can be verified. In CI, run `git fetch origin main:main`. The never-loosen check could not read the trunk (the local branch is missing).
 
+## `gate-strand-check-unavailable`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: A Gate run cannot read every working-tree snapshot needed for strand detection.
+
+Rendered example:
+
+> The Gate could not prove that its stages left no tracked output behind. Inspect the strand-check drop, restore Git status access, and re-run before relying on that dimension.
+
 ## `gate-test-run-queued`
 
 - Category: `notice`

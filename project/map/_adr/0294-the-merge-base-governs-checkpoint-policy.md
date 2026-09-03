@@ -13,7 +13,7 @@ A branch edits its own `discern.toml`. If the working tree's `[checkpoints]` tab
 - The merge-base commit is the **policy identity**, recorded in the proof separately from declaration subjects. `discern update` advances the merge-base and with it the policy, so policy changes only together with a tree change and outcomes stay reproducible; an unrelated advance moves the identity without staling any declaration.
 - Removing, weakening, or adding a checkpoint on a branch has no effect on that branch's own gate; the edit takes effect for other efforts only after it lands. `discern.toml` sits outside every configured scope, so such an edit already requires owner review at acceptance.
 - No prose-strength comparison is attempted. Trunk authority makes it unnecessary: the governed definition is whatever the trunk last accepted.
-- Governing resolution is deliberately LENIENT where the live loader is strict: the governing copy is history, so an entry that cannot be resolved (missing question, unknown scope, both selectors), a config that does not load, or a merge-base that cannot be resolved drops out with an advisory and the effort proceeds — checkpoints fail open, never wedge.
+- Governing resolution is deliberately LENIENT where the live loader is strict: the governing copy is history, so an entry that cannot be resolved (missing question, unknown scope, both selectors), a config that does not load, or a merge-base that cannot be resolved becomes a structured evidence drop rather than a fabricated checkpoint verdict. The machine Gate may proceed, but the drop is retained in Proof, prevents reusable Proof where stop enforcement was indeterminate, and remains visible to acceptance. Unreadable current declaration evidence blocks acceptance outright.
 - The definition hash of [ADR 0293](0293-checkpoint-declarations-interlock-the-gate.md) covers the RESOLVED definition rather than the merge-base commit, so the policy identity and the subjects move independently by construction.
 
 ## Consequences
@@ -21,6 +21,7 @@ A branch edits its own `discern.toml`. If the working tree's `[checkpoints]` tab
 - An agent cannot relax its own checkpoint obligations from inside an effort, and an owner reviewing a landing sees any policy edit in the diff of a file no standing grant covers.
 - The governed question can lag the trunk tip until the next `update` — accepted: reproducibility of a running effort outranks freshness, and update is cheap and routine.
 - The one soft edge is executable: the v1 `when` boundary ([ADR 0296](0296-when-delegates-trigger-conditions-under-a-v1-boundary.md)) lets a branch change files a governed command references. The policy identity proves the command text's source, not a dependency closure; that record keeps the gap explicit instead of implied closed.
+- Proof binds the policy identity and declaration evidence to the candidate `HEAD`; it does not record the moving trunk tip. Reuse separately requires the configured local trunk to be readable and the branch not to be behind it.
 
 ## Alternatives considered
 

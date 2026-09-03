@@ -788,7 +788,7 @@ Deno.test("gate slots: standards' measurement pass enrols like a test run", asyn
   });
 });
 
-Deno.test("gate slots: the default (0, uncapped) leaves no slot files behind", async () => {
+Deno.test("gate slots: explicit 0 remains uncapped and leaves no slot files behind", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -799,6 +799,9 @@ Deno.test("gate slots: the default (0, uncapped) leaves no slot files behind", a
         "",
         "[repository]",
         'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 0",
         "",
         "[jobs]",
         'test = "echo tested"',

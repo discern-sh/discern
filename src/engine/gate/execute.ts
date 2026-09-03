@@ -62,7 +62,7 @@ export type GateOutputMode =
   };
 
 /** Runner retention stays explicit and separate from terminal presentation. */
-export type GateCaptureMode = "buffered-full" | "streamed-capped";
+export type GateCaptureMode = "buffered-capped" | "streamed-capped";
 
 /** One shared decision consumed by done, prepare, test, and composite callers. */
 export interface GateRunPolicy {
@@ -79,7 +79,7 @@ export function resolveGateRunPolicy(
   if (surface.kind === "quiet-result") {
     return {
       output: { kind: "quiet-result", terminal },
-      capture: "buffered-full",
+      capture: "buffered-capped",
     };
   }
   const ttyWidth = terminal.stdoutIsTerminal
@@ -91,7 +91,7 @@ export function resolveGateRunPolicy(
   if (live) {
     return {
       output: { kind: "live-frame", terminal, ttyWidth },
-      capture: "buffered-full",
+      capture: "buffered-capped",
     };
   }
   const output = {
@@ -101,7 +101,7 @@ export function resolveGateRunPolicy(
   } as const;
   return {
     output,
-    capture: staticStream ? "streamed-capped" : "buffered-full",
+    capture: staticStream ? "streamed-capped" : "buffered-capped",
   };
 }
 

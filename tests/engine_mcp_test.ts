@@ -623,6 +623,60 @@ Deno.test("mcp: EVERY tool's live call echoes its own verb", async () => {
   });
 });
 
+Deno.test("mcp: discern_done never reuses green Proof while the branch is behind trunk", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "behind-proof-mcp");
+    await Deno.writeTextFile(join(worktree, "work.txt"), "work\n");
+    await git(worktree, "add", "work.txt");
+    await git(
+      worktree,
+      "commit",
+      "-qm",
+      "work",
+      "--no-gpg-sign",
+    );
+    const done = TOOLS.find((tool) => tool.name === "discern_done");
+    assert(done !== undefined);
+    const callDone = async (
+      args: Record<string, unknown>,
+    ): Promise<Awaited<ReturnType<typeof runTool>>> =>
+      await runTool(
+        done,
+        new WorkingRoot(worktree),
+        args,
+        undefined,
+        () => Promise.resolve(undefined),
+        undefined,
+        "unknown-client",
+        TEST_CLI_MODEL,
+      );
+    const first = await callDone({});
+    assertEquals(first.isError, false, JSON.stringify(first));
+
+    await Deno.writeTextFile(join(dir, "trunk.txt"), "trunk\n");
+    await git(dir, "add", "trunk.txt");
+    await git(dir, "commit", "-qm", "move trunk", "--no-gpg-sign");
+
+    const guarded = await callDone({});
+    assertEquals(guarded.isError, true, JSON.stringify(guarded));
+    const guardedPayload = FinishOutputSchema.parse(
+      guarded.structuredContent,
+    );
+    assertEquals(guardedPayload.ok, false);
+    assertEquals(guardedPayload.error, "unchanged_tree_rerun");
+
+    const forced = await callDone({
+      rerun: true,
+    });
+    assertEquals(forced.isError, true, JSON.stringify(forced));
+    const forcedPayload = FinishOutputSchema.parse(forced.structuredContent);
+    assertResultDataKey(forcedPayload, "failed_stage");
+    assertEquals(forcedPayload.data.failed_stage, "merge");
+  });
+});
+
 Deno.test("mcp: discern_patterns reads sealed historical Stats without modifying the archive", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: true });
@@ -4209,6 +4263,53 @@ Deno.test("discern mcp: a failing discern_standards apply returns an ok:false en
     assertStringIncludes(failedStep?.note ?? "", "measured 10");
 
     assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("mcp: discern_standards returns and measures exactly the requested ordinary selection", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[standards.selected]",
+        'run = "printf x >> .git/selected-runs; echo DISCERN_METRIC selected 5"',
+        'direction = "up"',
+        "limit = 1",
+        "",
+        "[standards.unselected]",
+        'run = "printf x >> .git/unselected-runs; echo DISCERN_METRIC unselected 5"',
+        'direction = "up"',
+        "limit = 1",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const standards = TOOLS.find((tool) => tool.name === "discern_standards");
+    assert(standards !== undefined);
+    const result = await runTool(standards, new WorkingRoot(dir), {
+      pin_names: ["selected"],
+    });
+    assertEquals(result.isError, false, JSON.stringify(result));
+    const payload = StandardsOutputSchema.parse(result.structuredContent);
+    assertResultDataKey(payload, "standards");
+    assertEquals(
+      payload.data.standards?.map(
+        (entry: { name: string }) => entry.name,
+      ),
+      ["selected"],
+    );
+    assertEquals(
+      (await Deno.readTextFile(join(dir, ".git", "selected-runs"))).length,
+      1,
+    );
+    assertEquals(
+      await targetExists(join(dir, ".git", "unselected-runs")),
+      false,
+    );
   });
 });
 

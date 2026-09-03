@@ -72,7 +72,10 @@ import {
   fmtRate,
   type ResolvedStandard,
 } from "./standards.ts";
-import { verifyTrunkLimits } from "./standard_limits.ts";
+import {
+  standardDefinitionFingerprint,
+  verifyTrunkLimits,
+} from "./standard_limits.ts";
 import {
   inspectActiveStandardLimitProposals,
   sameStandardLimitProposalSet,
@@ -128,7 +131,11 @@ import { inspectCheckpointNotes } from "../checkpoints/inspection.ts";
 import { relatedCheckpointData } from "../checkpoints/related.ts";
 import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { AWAITING_DECLARATION_SLUG } from "../../shared/declarations.ts";
-import { checkpointDropAccounts } from "../../shared/checkpoint_drops.ts";
+import {
+  checkpointDropAccounts,
+  isIndeterminateStopDrop,
+  policyCheckpointDrop,
+} from "../../shared/checkpoint_drops.ts";
 import type {
   GateCheckpointsData,
   ProofCheckpointsData,
@@ -291,9 +298,9 @@ async function runGate(
   //     config every later job table was built from, and the merge check must
   //     precede it so the baseline is the freshest merged-in trunk copy. Not
   //     configurable — an escape hatch here would defeat the guarantee the
-  //     product leads with. An unreadable trunk skips LOUDLY (a warning + the
-  //     proof discloses it); a trunk config that was fetched but does not
-  //     parse fails hard; never a silent pass either way.
+  //     product leads with. An unreadable local trunk and an invalid trunk
+  //     config both fail closed; a remote-tracking ref never substitutes for
+  //     the configured local ref.
   const stdPlan = buildStandardPlan(cfg);
   let standardsLimits: StandardsLimitsData | undefined;
   let standardLimitProposals: ReadonlyMap<
@@ -333,7 +340,8 @@ async function runGate(
       stdPlan.standards.length > 0 ||
       verification.summary.status === "loosened" ||
       verification.summary.status === "proposed" ||
-      verification.summary.status === "parse_failed"
+      verification.summary.status === "parse_failed" ||
+      verification.summary.status === "unverified"
     ) {
       standardsLimits = verification.summary;
     }
@@ -525,7 +533,8 @@ async function runGate(
   //    — and the per-group snapshots attribute each strand to the stage that
   //    produced it. Snapshots are skipped once a stage has failed (the strand
   //    check only runs on an otherwise-green gate); an unreadable snapshot voids
-  //    the check (fail-open: a missing snapshot must never fabricate a failure).
+  //    that verdict and records an unavailable evidence strand. It must never
+  //    fabricate either a tree-drift failure or a reusable Proof.
   const preGroups = preCheckpointGroups(cfg);
   const dirtyAtStart = failedStage === null
     ? await worktreeDirtyPaths(root)
@@ -757,6 +766,21 @@ async function runGate(
   //     and scope-gate stages introduced — and, on a dirty start, every stage's.
   await failOnStrandedTree();
 
+  // Snapshot uncertainty cannot silently erase a checked dimension from a
+  // green result. The Gate may still report its job verdict, but Proof and
+  // acceptance retain this bounded account and a later run never treats the
+  // missing observation as if it had succeeded.
+  if (
+    failedStage === null && (dirtyAtStart === null || !snapshotsValid) &&
+    presentation.checkpoints !== undefined
+  ) {
+    presentation.checkpoints.drops.push(policyCheckpointDrop(
+      "strand_check_unavailable",
+      "the Gate could not read every working-tree snapshot needed to prove that its stages left no tracked output behind",
+      presentation.checkpoints.policyCommit,
+    ));
+  }
+
   // Re-evaluate at the proof boundary. The early pass is the fast refusal;
   // this closing pass is the invariant: no green result can outlive a source,
   // config, mode, or provider-state change made while the jobs were running.
@@ -895,12 +919,11 @@ async function runGate(
     )
     : undefined;
   // Record the measurement proof (ADR 0112, extended by ADR 0133): a green
-  // gate over a clean committed tree records every value it holds (measured or
-  // replayed — a replayed value is a real measurement of an identical input
-  // set), so an immediate `standards --pin` replays instead of re-measuring and
-  // the next gate run has a baseline to replay against. Durations ride along so
-  // a defer decision can be made from data. Fail-closed on red: a failing
-  // standard's values must not stay reusable.
+  // gate over a clean committed tree records only process-backed values. A
+  // replay preserves its original measured provenance and never masquerades as
+  // a new measurement. Durations and definition fingerprints ride with fresh
+  // values so reuse cannot cross a meaning change. Fail-closed on red: a
+  // failing standard's values must not stay reusable.
   if (writeAuthority !== undefined) {
     await recordFreshStandardMeasurementEvidence(
       root,
@@ -912,12 +935,19 @@ async function runGate(
   if (failedStage === null) {
     const values: Record<string, number> = {};
     const durations: Record<string, number> = {};
+    const definitions: Record<string, string> = {};
     for (const o of standardsData) {
-      if (
-        o.value !== undefined &&
-        (o.measurement === "measured" || o.measurement === "replayed")
-      ) {
+      if (o.value !== undefined && o.measurement === "measured") {
         values[o.name] = o.value;
+        const standard = stdPlan.standards.find((entry) =>
+          entry.name === o.name
+        );
+        if (standard !== undefined) {
+          definitions[o.name] = await standardDefinitionFingerprint(
+            standard.name,
+            standard.spec,
+          );
+        }
         if (o.duration_s !== undefined) {
           durations[o.name] = o.duration_s;
         }
@@ -928,6 +958,7 @@ async function runGate(
         root,
         writeAuthority,
         values,
+        definitions,
         treePin,
         durations,
       );
@@ -988,7 +1019,7 @@ async function runGate(
       root,
       writeAuthority,
       failedStage === null,
-      await gateRunEvidenceIdentity(root, checkpointPreflight?.evidence),
+      await gateRunEvidenceIdentity(root, checkpointPreflight),
       checkpointPreflight?.mode ?? "strict",
     );
   }
@@ -1039,7 +1070,7 @@ async function runGate(
     )
     : [];
   const proofHint = gateProofHint(gateProof, failedStage);
-  // Checkpoint deliveries ride the envelope's one advisory channel: fail-open
+  // Checkpoint deliveries ride the envelope's one advisory channel: evidence-drop
   // accounts as notices, each fired advise-mode question served in full, and
   // — on a green run with a declared-unmet conclusion standing — the landing
   // consequence, so a green Proof is never mistaken for a landable one.
@@ -1048,6 +1079,12 @@ async function runGate(
   ).map(
     (advisory) => fire(HINTS["checkpoint-advisory"], { advisory }),
   );
+  const strandUnavailableHint =
+    checkpointPreflight?.drops.some((drop) =>
+        drop.reason === "strand_check_unavailable"
+      )
+      ? fire(HINTS["gate-strand-check-unavailable"], {})
+      : undefined;
   const adviseHints = (checkpointPreflight?.advise ?? []).map((served) =>
     fire(HINTS["checkpoint-advise"], {
       id: served.id,
@@ -1088,6 +1125,7 @@ async function runGate(
     ...(trunkAdvanceWarning !== undefined ? [trunkAdvanceWarning] : []),
     ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
+    ...(strandUnavailableHint === undefined ? [] : [strandUnavailableHint]),
     ...checkpointAdvisoryHints,
     // The fleet test-run cap's wait notices (the same lines the human run
     // narrated live), so a --json/MCP caller sees why the run took longer.
@@ -1761,15 +1799,16 @@ async function activeStandardLimitProposalSet(
  * the same Git tree a new Gate judgment instead of demanding `--rerun`. */
 async function gateRunEvidenceIdentity(
   root: string,
-  checkpointEvidence?: string,
+  checkpoint?: Pick<CheckpointPreflight, "evidence" | "policyCommit">,
 ): Promise<string | undefined> {
   const proposals = await activeStandardLimitProposalSet(root);
   if (proposals === undefined) {
-    return checkpointEvidence;
+    return checkpoint?.evidence;
   }
   return JSON.stringify({
     version: 1,
-    checkpoints: checkpointEvidence ?? null,
+    checkpoints: checkpoint?.evidence ?? null,
+    checkpoint_policy: checkpoint?.policyCommit ?? null,
     standard_proposals: proposals.map(standardLimitProposalIdentity),
   });
 }
@@ -1788,9 +1827,26 @@ async function reusableGreenProof(
     proof.status !== "honored" || proof.proof_data === undefined ||
     proof.proof_line === undefined ||
     proof.checkpoint_drops?.some((drop) =>
-        drop.reason === "declaration_evidence_unavailable"
+        drop.reason === "declaration_evidence_unavailable" ||
+        drop.reason === "strand_check_unavailable" ||
+        isIndeterminateStopDrop(drop)
       ) === true
   ) {
+    return undefined;
+  }
+  try {
+    const cfg = await loadConfig(root);
+    const merged = await assertMainMerged(
+      root,
+      integrationBranch(cfg.repository.trunk),
+    );
+    if (merged.kind === "behind" || merged.kind === "missing") {
+      return undefined;
+    }
+  } catch {
+    // discern-best-effort: gate-reusable-proof-integration-fallback
+    // A cache cannot convert unreadable integration evidence into green. The
+    // full Gate owns the typed diagnostic and recovery route.
     return undefined;
   }
   const activeProposals = await activeStandardLimitProposalSet(root);
@@ -1819,6 +1875,52 @@ async function reusableGreenProof(
 /** A declaration changes checkpoint evidence and therefore always runs fresh. */
 function hasDeclarations(request: DeclarationRequest): boolean {
   return request.met.length > 0 || request.unmet !== undefined;
+}
+
+type DonePreamble =
+  | { kind: "reuse"; result: DiscernResult<GateData> }
+  | { kind: "refuse"; result: DiscernResult<GateData> }
+  | { kind: "proceed"; preflight: CheckpointPreflight };
+
+/** Resolve the one pre-job `done` protocol shared by CLI, MCP, and composite
+ * callers: safe Proof reuse, checkpoint reconciliation, then unchanged-tree
+ * protection. No entry point may reorder or selectively omit these boundaries. */
+async function resolveDonePreamble(
+  root: string,
+  options: {
+    mode: "strict" | "report";
+    declarations: DeclarationRequest;
+    rerunRequested: boolean;
+    ciRecovery: boolean;
+    signal?: AbortSignal;
+  },
+): Promise<DonePreamble> {
+  if (
+    options.mode === "strict" && !options.rerunRequested &&
+    !hasDeclarations(options.declarations)
+  ) {
+    const reused = await reusableGreenProof(root);
+    if (reused !== undefined) return { kind: "reuse", result: reused };
+  }
+  const checkpoints = await resolveCheckpointGate(
+    root,
+    options.declarations,
+    options.mode,
+    options.ciRecovery,
+    options.signal,
+  );
+  if (checkpoints.kind === "refuse") {
+    return checkpoints;
+  }
+  if (options.mode === "strict") {
+    const refusal = await unchangedTreeRerunRefusal(
+      root,
+      options.rerunRequested,
+      await gateRunEvidenceIdentity(root, checkpoints.preflight),
+    );
+    if (refusal !== undefined) return { kind: "refuse", result: refusal };
+  }
+  return { kind: "proceed", preflight: checkpoints.preflight };
 }
 
 /** The output contract an in-process full-gate caller must choose explicitly. */
@@ -1897,40 +1999,22 @@ export async function finishResult(
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
   const rerunRequested = opts.rerun === true;
-  if (
-    mode === "strict" && !rerunRequested && !hasDeclarations(declarations)
-  ) {
-    const reused = await reusableGreenProof(root);
-    if (reused !== undefined) return reused;
-  }
   const terminal = terminalContext();
-  const checkpointGate = await resolveCheckpointGate(
+  const preamble = await resolveDonePreamble(
     root,
-    declarations,
-    mode,
-    terminal.ciRequestsStaticOutput,
-    opts.signal,
-  );
-  if (checkpointGate.kind === "refuse") {
-    return checkpointGate.result;
-  }
-  const refusal = mode === "report"
-    ? undefined
-    : await unchangedTreeRerunRefusal(
-      root,
+    {
+      mode,
+      declarations,
       rerunRequested,
-      await gateRunEvidenceIdentity(
-        root,
-        checkpointGate.preflight.evidence,
-      ),
-    );
-  if (refusal !== undefined) {
-    return refusal;
-  }
+      ciRecovery: terminal.ciRequestsStaticOutput,
+      ...(opts.signal === undefined ? {} : { signal: opts.signal }),
+    },
+  );
+  if (preamble.kind !== "proceed") return preamble.result;
   if (opts.surface.kind === "quiet") {
     return (await runGate(root, { kind: "quiet-result" }, opts.signal, {
       cliModel: opts.cliModel,
-      checkpoints: checkpointGate.preflight,
+      checkpoints: preamble.preflight,
       ...(opts.validationCaptureOptions !== undefined
         ? { validationCaptureOptions: opts.validationCaptureOptions }
         : {}),
@@ -1946,7 +2030,7 @@ export async function finishResult(
     opts.signal,
     {
       cliModel: opts.cliModel,
-      checkpoints: checkpointGate.preflight,
+      checkpoints: preamble.preflight,
       ...(opts.validationCaptureOptions !== undefined
         ? { validationCaptureOptions: opts.validationCaptureOptions }
         : {}),
@@ -2005,42 +2089,27 @@ export async function runFinish(
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
   const rerunRequested = opts.rerun === true;
-  if (
-    mode === "strict" && !rerunRequested && !hasDeclarations(declarations)
-  ) {
-    const reused = await reusableGreenProof(root);
-    if (reused !== undefined) {
-      observeResult(reused);
-      if (opts.json) {
-        emitResult(reused);
-      } else {
-        makeOut(colorEnabled()).ok(
-          reused.message ?? "Current green Proof reused; no Gate job ran.",
-        );
-      }
-      return 0;
-    }
-  }
   const terminal = terminalContext();
-  const checkpointGate = await resolveCheckpointGate(
-    root,
-    declarations,
+  const preamble = await resolveDonePreamble(root, {
     mode,
-    terminal.ciRequestsStaticOutput,
-  );
-  const refusal = checkpointGate.kind === "refuse"
-    ? checkpointGate.result
-    : mode === "report"
-    ? undefined
-    : await unchangedTreeRerunRefusal(
-      root,
-      rerunRequested,
-      await gateRunEvidenceIdentity(
-        root,
-        checkpointGate.preflight.evidence,
-      ),
-    );
-  if (refusal !== undefined) {
+    declarations,
+    rerunRequested,
+    ciRecovery: terminal.ciRequestsStaticOutput,
+  });
+  if (preamble.kind === "reuse") {
+    observeResult(preamble.result);
+    if (opts.json) {
+      emitResult(preamble.result);
+    } else {
+      makeOut(colorEnabled()).ok(
+        preamble.result.message ??
+          "Current green Proof reused; no Gate job ran.",
+      );
+    }
+    return 0;
+  }
+  if (preamble.kind === "refuse") {
+    const refusal = preamble.result;
     observeResult(refusal); // the logbook records the refusal with its slug
     if (opts.json) {
       emitResult(refusal);
@@ -2058,9 +2127,7 @@ export async function runFinish(
     }
     return 1;
   }
-  const preflight = checkpointGate.kind === "proceed"
-    ? checkpointGate.preflight
-    : undefined;
+  const preflight = preamble.preflight;
   const gateRun = (): ReturnType<typeof runGate> =>
     runGate(
       root,

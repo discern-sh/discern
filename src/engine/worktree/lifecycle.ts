@@ -50,6 +50,7 @@ import { isKnownGitCount } from "../../shared/git_count.ts";
 import {
   type CheckpointDrop,
   checkpointDropAccounts,
+  isIndeterminateStopDrop,
   uniqueCheckpointDrops,
 } from "../../shared/checkpoint_drops.ts";
 import {
@@ -2316,14 +2317,14 @@ function landingConsentForApply(
   authority: LandingAuthorityResolution,
   confirmed: boolean,
 ): LandingConsent {
+  if (confirmed) {
+    return { source: "conversation" };
+  }
   if (authority.kind === "authorized") {
     return authority.consent;
   }
-  if (!confirmed) {
-    const result = acceptAwaitingConsentResult(authority);
-    throw new WorktreeResultError(result.message ?? "", result);
-  }
-  return { source: "conversation" };
+  const result = acceptAwaitingConsentResult(authority);
+  throw new WorktreeResultError(result.message ?? "", result);
 }
 
 /** Prefer recorded authority and fall back to an explicit conversation attestation. */
@@ -2331,10 +2332,34 @@ function availableLandingConsent(
   authority: LandingAuthorityResolution,
   confirmed: boolean,
 ): LandingConsent | undefined {
+  if (confirmed) {
+    return { source: "conversation" };
+  }
   if (authority.kind === "authorized") {
     return authority.consent;
   }
-  return confirmed ? { source: "conversation" } : undefined;
+  return undefined;
+}
+
+/** Refuse an acceptance whose declaration binding cannot be read. No consent
+ * source can authorize unknown evidence. */
+function refuseUnreadableDeclarationEvidence(
+  drops: readonly CheckpointDrop[],
+): void {
+  if (
+    !drops.some((drop) => drop.reason === "declaration_evidence_unavailable")
+  ) {
+    return;
+  }
+  const result: DiscernResult<AcceptData> = {
+    ok: false,
+    verb: "accept",
+    error: "checkpoint_evidence_unavailable",
+    message:
+      "Acceptance cannot read the checkpoint declaration evidence that the validated Proof must bind to. Nothing was landed and the worktree is intact. Restore the declaration store, run `discern done --rerun`, then retry acceptance.",
+    data: { checkpoint_drops: [...drops] },
+  };
+  throw new WorktreeResultError(result.message ?? "", result);
 }
 
 /** Initialize every durable acceptance effect as not yet performed. */
@@ -2699,8 +2724,16 @@ async function executeAcceptPlan(
       },
     );
   }
+  const proofDrops = uniqueCheckpointDrops([
+    ...(proof.proof_data?.checkpoint_drops ?? []),
+    ...(proof.checkpoint_drops ?? []),
+  ]);
+  const proofNeedsFreshGate = proofDrops.some((drop) =>
+    drop.reason === "declaration_evidence_unavailable" ||
+    isIndeterminateStopDrop(drop)
+  );
   const gateValidation: NonNullable<AcceptData["gate_validation"]> =
-    proof.status === "honored"
+    proof.status === "honored" && !proofNeedsFreshGate
       ? { mode: "proof", proof: proof }
       : { mode: "rerun", proof: proof };
   progress.gateValidation = gateValidation;
@@ -2730,6 +2763,7 @@ async function executeAcceptPlan(
       surface: ctx.log.json
         ? { kind: "quiet" }
         : { kind: "human", plain: plainModeEnabled() },
+      ...(proofNeedsFreshGate ? { rerun: true } : {}),
     });
     if (!gate.ok) {
       throw new WorktreeGitError(acceptGateRefusal(worktreeBranch, gate));
@@ -2795,6 +2829,22 @@ async function executeAcceptPlan(
     ...(proof.checkpoint_drops ?? []),
     ...checkpointsNow.drops,
   ]);
+  refuseUnreadableDeclarationEvidence(accumulatedCheckpointDrops);
+  if (
+    accumulatedCheckpointDrops.some(isIndeterminateStopDrop) &&
+    consent.source !== "conversation"
+  ) {
+    const result: DiscernResult<AcceptData> = {
+      ok: false,
+      verb: "accept",
+      error: "awaiting_consent",
+      message:
+        "A stop checkpoint's executable condition was indeterminate, so this landing requires the owner's current-conversation attestation. Recorded grants do not cover it. Nothing was landed and the worktree is intact. Review the checkpoint drop, then re-run `discern accept --confirmed` in this conversation.",
+      data: { checkpoint_drops: accumulatedCheckpointDrops },
+      hints: hintTexts([fire(HINTS["accept-awaiting-confirmation"])]),
+    };
+    throw new WorktreeResultError(result.message ?? "", result);
+  }
   const bindingKey = (v: AuthorizedVarianceData): string =>
     [v.checkpoint, v.definition_hash, v.subject, v.why].join("\u0000");
   const liveBindings = checkpointsNow.unmet
@@ -3590,6 +3640,9 @@ async function executeAcceptResult(
     ...(startingProof.checkpoint_drops ?? []),
   ]);
   await assertProjectRootIsRepoToplevel(ctx, "accept");
+  if (!dryRun) {
+    refuseUnreadableDeclarationEvidence(checkpointDrops);
+  }
   // Resolve authority before the ordinary preconditions so an uncovered
   // flagless call still receives the consent refusal as its outermost contract.
   // Every read is mutation-free. A dry-run reports authority but needs none.
@@ -3695,6 +3748,7 @@ async function executeAcceptResult(
         ...checkpointDrops,
         ...checkpointState.drops,
       ]);
+      refuseUnreadableDeclarationEvidence(checkpointDrops);
       for (const advisory of checkpointDropAccounts(checkpointState.drops)) {
         ctx.log.warn(advisory);
       }

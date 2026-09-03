@@ -42,7 +42,7 @@ A green Gate also leaves the code where it is. The change remains on its branch 
 
 A reviewer's first question about evidence is whether it describes the code in front of them. Before any job runs, the Gate pins the current commit and observes the working tree. It checks both again after the run, which matters when a test suite takes long enough for another process to rewrite a file. Proof is recorded only when the passing result still describes that same clean commit. The short hash appears in the Proof line; the stored evidence binds the full hash.
 
-`discern done` can check a tree with uncommitted changes, but it won't record Proof for that state. If the branch is behind the trunk, it refuses before the Gate runs and tells the agent to run `discern update`. If the commit moves during the Gate, the result may be green for the tree pinned at the start, but it can't become current Proof for the new commit.
+`discern done` can check a tree with uncommitted changes, but it won't record Proof for that state. Proof binds the full committed `HEAD`, a clean tree, checkpoint declarations, and the definitions behind reusable Standard measurements; it does not bind a trunk commit. Before reuse, discern still reads the configured local trunk. If the branch is behind, it refuses and tells the agent to run `discern update`; if that local ref cannot be read, it fails closed and tells the agent how to fetch it. A remote-tracking ref alone is insufficient. If the commit moves during the Gate, the result may be green for the tree pinned at the start, but it can't become current Proof for the new commit.
 
 To produce Proof, the agent brings in the trunk when needed, commits the final tree, and runs `discern done` on that clean commit.
 

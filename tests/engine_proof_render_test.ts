@@ -162,7 +162,7 @@ Deno.test("proof render: standards render before the job table", () => {
     "",
     "Standards (limits verified against `main`):",
     "",
-    "- coverage 83 (floor 80, held) · 3s",
+    "- `coverage` 83 (floor 80, held) · 3s",
     "",
     "| ran | command | result |",
     "| --- | --- | --- |",
@@ -315,7 +315,7 @@ Deno.test("proof render: a timed sub-second standard says <1s", () => {
     [{ ...HELD, duration_s: 0 }],
     VERIFIED,
   );
-  assertStringIncludes(md, "- coverage 83 (floor 80, held) · <1s");
+  assertStringIncludes(md, "- `coverage` 83 (floor 80, held) · <1s");
 });
 
 Deno.test("proof render: an untimed run claims no duration at all", () => {
@@ -596,7 +596,7 @@ Deno.test("landing proof line records each canonical consent source", () => {
     },
     "standing-grant": {
       consent: { source: "standing-grant", scopes: ["map", "site"] },
-      expected: `${line} · landed under standing grant: map, site`,
+      expected: `${line} · landed under standing grant: \`map\`, \`site\``,
     },
     "effort-grant": {
       consent: { source: "effort-grant" },
@@ -616,6 +616,24 @@ Deno.test("landing proof line records each canonical consent source", () => {
       `${source} must report its successful landing evidence`,
     );
   }
+});
+
+Deno.test("Proof escapes edge-case Standard and standing-grant scope names", () => {
+  const page = renderProofMarkdown(
+    FACTS,
+    STEPS,
+    [{ ...HELD, name: "_cov_" }],
+    VERIFIED,
+  );
+  assertStringIncludes(page, "- `_cov_` 83");
+  assertEquals(page.includes("- _cov_ 83"), false);
+
+  const landed = renderLandingProofLine(renderProofLine(FACTS), {
+    source: "standing-grant",
+    scopes: ["_web_"],
+  });
+  assertStringIncludes(landed, "standing grant: `_web_`");
+  assertEquals(landed.includes("standing grant: _web_"), false);
 });
 
 // ── the page's terminal treatment ───────────────────────────────────────────

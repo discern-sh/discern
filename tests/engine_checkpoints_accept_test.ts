@@ -289,11 +289,25 @@ Deno.test("accept: report-mode Proof is non-landable in preview and apply", asyn
   });
 });
 
-Deno.test("accept: fail-open drops survive preview, consent review, landing, and DSSE", async () => {
+Deno.test("accept: an indeterminate stop serves full evidence and excludes recorded grants", async () => {
   await withTempDir(async (dir) => {
-    const config = `${CONFIG}\nwhen = "exit 7"\n`;
+    const config = CONFIG_WITH_GRANT.replace(
+      `question = "${QUESTION}"`,
+      `question = "${QUESTION}"\nwhen = "exit 7"`,
+    );
     const wt = await checkpointedWorktree(dir, config);
-    const gate = await runAgent(wt, ["done", "--json"]);
+    const served = await runAgent(wt, ["done", "--json"]);
+    assertEquals(served.code, 1, served.output);
+    const servedResult = decodeCliResult(served.stdout, "done");
+    assertEquals(servedResult.error, AWAITING_DECLARATION_SLUG);
+    assertStringIncludes(servedResult.message ?? "", "api/surface.txt");
+
+    const gate = await runAgent(wt, [
+      "done",
+      "--met",
+      "api-review",
+      "--json",
+    ]);
     assertEquals(gate.code, 0, gate.output);
 
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
@@ -304,6 +318,8 @@ Deno.test("accept: fail-open drops survive preview, consent review, landing, and
       "when_invalid_exit",
     );
 
+    // The standing grant covers the changed scope, but indeterminate stop
+    // evidence deliberately requires this conversation's boolean attestation.
     const review = await runAgent(wt, ["accept", "--json"]);
     assertEquals(review.code, 1, review.output);
     const reviewEnv = parseCheckpointDropAcceptJson(review.stdout);
@@ -332,7 +348,7 @@ Deno.test("accept: fail-open drops survive preview, consent review, landing, and
   });
 });
 
-Deno.test("accept: a store drop first observed after Gate survives landing in the DSSE", async () => {
+Deno.test("accept: unreadable declaration evidence refuses before landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await checkpointedWorktree(dir);
     const gate = await runAgent(wt, [
@@ -353,6 +369,10 @@ Deno.test("accept: a store drop first observed after Gate survives landing in th
       envelope.data.checkpoint_drops.find((drop) =>
         drop.reason === "open_question_store_corrupt"
       );
+    const declarationDrop = (envelope: CheckpointDropAcceptEnvelope) =>
+      envelope.data.checkpoint_drops.find((drop) =>
+        drop.reason === "declaration_evidence_unavailable"
+      );
 
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(preview.code, 0, preview.output);
@@ -364,22 +384,24 @@ Deno.test("accept: a store drop first observed after Gate survives landing in th
     const review = await runAgent(wt, ["accept", "--json"]);
     assertEquals(review.code, 1, review.output);
     const reviewEnv = parseCheckpointDropAcceptJson(review.stdout);
-    assertEquals(reviewEnv.error, AWAITING_CONSENT_SLUG);
-    assertEquals(liveDrop(reviewEnv)?.policy_commit, policyCommit);
+    assertEquals(reviewEnv.error, "checkpoint_evidence_unavailable");
+    assertStringIncludes(
+      declarationDrop(reviewEnv)?.account ?? "",
+      "declaration evidence could not be read",
+    );
 
-    const landedSha = await gitOut(wt, "rev-parse", "HEAD");
     const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(apply.code, 0, apply.output);
+    assertEquals(apply.code, 1, apply.output);
     assertEquals(
-      liveDrop(parseCheckpointDropAcceptJson(apply.stdout))?.policy_commit,
-      policyCommit,
+      parseAcceptJson(apply.stdout).error,
+      "checkpoint_evidence_unavailable",
     );
-
-    const payload = await landedNotePayload(dir, landedSha);
-    const durableDrop = payload.proof?.checkpoint_drops?.find((drop) =>
-      drop.reason === "open_question_store_corrupt"
+    assert(
+      parseCheckpointDropAcceptJson(apply.stdout).data.checkpoint_drops.some(
+        (drop) => drop.reason === "declaration_evidence_unavailable",
+      ),
     );
-    assertEquals(durableDrop?.policy_commit, policyCommit);
+    assert(await targetExists(wt), "unreadable declarations must land nothing");
   });
 });
 

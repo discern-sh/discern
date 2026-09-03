@@ -217,8 +217,7 @@ export type WhenOutcome =
       | "when_input_cleanup_failed"
       | "when_output_limit"
     >;
-    /** Plain-language account of the failure — the trigger fails OPEN (no
-     * fire) and this advisory travels with the run. */
+    /** Plain-language account of the indeterminate outcome. */
     advisory: string;
   };
 
@@ -229,4 +228,7 @@ export type TriggerOutcome =
     fired: true;
     matched: readonly string[];
     related: readonly RelatedCheckpointPath[];
+    /** Present when full structural evidence was used because `when` could
+     * not decide. */
+    advisory?: string;
   };

@@ -161,7 +161,7 @@ Deno.test("tier 1: a standard new on the branch passes vacuously; a tightened li
   });
 });
 
-Deno.test("tier 1: an unreadable trunk skips LOUDLY — the gate passes with the unverified disclosure and the fetch hint", async () => {
+Deno.test("tier 1: an unreadable local trunk fails closed with the disclosure and recovery hint", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, covConfig({ limit: 80 }));
@@ -170,8 +170,9 @@ Deno.test("tier 1: an unreadable trunk skips LOUDLY — the gate passes with the
     await git(dir, "branch", "-M", "trunk-elsewhere");
 
     const r = await runAgent(dir, ["done", "--json"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
     const obj = parseGateJson(r.stdout);
+    assertEquals(obj.data?.failed_stage, "standards");
     assertEquals(obj.data?.standards_limits?.status, "unverified");
     const reason = obj.data?.standards_limits?.reason;
     assert(reason !== undefined, `expected the unverified reason: ${r.stdout}`);
@@ -223,7 +224,7 @@ Deno.test("tier 2: a holding standard is measured inside the check/test group, v
     assertEquals(step.kind, "standard");
     assertEquals(step.outcome, "ok");
     // Genuinely inside the parallel group — same group as the checks/tests.
-    assertEquals(step.group, "Check & test");
+    assertEquals(step.group, "Test & standards");
     assertStringIncludes(step.note ?? "", "measured 90");
     const entry = obj.data?.standards?.find((s) => s.name === "cov");
     assertEquals(entry?.measurement, "measured");
@@ -251,7 +252,7 @@ Deno.test("tier 2: a regressed metric fails the gate with the standard diagnosti
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseGateJson(r.stdout);
-    assertEquals(obj.data?.failed_stage, "check/test");
+    assertEquals(obj.data?.failed_stage, "test");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === "standard:cov");
     assert(diag !== undefined, r.stdout);
     assertStringIncludes(diag.message, "60"); // measured
@@ -360,7 +361,7 @@ Deno.test("tier 2: the dry-run plan lists the standards inside the check/test gr
     const obj = decodeCliResult(r.stdout, "done");
     const cov = obj.plan?.steps.find((s) => s.label === "standard:cov");
     assertEquals(cov?.disposition, "run");
-    assertEquals(cov?.group, "Check & test");
+    assertEquals(cov?.group, "Test & standards");
     const slow = obj.plan?.steps.find((s) => s.label === "standard:slow");
     assertEquals(slow?.disposition, "skip");
     assertStringIncludes(slow?.note ?? "", "on-demand");
@@ -451,7 +452,7 @@ Deno.test("the proof renders the standards section and the limits-verified line"
     assertEquals(r.code, 0, r.output);
     const markdown = r.output;
     assertStringIncludes(markdown, "Standards (limits verified against");
-    assertStringIncludes(markdown, "cov 90 (floor 80, improved)");
+    assertStringIncludes(markdown, "`cov` 90 (floor 80, improved)");
   });
 });
 

@@ -11,6 +11,7 @@ export type DiscernKnownErrorSlug =
   | "below_min_score"
   | "brief_unparseable"
   | "checkout_failed"
+  | "checkpoint_evidence_unavailable"
   | "config_template_unavailable"
   | "confirmation_required"
   | "conflict"
@@ -228,7 +229,8 @@ export type DiscernProof = {
         | "governing_config_invalid"
         | "open_question_store_unreadable"
         | "open_question_store_corrupt"
-        | "declaration_evidence_unavailable";
+        | "declaration_evidence_unavailable"
+        | "strand_check_unavailable";
       account: string;
     } | {
       scope: "checkpoint";
@@ -342,7 +344,8 @@ export type DiscernProofCheckpoints = {
         | "governing_config_invalid"
         | "open_question_store_unreadable"
         | "open_question_store_corrupt"
-        | "declaration_evidence_unavailable";
+        | "declaration_evidence_unavailable"
+        | "strand_check_unavailable";
       account: string;
     } | {
       scope: "checkpoint";
@@ -420,7 +423,8 @@ export type DiscernProofSummary = {
         | "governing_config_invalid"
         | "open_question_store_unreadable"
         | "open_question_store_corrupt"
-        | "declaration_evidence_unavailable";
+        | "declaration_evidence_unavailable"
+        | "strand_check_unavailable";
       account: string;
     } | {
       scope: "checkpoint";
@@ -1549,7 +1553,8 @@ export type DiscernSetupDoneResult = DiscernResultState & {
             | "governing_config_invalid"
             | "open_question_store_unreadable"
             | "open_question_store_corrupt"
-            | "declaration_evidence_unavailable";
+            | "declaration_evidence_unavailable"
+            | "strand_check_unavailable";
           account: string;
         } | {
           scope: "checkpoint";
@@ -1871,7 +1876,8 @@ export type DiscernSetupAcceptResult = DiscernResultState & {
             | "governing_config_invalid"
             | "open_question_store_unreadable"
             | "open_question_store_corrupt"
-            | "declaration_evidence_unavailable";
+            | "declaration_evidence_unavailable"
+            | "strand_check_unavailable";
           account: string;
         } | {
           scope: "checkpoint";
@@ -3878,7 +3884,8 @@ export type DiscernDoneResult = DiscernResultState & {
             | "governing_config_invalid"
             | "open_question_store_unreadable"
             | "open_question_store_corrupt"
-            | "declaration_evidence_unavailable";
+            | "declaration_evidence_unavailable"
+            | "strand_check_unavailable";
           account: string;
         } | {
           scope: "checkpoint";
@@ -4709,7 +4716,8 @@ export type DiscernCheckpointsResult = DiscernResultState & {
           | "governing_config_invalid"
           | "open_question_store_unreadable"
           | "open_question_store_corrupt"
-          | "declaration_evidence_unavailable";
+          | "declaration_evidence_unavailable"
+          | "strand_check_unavailable";
         account: string;
       } | {
         scope: "checkpoint";
@@ -7269,7 +7277,8 @@ export type DiscernStatusResult = DiscernResultState & {
             | "governing_config_invalid"
             | "open_question_store_unreadable"
             | "open_question_store_corrupt"
-            | "declaration_evidence_unavailable";
+            | "declaration_evidence_unavailable"
+            | "strand_check_unavailable";
           account: string;
         } | {
           scope: "checkpoint";
@@ -7433,7 +7442,8 @@ export type DiscernStatusResult = DiscernResultState & {
               | "governing_config_invalid"
               | "open_question_store_unreadable"
               | "open_question_store_corrupt"
-              | "declaration_evidence_unavailable";
+              | "declaration_evidence_unavailable"
+              | "strand_check_unavailable";
             account: string;
           } | {
             scope: "checkpoint";
@@ -8108,7 +8118,8 @@ export type DiscernAcceptResult = DiscernResultState & {
           | "governing_config_invalid"
           | "open_question_store_unreadable"
           | "open_question_store_corrupt"
-          | "declaration_evidence_unavailable";
+          | "declaration_evidence_unavailable"
+          | "strand_check_unavailable";
         account: string;
       } | {
         scope: "checkpoint";
@@ -8247,7 +8258,8 @@ export type DiscernAcceptResult = DiscernResultState & {
               | "governing_config_invalid"
               | "open_question_store_unreadable"
               | "open_question_store_corrupt"
-              | "declaration_evidence_unavailable";
+              | "declaration_evidence_unavailable"
+              | "strand_check_unavailable";
             account: string;
           } | {
             scope: "checkpoint";

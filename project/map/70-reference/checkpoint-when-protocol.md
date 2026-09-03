@@ -35,6 +35,8 @@ A structurally holding checkpoint may delegate its final firing decision to `whe
 
 The registered input file has mode `0600` and exists only while its command runs. discern removes it after fire, pass, invalid exit, timeout, cancellation, spawn failure, or input failure, completing cleanup before an interrupt can be re-raised. A cleanup failure or protocol output beyond 256 KiB fails the checkpoint open and leaves a typed drop. `discern checkpoints`, `status`, `prepare`, and every dry run create no input file and run no command.
 
-Exit 0 fires, exit 1 passes, and another exit or execution error fails open. `DISCERN_MATCH <path>` lines may narrow the matched set but cannot admit a path absent from `changed_files`. Without a valid declared match, the command retains the structural matched set.
+Exit 0 fires and exit 10 passes. Every other exit, spawn or input error, cancellation, timeout, cleanup failure, or output overflow is indeterminate. When the structural trigger holds, an indeterminate `stop` serves its question against the complete structural matched set and records the typed uncertainty; an indeterminate `advise` checkpoint remains non-blocking and reports the same uncertainty. A Proof carrying an indeterminate stop is not reusable, and landing it requires current-conversation confirmation rather than a recorded grant.
+
+On a decisive fire, `DISCERN_MATCH <path>` lines may narrow the matched set but cannot admit a path absent from `changed_files`. Without a valid declared match, the command retains the structural matched set.
 
 The merge-base governs the command text. The command runs in the candidate worktree, so its scripts, dependencies, configuration, and interpreter resolve there and do not form a hermetic policy dependency closure ([ADR 0308](../_adr/0308-checkpoint-triggers-use-bounded-facts-and-versioned-input.md)).

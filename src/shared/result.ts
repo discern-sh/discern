@@ -390,6 +390,7 @@ export const ERROR_SLUGS = [
   "below_min_score",
   "brief_unparseable",
   "checkout_failed",
+  "checkpoint_evidence_unavailable",
   "config_template_unavailable",
   "confirmation_required",
   "conflict",

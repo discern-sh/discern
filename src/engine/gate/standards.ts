@@ -83,6 +83,7 @@ import { buildTestRunSlots, type TestRunSlots } from "./test_slots.ts";
 import { renderSlotWait } from "./slot_wait_render.ts";
 import { type JobGroup, type PlannedJob, serializeJobSteps } from "./plan.ts";
 import {
+  standardDefinitionFingerprint,
   type TrunkLimitsVerification,
   verifyTrunkLimits,
 } from "./standard_limits.ts";
@@ -1122,6 +1123,7 @@ async function recordCheckMeasurements(
   authority: AdminStateWriteAuthority,
   execution: StandardExecution,
   pin: ValidatedTreePin,
+  completeProject: boolean,
 ): Promise<boolean> {
   await recordFreshStandardMeasurementEvidence(
     root,
@@ -1133,13 +1135,21 @@ async function recordCheckMeasurements(
     await clearStandardMeasurements(root, authority);
     return false;
   }
+  if (!completeProject) {
+    return false;
+  }
   const values: Record<string, number> = {};
   const durations: Record<string, number> = {};
+  const definitions: Record<string, string> = {};
   for (const o of execution.outcomes) {
     if (o.value === undefined) {
       return false;
     }
     values[o.standard.name] = o.value;
+    definitions[o.standard.name] = await standardDefinitionFingerprint(
+      o.standard.name,
+      o.standard.spec,
+    );
     if (o.durationS !== undefined) {
       durations[o.standard.name] = o.durationS;
     }
@@ -1148,6 +1158,7 @@ async function recordCheckMeasurements(
     root,
     authority,
     values,
+    definitions,
     pin,
     durations,
   );
@@ -1551,7 +1562,23 @@ async function pinStandardsResult(
   // only missing members, sharing processes among those members by identity.
   const measured = await inspectStandardMeasurements(root);
   const replayValues = measured.status === "honored"
-    ? measured.values
+    ? Object.fromEntries(
+      (await Promise.all(
+        selection.execution.standards.map(async (standard) => ({
+          name: standard.name,
+          definition: await standardDefinitionFingerprint(
+            standard.name,
+            standard.spec,
+          ),
+        })),
+      )).flatMap(({ name, definition }) =>
+        measured.definitions[name] === definition &&
+          measured.provenance[name] !== undefined &&
+          measured.values[name] !== undefined
+          ? [[name, measured.values[name]]]
+          : []
+      ),
+    )
     : undefined;
   const replayFrom = replayValues === undefined ? undefined : treePin.head;
   const slots = buildTestRunSlots(root, cfg);
@@ -1737,8 +1764,8 @@ function unverifiedTrunkHint(
  *
  * With `pin`, it instead runs the pin pass (ADR 0106): measure, tighten each
  * asked-for limit that improved past its margin, commit that change alone, and carry
- * a gate proof forward across it. `pinNames` restricts the pin to those
- * standards (empty = all with slack). `dryRun` previews without measuring in BOTH
+ * a gate proof forward across it. Positional names restrict an ordinary check
+ * and the pin target (empty = all). `dryRun` previews without measuring in BOTH
  * modes; a green check's hints name any pinnable slack, so check → pin is the whole
  * flow.
  */
@@ -1761,12 +1788,23 @@ export async function standardsResult(
   }
   const cfg = await loadConfig(root);
   const plan = buildStandardPlan(cfg);
+  const names = opts.pinNames ?? [];
+  const known = new Set(plan.standards.map((standard) => standard.name));
+  const unknown = [...new Set(names.filter((name) => !known.has(name)))];
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      verb: "standards",
+      error: "invalid_value",
+      message: `Unknown Standard name${unknown.length === 1 ? "" : "s"}: ${
+        unknown.join(", ")
+      }. Configured Standards: ${[...known].join(", ") || "none"}.`,
+    };
+  }
   let result: DiscernResult;
   const firedHints: FiredHint[] = [];
   let verification: TrunkLimitsVerification | undefined;
-  const unpinnedNames = (opts.pinNames?.length ?? 0) > 0 &&
-    !(opts.pin ?? false);
-  if (!unpinnedNames && !(opts.dryRun ?? false)) {
+  if (!(opts.dryRun ?? false)) {
     const mainBranch = integrationBranch(cfg.repository.trunk);
     const proposals = await inspectActiveStandardLimitProposals(
       root,
@@ -1787,17 +1825,7 @@ export async function standardsResult(
       }
     }
   }
-  if (unpinnedNames) {
-    // Names only mean something to the pin pass; a bare `standards <name>` would
-    // otherwise silently check everything, ignoring what was asked for.
-    result = {
-      ok: false,
-      verb: "standards",
-      error: "invalid_arguments",
-      message:
-        "standard names only apply with --pin. Re-run as `discern standards --pin <name>…`, or drop the names to check every standard.",
-    };
-  } else if (opts.pin ?? false) {
+  if (opts.pin ?? false) {
     let behindHint: FiredHint | undefined;
     if (!(opts.dryRun ?? false)) {
       const mainBranch = integrationBranch(cfg.repository.trunk);
@@ -1811,7 +1839,7 @@ export async function standardsResult(
     }
     const built = await pinStandardsResult(root, cfg, plan, {
       dryRun: opts.dryRun ?? false,
-      names: opts.pinNames ?? [],
+      names,
       ...(verification !== undefined ? { verification } : {}),
       ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
     });
@@ -1821,7 +1849,11 @@ export async function standardsResult(
       firedHints.push(behindHint);
     }
   } else if (opts.dryRun ?? false) {
-    result = previewResult("standards", standardPlanToEngine(plan));
+    const selection = buildStandardSelectionPlan(plan, names, true);
+    result = previewResult(
+      "standards",
+      standardPlanToEngine(selection.execution),
+    );
   } else {
     if (verification === undefined) {
       throw new Error(
@@ -1854,8 +1886,9 @@ export async function standardsResult(
           // the exact tree the parallel jobs read.
           const treePin = await pinValidatedTree(root);
           const slots = buildTestRunSlots(root, cfg);
+          const selection = buildStandardSelectionPlan(plan, names, true);
           const execution = await executeStandardPlan(
-            plan,
+            selection.execution,
             root,
             verification,
             {
@@ -1875,6 +1908,7 @@ export async function standardsResult(
             writePreflight.authority,
             execution,
             treePin,
+            selection.execution.standards.length === plan.standards.length,
           );
           if (result.ok) {
             const slack = outcomes.flatMap((o) => {

@@ -467,7 +467,7 @@ export function attachEngineCommands(
 
   const standardsCommand = new Command()
     .description(
-      "Measure every quality standard: numbers that can never get worse. `discern done` already verifies and measures them on every run. Authoring one? Hold a rate (`per`) for a number that rises as the project grows, and give a drifting total a `margin` — a ceiling pinned at today's value fails the next legitimate change.",
+      "Measure the named quality standards, or every configured Standard when no names are given: numbers that can never get worse. `discern done` already verifies and measures them on every run. Authoring one? Hold a rate (`per`) for a number that rises as the project grows, and give a drifting total a `margin` — a ceiling pinned at today's value fails the next legitimate change.",
     )
     .arguments("[names...:string]")
     .option(

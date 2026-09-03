@@ -205,12 +205,12 @@ const MUTATING_STAGES: ReadonlyArray<
   {
     name: "lint",
     capability: 'lint = "sh mutate.sh"',
-    phrase: "the check/test stage",
+    phrase: "the check stage",
   },
   {
     name: "test",
     capability: 'test = "sh mutate.sh"',
-    phrase: "the check/test stage",
+    phrase: "the test stage",
   },
 ];
 
@@ -585,8 +585,8 @@ Deno.test("done: generated drift outranks the checkpoint — the owning group is
   });
 });
 
-/** A fixer that strands AND breaks the index: the tree snapshot stays
- * fail-open, while the final tracked-refresh proof fails closed. */
+/** A fixer that strands AND breaks the index: strand evidence becomes
+ * unavailable, while the final tracked-refresh proof fails closed. */
 const INDEX_BREAKING_MUTATOR = [
   "#!/usr/bin/env sh",
   'echo "regenerated" >> data.txt',
@@ -612,6 +612,77 @@ Deno.test("done: refresh planning fails closed when a fixer corrupts the index",
     const refresh = diagFor(obj, "refresh");
     assert(refresh !== undefined, r.stdout);
     assertTerminalTextIncludes(refresh.output ?? "", "git ls-files");
+  });
+});
+
+Deno.test("done: unreadable strand snapshots stay visible and cannot mint reusable Proof", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[jobs]",
+        'test = "touch strand-status-disabled"',
+        "",
+      ].join("\n"),
+    );
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      "strand-status-disabled\n",
+    );
+    const gitWrapper = join(dir, "git-with-unreadable-strand-status");
+    await writeExecutable(
+      gitWrapper,
+      [
+        "#!/usr/bin/env sh",
+        "is_status=0",
+        "is_porcelain=0",
+        'for arg in "$@"; do',
+        '  [ "$arg" = "status" ] && is_status=1',
+        '  [ "$arg" = "--porcelain=v1" ] && is_porcelain=1',
+        "done",
+        'if [ -f strand-status-disabled ] && [ "$is_status" = 1 ] && [ "$is_porcelain" = 1 ]; then',
+        '  echo "strand status deliberately unavailable" >&2',
+        "  exit 70",
+        "fi",
+        'exec git "$@"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+
+    const first = await runAgent(dir, ["done", "--json"], {
+      env: { GIT_BIN: gitWrapper },
+    });
+    assertEquals(first.code, 0, first.output);
+    const envelope = decodeGateResult(first.stdout);
+    assertEquals(envelope.data.failed_stage, null);
+    const checkpoints = envelope.data.checkpoints;
+    assert(checkpoints !== undefined, first.output);
+    assertEquals(
+      checkpoints.drops?.some((entry) =>
+        entry.reason === "strand_check_unavailable"
+      ),
+      true,
+    );
+    assertTerminalTextIncludes(first.stdout, "restore Git status access");
+    assertEquals(envelope.data.gate_proof?.status, "recorded");
+
+    const second = await runAgent(dir, ["done", "--json"], {
+      env: { GIT_BIN: gitWrapper },
+    });
+    assertEquals(second.code, 1, second.output);
+    assertStringIncludes(second.stdout, "unchanged_tree_rerun");
+    assert(
+      !second.stdout.includes("reused the current green Proof"),
+      second.output,
+    );
   });
 });
 

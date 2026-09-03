@@ -1499,7 +1499,7 @@
 [checkpoints.effort-sprawl] # one effort, or several riding along?
   min_changed_files = 40
 
-[checkpoints.docs-drift] # code moved and the map did not
+[checkpoints.map-drift] # code moved and the map did not
 
 [checkpoints.commit-story] # a large change: do the messages tell the why?
   min_changed_files = 25

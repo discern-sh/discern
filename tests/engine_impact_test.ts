@@ -235,6 +235,35 @@ Deno.test("previewable marker tracks the previewable flag at every neutral setti
   }
 });
 
+Deno.test("a firing scope outranks an overlapping neutral scope", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[scopes.generated]",
+        'paths = ["web/**"]',
+        "neutral = true",
+        "",
+        "[scopes.public-web]",
+        'paths = ["web/public/**"]',
+        'gate = "true"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    await writeExecutable(join(dir, "web/public/x.txt"), "x");
+
+    assertEquals(await classifyScopes(dir), [CODE_MARKER, "public-web"]);
+  });
+});
+
 Deno.test("impact: a rename OUT of a gated scope still fires the vacated scope", async (t) => {
   // A rename is a deletion from the old scope plus an addition elsewhere. Dropping
   // the vacated (old) path would run FEWER gates than a plain deletion of the same

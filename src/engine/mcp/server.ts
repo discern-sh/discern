@@ -620,7 +620,7 @@ export const TOOLS: McpTool[] = orderTools([
         "Capture measured improvements, commit the limit change alone, and carry Gate Proof forward. Reuses available same-commit values and measures missing selected values (default false).",
       ),
       pin_names: z.array(z.string()).optional().describe(
-        "With pin, change only these Standards. Measurement also narrows to them when honored Gate Proof already validates the clean tree; otherwise the complete Standard set is validated (default: every Standard with slack).",
+        "Measure only these Standards. With pin, change only this set too; measurement narrows after honored Gate Proof validates the clean tree, otherwise the complete Standard set is validated before mutating only the named limits (default: every Standard).",
       ),
       ...PATH_PARAM,
     },

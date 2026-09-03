@@ -392,18 +392,17 @@ export async function runCheckpointPreflight(
       );
     }
     const outcome = resolveTriggerOutcome(structural, when);
+    if (
+      outcome.advisory !== undefined && inspection.policyCommit !== undefined
+    ) {
+      drops.push(preflightDrop(
+        definition,
+        inspection.policyCommit,
+        when?.kind === "error" ? when.reason : "when_invalid_exit",
+        outcome.advisory,
+      ));
+    }
     if (!outcome.fired) {
-      if (outcome.advisory !== undefined) {
-        if (inspection.policyCommit === undefined) {
-          continue;
-        }
-        drops.push(preflightDrop(
-          definition,
-          inspection.policyCommit,
-          when?.kind === "error" ? when.reason : "when_invalid_exit",
-          outcome.advisory,
-        ));
-      }
       continue;
     }
     fired.set(

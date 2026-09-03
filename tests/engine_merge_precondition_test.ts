@@ -23,7 +23,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 /**
  * A config with a single observable `test` capability — its echoed marker is the
@@ -124,27 +124,35 @@ Deno.test("done up to date: the merge precondition passes and the capability run
   });
 });
 
-Deno.test("done warns when the configured trunk is missing locally", async () => {
+Deno.test("strict done and done --ci fail closed when local trunk is unreadable", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
     await gitInit(dir);
     await git(dir, "branch", "-m", "trunk");
+    await git(
+      dir,
+      "update-ref",
+      "refs/remotes/origin/main",
+      "HEAD",
+    );
     const wt = await addWorktree(dir, "missing-main");
 
     const human = await runAgent(wt, ["done"]);
-    assertEquals(human.code, 0, human.output);
+    assertEquals(human.code, 1, human.output);
     assertTerminalTextIncludes(
       human.output,
       "trunk branch 'main' is not available locally",
     );
     assertStringIncludes(human.output, "[repository].trunk");
-    assertStringIncludes(human.output, MARKER);
+    assert(!human.output.includes(MARKER), human.output);
+    assertTerminalTextIncludes(human.output, "git fetch origin main:main");
 
-    // The tree is unchanged, so the deliberate rerun is explicit.
-    const json = await runAgent(wt, ["done", "--rerun", "--json"]);
-    assertEquals(json.code, 0, json.output);
+    const json = await runAgent(wt, ["done", "--ci", "--json"]);
+    assertEquals(json.code, 1, json.output);
     const obj = decodeCliResult(json.stdout, "done");
+    assertResultDataKey(obj, "failed_stage");
+    assertEquals(obj.data?.failed_stage, "standards");
     const expected = assertHasHint(
       obj,
       HINTS["missing-trunk-branch"],

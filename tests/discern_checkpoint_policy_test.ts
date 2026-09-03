@@ -243,6 +243,31 @@ Deno.test("every Git-backed checkpoint matcher exposes only its input environmen
   }
 });
 
+Deno.test("every configured checkpoint probe and the bundled authoring skill use the decisive pass code", async () => {
+  const scripts = new Set<string>();
+  for (const definition of RESOLUTION.checkpoints) {
+    if (definition.when === undefined) continue;
+    const script = /(?:^|\s)(scripts\/\S+_checkpoint\.ts)(?:\s|$)/u.exec(
+      definition.when,
+    )?.[1];
+    assert(script !== undefined, definition.id);
+    scripts.add(script);
+  }
+  assert(scripts.size > 0, "the repository config has no checkpoint probes");
+  for (const script of scripts) {
+    const source = await Deno.readTextFile(`${REPO_ROOT}/${script}`);
+    assert(
+      source.includes("CHECKPOINT_WHEN_PASS_EXIT_CODE"),
+      `${script} does not use the closed when-protocol pass authority`,
+    );
+  }
+  const skill = await Deno.readTextFile(
+    `${REPO_ROOT}/templates/skills/discern-place-a-checkpoint/SKILL.md`,
+  );
+  assert(skill.includes("exit 0 fires, exit 10 passes"));
+  assert(!skill.includes("exit 1 passes"));
+});
+
 Deno.test("checkpoint Git reads use the one isolated read-only adapter", async () => {
   const adapter = await Deno.readTextFile(
     new URL("../scripts/checkpoint_when_input.ts", import.meta.url),

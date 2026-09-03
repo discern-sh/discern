@@ -291,8 +291,14 @@ Deno.test("gate.fail_fast defaults ON; gate.stream defaults OFF", () => {
   const c = parseConfigOrThrow("");
   assertEquals(c.gate.fail_fast, true);
   assertEquals(c.gate.stream, false);
+  assertEquals(c.gate.concurrent_test_runs, 1);
   const off = parseConfigOrThrow("[gate]\nfail_fast = false\n");
   assertEquals(off.gate.fail_fast, false);
+  assertEquals(
+    parseConfigOrThrow("[gate]\nconcurrent_test_runs = 0\n").gate
+      .concurrent_test_runs,
+    0,
+  );
 });
 
 Deno.test("worktree resource defaults: required/gc default true, retries 0, commands empty", () => {

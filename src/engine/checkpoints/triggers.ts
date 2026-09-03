@@ -21,7 +21,8 @@
  * The executable `when` condition is deliberately NOT run here (it is an
  * effect; `when.ts` owns it): the structural outcome says whether `when` must
  * still decide, and {@link resolveTriggerOutcome} composes the two halves into
- * the final verdict — including the fail-open rule for a `when` error.
+ * the final verdict — including the full-evidence rule for an indeterminate
+ * `when` result.
  *
  * Semantics live only in the question the agent judges; these predicates are
  * mechanical facts about the diff.
@@ -569,8 +570,9 @@ export function evaluateStructuralTrigger(
  *   - structural veto → not fired;
  *   - `when` exit 0 → fired, valid declared matches narrowing the structural
  *     matched set (falling back to that set when none remains);
- *   - `when` exit 1 → not fired;
- *   - `when` error or timeout → FAIL OPEN: not fired, advisory attached.
+ *   - `when` exit 10 → not fired;
+ *   - `when` indeterminate → the structural trigger fires over its full
+ *     evidence, with the account attached.
  *
  * A pending `when` with no outcome supplied is a caller defect, not a state —
  * it throws rather than inventing a verdict.
@@ -615,6 +617,11 @@ export function resolveTriggerOutcome(
     case "pass":
       return { fired: false };
     case "error":
-      return { fired: false, advisory: when.advisory };
+      return {
+        fired: true,
+        matched: structural.matched,
+        related: structural.related,
+        advisory: when.advisory,
+      };
   }
 }

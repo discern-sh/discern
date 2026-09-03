@@ -19,9 +19,9 @@ _A clean green Gate records what ran and identifies the exact branch state ready
 
 The complete in-process Proof owns both renderings. Compact results use a projection with branch, trunk, validated commit, diff counts, and line. They omit the page, which can otherwise appear several times in one status fleet. `discern <verb> --markdown` selects an authored result presentation; it does not substitute the full Proof page for that presentation.
 
-An ordinary `discern done` Proof is strict landing evidence. An explicit `discern done --ci` Proof is a separate report identity: it states that checkpoint review was reported and was not enforced. `status` retains that identity as `report_only`; both acceptance preview and apply refuse it and require ordinary `discern done`. The durable note writer also rejects report identity, so acceptance does not depend on one refusal path ([ADR 0307](../_adr/0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)).
+An ordinary `discern done` Proof is strict landing evidence. An explicit `discern done --ci` Proof is a separate report identity: it states that checkpoint review was reported and was not enforced. `status` retains that identity as `report_only`; both acceptance preview and apply refuse it and require ordinary `discern done`. A CI run at the same `HEAD` never replaces an already honored strict marker with weaker report evidence. The durable note writer also rejects report identity, so acceptance does not depend on one refusal path ([ADR 0307](../_adr/0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)).
 
-Proof also carries every structured checkpoint drop from the run: an uncertainty that prevented checkpoint enforcement while leaving the Gate fail-open. The same bounded record survives compact results, status, acceptance review, and the landed note. It tells the owner which enforcement uncertainty remained in a green run.
+Proof also carries every structured checkpoint drop from the run. The same bounded record survives compact results, status, acceptance review, and the landed note. An indeterminate executable `stop` is served over full structural evidence; a Proof carrying that drop is never reused and can land only with current-conversation confirmation. A lost tracked-dirty strand observation is disclosed as unavailable rather than described as checked, and likewise prevents reusable Proof.
 
 `done` and `prepare` share package progress, grouped jobs, activity, and commands. `done` adds review, recording, and readiness facts; only `recorded` passes. `prepare` names omitted work. The byte-exact CommonMark relay stays separate.
 
@@ -31,7 +31,7 @@ On exact, complete, current green Proof, ordinary `done` returns that Proof with
 
 `waited_ms` reports capped-run waits; durable Proof omits them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
-The Proof pins a reviewable `HEAD` even if trunk advances. Without a verified grant, the agent reports and waits. `discern accept --confirmed` records conversation consent; standing and effort grants need no flag. Landing returns the final line.
+Proof binds the full committed `HEAD`, a clean tree, checkpoint declaration evidence, and each reusable Standard's definition fingerprint and measured provenance. Proof omits a trunk SHA. A later trunk advance does not itself stale the marker. Reuse first reads the configured local trunk and refuses when the branch is behind or the local ref is unavailable. A remote-tracking ref is not a substitute. Without a verified grant, the agent reports and waits. `discern accept --confirmed` records conversation consent; standing and effort grants need no flag. Landing returns the final line.
 
 ## Proposal-bearing Proof
 

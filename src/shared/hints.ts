@@ -2022,6 +2022,18 @@ export const HINTS = {
       `not read the trunk (${reason}).`,
   }),
 
+  "gate-strand-check-unavailable": defineHint({
+    id: "gate-strand-check-unavailable",
+    category: "notice",
+    audience: "all",
+    when:
+      "A Gate run cannot read every working-tree snapshot needed for strand detection.",
+    example: {},
+    template: (): string =>
+      "The Gate could not prove that its stages left no tracked output behind. " +
+      "Inspect the strand-check drop, restore Git status access, and re-run before relying on that dimension.",
+  }),
+
   "gate-proof-skipped-dirty": defineHint<{
     reason: string | undefined;
   }>({
@@ -3972,6 +3984,7 @@ export const ERROR_FAILURE_RECOVERY = {
   below_min_score: "tailored",
   brief_unparseable: "evidence",
   checkout_failed: "evidence",
+  checkpoint_evidence_unavailable: "evidence",
   config_template_unavailable: "evidence",
   confirmation_required: "evidence",
   conflict: "evidence",

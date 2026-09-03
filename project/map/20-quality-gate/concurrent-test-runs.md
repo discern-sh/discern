@@ -19,7 +19,7 @@ Linked worktrees share one machine. Set `1` when one suite fills it:
 concurrent_test_runs = 1
 ```
 
-`0`, the default, disables the cap.
+Fresh projects default to `1`, so their test stages cannot race one another across linked worktrees. An explicit `0` disables the cap. This repository explicitly uses `2`.
 
 ## What the cap counts
 

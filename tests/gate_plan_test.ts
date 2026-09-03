@@ -34,6 +34,8 @@ import {
 } from "../src/shared/result.ts";
 import { serializeResult } from "../src/shared/result_serialization.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { GATE_JOB_ENVIRONMENT } from "../src/engine/jobs/command.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const FULL = parseConfigOrThrow(`
 [jobs]
@@ -83,6 +85,54 @@ Deno.test("the FULL fixture wires EVERY known capability (so the gate-shape test
   );
 });
 
+Deno.test("the Gate contract documents its registry order, fixed child environment, process groups, and currency rule", async () => {
+  assertEquals(STAGES, ["fix", "build", "check", "test"]);
+  assertEquals(GATE_JOB_ENVIRONMENT, {
+    NO_COLOR: "1",
+    TERM: "dumb",
+    CI: "1",
+  });
+  const gate = await Deno.readTextFile(
+    new URL("../project/map/20-quality-gate/README.md", import.meta.url),
+  );
+  assertStringIncludes(gate, "serial `fix`; `build`; `check` and `test`");
+  for (const [name, value] of Object.entries(GATE_JOB_ENVIRONMENT)) {
+    assertStringIncludes(gate, `\`${name}=${value}\``);
+  }
+  assertStringIncludes(gate, "own POSIX process group");
+  assertStringIncludes(gate, "`SIGTERM`");
+  assertStringIncludes(gate, "`SIGKILL`");
+  assertStringIncludes(gate, "present generated agent file");
+  assertStringIncludes(gate, "absent agent file is tolerated");
+
+  const standards = await Deno.readTextFile(
+    new URL("../project/map/20-quality-gate/standards.md", import.meta.url),
+  );
+  assertStringIncludes(standards, "the last matching marker wins");
+  assertStringIncludes(standards, "exit status does not decide a Standard");
+});
+
+Deno.test("CLI, MCP, and composite done paths share one preamble implementation", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/gate_plan_test.ts#done-preamble-single-site",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "The shared done preamble and its three ordered boundaries live in the gate integration module.",
+      include: (path) => path === "src/engine/gate/finish.ts",
+    },
+  });
+  assertEquals(files, ["src/engine/gate/finish.ts"]);
+  const [path] = files;
+  assert(path !== undefined);
+  const source = await Deno.readTextFile(path);
+  const calls = (pattern: RegExp): number => source.match(pattern)?.length ?? 0;
+  assertEquals(calls(/await reusableGreenProof\(/gu), 1);
+  assertEquals(calls(/await resolveCheckpointGate\(/gu), 1);
+  assertEquals(calls(/await unchangedTreeRerunRefusal\(/gu), 1);
+  assertEquals(calls(/await resolveDonePreamble\(/gu), 2);
+});
+
 Deno.test("gate job labels are unique across the whole plan (results are keyed by label)", () => {
   // The executor records every job result into ONE label-keyed map, and the
   // report looks each planned job up by label — so the plan's labels must be
@@ -129,12 +179,13 @@ Deno.test("planScopeGates: every configured gate, willRun only for changed scope
   assert(gates.every((g) => g.kind === "scope-gate"));
 });
 
-Deno.test("buildGatePlan: groups in fix→build→check/test→scope_gates order with correct modes", () => {
+Deno.test("buildGatePlan: the fresh cap splits check and test in registry order", () => {
   const plan = buildGatePlan(FULL, ["widget"]);
   assertEquals(plan.groups.map((g) => g.stage), [
     "fix",
     "build",
-    "check/test",
+    "check",
+    "test",
     "scope_gates",
   ]);
   assertEquals(plan.groups.map((g) => g.mode), [
@@ -142,17 +193,24 @@ Deno.test("buildGatePlan: groups in fix→build→check/test→scope_gates order
     "parallel",
     "parallel",
     "parallel",
+    "parallel",
   ]);
-  // The check/test group fuses check then test jobs, in that order. `smoke` rides the
-  // test stage (ADR 0090), so it follows `test` in the fused group.
-  const ct = plan.groups.find((g) => g.stage === "check/test");
-  assertEquals(ct?.jobs.map((j) => j.label), [
-    "lint",
-    "lint#2",
-    "typecheck",
-    "test",
-    "smoke",
-  ]);
+  assertEquals(
+    plan.groups.find((g) => g.stage === "check")?.jobs.map((j) => j.label),
+    [
+      "lint",
+      "lint#2",
+      "typecheck",
+    ],
+  );
+  // `smoke` rides the test stage (ADR 0090), so it follows `test`.
+  assertEquals(
+    plan.groups.find((g) => g.stage === "test")?.jobs.map((j) => j.label),
+    [
+      "test",
+      "smoke",
+    ],
+  );
   assert(plan.mergeCheck);
 });
 
@@ -161,12 +219,14 @@ Deno.test("live Gate admission stays pure and reserves every configured scope ro
   assertEquals(admission.initialGroups.map((group) => group.stage), [
     "fix",
     "build",
-    "check/test",
+    "check",
+    "test",
   ]);
   assertEquals(admission.maximumGroups.map((group) => group.stage), [
     "fix",
     "build",
-    "check/test",
+    "check",
+    "test",
     "scope_gates",
   ]);
   const scopeJobs = admission.maximumGroups

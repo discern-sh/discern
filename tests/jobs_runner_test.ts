@@ -8,7 +8,11 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import { runParallel, runSerial } from "../src/engine/jobs/runner.ts";
-import { finalCode } from "../src/engine/jobs/command.ts";
+import {
+  finalCode,
+  JOB_CAPTURE_CAP_BYTES,
+  spawnJob,
+} from "../src/engine/jobs/command.ts";
 import {
   capText,
   CAPTURE_CAP,
@@ -196,6 +200,40 @@ Deno.test("spawnJob runs captured commands with the non-interactive CI env contr
       "custom:xterm:0",
     );
   }, { prefix: "discern-job-env-" });
+});
+
+Deno.test("buffered jobs retain a bounded head/tail window and a complete artifact", async () => {
+  await withTempDir(async (dir) => {
+    const bodyBytes = JOB_CAPTURE_CAP_BYTES + 64 * 1024;
+    const spawned = await spawnJob({
+      label: "large",
+      command:
+        `printf 'HEAD\\n'; head -c ${bodyBytes} /dev/zero | tr '\\0' x; printf '\\nTAIL\\n'; exit 7`,
+    }, {
+      cwd: dir,
+      stream: false,
+      write: () => {},
+    });
+
+    assertEquals(spawned.result.code, 7);
+    const capture = new TextDecoder().decode(spawned.output);
+    assertStringIncludes(capture, "HEAD\n");
+    assertStringIncludes(capture, "bytes elided");
+    assert(capture.endsWith("\nTAIL\n"), capture.slice(-100));
+    assert(
+      spawned.output.byteLength <= JOB_CAPTURE_CAP_BYTES + 64,
+      `bounded capture retained ${spawned.output.byteLength} bytes`,
+    );
+    assertEquals(spawned.result.output, capture);
+
+    const artifact = spawned.result.outputPath;
+    assert(artifact !== undefined);
+    const complete = await Deno.readFile(artifact);
+    assertEquals(complete.byteLength, bodyBytes + "HEAD\n\nTAIL\n".length);
+    const completeText = new TextDecoder().decode(complete);
+    assert(completeText.startsWith("HEAD\n"));
+    assert(completeText.endsWith("\nTAIL\n"));
+  }, { prefix: "discern-job-buffer-cap-" });
 });
 
 Deno.test({

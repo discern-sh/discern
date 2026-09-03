@@ -630,12 +630,44 @@ Deno.test("pin: an unknown standard name fails loudly and pins nothing", async (
     const before = await gitOut(dir, "rev-parse", "HEAD");
     const r = await runAgent(dir, ["standards", "--pin", "nope"]);
     assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(r.stderr, "no standard named nope");
+    assertTerminalTextIncludes(r.stderr, "Unknown Standard name: nope");
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before);
   });
 });
 
-Deno.test("pin: standard names without --pin are a clear error, not silently ignored", async () => {
+Deno.test("standards: positional names narrow an ordinary measurement without creating full-project reuse evidence", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "echo 'DISCERN_METRIC coverage 95'",
+      }, {
+        name: "bundle",
+        direction: "down",
+        limit: "100",
+        run: "echo 'DISCERN_METRIC bundle 50'",
+      }),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["standards", "coverage", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      decodeCliResult(r.stdout, "standards").steps?.map((step) => step.label),
+      ["coverage"],
+    );
+    assertEquals(
+      await targetExists(measurementsFile(dir)),
+      false,
+      "partial measurements must not become a reusable full-project cache",
+    );
+  });
+});
+
+Deno.test("standards: unknown positional names refuse in ordinary and dry-run modes", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -648,9 +680,19 @@ Deno.test("pin: standard names without --pin are a clear error, not silently ign
       }),
     );
     await gitInit(dir);
-    const r = await runAgent(dir, ["standards", "coverage"]);
-    assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(r.stderr, "only apply with --pin");
+    for (
+      const args of [
+        ["standards", "nope", "--json"],
+        ["standards", "nope", "--dry-run", "--json"],
+      ]
+    ) {
+      const result = await runAgent(dir, args);
+      assertEquals(result.code, 1, result.output);
+      assertEquals(
+        decodeCliResult(result.stdout, "standards").error,
+        "invalid_value",
+      );
+    }
   });
 });
 

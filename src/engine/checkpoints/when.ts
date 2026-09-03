@@ -9,9 +9,9 @@
  * The protocol, a sibling of the standards metric line:
  *
  *   - exit 0 — the trigger FIRES;
- *   - exit 1 — the trigger passes (does not fire);
- *   - any other exit, a timeout, or a spawn failure — the trigger FAILS OPEN
- *     (does not fire) and the outcome carries a plain-language advisory;
+ *   - exit 10 — the trigger passes (does not fire);
+ *   - any other exit, a timeout, or a spawn failure — the trigger is
+ *     INDETERMINATE and the outcome carries a plain-language account;
  *   - `DISCERN_MATCH <path>` output lines declare the subject paths precisely.
  *     The marker may sit anywhere on a line (a tool may prefix its own text);
  *     the rest of the line is the project-root-relative path. Trigger
@@ -32,7 +32,10 @@ import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
 import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import type { WhenOutcome } from "./types.ts";
-import type { CheckpointWhenInput } from "../../shared/checkpoints.ts";
+import {
+  CHECKPOINT_WHEN_PASS_EXIT_CODE,
+  type CheckpointWhenInput,
+} from "../../shared/checkpoints.ts";
 export type { CheckpointWhenInput } from "../../shared/checkpoints.ts";
 
 /** The fixed wall-clock budget (seconds) a `when` command gets. */
@@ -108,7 +111,7 @@ export interface RunWhenOptions {
 /**
  * Run one checkpoint's `when` command in the worktree at `root` and read the
  * protocol's verdict. Never throws: every failure mode resolves to the
- * fail-open `error` outcome with its advisory.
+ * indeterminate `error` outcome with its account.
  */
 export async function runWhenCommand(
   root: string,
@@ -173,7 +176,7 @@ export async function runWhenCommand(
       kind: "error",
       reason: "when_input_cleanup_failed",
       advisory:
-        `checkpoint '${checkpointId}': its temporary when input could not be removed; the trigger fails open and did not fire.`,
+        `checkpoint '${checkpointId}': its temporary when input could not be removed; the trigger is indeterminate.`,
     };
   }
   if (failed !== undefined) {
@@ -183,7 +186,7 @@ export async function runWhenCommand(
         ? "when_input_failed"
         : "when_spawn_failed",
       advisory:
-        `checkpoint '${checkpointId}': the when ${failed.phase} could not be prepared (${failed.detail}); the trigger fails open and did not fire.`,
+        `checkpoint '${checkpointId}': the when ${failed.phase} could not be prepared (${failed.detail}); the trigger is indeterminate.`,
     };
   }
   if (result === undefined) {
@@ -191,7 +194,7 @@ export async function runWhenCommand(
       kind: "error",
       reason: "when_spawn_failed",
       advisory:
-        `checkpoint '${checkpointId}': the when command produced no result; the trigger fails open and did not fire.`,
+        `checkpoint '${checkpointId}': the when command produced no result; the trigger is indeterminate.`,
     };
   }
   if (result.result.timedOut !== undefined) {
@@ -200,7 +203,7 @@ export async function runWhenCommand(
       reason: "when_timeout",
       advisory:
         `checkpoint '${checkpointId}': the when command did not finish within ` +
-        `${result.result.timedOut.seconds}s; the trigger fails open and did not fire.`,
+        `${result.result.timedOut.seconds}s; the trigger is indeterminate.`,
     };
   }
   if (result.result.cancelled === true || tracked.signal.aborted) {
@@ -208,7 +211,7 @@ export async function runWhenCommand(
       kind: "error",
       reason: "when_cancelled",
       advisory:
-        `checkpoint '${checkpointId}': the when command was cancelled; the trigger fails open and did not fire.`,
+        `checkpoint '${checkpointId}': the when command was cancelled; the trigger is indeterminate.`,
     };
   }
   if (result.outputLimitExceeded === true) {
@@ -216,7 +219,7 @@ export async function runWhenCommand(
       kind: "error",
       reason: "when_output_limit",
       advisory:
-        `checkpoint '${checkpointId}': the when command exceeded its ${CHECKPOINT_WHEN_OUTPUT_BYTES}-byte output limit; the trigger fails open and did not fire.`,
+        `checkpoint '${checkpointId}': the when command exceeded its ${CHECKPOINT_WHEN_OUTPUT_BYTES}-byte output limit; the trigger is indeterminate.`,
     };
   }
   if (result.result.code === 0) {
@@ -225,7 +228,7 @@ export async function runWhenCommand(
       matches: parseDiscernMatches(DECODER.decode(result.output)),
     };
   }
-  if (result.result.code === 1) {
+  if (result.result.code === CHECKPOINT_WHEN_PASS_EXIT_CODE) {
     return { kind: "pass" };
   }
   const excerpt = result.output;
@@ -234,7 +237,7 @@ export async function runWhenCommand(
     reason: "when_invalid_exit",
     advisory:
       `checkpoint '${checkpointId}': the when command exited ${result.result.code} ` +
-      `(exit 0 fires, exit 1 passes); the trigger fails open and did not fire.` +
+      `(exit 0 fires, exit 10 passes); the trigger is indeterminate.` +
       (excerpt.length === 0 ? "" : ` Output: ${outputExcerpt(excerpt)}`),
   };
 }

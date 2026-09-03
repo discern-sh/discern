@@ -30,6 +30,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
+import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import type { GateWireData } from "../src/shared/result_schemas.ts";
 import {
   type CliResultForCommand,
@@ -46,6 +47,7 @@ type GateJson = Omit<CliResultForCommand<"done">, "data"> & {
 function replayConfig(opts: {
   limit?: number;
   inputs?: string | undefined;
+  margin?: number;
 }): string {
   return [
     "[project]",
@@ -60,6 +62,7 @@ function replayConfig(opts: {
     "[standards.cov]",
     'direction = "up"',
     `limit = ${opts.limit ?? 80}`,
+    ...(opts.margin === undefined ? [] : [`margin = ${opts.margin}`]),
     'run = "echo x >> runs.count; echo DISCERN_METRIC cov 90"',
     ...(opts.inputs !== undefined ? [`inputs = [${opts.inputs}]`] : []),
     "",
@@ -133,6 +136,54 @@ Deno.test("replay: untouched inputs replay the recorded value — no re-measure,
     assertEquals(entry?.margin, 0);
     assertEquals(entry?.pin_eligible, true);
     assertEquals(entry?.pin_target, 90);
+  });
+});
+
+Deno.test("replay: unchanged input evidence does not cross a changed Standard definition", async () => {
+  await withTempDir(async (dir) => {
+    await setUpMeasuredBaseline(dir, { inputs: '"src/**"' });
+    await writeConfig(dir, replayConfig({ inputs: '"src/**"', margin: 1 }));
+    await git(
+      dir,
+      "commit",
+      "-aqm",
+      "change pinning definition",
+      "--no-gpg-sign",
+    );
+
+    const result = await runAgent(dir, ["done", "--json"]);
+    assertEquals(result.code, 0, result.output);
+    assertEquals(
+      await measurementRuns(dir),
+      2,
+      "a changed definition must measure even when declared inputs are untouched",
+    );
+    assertEquals(
+      parseGate(result.stdout).data.standards?.[0]?.measurement,
+      "measured",
+    );
+  });
+});
+
+Deno.test("replay: an unchanged measurement retains its original provenance record", async () => {
+  await withTempDir(async (dir) => {
+    await setUpMeasuredBaseline(dir, { inputs: '"src/**"' });
+    const path = join(
+      dir,
+      ".git",
+      GIT_ADMIN_STATE.standardMeasurements.path,
+    );
+    const before = await Deno.readTextFile(path);
+    await commitDocsChange(dir);
+
+    const result = await runAgent(dir, ["done", "--json"]);
+    assertEquals(result.code, 0, result.output);
+    assertEquals(await measurementRuns(dir), 1);
+    assertEquals(
+      await Deno.readTextFile(path),
+      before,
+      "replay must not rewrite a measurement as if it occurred at the new HEAD",
+    );
   });
 });
 
@@ -262,7 +313,7 @@ Deno.test("replay: a replayed value the branch's own tightened limit now fails i
       "the value replays — no re-run",
     );
     const obj = parseGate(r.stdout);
-    assertEquals(obj.data?.failed_stage, "check/test");
+    assertEquals(obj.data?.failed_stage, "test");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === "standard:cov");
     assert(diag !== undefined, r.stdout);
     assertStringIncludes(diag.message, "below the floor 95");

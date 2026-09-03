@@ -476,7 +476,7 @@ const checkpointValue = z.strictObject({
     "Require this many commits in merge-base..HEAD, including merge commits; uncommitted work adds no commit.",
   ),
   when: z.string().optional().describe(
-    "Final executable condition: exit 0 fires, exit 1 passes; errors and timeout fail open. `DISCERN_MATCH <path>` narrows the structural matches.",
+    "Final executable condition: exit 0 fires, exit 10 passes; every other outcome is indeterminate. `DISCERN_MATCH <path>` narrows the structural matches.",
   ),
   mode: z.enum(CHECKPOINT_MODES).optional().describe(
     '"stop" (the default): the gate refuses to run until the agent declares the question met or unmet. "advise": the question and its evidence are delivered through the advisory channel and nothing blocks.',
@@ -801,8 +801,8 @@ const gateSection = z.strictObject({
   timeout: z.number().int().min(0).default(600).describe(
     "Time budget in seconds for every command the Gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the Gate. 0 removes the bound.",
   ),
-  concurrent_test_runs: z.number().int().min(0).default(0).describe(
-    "Cap on test-stage runs in flight at once across every checkout of this repository; a run past it waits for a slot. 0 means no cap. Wrap the project's test task in `discern queue -- <command>` to share it.",
+  concurrent_test_runs: z.number().int().min(0).default(1).describe(
+    "Cap on test-stage runs in flight at once across every checkout of this repository; a run past it waits for a slot. Fresh projects default to 1; explicit 0 means no cap. Wrap the project's test task in `discern queue -- <command>` to share it.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.gate.what);
 

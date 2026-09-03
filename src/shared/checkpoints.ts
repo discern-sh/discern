@@ -43,6 +43,8 @@ export type CheckpointChangeKind = (typeof CHECKPOINT_CHANGE_KINDS)[number];
 /** Structured checkpoint-command protocol. One shared authority owns the
  * version and shape written to `DISCERN_CHECKPOINT_INPUT`. */
 export const CHECKPOINT_WHEN_INPUT_VERSION = 1 as const;
+/** The only decisive non-fire outcome for a checkpoint `when` command. */
+export const CHECKPOINT_WHEN_PASS_EXIT_CODE = 10 as const;
 export interface CheckpointWhenInput {
   version: typeof CHECKPOINT_WHEN_INPUT_VERSION;
   checkpoint: { id: string; mode: CheckpointMode };
@@ -340,7 +342,7 @@ export const BUILT_IN_CHECKPOINTS: Readonly<
     // files.
     min_changed_files: 25,
   },
-  "docs-drift": {
+  "map-drift": {
     question: "map.current",
     mode: "advise",
     // Fires when a substantial change moved nothing in the map. Any map edit
@@ -374,7 +376,7 @@ export const BUILT_IN_CHECKPOINT_SUMMARIES: Readonly<Record<string, string>> = {
   "parallel-implementation": "a name-similar sibling file appeared",
   "new-binary-asset": "a new binary needs clear provenance",
   "effort-sprawl": "one effort, or several bundled in?",
-  "docs-drift": "code moved and the map did not",
+  "map-drift": "code moved and the map did not",
   "commit-story": "a large change: do commits tell why?",
 };
 

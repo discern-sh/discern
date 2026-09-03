@@ -147,7 +147,7 @@ Deno.test("lists only active template section headers, in file order", async () 
     "checkpoints.parallel-implementation",
     "checkpoints.new-binary-asset",
     "checkpoints.effort-sprawl",
-    "checkpoints.docs-drift",
+    "checkpoints.map-drift",
     "checkpoints.commit-story",
     "gate",
     "coupling",
@@ -462,4 +462,5 @@ Deno.test("the template's active checkpoint entries are exactly the built-in reg
     .map((section) => section.slice("checkpoints.".length))
     .sort();
   assertEquals(active, Object.keys(BUILT_IN_CHECKPOINTS).sort());
+  assert(!active.includes("docs-drift"), "the retired id has no seed alias");
 });

@@ -378,8 +378,15 @@ export async function verifyTrunkLimits(
         trunk: mainBranch,
         reason: trunk.reason,
       },
-      diagnostics: [],
-      blocking: false,
+      diagnostics: [{
+        tool: "standards",
+        severity: "error",
+        message:
+          `the Standard never-loosen check cannot read the configured local trunk '${mainBranch}': ${trunk.reason}. ` +
+          `A remote-tracking ref is not a substitute; fetch the local trunk ref and retry.`,
+        reproduce_cmd: `git fetch origin ${mainBranch}:${mainBranch}`,
+      }],
+      blocking: true,
       blockedStandards: new Set(),
       proposals: new Map(),
     };

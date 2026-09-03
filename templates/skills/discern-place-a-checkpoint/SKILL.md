@@ -68,7 +68,7 @@ online, the commit body says so and names the maintenance window.
 
 `mode = "stop"` is the default: `discern done` refuses before any gate job until the agent declares the question met (`--met <id>`) or unmet with a rationale (`--unmet <id> --why "<rationale>"`). `mode = "advise"` delivers the question through the advisory channel and blocks nothing. A declared-unmet conclusion still gates the landing: the owner authorizes each named variance at `discern accept --confirmed --variance <id>`, in the current conversation. A variance is never yours to authorize — recorded grants do not cover one.
 
-A shipped built-in is enabled by referencing its id alone (`[checkpoints.docs-drift]`); any field you set overrides the seed, and overriding `question` replaces the shipped judgment with your own authored prose.
+A shipped built-in is enabled by referencing its id alone (`[checkpoints.map-drift]`); any field you set overrides the seed, and overriding `question` replaces the shipped judgment with your own authored prose.
 
 **The trunk governs.** An effort's checkpoints come from the configuration at its merge-base with the trunk, so this entry governs new efforts once the change lands. Editing checkpoint tables inside a feature branch changes nothing for that branch's own gate; wire a checkpoint as its own owner-reviewed change.
 
@@ -81,7 +81,7 @@ Prove the wiring live, detector-style:
 
 ## 6. The escape hatch: `when`
 
-For a condition the structured fields cannot express, `when = "<command>"` delegates the firing decision to a script kept in the repo: exit 0 fires, exit 1 passes, and any other exit or a timeout fails open — no fire, with an advisory recorded. Print `DISCERN_MATCH <path>` lines to declare which paths the judgment covers; without them the subject is the whole matched set, which reopens more coarsely after edits. Selectors still pre-scope the diff. Keep the probe fast (the budget is 10 seconds), deterministic, and free of side effects. One v1 boundary to know: the trunk governs the command text, while the command runs in the candidate worktree, so the scripts and interpreters it references resolve from that worktree.
+For a condition the structured fields cannot express, `when = "<command>"` delegates the firing decision to a script kept in the repo: exit 0 fires, exit 10 passes, and every other outcome is indeterminate. An indeterminate stop serves its question over the complete structural match; an indeterminate advise checkpoint remains non-blocking and reports the uncertainty. Print `DISCERN_MATCH <path>` lines to narrow the subject on a decisive fire; without them the subject is the whole matched set, which reopens more coarsely after edits. Selectors still pre-scope the diff. Keep the probe fast (the budget is 10 seconds), deterministic, and free of side effects. One v1 boundary to know: the trunk governs the command text, while the command runs in the candidate worktree, so the scripts and interpreters it references resolve from that worktree.
 
 ## 7. Review the economics later
 
