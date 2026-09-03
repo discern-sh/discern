@@ -87,7 +87,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
           config.jobs[name as keyof typeof KNOWN_JOBS] !==
             undefined,
       );
-      const allNotApplicable = config.assurance.not_applicable.length ===
+      const allNotApplicable = config.setup.not_applicable.length ===
         Object.keys(KNOWN_JOBS).length;
       return Promise.resolve(wired || allNotApplicable);
     },

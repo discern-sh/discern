@@ -32,9 +32,9 @@ import {
   UPDATE_CHANNEL,
 } from "../lib/version.ts";
 import {
+  inspectRecordedSchema,
   isRecordedSchemaNewer,
   newerSchemaRefusalMessage,
-  resolveRecordedSchema,
   stampSchemaVersion,
 } from "../lib/schema.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
@@ -172,10 +172,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 1;
   }
 
-  // The migration chain to run: every step from the install's recorded schema
-  // (read from `[meta].schema_version`, defaulting to schema 1) up to this
-  // build's current schema.
-  const migrateFrom = resolveRecordedSchema(toml.raw);
+  // Migration starts only from an explicit valid version. Setup may stamp an
+  // incomplete install as it completes; upgrade never guesses a source schema.
+  const recordedSchema = inspectRecordedSchema(toml.raw);
+  if (recordedSchema.status !== "valid") {
+    return refuseInvalidSchemaVersion(log, recordedSchema, currentSchema);
+  }
+  const migrateFrom = recordedSchema.value;
   if (isRecordedSchemaNewer(migrateFrom, currentSchema)) {
     return refuseNewerSchema(log, migrateFrom, currentSchema);
   }
@@ -590,7 +593,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     );
   }
   const instructionRefresh = instructionRefreshData(
-    instructions?.agentsWritten ?? [],
+    instructions?.writtenPaths ?? [],
     instructionsErrors,
   );
   const fullyCompiled = instructions !== undefined &&
@@ -688,6 +691,37 @@ function refuseNewerSchema(
       error: "schema_version_too_new",
       message,
       data: { schema: { recorded, current: currentSchema } },
+    });
+  } else {
+    log.error(message);
+  }
+  return 1;
+}
+
+/** Refuse absent or invalid migration metadata with setup-aware recovery. */
+function refuseInvalidSchemaVersion(
+  log: Logger,
+  inspection:
+    | { status: "missing" }
+    | { status: "invalid"; value: unknown },
+  currentSchema: number,
+): number {
+  const problem = inspection.status === "missing"
+    ? "is missing"
+    : `must be a positive integer (found ${JSON.stringify(inspection.value)})`;
+  const message =
+    `[meta].schema_version ${problem}. Upgrade cannot choose a migration source without it. ` +
+    "If setup is incomplete, run `discern setup begin` to resume and stamp the field; otherwise restore the recorded value from version control before retrying.";
+  if (log.json) {
+    log.result({
+      ok: false,
+      verb: "upgrade",
+      error: "invalid_config",
+      message,
+      data: {
+        schema: { current: currentSchema },
+        issues: [{ path: "meta.schema_version", message: problem }],
+      },
     });
   } else {
     log.error(message);

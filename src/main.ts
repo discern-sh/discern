@@ -604,7 +604,7 @@ export function buildCli(
     )
     .option(
       "--check",
-      "Report whether migrations or discern-owned reconciliation are pending (exit non-zero if so); write nothing; no network.",
+      "Report pending config migrations, fixed config scaffold or managed-banner drift, and discern-owned .gitignore or .gitattributes block drift; exit non-zero for any; write nothing; no network.",
     )
     .option(
       "--allow-dirty",
@@ -857,6 +857,10 @@ export function buildCli(
     )
     .option("--provides <label:string>", "Custom jobs only: free-text label.")
     .option(
+      "--timeout <seconds:string>",
+      "Custom jobs only: command budget in seconds; 0 removes the bound.",
+    )
+    .option(
       "--not-applicable",
       "Known jobs: exclude an absent lifecycle from setup assurance.",
     )
@@ -881,6 +885,7 @@ export function buildCli(
             runCount: runArgv.count,
             runMissingValue: runArgv.missingValue,
             provides: options.provides,
+            timeout: options.timeout,
             notApplicable: options.notApplicable,
             applicable: options.applicable,
           });
@@ -899,6 +904,10 @@ export function buildCli(
       "A read-only command an agent can run to preview changes here.",
     )
     .option("--gate <cmd:string>", "A command to run when this scope changed.")
+    .option(
+      "--timeout <seconds:string>",
+      "Per-scope Gate-command budget in seconds; 0 removes the bound.",
+    )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(recordedExit(
       "config set-scope",
@@ -910,6 +919,7 @@ export function buildCli(
           neutral: options.neutral ?? false,
           preview: options.preview,
           gate: options.gate,
+          timeout: options.timeout,
         });
       },
     ));
@@ -934,6 +944,25 @@ export function buildCli(
       "The command that emits the metric line.",
       { required: true },
     )
+    .option(
+      "--per <metric-or-extent:string>",
+      "Denominator metric, or one built-in extent as files=<glob>, lines=<glob>, words=<glob>, or bytes=<glob>.",
+    )
+    .option("--scale <n:string>", "Multiply a rate into human units.")
+    .option("--margin <n:string>", "Headroom left when pinning the limit.")
+    .option(
+      "--measure <mode:string>",
+      'Measurement mode: "gate" or "on-demand".',
+    )
+    .option(
+      "--inputs <glob:string>",
+      "Metric input glob; repeat to preserve every input.",
+      { collect: true },
+    )
+    .option(
+      "--timeout <seconds:string>",
+      "Measurement-command budget in seconds; 0 removes the bound.",
+    )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(
       recordedExit(
@@ -949,6 +978,12 @@ export function buildCli(
             metric: options.metric,
             direction: options.direction,
             run: options.run,
+            per: options.per,
+            scale: options.scale,
+            margin: options.margin,
+            measure: options.measure,
+            inputs: options.inputs,
+            timeout: options.timeout,
           });
         },
       ),
@@ -1049,7 +1084,7 @@ export function buildCli(
 
   const config = new Command()
     .description(
-      "Edit (set-*), read (get/array/has/subsections/keys), or explain discern.toml.",
+      "Edit jobs, scopes, and standards with set-*; edit generated groups, checkpoints, and resources with set <dotted.key>; read or explain discern.toml.",
     )
     .action(recordedExit("config", function (
       this: Command,

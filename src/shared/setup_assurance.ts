@@ -11,7 +11,7 @@
  * "setup is complete" cleanly distinct from "the full recommended gate is active."
  *
  * Command enforcement is derived from `[jobs]`; lifecycle applicability is the
- * explicit `[assurance].not_applicable` fact. Both iterate {@link KNOWN_JOBS}
+ * explicit `[setup].not_applicable` fact. Both iterate {@link KNOWN_JOBS}
  * (the SSOT), so a new known job auto-enrolls as applicable and absent. Commands
  * that invoke discern's own built-in vocabulary count for nothing (see
  * {@link isSelfSuppliedCommand}): the scaffold seeds `format = "discern tidy"`
@@ -46,7 +46,7 @@ export interface KnownJobAssurance {
   name: string;
   state: KnownJobState;
   /** Present only when the absent job is explicitly excluded from setup
-   * assurance through `[assurance].not_applicable`. The v1 state remains
+   * assurance through `[setup].not_applicable`. The v1 state remains
    * `absent`; this additive marker carries the applicability distinction. */
   not_applicable?: true;
   /** The deferral reason (an inline `#` comment), present only for a `deferred`
@@ -189,7 +189,7 @@ export function assessSetupAssurance(
   rawToml?: string,
 ): SetupAssurance {
   const names = Object.keys(KNOWN_JOBS) as Array<keyof typeof KNOWN_JOBS>;
-  const notApplicableNames = new Set(config.assurance.not_applicable);
+  const notApplicableNames = new Set(config.setup.not_applicable);
   const known_jobs: KnownJobAssurance[] = names.map((name) => {
     const state = classifyKnownJob(config, name);
     const notApplicable = notApplicableNames.has(name);

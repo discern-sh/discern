@@ -2,6 +2,8 @@
 
 **Status**: accepted; extends [ADR 0168](0168-the-gate-declares-jobs.md) and preserves the schema-v1 result boundary of [ADR 0208](0208-public-contracts-version-by-schema-major.md) and [ADR 0220](0220-self-supplied-commands-count-for-nothing-in-assurance.md)
 
+> **Launch vocabulary amendment (2026-09-03):** the pre-v1 config path is `[setup].not_applicable`. The broader prerelease `[assurance]` spelling has no alias or migration. Public result `data.assurance` remains the separate setup coverage projection described below.
+
 ## Context
 
 Known `[jobs]` values already accepted a scalar or ordered list, but `discern config set-job` could author only the scalar form. Setup agents needing a project formatter followed by `discern tidy` left the supported surface. A serialized array passed positionally was worse: it became one literal command.
@@ -17,7 +19,7 @@ Schema v1 closes row state as `enforced | deferred | absent`, so a fourth state 
 Setup applicability lives separately:
 
 ```toml
-[assurance]
+[setup]
   not_applicable = ["build"]
 ```
 

@@ -36,7 +36,7 @@ import {
   terminalMultiline,
 } from "../lib/terminal.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
-import { isRecordedSchemaNewer, resolveRecordedSchema } from "../lib/schema.ts";
+import { inspectRecordedSchema, isRecordedSchemaNewer } from "../lib/schema.ts";
 import {
   DISCERN_VERSION,
   SCHEMA_VERSION,
@@ -427,8 +427,21 @@ export async function runChecks(
   // config newer than the binary (see `isRecordedSchemaNewer`/upgrade's own guard),
   // so advising it there would send the user at a command that rejects their exact
   // state. A newer install means the BINARY is behind — re-run the installer.
-  const recorded = resolveRecordedSchema(toml.raw);
-  if (recorded === currentSchema) {
+  const recordedInspection = inspectRecordedSchema(toml.raw);
+  const recorded = recordedInspection.status === "valid"
+    ? recordedInspection.value
+    : undefined;
+  if (recorded === undefined) {
+    checks.push({
+      name: "schema version",
+      ok: false,
+      detail: recordedInspection.status === "missing"
+        ? "[meta].schema_version is missing"
+        : "[meta].schema_version must be a positive integer",
+      fix:
+        "if setup is incomplete, run `discern setup begin`; otherwise restore the recorded value from version control",
+    });
+  } else if (recorded === currentSchema) {
     checks.push({
       name: "schema version",
       ok: true,
@@ -474,8 +487,7 @@ export async function runChecks(
         detail: issue.path === ""
           ? issue.message
           : `[${issue.path}] ${issue.message}`,
-        fix:
-          "fix the flagged key in discern.toml (or run `discern upgrade` if it is leftover from an older schema)",
+        fix: "fix the flagged key in discern.toml",
       });
     }
   }

@@ -154,6 +154,7 @@ export const MANUAL_ALIAS_OWNER_OVERRIDES: Readonly<Record<string, string>> = {
   "proof note": "reference-proof-and-checkpoint-formats",
   "skill": "explanation-instructions-skills-and-map",
   "skills": "guide-create-and-manage-skills",
+  "setup": "start-index",
   "standards": "explanation-standards",
   "tidy": "guide-maintain-or-remove-discern",
   "upgrade": "guide-maintain-or-remove-discern",

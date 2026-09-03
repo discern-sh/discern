@@ -291,7 +291,6 @@ Every member of the product's closed sets, with the node that claims it. The enr
 ### `config`
 
 - `acceptance` — consent-attestations
-- `assurance` — setup
 - `checkpoints` — checkpoints
 - `coupling` — insight
 - `gate` — gate
@@ -304,6 +303,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `repository` — worktrees
 - `scopes` — scope-gates
 - `scripts` — placement-consent
+- `setup` — setup
 - `skills` — skills
 - `standards` — standards
 - `worktree` — worktrees

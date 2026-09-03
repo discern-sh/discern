@@ -59,19 +59,10 @@ export interface DeadConfigPosition {
  * position means adding a row here, nowhere else. Order matters: the first
  * matching row wins, so keyed rows precede a same-path wildcard.
  *
- * Pre-release contract corrections also live here when a known local install
- * may still hold the retired nested key. The retired spelling never parses as an
- * alias; the row only makes the refusal actionable.
+ * Rows exist only when an actual migration needs a targeted refusal. Synthetic
+ * tests exercise the matching mechanism without publishing private-era names.
  */
-export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [
-  {
-    path: "repository",
-    key: "receipt_notes",
-    message: () =>
-      "[repository].receipt_notes has been retired; rename it to [repository].proof_notes before running discern upgrade.",
-    example: '[repository]\nreceipt_notes = "local"\n',
-  },
-];
+export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [];
 
 /** The first dead-position row matching an unrecognized-keys issue, if any.
  * `positions` is injectable so tests can prove the matching semantics
@@ -134,7 +125,7 @@ export function retiredCommandMessage(
   retired: string,
   successor: string,
 ): string {
-  return `\`discern ${retired}\` was renamed; run \`discern ${successor}\`.`;
+  return `\`discern ${retired}\` is not a discern command; run \`discern ${successor}\`.`;
 }
 
 /**

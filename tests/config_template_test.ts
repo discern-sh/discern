@@ -132,7 +132,7 @@ Deno.test("lists only active template section headers, in file order", async () 
     "instructions",
     "skills",
     "jobs",
-    "assurance",
+    "setup",
     "scopes.map",
     "scopes.instructions",
     "acceptance",

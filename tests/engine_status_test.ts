@@ -773,7 +773,7 @@ Deno.test("status JSON and terminal carry setup applicability and assurance coun
         "[meta]",
         "bootstrapped = false",
         "",
-        "[assurance]",
+        "[setup]",
         'not_applicable = ["build"]',
         "",
         "[jobs]",

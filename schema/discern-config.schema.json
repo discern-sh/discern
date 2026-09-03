@@ -70,7 +70,7 @@
         },
         "proof_notes": {
           "default": "local",
-          "description": "\"local\" records landed proof notes in this clone only; \"fetch\" adds a fetch-only mapping per remote so ordinary fetches carry them. Publishing stays an explicit `git push <remote> refs/notes/discern`.",
+          "description": "Both modes record landed Proof notes locally. \"fetch\" also manages fetch-only transport. Publishing remains an explicit owner action; there is no off mode.",
           "type": "string",
           "enum": [
             "local",
@@ -458,7 +458,7 @@
         }
       ]
     },
-    "assurance": {
+    "setup": {
       "description": "Known jobs that do not apply to this project.",
       "default": {},
       "type": "object",
@@ -687,7 +687,9 @@
               "retries": {
                 "default": 0,
                 "description": "Retry create/destroy this many times.",
-                "type": "number"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5
               },
               "gc": {
                 "default": true,
@@ -750,6 +752,7 @@
           },
           "limit": {
             "type": "number",
+            "minimum": -9007199254740991,
             "description": "The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall."
           },
           "run": {
@@ -839,7 +842,8 @@
           "scale": {
             "default": 1,
             "description": "Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.",
-            "type": "number"
+            "type": "number",
+            "exclusiveMinimum": 0
           },
           "margin": {
             "default": 0,
@@ -1036,7 +1040,9 @@
         "timeout": {
           "default": 600,
           "description": "Time budget in seconds for every command the Gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the Gate. 0 removes the bound.",
-          "type": "number"
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
         },
         "concurrent_test_runs": {
           "default": 0,
@@ -1082,28 +1088,47 @@
       "properties": {
         "schema_version": {
           "description": "The install schema version. `discern upgrade` bumps it; never edit it by hand.",
+          "readOnly": true,
           "type": "integer",
-          "minimum": -9007199254740991,
+          "minimum": 1,
           "maximum": 9007199254740991
         },
         "bootstrapped": {
           "default": false,
           "description": "true once `discern setup` has completed, which retires the one-time setup redirect.",
+          "readOnly": true,
           "type": "boolean"
+        },
+        "setup_completion": {
+          "description": "Evidence recorded for the setup completion event: proven by the Gate, or explicitly completed unproven.",
+          "readOnly": true,
+          "type": "string",
+          "enum": [
+            "proven",
+            "unproven"
+          ]
         },
         "setup_model": {
           "default": "",
           "description": "The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it.",
+          "readOnly": true,
           "type": "string"
         },
         "setup_version": {
           "default": "",
           "description": "The discern version that ran setup, recorded for support triage.",
+          "readOnly": true,
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "schema_version"
+      ]
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "required": [
+    "meta"
+  ]
 }

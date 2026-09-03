@@ -47,6 +47,22 @@ async function setSchema(dir: string, version: number): Promise<void> {
   );
 }
 
+/** Remove or replace the install's schema anchor without changing other bytes. */
+async function corruptSchema(
+  dir: string,
+  replacement: string | undefined,
+): Promise<void> {
+  const path = join(dir, "discern.toml");
+  const text = await Deno.readTextFile(path);
+  await Deno.writeTextFile(
+    path,
+    text.replace(
+      /^\s*schema_version\s*=\s*\d+\s*$/m,
+      replacement === undefined ? "" : `  schema_version = ${replacement}`,
+    ),
+  );
+}
+
 /** The recorded `[meta].schema_version` of an install's config. */
 async function recordedSchema(dir: string): Promise<number> {
   const m = (await readTarget(dir, "discern.toml")).match(
@@ -151,6 +167,58 @@ async function upgradeDryRunJsonIn(
     console.log = originalLog;
   }
 }
+
+Deno.test("upgrade and upgrade --check refuse absent or invalid schema metadata without writing", async () => {
+  for (
+    const variant of [
+      { name: "missing", replacement: undefined },
+      { name: "invalid", replacement: '"one"' },
+    ] as const
+  ) {
+    await withTempDir(async (dir) => {
+      await setup(dir);
+      await corruptSchema(dir, variant.replacement);
+      const before = await readTarget(dir, "discern.toml");
+      for (const invoke of [upgradeJsonIn, upgradeCheckJsonIn]) {
+        const run = await invoke(dir);
+        assertEquals(run.code, 1, `${variant.name}: ${run.stdout}`);
+        const result = decodeCliResult(run.stdout, "upgrade");
+        assertEquals(result.ok, false);
+        assertEquals(result.error, "invalid_config");
+        assertResultDataKey(result, "issues");
+        assertEquals(result.data.issues, [{
+          path: "meta.schema_version",
+          message: variant.name === "missing"
+            ? "is missing"
+            : 'must be a positive integer (found "one")',
+        }]);
+        assertStringIncludes(result.message ?? "", "discern setup begin");
+        assertStringIncludes(result.message ?? "", "version control");
+        assertEquals(await readTarget(dir, "discern.toml"), before);
+      }
+    });
+  }
+});
+
+Deno.test("setup begin stamps missing or invalid schema metadata only while setup is incomplete", async () => {
+  for (const replacement of [undefined, '"one"'] as const) {
+    await withTempDir(async (dir) => {
+      await setup(dir);
+      await corruptSchema(dir, replacement);
+      const resumed = await runCli([
+        "setup",
+        "begin",
+        "--confirmed",
+        "--slug",
+        "demo",
+        "--name",
+        "Demo",
+      ], dir);
+      assertEquals(resumed.code, 0, resumed.stderr);
+      assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
+    });
+  }
+});
 
 Deno.test("upgrade check detects and upgrade restores a missing fixed banner without touching key comments", async () => {
   await withTempDir(async (dir) => {

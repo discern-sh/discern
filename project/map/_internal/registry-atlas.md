@@ -100,7 +100,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 47      | —                | node `bundled-docs`         |
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
-| [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 49      | —                | node `bundled-docs`         |
+| [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 50      | —                | node `bundled-docs`         |
 | [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations)                               | `scripts/manual_benefits.ts#MANUAL_BENEFIT_OBLIGATIONS`                           | 21      | —                | —                           |
 | [`manual-benefit-exclusions`](#manual-benefit-exclusions--manual-benefit-exclusions)                                  | `scripts/manual_benefits.ts#MANUAL_BENEFIT_EXCLUSIONS`                            | 24      | —                | —                           |
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
@@ -108,7 +108,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
 | [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 355     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
-| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 24      | —                | node `forgiving-cli`        |
+| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 11      | —                | —                           |
 | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                              | `scripts/brand/vale.ts#voiceEnforcementCoverage`                                  | 23      | —                | —                           |
@@ -1189,7 +1189,7 @@ Every top-level table in the config schema.
   - `instructions`
   - `skills`
   - `jobs`
-  - `assurance`
+  - `setup`
   - `scopes`
   - `generated`
   - `acceptance`
@@ -3050,7 +3050,7 @@ The closed editorial purposes that choose manual comprehension policy and readin
 The explicit page-id owner for each normalized manual search name that would otherwise collide.
 
 - Source: `src/shared/manual.ts` — `MANUAL_ALIAS_OWNER_OVERRIDES`
-- Members: 49
+- Members: 50
   - `--markdown`
   - `checkpoints`
   - `coupling`
@@ -3095,6 +3095,7 @@ The explicit page-id owner for each normalized manual search name that would oth
   - `proof note`
   - `skill`
   - `skills`
+  - `setup`
   - `standards`
   - `tidy`
   - `upgrade`
@@ -3622,7 +3623,7 @@ Every project-tree path discern writes or maintains, with its operational owners
 Retired commands, retired config keys, dead config positions, and synonym redirects that make the CLI return a redirect or refusal.
 
 - Source: `src/shared/vocabulary.ts` — `RETIRED_COMMAND_REDIRECTS`
-- Members: 24
+- Members: 23
   - `finish`
   - `graduate`
   - `setup land`
@@ -3638,7 +3639,6 @@ Retired commands, retired config keys, dead config positions, and synonym redire
   - `recipes`
   - `capabilities`
   - `checks`
-  - `repository.receipt_notes`
   - `init`
   - `install`
   - `check`

@@ -241,13 +241,14 @@
     run = "deno task promise-effects"
     provides = "type-aware promise-effect ownership and exact deliberate-detachment enrollment"
 
-# Setup assurance counts every known job as applicable unless its lifecycle is
-# explicitly absent here. This declaration never changes Gate scheduling.
-# Author changes with `discern config set-job <known-name> --not-applicable`
-# or `--applicable`; a configured known job cannot also appear in this list.
+# Setup coverage counts every known job as applicable unless its lifecycle is
+# explicitly absent here. This declaration changes setup accounting only;
+# [jobs] remains the sole Gate schedule. Author changes with `discern config
+# set-job <known-name> --not-applicable` or `--applicable`; a configured known
+# job cannot also appear in this list.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [assurance]
+# [setup]
 #
 # What:    Known jobs that do not apply to this project.
 # Why:     Setup measures how many applicable known jobs are wired. A lifecycle
@@ -257,10 +258,10 @@
 #   discern config set-job build --not-applicable   declare one
 #   discern config set-job build --applicable       restore it
 #
-# Help:    `discern config explain assurance`
+# Help:    `discern config explain setup`
 # ─────────────────────────────────────────────────────────────────────────────
 
-[assurance]
+[setup]
   # Known jobs this project's lifecycle does not have. A job listed here cannot
   # also be configured under [jobs].
   not_applicable = []
@@ -742,40 +743,6 @@
     "scripts/vale_toolchain.ts",
     "src/lib/frontmatter.ts",
   ]
-
-# Public-site prose Standards — one registry-derived, markup-free corpus feeds
-# the blocking Vale check, alert-density numerator, word denominator, and
-# reading-grade measure. Repeated rendered copy and code contribute to none of
-# them. New marketing routes enroll through site/marketing_pages.ts.
-# Temporarily disabled while the V3 public-site wording settles. Restore this
-# table before launch; project/TODO.md carries the explicit follow-up.
-# [standards.site_prose]
-  #   direction = "down"
-  #   per = "site_prose_words"
-  #   scale = 1000
-  #   # Guarded-corpus baseline: 2 Vale alerts across 1,025 projected words.
-  #   limit = 1.952
-  #   margin = 0.05
-  #   run = "deno task site:prose"
-  #   inputs = [
-    #     "site/**",
-    #     "src/lib/providers.ts",
-    #     "src/shared/agent_catalogue.ts",
-    #     ".vale-assets.json",
-    #     ".vale-version",
-    #     ".vale.ini",
-    #     ".vale/Discern/**",
-    #     ".vale/DiscernBrand/**",
-    #     "scripts/site_prose.ts",
-    #     "scripts/site_prose_check.ts",
-    #     "scripts/site_prose_lib.ts",
-    #     "scripts/prose_lib.ts",
-    #     "scripts/plain_reading_grade_lib.ts",
-    #     "scripts/vale_lib.ts",
-    #     "scripts/vale_toolchain.ts",
-    #     "deno.json",
-    #     "deno.lock",
-    #   ]
 
 [standards.site_reading_grade]
   direction = "down"
@@ -1554,21 +1521,15 @@
   # tail; CI, pipes, and --plain are static.
   stream = false
 
-  # Cancel the in-flight sibling commands the moment one fails, instead of running
-  # every command to completion. ON by default — an agent-driven gate wants a fast
-  # abort. Set false to run every job and see all failures in one pass. The engine
-  # tree-kills a cancelled job's whole process group (Deno `detached` + `Deno.kill`),
-  # so its grandchildren don't linger.
+  # Cancel in-flight sibling commands when one fails. Set false to let every
+  # command finish and report all failures in one pass. Cancellation stops the
+  # failed stage's complete command trees rather than leaving child processes.
   fail_fast = true
 
-  # Per-command time budget in SECONDS, applied to every job the gate runs (each
-  # capability, check, scope gate, and standard measurement). A command that
-  # doesn't exit within it is tree-killed and the stage fails with a plain-language
-  # timeout diagnostic — so the gate can never hang. The usual culprit is a
-  # watch-mode test runner or a dev server wired without its single-run form.
-  # Generous by default (600 = 10 min); set 0 to disable the limit (not
-  # recommended — the gate can then hang forever). One legitimately slow job takes
-  # its own `timeout` on its config entry instead of a slower global.
+  # Per-command time budget in seconds for every Gate job, scope gate, and
+  # Standard measurement. A command that overruns is stopped and its stage fails
+  # with a timeout diagnostic. Set 0 for no global bound; give one legitimately
+  # slow entry its own `timeout` instead of slowing every command.
   timeout = 600
 
   # Cap on how many test-stage runs may be in flight AT ONCE across every checkout
@@ -1618,8 +1579,9 @@
 # [meta]
 #
 # What:    Installer bookkeeping.
-# Why:     `discern upgrade` reads the schema version to migrate this file.
-#          Nothing here needs your attention.
+# Why:     discern writes these keys while setting up or upgrading the project.
+#          They record schema and setup evidence; nothing here needs
+#          hand-editing.
 #
 # Help:    `discern config explain meta`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1629,3 +1591,4 @@
   # hand.
   schema_version = 1
   bootstrapped = true
+  setup_completion = "proven"

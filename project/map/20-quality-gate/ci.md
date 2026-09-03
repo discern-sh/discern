@@ -120,5 +120,5 @@ A cloud coding agent may start from a clone without the discern binary or materi
 - Do not run `discern refresh` in the gate job. CI verifies committed instructions and accepts an intentionally missing untracked copy; regenerating first can hide drift.
 - Do not put `--met`, `--unmet`, or a rationale in workflow YAML. `--ci` rejects declaration flags before any checkpoint or Gate write; review conclusions belong to a stateful local worktree.
 - Pull-request checkouts may lack local `main`. Fetch it without exporting `DISCERN_TRUNK` into project jobs.
-- Keep `fetch-tags: true` on every checkout that can run discern's gate. A release candidate at `HEAD` is deliberately excluded from its own schema baseline, so it compares with the previous version tag.
+- Keep `fetch-tags: true` on every checkout that can run discern's gate. A release candidate at `HEAD` is excluded from its own schema baseline, so it compares with the previous version tag.
 - `git diff --exit-code` catches fixer output. Without it, the workflow can finish after changing the runner's checkout and does not verify that the commit contains those changes.

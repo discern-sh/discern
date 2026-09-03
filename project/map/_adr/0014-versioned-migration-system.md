@@ -1,6 +1,8 @@
 # ADR 0014: A versioned, reversible migration system for upgrades
 
 > **Project Script vocabulary amendment ([ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** The older Recipe references below describe the then-current command and install surfaces. Project-owned executables are now Project Scripts under `discern script`; the migration-system decision is unchanged.
+>
+> **Launch contract amendment (2026-09-03):** every completed install records a positive integer `[meta].schema_version`. `upgrade` never infers a missing or invalid anchor: it refuses with recovery to restore the recorded value. Setup may stamp the current value only while completing an incomplete installation. `upgrade --check` remains the broad current-install check: migrations, fixed config scaffold and managed banners, and discern-owned `.gitignore` and `.gitattributes` blocks all contribute to its exit status.
 
 **Status**: accepted
 
@@ -25,7 +27,7 @@ The project is still pre-adoption: one internal consumer, no public release. As 
 
 Adopt a **versioned, reversible migration system** layered above the existing file sync. The managed/seed classification, the per-file hash model, and the `.new` preservation rule are kept unchanged. What is added is a version anchor, an ordered migration runner, the ability to remove files, and transactional safety.
 
-1. **A schema version anchors every install.** The manifest records a monotonic integer `schema_version`, distinct from `discern_version` (which stays a display/semver field and drives no logic). `setup` stamps the current version; `upgrade` reads the recorded one, brings the install forward, and re-stamps. This generalises the precedent already set by `CONFIG_DOC_VERSION`, which versions the config _document_ and refuses an unknown major.
+1. **A schema version anchors every install.** `[meta].schema_version` records a monotonic positive integer, distinct from `discern_version` (which stays a display/semver field and drives no logic). `setup` stamps the current version; `upgrade` reads the recorded one, brings the install forward, and re-stamps. A completed install without a valid anchor is corrupt, not schema 1. This generalises the precedent already set by `CONFIG_DOC_VERSION`, which versions the config _document_ and refuses an unknown major.
 
 2. **Migrations are an ordered chain, not a one-shot.** Each migration is a small, idempotent step (`from → to`) that describes and applies its change. `upgrade` computes the delta between the install's `schema_version` and the kit's current version and runs the intervening steps in order. A step may edit `discern.toml` (via the existing comment-preserving editor), **delete or rename managed _and_ seed files**, rewrite content inside user-owned files, and merge `.claude/settings.json`. This is where renames, tree reorganisations, and the eventual kit rename live. The bespoke 0.x→1.0 `upgrade` is **retired, not ported**: the current shape is declared schema v1 and the chain starts clean (the sole pre-adoption consumer is migrated by hand once).
 

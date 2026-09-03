@@ -58,6 +58,12 @@ import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 import { generatedArtifactMarkerBody } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import {
+  DISCERN_WRITTEN_META,
+  DISCERN_WRITTEN_META_KEYS,
+  TEMPLATE_OMITTED_META_KEYS,
+} from "../src/shared/config_metadata.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 type JsonValue =
   | string
@@ -207,6 +213,7 @@ Deno.test("the generated config schema publishes path and uniqueness rules", () 
     validateSchema: true,
   }).compile(live);
   assertSchemaAccepts(validate, {
+    meta: { schema_version: SCHEMA_VERSION },
     project: { todo: "././TODO.md" },
     instructions: { sources: ["././instructions.md", "./docs/**/*.md"] },
     skills: { dir: "././playbooks/" },
@@ -214,13 +221,25 @@ Deno.test("the generated config schema publishes path and uniqueness rules", () 
     scripts: { dir: "tools/" },
     worktree: { env_files: ["././runtime", "config/secrets"] },
   });
-  assertEquals(validate({ project: { todo: "../TODO.md" } }), false);
   assertEquals(
-    validate({ project: { todo: "nested/.git/TODO.md" } }),
+    validate({
+      meta: { schema_version: SCHEMA_VERSION },
+      project: { todo: "../TODO.md" },
+    }),
     false,
   );
   assertEquals(
-    validate({ worktree: { env_files: ["runtime", "runtime"] } }),
+    validate({
+      meta: { schema_version: SCHEMA_VERSION },
+      project: { todo: "nested/.git/TODO.md" },
+    }),
+    false,
+  );
+  assertEquals(
+    validate({
+      meta: { schema_version: SCHEMA_VERSION },
+      worktree: { env_files: ["runtime", "runtime"] },
+    }),
     false,
   );
 });
@@ -251,7 +270,7 @@ Deno.test("the generated jobs object exposes known names and the custom table ar
 
 Deno.test("the generated applicability list enrolls exactly the canonical known jobs", () => {
   const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
-  const notApplicable = schemaNodeAt(live, "assurance.not_applicable");
+  const notApplicable = schemaNodeAt(live, "setup.not_applicable");
   assertEquals(notApplicable.uniqueItems, true);
   assert(isJsonObject(notApplicable.items));
   assertEquals(
@@ -260,12 +279,173 @@ Deno.test("the generated applicability list enrolls exactly the canonical known 
       assert(
         Array.isArray(values) &&
           values.every((value) => typeof value === "string"),
-        "assurance.not_applicable items must publish a string enum",
+        "setup.not_applicable items must publish a string enum",
       );
       return [...values].sort();
     })(),
     Object.keys(KNOWN_JOBS).sort(),
   );
+});
+
+Deno.test("published config metadata has one discern-written ownership authority", async () => {
+  const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
+  assert(
+    Array.isArray(live.required) && live.required.includes("meta"),
+    "the public config contract must require [meta]",
+  );
+  const meta = schemaNodeAt(live, "meta");
+  assert(
+    Array.isArray(meta.required) && meta.required.includes("schema_version"),
+    "the public config contract must require [meta].schema_version",
+  );
+  assert(isJsonObject(meta.properties));
+  assertEquals(
+    Object.keys(meta.properties),
+    DISCERN_WRITTEN_META_KEYS,
+    "every public [meta] key must be classified exactly once",
+  );
+  const reference = renderManualConfigReferenceDoc();
+  for (const key of DISCERN_WRITTEN_META_KEYS) {
+    const node = meta.properties[key];
+    assert(isJsonObject(node), `meta.${key} has no public schema node`);
+    assertEquals(node.readOnly, true, key);
+    const row = reference.split("\n").find((line) =>
+      line.startsWith(`| \`${key}\``)
+    );
+    assert(row?.includes("Written by discern."), `meta.${key}: ${row}`);
+  }
+
+  const rendered = parseToml(await renderedTemplate());
+  assert(isJsonObject(rendered.meta));
+  for (const [key, policy] of Object.entries(DISCERN_WRITTEN_META)) {
+    assertEquals(
+      Object.hasOwn(rendered.meta, key),
+      policy.template === "render",
+      `meta.${key} template projection`,
+    );
+  }
+  assertEquals(
+    TEMPLATE_OMITTED_META_KEYS,
+    DISCERN_WRITTEN_META_KEYS.filter((key) =>
+      DISCERN_WRITTEN_META[key].template === "omit"
+    ),
+  );
+});
+
+Deno.test("every public numeric config leaf publishes a lower bound", () => {
+  const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
+  const unbounded: string[] = [];
+  let numericLeaves = 0;
+  const walk = (value: unknown, path: string): void => {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => walk(item, `${path}[${index}]`));
+      return;
+    }
+    if (!isJsonObject(value)) return;
+    if (value.type === "number" || value.type === "integer") {
+      numericLeaves += 1;
+      if (
+        typeof value.minimum !== "number" &&
+        typeof value.exclusiveMinimum !== "number"
+      ) {
+        unbounded.push(path);
+      }
+    }
+    for (const [key, child] of Object.entries(value)) {
+      walk(child, path === "" ? key : `${path}.${key}`);
+    }
+  };
+  walk(live, "");
+  assert(numericLeaves > 10, "the structural walk found numeric config keys");
+  assertEquals(unbounded, []);
+});
+
+Deno.test("named config tables use only the canonical <name> placeholder", () => {
+  const schemas = [
+    decodeWith(JsonObjectSchema, renderConfigSchemaJson()),
+    decodeWith(JsonObjectSchema, renderConfigDocSchemaJson()),
+  ];
+  const wrong: string[] = [];
+  let placeholders = 0;
+  const walk = (value: unknown, path: string): void => {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => walk(item, `${path}[${index}]`));
+      return;
+    }
+    if (!isJsonObject(value)) return;
+    if (typeof value.description === "string") {
+      for (
+        const match of value.description.matchAll(
+          /\[[^\]\n]*\.<([^>]+)>\]/g,
+        )
+      ) {
+        placeholders += 1;
+        if (match[1] !== "name") wrong.push(`${path}: <${match[1]}>`);
+      }
+    }
+    for (const [key, child] of Object.entries(value)) {
+      walk(child, path === "" ? key : `${path}.${key}`);
+    }
+  };
+  schemas.forEach((schema, index) => walk(schema, `schema[${index}]`));
+  assert(placeholders >= 5, "the walk found the named-table descriptions");
+  assertEquals(wrong, []);
+});
+
+Deno.test("Proof-note modes publish their exact local-recording semantics", () => {
+  const live = decodeWith(JsonObjectSchema, renderConfigSchemaJson());
+  const proofNotes = schemaNodeAt(live, "repository.proof_notes");
+  assertEquals(proofNotes.enum, ["local", "fetch"]);
+  const description = String(proofNotes.description ?? "");
+  for (const fact of ["Both modes record", '"fetch"', "Publishing", "no off"]) {
+    assertStringIncludes(description, fact);
+  }
+});
+
+Deno.test("the flagship config carries no commented-out jobs, standards, or retired Gate prose", async () => {
+  const text = await Deno.readTextFile(
+    new URL("../discern.toml", import.meta.url),
+  );
+  const staleHeaders = text.split("\n").filter((line) =>
+    /^\s*#\s*\[(?:jobs|standards)\.[^\]]+\]\s*$/.test(line) &&
+    !line.includes("<name>")
+  );
+  assertEquals(staleHeaders, []);
+  for (
+    const retired of [/Deno.*detached/i, /Deno\.kill/i, /capability, check/i]
+  ) {
+    assert(!retired.test(text), `discern.toml retains ${retired}`);
+  }
+});
+
+Deno.test("current configuration surfaces contain no retired assurance section", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/config_codegen_test.ts#current-config-vocabulary",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Only executable, generated, and published current-contract surfaces can teach configuration vocabulary.",
+      include: (rel) =>
+        rel.startsWith("src/") ||
+        rel.startsWith("templates/") ||
+        rel.startsWith("schema/") ||
+        rel.startsWith(`${REPO_AUTHORED_PATHS.manualRel}/`) ||
+        rel === "discern.toml" ||
+        ["AGENTS.md", "CLAUDE.md", "GEMINI.md"].includes(rel),
+    },
+  });
+  const retired: string[] = [];
+  for (const rel of files) {
+    const contents = await Deno.readTextFile(join(REPO_ROOT, rel));
+    const retiredSection = /\[assurance\]/.test(contents);
+    const retiredPublishedPath = !rel.startsWith("src/") &&
+      /assurance\.not_applicable/.test(contents);
+    if (retiredSection || retiredPublishedPath) {
+      retired.push(rel);
+    }
+  }
+  assert(files.length > 100, "the current-contract scan must stay broad");
+  assertEquals(retired, []);
 });
 
 // ── docs config-reference ────────────────────────────────────────────────────

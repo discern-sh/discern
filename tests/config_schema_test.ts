@@ -7,6 +7,7 @@ import {
 import { z } from "@zod/zod";
 import {
   AGENT_NAMES,
+  configDocRuntimeSchema,
   ConfigParseError,
   configSchema,
   configSchemaIssues,
@@ -30,9 +31,14 @@ import {
   deadConfigPosition,
   RETIRED_CONFIG_KEY_REDIRECTS,
 } from "../src/shared/vocabulary.ts";
-import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
+import {
+  KNOWN_JOBS,
+  SLUG_PATTERN,
+  STAGES,
+} from "../src/shared/capabilities.ts";
 import { KNOWN_AGENTS } from "../src/lib/config.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 
 // ── defaults ───────────────────────────────────────────────────────────────────
 
@@ -84,10 +90,117 @@ Deno.test("projectDisplayName: [project].name, else the slug verbatim, else a ne
   // The slug is never re-cased into a fabricated title.
   const slugOnly = parseConfigOrThrow('[project]\nslug = "my-app"\n');
   assertEquals(projectDisplayName(slugOnly), "my-app");
-  // Whitespace-only counts as unset at each step of the chain.
-  const blank = parseConfigOrThrow('[project]\nname = " "\nslug = " "\n');
+  // Whitespace-only display text and the canonical empty slug count as unset.
+  const blank = parseConfigOrThrow('[project]\nname = " "\nslug = ""\n');
   assertEquals(projectDisplayName(blank), "this project");
   assertEquals(projectDisplayName(parseConfigOrThrow("")), "this project");
+});
+
+Deno.test("live and setup-document slugs share the canonical slug rule", () => {
+  const valid = ["a", "my-app", "2048"];
+  const invalid = ["Bad", "bad slug", "-leading", "under_score"];
+  assert(parseConfig('[project]\nslug = ""\n').config);
+  assert(configDocRuntimeSchema.safeParse({}).success);
+  assertEquals(configDocRuntimeSchema.safeParse({ slug: "" }).success, false);
+  for (const slug of valid) {
+    assert(SLUG_PATTERN.test(slug));
+    assert(parseConfig(`[project]\nslug = ${JSON.stringify(slug)}\n`).config);
+    assert(configDocRuntimeSchema.safeParse({ slug }).success);
+  }
+  for (const slug of invalid) {
+    assert(!SLUG_PATTERN.test(slug));
+    const live = parseConfig(`[project]\nslug = ${JSON.stringify(slug)}\n`);
+    assertEquals(live.config, undefined);
+    assert(
+      live.issues.some((issue) =>
+        issue.path === "project.slug" && issue.message.includes("slug must be")
+      ),
+      JSON.stringify(live.issues),
+    );
+    assertEquals(configDocRuntimeSchema.safeParse({ slug }).success, false);
+  }
+});
+
+Deno.test("completed installs require explicit valid schema metadata", () => {
+  assert(parseConfig("[meta]\nbootstrapped = false\n").config);
+  const missing = parseConfig("[meta]\nbootstrapped = true\n");
+  assertEquals(missing.config, undefined);
+  assert(
+    missing.issues.some((issue) => issue.path === "meta.schema_version"),
+    JSON.stringify(missing.issues),
+  );
+  for (const value of ["0", "1.5", '"one"']) {
+    const invalid = parseConfig(`[meta]\nschema_version = ${value}\n`);
+    assertEquals(invalid.config, undefined, value);
+    assert(
+      invalid.issues.some((issue) => issue.path === "meta.schema_version"),
+      `${value}: ${JSON.stringify(invalid.issues)}`,
+    );
+  }
+  const complete = parseConfigOrThrow(
+    `[meta]\nschema_version = ${SCHEMA_VERSION}\nbootstrapped = true\nsetup_completion = "proven"\n`,
+  );
+  assertEquals(complete.meta.setup_completion, "proven");
+  assertEquals(
+    parseConfig('[meta]\nsetup_completion = "unknown"\n').config,
+    undefined,
+  );
+});
+
+Deno.test("config-only setup applicability has no assurance alias", () => {
+  assertEquals(
+    parseConfigOrThrow('[setup]\nnot_applicable = ["build"]\n').setup
+      .not_applicable,
+    ["build"],
+  );
+  const retired = parseConfig('[assurance]\nnot_applicable = ["build"]\n');
+  assertEquals(retired.config, undefined);
+  assert(
+    retired.issues.some((issue) =>
+      issue.kind === "unknown_root_section" && issue.path === "assurance"
+    ),
+    JSON.stringify(retired.issues),
+  );
+});
+
+Deno.test("launch numeric bounds reject fractions and out-of-range values", () => {
+  for (const value of ["0", "5"]) {
+    assert(
+      parseConfig(`[worktree.resources.db]\nretries = ${value}\n`).config,
+      value,
+    );
+  }
+  for (const value of ["-1", "2.5", "6"]) {
+    assertEquals(
+      parseConfig(`[worktree.resources.db]\nretries = ${value}\n`).config,
+      undefined,
+      value,
+    );
+  }
+  for (const value of ["0", "600"]) {
+    assert(parseConfig(`[gate]\ntimeout = ${value}\n`).config, value);
+  }
+  for (const value of ["-1", "0.5"]) {
+    assertEquals(
+      parseConfig(`[gate]\ntimeout = ${value}\n`).config,
+      undefined,
+      value,
+    );
+  }
+});
+
+Deno.test("Proof-note mode is exactly local or fetch, and both load", () => {
+  for (const mode of ["local", "fetch"]) {
+    assertEquals(
+      parseConfigOrThrow(`[repository]\nproof_notes = "${mode}"\n`)
+        .repository.proof_notes,
+      mode,
+    );
+  }
+  assertEquals(
+    parseConfig('[repository]\nproof_notes = "off"\n').config,
+    undefined,
+  );
 });
 
 Deno.test("repository owns the trunk, branch prefix, and shared convergence commands", () => {
@@ -140,34 +253,17 @@ Deno.test("every retired top-level key is redirected to its successor", () => {
     assertEquals(config, undefined, `[${retired}] should be rejected`);
     assertEquals(issues.length, 1, JSON.stringify(issues));
     assertEquals(issues[0]?.path, retired);
-    assertStringIncludes(issues[0]?.message ?? "", `[${successor}]`);
-    assertStringIncludes(issues[0]?.message ?? "", "discern upgrade");
+    const message = issues[0]?.message ?? "";
+    assertStringIncludes(message, `[${successor}]`);
+    assert(
+      !/(?:upgrade|renam|retir|became)/i.test(message),
+      `current config recovery must describe only the current contract: ${message}`,
+    );
   }
 });
 
-Deno.test("every dead config position rejects with its recorded instructions", () => {
-  // Driven off the DEAD_CONFIG_POSITIONS table the schema itself reads: each
-  // row's example must trip exactly that row's message, never the generic
-  // unknown-key wording — so a new retirement is exercised by adding its row.
-  for (const dead of DEAD_CONFIG_POSITIONS) {
-    const { config, issues } = parseConfig(dead.example);
-    assertEquals(
-      config,
-      undefined,
-      `example should be rejected:\n${dead.example}`,
-    );
-    assertEquals(issues.length, 1, JSON.stringify(issues));
-    const issue = issues[0];
-    assert(issue !== undefined);
-    assertEquals(issue.path, dead.path);
-    // The row's message, checked around its keys placeholder so the test
-    // needs no knowledge of which key the example trips.
-    const sentinel = "@@KEYS@@";
-    for (const part of dead.message(sentinel).split(sentinel)) {
-      assertStringIncludes(issue.message, part);
-    }
-    assertStringIncludes(issue.message, "discern upgrade");
-  }
+Deno.test("the pre-v1 config contract carries no dead-position history", () => {
+  assertEquals(DEAD_CONFIG_POSITIONS, []);
 });
 
 Deno.test("dead-position matching: keyed rows win over a same-path wildcard, in table order", () => {

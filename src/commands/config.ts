@@ -275,16 +275,16 @@ function knownJobEditState(
       !Array.isArray(parsed.jobs)
     ? parsed.jobs as Record<string, unknown>
     : {};
-  const assurance = typeof parsed.assurance === "object" &&
-      parsed.assurance !== null && !Array.isArray(parsed.assurance)
-    ? parsed.assurance as Record<string, unknown>
+  const setup = typeof parsed.setup === "object" &&
+      parsed.setup !== null && !Array.isArray(parsed.setup)
+    ? parsed.setup as Record<string, unknown>
     : {};
-  const raw = assurance.not_applicable ?? [];
+  const raw = setup.not_applicable ?? [];
   if (!Array.isArray(raw) || !raw.every((item) => typeof item === "string")) {
     return {
       ok: false,
       message:
-        "assurance.not_applicable is not a string list. Run `discern doctor`, fix that config diagnostic, then retry this command.",
+        "setup.not_applicable is not a string list. Run `discern doctor`, fix that config diagnostic, then retry this command.",
       error: "invalid_value",
     };
   }
@@ -307,7 +307,7 @@ function knownJobCommandPlan(
   const edits: Edit[] = [{ key: `jobs.${name}`, literal }];
   if (state.notApplicable.includes(name)) {
     edits.push({
-      key: "assurance.not_applicable",
+      key: "setup.not_applicable",
       literal: tomlStringArray(
         state.notApplicable.filter((candidate) => candidate !== name),
       ),
@@ -345,7 +345,7 @@ function knownJobApplicabilityPlan(
   return {
     ok: true,
     edits: [{
-      key: "assurance.not_applicable",
+      key: "setup.not_applicable",
       literal: tomlStringArray(notApplicable),
     }],
     summary: applicable
@@ -377,6 +377,7 @@ export async function runConfigSetJob(
      * --run command was required. */
     runMissingValue?: boolean | undefined;
     provides?: string | undefined;
+    timeout?: string | undefined;
     notApplicable?: boolean | undefined;
     applicable?: boolean | undefined;
   },
@@ -438,6 +439,21 @@ export async function runConfigSetJob(
       return fail(
         opts,
         `known job "${name}" does not take --provides. Run \`${correction}\`.`,
+      );
+    }
+    if (opts.timeout !== undefined) {
+      const correction = opts.notApplicable === true
+        ? `discern config set-job ${name} --not-applicable`
+        : opts.applicable === true
+        ? `discern config set-job ${name} --applicable`
+        : runs.length > 0
+        ? orderedJobCommand(name, nonEmptyRuns)
+        : `discern config set-job ${name} ${
+          shellQuoteArgument(command ?? "<command>")
+        }`;
+      return fail(
+        opts,
+        `known job "${name}" inherits [gate].timeout and does not take --timeout. Run \`${correction}\`.`,
       );
     }
     if (applicabilitySelected && (command !== undefined || runs.length > 0)) {
@@ -565,6 +581,16 @@ export async function runConfigSetJob(
       literal: tomlString(opts.provides),
     });
   }
+  if (opts.timeout !== undefined) {
+    try {
+      edits.push({
+        key: `jobs.${name}.timeout`,
+        literal: tomlNumber(opts.timeout),
+      });
+    } catch {
+      return fail(opts, `--timeout must be a number (got "${opts.timeout}").`);
+    }
+  }
   return await applyEdits(edits, opts, `Set job "${name}".`);
 }
 
@@ -576,6 +602,7 @@ export async function runConfigSetScope(
     neutral?: boolean | undefined;
     preview?: string | undefined;
     gate?: string | undefined;
+    timeout?: string | undefined;
   },
 ): Promise<number> {
   if (globs.includes("--previewable")) {
@@ -608,7 +635,28 @@ export async function runConfigSetScope(
   if (opts.gate !== undefined) {
     edits.push({ key: `scopes.${name}.gate`, literal: tomlString(opts.gate) });
   }
+  if (opts.timeout !== undefined) {
+    try {
+      edits.push({
+        key: `scopes.${name}.timeout`,
+        literal: tomlNumber(opts.timeout),
+      });
+    } catch {
+      return fail(opts, `--timeout must be a number (got "${opts.timeout}").`);
+    }
+  }
   return await applyEdits(edits, opts, `Set scope "${name}".`);
+}
+
+/** Render a standard denominator flag as its canonical TOML literal. */
+function standardPerLiteral(value: string): string {
+  const extent = value.match(/^(files|lines|words|bytes)=(.+)$/);
+  if (extent === null) return tomlString(value);
+  const [, name, glob] = extent;
+  if (name === undefined || glob === undefined || glob.trim() === "") {
+    throw new Error("extent needs a non-empty glob");
+  }
+  return `{ ${name} = ${tomlString(glob)} }`;
 }
 
 /**
@@ -625,6 +673,12 @@ export async function runConfigSetStandard(
     run: string;
     metric?: string | undefined;
     direction: string;
+    per?: string | undefined;
+    scale?: string | undefined;
+    margin?: string | undefined;
+    measure?: string | undefined;
+    inputs?: string[] | undefined;
+    timeout?: string | undefined;
   },
 ): Promise<number> {
   if (!NAME_RE.test(name)) {
@@ -656,6 +710,54 @@ export async function runConfigSetStandard(
     { key: `standards.${name}.limit`, literal: limitLiteral },
     { key: `standards.${name}.run`, literal: tomlString(opts.run) },
   ];
+  if (opts.per !== undefined) {
+    try {
+      edits.push({
+        key: `standards.${name}.per`,
+        literal: standardPerLiteral(opts.per),
+      });
+    } catch {
+      return fail(
+        opts,
+        `--per must be a metric name or one extent assignment such as lines=src/** (got "${opts.per}").`,
+      );
+    }
+  }
+  for (
+    const [key, value] of [
+      ["scale", opts.scale],
+      ["margin", opts.margin],
+      ["timeout", opts.timeout],
+    ] as const
+  ) {
+    if (value === undefined) continue;
+    try {
+      edits.push({
+        key: `standards.${name}.${key}`,
+        literal: tomlNumber(value),
+      });
+    } catch {
+      return fail(opts, `--${key} must be a number (got "${value}").`);
+    }
+  }
+  if (opts.measure !== undefined) {
+    if (opts.measure !== "gate" && opts.measure !== "on-demand") {
+      return fail(
+        opts,
+        `--measure must be "gate" or "on-demand" (got "${opts.measure}").`,
+      );
+    }
+    edits.push({
+      key: `standards.${name}.measure`,
+      literal: tomlString(opts.measure),
+    });
+  }
+  if (opts.inputs !== undefined) {
+    edits.push({
+      key: `standards.${name}.inputs`,
+      literal: tomlStringArray(opts.inputs),
+    });
+  }
   return await applyEdits(edits, opts, `Set standard "${name}".`);
 }
 
@@ -682,7 +784,7 @@ export async function runConfigSet(
       const replacement = [successor, ...tail].join(".");
       return fail(
         opts,
-        `config key "${key}" was renamed; use "${replacement}". Run \`discern upgrade\` if the old key is already in discern.toml.`,
+        `config key "${key}" is not part of discern.toml; use "${replacement}".`,
         "renamed_config_key",
       );
     }

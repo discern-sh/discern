@@ -121,7 +121,7 @@ stable_target = "Useful existing project commands are byte-for-byte preserved, a
 intent = "Reuse the project's real workflows as Gate jobs, add only owner-approved tooling, and prove each configured command without changing what the project already means."
 files_to_read = [
   "the command definitions inventoried in Step 1 and their tool help for reporter behavior",
-  "discern.toml ([jobs] and [assurance])",
+  "discern.toml ([jobs] and [setup])",
   "the configured Gate result from `discern prepare --json` or `discern done --json`",
 ]
 must_do = [

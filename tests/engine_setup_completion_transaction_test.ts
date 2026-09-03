@@ -196,6 +196,10 @@ Deno.test("a forced marker remains unproved until the non-forced validation path
     assertEquals(forcedResult.data.gate_ran, false);
     const marker = await setupCompletionSnapshot(dir);
     assertEquals(marker.gateInvocations, 0);
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      'setup_completion = "unproven"',
+    );
 
     const validated = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(validated.code, 0, validated.output);
@@ -209,6 +213,12 @@ Deno.test("a forced marker remains unproved until the non-forced validation path
     assertEquals(proved.history, marker.history);
     assertEquals(proved.refs, marker.refs);
     assertEquals(proved.gateInvocations, 2);
+    // This field records the completion event; later Proof does not rewrite
+    // history or change the already committed completion marker.
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      'setup_completion = "unproven"',
+    );
   });
 });
 

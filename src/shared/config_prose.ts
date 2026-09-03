@@ -20,6 +20,7 @@
  */
 
 import { LOGBOOK_POWERED } from "./logbook_powered.ts";
+import { TEMPLATE_OMITTED_META_KEYS } from "./config_metadata.ts";
 import {
   WORKTREE_TOKEN_DESCRIPTIONS,
   WORKTREE_TOKENS,
@@ -112,6 +113,15 @@ export const CONFIG_PROSE = {
     what: "Policy every checkout of this repository shares.",
     why:
       "The trunk is where accepted work lands and where the Gate compares from. Branch naming and convergence commands keep the main checkout and every linked worktree usable after their tracked tree changes.",
+    keys: {
+      proof_notes: {
+        detail: [
+          "`local` adds no transport; `fetch` manages a fetch-only mapping per remote.",
+          "Publish only when the owner chooses:",
+          "  `git push <remote> refs/notes/discern`.",
+        ],
+      },
+    },
   },
   map: {
     what: "Where the project map lives.",
@@ -166,7 +176,7 @@ provides = "license-audit"`,
       },
     ],
   },
-  assurance: {
+  setup: {
     what: "Known jobs that do not apply to this project.",
     why:
       "Setup measures how many applicable known jobs are wired. A lifecycle the project does not have is declared here, so the measure counts what exists; the Gate's schedule still comes from [jobs].",
@@ -382,12 +392,10 @@ revisit.
   meta: {
     what: "Installer bookkeeping.",
     why:
-      "`discern upgrade` reads the schema version to migrate this file. Nothing here needs your attention.",
-    keys: {
-      bootstrapped: { render: "omit" },
-      setup_model: { render: "omit" },
-      setup_version: { render: "omit" },
-    },
+      "discern writes these keys while setting up or upgrading the project. They record schema and setup evidence; nothing here needs hand-editing.",
+    keys: Object.fromEntries(
+      TEMPLATE_OMITTED_META_KEYS.map((key) => [key, { render: "omit" }]),
+    ),
   },
 } satisfies Readonly<Record<string, ConfigUnitProse>>;
 

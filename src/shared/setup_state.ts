@@ -270,7 +270,7 @@ export async function setupProgress(
         name,
         wired: config.jobs[name as keyof typeof KNOWN_JOBS] !==
           undefined,
-        ...(config.assurance.not_applicable.includes(
+        ...(config.setup.not_applicable.includes(
             name as keyof typeof KNOWN_JOBS,
           )
           ? { not_applicable: true as const }

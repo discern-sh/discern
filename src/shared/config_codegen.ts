@@ -84,11 +84,29 @@ function publishedInputSchema(
  * the file the engine will read.
  */
 export function buildConfigJsonSchema(): Record<string, unknown> {
-  return publishedInputSchema(
+  const schema = publishedInputSchema(
     configSchema,
     CONFIG_SCHEMA_ID,
     CONFIG_SCHEMA_TITLE,
   );
+  const properties = isObject(schema.properties) ? schema.properties : {};
+  const meta = isObject(properties.meta) ? properties.meta : undefined;
+  if (meta === undefined) {
+    throw new Error("the public config schema has no [meta] section");
+  }
+  meta.required = [
+    ...new Set([
+      ...(Array.isArray(meta.required) ? meta.required : []),
+      "schema_version",
+    ]),
+  ];
+  schema.required = [
+    ...new Set([
+      ...(Array.isArray(schema.required) ? schema.required : []),
+      "meta",
+    ]),
+  ];
+  return schema;
 }
 
 /**
@@ -183,6 +201,7 @@ function keyTable(unit: string, properties: Record<string, unknown>): string {
       const detail = prose?.keys?.[name]?.detail ?? [];
       const desc = [
         typeof s.description === "string" ? s.description : "",
+        s.readOnly === true ? "Written by discern." : "",
         ...detail.map((line) => line.trim()),
       ].filter((part) => part !== "").map(cell).join(" ");
       return `| \`${name}\` | ${typeLabel(s)} | ${defaultLabel(s)} | ${desc} |`;

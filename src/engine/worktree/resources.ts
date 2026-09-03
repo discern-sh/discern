@@ -52,9 +52,6 @@ import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 /** The ledger entry format version (forward-compat: GC skips unknown majors). */
 const LEDGER_SCHEMA = 1;
 
-/** The most retries honoured for a flaky create/destroy (a runaway guard). */
-const MAX_RETRIES = 5;
-
 /** The minimal slice of the lifecycle context the resource layer needs (kept
  * structural so it never imports `LifecycleContext` — that would cycle). */
 export interface ResourceContext {
@@ -141,17 +138,9 @@ export function readResourceSpecs(config: DiscernConfig): ResourceSpec[] {
     destroy: r.destroy,
     ensure: r.ensure,
     required: r.required,
-    retries: clampRetries(r.retries),
+    retries: r.retries,
     gc: r.gc,
   }));
-}
-
-/** Clamp a configured retry count into `[0, MAX_RETRIES]`. */
-function clampRetries(n: number | undefined): number {
-  if (n === undefined || !Number.isFinite(n) || n <= 0) {
-    return 0;
-  }
-  return Math.min(Math.floor(n), MAX_RETRIES);
 }
 
 /**

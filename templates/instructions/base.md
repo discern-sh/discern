@@ -1,6 +1,6 @@
 # Working in {{project_name}}
 
-discern's built-in instructions comes first; {{project_name}}'s own instructions fills the second half and wins on any conflict.
+discern's built-in instructions come first; {{project_name}}'s own instructions fill the second half and win on any conflict.
 
 ## Operating discern
 

@@ -1643,7 +1643,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "One careful study of the project gives later coding sessions better working conditions, while every consequential choice remains yours.",
         },
-        surfaces: ["verb:setup", "config:assurance"],
+        surfaces: ["verb:setup", "config:setup"],
       },
       {
         id: "setup-observability",

@@ -90,10 +90,9 @@ Deno.test("setup done runs the gate and records bootstrapped only when green (AD
       true,
       "the gate was the completion proof",
     );
-    assertStringIncludes(
-      await Deno.readTextFile(join(dir, "discern.toml")),
-      "bootstrapped = true",
-    );
+    const config = await Deno.readTextFile(join(dir, "discern.toml"));
+    assertStringIncludes(config, "bootstrapped = true");
+    assertStringIncludes(config, 'setup_completion = "proven"');
   });
 });
 
@@ -559,14 +558,14 @@ Deno.test("setup done blocks when the gate is green here but red in a worktree â
 });
 
 Deno.test("setup done commits the completion marker when discern.toml is the only tracked change", async () => {
-  // The completion marker [meta].bootstrapped was written but never committed, so a
+  // The two-field completion marker was written but never committed, so a
   // diligent atomic-commit setup still ended with a dirty tree. Ignored local
   // scratch files (for example an agent's permission/session file) do not enter
   // Proof identity, while the marker commit remains pathspec-limited to discern.toml.
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true"); // gitInits + lays a passing, marker-free project
     // Simulate the agent's atomic commits: wire the harness (MCP etc.) and commit
-    // everything, so the marker is the only change `done` introduces.
+    // everything, so the completion metadata is all `done` introduces.
     await runAgent(dir, ["refresh"]);
     await git(dir, "add", "-A");
     await git(dir, "commit", "-m", "setup work");
@@ -682,12 +681,17 @@ Deno.test("setup done refuses on an uncommitted tracked change; --force still co
       `M ${SOURCE_PATHS.map.defaultPath}README.md`,
       "the unrelated edit must be left for the agent's own tidy commit",
     );
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      'setup_completion = "unproven"',
+    );
   });
 });
 
 Deno.test("a forced done fails open when discern.toml carries an extra uncommitted edit beyond the marker", async () => {
-  // discern.toml is the lone changed file, but it has more than the marker line dirty
-  // (config the agent didn't commit). Only "that one dirty line" earns the auto-commit.
+  // discern.toml is the lone changed file, but it has more than the completion
+  // metadata dirty (config the agent did not commit). Only those two fields earn
+  // the auto-commit.
   // Reached via --force â€” the clean-tree precondition refuses this state otherwise.
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true");
@@ -709,7 +713,7 @@ Deno.test("a forced done fails open when discern.toml carries an extra uncommitt
     assertEquals(res.data.marker_committed, false);
     assert(
       (await gitOut(dir, "status", "--porcelain")).includes("discern.toml"),
-      "discern.toml should stay dirty when more than the marker line changed",
+      "discern.toml should stay dirty when more than the completion metadata changed",
     );
   });
 });
@@ -744,6 +748,10 @@ Deno.test("setup done refuses when the gate is red, recording nothing; --force o
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
+    );
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      'setup_completion = "unproven"',
     );
   });
 });

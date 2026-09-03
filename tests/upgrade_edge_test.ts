@@ -36,6 +36,27 @@ import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 
 const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
+Deno.test("upgrade --check help enumerates every exit-affecting reconciliation family", async () => {
+  await withTempDir(async (dir) => {
+    const help = await runCli(["upgrade", "--help"], dir);
+    assertEquals(help.code, 0, help.stderr);
+    for (
+      const condition of [
+        "config migrations",
+        "fixed config scaffold",
+        "managed-banner drift",
+        ".gitignore",
+        ".gitattributes",
+        "exit non-zero",
+        "write nothing",
+        "no network",
+      ]
+    ) {
+      assertTerminalTextIncludes(help.stdout, condition);
+    }
+  });
+});
+
 /** Fresh install in `dir` (the standard scaffold the other suites use). */
 async function setup(dir: string): Promise<void> {
   assertEquals(

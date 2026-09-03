@@ -89,9 +89,12 @@
   # Branch prefix for worktrees created by discern, e.g. "agent/my-feature".
   branch_prefix = "{{branch_prefix}}"
 
-  # "local" records landed proof notes in this clone only; "fetch" adds a
-  # fetch-only mapping per remote so ordinary fetches carry them. Publishing
-  # stays an explicit `git push <remote> refs/notes/discern`.
+  # Both modes record landed Proof notes locally. "fetch" also manages
+  # fetch-only transport. Publishing remains an explicit owner action; there is
+  # no off mode.
+  # `local` adds no transport; `fetch` manages a fetch-only mapping per remote.
+  # Publish only when the owner chooses:
+  #   `git push <remote> refs/notes/discern`.
   proof_notes = "local"
 
   # Idempotent commands that make any checkout usable for its tracked tree,
@@ -211,7 +214,7 @@
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [assurance]
+# [setup]
 #
 # What:    Known jobs that do not apply to this project.
 # Why:     Setup measures how many applicable known jobs are wired. A lifecycle
@@ -221,10 +224,10 @@
 #   discern config set-job build --not-applicable   declare one
 #   discern config set-job build --applicable       restore it
 #
-# Help:    `discern config explain assurance`
+# Help:    `discern config explain setup`
 # ─────────────────────────────────────────────────────────────────────────────
 
-[assurance]
+[setup]
   # Known jobs this project's lifecycle does not have. A job listed here cannot
   # also be configured under [jobs].
   not_applicable = []
@@ -534,8 +537,9 @@
 # [meta]
 #
 # What:    Installer bookkeeping.
-# Why:     `discern upgrade` reads the schema version to migrate this file.
-#          Nothing here needs your attention.
+# Why:     discern writes these keys while setting up or upgrading the project.
+#          They record schema and setup evidence; nothing here needs
+#          hand-editing.
 #
 # Help:    `discern config explain meta`
 # ─────────────────────────────────────────────────────────────────────────────

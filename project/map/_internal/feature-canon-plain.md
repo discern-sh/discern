@@ -277,7 +277,6 @@ Every member of the product's official fixed lists appears below beside the feat
 ### Main settings section (`config`)
 
 - `acceptance` — consent-attestations
-- `assurance` — setup
 - `checkpoints` — checkpoints
 - `coupling` — insight
 - `gate` — gate
@@ -290,6 +289,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `repository` — worktrees
 - `scopes` — scope-gates
 - `scripts` — placement-consent
+- `setup` — setup
 - `skills` — skills
 - `standards` — standards
 - `worktree` — worktrees

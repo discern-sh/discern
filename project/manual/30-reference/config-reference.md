@@ -38,8 +38,7 @@ aliases:
   - "jobs.<name>.run"
   - "jobs.<name>.provides"
   - "jobs.<name>.timeout"
-  - "assurance"
-  - "assurance.not_applicable"
+  - "setup.not_applicable"
   - "scopes"
   - "scopes.<name>"
   - "scopes.<name>.paths"
@@ -114,6 +113,7 @@ aliases:
   - "meta"
   - "meta.schema_version"
   - "meta.bootstrapped"
+  - "meta.setup_completion"
   - "meta.setup_model"
   - "meta.setup_version"
 ---
@@ -149,12 +149,12 @@ The project's identity and the paths discern keeps for it. The name and slug app
 
 Policy every checkout of this repository shares. The trunk is where accepted work lands and where the Gate compares from. Branch naming and convergence commands keep the main checkout and every linked worktree usable after their tracked tree changes.
 
-| Key             | Type               | Default    | Description                                                                                                                                                                                              |
-| --------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `trunk`         | string             | `"main"`   | The shared branch the Gate compares against and completed work lands on. Detected at setup; DISCERN_TRUNK overrides it per invocation.                                                                   |
-| `branch_prefix` | string             | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature".                                                                                                                                 |
-| `proof_notes`   | `local` \| `fetch` | `"local"`  | "local" records landed proof notes in this clone only; "fetch" adds a fetch-only mapping per remote so ordinary fetches carry them. Publishing stays an explicit `git push <remote> refs/notes/discern`. |
-| `ensure`        | string[]           | `[]`       | Idempotent commands that make any checkout usable for its tracked tree, such as installing dependencies from a lockfile. They run in order on every worktree pass and after a landing.                   |
+| Key             | Type               | Default    | Description                                                                                                                                                                                                                                                                                                          |
+| --------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trunk`         | string             | `"main"`   | The shared branch the Gate compares against and completed work lands on. Detected at setup; DISCERN_TRUNK overrides it per invocation.                                                                                                                                                                               |
+| `branch_prefix` | string             | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature".                                                                                                                                                                                                                                             |
+| `proof_notes`   | `local` \| `fetch` | `"local"`  | Both modes record landed Proof notes locally. "fetch" also manages fetch-only transport. Publishing remains an explicit owner action; there is no off mode. `local` adds no transport; `fetch` manages a fetch-only mapping per remote. Publish only when the owner chooses: `git push <remote> refs/notes/discern`. |
+| `ensure`        | string[]           | `[]`       | Idempotent commands that make any checkout usable for its tracked tree, such as installing dependencies from a lockfile. They run in order on every worktree pass and after a landing.                                                                                                                               |
 
 ## `[map]`
 
@@ -226,7 +226,7 @@ run      = "./scripts/check-licenses.sh"
 provides = "license-audit"
 ```
 
-## `[assurance]`
+## `[setup]`
 
 Known jobs that do not apply to this project. Setup measures how many applicable known jobs are wired. A lifecycle the project does not have is declared here, so the measure counts what exists; the Gate's schedule still comes from [jobs].
 
@@ -517,11 +517,12 @@ Where your executable project scripts live. `discern scripts <name>` runs any ex
 
 ## `[meta]`
 
-Installer bookkeeping. `discern upgrade` reads the schema version to migrate this file. Nothing here needs your attention.
+Installer bookkeeping. discern writes these keys while setting up or upgrading the project. They record schema and setup evidence; nothing here needs hand-editing.
 
-| Key              | Type    | Default | Description                                                                                                                           |
-| ---------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema_version` | number  | —       | The install schema version. `discern upgrade` bumps it; never edit it by hand.                                                        |
-| `bootstrapped`   | boolean | `false` | true once `discern setup` has completed, which retires the one-time setup redirect.                                                   |
-| `setup_model`    | string  | `""`    | The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it. |
-| `setup_version`  | string  | `""`    | The discern version that ran setup, recorded for support triage.                                                                      |
+| Key                | Type                   | Default | Description                                                                                                                                               |
+| ------------------ | ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema_version`   | number                 | —       | The install schema version. `discern upgrade` bumps it; never edit it by hand. Written by discern.                                                        |
+| `bootstrapped`     | boolean                | `false` | true once `discern setup` has completed, which retires the one-time setup redirect. Written by discern.                                                   |
+| `setup_completion` | `proven` \| `unproven` | —       | Evidence recorded for the setup completion event: proven by the Gate, or explicitly completed unproven. Written by discern.                               |
+| `setup_model`      | string                 | `""`    | The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it. Written by discern. |
+| `setup_version`    | string                 | `""`    | The discern version that ran setup, recorded for support triage. Written by discern.                                                                      |

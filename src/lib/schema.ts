@@ -6,9 +6,8 @@
  * only when an installed project needs a migration to stay correct. It lives in
  * the config the user already owns, recorded under `[meta].schema_version`.
  *
- * `setup` stamps the current value via {@link stampSchemaVersion}; `upgrade` reads
- * the recorded value with {@link resolveRecordedSchema}, runs the pending chain,
- * and re-stamps. `upgrade` reads it to report status.
+ * `setup` stamps the current value via {@link stampSchemaVersion}; `upgrade`
+ * inspects the explicit recorded value, runs the pending chain, and re-stamps.
  */
 
 import type { TomlEditor } from "./toml_edit.ts";
@@ -34,14 +33,24 @@ export function schemaFromRaw(
 }
 
 /**
- * Resolve the install's recorded schema version. A fresh setup always stamps
- * `[meta].schema_version`; a config without the field belongs to schema 1, the
- * public baseline.
+ * Inspect the install's recorded schema version. A fresh setup stamps the key;
+ * absence or an invalid value is never inferred as schema 1 because that would
+ * run migrations against an unknown source contract.
  */
-export function resolveRecordedSchema(
+export function inspectRecordedSchema(
   raw: Record<string, unknown>,
-): number {
-  return schemaFromRaw(raw) ?? 1;
+):
+  | { status: "valid"; value: number }
+  | { status: "missing" }
+  | { status: "invalid"; value: unknown } {
+  const meta = isRecord(raw.meta) ? raw.meta : undefined;
+  if (meta === undefined || !Object.hasOwn(meta, "schema_version")) {
+    return { status: "missing" };
+  }
+  const value = meta.schema_version;
+  return typeof value === "number" && Number.isInteger(value) && value >= 1
+    ? { status: "valid", value }
+    : { status: "invalid", value };
 }
 
 /** True when the project was written by a newer binary than this one. */

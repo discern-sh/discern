@@ -50,7 +50,7 @@ import {
 } from "../lib/config_doc.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { rebaseMarkdownLinks } from "../lib/markdown_links.ts";
-import { stampSchemaVersion } from "../lib/schema.ts";
+import { inspectRecordedSchema, stampSchemaVersion } from "../lib/schema.ts";
 import { DISCERN_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
   applyPlan,
@@ -332,6 +332,8 @@ const TEXT_ENCODER = new TextEncoder();
 
 /** The config key recording that one-time setup is complete. */
 const BOOTSTRAPPED_KEY = "meta.bootstrapped";
+/** The config key recording whether completion carried current Gate Proof. */
+const SETUP_COMPLETION_KEY = "meta.setup_completion";
 
 /**
  * Assemble the complete plan for a scaffold run: the seed templates walk plus the
@@ -591,6 +593,8 @@ interface ScaffoldOutcome {
   instructionRel: string;
   written: string[];
   compiled: string[];
+  /** Every path the initial instruction refresh wrote, linked, or removed. */
+  instructionWritten: string[];
   mcpWired: string[];
   hooksWired: string[];
   /** Project files written co-managing an agent app's worktree-lifecycle config
@@ -763,6 +767,7 @@ async function scaffoldHarness(
   // narration follows its stream discipline (suppressed in --json). Non-fatal: a
   // broken templates tree shouldn't fail the scaffold.
   let compiled: string[] = [];
+  let instructionWritten: string[] = [];
   let mcpWired: string[] = [];
   let hooksWired: string[] = [];
   let worktreeAppWired: string[] = [];
@@ -773,6 +778,7 @@ async function scaffoldHarness(
   try {
     const g = await compileInstructions(destDir, log);
     compiled = g.agentsWritten;
+    instructionWritten = g.writtenPaths;
     mcpWired = g.mcpWired;
     hooksWired = g.hooksWired;
     worktreeAppWired = g.worktreeAppWired;
@@ -834,6 +840,7 @@ async function scaffoldHarness(
       instructionRel,
       written,
       compiled,
+      instructionWritten,
       mcpWired,
       hooksWired,
       worktreeAppWired,
@@ -1013,6 +1020,24 @@ async function recordProvenance(
   if (changed) {
     await writeDiscernToml(path, editor.toString());
   }
+}
+
+/**
+ * Give an incomplete install the explicit migration anchor current config
+ * validation requires. A completed install is never repaired here: missing or
+ * invalid metadata there belongs to upgrade/doctor recovery, not inference.
+ */
+async function stampIncompleteSetupSchemaVersion(
+  configPath: string,
+): Promise<boolean> {
+  const raw = await Deno.readTextFile(configPath);
+  const existing = new RawConfig(raw);
+  if (existing.get("meta.bootstrapped") === "true") return false;
+  if (inspectRecordedSchema(existing.raw()).status === "valid") return false;
+  const editor = new TomlEditor(raw);
+  stampSchemaVersion(editor, SCHEMA_VERSION);
+  await writeDiscernToml(configPath, editor.toString());
+  return true;
 }
 
 /**
@@ -1552,6 +1577,13 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     }
   }
 
+  if (!opts.dryRun && !freshInstall) {
+    const incompleteConfigPath = await resolveConfigPath(destDir);
+    if (incompleteConfigPath !== undefined) {
+      await stampIncompleteSetupSchemaVersion(incompleteConfigPath);
+    }
+  }
+
   // --- Phase 1: scaffold the machinery (fresh install, or --force refresh) ---
   let scaffold: ScaffoldOutcome | undefined;
   if (freshInstall || opts.force) {
@@ -1625,6 +1657,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // once after laying that tree. Without this pass, setup returns a stale agent
   // file and the next refresh dirties an otherwise committed checkout.
   let compiled = scaffold?.compiled ?? [];
+  let instructionWritten = scaffold?.instructionWritten ?? [];
   let mcpWired = scaffold?.mcpWired ?? [];
   let hooksWired = scaffold?.hooksWired ?? [];
   let worktreeAppWired = scaffold?.worktreeAppWired ?? [];
@@ -1639,6 +1672,10 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         new Logger({ json: true, noColor: true }),
       );
       compiled = mergePaths(compiled, refreshed.agentsWritten);
+      instructionWritten = mergePaths(
+        instructionWritten,
+        refreshed.writtenPaths,
+      );
       mcpWired = mergePaths(mcpWired, refreshed.mcpWired);
       hooksWired = mergePaths(hooksWired, refreshed.hooksWired);
       worktreeAppWired = mergePaths(
@@ -1722,7 +1759,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     );
 
   const instructionRefresh = instructionRefreshData(
-    compiled,
+    instructionWritten,
     instructionsErrors,
   );
   const setupOk = instructionsCompiled &&
@@ -2307,9 +2344,9 @@ export async function runSetupStep(
 }
 
 /**
- * Commit the `[meta].bootstrapped` marker `setup done` just wrote. The safety
+ * Commit the `[meta]` completion marker `setup done` just wrote. The safety
  * invariant is path-local: stage and commit ONLY `discern.toml`, and only when its
- * HEAD diff is exactly the one marker line. Unrelated tracked, staged, or untracked
+ * HEAD diff is exactly the two completion fields. Unrelated tracked, staged, or untracked
  * work is left for the agent's own tidy commit. A no-op outside a git repo.
  * Forced completion treats a refusal as best-effort. Non-forced completion requires
  * the `committed` outcome before any completion check runs.
@@ -2317,12 +2354,13 @@ export async function runSetupStep(
 async function commitCompletionMarker(
   root: string,
   configPath: string,
+  completion: "proven" | "unproven",
 ): Promise<MarkerCommitOutcome> {
   if ((await worktreeState(root)).kind === "not-a-repo") {
     return { state: "no-git" };
   }
   const configRel = relative(root, configPath);
-  // The config change must be EXACTLY the marker line we just wrote, nothing else
+  // The config change must be EXACTLY the completion metadata we just wrote
   // (e.g. jobs the agent left uncommitted). Diff against HEAD so staged
   // config edits are included in the check instead of sneaking into the commit.
   // "Anything else is unexpected", so fail open.
@@ -2334,10 +2372,15 @@ async function commitCompletionMarker(
   const added = body.filter((l) => l.startsWith("+") && !l.startsWith("+++"));
   const removed = body.filter((l) => l.startsWith("-") && !l.startsWith("---"));
   const markerKey = BOOTSTRAPPED_KEY.split(".").pop();
-  const onlyMarker = removed.length === 0 && added.length === 1 &&
-    added[0]?.slice(1).trim() === `${markerKey} = true`;
+  const evidenceKey = SETUP_COMPLETION_KEY.split(".").pop();
+  const expected = new Set([
+    `${markerKey} = true`,
+    `${evidenceKey} = "${completion}"`,
+  ]);
+  const onlyMarker = removed.length === 0 && added.length === expected.size &&
+    added.every((line) => expected.has(line.slice(1).trim()));
   if (!onlyMarker) {
-    // More than the marker line changed → leave it for the agent, deliberately.
+    // More than the completion metadata changed → leave it for the agent.
     return { state: "skipped" };
   }
   const add = await runGit(["add", "--", configRel], { cwd: root });
@@ -3351,13 +3394,19 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const originalConfig = await Deno.readTextFile(path);
   const proofBefore = await snapshotGateProof(root);
   const editor = new TomlEditor(originalConfig);
+  const setupCompletion = opts.force ? "unproven" : "proven";
   editor.setBool(BOOTSTRAPPED_KEY, true);
+  editor.setString(SETUP_COMPLETION_KEY, setupCompletion);
   await writeDiscernToml(path, editor.toString());
 
   // Forced completion remains an explicit unproved escape hatch and retains the
   // established best-effort marker commit. A normal completion requires the exact
   // marker-only commit; without it there is no committed final tree to prove.
-  const markerCommit = await commitCompletionMarker(root, path);
+  const markerCommit = await commitCompletionMarker(
+    root,
+    path,
+    setupCompletion,
+  );
   if (opts.force) {
     return await emitSetupDoneSuccess(root, await loadConfig(root), opts, {
       completion: "forced",

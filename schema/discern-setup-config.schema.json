@@ -520,6 +520,7 @@
           },
           "limit": {
             "type": "number",
+            "minimum": -9007199254740991,
             "description": "The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall."
           },
           "run": {
@@ -609,7 +610,8 @@
           "scale": {
             "default": 1,
             "description": "Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.",
-            "type": "number"
+            "type": "number",
+            "exclusiveMinimum": 0
           },
           "margin": {
             "default": 0,
@@ -648,7 +650,7 @@
       }
     },
     "checkpoints": {
-      "description": "[checkpoints.<id>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.",
+      "description": "[checkpoints.<name>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.",
       "type": "object",
       "propertyNames": {
         "type": "string",

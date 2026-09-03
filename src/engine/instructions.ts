@@ -45,6 +45,8 @@ import { applyGeneratedMergeDriverOperation } from "./generated_merge_driver.ts"
 
 /** What one complete refresh apply accomplished. */
 export interface InstructionsResult {
+  /** Every filesystem path the refresh executor wrote, linked, or removed. */
+  writtenPaths: string[];
   /** Changed Agent-file paths, in plan order. */
   agentsWritten: string[];
   /** Tracked-capable Agent and Shared files whose bytes or mode changed. */
@@ -112,6 +114,7 @@ export function instructionRefreshSucceeded(
 /** Start an empty refresh summary with the supplied errors and hints. */
 function emptySummary(errors: readonly string[] = []): InstructionsResult {
   return {
+    writtenPaths: [],
     agentsWritten: [],
     trackedArtifactsChanged: [],
     gitattributesChanged: [],
@@ -139,6 +142,9 @@ function recordSuccessfulEffect(
   summary: InstructionsResult,
   effect: RefreshEffect,
 ): void {
+  if (effect.type === "file" || effect.type === "skill") {
+    pushUnique(summary.writtenPaths, effect.target);
+  }
   if (effect.artifacts.includes("agent_file")) {
     pushUnique(summary.agentsWritten, effect.target);
   }

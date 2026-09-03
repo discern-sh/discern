@@ -14,7 +14,10 @@ import {
 import { join } from "@std/path";
 import { recordConfigPaths } from "../src/shared/config_codegen.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
-import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import {
+  parseConfigOrThrow,
+  RECORD_ENTRY_SCHEMAS,
+} from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
@@ -24,6 +27,7 @@ import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { buildCli } from "../src/main.ts";
 
 /** Require authored result text before testing its wording. */
 function resultMessage(result: { message?: string | undefined }): string {
@@ -447,6 +451,172 @@ Deno.test("config set-job help teaches ordered commands and applicability from t
   });
 });
 
+Deno.test("record-setting command options stay in parity with their entry schemas", () => {
+  const root = buildCli(false);
+  const config = root.getCommand("config", true);
+  assert(config !== undefined);
+  const bindings: Readonly<
+    Record<
+      string,
+      | {
+        command: string;
+        positional: readonly string[];
+        commandOnly: readonly string[];
+      }
+      | { command: null; reason: string }
+    >
+  > = {
+    jobs: {
+      command: "set-job",
+      positional: [],
+      commandOnly: ["not_applicable", "applicable", "dry_run"],
+    },
+    scopes: {
+      command: "set-scope",
+      positional: ["paths"],
+      commandOnly: ["dry_run"],
+    },
+    generated: {
+      command: null,
+      reason: "generated groups use config set <dotted.key>",
+    },
+    standards: {
+      command: "set-standard",
+      positional: [],
+      commandOnly: ["dry_run"],
+    },
+    checkpoints: {
+      command: null,
+      reason: "checkpoints use config set <dotted.key>",
+    },
+    "worktree.resources": {
+      command: null,
+      reason: "resources use config set <dotted.key>",
+    },
+  };
+  assertEquals(
+    Object.keys(bindings).sort(),
+    Object.keys(RECORD_ENTRY_SCHEMAS).sort(),
+    "a new record family must choose a dedicated command or a documented generic-set route",
+  );
+  const globalOptionKeys = new Set(
+    root.getOptions(false).map((option) => option.name.replaceAll("-", "_")),
+  );
+  for (const [family, schema] of Object.entries(RECORD_ENTRY_SCHEMAS)) {
+    const binding = bindings[family];
+    assert(binding !== undefined);
+    if (binding.command === null) {
+      assertStringIncludes(binding.reason, "config set <dotted.key>");
+      continue;
+    }
+    const command = config.getCommand(binding.command, true);
+    assert(command !== undefined, binding.command);
+    const optionKeys = command.getOptions(false).map((option) =>
+      option.name.replaceAll("-", "_")
+    ).filter((key) =>
+      !binding.commandOnly.includes(key) && !globalOptionKeys.has(key)
+    );
+    assertEquals(
+      [...new Set([...binding.positional, ...optionKeys])].sort(),
+      Object.keys(schema.shape).sort(),
+      `${family} flags drifted from its record schema`,
+    );
+  }
+  const description = config.getDescription();
+  for (const word of ["generated", "checkpoints", "resources", "dotted.key"]) {
+    assertStringIncludes(description, word);
+  }
+});
+
+Deno.test("record-setting flags write every supported schema knob", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const job = await runCli([
+      "config",
+      "set-job",
+      "audit",
+      "--stage",
+      "check",
+      "--run",
+      ":",
+      "--provides",
+      "contract",
+      "--timeout",
+      "12",
+    ], dir);
+    assertEquals(job.code, 0, job.stderr);
+    const scope = await runCli([
+      "config",
+      "set-scope",
+      "api",
+      "src/**",
+      "--neutral",
+      "--preview",
+      "git diff",
+      "--gate",
+      "deno check src/main.ts",
+      "--timeout",
+      "30",
+    ], dir);
+    assertEquals(scope.code, 0, scope.stderr);
+    const standard = await runCli([
+      "config",
+      "set-standard",
+      "density",
+      "--direction",
+      "down",
+      "--limit",
+      "4",
+      "--run",
+      "measure",
+      "--metric",
+      "words",
+      "--per",
+      "lines=src/**",
+      "--scale",
+      "1000",
+      "--margin",
+      "0.1",
+      "--measure",
+      "on-demand",
+      "--inputs",
+      "src/**",
+      "--inputs",
+      "tests/**",
+      "--timeout",
+      "60",
+    ], dir);
+    assertEquals(standard.code, 0, standard.stderr);
+
+    const parsed = parseConfigOrThrow(await readToml(dir));
+    assertEquals(parsed.jobs.audit, {
+      stage: "check",
+      run: ":",
+      provides: "contract",
+      timeout: 12,
+    });
+    assertEquals(parsed.scopes.api, {
+      paths: ["src/**"],
+      neutral: true,
+      preview: "git diff",
+      gate: "deno check src/main.ts",
+      timeout: 30,
+    });
+    assertEquals(parsed.standards.density, {
+      metric: "words",
+      direction: "down",
+      limit: 4,
+      run: "measure",
+      per: { lines: "src/**" },
+      scale: 1000,
+      margin: 0.1,
+      measure: "on-demand",
+      inputs: ["src/**", "tests/**"],
+      timeout: 60,
+    });
+  });
+});
+
 Deno.test("config set-job marks and unmarks known-job applicability through the canonical set", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
@@ -468,7 +638,7 @@ Deno.test("config set-job marks and unmarks known-job applicability through the 
       );
       assertEquals(marked.code, 0, `${name}: ${marked.stdout}${marked.stderr}`);
       assert(
-        parseConfigOrThrow(await readToml(dir)).assurance.not_applicable
+        parseConfigOrThrow(await readToml(dir)).setup.not_applicable
           .includes(name),
         `${name} was not recorded as not applicable`,
       );
@@ -487,7 +657,7 @@ Deno.test("config set-job marks and unmarks known-job applicability through the 
       );
       assertEquals(unmarked.code, 0, unmarked.stderr);
       assert(
-        !parseConfigOrThrow(await readToml(dir)).assurance.not_applicable
+        !parseConfigOrThrow(await readToml(dir)).setup.not_applicable
           .includes(name),
         `${name} remained not applicable`,
       );
@@ -518,7 +688,7 @@ Deno.test("config set-job refuses applicability contradictions and auto-unmarks 
     assertResultDataKey(previewResult, "edits");
     assertEquals(previewResult.data.edits, [
       { key: "jobs.build", literal: '["deno task build"]' },
-      { key: "assurance.not_applicable", literal: "[]" },
+      { key: "setup.not_applicable", literal: "[]" },
     ]);
     assertEquals(await readToml(dir), beforeDryRun);
 
@@ -529,7 +699,7 @@ Deno.test("config set-job refuses applicability contradictions and auto-unmarks 
     assertEquals(set.code, 0, set.stderr);
     const configured = parseConfigOrThrow(await readToml(dir));
     assertEquals(configured.jobs.build, ["deno task build"]);
-    assert(!configured.assurance.not_applicable.includes("build"));
+    assert(!configured.setup.not_applicable.includes("build"));
 
     const beforeConfiguredMark = await readToml(dir);
     const contradiction = await runCli(
@@ -904,7 +1074,7 @@ Deno.test("config set infers types (number / bool / string)", async () => {
 Deno.test("config set renders the schema's type, not the value's spelling", async () => {
   // The type at a path comes from the config schema, never from how the value
   // happens to look: a numeric-looking slug stays a string, a single agent name
-  // lands as a one-element array, and a JS-only float spelling is normalized.
+  // lands as a one-element array, and JS-only exponent spelling is normalized.
   // Pre-fix, `slug = 2048` and `agents = "claude_code"` were written verbatim
   // with ok:true — and every later verb failed on the invalid config.
   await withTempDir(async (dir) => {
@@ -916,13 +1086,16 @@ Deno.test("config set renders the schema's type, not the value's spelling", asyn
       dir,
     );
     assertEquals(agents.code, 0, agents.stderr);
-    const timeout = await runCli(["config", "set", "gate.timeout", ".5"], dir);
+    const timeout = await runCli(
+      ["config", "set", "gate.timeout", "0100"],
+      dir,
+    );
     assertEquals(timeout.code, 0, timeout.stderr);
 
     const toml = await readToml(dir);
     assertStringIncludes(toml, 'slug = "2048"'); // string key: quoted
     assertStringIncludes(toml, 'agents = ["claude_code"]'); // array key: wrapped
-    assertStringIncludes(toml, "timeout = 0.5"); // number key: valid TOML
+    assertStringIncludes(toml, "timeout = 100"); // integer key: valid TOML
 
     // A TOML-array-shaped value reaches an array key as the full array.
     const list = await runCli(
@@ -997,6 +1170,26 @@ Deno.test("config set refuses a value the next read would reject, leaving the fi
         `${c.args.join(" ")} modified the file despite failing`,
       );
     }
+  });
+});
+
+Deno.test("config set refuses a non-canonical project slug", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const before = await readToml(dir);
+    const result = await runCli([
+      "config",
+      "set",
+      "project.slug",
+      "Bad Slug",
+      "--dry-run",
+      "--json",
+    ], dir);
+    assertEquals(result.code, 1);
+    const decoded = decodeCliResult(result.stdout, "config");
+    assertEquals(decoded.ok, false);
+    assertStringIncludes(resultMessage(decoded), "slug must be");
+    assertEquals(await readToml(dir), before);
   });
 });
 

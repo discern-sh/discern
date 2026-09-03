@@ -2,7 +2,7 @@
 
 > **Amendments.**
 >
-> - **[ADR 0317](0317-gate-commands-and-setup-applicability-are-separate-facts.md) — execution and applicability remain separate:** `[jobs]` remains the only authority for Gate commands. Setup assurance distinguishes an applicable absence from a lifecycle that does not apply through `[assurance].not_applicable`, which cannot suppress a configured job.
+> - **[ADR 0317](0317-gate-commands-and-setup-applicability-are-separate-facts.md) — execution and applicability remain separate:** `[jobs]` remains the only authority for Gate commands. Setup assurance distinguishes an applicable absence from a lifecycle that does not apply through `[setup].not_applicable`, which cannot suppress a configured job.
 
 **Status**: accepted
 

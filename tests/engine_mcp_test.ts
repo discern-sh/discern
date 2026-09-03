@@ -1424,7 +1424,7 @@ Deno.test("discern mcp: status projects the same setup applicability counts and 
         "[meta]",
         "bootstrapped = false",
         "",
-        "[assurance]",
+        "[setup]",
         'not_applicable = ["build"]',
         "",
         "[jobs]",

@@ -31,8 +31,10 @@ import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
 import {
   isKnownJob,
+  isValidSlug,
   KNOWN_JOBS,
   type KnownJob,
+  SLUG_RULE,
   STAGES,
 } from "./capabilities.ts";
 import {
@@ -63,6 +65,7 @@ import {
   readLiveCheckpointQuestionFile,
 } from "./checkpoint_question_files.ts";
 import { type ConfigIssue, unknownRootSections } from "./config_issues.ts";
+import type { DiscernWrittenMetaKey } from "./config_metadata.ts";
 
 export { AGENT_NAMES } from "./agent_catalogue.ts";
 export type { ConfigIssue } from "./config_issues.ts";
@@ -335,7 +338,7 @@ const standardValue = z.strictObject({
   direction: z.enum(["up", "down"]).describe(
     '"up" when the value should rise, so the limit is a floor; "down" when it should fall, so the limit is a ceiling.',
   ),
-  limit: z.number().describe(
+  limit: z.number().min(Number.MIN_SAFE_INTEGER).describe(
     "The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall.",
   ),
   run: commandOrList.describe(
@@ -347,9 +350,10 @@ const standardValue = z.strictObject({
       'per = { words = "${map.dir}**" } (files, lines, words, or bytes over a git pathspec). ' +
       LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION,
   ),
-  scale: z.number().default(1).describe(
-    "Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.",
-  ),
+  scale: z.number().positive("scale must be greater than zero.").default(1)
+    .describe(
+      "Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.",
+    ),
   margin: z.number().min(
     0,
     "margin is headroom and cannot be negative — a negative margin would tighten a pinned limit PAST the measured value, so that measurement would fail it.",
@@ -372,7 +376,7 @@ const standardValue = z.strictObject({
   timeout: jobTimeout,
 });
 
-/** A `[checkpoints.<id>]` table — one change-triggered review rule: a
+/** A `[checkpoints.<name>]` table — one change-triggered review rule: a
  * deterministic trigger, a semantic question the agent judges, and a mode.
  * Every field is optional so a bare table can reference a shipped built-in by
  * id; trigger and mode defaults are applied when the rule is resolved, so an
@@ -529,18 +533,47 @@ function projectPathsAreUnique(values: readonly string[]): boolean {
   return new Set(identities).size === identities.length;
 }
 
+/** Mark one config key as discern-written in the generated public schema. */
+function discernWritten<T extends z.ZodType>(
+  key: DiscernWrittenMetaKey,
+  schema: T,
+): T {
+  void key;
+  return schema.meta({
+    readOnly: true,
+  }) as T;
+}
+
 const metaSection = z.strictObject({
-  schema_version: z.number().int().optional().describe(
-    "The install schema version. `discern upgrade` bumps it; never edit it by hand.",
+  schema_version: discernWritten(
+    "schema_version",
+    z.number().int().min(1).optional().describe(
+      "The install schema version. `discern upgrade` bumps it; never edit it by hand.",
+    ),
   ),
-  bootstrapped: z.boolean().default(false).describe(
-    "true once `discern setup` has completed, which retires the one-time setup redirect.",
+  bootstrapped: discernWritten(
+    "bootstrapped",
+    z.boolean().default(false).describe(
+      "true once `discern setup` has completed, which retires the one-time setup redirect.",
+    ),
   ),
-  setup_model: z.string().default("").describe(
-    "The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it.",
+  setup_completion: discernWritten(
+    "setup_completion",
+    z.enum(["proven", "unproven"]).optional().describe(
+      "Evidence recorded for the setup completion event: proven by the Gate, or explicitly completed unproven.",
+    ),
   ),
-  setup_version: z.string().default("").describe(
-    "The discern version that ran setup, recorded for support triage.",
+  setup_model: discernWritten(
+    "setup_model",
+    z.string().default("").describe(
+      "The model the agent declared at `discern setup begin --model`. Recorded for support triage; advisory, since discern cannot verify it.",
+    ),
+  ),
+  setup_version: discernWritten(
+    "setup_version",
+    z.string().default("").describe(
+      "The discern version that ran setup, recorded for support triage.",
+    ),
   ),
 }).prefault({}).describe(CONFIG_PROSE.meta.what);
 
@@ -548,7 +581,10 @@ const projectSection = z.strictObject({
   name: z.string().default("").describe(
     "Display name, free text, used when compiled instructions address the project. Empty falls back to the slug.",
   ),
-  slug: z.string().default("").describe(
+  slug: z.string().refine(
+    (value) => value === "" || isValidSlug(value),
+    { message: `slug must be ${SLUG_RULE}.` },
+  ).default("").describe(
     "Short, lowercase, dash-separated identity, used in worktree, site, and branch names.",
   ),
   gotchas_doc: z.string().default("").describe(
@@ -577,7 +613,7 @@ const repositorySection = z.strictObject({
     'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
   ),
   proof_notes: z.enum(["local", "fetch"]).default("local").describe(
-    '"local" records landed proof notes in this clone only; "fetch" adds a fetch-only mapping per remote so ordinary fetches carry them. Publishing stays an explicit `git push <remote> refs/notes/discern`.',
+    'Both modes record landed Proof notes locally. "fetch" also manages fetch-only transport. Publishing remains an explicit owner action; there is no off mode.',
   ),
   ensure: z.array(z.string()).default([]).describe(
     "Idempotent commands that make any checkout usable for its tracked tree, such as installing dependencies from a lockfile. They run in order on every worktree pass and after a landing.",
@@ -649,14 +685,14 @@ const knownJobNameSchema = z.enum(
 
 /** Setup coverage policy. Applicability is separate from `[jobs]`: it changes
  * the setup assurance denominator and never changes what the Gate schedules. */
-const assuranceSection = z.strictObject({
+const setupSection = z.strictObject({
   not_applicable: z.array(knownJobNameSchema).refine(
     (names) => new Set(names).size === names.length,
     { message: "each known job may be listed only once." },
   ).meta({ uniqueItems: true }).default([]).describe(
     "Known jobs this project's lifecycle does not have. A job listed here cannot also be configured under [jobs].",
   ),
-}).prefault({}).describe(CONFIG_PROSE.assurance.what);
+}).prefault({}).describe(CONFIG_PROSE.setup.what);
 
 const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(
   {},
@@ -687,7 +723,7 @@ const resourceValue = z.strictObject({
   required: z.boolean().default(true).describe(
     "false makes a create failure non-fatal, so setup continues.",
   ),
-  retries: z.number().default(0).describe(
+  retries: z.number().int().min(0).max(5).default(0).describe(
     "Retry create/destroy this many times.",
   ),
   gc: z.boolean().default(true).describe(
@@ -754,7 +790,7 @@ const gateSection = z.strictObject({
   fail_fast: z.boolean().default(true).describe(
     "Cancel the in-flight sibling commands the moment one fails; an agent-driven Gate wants a fast abort. false runs every job and shows all failures in one pass.",
   ),
-  timeout: z.number().default(600).describe(
+  timeout: z.number().int().min(0).default(600).describe(
     "Time budget in seconds for every command the Gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the Gate. 0 removes the bound.",
   ),
   concurrent_test_runs: z.number().int().min(0).default(0).describe(
@@ -785,7 +821,7 @@ export const configSchema = z.strictObject({
   instructions: instructionSection,
   skills: skillsSection,
   jobs: jobsSection,
-  assurance: assuranceSection,
+  setup: setupSection,
   scopes: scopesSection,
   generated: generatedSection,
   acceptance: acceptanceSection,
@@ -847,7 +883,7 @@ export type ScopeConfig = z.infer<typeof scopeValue>;
 export type GeneratedConfig = z.infer<typeof generatedValue>;
 /** One `[standards.<name>]` entry, fully defaulted. */
 export type StandardConfig = z.infer<typeof standardValue>;
-/** One `[checkpoints.<id>]` entry. Every field stays optional in the parsed
+/** One `[checkpoints.<name>]` entry. Every field stays optional in the parsed
  * shape: presence is meaningful (an unset field inherits a built-in's default
  * at resolution), so the schema applies no value defaults of its own. */
 export type CheckpointConfig = z.infer<typeof checkpointValue>;
@@ -957,9 +993,12 @@ export const configDocSchema = z.strictObject({
     `Document major version. Omit (assumed current) or use a matching major; this build understands version ${CONFIG_DOC_VERSION}.`,
   ),
   name: z.string().optional().describe("Project name (free text)."),
-  slug: z.string().optional().describe(
-    "Project slug: lowercase letters, digits and dashes, starting with a letter or digit.",
-  ),
+  slug: z.string().refine(isValidSlug, {
+    message: `slug must be ${SLUG_RULE}.`,
+  })
+    .optional().describe(
+      "Project slug: lowercase letters, digits and dashes, starting with a letter or digit.",
+    ),
   branch_prefix: z.string().optional().describe(
     'Branch prefix for worktrees, e.g. "agent/".',
   ),
@@ -991,7 +1030,7 @@ export const configDocSchema = z.strictObject({
     ),
   checkpoints: z.record(z.string().regex(NAME_RE), checkpointValue).optional()
     .describe(
-      "[checkpoints.<id>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.",
+      "[checkpoints.<name>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.",
     ),
 }).describe(
   "The declarative config shape consumed by `discern setup begin --config <file>`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
@@ -1073,7 +1112,7 @@ function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
           : {
             path: key,
             message:
-              `[${key}] became [${successor}] — run \`discern upgrade\` to migrate the config, or rename the table by hand.`,
+              `[${key}] is not a discern config section; use [${successor}].`,
           };
       });
     }
@@ -1144,13 +1183,13 @@ function jobFormIssues(parsed: unknown): ConfigIssue[] {
 function jobApplicabilityIssues(parsed: unknown): ConfigIssue[] {
   if (
     !isRecord(parsed) || !isRecord(parsed.jobs) ||
-    !isRecord(parsed.assurance) ||
-    !Array.isArray(parsed.assurance.not_applicable)
+    !isRecord(parsed.setup) ||
+    !Array.isArray(parsed.setup.not_applicable)
   ) {
     return [];
   }
   const jobs = parsed.jobs;
-  const notApplicable = parsed.assurance.not_applicable;
+  const notApplicable = parsed.setup.not_applicable;
   return notApplicable.flatMap((name, index) => {
     if (
       typeof name !== "string" || !Object.hasOwn(jobs, name)
@@ -1158,7 +1197,7 @@ function jobApplicabilityIssues(parsed: unknown): ConfigIssue[] {
       return [];
     }
     return [{
-      path: `assurance.not_applicable.${index}`,
+      path: `setup.not_applicable.${index}`,
       message:
         `known job "${name}" is configured under [jobs] and cannot be declared not applicable. Run \`discern config set-job ${name} --applicable\` to keep the configured command.`,
     }];
@@ -1282,6 +1321,22 @@ function acceptanceGrantIssues(parsed: unknown): ConfigIssue[] {
   });
 }
 
+/** Completed installs must retain the explicit migration anchor setup wrote. */
+function completedInstallMetadataIssues(parsed: unknown): ConfigIssue[] {
+  if (!isRecord(parsed) || !isRecord(parsed.meta)) return [];
+  if (
+    parsed.meta.bootstrapped === true &&
+    !Object.hasOwn(parsed.meta, "schema_version")
+  ) {
+    return [{
+      path: "meta.schema_version",
+      message:
+        "a completed install must record [meta].schema_version; restore it from version control before running upgrade.",
+    }];
+  }
+  return [];
+}
+
 /** Validate an already-parsed TOML value through the complete live contract.
  * Governing-policy recovery uses this after removing only checkpoint entries
  * whose governing question source cannot be represented by the current schema. */
@@ -1292,6 +1347,7 @@ export function validateConfigValue(
   const formIssues = [
     ...jobIssues,
     ...jobApplicabilityIssues(parsed),
+    ...completedInstallMetadataIssues(parsed),
     ...acceptanceGrantIssues(parsed),
     ...checkpointReferenceIssues(parsed),
     ...checkpointQuestionSourceIssues(parsed),

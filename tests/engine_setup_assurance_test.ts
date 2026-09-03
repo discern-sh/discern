@@ -173,7 +173,7 @@ Deno.test("the verdict rolls up enforced coverage: full / partial / minimal", ()
 Deno.test("a declared not-applicable job keeps the v1 state enum and leaves a full applicable denominator", () => {
   const config = parseConfigOrThrow(
     [
-      "[assurance]",
+      "[setup]",
       'not_applicable = ["build"]',
       "",
       "[jobs]",
@@ -223,7 +223,7 @@ Deno.test("result schema v1 keeps the three-state enum and accepts both legacy a
 Deno.test("every known job auto-enrols in applicability and absent applicable jobs still keep coverage incomplete", () => {
   for (const name of Object.keys(KNOWN_JOBS)) {
     const config = parseConfigOrThrow(
-      `[assurance]\nnot_applicable = ["${name}"]\n`,
+      `[setup]\nnot_applicable = ["${name}"]\n`,
     );
     const assurance = assessSetupAssurance(config);
     const row = assurance.known_jobs.find((job) => job.name === name);
@@ -233,7 +233,7 @@ Deno.test("every known job auto-enrols in applicability and absent applicable jo
   }
 
   const incomplete = assessSetupAssurance(parseConfigOrThrow([
-    "[assurance]",
+    "[setup]",
     'not_applicable = ["build"]',
     "",
     "[jobs]",
@@ -256,15 +256,15 @@ Deno.test("every known job auto-enrols in applicability and absent applicable jo
 Deno.test("applicability rejects custom names, duplicates, and every configured-command contradiction", () => {
   const invalid = [
     {
-      toml: '[assurance]\nnot_applicable = ["deploy"]\n',
+      toml: '[setup]\nnot_applicable = ["deploy"]\n',
       includes: "expected one of",
     },
     {
-      toml: '[assurance]\nnot_applicable = ["build", "build"]\n',
+      toml: '[setup]\nnot_applicable = ["build", "build"]\n',
       includes: "once",
     },
     {
-      toml: '[assurance]\nnot_applicable = ["test"]\n\n[jobs]\ntest = ":"\n',
+      toml: '[setup]\nnot_applicable = ["test"]\n\n[jobs]\ntest = ":"\n',
       includes: "configured",
     },
   ];
@@ -385,7 +385,7 @@ Deno.test("setup done terminal, JSON, and Markdown agree on the applicable denom
   );
   const applicableTotal = applicableNames.length;
   const config = [
-    "[assurance]",
+    "[setup]",
     'not_applicable = ["build"]',
     "",
     "[jobs]",

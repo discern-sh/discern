@@ -64,6 +64,7 @@ import {
 import type { TerminalResizeEvidence } from "./fixtures/terminal_resize_harness.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
+import { SCHEMA_VERSION } from "../src/lib/version.ts";
 
 const TERMINAL_DIMENSIONS_SCHEMA = z.object({
   columns: z.number().int().positive(),
@@ -425,11 +426,13 @@ async function writeConfigText(path: string, text: string): Promise<void> {
   }
 }
 
-/** Record `[meta].bootstrapped = true` in a scaffolded config (comment-preserving,
+/** Record a valid proven completion in a scaffolded config (comment-preserving,
  * through the canonical writer production uses). */
 async function markBootstrapped(configPath: string): Promise<void> {
   const editor = new TomlEditor(await Deno.readTextFile(configPath));
+  editor.setNumber("meta.schema_version", SCHEMA_VERSION);
   editor.setBool("meta.bootstrapped", true);
+  editor.setString("meta.setup_completion", "proven");
   await writeConfigText(configPath, editor.toString());
 }
 

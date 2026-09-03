@@ -10,7 +10,7 @@ import { join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { z } from "@zod/zod";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
-import { DISCERN_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import {
   configSchema,
@@ -142,7 +142,7 @@ Deno.test("nested unknown key remains a precise typo control without restart rec
     await scaffoldEngine(dir, { bootstrapped: true });
     await writeConfig(
       dir,
-      '[meta]\nbootstrapped = true\n\n[project]\nslgu = "demo"\n',
+      `[meta]\nschema_version = ${SCHEMA_VERSION}\nbootstrapped = true\n\n[project]\nslgu = "demo"\n`,
     );
     await gitInit(dir);
     const configPath = join(dir, "discern.toml");
@@ -169,7 +169,10 @@ Deno.test("nested unknown key remains a precise typo control without restart rec
 Deno.test("long-lived MCP maps an unknown root to config recovery and leads with proven restart", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: true });
-    await writeConfig(dir, "[meta]\nbootstrapped = true\n");
+    await writeConfig(
+      dir,
+      `[meta]\nschema_version = ${SCHEMA_VERSION}\nbootstrapped = true\n`,
+    );
     await gitInit(dir);
     const configPath = join(dir, "discern.toml");
     const before = await Deno.readTextFile(configPath);

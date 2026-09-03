@@ -32,6 +32,7 @@ import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { git, gitInit } from "./engine_helpers.ts";
+import { withTempDir } from "./helpers.ts";
 
 const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
@@ -1911,8 +1912,7 @@ Deno.test("public definition names never repeat an adjacent semantic segment", (
 });
 
 Deno.test("the schema baseline is the highest predecessor version tag, never a release candidate at HEAD", async () => {
-  const repo = await Deno.makeTempDir({ prefix: "discern-schema-tags-" });
-  try {
+  await withTempDir(async (repo) => {
     await Deno.writeTextFile(`${repo}/README.md`, "schema tag fixture\n");
     await gitInit(repo);
     assertEquals(await publicSchemaBaselineTag(repo), undefined);
@@ -1959,14 +1959,11 @@ Deno.test("the schema baseline is the highest predecessor version tag, never a r
       "v2.0.0",
       "an ordinary later commit compares with the highest tagged publication",
     );
-  } finally {
-    await Deno.remove(repo, { recursive: true });
-  }
+  }, { prefix: "discern-schema-tags-" });
 });
 
 Deno.test("interim trunk schema churn is provisional but a tagged regression is rejected", async () => {
-  const repo = await Deno.makeTempDir({ prefix: "discern-schema-regression-" });
-  try {
+  await withTempDir(async (repo) => {
     const path = `${repo}/schema.json`;
     await Deno.writeTextFile(`${repo}/README.md`, "tag fixture\n");
     await gitInit(repo);
@@ -2023,9 +2020,7 @@ Deno.test("interim trunk schema churn is provisional but a tagged regression is 
       ).some((issue) => issue.includes("beacon")),
       "a regression against the tagged publication must fail",
     );
-  } finally {
-    await Deno.remove(repo, { recursive: true });
-  }
+  }, { prefix: "discern-schema-regression-" });
 });
 
 Deno.test("generated public schemas carry their identities and remain compatible with the last tagged publication", async () => {

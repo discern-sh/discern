@@ -473,11 +473,11 @@ Bring this project forward to the installed discern: run pending config migratio
 
 Usage: `discern upgrade [options]`
 
-| Option          | Description                                                                                                             |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`     | Preview the pending migrations and skills refresh; write nothing.                                                       |
-| `--check`       | Report whether migrations or discern-owned reconciliation are pending (exit non-zero if so); write nothing; no network. |
-| `--allow-dirty` | Upgrade even with uncommitted changes (skips the clean-tree check).                                                     |
+| Option          | Description                                                                                                                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`     | Preview the pending migrations and skills refresh; write nothing.                                                                                                                              |
+| `--check`       | Report pending config migrations, fixed config scaffold or managed-banner drift, and discern-owned .gitignore or .gitattributes block drift; exit non-zero for any; write nothing; no network. |
+| `--allow-dirty` | Upgrade even with uncommitted changes (skips the clean-tree check).                                                                                                                            |
 
 ### `discern doctor`
 
@@ -491,7 +491,7 @@ Usage: `discern doctor [options]`
 
 ### `discern config <subcommand>`
 
-Edit (set-*), read (get/array/has/subsections/keys), or explain discern.toml.
+Edit jobs, scopes, and standards with set-*; edit generated groups, checkpoints, and resources with set <dotted.key>; read or explain discern.toml.
 
 Usage: `discern config <subcommand>`
 
@@ -501,14 +501,15 @@ Set a Gate job. Known names (format, build, lint, typecheck, test, smoke) derive
 
 Usage: `discern config set-job <name> [command] [options]`
 
-| Option               | Description                                                   |
-| -------------------- | ------------------------------------------------------------- |
-| `--stage <stage>`    | Custom jobs only: when it runs (fix\|build\|check\|test).     |
-| `--run <command>`    | Literal command; repeat to preserve order.                    |
-| `--provides <label>` | Custom jobs only: free-text label.                            |
-| `--not-applicable`   | Known jobs: exclude an absent lifecycle from setup assurance. |
-| `--applicable`       | Known jobs: restore lifecycle applicability.                  |
-| `--dry-run`          | Print the edit and write nothing.                             |
+| Option                | Description                                                       |
+| --------------------- | ----------------------------------------------------------------- |
+| `--stage <stage>`     | Custom jobs only: when it runs (fix\|build\|check\|test).         |
+| `--run <command>`     | Literal command; repeat to preserve order.                        |
+| `--provides <label>`  | Custom jobs only: free-text label.                                |
+| `--timeout <seconds>` | Custom jobs only: command budget in seconds; 0 removes the bound. |
+| `--not-applicable`    | Known jobs: exclude an absent lifecycle from setup assurance.     |
+| `--applicable`        | Known jobs: restore lifecycle applicability.                      |
+| `--dry-run`           | Print the edit and write nothing.                                 |
 
 #### `discern config set-scope`
 
@@ -516,12 +517,13 @@ Set a scope — a named region of the repository a change can touch.
 
 Usage: `discern config set-scope <name> <globs...> [options]`
 
-| Option            | Description                                                   |
-| ----------------- | ------------------------------------------------------------- |
-| `--neutral`       | Changes here need no gate.                                    |
-| `--preview <cmd>` | A read-only command an agent can run to preview changes here. |
-| `--gate <cmd>`    | A command to run when this scope changed.                     |
-| `--dry-run`       | Print the edit and write nothing.                             |
+| Option                | Description                                                    |
+| --------------------- | -------------------------------------------------------------- |
+| `--neutral`           | Changes here need no gate.                                     |
+| `--preview <cmd>`     | A read-only command an agent can run to preview changes here.  |
+| `--gate <cmd>`        | A command to run when this scope changed.                      |
+| `--timeout <seconds>` | Per-scope Gate-command budget in seconds; 0 removes the bound. |
+| `--dry-run`           | Print the edit and write nothing.                              |
 
 #### `discern config set-standard`
 
@@ -529,13 +531,19 @@ Set a quality standard — standards are numbers that can never get worse.
 
 Usage: `discern config set-standard <name> [options]`
 
-| Option              | Description                                  |
-| ------------------- | -------------------------------------------- |
-| `--limit <n>`       | The floor (up) or ceiling (down).            |
-| `--metric <name>`   | Metric name the run emits (default: <name>). |
-| `--direction <dir>` | Either "up" or "down".                       |
-| `--run <cmd>`       | The command that emits the metric line.      |
-| `--dry-run`         | Print the edit and write nothing.            |
+| Option                     | Description                                                                                              |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `--limit <n>`              | The floor (up) or ceiling (down).                                                                        |
+| `--metric <name>`          | Metric name the run emits (default: <name>).                                                             |
+| `--direction <dir>`        | Either "up" or "down".                                                                                   |
+| `--run <cmd>`              | The command that emits the metric line.                                                                  |
+| `--per <metric-or-extent>` | Denominator metric, or one built-in extent as files=<glob>, lines=<glob>, words=<glob>, or bytes=<glob>. |
+| `--scale <n>`              | Multiply a rate into human units.                                                                        |
+| `--margin <n>`             | Headroom left when pinning the limit.                                                                    |
+| `--measure <mode>`         | Measurement mode: "gate" or "on-demand".                                                                 |
+| `--inputs <glob>`          | Metric input glob; repeat to preserve every input.                                                       |
+| `--timeout <seconds>`      | Measurement-command budget in seconds; 0 removes the bound.                                              |
+| `--dry-run`                | Print the edit and write nothing.                                                                        |
 
 #### `discern config set`
 
